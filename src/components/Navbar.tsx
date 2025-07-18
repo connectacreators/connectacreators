@@ -19,11 +19,8 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <img src={connectaLogo} alt="Connecta" className="w-8 h-8" />
-            <span className="text-xl font-bold text-foreground">
-              Connecta
-            </span>
+          <div className="flex items-center">
+            <img src={connectaLogo} alt="Connecta" className="h-10 w-auto" />
           </div>
 
           {/* Desktop Navigation */}
