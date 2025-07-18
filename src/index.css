@@ -129,7 +129,7 @@ All colors MUST be HSL for consistency and theming.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-roboto antialiased;
   }
 
   /* Connecta Custom Utility Classes */
