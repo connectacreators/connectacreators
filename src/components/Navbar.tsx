@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import connectaLogo from "@/assets/connecta-logo.png";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,8 +18,11 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <img src={connectaLogo} alt="Connecta" className="h-10 w-auto" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-foreground">Connecta</span>
           </div>
 
           {/* Desktop Navigation */}
