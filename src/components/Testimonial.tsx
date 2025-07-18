@@ -26,92 +26,71 @@ const Testimonial = () => {
           </p>
         </div>
 
-        {/* Main testimonial */}
-        <Card className="max-w-6xl mx-auto border-0 shadow-card glass-card overflow-hidden animate-scale-in">
-          <CardContent className="p-0">
-            <div className="grid lg:grid-cols-2 gap-0">
-              {/* Image side */}
-              <div className="relative">
-                <img 
-                  src={lawyerSuccess} 
-                  alt="Abogado de inmigración - Cliente exitoso" 
-                  className="w-full h-full object-cover min-h-[400px]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent" />
-                
-                {/* Stats overlay */}
-                <div className="absolute bottom-6 left-6 right-6">
-                  <div className="glass-card p-4 rounded-xl">
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-primary">45K → 650K</div>
-                        <div className="text-sm text-foreground/80">Seguidores</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-primary">9 meses</div>
-                        <div className="text-sm text-foreground/80">Tiempo</div>
-                      </div>
-                    </div>
-                  </div>
+        {/* Success Cases */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+          {/* Case 1: Lawyer */}
+          <Card className="border-0 shadow-card glass-card overflow-hidden animate-scale-in">
+            <CardContent className="p-8">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">@elabogado Jonathan</h3>
+                <div className="text-2xl font-bold text-primary mb-1">+650k Seguidores</div>
+                <div className="text-muted-foreground">Abogado de Inmigración</div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">Crecimiento:</span>
+                  <span className="font-bold text-primary">45K → 650K</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">Tiempo:</span>
+                  <span className="font-bold text-primary">9 meses</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">ROI:</span>
+                  <span className="font-bold text-primary">1400%</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Content side */}
-              <div className="p-8 lg:p-12 flex flex-col justify-center">
-                <Quote className="w-12 h-12 text-primary mb-6" />
-                
-                <blockquote className="text-xl lg:text-2xl leading-relaxed text-foreground mb-8">
-                  "Connecta transformó completamente mi práctica legal. En menos de 9 meses, 
-                  pasé de 45,000 a más de 650,000 seguidores. Pero lo más impresionante es que 
-                  ahora genero <strong className="text-primary">leads calificados automáticamente</strong> 
-                  mientras duermo. Mi facturación se multiplicó por 10."
-                </blockquote>
-                
-                <div className="mb-8">
-                  <div className="font-bold text-lg text-foreground">Dr. Carlos Mendoza</div>
-                  <div className="text-muted-foreground">Abogado de Inmigración</div>
-                  <div className="flex items-center gap-1 mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-primary text-primary" />
-                    ))}
-                  </div>
+          {/* Case 2: Fitness Coach */}
+          <Card className="border-0 shadow-card glass-card overflow-hidden animate-scale-in">
+            <CardContent className="p-8">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="w-8 h-8 text-primary" />
                 </div>
-
-                {/* Key metrics */}
-                <div className="grid grid-cols-2 gap-6 mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg gradient-hero flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-foreground">1400%</div>
-                      <div className="text-sm text-muted-foreground">Crecimiento</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg gradient-hero flex items-center justify-center">
-                      <Users className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-foreground">600K+</div>
-                      <div className="text-sm text-muted-foreground">Nuevos seguidores</div>
-                    </div>
-                  </div>
-                </div>
-
-                <Button variant="cta" size="lg" className="self-start group">
-                  Ver más casos de éxito
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Button>
+                <h3 className="text-xl font-bold text-foreground mb-2">@zigufit</h3>
+                <div className="text-2xl font-bold text-primary mb-1">+10k Seguidores</div>
+                <div className="text-muted-foreground">Fitness Coach</div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">Embudo de ventas:</span>
+                  <span className="font-bold text-primary">Activo</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">Automatización:</span>
+                  <span className="font-bold text-primary">24/7</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">Conversión:</span>
+                  <span className="font-bold text-primary">Optimizada</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Additional success metrics */}
         <div className="mt-16 grid md:grid-cols-3 gap-8">
           {[
-            { metric: "10x", description: "Aumento promedio en facturación" },
+            { metric: "100k+", description: "Seguidores promedio" },
             { metric: "90%", description: "Automatización de procesos" },
             { metric: "24/7", description: "Generación de leads" }
           ].map((item, index) => (

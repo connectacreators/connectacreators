@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Sparkles } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import connectaLogo from "@/assets/connecta-logo.png";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,13 +19,10 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            <span className="text-xl font-bold gradient-hero bg-clip-text text-transparent">
+          <div className="flex items-center gap-3">
+            <img src={connectaLogo} alt="Connecta" className="w-8 h-8" />
+            <span className="text-xl font-bold text-foreground">
               Connecta
-            </span>
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              | AI + Social Media
             </span>
           </div>
 
@@ -42,9 +41,11 @@ const Navbar = () => {
 
           {/* CTA Button */}
           <div className="hidden md:block">
-            <Button variant="cta" size="sm">
-              Empezar ahora
-            </Button>
+            <Link to="/onboarding">
+              <Button variant="cta" size="sm">
+                Empezar ahora
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -75,9 +76,11 @@ const Navbar = () => {
                 </a>
               ))}
               <div className="px-4 pt-2">
-                <Button variant="cta" size="sm" className="w-full">
-                  Empezar ahora
-                </Button>
+                <Link to="/onboarding">
+                  <Button variant="cta" size="sm" className="w-full">
+                    Empezar ahora
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

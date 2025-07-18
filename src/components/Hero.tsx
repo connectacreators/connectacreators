@@ -1,20 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, TrendingUp } from "lucide-react";
-import heroBg from "@/assets/hero-bg.jpg";
+import { Link } from "react-router-dom";
 
 const Hero = () => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background with blur effects */}
-      <div className="absolute inset-0">
-        <img 
-          src={heroBg} 
-          alt="Connecta Hero Background" 
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/40" />
-        <div className="absolute inset-0 gradient-bg" />
-      </div>
+      {/* Background with dark gradient */}
+      <div className="absolute inset-0 gradient-dark" />
 
       {/* Floating glass cards for visual interest */}
       <div className="absolute top-20 left-10 glass-card p-4 rounded-xl animate-fade-in opacity-80">
@@ -27,10 +19,6 @@ const Hero = () => {
       {/* Main content */}
       <div className="relative z-10 text-center max-w-5xl mx-auto px-6">
         <div className="animate-slide-up">
-          <div className="inline-flex items-center gap-2 glass-card px-6 py-3 rounded-full mb-8">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Connecta | AI + Social Media</span>
-          </div>
           
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
             <span className="text-white">Haz crecer tu marca con</span>
@@ -44,10 +32,12 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button variant="hero" size="xl" className="group">
-              Factura miles con Connecta
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
+            <Link to="/onboarding">
+              <Button variant="hero" size="xl" className="group">
+                Factura miles con Connecta
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
             <Button variant="glass" size="xl">
               Ver casos de éxito
             </Button>

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Calendar, MessageSquare, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const CTA = () => {
   return (
@@ -43,10 +44,12 @@ const CTA = () => {
                 Agenda una llamada de 30 minutos donde analizaremos tu situación actual 
                 y diseñaremos una estrategia personalizada para tu crecimiento.
               </p>
-              <Button variant="secondary" size="lg" className="w-full group">
-                Agendar llamada gratis
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              <Link to="/onboarding">
+                <Button variant="secondary" size="lg" className="w-full group">
+                  Agendar llamada gratis
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -60,10 +63,12 @@ const CTA = () => {
                 Envíanos un mensaje y en menos de 24 horas recibirás un análisis 
                 gratuito de tu marca con recomendaciones específicas.
               </p>
-              <Button variant="cta" size="lg" className="w-full group">
-                Escribir por WhatsApp
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              <Link to="/onboarding">
+                <Button variant="cta" size="lg" className="w-full group">
+                  Empezar ahora
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

@@ -11,7 +11,7 @@ const Services = () => {
     },
     {
       icon: Target,
-      title: "Publicidad en Redes",
+      title: "Ads Optimizados",
       description: "Campañas optimizadas en Meta, TikTok y YouTube que convierten audiencia en clientes pagantes."
     },
     {

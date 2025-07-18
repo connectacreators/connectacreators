@@ -8,15 +8,15 @@ All colors MUST be HSL for consistency and theming.
 
 @layer base {
   :root {
-    /* Connecta Brand Colors */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
+    /* Connecta Brand Colors - Dark Theme */
+    --background: 0 0% 8%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
 
     /* Primary: Electric Blue - Tech, Growth, Digital */
     --primary: 207 89% 54%;
@@ -31,8 +31,8 @@ All colors MUST be HSL for consistency and theming.
     --secondary-foreground: 0 0% 100%;
 
     /* Muted: Subtle grays for text hierarchy */
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
 
     /* Accent: Electric Blue variants */
     --accent: 207 89% 54%;
@@ -41,8 +41,8 @@ All colors MUST be HSL for consistency and theming.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 95%;
+    --border: 0 0% 20%;
+    --input: 0 0% 15%;
     --ring: 207 89% 54%;
 
     --radius: 0.75rem;
@@ -52,6 +52,7 @@ All colors MUST be HSL for consistency and theming.
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);
     --gradient-bg: radial-gradient(ellipse at top, hsl(var(--primary) / 0.1), transparent 50%);
+    --gradient-dark: linear-gradient(135deg, hsl(0 0% 8%) 0%, hsl(0 0% 4%) 100%);
     
     /* Blur effects - Apple-style */
     --blur-subtle: blur(20px);
@@ -176,10 +177,10 @@ All colors MUST be HSL for consistency and theming.
 
   /* Apple-style blur effects */
   .glass-card {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
   .glass-blue {
@@ -187,5 +188,9 @@ All colors MUST be HSL for consistency and theming.
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(31, 142, 241, 0.2);
+  }
+  
+  .gradient-dark {
+    background: var(--gradient-dark);
   }
 }
