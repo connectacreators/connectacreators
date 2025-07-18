@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Sparkles } from "lucide-react";
+import { Menu, X, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Navbar = () => {
@@ -20,7 +20,7 @@ const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold text-foreground">Connecta</span>
           </div>

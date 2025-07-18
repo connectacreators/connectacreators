@@ -48,13 +48,13 @@ const Hero = () => {
         <div className="glass-card p-6 rounded-2xl max-w-2xl mx-auto animate-scale-in" style={{animationDelay: '1s'}}>
           <div className="flex items-center justify-center gap-8 text-white/80">
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">650K+</div>
-              <div className="text-sm">Seguidores Generados</div>
+              <div className="text-2xl font-bold text-primary">200M+</div>
+              <div className="text-sm">Vistas Generadas</div>
             </div>
             <div className="w-px h-12 bg-white/20" />
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">9</div>
-              <div className="text-sm">Meses de Crecimiento</div>
+              <div className="text-2xl font-bold text-primary">650k+</div>
+              <div className="text-sm">Seguidores generados</div>
             </div>
             <div className="w-px h-12 bg-white/20" />
             <div className="text-center">

@@ -35,7 +35,7 @@ const Testimonial = () => {
                 <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
                   <Users className="w-8 h-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">@elabogado Jonathan</h3>
+                <h3 className="text-xl font-bold text-foreground mb-2">@elabogadojonathan</h3>
                 <div className="text-2xl font-bold text-primary mb-1">+650k Seguidores</div>
                 <div className="text-muted-foreground">Abogado de Inmigración</div>
               </div>
@@ -46,8 +46,8 @@ const Testimonial = () => {
                   <span className="font-bold text-primary">45K → 650K</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-foreground">Tiempo:</span>
-                  <span className="font-bold text-primary">9 meses</span>
+                  <span className="text-foreground">Vistas:</span>
+                  <span className="font-bold text-primary">180M+</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-foreground">ROI:</span>
@@ -70,6 +70,10 @@ const Testimonial = () => {
               </div>
               
               <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">Vistas:</span>
+                  <span className="font-bold text-primary">2.5M+</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-foreground">Embudo de ventas:</span>
                   <span className="font-bold text-primary">Activo</span>
