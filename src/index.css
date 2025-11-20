@@ -8,23 +8,23 @@ All colors MUST be HSL for consistency and theming.
 
 @layer base {
   :root {
-    /* Connecta Brand Colors - Dark Theme */
-    --background: 0 0% 8%;
-    --foreground: 0 0% 98%;
+    /* Connecta Elegant Design System - Inspired by luxury brands */
+    --background: 220 30% 5%;
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 25% 8%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 25% 8%;
+    --popover-foreground: 0 0% 96%;
 
-    /* Primary: Electric Blue - Tech, Growth, Digital */
-    --primary: 207 89% 54%;
+    /* Primary: Sophisticated Blue - Elegant, Trustworthy, Premium */
+    --primary: 210 100% 65%;
     --primary-foreground: 0 0% 100%;
     
     /* Primary variants for depth */
-    --primary-light: 207 89% 64%;
-    --primary-dark: 207 89% 44%;
+    --primary-light: 210 100% 75%;
+    --primary-dark: 210 100% 55%;
 
     /* Secondary: Pure Black - Professional, Powerful */
     --secondary: 0 0% 0%;
@@ -129,7 +129,11 @@ All colors MUST be HSL for consistency and theming.
   }
 
   body {
-    @apply bg-background text-foreground font-roboto antialiased;
+    @apply bg-background text-foreground font-inter antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-playfair;
   }
 
   /* Connecta Custom Utility Classes */
