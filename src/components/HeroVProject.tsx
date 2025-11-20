@@ -27,7 +27,7 @@ const HeroVProject = () => {
             <span className="text-foreground">con tu marca en </span>
             <span className="italic text-foreground/90">90 días</span>
             <br />
-            <span className="font-sans font-black text-sm md:text-base lg:text-lg">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
+            <span className="font-sans font-black text-2xl md:text-4xl lg:text-5xl">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
           </h1>
           
           {/* Video/Image placeholder */}
