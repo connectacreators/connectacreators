@@ -17,7 +17,7 @@ const HeroVProject = () => {
       <div className="relative z-10 text-center max-w-5xl mx-auto">
         <div className="animate-fade-in space-y-8">
           {/* Main headline with elegant typography */}
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-playfair font-bold leading-tight tracking-tight">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight">
             <span className="text-foreground">El </span>
             <span className="italic text-foreground/90">sistema paso a paso</span>
             <span className="text-foreground"> para</span>
@@ -27,8 +27,7 @@ const HeroVProject = () => {
             <span className="text-foreground">con tu marca en </span>
             <span className="italic text-foreground/90">90 días</span>
             <br />
-            <span className="text-foreground/80 text-3xl md:text-5xl lg:text-6xl">usando </span>
-            <span className="italic text-foreground/80 text-3xl md:text-5xl lg:text-6xl">IA + Social Media</span>
+            <span className="font-sans font-black text-2xl md:text-4xl lg:text-5xl">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
           </h1>
           
           {/* Video/Image placeholder */}
@@ -44,7 +43,7 @@ const HeroVProject = () => {
           </div>
 
           {/* Urgency text */}
-          <p className="text-foreground/60 text-lg md:text-xl animate-fade-in" style={{animationDelay: '0.3s'}}>
+          <p className="text-foreground/60 text-base md:text-lg animate-fade-in" style={{animationDelay: '0.3s'}}>
             Esta oferta estará disponible hasta el 30 de Diciembre
           </p>
 
@@ -63,7 +62,7 @@ const HeroVProject = () => {
 
         {/* Trust indicators - "Me has visto por aquí" */}
         <div className="mt-24 animate-fade-in" style={{animationDelay: '0.7s'}}>
-          <h2 className="text-2xl md:text-3xl font-playfair text-foreground/80 mb-8">
+          <h2 className="text-xl md:text-2xl font-playfair text-foreground/80 mb-8">
             Me has visto por aquí
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
