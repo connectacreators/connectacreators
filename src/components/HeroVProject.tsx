@@ -26,7 +26,7 @@ const HeroVProject = () => {
               <span className="text-foreground"> to</span>
             </span>
             <br />
-            <span className="text-primary font-bold">bill +$10,000 / month</span>
+            <span className="text-primary font-bold">make +$10,000 / month</span>
             <br />
             <span className="text-foreground">with your brand in </span>
             <span className="italic text-foreground/90">90 days</span>
