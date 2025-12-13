@@ -56,7 +56,7 @@ const HeroVProject = () => {
 
           {/* Urgency text */}
           <p className="text-foreground/60 text-base md:text-lg animate-fade-in" style={{animationDelay: '0.3s'}}>
-            Esta oferta estará disponible hasta el 30 de Diciembre
+            Agenda tu llamada de 15 minutos para ver cómo se vería en tu caso
           </p>
 
           {/* CTA Button */}
@@ -66,7 +66,7 @@ const HeroVProject = () => {
                 size="lg"
                 className="bg-primary hover:bg-primary-light text-white font-semibold text-sm md:text-lg px-8 md:px-12 py-4 md:py-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
-                Empezar ahora con Connecta
+                Empezar ahora
               </Button>
             </a>
           </div>
