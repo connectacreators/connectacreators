@@ -19,7 +19,7 @@ const HeroVProject = () => {
       <div className="relative z-10 text-center max-w-5xl mx-auto">
         <div className="animate-fade-in space-y-8">
           {/* Main headline with elegant typography */}
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight">
+          <h1 className="text-2xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight">
             <span className="text-foreground">El </span>
             <span className="italic text-foreground/90">sistema paso a paso</span>
             <span className="text-foreground"> para</span>
@@ -29,23 +29,23 @@ const HeroVProject = () => {
             <span className="text-foreground">con tu marca en </span>
             <span className="italic text-foreground/90">90 días</span>
             <br />
-            <span className="font-sans font-black text-2xl md:text-4xl lg:text-5xl">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
+            <span className="font-sans font-black text-lg md:text-4xl lg:text-5xl">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
           </h1>
           
           {/* 3 Profile Images Pop-up */}
-          <div className="flex items-center justify-center gap-4 md:gap-6 my-12">
+          <div className="flex items-center justify-center gap-2 md:gap-6 my-8 md:my-12">
             <div className="relative animate-fade-in transform -rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.2s'}}>
-              <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
+              <div className="w-24 md:w-56 rounded-xl md:rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
                 <img src={ziguaImg} alt="Zigurat Sofía" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform scale-105 hover:scale-115 transition-all duration-300 z-10" style={{animationDelay: '0.4s'}}>
-              <div className="w-52 md:w-64 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary hover:border-primary-light transition-colors">
+              <div className="w-28 md:w-64 rounded-xl md:rounded-2xl overflow-hidden shadow-2xl border-2 border-primary hover:border-primary-light transition-colors">
                 <img src={abfoImg} alt="Jonathan Shaw" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.6s'}}>
-              <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
+              <div className="w-24 md:w-56 rounded-xl md:rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
                 <img src={drCalvinImg} alt="Dr. Calvin's Clinic" className="w-full h-auto" />
               </div>
             </div>
