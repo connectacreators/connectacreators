@@ -17,9 +17,9 @@ const HeroVProject = () => {
 
       {/* Main content */}
       <div className="relative z-10 text-center max-w-5xl mx-auto">
-        <div className="animate-fade-in space-y-8">
+        <div className="animate-fade-in space-y-6 md:space-y-8">
           {/* Main headline with elegant typography */}
-          <h1 className="text-2xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight">
+          <h1 className="text-2xl md:text-5xl lg:text-6xl font-playfair font-bold leading-snug md:leading-tight tracking-tight">
             <span className="text-foreground">El </span>
             <span className="italic text-foreground/90">sistema paso a paso</span>
             <span className="text-foreground"> para</span>
@@ -28,9 +28,10 @@ const HeroVProject = () => {
             <br />
             <span className="text-foreground">con tu marca en </span>
             <span className="italic text-foreground/90">90 días</span>
-            <br />
-            <span className="font-sans font-black text-lg md:text-4xl lg:text-5xl">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
           </h1>
+          <p className="font-sans font-black text-lg md:text-4xl lg:text-5xl leading-snug">
+            con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono
+          </p>
           
           {/* 3 Profile Images Pop-up */}
           <div className="flex items-center justify-center gap-2 md:gap-6 my-8 md:my-12">
@@ -61,7 +62,7 @@ const HeroVProject = () => {
             <a href="https://calendly.com/robertogaunaj/demo-presentation" target="_blank" rel="noopener noreferrer">
               <Button 
                 size="lg"
-                className="bg-primary hover:bg-primary-light text-white font-semibold text-lg px-12 py-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                className="bg-primary hover:bg-primary-light text-white font-semibold text-sm md:text-lg px-8 md:px-12 py-4 md:py-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
                 Empezar ahora con Connecta
               </Button>
