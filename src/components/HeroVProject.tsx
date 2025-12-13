@@ -4,14 +4,15 @@ import {
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 import ziguaImg from "@/assets/zigua.png";
 import abfoImg from "@/assets/abfo.png";
 import drCalvinImg from "@/assets/dr-calvin.png";
 
 const profileImages = [
-  { src: ziguaImg, alt: "Zigurat Sofía" },
-  { src: abfoImg, alt: "Jonathan Shaw" },
-  { src: drCalvinImg, alt: "Dr. Calvin's Clinic" },
+  { src: ziguaImg, alt: "Zigurat Sofía", followers: "+17,200 Followers" },
+  { src: abfoImg, alt: "Jonathan Shaw", followers: "+750K Followers" },
+  { src: drCalvinImg, alt: "Dr. Calvin's Clinic", followers: "+4,200 Followers" },
 ];
 
 const HeroVProject = () => {
@@ -47,20 +48,32 @@ const HeroVProject = () => {
           
           {/* Mobile Carousel */}
           <div className="md:hidden py-4">
-            <Carousel className="w-full max-w-xs mx-auto">
+            <Carousel 
+              className="w-full max-w-sm mx-auto"
+              opts={{
+                align: "center",
+                loop: true,
+              }}
+              plugins={[
+                Autoplay({
+                  delay: 3000,
+                  stopOnInteraction: false,
+                }),
+              ]}
+            >
               <CarouselContent>
                 {profileImages.map((image, index) => (
                   <CarouselItem key={index}>
-                    <div className="flex justify-center">
-                      <div className="w-48 rounded-xl overflow-hidden shadow-xl border-2 border-primary">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-56 rounded-xl overflow-hidden shadow-xl border-2 border-primary">
                         <img src={image.src} alt={image.alt} className="w-full h-auto" />
                       </div>
+                      <p className="text-primary font-bold text-lg">{image.followers}</p>
                     </div>
                   </CarouselItem>
                 ))}
               </CarouselContent>
             </Carousel>
-            <p className="text-foreground/40 text-xs mt-2">Swipe to see more</p>
           </div>
 
           {/* Desktop Images */}
