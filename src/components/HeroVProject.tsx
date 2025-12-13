@@ -108,7 +108,7 @@ const HeroVProject = () => {
           </div>
 
           {/* Urgency text */}
-          <p className="text-foreground/50 text-sm md:text-lg animate-fade-in px-6" style={{animationDelay: '0.3s'}}>
+          <p className="text-foreground/50 text-xs md:text-base animate-fade-in px-6" style={{animationDelay: '0.3s'}}>
             Book your 15-minute call to see how it would look in your case
           </p>
 
