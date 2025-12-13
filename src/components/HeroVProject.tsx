@@ -19,7 +19,7 @@ const HeroVProject = () => {
       <div className="relative z-10 text-center max-w-5xl mx-auto">
         <div className="animate-fade-in space-y-6 md:space-y-8">
           {/* Main headline with elegant typography */}
-          <h1 className="text-2xl md:text-5xl lg:text-6xl font-playfair font-bold leading-snug md:leading-tight tracking-tight">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-playfair font-bold leading-snug md:leading-tight tracking-tight">
             <span className="text-foreground">El </span>
             <span className="italic text-foreground/90">sistema paso a paso</span>
             <span className="text-foreground"> para</span>
@@ -29,7 +29,7 @@ const HeroVProject = () => {
             <span className="text-foreground">con tu marca en </span>
             <span className="italic text-foreground/90">90 días</span>
           </h1>
-          <p className="font-sans font-black text-lg md:text-4xl lg:text-5xl leading-snug">
+          <p className="font-sans font-black text-xl md:text-4xl lg:text-5xl leading-snug">
             con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono
           </p>
           
