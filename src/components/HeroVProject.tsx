@@ -1,7 +1,18 @@
 import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
 import ziguaImg from "@/assets/zigua.png";
 import abfoImg from "@/assets/abfo.png";
 import drCalvinImg from "@/assets/dr-calvin.png";
+
+const profileImages = [
+  { src: ziguaImg, alt: "Zigurat Sofía" },
+  { src: abfoImg, alt: "Jonathan Shaw" },
+  { src: drCalvinImg, alt: "Dr. Calvin's Clinic" },
+];
 
 const HeroVProject = () => {
   return (
@@ -34,20 +45,38 @@ const HeroVProject = () => {
             with your Instagram account recording videos with your phone
           </p>
           
-          {/* 3 Profile Images Pop-up */}
-          <div className="flex items-center justify-center gap-1 md:gap-6 py-4 md:py-8">
+          {/* Mobile Carousel */}
+          <div className="md:hidden py-4">
+            <Carousel className="w-full max-w-xs mx-auto">
+              <CarouselContent>
+                {profileImages.map((image, index) => (
+                  <CarouselItem key={index}>
+                    <div className="flex justify-center">
+                      <div className="w-48 rounded-xl overflow-hidden shadow-xl border-2 border-primary">
+                        <img src={image.src} alt={image.alt} className="w-full h-auto" />
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+            <p className="text-foreground/40 text-xs mt-2">Swipe to see more</p>
+          </div>
+
+          {/* Desktop Images */}
+          <div className="hidden md:flex items-center justify-center gap-6 py-8">
             <div className="relative animate-fade-in transform -rotate-3 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.2s'}}>
-              <div className="w-20 md:w-56 rounded-lg md:rounded-2xl overflow-hidden shadow-xl border border-primary/20 hover:border-primary transition-colors">
+              <div className="w-56 rounded-2xl overflow-hidden shadow-xl border border-primary/20 hover:border-primary transition-colors">
                 <img src={ziguaImg} alt="Zigurat Sofía" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform hover:scale-110 transition-all duration-300 z-10" style={{animationDelay: '0.4s'}}>
-              <div className="w-24 md:w-64 rounded-lg md:rounded-2xl overflow-hidden shadow-xl border-2 border-primary hover:border-primary-light transition-colors">
+              <div className="w-64 rounded-2xl overflow-hidden shadow-xl border-2 border-primary hover:border-primary-light transition-colors">
                 <img src={abfoImg} alt="Jonathan Shaw" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform rotate-3 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.6s'}}>
-              <div className="w-20 md:w-56 rounded-lg md:rounded-2xl overflow-hidden shadow-xl border border-primary/20 hover:border-primary transition-colors">
+              <div className="w-56 rounded-2xl overflow-hidden shadow-xl border border-primary/20 hover:border-primary transition-colors">
                 <img src={drCalvinImg} alt="Dr. Calvin's Clinic" className="w-full h-auto" />
               </div>
             </div>
