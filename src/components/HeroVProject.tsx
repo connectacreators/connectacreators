@@ -8,6 +8,7 @@ import Autoplay from "embla-carousel-autoplay";
 import ziguaImg from "@/assets/zigua.png";
 import abfoImg from "@/assets/abfo.png";
 import drCalvinImg from "@/assets/dr-calvin.png";
+import signatureImg from "@/assets/roberto-signature.png";
 
 const profileImages = [
   { src: ziguaImg, alt: "Zigurat Sofía", followers: "+17,200 Followers" },
@@ -20,6 +21,17 @@ const HeroVProject = () => {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-8 md:py-16 px-4 md:px-6">
       {/* Elegant dark background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-card" />
+      
+      {/* Signature background - very subtle */}
+      <div 
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      >
+        <img 
+          src={signatureImg} 
+          alt="" 
+          className="w-[80%] md:w-[60%] max-w-3xl opacity-[0.03]"
+        />
+      </div>
       
       {/* Subtle grid pattern */}
       <div className="absolute inset-0 opacity-5" style={{
