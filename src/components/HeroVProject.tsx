@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 
 const HeroVProject = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 px-6">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-12 pb-16 px-6">
       {/* Elegant dark background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-card" />
       
