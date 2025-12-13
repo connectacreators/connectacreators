@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 
 const HeroVProject = () => {
   return (
@@ -56,27 +55,14 @@ const HeroVProject = () => {
 
           {/* CTA Button */}
           <div className="animate-fade-in" style={{animationDelay: '0.5s'}}>
-            <Link to="/onboarding">
+            <a href="https://calendly.com/robertogaunaj/demo-presentation" target="_blank" rel="noopener noreferrer">
               <Button 
                 size="lg"
                 className="bg-primary hover:bg-primary-light text-white font-semibold text-lg px-12 py-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
                 Empezar ahora con Connecta
               </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Trust indicators - "Me has visto por aquí" */}
-        <div className="mt-24 animate-fade-in" style={{animationDelay: '0.7s'}}>
-          <h2 className="text-xl md:text-2xl font-playfair text-foreground/80 mb-8">
-            Me has visto por aquí
-          </h2>
-          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            <div className="text-foreground/60 font-bold text-xl">Forbes</div>
-            <div className="text-foreground/60 font-bold text-xl">El País</div>
-            <div className="text-foreground/60 font-bold text-xl">La Vanguardia</div>
-            <div className="text-foreground/60 font-bold text-xl">Entrepreneur</div>
+            </a>
           </div>
         </div>
       </div>
