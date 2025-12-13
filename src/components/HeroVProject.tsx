@@ -30,14 +30,21 @@ const HeroVProject = () => {
             <span className="font-sans font-black text-2xl md:text-4xl lg:text-5xl">con tu cuenta de Instagram en 90 días grabando vídeos con tu teléfono</span>
           </h1>
           
-          {/* Video/Image placeholder */}
-          <div className="max-w-3xl mx-auto my-12 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20">
-              <div className="text-center space-y-4 p-8">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto border-2 border-primary/40">
-                  <div className="w-0 h-0 border-l-[12px] border-l-primary border-y-[8px] border-y-transparent ml-1" />
-                </div>
-                <p className="text-foreground/60 text-sm">Video placeholder</p>
+          {/* 3 Profile Images Pop-up */}
+          <div className="flex items-center justify-center gap-4 md:gap-6 my-12">
+            <div className="relative animate-fade-in transform -rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.2s'}}>
+              <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
+                <img src="/src/assets/tiktok-profile-1.png" alt="Cliente exitoso 1" className="w-full h-auto" />
+              </div>
+            </div>
+            <div className="relative animate-fade-in transform scale-105 hover:scale-115 transition-all duration-300 z-10" style={{animationDelay: '0.4s'}}>
+              <div className="w-52 md:w-64 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary hover:border-primary-light transition-colors">
+                <img src="/src/assets/tiktok-profile-2.png" alt="Cliente exitoso 2" className="w-full h-auto" />
+              </div>
+            </div>
+            <div className="relative animate-fade-in transform rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.6s'}}>
+              <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
+                <img src="/src/assets/tiktok-profile-3.png" alt="Cliente exitoso 3" className="w-full h-auto" />
               </div>
             </div>
           </div>
