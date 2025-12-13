@@ -34,12 +34,12 @@ const HeroVProject = () => {
           <div className="flex items-center justify-center gap-4 md:gap-6 my-12">
             <div className="relative animate-fade-in transform -rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.2s'}}>
               <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
-                <img src="/src/assets/tiktok-profile-1.png" alt="Cliente exitoso 1" className="w-full h-auto" />
+                <img src="/src/assets/tiktok-profile-2.png" alt="Cliente exitoso 2" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform scale-105 hover:scale-115 transition-all duration-300 z-10" style={{animationDelay: '0.4s'}}>
               <div className="w-52 md:w-64 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary hover:border-primary-light transition-colors">
-                <img src="/src/assets/tiktok-profile-2.png" alt="Cliente exitoso 2" className="w-full h-auto" />
+                <img src="/src/assets/tiktok-profile-1.png" alt="Cliente exitoso 1" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.6s'}}>
