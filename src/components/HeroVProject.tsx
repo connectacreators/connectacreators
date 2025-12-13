@@ -1,4 +1,7 @@
 import { Button } from "@/components/ui/button";
+import ziguaImg from "@/assets/zigua.png";
+import abfoImg from "@/assets/abfo.png";
+import drCalvinImg from "@/assets/dr-calvin.png";
 
 const HeroVProject = () => {
   return (
@@ -33,17 +36,17 @@ const HeroVProject = () => {
           <div className="flex items-center justify-center gap-4 md:gap-6 my-12">
             <div className="relative animate-fade-in transform -rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.2s'}}>
               <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
-                <img src="/src/assets/zigua.png" alt="Zigurat Sofía" className="w-full h-auto" />
+                <img src={ziguaImg} alt="Zigurat Sofía" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform scale-105 hover:scale-115 transition-all duration-300 z-10" style={{animationDelay: '0.4s'}}>
               <div className="w-52 md:w-64 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary hover:border-primary-light transition-colors">
-                <img src="/src/assets/abfo.png" alt="Jonathan Shaw" className="w-full h-auto" />
+                <img src={abfoImg} alt="Jonathan Shaw" className="w-full h-auto" />
               </div>
             </div>
             <div className="relative animate-fade-in transform rotate-6 hover:rotate-0 hover:scale-110 transition-all duration-300" style={{animationDelay: '0.6s'}}>
               <div className="w-48 md:w-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/30 hover:border-primary transition-colors">
-                <img src="/src/assets/dr-calvin.png" alt="Dr. Calvin's Clinic" className="w-full h-auto" />
+                <img src={drCalvinImg} alt="Dr. Calvin's Clinic" className="w-full h-auto" />
               </div>
             </div>
           </div>
