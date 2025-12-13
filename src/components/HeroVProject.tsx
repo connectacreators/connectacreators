@@ -19,10 +19,12 @@ const HeroVProject = () => {
       <div className="relative z-10 text-center max-w-5xl mx-auto">
         <div className="animate-fade-in space-y-6 md:space-y-8">
           {/* Main headline with elegant typography */}
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-playfair font-bold leading-snug md:leading-tight tracking-tight">
-            <span className="text-foreground">El </span>
-            <span className="italic text-foreground/90">sistema paso a paso</span>
-            <span className="text-foreground"> para</span>
+          <h1 className="text-[1.4rem] md:text-5xl lg:text-6xl font-playfair font-bold leading-snug md:leading-tight tracking-tight">
+            <span className="whitespace-nowrap">
+              <span className="text-foreground">El </span>
+              <span className="italic text-foreground/90">sistema paso a paso</span>
+              <span className="text-foreground"> para</span>
+            </span>
             <br />
             <span className="text-primary font-bold">facturar +€10.000 / mes</span>
             <br />
