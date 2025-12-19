@@ -1,29 +1,26 @@
 import abogadoJonathan from "@/assets/abogado-jonathan.webp";
+import drCalvin from "@/assets/dr-calvin-new.webp";
 
 const caseStudies = [
   {
     name: "Abogado Jonathan",
     timeline: "~9 months",
     image: abogadoJonathan,
-    stats: [
-      { platform: "Instagram", before: "45K", after: "180K" },
-      { platform: "TikTok", before: "225K", after: "850K" },
-      { platform: "YouTube", before: "108K", after: "250K" }
-    ]
+    before: "378K",
+    after: "1.28M"
   },
   {
     name: "Dr. Calvin's Clinic",
     timeline: "under 2 months",
-    stats: [
-      { platform: "Total", before: "0", after: "5,000" }
-    ]
+    image: drCalvin,
+    before: "0",
+    after: "5,000"
   },
   {
     name: "ZiguFit (Fitness Creator)",
     timeline: "5 months",
-    stats: [
-      { platform: "Total", before: "1,000", after: "17,700" }
-    ]
+    before: "1,000",
+    after: "17,700"
   }
 ];
 
@@ -58,20 +55,13 @@ const ResultsSection = () => {
               <h3 className="text-xl font-bold text-foreground mb-2">
                 {study.name}
               </h3>
-              <p className="text-sm text-muted-foreground mb-6">
+              <p className="text-sm text-muted-foreground mb-4">
                 Timeline: {study.timeline}
               </p>
               
-              <div className="space-y-3">
-                {study.stats.map((stat, statIndex) => (
-                  <div key={statIndex} className="flex justify-between items-center">
-                    <span className="text-muted-foreground text-sm">{stat.platform}</span>
-                    <span className="text-foreground font-medium">
-                      {stat.before} → <span className="text-primary">{stat.after}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-foreground font-medium text-lg">
+                From <span className="text-muted-foreground">{study.before}</span> to <span className="text-primary">{study.after}</span> followers
+              </p>
             </div>
           ))}
         </div>
