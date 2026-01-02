@@ -29,9 +29,9 @@ const caseStudies = [
 ];
 
 const overallStats = [
-  { platform: "Instagram", views: "10M+", label: "vistas en" },
-  { platform: "TikTok", views: "87M+", label: "vistas en" },
-  { platform: "YouTube", views: "6M+", label: "vistas en" }
+  { platform: "Instagram", views: "50M+", label: "vistas en" },
+  { platform: "TikTok", views: "200M+", label: "vistas en" },
+  { platform: "YouTube", views: "20M+", label: "vistas en" }
 ];
 
 const ResultsSection = () => {
