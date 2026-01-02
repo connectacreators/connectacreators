@@ -69,7 +69,7 @@ const FounderSection = () => {
               </motion.h2>
               
               <motion.div
-                className="space-y-4 text-muted-foreground text-lg leading-relaxed"
+                className="space-y-4 text-muted-foreground text-lg leading-relaxed text-left"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
