@@ -9,7 +9,6 @@ import ResultsSection from "@/components/ResultsSection";
 import WhyConnecta from "@/components/WhyConnecta";
 import WhoItsFor from "@/components/WhoItsFor";
 import CTASection from "@/components/CTASection";
-import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
@@ -25,7 +24,6 @@ const Index = () => {
       <WhyConnecta />
       <WhoItsFor />
       <CTASection />
-      <Footer />
     </div>
   );
 };
