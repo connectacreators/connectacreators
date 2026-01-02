@@ -54,7 +54,7 @@ const HeroVProject = () => {
             <span className="italic text-foreground/90">90 days</span>
           </h1>
           
-          <p className="font-sans font-bold text-base md:text-3xl lg:text-4xl leading-tight text-foreground/80 px-4">
+          <p className="font-sans font-medium text-sm md:text-xl lg:text-2xl leading-tight text-foreground/70 px-4">
             with your Instagram account recording videos with your phone
           </p>
           
