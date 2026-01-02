@@ -6,6 +6,7 @@ import ConnectaMethod from "@/components/ConnectaMethod";
 import ResultsSection from "@/components/ResultsSection";
 import WhyConnecta from "@/components/WhyConnecta";
 import WhoItsFor from "@/components/WhoItsFor";
+import FounderSection from "@/components/FounderSection";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
 
@@ -20,6 +21,7 @@ const Index = () => {
       <ResultsSection />
       <WhyConnecta />
       <WhoItsFor />
+      <FounderSection />
       <CTASection />
       <Footer />
     </div>
