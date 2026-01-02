@@ -17,7 +17,7 @@ const caseStudies = [
     timeline: "under 2 months",
     image: drCalvin,
     before: "0",
-    after: "5,000"
+    after: "6,700"
   },
   {
     name: "ZiguFit (Fitness Creator)",

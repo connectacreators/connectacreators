@@ -8,13 +8,13 @@ import { motion } from "framer-motion";
 import Autoplay from "embla-carousel-autoplay";
 import ziguaImg from "@/assets/zigua.png";
 import abfoImg from "@/assets/abfo.png";
-import drCalvinImg from "@/assets/dr-calvin.png";
+import drCalvinImg from "@/assets/dr-calvin-new.webp";
 import signatureImg from "@/assets/roberto-signature.png";
 
 const profileImages = [
   { src: ziguaImg, alt: "Zigurat Sofía", followers: "+17,200 Followers" },
   { src: abfoImg, alt: "Jonathan Shaw", followers: "+750K Followers" },
-  { src: drCalvinImg, alt: "Dr. Calvin's Clinic", followers: "+4,200 Followers" },
+  { src: drCalvinImg, alt: "Dr. Calvin's Clinic", followers: "+6,700 Followers" },
 ];
 
 const HeroVProject = () => {
