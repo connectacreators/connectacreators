@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { FloatingOrb } from "./ui/FloatingElements";
 import abogadoJonathan from "@/assets/abogado-jonathan.webp";
-import drCalvin from "@/assets/dr-calvin-new.webp";
+import drCalvin from "@/assets/dr-calvin.png";
 import zigufit from "@/assets/zigufit-profile.jpg";
 
 const caseStudies = [
@@ -43,7 +43,7 @@ const ResultsSection = () => {
       
       <div className="relative max-w-6xl mx-auto px-6">
         <motion.h2 
-          className="text-3xl md:text-5xl font-bold text-foreground mb-16 tracking-tight"
+          className="text-3xl md:text-5xl font-bold text-foreground mb-16 tracking-tight text-center"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
