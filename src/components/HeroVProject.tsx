@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import signatureImg from "@/assets/roberto-signature.png";
 
@@ -15,47 +15,28 @@ const HeroVProject = () => {
       setIsMuted(!isMuted);
     }
   };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-8 md:py-16 px-4 md:px-6">
       {/* Elegant dark background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-card" />
       
-      {/* Animated floating orbs */}
-      <motion.div
-        className="absolute w-96 h-96 rounded-full bg-primary/20 blur-3xl -top-48 -left-48"
-        animate={{
-          y: [0, 30, 0],
-          x: [0, -20, 0],
-          scale: [1, 1.1, 1],
-        }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute w-64 h-64 rounded-full bg-primary/15 blur-3xl bottom-20 right-10"
-        animate={{
-          y: [0, -40, 0],
-          x: [0, 20, 0],
-          scale: [1, 1.15, 1],
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-      />
+      {/* Static floating orbs - no animation on mobile for performance */}
+      <div className="absolute w-96 h-96 rounded-full bg-primary/20 blur-3xl -top-48 -left-48 hidden md:block" />
+      <div className="absolute w-64 h-64 rounded-full bg-primary/15 blur-3xl bottom-20 right-10 hidden md:block" />
       
-      {/* Signature background - very subtle */}
-      <motion.div 
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.5, delay: 0.5 }}
-      >
+      {/* Signature background - static for performance */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <img 
           src={signatureImg} 
           alt="" 
           className="w-[80%] md:w-[60%] max-w-3xl opacity-[0.03]"
+          loading="lazy"
         />
-      </motion.div>
+      </div>
       
-      {/* Subtle grid pattern */}
-      <div className="absolute inset-0 opacity-5" style={{
+      {/* Subtle grid pattern - hidden on mobile */}
+      <div className="absolute inset-0 opacity-5 hidden md:block" style={{
         backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)`,
         backgroundSize: '40px 40px'
       }} />
