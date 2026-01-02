@@ -42,7 +42,7 @@ const FounderSection = () => {
             
             {/* Content */}
             <motion.div
-              className="flex-1 text-center lg:text-left"
+              className="flex-1 text-center"
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -87,7 +87,7 @@ const FounderSection = () => {
               
               {/* Signature */}
               <motion.div
-                className="mt-8 flex justify-center lg:justify-start"
+                className="mt-8 flex justify-center"
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
