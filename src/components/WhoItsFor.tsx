@@ -19,7 +19,7 @@ const WhoItsFor = () => {
       
       <div className="relative max-w-4xl mx-auto px-6">
         <motion.h2 
-          className="text-3xl md:text-5xl font-bold text-foreground mb-12 tracking-tight"
+          className="text-3xl md:text-5xl font-bold text-foreground mb-12 tracking-tight text-center"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
@@ -61,7 +61,7 @@ const WhoItsFor = () => {
         </div>
         
         <motion.div
-          className="relative p-8 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent"
+          className="relative p-8 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent text-center"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}

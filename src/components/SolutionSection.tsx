@@ -27,6 +27,7 @@ const SolutionSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
+          className="text-center"
         >
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-8 tracking-tight">
             Stop guessing.{" "}
@@ -35,7 +36,7 @@ const SolutionSection = () => {
         </motion.div>
         
         <motion.div 
-          className="space-y-6 text-lg md:text-xl text-muted-foreground leading-relaxed mb-12"
+          className="space-y-6 text-lg md:text-xl text-muted-foreground leading-relaxed mb-12 text-center"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
@@ -47,7 +48,7 @@ const SolutionSection = () => {
         </motion.div>
 
         {/* Benefits with hover effects */}
-        <div className="flex flex-wrap gap-6 mb-12">
+        <div className="flex flex-wrap justify-center gap-6 mb-12">
           {benefits.map((benefit, index) => (
             <motion.div
               key={index}
@@ -65,7 +66,7 @@ const SolutionSection = () => {
         </div>
         
         <motion.div
-          className="p-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur-sm"
+          className="p-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur-sm text-center"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}

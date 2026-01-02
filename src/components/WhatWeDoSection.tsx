@@ -34,7 +34,7 @@ const WhatWeDoSection = () => {
       
       <div className="relative max-w-6xl mx-auto px-6">
         <motion.h2 
-          className="text-3xl md:text-5xl font-bold text-foreground mb-16 tracking-tight"
+          className="text-3xl md:text-5xl font-bold text-foreground mb-16 tracking-tight text-center"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
@@ -72,10 +72,10 @@ const WhatWeDoSection = () => {
                 >
                   <service.icon className="w-10 h-10 text-primary mb-6" />
                 </motion.div>
-                <h3 className="text-xl font-bold text-foreground mb-4">
+                <h3 className="text-xl font-bold text-foreground mb-4 text-center">
                   {service.title}
                 </h3>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed text-center">
                   {service.description}
                 </p>
               </div>

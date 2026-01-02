@@ -18,7 +18,7 @@ const WhyConnecta = () => {
       
       <div className="relative max-w-4xl mx-auto px-6">
         <motion.h2 
-          className="text-3xl md:text-5xl font-bold text-foreground mb-8 tracking-tight"
+          className="text-3xl md:text-5xl font-bold text-foreground mb-8 tracking-tight text-center"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
@@ -28,7 +28,7 @@ const WhyConnecta = () => {
         </motion.h2>
         
         <motion.div 
-          className="space-y-6 text-lg md:text-xl text-muted-foreground leading-relaxed mb-12"
+          className="space-y-6 text-lg md:text-xl text-muted-foreground leading-relaxed mb-12 text-center"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -40,7 +40,7 @@ const WhyConnecta = () => {
           </p>
         </motion.div>
         
-        <div className="mb-12">
+        <div className="mb-12 text-center">
           <motion.p 
             className="text-foreground font-medium text-lg mb-6"
             initial={{ opacity: 0 }}
@@ -84,7 +84,7 @@ const WhyConnecta = () => {
         </div>
         
         <motion.div
-          className="relative"
+          className="relative text-center"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
