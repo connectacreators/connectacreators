@@ -31,7 +31,7 @@ const FounderSection = () => {
                   <img
                     src={robertoImage}
                     alt="Roberto Gauna, Founder of Connecta Creators"
-                    className="w-full h-full object-cover object-top"
+                    className="w-full h-full object-cover scale-150 object-top"
                   />
                 </div>
                 

@@ -1,4 +1,5 @@
 import HeroVProject from "@/components/HeroVProject";
+import FounderSection from "@/components/FounderSection";
 import ProblemSection from "@/components/ProblemSection";
 import SolutionSection from "@/components/SolutionSection";
 import WhatWeDoSection from "@/components/WhatWeDoSection";
@@ -6,7 +7,6 @@ import ConnectaMethod from "@/components/ConnectaMethod";
 import ResultsSection from "@/components/ResultsSection";
 import WhyConnecta from "@/components/WhyConnecta";
 import WhoItsFor from "@/components/WhoItsFor";
-import FounderSection from "@/components/FounderSection";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
 
@@ -14,6 +14,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <HeroVProject />
+      <FounderSection />
       <ProblemSection />
       <SolutionSection />
       <WhatWeDoSection />
@@ -21,7 +22,6 @@ const Index = () => {
       <ResultsSection />
       <WhyConnecta />
       <WhoItsFor />
-      <FounderSection />
       <CTASection />
       <Footer />
     </div>
