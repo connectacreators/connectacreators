@@ -65,7 +65,7 @@ const HeroVProject = () => {
         <div className="space-y-4 md:space-y-8">
           {/* Main headline with elegant typography */}
           <motion.h1 
-            className="text-2xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight px-2"
+            className="text-3xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight px-2"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
@@ -88,7 +88,7 @@ const HeroVProject = () => {
           </motion.h1>
           
           <motion.p 
-            className="font-sans font-medium text-sm md:text-xl lg:text-2xl leading-tight text-foreground/70 px-4"
+            className="font-sans font-medium text-base md:text-xl lg:text-2xl leading-tight text-foreground/70 px-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
