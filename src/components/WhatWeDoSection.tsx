@@ -65,8 +65,9 @@ const WhatWeDoSection = () => {
                 {String(index + 1).padStart(2, '0')}
               </span>
               
-              <div className="relative">
+              <div className="relative flex flex-col items-center">
                 <motion.div
+                  className="flex justify-center"
                   whileHover={{ rotate: 10, scale: 1.1 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
