@@ -2,11 +2,11 @@ import { motion } from "framer-motion";
 import { FloatingOrb, GradientLine } from "./ui/FloatingElements";
 
 const steps = [
-  "We build viral scripts tailored to your niche and personality",
-  "You film with confidence using our guidance",
-  "We edit and optimize for maximum retention",
-  "We amplify top-performing content with ads",
-  "Your brand gains visibility, authority, and momentum"
+  "Creamos guiones virales adaptados a tu nicho y personalidad",
+  "Tú grabas con confianza usando nuestra guía",
+  "Editamos y optimizamos para máxima retención",
+  "Amplificamos el contenido ganador con ads",
+  "Tu marca gana visibilidad, autoridad y momentum"
 ];
 
 const ConnectaMethod = () => {
@@ -26,7 +26,7 @@ const ConnectaMethod = () => {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
-          The <span className="italic">Connecta</span> Method
+          El Método <span className="italic">Connecta</span>
         </motion.h2>
         
         <div className="space-y-6">

@@ -5,23 +5,23 @@ import { FloatingOrb } from "./ui/FloatingElements";
 const services = [
   {
     icon: FileText,
-    title: "20 Viral Short-Form Scripts per Month",
-    description: "Scripts engineered for attention, retention, and authority across Instagram, TikTok, and YouTube Shorts."
+    title: "20 Guiones Virales por Mes",
+    description: "Guiones diseñados para captar atención, retención y autoridad en Instagram, TikTok y YouTube Shorts."
   },
   {
     icon: Video,
-    title: "High-Performance Video Editing",
-    description: "Fast-paced, scroll-stopping edits designed for watch time and shares, not just aesthetics."
+    title: "Edición de Video de Alto Rendimiento",
+    description: "Ediciones dinámicas que detienen el scroll, diseñadas para maximizar el tiempo de visualización y los compartidos."
   },
   {
     icon: Users,
-    title: "Coaching & Creative Direction",
-    description: "Clear guidance on what to film, how to film it, and how to communicate on camera like a personal brand."
+    title: "Coaching y Dirección Creativa",
+    description: "Guía clara sobre qué grabar, cómo grabarlo y cómo comunicar en cámara como marca personal."
   },
   {
     icon: Megaphone,
-    title: "Paid Ads Amplification",
-    description: "Strategic promotion of winning content to accelerate growth and reach the right audience faster."
+    title: "Amplificación con Ads",
+    description: "Promoción estratégica del contenido ganador para acelerar el crecimiento y llegar a la audiencia correcta más rápido."
   }
 ];
 
@@ -40,8 +40,8 @@ const WhatWeDoSection = () => {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
-          What you get with{" "}
-          <span className="text-primary">Connecta</span>
+          Lo que obtienes con{" "}
+            <span className="text-primary">Connecta</span>
         </motion.h2>
         
         <div className="grid md:grid-cols-2 gap-8">

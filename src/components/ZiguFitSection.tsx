@@ -20,10 +20,10 @@ const ZiguFitSection = () => {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
-            The <span className="italic text-primary">transformation</span> is real
+            La <span className="italic text-primary">transformación</span> es real
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            See what happens when strategy meets execution
+            Mira lo que pasa cuando la estrategia se encuentra con la ejecución
           </p>
         </motion.div>
 
@@ -41,7 +41,7 @@ const ZiguFitSection = () => {
             <div className="relative p-3 rounded-2xl border border-border bg-card/80 backdrop-blur-sm">
               <div className="flex items-center justify-between mb-3">
                 <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
-                  Before
+                  Antes
                 </span>
                 <span className="text-muted-foreground text-xs">@zigufit</span>
               </div>
@@ -57,7 +57,7 @@ const ZiguFitSection = () => {
               
               <div className="mt-3 text-center">
                 <p className="text-2xl font-bold text-muted-foreground">1,280</p>
-                <p className="text-xs text-muted-foreground">followers</p>
+                <p className="text-xs text-muted-foreground">seguidores</p>
               </div>
             </div>
           </motion.div>
@@ -87,7 +87,7 @@ const ZiguFitSection = () => {
             <div className="relative p-3 rounded-2xl border border-primary/30 bg-card/80 backdrop-blur-sm">
               <div className="flex items-center justify-between mb-3">
                 <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-medium">
-                  After
+                  Después
                 </span>
                 <span className="text-primary text-xs font-medium">@zigufit</span>
               </div>
@@ -111,7 +111,7 @@ const ZiguFitSection = () => {
                 >
                   17,600+
                 </motion.p>
-                <p className="text-xs text-muted-foreground">followers</p>
+                <p className="text-xs text-muted-foreground">seguidores</p>
               </div>
             </div>
             
@@ -139,15 +139,15 @@ const ZiguFitSection = () => {
         >
           <div className="text-center">
             <p className="text-2xl md:text-4xl font-bold text-foreground">5</p>
-            <p className="text-xs md:text-sm text-muted-foreground">months</p>
+            <p className="text-xs md:text-sm text-muted-foreground">meses</p>
           </div>
           <div className="text-center border-x border-border">
             <p className="text-2xl md:text-4xl font-bold text-primary">2.6M+</p>
-            <p className="text-xs md:text-sm text-muted-foreground">views on top video</p>
+            <p className="text-xs md:text-sm text-muted-foreground">vistas en el mejor video</p>
           </div>
           <div className="text-center">
             <p className="text-2xl md:text-4xl font-bold text-foreground">442K</p>
-            <p className="text-xs md:text-sm text-muted-foreground">total likes</p>
+            <p className="text-xs md:text-sm text-muted-foreground">likes totales</p>
           </div>
         </motion.div>
 
@@ -159,7 +159,7 @@ const ZiguFitSection = () => {
           viewport={{ once: true }}
           transition={{ delay: 0.8 }}
         >
-          Real results from <span className="text-foreground font-medium">Zigurat Sofía</span> — Fitness Creator
+          Resultados reales de <span className="text-foreground font-medium">Zigurat Sofía</span> — Creadora de Fitness
         </motion.p>
       </div>
       

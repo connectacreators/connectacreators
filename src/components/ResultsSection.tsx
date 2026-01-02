@@ -7,21 +7,21 @@ import zigufit from "@/assets/zigufit-profile.jpg";
 const caseStudies = [
   {
     name: "Abogado Jonathan",
-    timeline: "~9 months",
+    timeline: "~9 meses",
     image: abogadoJonathan,
     before: "378K",
     after: "1.28M"
   },
   {
-    name: "Dr. Calvin's Clinic",
-    timeline: "under 2 months",
+    name: "Clínica Dr. Calvin",
+    timeline: "menos de 2 meses",
     image: drCalvin,
     before: "0",
     after: "6,700"
   },
   {
-    name: "ZiguFit (Fitness Creator)",
-    timeline: "5 months",
+    name: "ZiguFit (Creadora Fitness)",
+    timeline: "5 meses",
     image: zigufit,
     before: "1,000",
     after: "17,700"
@@ -29,9 +29,9 @@ const caseStudies = [
 ];
 
 const overallStats = [
-  { platform: "Instagram", views: "10M+" },
-  { platform: "TikTok", views: "87M+" },
-  { platform: "YouTube", views: "6M+" }
+  { platform: "Instagram", views: "10M+", label: "vistas en" },
+  { platform: "TikTok", views: "87M+", label: "vistas en" },
+  { platform: "YouTube", views: "6M+", label: "vistas en" }
 ];
 
 const ResultsSection = () => {
@@ -49,7 +49,7 @@ const ResultsSection = () => {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
-          Real growth. <span className="text-primary">Real numbers.</span>
+          Crecimiento real. <span className="text-primary">Números reales.</span>
         </motion.h2>
         
         {/* Case Studies */}
@@ -88,7 +88,7 @@ const ResultsSection = () => {
                   {study.name}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Timeline: {study.timeline}
+                  Tiempo: {study.timeline}
                 </p>
                 
                 <div className="flex items-center gap-2">
@@ -102,7 +102,7 @@ const ResultsSection = () => {
                   </motion.span>
                   <span className="text-primary font-bold text-xl">{study.after}</span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">followers</p>
+                <p className="text-sm text-muted-foreground mt-1">seguidores</p>
               </div>
             </motion.div>
           ))}
@@ -132,7 +132,7 @@ const ResultsSection = () => {
           </div>
           
           <h3 className="text-lg font-bold text-muted-foreground mb-8 uppercase tracking-wider">
-            Connecta Track Record
+            Historial de Connecta
           </h3>
           <div className="grid md:grid-cols-3 gap-8">
             {overallStats.map((stat, index) => (
@@ -152,7 +152,7 @@ const ResultsSection = () => {
                   {stat.views}
                 </motion.p>
                 <p className="text-muted-foreground">
-                  views on {stat.platform}
+                  vistas en {stat.platform}
                 </p>
               </motion.div>
             ))}

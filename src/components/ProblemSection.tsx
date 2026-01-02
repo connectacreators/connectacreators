@@ -19,10 +19,10 @@ const ProblemSection = () => {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
-            Real <span className="italic text-primary">results</span> across platforms
+            <span className="italic text-primary">Resultados</span> reales en todas las plataformas
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            @elabogadojonathan — Immigration Lawyer dominating social media
+            @elabogadojonathan — Abogado de Inmigración dominando las redes sociales
           </p>
         </motion.div>
 
@@ -63,7 +63,7 @@ const ProblemSection = () => {
                 >
                   218K
                 </motion.p>
-                <p className="text-xs text-muted-foreground">followers</p>
+                <p className="text-xs text-muted-foreground">seguidores</p>
               </div>
             </div>
           </motion.div>
@@ -103,7 +103,7 @@ const ProblemSection = () => {
                 >
                   862.8K
                 </motion.p>
-                <p className="text-xs text-muted-foreground">followers</p>
+                <p className="text-xs text-muted-foreground">seguidores</p>
               </div>
             </div>
             
@@ -116,7 +116,7 @@ const ProblemSection = () => {
               transition={{ type: "spring", stiffness: 200, delay: 0.8 }}
               whileHover={{ scale: 1.1 }}
             >
-              <span className="text-primary-foreground font-bold text-xs">✓ Verified</span>
+              <span className="text-primary-foreground font-bold text-xs">✓ Verificado</span>
             </motion.div>
           </motion.div>
         </div>
@@ -131,15 +131,15 @@ const ProblemSection = () => {
         >
           <div className="text-center">
             <p className="text-2xl md:text-4xl font-bold text-foreground">1M+</p>
-            <p className="text-xs md:text-sm text-muted-foreground">combined followers</p>
+            <p className="text-xs md:text-sm text-muted-foreground">seguidores combinados</p>
           </div>
           <div className="text-center border-x border-border">
             <p className="text-2xl md:text-4xl font-bold text-primary">7.4M</p>
-            <p className="text-xs md:text-sm text-muted-foreground">TikTok likes</p>
+            <p className="text-xs md:text-sm text-muted-foreground">likes en TikTok</p>
           </div>
           <div className="text-center">
             <p className="text-2xl md:text-4xl font-bold text-foreground">14.6M</p>
-            <p className="text-xs md:text-sm text-muted-foreground">views in 30 days</p>
+            <p className="text-xs md:text-sm text-muted-foreground">vistas en 30 días</p>
           </div>
         </motion.div>
 
@@ -151,7 +151,7 @@ const ProblemSection = () => {
           viewport={{ once: true }}
           transition={{ delay: 0.8 }}
         >
-          Real results from <span className="text-foreground font-medium">Jonathan Shaw</span> — Immigration Lawyer
+          Resultados reales de <span className="text-foreground font-medium">Jonathan Shaw</span> — Abogado de Inmigración
         </motion.p>
       </div>
       

@@ -3,11 +3,11 @@ import { FloatingOrb } from "./ui/FloatingElements";
 import { Check, Stethoscope, Scale, Lightbulb, TrendingUp, Briefcase } from "lucide-react";
 
 const audiences = [
-  { text: "Professionals with proven services", icon: Briefcase },
-  { text: "Clinics and medical practices", icon: Stethoscope },
-  { text: "Lawyers and legal brands", icon: Scale },
-  { text: "Coaches and consultants", icon: Lightbulb },
-  { text: "Sales leaders and entrepreneurs", icon: TrendingUp },
+  { text: "Profesionales con servicios probados", icon: Briefcase },
+  { text: "Clínicas y consultorios médicos", icon: Stethoscope },
+  { text: "Abogados y marcas legales", icon: Scale },
+  { text: "Coaches y consultores", icon: Lightbulb },
+  { text: "Líderes de ventas y emprendedores", icon: TrendingUp },
 ];
 
 const WhoItsFor = () => {
@@ -25,7 +25,7 @@ const WhoItsFor = () => {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
-          Who Connecta is <span className="italic">for</span>
+          Para quién es <span className="italic">Connecta</span>
         </motion.h2>
         
         <div className="space-y-4 mb-12">
@@ -68,7 +68,7 @@ const WhoItsFor = () => {
           transition={{ duration: 0.8, delay: 0.5 }}
         >
           <p className="text-lg md:text-xl text-foreground">
-            If you want to be <span className="text-primary font-medium">visible</span>, <span className="text-primary font-medium">trusted</span>, and <span className="text-primary font-medium">taken seriously</span> online, this is for you.
+            Si quieres ser <span className="text-primary font-medium">visible</span>, <span className="text-primary font-medium">confiable</span> y <span className="text-primary font-medium">tomado en serio</span> online, esto es para ti.
           </p>
         </motion.div>
       </div>

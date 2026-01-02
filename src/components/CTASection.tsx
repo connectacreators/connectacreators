@@ -29,11 +29,11 @@ const CTASection = () => {
             transition={{ delay: 0.2 }}
           >
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm text-primary font-medium">Limited spots available</span>
+            <span className="text-sm text-primary font-medium">Cupos limitados disponibles</span>
           </motion.div>
           
           <h2 className="text-3xl md:text-6xl font-bold text-foreground mb-8 tracking-tight">
-            Ready to build{" "}
+            ¿Listo para construir{" "}
             <span className="relative inline-block">
               <span className="text-primary">momentum</span>
               <motion.span
@@ -55,8 +55,8 @@ const CTASection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.3 }}
         >
-          If your service already works, your brand should reflect that.<br />
-          <span className="text-foreground font-medium">Let's build something that grows.</span>
+          Si tu servicio ya funciona, tu marca debería reflejarlo.<br />
+          <span className="text-foreground font-medium">Construyamos algo que crezca.</span>
         </motion.p>
         
         <motion.div
@@ -74,7 +74,7 @@ const CTASection = () => {
               className="group text-lg px-10 py-7 rounded-full shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300"
               onClick={() => window.open('https://calendly.com/robertogaunaj/demo-presentation', '_blank')}
             >
-              Book a Strategy Call
+              Agenda una Llamada Estratégica
               <motion.span
                 className="ml-2"
                 animate={{ x: [0, 5, 0] }}
@@ -94,9 +94,9 @@ const CTASection = () => {
           viewport={{ once: true }}
           transition={{ delay: 0.7 }}
         >
-          <span>✓ 15-minute call</span>
-          <span>✓ No commitment</span>
-          <span>✓ Personalized strategy</span>
+          <span>✓ Llamada de 15 minutos</span>
+          <span>✓ Sin compromiso</span>
+          <span>✓ Estrategia personalizada</span>
         </motion.div>
       </div>
     </section>
