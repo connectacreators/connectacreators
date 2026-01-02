@@ -70,8 +70,8 @@ const CTASection = () => {
             whileTap={{ scale: 0.98 }}
           >
             <Button 
-              size="lg"
-              className="group text-lg px-10 py-7 rounded-full shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300"
+              size="default"
+              className="group text-base px-8 py-5 rounded-full shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300"
               onClick={() => window.open('https://calendly.com/robertogaunaj/demo-presentation', '_blank')}
             >
               Agenda una Llamada Estratégica
