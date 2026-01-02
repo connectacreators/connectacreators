@@ -1,8 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { useState, useRef, useEffect } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import signatureImg from "@/assets/roberto-signature.png";
 
 const HeroVProject = () => {
+  const [isMuted, setIsMuted] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const toggleMute = () => {
+    if (iframeRef.current) {
+      const message = isMuted ? '{"method":"setVolume","value":1}' : '{"method":"setVolume","value":0}';
+      iframeRef.current.contentWindow?.postMessage(message, '*');
+      setIsMuted(!isMuted);
+    }
+  };
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-8 md:py-16 px-4 md:px-6">
       {/* Elegant dark background */}
@@ -93,13 +105,26 @@ const HeroVProject = () => {
           >
             <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-primary/20" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
               <iframe 
-                src="https://player.vimeo.com/video/1151090377?autoplay=1&muted=1&loop=1&background=1&badge=0&autopause=0&player_id=0&app_id=58479&title=0&byline=0&portrait=0"
+                ref={iframeRef}
+                src="https://player.vimeo.com/video/1151090377?autoplay=1&muted=1&loop=1&badge=0&autopause=0&player_id=0&app_id=58479&title=0&byline=0&portrait=0"
                 frameBorder="0" 
                 allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" 
                 referrerPolicy="strict-origin-when-cross-origin" 
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
                 title="Connecta VSL"
               />
+              {/* Unmute button */}
+              <motion.button
+                onClick={toggleMute}
+                className="absolute bottom-4 right-4 z-20 bg-background/80 backdrop-blur-sm border border-primary/30 rounded-full p-3 text-foreground hover:bg-primary hover:text-white transition-all duration-300 shadow-lg"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1, duration: 0.4 }}
+              >
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              </motion.button>
             </div>
           </motion.div>
 
