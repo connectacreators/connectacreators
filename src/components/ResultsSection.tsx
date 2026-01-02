@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { FloatingOrb } from "./ui/FloatingElements";
 import abogadoJonathan from "@/assets/abogado-jonathan.webp";
-import drCalvin from "@/assets/dr-calvin.png";
+import drCalvin from "@/assets/dr-calvin-new.webp";
 import zigufit from "@/assets/zigufit-profile.jpg";
 
 const caseStudies = [
