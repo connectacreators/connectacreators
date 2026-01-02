@@ -24,6 +24,11 @@ const Index = () => {
       <WhyConnecta />
       <WhoItsFor />
       <CTASection />
+      
+      {/* Disclaimer */}
+      <div className="bg-card py-6 text-center">
+        <p className="text-muted-foreground text-xs">*resultados pueden variar*</p>
+      </div>
     </div>
   );
 };
