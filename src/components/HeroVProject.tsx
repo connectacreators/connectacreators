@@ -205,26 +205,6 @@ const HeroVProject = () => {
           </motion.div>
         </div>
       </div>
-      
-      {/* Scroll indicator */}
-      <motion.div 
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 2, duration: 0.6 }}
-      >
-        <motion.div
-          className="w-6 h-10 rounded-full border-2 border-foreground/20 flex items-start justify-center p-2"
-          animate={{ y: [0, 5, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        >
-          <motion.div
-            className="w-1 h-2 rounded-full bg-primary"
-            animate={{ y: [0, 8, 0], opacity: [1, 0.5, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
-        </motion.div>
-      </motion.div>
     </section>
   );
 };
