@@ -1,21 +1,6 @@
 import { Button } from "@/components/ui/button";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
 import { motion } from "framer-motion";
-import Autoplay from "embla-carousel-autoplay";
-import ziguaImg from "@/assets/zigua.png";
-import abfoImg from "@/assets/abfo.png";
-import drCalvinImg from "@/assets/dr-calvin-new.webp";
 import signatureImg from "@/assets/roberto-signature.png";
-
-const profileImages = [
-  { src: ziguaImg, alt: "Zigurat Sofía", followers: "+17,200 Followers" },
-  { src: abfoImg, alt: "Jonathan Shaw", followers: "+750K Followers" },
-  { src: drCalvinImg, alt: "Dr. Calvin's Clinic", followers: "+6,700 Followers" },
-];
 
 const HeroVProject = () => {
   return (
@@ -99,77 +84,24 @@ const HeroVProject = () => {
             with your Instagram account recording videos with your phone
           </motion.p>
           
-          {/* Mobile Carousel */}
-          <div className="md:hidden py-4">
-            <Carousel 
-              className="w-full max-w-sm mx-auto"
-              opts={{
-                align: "center",
-                loop: true,
-              }}
-              plugins={[
-                Autoplay({
-                  delay: 3000,
-                  stopOnInteraction: false,
-                }),
-              ]}
-            >
-              <CarouselContent>
-                {profileImages.map((image, index) => (
-                  <CarouselItem key={index}>
-                    <motion.div 
-                      className="flex flex-col items-center gap-3"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.5 + index * 0.1 }}
-                    >
-                      <div className="w-56 rounded-xl overflow-hidden shadow-xl border-2 border-primary">
-                        <img src={image.src} alt={image.alt} className="w-full h-auto" />
-                      </div>
-                      <p className="text-primary font-bold text-lg">{image.followers}</p>
-                    </motion.div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-          </div>
-
-          {/* Desktop Images */}
-          <div className="hidden md:flex items-center justify-center gap-6 py-8">
-            <motion.div 
-              className="relative transform -rotate-3 hover:rotate-0 hover:scale-110 transition-all duration-300"
-              initial={{ opacity: 0, x: -50, rotate: -10 }}
-              animate={{ opacity: 1, x: 0, rotate: -3 }}
-              transition={{ delay: 0.6, duration: 0.8, type: "spring" }}
-              whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
-            >
-              <div className="w-56 rounded-2xl overflow-hidden shadow-xl border border-primary/20 hover:border-primary transition-colors">
-                <img src={ziguaImg} alt="Zigurat Sofía" className="w-full h-auto" />
-              </div>
-            </motion.div>
-            <motion.div 
-              className="relative transform hover:scale-110 transition-all duration-300 z-10"
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.8, type: "spring" }}
-              whileHover={{ y: -15, boxShadow: "0 25px 50px rgba(0,0,0,0.4)" }}
-            >
-              <div className="w-64 rounded-2xl overflow-hidden shadow-xl border-2 border-primary hover:border-primary-light transition-colors">
-                <img src={abfoImg} alt="Jonathan Shaw" className="w-full h-auto" />
-              </div>
-            </motion.div>
-            <motion.div 
-              className="relative transform rotate-3 hover:rotate-0 hover:scale-110 transition-all duration-300"
-              initial={{ opacity: 0, x: 50, rotate: 10 }}
-              animate={{ opacity: 1, x: 0, rotate: 3 }}
-              transition={{ delay: 1, duration: 0.8, type: "spring" }}
-              whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
-            >
-              <div className="w-56 rounded-2xl overflow-hidden shadow-xl border border-primary/20 hover:border-primary transition-colors">
-                <img src={drCalvinImg} alt="Dr. Calvin's Clinic" className="w-full h-auto" />
-              </div>
-            </motion.div>
-          </div>
+          {/* VSL Video */}
+          <motion.div 
+            className="w-full max-w-3xl mx-auto py-4 md:py-8"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+          >
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-primary/20" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
+              <iframe 
+                src="https://player.vimeo.com/video/1151090377?badge=0&autopause=0&player_id=0&app_id=58479" 
+                frameBorder="0" 
+                allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" 
+                referrerPolicy="strict-origin-when-cross-origin" 
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                title="Connecta VSL"
+              />
+            </div>
+          </motion.div>
 
           {/* Urgency text */}
           <motion.p 
