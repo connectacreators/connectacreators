@@ -3,10 +3,10 @@ import { FloatingOrb, GradientLine } from "./ui/FloatingElements";
 import { Brain, Smartphone, Compass, Rocket } from "lucide-react";
 
 const pillars = [
-  { label: "Psychology", icon: Brain },
-  { label: "Platform knowledge", icon: Smartphone },
-  { label: "Clear direction", icon: Compass },
-  { label: "Execution", icon: Rocket },
+  { label: "Psicología", icon: Brain },
+  { label: "Conocimiento de plataformas", icon: Smartphone },
+  { label: "Dirección clara", icon: Compass },
+  { label: "Ejecución", icon: Rocket },
 ];
 
 const WhyConnecta = () => {
@@ -24,7 +24,7 @@ const WhyConnecta = () => {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
-          Why this <span className="italic">works</span>
+          Por qué esto <span className="italic">funciona</span>
         </motion.h2>
         
         <motion.div 
@@ -35,8 +35,8 @@ const WhyConnecta = () => {
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <p>
-            Most agencies post content and hope it works.<br />
-            <span className="text-foreground font-medium">Connecta focuses on messaging, retention, and consistency.</span>
+            La mayoría de agencias publican contenido y esperan que funcione.<br />
+            <span className="text-foreground font-medium">Connecta se enfoca en el mensaje, la retención y la consistencia.</span>
           </p>
         </motion.div>
         
@@ -48,7 +48,7 @@ const WhyConnecta = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            We combine:
+            Combinamos:
           </motion.p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {pillars.map((pillar, index) => (
@@ -91,8 +91,8 @@ const WhyConnecta = () => {
           transition={{ duration: 0.8, delay: 0.6 }}
         >
           <p className="text-xl md:text-2xl text-foreground font-medium">
-            So your content doesn't just exist.<br />
-            <span className="text-primary">It performs.</span>
+            Para que tu contenido no solo exista.<br />
+            <span className="text-primary">Que rinda.</span>
           </p>
         </motion.div>
       </div>

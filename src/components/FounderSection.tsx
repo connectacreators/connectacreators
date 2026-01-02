@@ -55,7 +55,7 @@ const FounderSection = () => {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
               >
-                Meet the Founder
+                Conoce al Fundador
               </motion.p>
               
               <motion.h2
@@ -76,12 +76,12 @@ const FounderSection = () => {
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
                 <p>
-                  I started as a video editor and grew into a content strategist by obsessing over what actually makes content work. Along the way, I've helped generate over{" "}
-                  <span className="text-primary font-semibold">215M+ views</span> across Instagram, TikTok, and YouTube by building systems that turn attention into real results.
+                  Empecé como editor de video y me convertí en estratega de contenido al obsesionarme con lo que realmente hace que el contenido funcione. En el camino, he ayudado a generar más de{" "}
+                  <span className="text-primary font-semibold">215M+ vistas</span> en Instagram, TikTok y YouTube construyendo sistemas que convierten la atención en resultados reales.
                 </p>
                 <p>
-                  Today, I help creators, professionals, and sales teams build brands with clear positioning, strong storytelling, and execution that scales. Connecta Creators exists because good content isn't enough.{" "}
-                  <span className="text-foreground font-medium italic">Direction, consistency, and strategy</span> are what separate growth from noise.
+                  Hoy, ayudo a creadores, profesionales y equipos de ventas a construir marcas con posicionamiento claro, storytelling potente y ejecución escalable. Connecta Creators existe porque el buen contenido no es suficiente.{" "}
+                  <span className="text-foreground font-medium italic">Dirección, consistencia y estrategia</span> son lo que separa el crecimiento del ruido.
                 </p>
               </motion.div>
               

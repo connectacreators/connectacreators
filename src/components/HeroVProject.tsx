@@ -70,9 +70,9 @@ const HeroVProject = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <span className="text-foreground">The </span>
-            <span className="italic text-foreground/90">step-by-step system</span>
-            <span className="text-foreground"> to</span>
+            <span className="text-foreground">El </span>
+            <span className="italic text-foreground/90">sistema paso a paso</span>
+            <span className="text-foreground"> para</span>
             <br />
             <motion.span 
               className="text-primary font-bold inline-block"
@@ -80,11 +80,11 @@ const HeroVProject = () => {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6, type: "spring" }}
             >
-              make +$10,000 / month
+              ganar +$10,000 / mes
             </motion.span>
             <br />
-            <span className="text-foreground">with your brand in </span>
-            <span className="italic text-foreground/90">90 days</span>
+            <span className="text-foreground">con tu marca en </span>
+            <span className="italic text-foreground/90">90 días</span>
           </motion.h1>
           
           <motion.p 
@@ -93,7 +93,7 @@ const HeroVProject = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
           >
-            with your Instagram account recording videos with your phone
+            con tu cuenta de Instagram grabando videos con tu teléfono
           </motion.p>
           
           {/* VSL Video */}
@@ -135,7 +135,7 @@ const HeroVProject = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.6 }}
           >
-            Book your 15-minute call to see how it would look in your case
+            Agenda tu llamada de 15 minutos para ver cómo funcionaría en tu caso
           </motion.p>
 
           {/* CTA Button */}
@@ -156,7 +156,7 @@ const HeroVProject = () => {
                 size="lg"
                 className="bg-primary hover:bg-primary-light text-white font-semibold text-sm md:text-lg px-6 md:px-12 py-3 md:py-6 rounded-full shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300"
               >
-                Start now
+                Empezar ahora
               </Button>
             </motion.a>
           </motion.div>

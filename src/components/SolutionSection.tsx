@@ -3,8 +3,8 @@ import { FloatingOrb, GradientLine } from "./ui/FloatingElements";
 import { Sparkles, Target, Zap } from "lucide-react";
 
 const benefits = [
-  { icon: Sparkles, label: "Clarity" },
-  { icon: Target, label: "Execution" },
+  { icon: Sparkles, label: "Claridad" },
+  { icon: Target, label: "Ejecución" },
   { icon: Zap, label: "Momentum" },
 ];
 
@@ -30,8 +30,8 @@ const SolutionSection = () => {
           className="text-center"
         >
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-8 tracking-tight">
-            Stop guessing.{" "}
-            <span className="text-primary">Start growing.</span>
+            Deja de adivinar.{" "}
+            <span className="text-primary">Empieza a crecer.</span>
           </h2>
         </motion.div>
         
@@ -43,7 +43,7 @@ const SolutionSection = () => {
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <p>
-            Connecta Creators provides clarity and execution so you can focus on your business while your brand gains momentum online.
+            Connecta Creators te proporciona claridad y ejecución para que puedas enfocarte en tu negocio mientras tu marca gana momentum online.
           </p>
         </motion.div>
 
@@ -73,8 +73,8 @@ const SolutionSection = () => {
           transition={{ duration: 0.8, delay: 0.5 }}
         >
           <p className="text-lg md:text-xl text-foreground">
-            We don't just make content.<br />
-            <span className="font-medium">We help you show up with confidence, consistency, and direction.</span>
+            No solo hacemos contenido.<br />
+            <span className="font-medium">Te ayudamos a presentarte con confianza, consistencia y dirección.</span>
           </p>
         </motion.div>
       </div>
