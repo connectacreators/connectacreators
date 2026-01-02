@@ -1,82 +1,165 @@
 import { motion } from "framer-motion";
 import { FloatingOrb, GradientLine } from "./ui/FloatingElements";
-import { EyeOff, TrendingDown, HelpCircle } from "lucide-react";
-
-const painPoints = [
-  { icon: EyeOff, text: "Posting randomly with no results" },
-  { icon: TrendingDown, text: "Following trends that don't fit your brand" },
-  { icon: HelpCircle, text: "Not knowing what actually works" },
-];
+import { ArrowRight } from "lucide-react";
+import zigufitBefore from "@/assets/zigufit-before.png";
+import zigufitAfter from "@/assets/zigufit-after.png";
 
 const ProblemSection = () => {
   return (
     <section className="relative py-24 md:py-32 bg-background overflow-hidden">
       {/* Background elements */}
-      <FloatingOrb className="w-96 h-96 bg-destructive/30 -top-48 -left-48" delay={0} />
-      <FloatingOrb className="w-64 h-64 bg-primary/20 bottom-20 right-10" delay={2} />
+      <FloatingOrb className="w-96 h-96 bg-primary/20 -top-48 -left-48" delay={0} />
+      <FloatingOrb className="w-64 h-64 bg-primary/15 bottom-20 right-10" delay={2} />
       
-      <div className="relative max-w-4xl mx-auto px-6">
+      <div className="relative max-w-6xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
+          className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-8 tracking-tight">
-            Good businesses are{" "}
-            <span className="relative inline-block">
-              invisible
-              <motion.span
-                className="absolute -bottom-2 left-0 w-full h-1 bg-primary/50"
-                initial={{ scaleX: 0 }}
-                whileInView={{ scaleX: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.5, duration: 0.6 }}
-              />
-            </span>{" "}
-            online.
+          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
+            The <span className="italic">transformation</span> is real
           </h2>
-        </motion.div>
-        
-        <motion.div 
-          className="space-y-6 text-lg md:text-xl text-muted-foreground leading-relaxed mb-12"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          <p>
-            Most professionals know they're good at what they do, but social media isn't bringing them clients.
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+            See what happens when strategy meets execution
           </p>
         </motion.div>
 
-        {/* Pain points with staggered animation */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {painPoints.map((point, index) => (
-            <motion.div
-              key={index}
-              className="group p-6 rounded-2xl border border-border bg-card/50 backdrop-blur-sm hover:border-destructive/30 transition-all duration-300"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
+        {/* Before / After comparison */}
+        <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+          {/* Before */}
+          <motion.div
+            className="relative group"
+            initial={{ opacity: 0, x: -50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-muted/50 to-muted/20 rounded-3xl blur-xl opacity-50" />
+            <div className="relative p-4 rounded-3xl border border-border bg-card/80 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-4">
+                <span className="px-4 py-1.5 rounded-full bg-muted text-muted-foreground text-sm font-medium">
+                  Before Connecta
+                </span>
+                <span className="text-muted-foreground text-sm">@zigufit</span>
+              </div>
+              
+              <div className="relative rounded-2xl overflow-hidden">
+                <img 
+                  src={zigufitBefore} 
+                  alt="ZiguFit before - 1,280 followers" 
+                  className="w-full h-auto opacity-90 group-hover:opacity-100 transition-opacity"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-transparent" />
+              </div>
+              
+              <div className="mt-4 text-center">
+                <p className="text-3xl md:text-4xl font-bold text-muted-foreground">1,280</p>
+                <p className="text-sm text-muted-foreground">followers</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Arrow indicator (mobile: below, desktop: hidden as they're side by side) */}
+          <motion.div 
+            className="flex md:hidden justify-center -my-4 z-10"
+            initial={{ opacity: 0, scale: 0.5 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center rotate-90">
+              <ArrowRight className="w-6 h-6 text-primary-foreground" />
+            </div>
+          </motion.div>
+
+          {/* After */}
+          <motion.div
+            className="relative group"
+            initial={{ opacity: 0, x: 50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-primary/10 rounded-3xl blur-xl opacity-70 group-hover:opacity-100 transition-opacity" />
+            <div className="relative p-4 rounded-3xl border border-primary/30 bg-card/80 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-4">
+                <span className="px-4 py-1.5 rounded-full bg-primary/20 text-primary text-sm font-medium">
+                  After Connecta
+                </span>
+                <span className="text-primary text-sm font-medium">@zigufit</span>
+              </div>
+              
+              <div className="relative rounded-2xl overflow-hidden">
+                <img 
+                  src={zigufitAfter} 
+                  alt="ZiguFit after - 17.6K followers" 
+                  className="w-full h-auto"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-transparent" />
+              </div>
+              
+              <div className="mt-4 text-center">
+                <motion.p 
+                  className="text-3xl md:text-4xl font-bold text-primary"
+                  initial={{ scale: 0.5 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ type: "spring", stiffness: 200, delay: 0.6 }}
+                >
+                  17,600+
+                </motion.p>
+                <p className="text-sm text-muted-foreground">followers</p>
+              </div>
+            </div>
+            
+            {/* Growth indicator */}
+            <motion.div 
+              className="absolute -top-4 -right-4 md:top-4 md:-right-6 px-4 py-2 rounded-full bg-primary shadow-lg shadow-primary/30"
+              initial={{ opacity: 0, scale: 0, rotate: -10 }}
+              whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-              whileHover={{ y: -5, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.8 }}
+              whileHover={{ scale: 1.1 }}
             >
-              <point.icon className="w-8 h-8 text-destructive/70 mb-4 group-hover:scale-110 transition-transform" />
-              <p className="text-foreground font-medium">{point.text}</p>
+              <span className="text-primary-foreground font-bold text-sm">+1,275%</span>
             </motion.div>
-          ))}
+          </motion.div>
         </div>
-        
-        <motion.p 
-          className="text-foreground font-medium text-xl md:text-2xl"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+
+        {/* Stats row */}
+        <motion.div 
+          className="mt-16 grid grid-cols-3 gap-4 md:gap-8 p-6 md:p-8 rounded-2xl border border-border bg-card/50 backdrop-blur-sm"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
-          Social media growth isn't luck.<br />
-          <span className="text-primary">It's structure, messaging, and execution.</span>
+          <div className="text-center">
+            <p className="text-2xl md:text-4xl font-bold text-foreground">5</p>
+            <p className="text-xs md:text-sm text-muted-foreground">months</p>
+          </div>
+          <div className="text-center border-x border-border">
+            <p className="text-2xl md:text-4xl font-bold text-primary">2.6M+</p>
+            <p className="text-xs md:text-sm text-muted-foreground">views on top video</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl md:text-4xl font-bold text-foreground">442K</p>
+            <p className="text-xs md:text-sm text-muted-foreground">total likes</p>
+          </div>
+        </motion.div>
+
+        {/* Caption */}
+        <motion.p 
+          className="text-center mt-8 text-muted-foreground"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.8 }}
+        >
+          Real results from <span className="text-foreground font-medium">Zigurat Sofía</span> — Fitness Creator
         </motion.p>
       </div>
       
