@@ -31,7 +31,7 @@ const FounderSection = () => {
                   <img
                     src={robertoImage}
                     alt="Roberto Gauna, Founder of Connecta Creators"
-                    className="w-full h-full object-cover scale-150 object-top"
+                    className="w-full h-full object-cover scale-150 object-[center_25%]"
                   />
                 </div>
                 
@@ -49,7 +49,7 @@ const FounderSection = () => {
               transition={{ duration: 0.8, delay: 0.2 }}
             >
               <motion.p
-                className="text-primary font-medium tracking-widest uppercase text-sm mb-4"
+                className="text-primary font-medium tracking-widest uppercase text-xs md:text-sm mb-4"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
