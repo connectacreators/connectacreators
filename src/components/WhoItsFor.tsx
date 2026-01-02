@@ -1,36 +1,76 @@
-import { Check } from "lucide-react";
+import { motion } from "framer-motion";
+import { FloatingOrb } from "./ui/FloatingElements";
+import { Check, Stethoscope, Scale, Lightbulb, TrendingUp, Briefcase } from "lucide-react";
 
 const audiences = [
-  "Professionals with proven services",
-  "Clinics and medical practices",
-  "Lawyers and legal brands",
-  "Coaches and consultants",
-  "Sales leaders and entrepreneurs"
+  { text: "Professionals with proven services", icon: Briefcase },
+  { text: "Clinics and medical practices", icon: Stethoscope },
+  { text: "Lawyers and legal brands", icon: Scale },
+  { text: "Coaches and consultants", icon: Lightbulb },
+  { text: "Sales leaders and entrepreneurs", icon: TrendingUp },
 ];
 
 const WhoItsFor = () => {
   return (
-    <section className="py-24 md:py-32 bg-background">
-      <div className="max-w-4xl mx-auto px-6">
-        <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-12 tracking-tight">
-          Who Connecta is for
-        </h2>
+    <section className="relative py-24 md:py-32 bg-background overflow-hidden">
+      {/* Background elements */}
+      <FloatingOrb className="w-64 h-64 bg-primary/20 top-10 right-20" delay={1.5} />
+      <FloatingOrb className="w-48 h-48 bg-primary/15 bottom-40 left-10" delay={0} />
+      
+      <div className="relative max-w-4xl mx-auto px-6">
+        <motion.h2 
+          className="text-3xl md:text-5xl font-bold text-foreground mb-12 tracking-tight"
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8 }}
+        >
+          Who Connecta is <span className="italic">for</span>
+        </motion.h2>
         
         <div className="space-y-4 mb-12">
           {audiences.map((audience, index) => (
-            <div 
+            <motion.div 
               key={index}
-              className="flex items-center gap-4 text-lg md:text-xl text-foreground"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-transparent hover:border-primary/20 hover:bg-card/50 transition-all duration-300 cursor-default"
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ x: 10 }}
             >
-              <Check className="w-6 h-6 text-primary flex-shrink-0" />
-              <span>{audience}</span>
-            </div>
+              <motion.div 
+                className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors"
+                whileHover={{ scale: 1.1, rotate: 10 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <audience.icon className="w-5 h-5 text-primary" />
+              </motion.div>
+              <span className="text-lg md:text-xl text-foreground group-hover:text-primary transition-colors">
+                {audience.text}
+              </span>
+              <motion.div 
+                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                initial={{ scale: 0 }}
+                whileHover={{ scale: 1 }}
+              >
+                <Check className="w-5 h-5 text-primary" />
+              </motion.div>
+            </motion.div>
           ))}
         </div>
         
-        <p className="text-lg md:text-xl text-muted-foreground">
-          If you want to be visible, trusted, and taken seriously online, this is for you.
-        </p>
+        <motion.div
+          className="relative p-8 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+        >
+          <p className="text-lg md:text-xl text-foreground">
+            If you want to be <span className="text-primary font-medium">visible</span>, <span className="text-primary font-medium">trusted</span>, and <span className="text-primary font-medium">taken seriously</span> online, this is for you.
+          </p>
+        </motion.div>
       </div>
     </section>
   );
