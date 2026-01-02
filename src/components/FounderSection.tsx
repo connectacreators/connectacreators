@@ -1,15 +1,17 @@
 import { motion } from "framer-motion";
-import { FloatingOrb, GridPattern } from "./ui/FloatingElements";
 import robertoImage from "@/assets/roberto-founder.png";
 import signatureImage from "@/assets/roberto-signature.png";
 
 const FounderSection = () => {
   return (
     <section className="relative py-24 md:py-32 bg-background overflow-hidden">
-      {/* Background Elements */}
-      <GridPattern />
-      <FloatingOrb className="w-96 h-96 bg-primary/30 -top-48 -right-48" delay={0} />
-      <FloatingOrb className="w-64 h-64 bg-primary/20 bottom-0 -left-32" delay={2} />
+      {/* Static background elements - no animations for performance */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none hidden md:block" style={{
+        backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)`,
+        backgroundSize: '40px 40px'
+      }} />
+      <div className="absolute w-96 h-96 rounded-full bg-primary/30 blur-3xl -top-48 -right-48 hidden md:block" />
+      <div className="absolute w-64 h-64 rounded-full bg-primary/20 blur-3xl bottom-0 -left-32 hidden md:block" />
       
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-6xl mx-auto">
@@ -17,14 +19,14 @@ const FounderSection = () => {
             {/* Photo */}
             <motion.div
               className="relative flex-shrink-0"
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
+              transition={{ duration: 0.5 }}
             >
               <div className="relative">
                 {/* Glow effect */}
-                <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-110" />
+                <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-110 hidden md:block" />
                 
                 {/* Image container */}
                 <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden border border-primary/20">
@@ -32,6 +34,7 @@ const FounderSection = () => {
                     src={robertoImage}
                     alt="Roberto Gauna, Founder of Connecta Creators"
                     className="w-full h-full object-cover scale-150 object-[center_25%]"
+                    loading="lazy"
                   />
                 </div>
                 
@@ -86,19 +89,14 @@ const FounderSection = () => {
               </motion.div>
               
               {/* Signature */}
-              <motion.div
-                className="mt-8 flex justify-center"
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-              >
+              <div className="mt-8 flex justify-center">
                 <img
                   src={signatureImage}
                   alt="Roberto's signature"
                   className="h-12 md:h-16 opacity-80 invert"
+                  loading="lazy"
                 />
-              </motion.div>
+              </div>
             </motion.div>
           </div>
         </div>
