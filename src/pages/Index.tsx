@@ -1,6 +1,7 @@
 import HeroVProject from "@/components/HeroVProject";
 import FounderSection from "@/components/FounderSection";
 import ProblemSection from "@/components/ProblemSection";
+import ZiguFitSection from "@/components/ZiguFitSection";
 import SolutionSection from "@/components/SolutionSection";
 import WhatWeDoSection from "@/components/WhatWeDoSection";
 import ConnectaMethod from "@/components/ConnectaMethod";
@@ -16,6 +17,7 @@ const Index = () => {
       <HeroVProject />
       <FounderSection />
       <ProblemSection />
+      <ZiguFitSection />
       <SolutionSection />
       <WhatWeDoSection />
       <ConnectaMethod />
