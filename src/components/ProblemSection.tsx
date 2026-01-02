@@ -28,25 +28,25 @@ const ProblemSection = () => {
         </motion.div>
 
         {/* Before / After comparison */}
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+        <div className="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-12">
           {/* Before */}
           <motion.div
-            className="relative group"
+            className="relative group w-full max-w-[280px]"
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <div className="absolute -inset-1 bg-gradient-to-r from-muted/50 to-muted/20 rounded-3xl blur-xl opacity-50" />
-            <div className="relative p-4 rounded-3xl border border-border bg-card/80 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-4">
-                <span className="px-4 py-1.5 rounded-full bg-muted text-muted-foreground text-sm font-medium">
-                  Before Connecta
+            <div className="absolute -inset-1 bg-gradient-to-r from-muted/50 to-muted/20 rounded-2xl blur-xl opacity-50" />
+            <div className="relative p-3 rounded-2xl border border-border bg-card/80 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                  Before
                 </span>
-                <span className="text-muted-foreground text-sm">@zigufit</span>
+                <span className="text-muted-foreground text-xs">@zigufit</span>
               </div>
               
-              <div className="relative rounded-2xl overflow-hidden">
+              <div className="relative rounded-xl overflow-hidden">
                 <img 
                   src={zigufitBefore} 
                   alt="ZiguFit before - 1,280 followers" 
@@ -55,44 +55,44 @@ const ProblemSection = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-transparent" />
               </div>
               
-              <div className="mt-4 text-center">
-                <p className="text-3xl md:text-4xl font-bold text-muted-foreground">1,280</p>
-                <p className="text-sm text-muted-foreground">followers</p>
+              <div className="mt-3 text-center">
+                <p className="text-2xl font-bold text-muted-foreground">1,280</p>
+                <p className="text-xs text-muted-foreground">followers</p>
               </div>
             </div>
           </motion.div>
 
-          {/* Arrow indicator (mobile: below, desktop: hidden as they're side by side) */}
+          {/* Arrow indicator */}
           <motion.div 
-            className="flex md:hidden justify-center -my-4 z-10"
+            className="flex justify-center z-10"
             initial={{ opacity: 0, scale: 0.5 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
-            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center rotate-90">
-              <ArrowRight className="w-6 h-6 text-primary-foreground" />
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center md:rotate-0 rotate-90">
+              <ArrowRight className="w-5 h-5 text-primary-foreground" />
             </div>
           </motion.div>
 
           {/* After */}
           <motion.div
-            className="relative group"
+            className="relative group w-full max-w-[280px]"
             initial={{ opacity: 0, x: 50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-primary/10 rounded-3xl blur-xl opacity-70 group-hover:opacity-100 transition-opacity" />
-            <div className="relative p-4 rounded-3xl border border-primary/30 bg-card/80 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-4">
-                <span className="px-4 py-1.5 rounded-full bg-primary/20 text-primary text-sm font-medium">
-                  After Connecta
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-primary/10 rounded-2xl blur-xl opacity-70 group-hover:opacity-100 transition-opacity" />
+            <div className="relative p-3 rounded-2xl border border-primary/30 bg-card/80 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-medium">
+                  After
                 </span>
-                <span className="text-primary text-sm font-medium">@zigufit</span>
+                <span className="text-primary text-xs font-medium">@zigufit</span>
               </div>
               
-              <div className="relative rounded-2xl overflow-hidden">
+              <div className="relative rounded-xl overflow-hidden">
                 <img 
                   src={zigufitAfter} 
                   alt="ZiguFit after - 17.6K followers" 
@@ -101,9 +101,9 @@ const ProblemSection = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-transparent" />
               </div>
               
-              <div className="mt-4 text-center">
+              <div className="mt-3 text-center">
                 <motion.p 
-                  className="text-3xl md:text-4xl font-bold text-primary"
+                  className="text-2xl font-bold text-primary"
                   initial={{ scale: 0.5 }}
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true }}
@@ -111,7 +111,7 @@ const ProblemSection = () => {
                 >
                   17,600+
                 </motion.p>
-                <p className="text-sm text-muted-foreground">followers</p>
+                <p className="text-xs text-muted-foreground">followers</p>
               </div>
             </div>
             
@@ -131,7 +131,7 @@ const ProblemSection = () => {
 
         {/* Stats row */}
         <motion.div 
-          className="mt-16 grid grid-cols-3 gap-4 md:gap-8 p-6 md:p-8 rounded-2xl border border-border bg-card/50 backdrop-blur-sm"
+          className="mt-16 max-w-2xl mx-auto grid grid-cols-3 gap-4 md:gap-8 p-6 md:p-8 rounded-2xl border border-border bg-card/50 backdrop-blur-sm"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
