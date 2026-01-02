@@ -1,5 +1,6 @@
 import abogadoJonathan from "@/assets/abogado-jonathan.webp";
 import drCalvin from "@/assets/dr-calvin-new.webp";
+import zigufit from "@/assets/zigufit-profile.jpg";
 
 const caseStudies = [
   {
@@ -19,6 +20,7 @@ const caseStudies = [
   {
     name: "ZiguFit (Fitness Creator)",
     timeline: "5 months",
+    image: zigufit,
     before: "1,000",
     after: "17,700"
   }
