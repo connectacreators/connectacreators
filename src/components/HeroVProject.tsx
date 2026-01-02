@@ -70,9 +70,11 @@ const HeroVProject = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <span className="text-foreground">El </span>
-            <span className="italic text-foreground/90">sistema paso a paso</span>
-            <span className="text-foreground"> para</span>
+            <span className="text-2xl md:text-4xl lg:text-5xl">
+              <span className="text-foreground">El </span>
+              <span className="italic text-foreground/90">sistema paso a paso</span>
+              <span className="text-foreground"> para</span>
+            </span>
             <br />
             <motion.span 
               className="text-primary font-bold inline-block"
