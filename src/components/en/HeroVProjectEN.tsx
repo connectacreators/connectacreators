@@ -63,7 +63,7 @@ const HeroVProjectEN = () => {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6, type: "spring" }}
             >
-              earn +$10,000 / month
+              make +$10,000 / month
             </motion.span>
             <br />
             <span className="text-foreground">with your brand in </span>
