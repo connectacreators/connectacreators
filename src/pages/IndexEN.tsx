@@ -1,29 +1,54 @@
+import { lazy, Suspense } from "react";
 import HeroVProjectEN from "@/components/en/HeroVProjectEN";
-import FounderSectionEN from "@/components/en/FounderSectionEN";
-import ProblemSectionEN from "@/components/en/ProblemSectionEN";
-import ZiguFitSectionEN from "@/components/en/ZiguFitSectionEN";
-import SolutionSectionEN from "@/components/en/SolutionSectionEN";
-import WhatWeDoSectionEN from "@/components/en/WhatWeDoSectionEN";
-import ConnectaMethodEN from "@/components/en/ConnectaMethodEN";
-import ResultsSectionEN from "@/components/en/ResultsSectionEN";
-import WhyConnectaEN from "@/components/en/WhyConnectaEN";
-import WhoItsForEN from "@/components/en/WhoItsForEN";
-import CTASectionEN from "@/components/en/CTASectionEN";
+
+// Lazy load sections below the fold for better mobile performance
+const FounderSectionEN = lazy(() => import("@/components/en/FounderSectionEN"));
+const ProblemSectionEN = lazy(() => import("@/components/en/ProblemSectionEN"));
+const ZiguFitSectionEN = lazy(() => import("@/components/en/ZiguFitSectionEN"));
+const WhatWeDoSectionEN = lazy(() => import("@/components/en/WhatWeDoSectionEN"));
+const ConnectaMethodEN = lazy(() => import("@/components/en/ConnectaMethodEN"));
+const ResultsSectionEN = lazy(() => import("@/components/en/ResultsSectionEN"));
+const WhyConnectaEN = lazy(() => import("@/components/en/WhyConnectaEN"));
+const WhoItsForEN = lazy(() => import("@/components/en/WhoItsForEN"));
+const CTASectionEN = lazy(() => import("@/components/en/CTASectionEN"));
+
+const SectionLoader = () => (
+  <div className="min-h-[200px] flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const IndexEN = () => {
   return (
     <div className="min-h-screen bg-background">
       <HeroVProjectEN />
-      <FounderSectionEN />
-      <ProblemSectionEN />
-      <ZiguFitSectionEN />
-      <SolutionSectionEN />
-      <WhatWeDoSectionEN />
-      <ConnectaMethodEN />
-      <ResultsSectionEN />
-      <WhyConnectaEN />
-      <WhoItsForEN />
-      <CTASectionEN />
+      <Suspense fallback={<SectionLoader />}>
+        <FounderSectionEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <ProblemSectionEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <ZiguFitSectionEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <WhatWeDoSectionEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <ConnectaMethodEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <ResultsSectionEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <WhyConnectaEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <WhoItsForEN />
+      </Suspense>
+      <Suspense fallback={<SectionLoader />}>
+        <CTASectionEN />
+      </Suspense>
       
       {/* Disclaimer */}
       <div className="bg-card py-6 text-center">
