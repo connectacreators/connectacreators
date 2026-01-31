@@ -6,21 +6,18 @@ import zigufit from "@/assets/zigufit-profile.jpg";
 const caseStudies = [
   {
     name: "Lawyer Jonathan",
-    timeline: "~9 months",
     image: abogadoJonathan,
     before: "378K",
     after: "1.28M"
   },
   {
     name: "Dr. Calvin's Clinic",
-    timeline: "less than 2 months",
     image: drCalvin,
     before: "0",
     after: "10,000"
   },
   {
     name: "ZiguFit (Fitness Creator)",
-    timeline: "5 months",
     image: zigufit,
     before: "1,000",
     after: "17,700"
@@ -79,12 +76,9 @@ const ResultsSectionEN = () => {
                     </div>
                   </div>
                 )}
-                <h3 className="text-xl font-bold text-foreground mb-2">
+                <h3 className="text-xl font-bold text-foreground mb-4">
                   {study.name}
                 </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Time: {study.timeline}
-                </p>
                 
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">{study.before}</span>
