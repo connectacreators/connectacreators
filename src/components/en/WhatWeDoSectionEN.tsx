@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { FileText, Video, Users, Megaphone } from "lucide-react";
+import { FileText, Video, Users, Megaphone, Globe, Bot } from "lucide-react";
 import { FloatingOrb } from "../ui/FloatingElements";
 
 const services = [
   {
     icon: FileText,
-    title: "20 Viral Scripts per Month",
+    title: "20 Viral Videos every 4 Weeks",
     description: "Scripts designed to capture attention, retention, and authority on Instagram, TikTok, and YouTube Shorts."
   },
   {
@@ -20,8 +20,19 @@ const services = [
   },
   {
     icon: Megaphone,
-    title: "Amplification with Ads",
+    title: "Amplification with Meta Ads",
     description: "Strategic promotion of winning content to accelerate growth and reach the right audience faster."
+  },
+  {
+    icon: Globe,
+    title: "Lead Generation Funnel",
+    description: "Optimized landing page after ads to convert visitors into potential clients.",
+    link: "https://calvinmedical.org/"
+  },
+  {
+    icon: Bot,
+    title: "AI Systems Integration",
+    description: "Smart automation so clients can purchase or book appointments with you automatically."
   }
 ];
 
@@ -79,6 +90,16 @@ const WhatWeDoSectionEN = () => {
                 <p className="text-muted-foreground leading-relaxed text-center">
                   {service.description}
                 </p>
+                {service.link && (
+                  <a 
+                    href={service.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="mt-4 text-primary hover:text-primary/80 underline text-sm font-medium transition-colors"
+                  >
+                    See example →
+                  </a>
+                )}
               </div>
             </motion.div>
           ))}
