@@ -78,6 +78,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          inspiration_url: string | null
           raw_content: string
           title: string
           updated_at: string
@@ -86,6 +87,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          inspiration_url?: string | null
           raw_content: string
           title?: string
           updated_at?: string
@@ -94,6 +96,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          inspiration_url?: string | null
           raw_content?: string
           title?: string
           updated_at?: string

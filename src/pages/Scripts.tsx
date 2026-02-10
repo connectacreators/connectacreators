@@ -13,6 +13,8 @@ import {
   FileText,
   Loader2,
   ChevronLeft,
+  ExternalLink,
+  Eye,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import connectaLogo from "@/assets/connecta-logo.png";
@@ -64,6 +66,8 @@ export default function Scripts() {
   // New script form
   const [scriptTitle, setScriptTitle] = useState("");
   const [scriptInput, setScriptInput] = useState("");
+  const [inspirationUrl, setInspirationUrl] = useState("");
+  const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
 
   const handleSelectClient = async (client: Client) => {
     setSelectedClient(client);
@@ -86,17 +90,20 @@ export default function Scripts() {
     const lines = await categorizeAndSave(
       selectedClient.id,
       scriptTitle.trim() || "Sin título",
-      scriptInput.trim()
+      scriptInput.trim(),
+      inspirationUrl.trim() || undefined
     );
     if (lines) {
       setParsedLines(lines);
+      setViewingInspirationUrl(inspirationUrl.trim() || null);
       setView("view-script");
     }
   };
 
-  const handleViewScript = async (scriptId: string) => {
-    const lines = await getScriptLines(scriptId);
+  const handleViewScript = async (script: { id: string; inspiration_url: string | null }) => {
+    const lines = await getScriptLines(script.id);
     setParsedLines(lines);
+    setViewingInspirationUrl(script.inspiration_url);
     setView("view-script");
   };
 
@@ -106,6 +113,8 @@ export default function Scripts() {
       setParsedLines([]);
       setScriptTitle("");
       setScriptInput("");
+      setInspirationUrl("");
+      setViewingInspirationUrl(null);
     } else if (view === "client-detail") {
       setView("clients");
       setSelectedClient(null);
@@ -266,7 +275,7 @@ export default function Scripts() {
                 {scripts.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => handleViewScript(s.id)}
+                    onClick={() => handleViewScript(s)}
                     className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth text-left w-full"
                   >
                     <FileText className="w-5 h-5 text-muted-foreground" />
@@ -317,6 +326,12 @@ export default function Scripts() {
               onChange={(e) => setScriptTitle(e.target.value)}
               className="mb-3"
             />
+            <Input
+              placeholder="URL de inspiración (opcional)"
+              value={inspirationUrl}
+              onChange={(e) => setInspirationUrl(e.target.value)}
+              className="mb-3"
+            />
             <Textarea
               value={scriptInput}
               onChange={(e) => setScriptInput(e.target.value)}
@@ -343,6 +358,27 @@ export default function Scripts() {
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-3 animate-fade-in">
+            {/* Inspiration URL - always first */}
+            {viewingInspirationUrl && (
+              <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold text-primary font-inter uppercase tracking-wider">
+                    Inspiración
+                  </span>
+                </div>
+                <a
+                  href={viewingInspirationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-inter break-all"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                  {viewingInspirationUrl}
+                </a>
+              </div>
+            )}
+
             <h2 className="text-xl font-bold text-foreground mb-4 font-inter">
               Resultado — {parsedLines.length} líneas
             </h2>

@@ -12,6 +12,7 @@ export type Script = {
   client_id: string;
   title: string;
   raw_content: string;
+  inspiration_url: string | null;
   created_at: string;
 };
 
@@ -35,7 +36,8 @@ export function useScripts() {
   const categorizeAndSave = async (
     clientId: string,
     title: string,
-    rawContent: string
+    rawContent: string,
+    inspirationUrl?: string
   ): Promise<ScriptLine[] | null> => {
     setLoading(true);
     try {
@@ -63,7 +65,7 @@ export function useScripts() {
       // Save script
       const { data: script, error: scriptErr } = await supabase
         .from("scripts")
-        .insert({ client_id: clientId, title, raw_content: rawContent })
+        .insert({ client_id: clientId, title, raw_content: rawContent, inspiration_url: inspirationUrl || null })
         .select()
         .single();
       if (scriptErr) throw scriptErr;
