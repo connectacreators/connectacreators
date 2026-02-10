@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import IndexEN from "./pages/IndexEN";
 import Onboarding from "./pages/Onboarding";
 import Scripts from "./pages/Scripts";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/en" element={<IndexEN />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/scripts" element={<Scripts />} />
+          <Route path="/login" element={<Login />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
