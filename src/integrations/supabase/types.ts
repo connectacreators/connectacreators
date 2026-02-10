@@ -14,7 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      script_lines: {
+        Row: {
+          created_at: string
+          id: string
+          line_number: number
+          line_type: string
+          script_id: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_number: number
+          line_type: string
+          script_id: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_number?: number
+          line_type?: string
+          script_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_lines_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scripts: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          raw_content: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          raw_content: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          raw_content?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scripts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
