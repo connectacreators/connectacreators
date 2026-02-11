@@ -1,67 +1,76 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-type UserRole = "admin" | "client" | null;
+type UserRole = "admin" | "client";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<UserRole>(null);
+  const [role, setRole] = useState<UserRole>("client");
   const [loading, setLoading] = useState(true);
-  const initialized = useRef(false);
-
-  const fetchRole = async (userId: string): Promise<UserRole> => {
-    try {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
-      return (data?.role as UserRole) ?? "client";
-    } catch {
-      return "client";
-    }
-  };
 
   useEffect(() => {
-    // Set up listener FIRST
+    let isMounted = true;
+
+    const fetchRole = async (userId: string) => {
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (isMounted) return data ? "admin" as UserRole : "client" as UserRole;
+      } catch {
+        // ignore
+      }
+      return "client" as UserRole;
+    };
+
+    // Listener for ongoing changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
+        if (!isMounted) return;
         const u = session?.user ?? null;
         setUser(u);
         if (u) {
-          const r = await fetchRole(u.id);
-          setRole(r);
+          fetchRole(u.id).then((r) => { if (isMounted) setRole(r); });
         } else {
-          setRole(null);
+          setRole("client");
         }
-        setLoading(false);
-        initialized.current = true;
       }
     );
 
-    // Then check existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      // Only set if onAuthStateChange hasn't fired yet
-      if (!initialized.current) {
+    // Initial load
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
         const u = session?.user ?? null;
         setUser(u);
         if (u) {
           const r = await fetchRole(u.id);
-          setRole(r);
+          if (isMounted) setRole(r);
         }
-        setLoading(false);
-        initialized.current = true;
+      } catch (e) {
+        console.error("Auth init error:", e);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    init();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setRole(null);
+    setRole("client");
   };
 
   const signInWithEmail = async (email: string, password: string) => {
