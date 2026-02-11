@@ -164,9 +164,9 @@ serve(async (req) => {
         client: props["Client"]?.select?.name || "",
         campaignName: props["Campaign Name"]?.rich_text?.[0]?.plain_text || "",
         notes: props["Notes"]?.rich_text?.[0]?.plain_text || "",
-        createdDate: props["Created Date"]?.date?.start || "",
+        createdDate: props["Date"]?.date?.start || "",
         lastContacted: props["Last Contacted"]?.date?.start || "",
-        appointmentDate: props["Appointment Date"]?.date?.start || "",
+        appointmentDate: props["Appointment Date"]?.rich_text?.[0]?.plain_text || "",
         notionUrl: page.url,
       };
     });
