@@ -17,6 +17,7 @@ export type Script = {
   target: string | null;
   formato: string | null;
   google_drive_link: string | null;
+  grabado: boolean;
   created_at: string;
 };
 
@@ -257,6 +258,21 @@ export function useScripts() {
     return true;
   };
 
+  const toggleGrabado = async (scriptId: string, grabado: boolean) => {
+    const { error } = await supabase
+      .from("scripts")
+      .update({ grabado })
+      .eq("id", scriptId);
+    if (error) {
+      toast.error("Error al actualizar estado");
+      return false;
+    }
+    setScripts((prev) =>
+      prev.map((s) => (s.id === scriptId ? { ...s, grabado } : s))
+    );
+    return true;
+  };
+
   return {
     scripts,
     loading,
@@ -266,5 +282,6 @@ export function useScripts() {
     deleteScript,
     updateScript,
     updateGoogleDriveLink,
+    toggleGrabado,
   };
 }

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
-  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Target, Lightbulb, Save,
+  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import { Link } from "react-router-dom";
@@ -52,8 +52,10 @@ export default function Scripts() {
   const { clients, loading: clientsLoading, addClient } = useClients(!!user);
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
-    categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink,
+    categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
   } = useScripts();
+
+  const [grabadoFilter, setGrabadoFilter] = useState<"all" | "grabado" | "no-grabado">("all");
 
   const [view, setView] = useState<View>("clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -288,26 +290,26 @@ export default function Scripts() {
     <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Header */}
       <header className="border-b border-border/50 sticky top-0 z-50 bg-background/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm">
+        <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <Link to="/" className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
-              Inicio
+              <span className="hidden sm:inline">Inicio</span>
             </Link>
-            <img src={connectaLogo} alt="Connecta" className="h-8" />
+            <img src={connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground hidden sm:inline">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
               {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
             </span>
-            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
-              <LogOut className="w-3.5 h-3.5" /> Salir
+            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1 flex-shrink-0">
+              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Salir</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
+      <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
         {/* Breadcrumb */}
         {view !== "clients" && (
           <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth">
@@ -385,41 +387,84 @@ export default function Scripts() {
         {view === "client-detail" && selectedClient && (
           <>
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-foreground">{selectedClient.name}</h1>
-              {selectedClient.email && <p className="text-muted-foreground text-sm">{selectedClient.email}</p>}
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">{selectedClient.name}</h1>
+              {selectedClient.email && <p className="text-muted-foreground text-sm truncate">{selectedClient.email}</p>}
             </div>
 
-            <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="mb-6 gap-2">
-              <Plus className="w-4 h-4" /> Nuevo Script
-            </Button>
-
-            {scripts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No hay scripts para este cliente.</p>
-            ) : (
-              <div className="grid gap-3">
-                {scripts.map((s) => (
-                  <div key={s.id} className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth">
-                    <button onClick={() => handleViewScript(s)} className="flex items-center gap-4 flex-1 min-w-0 text-left">
-                      <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground truncate">{s.title}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
-                      </div>
-                    </button>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar">
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      {isAdmin && (
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
+                <Plus className="w-4 h-4" /> Nuevo Script
+              </Button>
+              <div className="flex gap-1 bg-card border border-border rounded-lg p-1">
+                {[
+                  { key: "all" as const, label: "Todos" },
+                  { key: "no-grabado" as const, label: "No Grabados" },
+                  { key: "grabado" as const, label: "Grabados" },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setGrabadoFilter(f.key)}
+                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-md transition-smooth font-medium ${
+                      grabadoFilter === f.key
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
                 ))}
               </div>
-            )}
+            </div>
+
+            {(() => {
+              const filtered = scripts.filter((s) => {
+                if (grabadoFilter === "grabado") return s.grabado;
+                if (grabadoFilter === "no-grabado") return !s.grabado;
+                return true;
+              });
+              return filtered.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  {scripts.length === 0 ? "No hay scripts para este cliente." : "No hay scripts en esta categoría."}
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {filtered.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth">
+                      <button
+                        onClick={async () => {
+                          await toggleGrabado(s.id, !s.grabado);
+                        }}
+                        className="flex-shrink-0"
+                        title={s.grabado ? "Marcar como no grabado" : "Marcar como grabado"}
+                      >
+                        {s.grabado ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                        )}
+                      </button>
+                      <button onClick={() => handleViewScript(s)} className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left">
+                        <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0 hidden sm:block" />
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold truncate ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>{s.title}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
+                        </div>
+                      </button>
+                      <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive h-8 w-8 p-0">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -513,7 +558,7 @@ export default function Scripts() {
                       }
                     }}
                   >
-                    <SelectTrigger className="h-7 w-auto min-w-[160px] border-violet-500/30 bg-transparent text-foreground text-sm px-2 py-0">
+                    <SelectTrigger className="h-7 w-auto min-w-[140px] max-w-[200px] border-violet-500/30 bg-transparent text-foreground text-sm px-2 py-0">
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -541,7 +586,7 @@ export default function Scripts() {
             )}
 
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-foreground">Resultado — {parsedLines.length} líneas</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">Resultado — {parsedLines.length} líneas</h2>
               {parsedLines.some((l) => l.line_type === "actor") && (
                 <Button onClick={() => setShowTeleprompter(true)} variant="outline" className="gap-2">
                   <MonitorPlay className="w-4 h-4" /> Teleprompter
@@ -552,7 +597,7 @@ export default function Scripts() {
               const cfg = typeConfig[line.line_type];
               const Icon = cfg.icon;
               return (
-                <div key={i} className={`flex items-start gap-3 p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}>
+                <div key={i} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}>
                   <div className={`mt-0.5 p-1.5 rounded-md ${cfg.bg}`}>
                     <Icon className={`w-4 h-4 ${cfg.color}`} />
                   </div>
@@ -568,56 +613,57 @@ export default function Scripts() {
             {/* Google Drive link at the end */}
             {viewingMetadata && (
               <div className="mt-6 pt-4 border-t border-border">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   <Link2 className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-semibold text-green-400">Google Drive:</span>
-                  {editingDriveLink ? (
-                    <div className="flex gap-2 flex-1">
-                      <Input
-                        value={tempDriveLink}
-                        onChange={(e) => setTempDriveLink(e.target.value)}
-                        placeholder="Pega el link de Google Drive"
-                        className="text-sm h-8"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && viewingScriptId) {
-                            updateGoogleDriveLink(viewingScriptId, tempDriveLink);
-                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
-                            setEditingDriveLink(false);
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          if (viewingScriptId) {
-                            await updateGoogleDriveLink(viewingScriptId, tempDriveLink);
-                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
-                            setEditingDriveLink(false);
-                          }
-                        }}
-                      >
-                        <Save className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ) : viewingMetadata.google_drive_link ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => window.open(viewingMetadata.google_drive_link!, '_blank', 'noopener,noreferrer')}
-                        className="text-sm text-green-400 hover:underline break-all text-left"
-                      >
-                        {viewingMetadata.google_drive_link}
-                      </button>
-                      <Button size="sm" variant="ghost" onClick={() => { setTempDriveLink(viewingMetadata.google_drive_link || ""); setEditingDriveLink(true); }}>
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">
-                      + Agregar link
-                    </button>
-                  )}
                 </div>
+                {editingDriveLink ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={tempDriveLink}
+                      onChange={(e) => setTempDriveLink(e.target.value)}
+                      placeholder="Pega el link de Google Drive"
+                      className="text-sm h-8 flex-1 min-w-0"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && viewingScriptId) {
+                          updateGoogleDriveLink(viewingScriptId, tempDriveLink);
+                          setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
+                          setEditingDriveLink(false);
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-shrink-0"
+                      onClick={async () => {
+                        if (viewingScriptId) {
+                          await updateGoogleDriveLink(viewingScriptId, tempDriveLink);
+                          setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
+                          setEditingDriveLink(false);
+                        }
+                      }}
+                    >
+                      <Save className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : viewingMetadata.google_drive_link ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      onClick={() => window.open(viewingMetadata.google_drive_link!, '_blank', 'noopener,noreferrer')}
+                      className="text-sm text-green-400 hover:underline break-all text-left min-w-0"
+                    >
+                      {viewingMetadata.google_drive_link}
+                    </button>
+                    <Button size="sm" variant="ghost" className="flex-shrink-0" onClick={() => { setTempDriveLink(viewingMetadata.google_drive_link || ""); setEditingDriveLink(true); }}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">
+                    + Agregar link
+                  </button>
+                )}
               </div>
             )}
           </div>

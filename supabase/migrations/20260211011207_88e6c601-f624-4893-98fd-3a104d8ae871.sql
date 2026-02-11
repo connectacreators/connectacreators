@@ -1,0 +1,1 @@
+ALTER TABLE public.scripts ADD COLUMN grabado boolean NOT NULL DEFAULT false;

@@ -109,6 +109,7 @@ export type Database = {
           created_at: string
           formato: string | null
           google_drive_link: string | null
+          grabado: boolean
           id: string
           idea_ganadora: string | null
           inspiration_url: string | null
@@ -122,6 +123,7 @@ export type Database = {
           created_at?: string
           formato?: string | null
           google_drive_link?: string | null
+          grabado?: boolean
           id?: string
           idea_ganadora?: string | null
           inspiration_url?: string | null
@@ -135,6 +137,7 @@ export type Database = {
           created_at?: string
           formato?: string | null
           google_drive_link?: string | null
+          grabado?: boolean
           id?: string
           idea_ganadora?: string | null
           inspiration_url?: string | null
