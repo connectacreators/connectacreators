@@ -303,12 +303,6 @@ export default function LeadTracker() {
                           {lead.email}
                         </span>
                       )}
-                      {lead.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" />
-                          {lead.phone}
-                        </span>
-                      )}
                       {lead.createdDate && (
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
@@ -334,14 +328,25 @@ export default function LeadTracker() {
                         {lead.client}
                       </Badge>
                     )}
-                    <a
-                      href={lead.notionUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    {isAdmin && lead.notionUrl && (
+                      <a
+                        href={lead.notionUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+                    {lead.phone && (
+                      <a
+                        href={`tel:${lead.phone}`}
+                        className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors font-semibold text-sm"
+                      >
+                        <Phone className="w-4 h-4" />
+                        {lead.phone}
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
