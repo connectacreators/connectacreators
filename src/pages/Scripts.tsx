@@ -498,7 +498,7 @@ export default function Scripts() {
                 )}
                 {viewingMetadata.target && (
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold text-blue-400">Target:</span>{" "}
+                    <span className="font-semibold text-red-400">Target:</span>{" "}
                     {viewingMetadata.target}
                   </p>
                 )}
