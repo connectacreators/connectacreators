@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
-import { FileText, LogOut, Loader2, Settings } from "lucide-react";
+import { FileText, LogOut, Loader2, Settings, Target } from "lucide-react";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 
@@ -72,16 +72,19 @@ export default function Dashboard() {
             </div>
           </button>
 
-          {/* Placeholder for future tools */}
-          <div className="flex flex-col items-center justify-center gap-4 p-8 bg-card/50 border border-dashed border-border rounded-xl text-center opacity-50">
-            <div className="p-4 rounded-full bg-muted">
-              <span className="text-2xl">🚀</span>
+          {/* Lead Tracker card */}
+          <button
+            onClick={() => navigate("/leads")}
+            className="flex flex-col items-center gap-4 p-8 bg-card border border-border rounded-xl hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5 text-center group"
+          >
+            <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+              <Target className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground mb-1">Próximamente</h2>
-              <p className="text-sm text-muted-foreground">Más herramientas en camino.</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">Lead Tracker</h2>
+              <p className="text-sm text-muted-foreground">Visualiza y gestiona tus leads del CRM.</p>
             </div>
-          </div>
+          </button>
         </div>
       </main>
     </div>

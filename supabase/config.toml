@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.reset-password-admin]
 verify_jwt = false
+
+[functions.fetch-leads]
+verify_jwt = false
