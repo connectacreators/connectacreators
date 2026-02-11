@@ -73,24 +73,24 @@ const typeConfig = {
     label: "Instrucciones de Filmación",
     icon: Film,
     color: "text-red-400",
-    bg: "bg-gradient-to-br from-red-500/15 to-red-500/5",
-    border: "border-red-500/30",
+    bg: "bg-gradient-to-br from-red-500/25 to-red-900/10",
+    border: "border-red-500/40",
     dot: "bg-red-500",
   },
   actor: {
     label: "Voiceover / Diálogo",
     icon: Mic,
     color: "text-purple-400",
-    bg: "bg-gradient-to-br from-purple-500/15 to-purple-500/5",
-    border: "border-purple-500/30",
+    bg: "bg-gradient-to-br from-purple-500/25 to-purple-900/10",
+    border: "border-purple-500/40",
     dot: "bg-purple-500",
   },
   editor: {
     label: "Instrucciones de Edición",
     icon: Scissors,
     color: "text-emerald-400",
-    bg: "bg-gradient-to-br from-emerald-500/15 to-emerald-500/5",
-    border: "border-emerald-500/30",
+    bg: "bg-gradient-to-br from-emerald-500/25 to-emerald-900/10",
+    border: "border-emerald-500/40",
     dot: "bg-emerald-500",
   },
 };
@@ -337,7 +337,7 @@ export default function Scripts() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-card" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Header */}
       <header className="border-b border-border/50 sticky top-0 z-50 bg-gradient-to-r from-background/90 to-card/90 backdrop-blur-xl">
         <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
@@ -383,7 +383,7 @@ export default function Scripts() {
             {/* New Client (admin only) */}
             {isAdmin && (
               showNewClient ? (
-                <div className="bg-gradient-to-br from-card to-card/80 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
+                <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
                   <h3 className="font-semibold text-foreground">Nuevo Cliente</h3>
                   <Input placeholder="Nombre del cliente *" value={newName} onChange={(e) => setNewName(e.target.value)} />
                   <Input placeholder="Correo electrónico (opcional)" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
@@ -416,7 +416,7 @@ export default function Scripts() {
                   <button
                     key={c.id}
                     onClick={() => handleSelectClient(c)}
-                    className="flex items-center gap-4 p-4 bg-gradient-to-br from-card to-card/70 border border-border rounded-2xl hover:border-primary/50 transition-smooth text-left w-full"
+                    className="flex items-center gap-4 p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:from-card hover:to-primary/10 transition-smooth text-left w-full"
                   >
                     <div className="p-2 rounded-full bg-primary/10">
                       <User className="w-5 h-5 text-primary" />
@@ -445,7 +445,7 @@ export default function Scripts() {
               <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4" /> Nuevo Script
               </Button>
-              <div className="flex gap-1 bg-gradient-to-r from-card to-card/80 border border-border rounded-2xl p-1">
+              <div className="flex gap-1 bg-gradient-to-r from-card via-card to-muted/30 border border-border rounded-2xl p-1">
                 {[
                   { key: "all" as const, label: "Todos" },
                   { key: "no-grabado" as const, label: "No Grabados" },
@@ -479,7 +479,7 @@ export default function Scripts() {
               ) : (
                 <div className="grid gap-3">
                   {filtered.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card to-card/70 border border-border rounded-2xl hover:border-primary/50 transition-smooth">
+                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:to-primary/10 transition-smooth">
                       <button
                         onClick={async () => {
                           await toggleGrabado(s.id, !s.grabado);
@@ -546,10 +546,10 @@ export default function Scripts() {
             <div className="mb-3">
               <label className="text-sm text-muted-foreground mb-1 block">Formato</label>
               <Select value={formato} onValueChange={setFormato}>
-                <SelectTrigger className="bg-card">
+                <SelectTrigger className="bg-gradient-to-r from-card to-muted/30">
                   <SelectValue placeholder="Selecciona un formato" />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-border z-50">
+                <SelectContent className="bg-gradient-to-br from-card to-muted/20 border-border z-50">
                   <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
                   <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
                   <SelectItem value="ENTREVISTA">Entrevista</SelectItem>
@@ -565,7 +565,7 @@ export default function Scripts() {
                 value={scriptInput}
                 onChange={(e) => setScriptInput(e.target.value)}
                 placeholder="Pega, escribe o dicta el guión completo aquí..."
-                className="min-h-[200px] bg-card border-border font-mono text-sm resize-y pr-12"
+                className="min-h-[200px] bg-gradient-to-br from-card to-muted/20 border-border font-mono text-sm resize-y pr-12"
               />
               <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
             </div>
@@ -587,7 +587,7 @@ export default function Scripts() {
           <div className="space-y-3 animate-fade-in">
             {/* Metadata inline */}
             {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
-              <div className="mb-4 space-y-1">
+              <div className="mb-4 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
                 {viewingMetadata.idea_ganadora && (
                   <p className="text-sm text-foreground">
                     <span className="font-semibold text-amber-400">Idea Ganadora:</span>{" "}
@@ -626,7 +626,7 @@ export default function Scripts() {
             )}
 
             {viewingInspirationUrl && (
-              <div className="p-4 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 mb-2">
+              <div className="p-4 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Eye className="w-4 h-4 text-primary" />
                   <span className="text-sm font-semibold text-primary uppercase tracking-wider">Inspiración</span>
@@ -678,7 +678,7 @@ export default function Scripts() {
 
             {/* Google Drive link at the end */}
             {viewingMetadata && (
-              <div className="mt-6 pt-4 border-t border-border">
+              <div className="mt-6 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
                 <div className="flex items-center gap-2 mb-2">
                   <Link2 className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-semibold text-green-400">Google Drive:</span>
