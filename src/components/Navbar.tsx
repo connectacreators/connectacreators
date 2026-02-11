@@ -20,7 +20,7 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <img src={connectaLogo} alt="Connecta" className="h-8" />
+            <img src={connectaLogo} alt="Connecta" className="h-12" />
           </div>
 
           {/* Desktop Navigation */}
