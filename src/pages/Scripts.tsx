@@ -972,9 +972,9 @@ export default function Scripts() {
 
               const handleAddPlaceholder = async () => {
                 if (!viewingScriptId) return;
-                const lineNumber = await addScriptLine(viewingScriptId, section, "placeholder", "");
+                const lineNumber = await addScriptLine(viewingScriptId, section, "filming", "");
                 if (lineNumber) {
-                  setParsedLines((prev) => [...prev, { line_type: "placeholder" as any, text: "", section }]);
+                  setParsedLines((prev) => [...prev, { line_type: "filming" as any, text: "", section }]);
                 }
               };
 
@@ -1007,7 +1007,7 @@ export default function Scripts() {
                     </div>
                   ) : (
                     sectionLines.map((line, i) => {
-                      const isPlaceholder = (line.line_type as string) === "placeholder";
+                      const isPlaceholder = !line.text || line.text.trim() === "";
                       const cfg = isPlaceholder
                         ? { label: "Selecciona tipo", icon: Plus, color: "text-muted-foreground", bg: "bg-gradient-to-br from-muted/30 to-muted/10", border: "border-muted-foreground/20", dot: "bg-muted-foreground" }
                         : typeConfig[line.line_type];
