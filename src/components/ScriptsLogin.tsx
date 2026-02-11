@@ -5,7 +5,7 @@ import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
-import connectaLogo from "@/assets/connecta-logo.png";
+import connectaLogo from "@/assets/connecta-logo-new.png";
 
 type Props = {
   onSignIn: () => void;
@@ -78,8 +78,10 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
     <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex items-center justify-center px-4" style={{ fontFamily: "Arial, sans-serif" }}>
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <img src={connectaLogo} alt="Connecta" className="h-10 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground">Script Breakdown</h1>
+          <img src={connectaLogo} alt="Connecta" className="h-20 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">
+            Let's make some killer <em>scripts</em>
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isForgot ? "Ingresa tu correo para restablecer tu contraseña" : isSignUp ? "Crea tu cuenta" : "Inicia sesión para continuar"}
           </p>
