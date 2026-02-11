@@ -105,7 +105,7 @@ export default function Scripts() {
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
     categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
-    updateScriptLine, deleteScriptLine, updateScriptLineType,
+    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine,
   } = useScripts();
 
   // Inline editing script lines
@@ -968,49 +968,98 @@ export default function Scripts() {
             {/* Render lines grouped by section */}
             {(["hook", "body", "cta"] as const).map((section) => {
               const sectionLines = parsedLines.filter((l) => l.section === section);
-              if (sectionLines.length === 0) return null;
               const sectionLabels = { hook: "Hook", body: "Body", cta: "CTA" };
+
+              const handleAddPlaceholder = async () => {
+                if (!viewingScriptId) return;
+                const lineNumber = await addScriptLine(viewingScriptId, section, "placeholder", "");
+                if (lineNumber) {
+                  setParsedLines((prev) => [...prev, { line_type: "placeholder" as any, text: "", section }]);
+                }
+              };
+
               return (
                 <div key={section} className="space-y-3">
                   <div className="flex items-center gap-2 mt-4 mb-2">
                     <span className="text-sm font-bold text-foreground uppercase tracking-wider">{sectionLabels[section]}</span>
+                    <button
+                      onClick={handleAddPlaceholder}
+                      className="w-5 h-5 rounded-full border border-dashed border-muted-foreground/50 hover:border-primary/70 flex items-center justify-center transition-smooth"
+                      title={`Agregar línea a ${sectionLabels[section]}`}
+                    >
+                      <Plus className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                    </button>
                     <div className="flex-1 h-px bg-border" />
                   </div>
-                  {sectionLines.map((line, i) => {
-                    const cfg = typeConfig[line.line_type];
-                    const Icon = cfg.icon;
-                    const globalIndex = parsedLines.indexOf(line);
-                    const lineKey = `${section}-${i}`;
-                    const isEditingThis = editingLineKey === lineKey;
-                    return (
-                      <div key={lineKey} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
-                        <button
-                          className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg} cursor-pointer hover:opacity-80 transition-smooth`}
-                          title="Cambiar tipo de línea"
-                          onClick={async () => {
-                            if (!viewingScriptId) return;
-                            const types: ("filming" | "actor" | "editor")[] = ["filming", "actor", "editor"];
-                            const currentIdx = types.indexOf(line.line_type);
-                            const nextType = types[(currentIdx + 1) % types.length];
-                            const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
-                            if (ok) {
-                              setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
-                            }
-                          }}
-                        >
-                          <Icon className={`w-4 h-4 ${cfg.color}`} />
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
-                          {isEditingThis ? (
-                            <Textarea
-                              autoFocus
-                              value={editLineText}
-                              onChange={(e) => setEditLineText(e.target.value)}
-                              className="mt-1 text-sm bg-background/50 min-h-[60px]"
-                              onKeyDown={async (e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
+                  {sectionLines.length === 0 ? (
+                    /* Auto-placeholder when section is empty */
+                    <div
+                      className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border bg-gradient-to-br from-muted/30 to-muted/10 border-muted-foreground/20 transition-smooth cursor-pointer group"
+                      onClick={handleAddPlaceholder}
+                    >
+                      <div className="mt-0.5 p-1.5 rounded-xl bg-muted/30">
+                        <Plus className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nueva línea</span>
+                        <p className="text-muted-foreground/60 mt-1 text-sm italic">Haz clic para agregar una línea...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    sectionLines.map((line, i) => {
+                      const isPlaceholder = (line.line_type as string) === "placeholder";
+                      const cfg = isPlaceholder
+                        ? { label: "Selecciona tipo", icon: Plus, color: "text-muted-foreground", bg: "bg-gradient-to-br from-muted/30 to-muted/10", border: "border-muted-foreground/20", dot: "bg-muted-foreground" }
+                        : typeConfig[line.line_type];
+                      const Icon = cfg.icon;
+                      const globalIndex = parsedLines.indexOf(line);
+                      const lineKey = `${section}-${i}`;
+                      const isEditingThis = editingLineKey === lineKey;
+                      return (
+                        <div key={lineKey} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
+                          <button
+                            className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg} cursor-pointer hover:opacity-80 transition-smooth`}
+                            title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
+                            onClick={async () => {
+                              if (!viewingScriptId) return;
+                              const types: ("filming" | "actor" | "editor")[] = ["filming", "actor", "editor"];
+                              let nextType: "filming" | "actor" | "editor";
+                              if (isPlaceholder) {
+                                nextType = "filming";
+                              } else {
+                                const currentIdx = types.indexOf(line.line_type);
+                                nextType = types[(currentIdx + 1) % types.length];
+                              }
+                              const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
+                              if (ok) {
+                                setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
+                              }
+                            }}
+                          >
+                            <Icon className={`w-4 h-4 ${cfg.color}`} />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+                            {isEditingThis ? (
+                              <Textarea
+                                autoFocus
+                                value={editLineText}
+                                onChange={(e) => setEditLineText(e.target.value)}
+                                className="mt-1 text-sm bg-background/50 min-h-[60px]"
+                                onKeyDown={async (e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    if (viewingScriptId && editLineText.trim()) {
+                                      const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+                                      if (ok) {
+                                        setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                                      }
+                                    }
+                                    setEditingLineKey(null);
+                                  }
+                                  if (e.key === "Escape") setEditingLineKey(null);
+                                }}
+                                onBlur={async () => {
                                   if (viewingScriptId && editLineText.trim()) {
                                     const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
                                     if (ok) {
@@ -1018,48 +1067,38 @@ export default function Scripts() {
                                     }
                                   }
                                   setEditingLineKey(null);
+                                }}
+                              />
+                            ) : (
+                              <p
+                                className={`mt-1 text-sm leading-relaxed cursor-pointer ${isPlaceholder ? "text-muted-foreground/60 italic" : "text-foreground"}`}
+                                onDoubleClick={() => { setEditingLineKey(lineKey); setEditLineText(line.text); }}
+                              >
+                                {isPlaceholder && !line.text ? "Doble clic para escribir..." : line.text}
+                              </p>
+                            )}
+                          </div>
+                          {!isEditingThis && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-smooth text-destructive hover:text-destructive h-8 w-8 p-0 flex-shrink-0 mt-1"
+                              title="Eliminar línea"
+                              onClick={async () => {
+                                if (!viewingScriptId) return;
+                                const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
+                                if (ok) {
+                                  setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
                                 }
-                                if (e.key === "Escape") setEditingLineKey(null);
                               }}
-                              onBlur={async () => {
-                                if (viewingScriptId && editLineText.trim()) {
-                                  const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
-                                  if (ok) {
-                                    setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
-                                  }
-                                }
-                                setEditingLineKey(null);
-                              }}
-                            />
-                          ) : (
-                            <p
-                              className="text-foreground mt-1 text-sm leading-relaxed cursor-pointer"
-                              onDoubleClick={() => { setEditingLineKey(lineKey); setEditLineText(line.text); }}
                             >
-                              {line.text}
-                            </p>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                           )}
                         </div>
-                        {!isEditingThis && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-smooth text-destructive hover:text-destructive h-8 w-8 p-0 flex-shrink-0 mt-1"
-                            title="Eliminar línea"
-                            onClick={async () => {
-                              if (!viewingScriptId) return;
-                              const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
-                              if (ok) {
-                                setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               );
             })}
