@@ -46,6 +46,21 @@ export function useClients(enabled: boolean) {
     return data;
   };
 
+  const updateClient = async (id: string, updates: { name?: string; email?: string | null }) => {
+    const { error } = await supabase
+      .from("clients")
+      .update(updates)
+      .eq("id", id);
+    if (error) {
+      toast.error("Error actualizando cliente");
+      console.error(error);
+      return false;
+    }
+    setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    toast.success("Cliente actualizado");
+    return true;
+  };
+
   useEffect(() => {
     if (enabled) {
       fetchClients();
@@ -54,5 +69,5 @@ export function useClients(enabled: boolean) {
     }
   }, [enabled, fetchClients]);
 
-  return { clients, loading, addClient, refetch: fetchClients };
+  return { clients, loading, addClient, updateClient, refetch: fetchClients };
 }

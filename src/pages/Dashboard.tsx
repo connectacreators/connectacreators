@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
-import { FileText, LogOut, Loader2 } from "lucide-react";
+import { FileText, LogOut, Loader2, Settings } from "lucide-react";
 import connectaLogo from "@/assets/connecta-logo.png";
 
 export default function Dashboard() {
@@ -39,6 +39,9 @@ export default function Dashboard() {
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
               {user.email}
             </span>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/settings")} className="gap-1 flex-shrink-0">
+              <Settings className="w-3.5 h-3.5" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut} className="gap-1">
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Salir</span>
