@@ -70,6 +70,8 @@ export default function LeadTracker() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [selectedClient, setSelectedClient] = useState<string>("all");
+  const [statusOptions, setStatusOptions] = useState<string[]>([]);
+  const [sourceOptions, setSourceOptions] = useState<string[]>([]);
 
   const fetchLeads = useCallback(async (clientName?: string) => {
     setLoading(true);
@@ -98,6 +100,7 @@ export default function LeadTracker() {
 
       const result = await res.json();
       setLeads(result.leads || []);
+      if (result.statusOptions) setStatusOptions(result.statusOptions);
     } catch (e: any) {
       console.error("Error fetching leads:", e);
       setError(e.message || "Error al cargar leads");
@@ -137,8 +140,8 @@ export default function LeadTracker() {
     return matchesSearch && matchesStatus && matchesSource;
   });
 
-  const statuses = [...new Set(leads.map((l) => l.leadStatus).filter(Boolean))];
-  const sources = [...new Set(leads.map((l) => l.leadSource).filter(Boolean))];
+  const statuses = statusOptions.length > 0 ? statusOptions : [...new Set(leads.map((l) => l.leadStatus).filter(Boolean))];
+  const sources = sourceOptions.length > 0 ? sourceOptions : [...new Set(leads.map((l) => l.leadSource).filter(Boolean))];
 
   // Stats
   const totalLeads = leads.length;
