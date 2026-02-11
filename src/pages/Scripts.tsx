@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,8 @@ import { useScripts, type ScriptLine, type Script } from "@/hooks/useScripts";
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const typeConfig = {
   filming: {
@@ -70,6 +72,28 @@ export default function Scripts() {
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // Listen for PASSWORD_RECOVERY event
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setShowResetPassword(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSetNewPassword = useCallback(async () => {
+    if (newPassword.length < 6) { toast.error("La contraseña debe tener al menos 6 caracteres"); return; }
+    setResetLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setResetLoading(false);
+    if (error) toast.error(error.message);
+    else { toast.success("Contraseña actualizada exitosamente"); setShowResetPassword(false); setNewPassword(""); }
+  }, [newPassword]);
 
   // Auto-select client for non-admin users
   useEffect(() => {
@@ -412,6 +436,27 @@ export default function Scripts() {
       {showTeleprompter && (
         <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} />
       )}
+
+      <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Establecer nueva contraseña</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Nueva contraseña (mín. 6 caracteres)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSetNewPassword()}
+            />
+            <Button onClick={handleSetNewPassword} className="w-full" disabled={resetLoading}>
+              {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Guardar contraseña
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
