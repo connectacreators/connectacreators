@@ -143,14 +143,6 @@ serve(async (req) => {
 
     const notionData = await notionResponse.json();
 
-    // Log property names from first result for debugging
-    if (notionData.results.length > 0) {
-      const firstProps = Object.keys(notionData.results[0].properties);
-      console.log("Notion property names:", JSON.stringify(firstProps));
-      const apptProp = notionData.results[0].properties["Appointment Date"];
-      console.log("Appointment Date prop:", JSON.stringify(apptProp));
-    }
-
     // Transform Notion results into clean leads
     const leads = notionData.results.map((page: any) => {
       const props = page.properties;
@@ -166,7 +158,7 @@ serve(async (req) => {
         notes: props["Notes"]?.rich_text?.[0]?.plain_text || "",
         createdDate: props["Date"]?.date?.start || "",
         lastContacted: props["Last Contacted"]?.date?.start || "",
-        appointmentDate: props["Appointment Date"]?.rich_text?.[0]?.plain_text || "",
+        appointmentDate: props["Date"]?.date?.start || "",
         notionUrl: page.url,
       };
     });
