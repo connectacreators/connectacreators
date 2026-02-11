@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -8,39 +8,51 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
+
+  const fetchRole = async (userId: string): Promise<UserRole> => {
+    try {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return (data?.role as UserRole) ?? "client";
+    } catch {
+      return "client";
+    }
+  };
 
   useEffect(() => {
+    // Set up listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const u = session?.user ?? null;
         setUser(u);
         if (u) {
-          // Fetch role
-          const { data } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", u.id)
-            .maybeSingle();
-          setRole((data?.role as UserRole) ?? "client");
+          const r = await fetchRole(u.id);
+          setRole(r);
         } else {
           setRole(null);
         }
         setLoading(false);
+        initialized.current = true;
       }
     );
 
+    // Then check existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u) {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", u.id)
-          .maybeSingle();
-        setRole((data?.role as UserRole) ?? "client");
+      // Only set if onAuthStateChange hasn't fired yet
+      if (!initialized.current) {
+        const u = session?.user ?? null;
+        setUser(u);
+        if (u) {
+          const r = await fetchRole(u.id);
+          setRole(r);
+        }
+        setLoading(false);
+        initialized.current = true;
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
