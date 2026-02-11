@@ -21,6 +21,7 @@ import {
   Phone,
   Users,
   Calendar as CalendarIcon,
+  Mail,
 } from "lucide-react";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 
@@ -40,6 +41,8 @@ type Lead = {
   notionUrl: string;
 };
 
+type ViewMode = "month" | "week" | "year";
+
 const STATUS_COLORS: Record<string, string> = {
   "Appointment Booked": "bg-green-500/15 text-green-400 border-green-500/30",
   "Follow up #1 (Not Booked)": "bg-orange-500/15 text-orange-400 border-orange-500/30",
@@ -48,20 +51,33 @@ const STATUS_COLORS: Record<string, string> = {
   "Meta Ad (Not Booked)": "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
 };
 
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function getFirstDayOfWeek(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
-
 const MONTH_NAMES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
-
+const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DAY_NAMES_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+function getFirstDayOfWeek(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+function getWeekDates(date: Date): Date[] {
+  const day = date.getDay();
+  const start = new Date(date);
+  start.setDate(start.getDate() - day);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+}
+function formatDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export default function LeadCalendar() {
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -73,10 +89,16 @@ export default function LeadCalendar() {
   const [error, setError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
 
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
+  const [viewWeekStart, setViewWeekStart] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay());
+    return d;
+  });
 
   const fetchLeads = useCallback(async (clientName?: string) => {
     setLoading(true);
@@ -84,12 +106,8 @@ export default function LeadCalendar() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
-
       const params = new URLSearchParams();
-      if (clientName && clientName !== "all") {
-        params.set("client_name", clientName);
-      }
-
+      if (clientName && clientName !== "all") params.set("client_name", clientName);
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-leads?${params.toString()}`;
       const res = await fetch(url, {
         headers: {
@@ -97,14 +115,11 @@ export default function LeadCalendar() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
       });
-
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `Error ${res.status}`);
       }
-
       const result = await res.json();
-      // Only keep leads with appointment dates
       setLeads((result.leads || []).filter((l: Lead) => l.appointmentDate));
     } catch (e: any) {
       console.error("Error fetching leads:", e);
@@ -120,7 +135,6 @@ export default function LeadCalendar() {
     }
   }, [authLoading, user, isAdmin, selectedClient, fetchLeads]);
 
-  // Group leads by appointment date
   const leadsByDate = useMemo(() => {
     const map: Record<string, Lead[]> = {};
     leads.forEach((lead) => {
@@ -131,20 +145,53 @@ export default function LeadCalendar() {
     return map;
   }, [leads]);
 
-  const daysInMonth = getDaysInMonth(viewYear, viewMonth);
-  const firstDay = getFirstDayOfWeek(viewYear, viewMonth);
+  const todayStr = formatDateStr(now);
 
-  const prevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
-    else setViewMonth(viewMonth - 1);
+  // Navigation
+  const goPrev = () => {
+    if (viewMode === "month") {
+      if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
+      else setViewMonth(viewMonth - 1);
+    } else if (viewMode === "week") {
+      const d = new Date(viewWeekStart);
+      d.setDate(d.getDate() - 7);
+      setViewWeekStart(d);
+    } else {
+      setViewYear(viewYear - 1);
+    }
+  };
+  const goNext = () => {
+    if (viewMode === "month") {
+      if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
+      else setViewMonth(viewMonth + 1);
+    } else if (viewMode === "week") {
+      const d = new Date(viewWeekStart);
+      d.setDate(d.getDate() + 7);
+      setViewWeekStart(d);
+    } else {
+      setViewYear(viewYear + 1);
+    }
+  };
+  const goToday = () => {
+    const n = new Date();
+    setViewYear(n.getFullYear());
+    setViewMonth(n.getMonth());
+    const ws = new Date(n);
+    ws.setDate(ws.getDate() - ws.getDay());
+    setViewWeekStart(ws);
+    setSelectedDate(formatDateStr(n));
   };
 
-  const nextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
-    else setViewMonth(viewMonth + 1);
-  };
-
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const headerLabel = viewMode === "month"
+    ? `${MONTH_NAMES[viewMonth]} ${viewYear}`
+    : viewMode === "year"
+      ? `${viewYear}`
+      : (() => {
+          const dates = getWeekDates(viewWeekStart);
+          const s = dates[0]; const e = dates[6];
+          if (s.getMonth() === e.getMonth()) return `${s.getDate()} – ${e.getDate()} ${MONTH_NAMES[s.getMonth()]} ${s.getFullYear()}`;
+          return `${s.getDate()} ${MONTH_SHORT[s.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]} ${e.getFullYear()}`;
+        })();
 
   const selectedLeads = selectedDate ? (leadsByDate[selectedDate] || []) : [];
 
@@ -155,42 +202,40 @@ export default function LeadCalendar() {
       </div>
     );
   }
-
-  if (!user) {
-    navigate("/");
-    return null;
-  }
+  if (!user) { navigate("/"); return null; }
 
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+        <div className="container mx-auto px-3 py-2.5 flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <img src={chessKnightIcon} alt="Connecta" className="h-7" />
-          <h1 className="font-bold text-lg">Lead Calendar</h1>
-          <div className="ml-auto">
+          <img src={chessKnightIcon} alt="Connecta" className="h-6" />
+          <h1 className="font-bold text-base sm:text-lg">Lead Calendar</h1>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>
+              Hoy
+            </Button>
             <Button
-              variant="ghost"
-              size="sm"
+              variant="ghost" size="sm" className="h-7 w-7 p-0"
               onClick={() => fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined)}
               disabled={loading}
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Client filter for admins */}
-        {isAdmin && (
-          <div className="mb-4">
+      <main className="flex-1 flex flex-col container mx-auto px-3 py-3 max-w-5xl">
+        {/* Controls row */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          {isAdmin && (
             <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <Users className="w-4 h-4 mr-2" />
+              <SelectTrigger className="w-full sm:w-[200px] h-8 text-xs">
+                <Users className="w-3.5 h-3.5 mr-1.5" />
                 <SelectValue placeholder="Cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -200,102 +245,215 @@ export default function LeadCalendar() {
                 ))}
               </SelectContent>
             </Select>
+          )}
+          {/* View mode toggle */}
+          <div className="flex bg-muted rounded-md p-0.5 sm:ml-auto">
+            {(["week", "month", "year"] as ViewMode[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {mode === "week" ? "Semana" : mode === "month" ? "Mes" : "Año"}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between mb-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goPrev}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <h2 className="text-sm sm:text-base font-bold text-foreground">{headerLabel}</h2>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goNext}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
 
         {error && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-6 text-sm text-destructive">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-3 text-xs text-destructive">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <>
-            {/* Calendar navigation */}
-            <div className="flex items-center justify-between mb-4">
-              <Button variant="ghost" size="icon" onClick={prevMonth}>
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <h2 className="text-lg font-bold">
-                {MONTH_NAMES[viewMonth]} {viewYear}
-              </h2>
-              <Button variant="ghost" size="icon" onClick={nextMonth}>
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
+          <div className="flex-1 flex flex-col gap-3">
+            {/* ===== MONTH VIEW ===== */}
+            {viewMode === "month" && (
+              <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden flex-1">
+                {DAY_NAMES.map((d, i) => (
+                  <div key={d} className="bg-muted p-1 sm:p-2 text-center text-[10px] sm:text-xs font-semibold text-muted-foreground">
+                    <span className="hidden sm:inline">{d}</span>
+                    <span className="sm:hidden">{DAY_NAMES_SHORT[i]}</span>
+                  </div>
+                ))}
+                {Array.from({ length: getFirstDayOfWeek(viewYear, viewMonth) }).map((_, i) => (
+                  <div key={`e-${i}`} className="bg-card min-h-[48px] sm:min-h-[72px]" />
+                ))}
+                {Array.from({ length: getDaysInMonth(viewYear, viewMonth) }).map((_, i) => {
+                  const day = i + 1;
+                  const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  const dayLeads = leadsByDate[dateStr] || [];
+                  const isToday = dateStr === todayStr;
+                  const isSelected = dateStr === selectedDate;
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                      className={`bg-card p-1 sm:p-1.5 min-h-[48px] sm:min-h-[72px] text-left transition-colors hover:bg-accent/50 flex flex-col ${isSelected ? "ring-2 ring-primary ring-inset" : ""}`}
+                    >
+                      <span className={`text-[10px] sm:text-xs font-medium inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                        {day}
+                      </span>
+                      {dayLeads.length > 0 && (
+                        <div className="mt-auto pt-0.5">
+                          <span className="block w-full text-center text-[8px] sm:text-[10px] font-semibold text-green-400 bg-green-500/10 rounded px-0.5 py-px">
+                            {dayLeads.length}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-            {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden mb-6">
-              {DAY_NAMES.map((d) => (
-                <div key={d} className="bg-muted p-2 text-center text-xs font-semibold text-muted-foreground">
-                  {d}
+            {/* ===== WEEK VIEW ===== */}
+            {viewMode === "week" && (() => {
+              const weekDates = getWeekDates(viewWeekStart);
+              return (
+                <div className="flex-1 grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+                  {weekDates.map((d, i) => {
+                    const dateStr = formatDateStr(d);
+                    const dayLeads = leadsByDate[dateStr] || [];
+                    const isToday = dateStr === todayStr;
+                    const isSelected = dateStr === selectedDate;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                        className={`bg-card p-1.5 sm:p-2 min-h-[120px] sm:min-h-[200px] text-left transition-colors hover:bg-accent/50 flex flex-col ${isSelected ? "ring-2 ring-primary ring-inset" : ""}`}
+                      >
+                        <div className="text-center mb-1">
+                          <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[i]}</span>
+                          <span className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                            {d.getDate()}
+                          </span>
+                        </div>
+                        {dayLeads.length > 0 && (
+                          <div className="space-y-0.5 overflow-hidden flex-1">
+                            {dayLeads.slice(0, 4).map((lead) => (
+                              <div key={lead.id} className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-400 rounded px-1 py-0.5 truncate">
+                                {lead.fullName || "Sin nombre"}
+                              </div>
+                            ))}
+                            {dayLeads.length > 4 && (
+                              <span className="text-[9px] text-muted-foreground">+{dayLeads.length - 4} más</span>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
-              {/* Empty cells before first day */}
-              {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`empty-${i}`} className="bg-card p-2 min-h-[60px] sm:min-h-[80px]" />
-              ))}
-              {/* Day cells */}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const dayLeads = leadsByDate[dateStr] || [];
-                const isToday = dateStr === todayStr;
-                const isSelected = dateStr === selectedDate;
+              );
+            })()}
 
-                return (
-                  <button
-                    key={day}
-                    onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                    className={`bg-card p-1.5 sm:p-2 min-h-[60px] sm:min-h-[80px] text-left transition-colors hover:bg-accent/50 ${isSelected ? "ring-2 ring-primary ring-inset" : ""}`}
-                  >
-                    <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
-                      {day}
-                    </span>
-                    {dayLeads.length > 0 && (
-                      <div className="mt-1">
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-green-500/15 text-green-400">
-                          {dayLeads.length} cita{dayLeads.length > 1 ? "s" : ""}
-                        </Badge>
+            {/* ===== YEAR VIEW ===== */}
+            {viewMode === "year" && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+                {MONTH_NAMES.map((mName, mIdx) => {
+                  const monthDays = getDaysInMonth(viewYear, mIdx);
+                  const firstDow = getFirstDayOfWeek(viewYear, mIdx);
+                  let monthLeadCount = 0;
+                  for (let d = 1; d <= monthDays; d++) {
+                    const ds = `${viewYear}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                    if (leadsByDate[ds]) monthLeadCount += leadsByDate[ds].length;
+                  }
+                  const isCurrentMonth = viewYear === now.getFullYear() && mIdx === now.getMonth();
+                  return (
+                    <button
+                      key={mIdx}
+                      onClick={() => { setViewMonth(mIdx); setViewMode("month"); }}
+                      className={`bg-card border rounded-lg p-2 sm:p-3 hover:border-primary/50 transition-colors text-left ${isCurrentMonth ? "border-primary/40" : "border-border"}`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-foreground">{MONTH_SHORT[mIdx]}</span>
+                        {monthLeadCount > 0 && (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-green-500/15 text-green-400">
+                            {monthLeadCount}
+                          </Badge>
+                        )}
                       </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                      {/* Mini calendar grid */}
+                      <div className="grid grid-cols-7 gap-px">
+                        {DAY_NAMES_SHORT.map((dn) => (
+                          <span key={dn} className="text-[7px] text-muted-foreground text-center">{dn}</span>
+                        ))}
+                        {Array.from({ length: firstDow }).map((_, i) => (
+                          <span key={`e-${i}`} />
+                        ))}
+                        {Array.from({ length: monthDays }).map((_, i) => {
+                          const d = i + 1;
+                          const ds = `${viewYear}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                          const has = !!leadsByDate[ds];
+                          const isTd = ds === todayStr;
+                          return (
+                            <span
+                              key={d}
+                              className={`text-[7px] sm:text-[8px] text-center leading-tight rounded-sm ${isTd ? "bg-primary text-primary-foreground font-bold" : has ? "bg-green-500/20 text-green-400 font-semibold" : "text-muted-foreground"}`}
+                            >
+                              {d}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-            {/* Selected date detail */}
+            {/* Selected date detail panel */}
             {selectedDate && (
-              <div>
-                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+              <div className="border-t border-border pt-3 mt-1">
+                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm">
                   <CalendarIcon className="w-4 h-4 text-primary" />
                   {new Date(selectedDate + "T12:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                  <Badge variant="outline" className="ml-2 text-xs">{selectedLeads.length} lead{selectedLeads.length !== 1 ? "s" : ""}</Badge>
+                  <Badge variant="outline" className="ml-1 text-[10px]">{selectedLeads.length} lead{selectedLeads.length !== 1 ? "s" : ""}</Badge>
                 </h3>
                 {selectedLeads.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No hay citas este día.</p>
+                  <p className="text-xs text-muted-foreground py-4 text-center">No hay citas este día.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {selectedLeads.map((lead) => (
-                      <div key={lead.id} className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div key={lead.id} className="bg-card border border-border rounded-lg p-3 hover:border-primary/30 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h4 className="font-semibold text-foreground truncate">{lead.fullName || "Sin nombre"}</h4>
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <h4 className="font-semibold text-foreground text-sm truncate">{lead.fullName || "Sin nombre"}</h4>
                               {lead.leadStatus && (
-                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[lead.leadStatus] || "bg-muted text-muted-foreground"}`}>
+                                <Badge variant="outline" className={`text-[9px] px-1 py-0 ${STATUS_COLORS[lead.leadStatus] || "bg-muted text-muted-foreground"}`}>
                                   {lead.leadStatus}
                                 </Badge>
                               )}
                             </div>
-                            {lead.email && <p className="text-xs text-muted-foreground">{lead.email}</p>}
-                            {isAdmin && lead.client && (
-                              <Badge variant="outline" className="text-[10px] mt-1">{lead.client}</Badge>
-                            )}
+                            <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+                              {lead.email && (
+                                <span className="flex items-center gap-1">
+                                  <Mail className="w-3 h-3" />
+                                  {lead.email}
+                                </span>
+                              )}
+                              {isAdmin && lead.client && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0">{lead.client}</Badge>
+                              )}
+                            </div>
                           </div>
                           {lead.phone && (
                             <a
@@ -314,10 +472,10 @@ export default function LeadCalendar() {
               </div>
             )}
 
-            {!selectedDate && leads.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No hay leads con citas programadas.</p>
+            {!selectedDate && leads.length === 0 && !loading && (
+              <p className="text-center text-muted-foreground py-8 text-sm">No hay leads con citas programadas.</p>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>
