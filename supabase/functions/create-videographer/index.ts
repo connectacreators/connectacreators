@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseAdmin = createClient(
@@ -15,16 +15,34 @@ Deno.serve(async (req) => {
     );
 
     // Verify caller is admin
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     const { data: { user: caller } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!caller) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
     const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: corsHeaders });
 
+    // DELETE: remove videographer
+    if (req.method === "DELETE") {
+      const { user_id } = await req.json();
+      if (!user_id) return new Response(JSON.stringify({ error: "user_id required" }), { status: 400, headers: corsHeaders });
+
+      // Remove assignments
+      await supabaseAdmin.from("videographer_clients").delete().eq("videographer_user_id", user_id);
+      // Remove role
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", user_id).eq("role", "videographer");
+      // Remove profile
+      await supabaseAdmin.from("profiles").delete().eq("user_id", user_id);
+      // Delete auth user
+      await supabaseAdmin.auth.admin.deleteUser(user_id);
+
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // POST: create videographer
     const { email, password, username, full_name } = await req.json();
 
-    // Create auth user
     const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,

@@ -451,16 +451,103 @@ export default function Scripts() {
               )
             )}
 
-            {/* Create Videographer (admin only) */}
+            {/* Videographer Manager (admin only) */}
             {isAdmin && (
               showNewVideographer ? (
                 <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
-                  <h3 className="font-semibold text-foreground flex items-center gap-2"><Camera className="w-4 h-4 text-emerald-400" /> Nuevo Videographer</h3>
-                  <Input placeholder="Username *" value={vidUsername} onChange={(e) => setVidUsername(e.target.value)} />
-                  <Input placeholder="Nombre completo" value={vidName} onChange={(e) => setVidName(e.target.value)} />
-                  <Input placeholder="Correo electrónico *" type="email" value={vidEmail} onChange={(e) => setVidEmail(e.target.value)} />
-                  <Input placeholder="Contraseña *" type="password" value={vidPassword} onChange={(e) => setVidPassword(e.target.value)} />
-                  <div className="flex gap-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Camera className="w-5 h-5 text-emerald-400" /> Videógrafos
+                    </h3>
+                    <button onClick={() => setShowNewVideographer(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
+                  </div>
+
+                  {/* Existing videographers list */}
+                  {videographers.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {videographers.map((v) => {
+                        const assignedClients = Object.entries(assignmentsMap)
+                          .filter(([, vids]) => vids.includes(v.user_id))
+                          .map(([cid]) => clients.find((c) => c.id === cid))
+                          .filter(Boolean);
+                        return (
+                          <div key={v.user_id} className="p-3 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                <span className="font-semibold text-foreground text-sm truncate">{v.display_name}</span>
+                                {v.username && <span className="text-xs text-muted-foreground">@{v.username}</span>}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                                onClick={async () => {
+                                  if (!confirm(`¿Eliminar al videógrafo ${v.display_name}?`)) return;
+                                  try {
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-videographer`, {
+                                      method: "DELETE",
+                                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                                      body: JSON.stringify({ user_id: v.user_id }),
+                                    });
+                                    if (res.ok) {
+                                      setVideographers((prev) => prev.filter((x) => x.user_id !== v.user_id));
+                                      toast.success("Videógrafo eliminado");
+                                    } else {
+                                      const r = await res.json();
+                                      toast.error(r.error || "Error al eliminar");
+                                    }
+                                  } catch { toast.error("Error al eliminar"); }
+                                }}
+                                title="Eliminar videógrafo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+
+                            {/* Assigned clients */}
+                            <div className="flex flex-wrap gap-1">
+                              {assignedClients.length > 0 ? assignedClients.map((c) => (
+                                <span key={c!.id} className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  {c!.name}
+                                  <button onClick={() => toggleVideographerAssignment(c!.id, v.user_id)} className="hover:text-red-400">✕</button>
+                                </span>
+                              )) : (
+                                <span className="text-[10px] text-muted-foreground italic">Sin clientes asignados</span>
+                              )}
+                            </div>
+
+                            {/* Assign client dropdown */}
+                            <Select onValueChange={(clientId) => toggleVideographerAssignment(clientId, v.user_id)}>
+                              <SelectTrigger className="h-7 text-xs bg-transparent border-dashed border-muted-foreground/30">
+                                <SelectValue placeholder="+ Asignar cliente" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {clients
+                                  .filter((c) => !(assignmentsMap[c.id] || []).includes(v.user_id))
+                                  .map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {videographers.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">No hay videógrafos aún.</p>
+                  )}
+
+                  {/* Create new videographer form */}
+                  <div className="border-t border-border pt-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground">Crear nuevo videógrafo</h4>
+                    <Input placeholder="Username *" value={vidUsername} onChange={(e) => setVidUsername(e.target.value)} />
+                    <Input placeholder="Nombre completo" value={vidName} onChange={(e) => setVidName(e.target.value)} />
+                    <Input placeholder="Correo electrónico *" type="email" value={vidEmail} onChange={(e) => setVidEmail(e.target.value)} />
+                    <Input placeholder="Contraseña *" type="password" value={vidPassword} onChange={(e) => setVidPassword(e.target.value)} />
                     <Button
                       onClick={async () => {
                         if (!vidUsername.trim() || !vidEmail.trim() || !vidPassword.trim()) { toast.error("Username, email y contraseña son obligatorios"); return; }
@@ -474,8 +561,8 @@ export default function Scripts() {
                           });
                           const result = await res.json();
                           if (!res.ok) throw new Error(result.error);
-                          toast.success("Videographer creado exitosamente");
-                          setShowNewVideographer(false); setVidUsername(""); setVidEmail(""); setVidPassword(""); setVidName("");
+                          toast.success("Videógrafo creado exitosamente");
+                          setVidUsername(""); setVidEmail(""); setVidPassword(""); setVidName("");
                           const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "videographer");
                           if (roles) {
                             const ids = roles.map((r) => r.user_id);
@@ -483,22 +570,22 @@ export default function Scripts() {
                             setVideographers((profiles || []).map((p) => ({ user_id: p.user_id, display_name: p.display_name || "Sin nombre", username: p.username })));
                           }
                         } catch (e: any) {
-                          toast.error(e.message || "Error al crear videographer");
+                          toast.error(e.message || "Error al crear videógrafo");
                         } finally {
                           setVidLoading(false);
                         }
                       }}
                       disabled={vidLoading || !vidUsername.trim() || !vidEmail.trim() || !vidPassword.trim()}
+                      className="w-full"
                     >
                       {vidLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                      Crear Videographer
+                      Crear Videógrafo
                     </Button>
-                    <Button variant="ghost" onClick={() => setShowNewVideographer(false)}>Cancelar</Button>
                   </div>
                 </div>
               ) : (
                 <Button onClick={() => setShowNewVideographer(true)} variant="outline" className="mb-6 gap-2 ml-2">
-                  <Camera className="w-4 h-4" /> Nuevo Videographer
+                  <Camera className="w-4 h-4" /> Videógrafos
                 </Button>
               )
             )}
@@ -589,11 +676,9 @@ export default function Scripts() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-              {!isVideographer && (
-                <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
-                  <Plus className="w-4 h-4" /> Nuevo Script
-                </Button>
-              )}
+              <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
+                <Plus className="w-4 h-4" /> Nuevo Script
+              </Button>
               <div className="flex gap-1 bg-gradient-to-r from-card via-card to-muted/30 border border-border rounded-2xl p-1">
                 {[
                   { key: "all" as const, label: "Todos" },
@@ -649,18 +734,16 @@ export default function Scripts() {
                           <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
                         </div>
                       </button>
-                      {!isVideographer && (
-                        <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
-                            <Pencil className="w-4 h-4" />
+                      <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive h-8 w-8 p-0">
+                            <Trash2 className="w-4 h-4" />
                           </Button>
-                          {isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive h-8 w-8 p-0">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
