@@ -611,7 +611,12 @@ export default function Scripts() {
                         <User className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground truncate">{c.name}</p>
+                        <p className="font-semibold text-foreground truncate">
+                          {c.name}
+                          {!c.user_id && (
+                            <span className="text-xs text-red-500 font-normal ml-2">no verificado</span>
+                          )}
+                        </p>
                         {c.email && <p className="text-sm text-muted-foreground truncate">{c.email}</p>}
                         {/* Show assigned videographers */}
                         {isAdmin && assignmentsMap[c.id]?.length > 0 && (
@@ -671,7 +676,12 @@ export default function Scripts() {
         {view === "client-detail" && selectedClient && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">{selectedClient.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                {selectedClient.name}
+                {!selectedClient.user_id && (
+                  <span className="text-sm text-red-500 font-normal ml-2">no verificado</span>
+                )}
+              </h1>
               {selectedClient.email && <p className="text-muted-foreground text-sm truncate">{selectedClient.email}</p>}
             </div>
 
