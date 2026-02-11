@@ -650,7 +650,7 @@ export default function Scripts() {
             {(["hook", "body", "cta"] as const).map((section) => {
               const sectionLines = parsedLines.filter((l) => l.section === section);
               if (sectionLines.length === 0) return null;
-              const sectionLabels = { hook: "🪝 Hook", body: "📝 Body", cta: "📣 CTA" };
+              const sectionLabels = { hook: "Hook", body: "Body", cta: "CTA" };
               return (
                 <div key={section} className="space-y-3">
                   <div className="flex items-center gap-2 mt-4 mb-2">
