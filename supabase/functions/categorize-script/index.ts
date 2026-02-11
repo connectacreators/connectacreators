@@ -23,18 +23,21 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const systemPrompt = `You are a script analysis assistant for video production. Given a raw script, you must categorize EVERY line into one of three types:
+    const systemPrompt = `You are a script analysis assistant for video production. Given a raw script, you must:
 
-- "filming": Camera/filming instructions (angles, lighting, transitions, locations, visual directions)
-- "actor": Dialogue, voiceover, or anything the talent/actor says on camera
-- "editor": Post-production instructions (text overlays, music, effects, B-roll inserts, transitions added in editing)
+1. Extract metadata from the script:
+   - "idea_ganadora": The winning idea or hook of the video. Summarize it in one clear sentence if not explicitly stated.
+   - "target": The target audience for this content. Infer from context if not explicitly stated.
 
-Return a JSON array where each element has:
-- "line_type": one of "filming", "actor", "editor"
-- "text": the original text of that line
+2. Categorize EVERY line of the actual script content into one of three types:
+   - "filming": Camera/filming instructions (angles, lighting, transitions, locations, visual directions)
+   - "actor": Dialogue, voiceover, or anything the talent/actor says on camera
+   - "editor": Post-production instructions (text overlays, music, effects, B-roll inserts, transitions added in editing)
 
 Rules:
-- Every non-empty line must be categorized
+- If the script contains lines labeled "Idea Ganadora:" or "Target:", extract those values and do NOT include them in the categorized lines
+- If the script contains lines labeled "Formato:" or "Google Drive:", do NOT include them in the categorized lines either
+- Every other non-empty line must be categorized
 - If a line has a tag like [filming], [actor], [editor] etc., use it as a hint but still validate
 - Lines without tags: use context to determine the type
 - Dialogue/voiceover lines are "actor"
@@ -56,19 +59,27 @@ Rules:
             { role: "system", content: systemPrompt },
             {
               role: "user",
-              content: `Categorize each line of this script:\n\n${rawScript}`,
+              content: `Analyze this script and extract metadata + categorize lines:\n\n${rawScript}`,
             },
           ],
           tools: [
             {
               type: "function",
               function: {
-                name: "categorize_lines",
+                name: "categorize_script",
                 description:
-                  "Return categorized script lines as structured data",
+                  "Return extracted metadata and categorized script lines as structured data",
                 parameters: {
                   type: "object",
                   properties: {
+                    idea_ganadora: {
+                      type: "string",
+                      description: "The winning idea/hook of the video",
+                    },
+                    target: {
+                      type: "string",
+                      description: "The target audience for this content",
+                    },
                     lines: {
                       type: "array",
                       items: {
@@ -85,7 +96,7 @@ Rules:
                       },
                     },
                   },
-                  required: ["lines"],
+                  required: ["idea_ganadora", "target", "lines"],
                   additionalProperties: false,
                 },
               },
@@ -93,7 +104,7 @@ Rules:
           ],
           tool_choice: {
             type: "function",
-            function: { name: "categorize_lines" },
+            function: { name: "categorize_script" },
           },
         }),
       }

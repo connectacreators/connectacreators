@@ -107,27 +107,39 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          formato: string | null
+          google_drive_link: string | null
           id: string
+          idea_ganadora: string | null
           inspiration_url: string | null
           raw_content: string
+          target: string | null
           title: string
           updated_at: string
         }
         Insert: {
           client_id: string
           created_at?: string
+          formato?: string | null
+          google_drive_link?: string | null
           id?: string
+          idea_ganadora?: string | null
           inspiration_url?: string | null
           raw_content: string
+          target?: string | null
           title?: string
           updated_at?: string
         }
         Update: {
           client_id?: string
           created_at?: string
+          formato?: string | null
+          google_drive_link?: string | null
           id?: string
+          idea_ganadora?: string | null
           inspiration_url?: string | null
           raw_content?: string
+          target?: string | null
           title?: string
           updated_at?: string
         }
