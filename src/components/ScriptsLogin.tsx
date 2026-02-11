@@ -59,7 +59,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex items-center justify-center px-4" style={{ fontFamily: "Arial, sans-serif" }}>
-      <div className="w-full max-w-sm space-y-6 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 shadow-card">
+      <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <img src={connectaLogo} alt="Connecta" className="h-10 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Script Breakdown</h1>
@@ -78,7 +78,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
               />
-              <Button onClick={handleForgotPassword} className="w-full gap-2" disabled={loading}>
+              <Button onClick={handleForgotPassword} className="w-full gap-2 bg-gradient-to-b from-primary to-primary-dark hover:from-primary/90 hover:to-primary-dark/90" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
                 Enviar enlace de recuperación
               </Button>
@@ -108,7 +108,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
               />
-              <Button onClick={handleEmailAuth} className="w-full gap-2" disabled={loading}>
+              <Button onClick={handleEmailAuth} className="w-full gap-2 bg-gradient-to-b from-primary to-primary-dark hover:from-primary/90 hover:to-primary-dark/90" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                 {isSignUp ? "Registrarse" : "Iniciar Sesión"}
               </Button>
@@ -126,11 +126,11 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
             <span className="w-full border-t border-border/50" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">o</span>
+            <span className="bg-background px-2 text-muted-foreground">o</span>
           </div>
         </div>
 
-        <Button onClick={handleGoogle} variant="outline" className="w-full gap-2">
+        <Button onClick={handleGoogle} variant="outline" className="w-full gap-2 bg-gradient-to-b from-card to-muted/40 hover:from-card hover:to-muted/60">
           <LogIn className="w-4 h-4" />
           Continuar con Google
         </Button>
