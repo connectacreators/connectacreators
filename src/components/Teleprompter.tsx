@@ -11,33 +11,21 @@ interface TeleprompterProps {
 
 export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
   const actorLines = lines.filter((l) => l.line_type === "actor");
-  const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number | null>(null);
 
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(40); // px per second
+  const [speed, setSpeed] = useState(40);
   const [showControls, setShowControls] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fullscreen on mount
+  // Lock body scroll when teleprompter is open
   useEffect(() => {
-    const el = containerRef.current;
-    if (el && !document.fullscreenElement) {
-      el.requestFullscreen().catch(() => {});
-    }
-
-    const onFsChange = () => {
-      if (!document.fullscreenElement) {
-        onClose();
-      }
-    };
-    document.addEventListener("fullscreenchange", onFsChange);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("fullscreenchange", onFsChange);
-      if (animRef.current) cancelAnimationFrame(animRef.current);
+      document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, []);
 
   // Auto-scroll loop
   useEffect(() => {
@@ -63,8 +51,8 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
     };
   }, [playing, speed]);
 
-  // Show controls on mouse move, hide after 3s
-  const handleMouseMove = useCallback(() => {
+  // Show controls on interaction, hide after 3s
+  const revealControls = useCallback(() => {
     setShowControls(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
@@ -77,49 +65,60 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
     setPlaying(false);
   };
 
-  const handleClose = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
-    onClose();
-  };
-
   // Keyboard controls
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape") onClose();
       if (e.key === " ") { e.preventDefault(); setPlaying((p) => !p); }
       if (e.key === "ArrowUp") setSpeed((s) => Math.min(s + 10, 200));
       if (e.key === "ArrowDown") setSpeed((s) => Math.max(s - 10, 10));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onClose]);
+
+  // Tap to toggle play/pause (mobile), double-tap area excludes controls
+  const handleContentTap = useCallback(() => {
+    revealControls();
+    setPlaying((p) => !p);
+  }, [revealControls]);
 
   return (
     <div
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
+      onMouseMove={revealControls}
+      onTouchStart={revealControls}
       className="fixed inset-0 z-[9999] bg-black flex flex-col"
-      style={{ fontFamily: "Arial, Helvetica, sans-serif", cursor: showControls ? "default" : "none" }}
+      style={{
+        fontFamily: "Arial, Helvetica, sans-serif",
+        cursor: showControls ? "default" : "none",
+        // Ensure it covers everything including notch areas
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
     >
       {/* Controls bar */}
       <div
-        className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4 transition-opacity duration-300"
-        style={{ opacity: showControls ? 1 : 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)" }}
+        className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 transition-opacity duration-300"
+        style={{
+          opacity: showControls ? 1 : 0,
+          pointerEvents: showControls ? "auto" : "none",
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)",
+          paddingTop: "max(env(safe-area-inset-top), 12px)",
+        }}
       >
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => setPlaying((p) => !p)} className="text-white hover:bg-white/10 gap-2">
-            {playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-            {playing ? "Pausar" : "Iniciar"}
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setPlaying((p) => !p)} className="text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+            {playing ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5" />}
+            <span className="hidden sm:inline">{playing ? "Pausar" : "Iniciar"}</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleReset} className="text-white hover:bg-white/10 gap-2">
-            <RotateCcw className="w-4 h-4" /> Reiniciar
+          <Button variant="ghost" size="sm" onClick={handleReset} className="text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Reiniciar</span>
           </Button>
         </div>
 
-        <div className="flex items-center gap-4 min-w-[280px]">
-          <span className="text-white/70 text-sm whitespace-nowrap">Velocidad</span>
+        <div className="flex items-center gap-2 sm:gap-4 min-w-[140px] sm:min-w-[280px]">
+          <span className="text-white/70 text-xs sm:text-sm whitespace-nowrap hidden sm:inline">Velocidad</span>
           <Slider
             value={[speed]}
             onValueChange={([v]) => setSpeed(v)}
@@ -128,23 +127,28 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
             step={5}
             className="flex-1"
           />
-          <span className="text-white text-sm font-bold w-10 text-right">{speed}</span>
+          <span className="text-white text-xs sm:text-sm font-bold w-8 sm:w-10 text-right">{speed}</span>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={handleClose} className="text-white hover:bg-white/10">
-          <X className="w-5 h-5" />
+        <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-white/10 px-2 sm:px-3">
+          <X className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
       </div>
 
-      {/* Scrolling content */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 md:px-20 lg:px-40">
+      {/* Scrolling content — tap to play/pause on mobile */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-20 lg:px-40"
+        onClick={handleContentTap}
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         {/* Top padding so text starts mid-screen */}
-        <div className="h-[50vh]" />
+        <div className="h-[45vh] sm:h-[50vh]" />
 
         {actorLines.map((line, i) => (
           <p
             key={i}
-            className="text-white text-3xl md:text-5xl lg:text-6xl leading-relaxed mb-12 text-center font-bold"
+            className="text-white text-xl sm:text-3xl md:text-5xl lg:text-6xl leading-relaxed mb-8 sm:mb-12 text-center font-bold"
           >
             {line.text}
           </p>

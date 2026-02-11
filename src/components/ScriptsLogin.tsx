@@ -26,6 +26,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/scripts`,
+    
     });
     setLoading(false);
     if (error) toast.error(error.message);
