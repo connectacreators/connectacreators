@@ -383,7 +383,7 @@ export default function Scripts() {
             {/* New Client (admin only) */}
             {isAdmin && (
               showNewClient ? (
-                <div className="bg-card border border-border rounded-lg p-6 mb-6 space-y-4 animate-fade-in">
+                <div className="bg-card border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
                   <h3 className="font-semibold text-foreground">Nuevo Cliente</h3>
                   <Input placeholder="Nombre del cliente *" value={newName} onChange={(e) => setNewName(e.target.value)} />
                   <Input placeholder="Correo electrónico (opcional)" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
@@ -416,7 +416,7 @@ export default function Scripts() {
                   <button
                     key={c.id}
                     onClick={() => handleSelectClient(c)}
-                    className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth text-left w-full"
+                    className="flex items-center gap-4 p-4 bg-card border border-border rounded-2xl hover:border-primary/50 transition-smooth text-left w-full"
                   >
                     <div className="p-2 rounded-full bg-primary/10">
                       <User className="w-5 h-5 text-primary" />
@@ -445,7 +445,7 @@ export default function Scripts() {
               <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4" /> Nuevo Script
               </Button>
-              <div className="flex gap-1 bg-card border border-border rounded-lg p-1">
+              <div className="flex gap-1 bg-card border border-border rounded-2xl p-1">
                 {[
                   { key: "all" as const, label: "Todos" },
                   { key: "no-grabado" as const, label: "No Grabados" },
@@ -454,7 +454,7 @@ export default function Scripts() {
                   <button
                     key={f.key}
                     onClick={() => setGrabadoFilter(f.key)}
-                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-md transition-smooth font-medium ${
+                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-xl transition-smooth font-medium ${
                       grabadoFilter === f.key
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground"
@@ -479,7 +479,7 @@ export default function Scripts() {
               ) : (
                 <div className="grid gap-3">
                   {filtered.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth">
+                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-card border border-border rounded-2xl hover:border-primary/50 transition-smooth">
                       <button
                         onClick={async () => {
                           await toggleGrabado(s.id, !s.grabado);
@@ -626,7 +626,7 @@ export default function Scripts() {
             )}
 
             {viewingInspirationUrl && (
-              <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-2">
+              <div className="p-4 rounded-2xl border border-primary/30 bg-primary/5 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Eye className="w-4 h-4 text-primary" />
                   <span className="text-sm font-semibold text-primary uppercase tracking-wider">Inspiración</span>
@@ -661,8 +661,8 @@ export default function Scripts() {
                     const cfg = typeConfig[line.line_type];
                     const Icon = cfg.icon;
                     return (
-                      <div key={`${section}-${i}`} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}>
-                        <div className={`mt-0.5 p-1.5 rounded-md ${cfg.bg}`}>
+                      <div key={`${section}-${i}`} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth`}>
+                        <div className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg}`}>
                           <Icon className={`w-4 h-4 ${cfg.color}`} />
                         </div>
                         <div className="flex-1 min-w-0">
