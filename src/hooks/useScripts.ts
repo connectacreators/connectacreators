@@ -280,6 +280,32 @@ export function useScripts() {
     return true;
   };
 
+  const updateScriptLine = async (scriptId: string, lineNumber: number, newText: string) => {
+    const { error } = await supabase
+      .from("script_lines")
+      .update({ text: newText })
+      .eq("script_id", scriptId)
+      .eq("line_number", lineNumber);
+    if (error) {
+      toast.error("Error al actualizar línea");
+      return false;
+    }
+    return true;
+  };
+
+  const deleteScriptLine = async (scriptId: string, lineNumber: number) => {
+    const { error } = await supabase
+      .from("script_lines")
+      .delete()
+      .eq("script_id", scriptId)
+      .eq("line_number", lineNumber);
+    if (error) {
+      toast.error("Error al eliminar línea");
+      return false;
+    }
+    return true;
+  };
+
   return {
     scripts,
     loading,
@@ -290,5 +316,7 @@ export function useScripts() {
     updateScript,
     updateGoogleDriveLink,
     toggleGrabado,
+    updateScriptLine,
+    deleteScriptLine,
   };
 }

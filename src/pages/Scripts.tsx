@@ -104,7 +104,12 @@ export default function Scripts() {
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
     categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
+    updateScriptLine, deleteScriptLine,
   } = useScripts();
+
+  // Inline editing script lines
+  const [editingLineKey, setEditingLineKey] = useState<string | null>(null);
+  const [editLineText, setEditLineText] = useState("");
 
   const [grabadoFilter, setGrabadoFilter] = useState<"all" | "grabado" | "no-grabado">("all");
 
@@ -964,15 +969,71 @@ export default function Scripts() {
                   {sectionLines.map((line, i) => {
                     const cfg = typeConfig[line.line_type];
                     const Icon = cfg.icon;
+                    const globalIndex = parsedLines.indexOf(line);
+                    const lineKey = `${section}-${i}`;
+                    const isEditingThis = editingLineKey === lineKey;
                     return (
-                      <div key={`${section}-${i}`} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth`}>
+                      <div key={lineKey} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
                         <div className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg}`}>
                           <Icon className={`w-4 h-4 ${cfg.color}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
-                          <p className="text-foreground mt-1 text-sm leading-relaxed">{line.text}</p>
+                          {isEditingThis ? (
+                            <Textarea
+                              autoFocus
+                              value={editLineText}
+                              onChange={(e) => setEditLineText(e.target.value)}
+                              className="mt-1 text-sm bg-background/50 min-h-[60px]"
+                              onKeyDown={async (e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  if (viewingScriptId && editLineText.trim()) {
+                                    const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+                                    if (ok) {
+                                      setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                                    }
+                                  }
+                                  setEditingLineKey(null);
+                                }
+                                if (e.key === "Escape") setEditingLineKey(null);
+                              }}
+                              onBlur={async () => {
+                                if (viewingScriptId && editLineText.trim()) {
+                                  const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+                                  if (ok) {
+                                    setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                                  }
+                                }
+                                setEditingLineKey(null);
+                              }}
+                            />
+                          ) : (
+                            <p
+                              className="text-foreground mt-1 text-sm leading-relaxed cursor-pointer"
+                              onDoubleClick={() => { setEditingLineKey(lineKey); setEditLineText(line.text); }}
+                            >
+                              {line.text}
+                            </p>
+                          )}
                         </div>
+                        {!isEditingThis && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-smooth text-destructive hover:text-destructive h-8 w-8 p-0 flex-shrink-0 mt-1"
+                            title="Eliminar línea"
+                            onClick={async () => {
+                              if (!viewingScriptId) return;
+                              const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
+                              if (ok) {
+                                setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                     );
                   })}
