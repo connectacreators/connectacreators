@@ -1125,11 +1125,11 @@ export default function Scripts() {
       </main>
 
       {showTeleprompter && (
-        <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} showRecorder={showRecorder} onToggleRecorder={() => setShowRecorder((p) => !p)} />
+        <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} showRecorder={showRecorder} onToggleRecorder={() => setShowRecorder((p) => !p)} scriptTitle={viewingMetadata?.idea_ganadora || scriptTitle || undefined} />
       )}
 
       {showRecorder && !showTeleprompter && (
-        <VideoRecorder pip onClose={() => setShowRecorder(false)} />
+        <VideoRecorder pip scriptTitle={viewingMetadata?.idea_ganadora || scriptTitle || undefined} onClose={() => setShowRecorder(false)} />
       )}
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
