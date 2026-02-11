@@ -477,10 +477,10 @@ export default function Scripts() {
             </h2>
 
             {/* Legend */}
-            <div className="flex flex-wrap gap-4 mb-6">
+            <div className="flex flex-wrap gap-3 sm:gap-4 mb-6">
               {Object.entries(typeConfig).map(([key, cfg]) => (
-                <div key={key} className="flex items-center gap-2 text-sm">
-                  <span className={`w-3 h-3 rounded-full ${cfg.dot}`} />
+                <div key={key} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                  <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${cfg.dot}`} />
                   <span className={cfg.color}>{cfg.label}</span>
                 </div>
               ))}
@@ -520,7 +520,7 @@ export default function Scripts() {
               onClick={view === "edit-script" ? handleUpdate : handleCategorize}
               variant="cta"
               size="lg"
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
               disabled={scriptsLoading || !scriptInput.trim()}
             >
               {scriptsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -585,11 +585,11 @@ export default function Scripts() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg sm:text-xl font-bold text-foreground">Resultado — {parsedLines.length} líneas</h2>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-base sm:text-xl font-bold text-foreground truncate">Resultado — {parsedLines.length} líneas</h2>
               {parsedLines.some((l) => l.line_type === "actor") && (
-                <Button onClick={() => setShowTeleprompter(true)} variant="outline" className="gap-2">
-                  <MonitorPlay className="w-4 h-4" /> Teleprompter
+                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 flex-shrink-0 text-xs sm:text-sm">
+                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Teleprompter</span><span className="sm:hidden">TP</span>
                 </Button>
               )}
             </div>
