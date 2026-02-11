@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -9,11 +9,13 @@ export type Client = {
   created_at: string;
 };
 
-export function useClients() {
+export function useClients(enabled: boolean) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
+    if (!enabled) return;
+    setLoading(true);
     const { data, error } = await supabase
       .from("clients")
       .select("*")
@@ -25,7 +27,7 @@ export function useClients() {
       setClients(data || []);
     }
     setLoading(false);
-  };
+  }, [enabled]);
 
   const addClient = async (name: string, email?: string) => {
     const { data, error } = await supabase
@@ -44,8 +46,12 @@ export function useClients() {
   };
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (enabled) {
+      fetchClients();
+    } else {
+      setLoading(false);
+    }
+  }, [enabled, fetchClients]);
 
   return { clients, loading, addClient, refetch: fetchClients };
 }

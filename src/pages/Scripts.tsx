@@ -45,7 +45,7 @@ type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-s
 
 export default function Scripts() {
   const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin } = useAuth();
-  const { clients, loading: clientsLoading, addClient } = useClients();
+  const { clients, loading: clientsLoading, addClient } = useClients(!!user);
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
     categorizeAndSave, getScriptLines, deleteScript, updateScript,
