@@ -10,9 +10,10 @@ interface TeleprompterProps {
   onClose: () => void;
   showRecorder?: boolean;
   onToggleRecorder?: () => void;
+  scriptTitle?: string;
 }
 
-export default function Teleprompter({ lines, onClose, showRecorder = false, onToggleRecorder }: TeleprompterProps) {
+export default function Teleprompter({ lines, onClose, showRecorder = false, onToggleRecorder, scriptTitle }: TeleprompterProps) {
   const actorLines = lines.filter((l) => l.line_type === "actor");
   const scrollRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number | null>(null);
@@ -176,7 +177,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
 
       {/* Video recorder PIP inside teleprompter */}
       {isRecorderVisible && (
-        <VideoRecorder pip onClose={() => { if (onToggleRecorder) onToggleRecorder(); else setLocalRecorder(false); }} />
+        <VideoRecorder pip scriptTitle={scriptTitle} onClose={() => { if (onToggleRecorder) onToggleRecorder(); else setLocalRecorder(false); }} />
       )}
     </div>
   );

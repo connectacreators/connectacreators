@@ -6,10 +6,11 @@ import { toast } from "sonner";
 interface VideoRecorderProps {
   /** If true, shows as a small floating pip over content */
   pip?: boolean;
+  scriptTitle?: string;
   onClose: () => void;
 }
 
-export default function VideoRecorder({ pip = false, onClose }: VideoRecorderProps) {
+export default function VideoRecorder({ pip = false, scriptTitle, onClose }: VideoRecorderProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -65,11 +66,11 @@ export default function VideoRecorder({ pip = false, onClose }: VideoRecorderPro
     chunksRef.current = [];
     setRecordedUrl(null);
 
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+      ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
       ? "video/webm;codecs=vp9,opus"
-      : MediaRecorder.isTypeSupported("video/webm")
-      ? "video/webm"
-      : "video/mp4";
+      : "video/webm";
 
     const mr = new MediaRecorder(streamRef.current, { mimeType });
     mr.ondataavailable = (e) => {
@@ -100,9 +101,11 @@ export default function VideoRecorder({ pip = false, onClose }: VideoRecorderPro
 
   const handleDownload = useCallback(() => {
     if (!recordedUrl) return;
+    const safeName = (scriptTitle || "grabacion").replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, "").replace(/\s+/g, "-").slice(0, 60);
+    const ext = mediaRecorderRef.current?.mimeType?.includes("mp4") ? "mp4" : "webm";
     const a = document.createElement("a");
     a.href = recordedUrl;
-    a.download = `grabacion-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.webm`;
+    a.download = `${safeName}-${new Date().toISOString().slice(0, 10)}.${ext}`;
     a.click();
     toast.success("Video descargado");
   }, [recordedUrl]);
