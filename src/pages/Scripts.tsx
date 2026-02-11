@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
-  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut,
+  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay,
 } from "lucide-react";
+import Teleprompter from "@/components/Teleprompter";
 import { Link } from "react-router-dom";
 import connectaLogo from "@/assets/connecta-logo.png";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -68,6 +69,7 @@ export default function Scripts() {
 
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
+  const [showTeleprompter, setShowTeleprompter] = useState(false);
 
   // Auth loading
   if (authLoading) {
@@ -371,7 +373,14 @@ export default function Scripts() {
               </div>
             )}
 
-            <h2 className="text-xl font-bold text-foreground mb-4">Resultado — {parsedLines.length} líneas</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-foreground">Resultado — {parsedLines.length} líneas</h2>
+              {parsedLines.some((l) => l.line_type === "actor") && (
+                <Button onClick={() => setShowTeleprompter(true)} variant="outline" className="gap-2">
+                  <MonitorPlay className="w-4 h-4" /> Teleprompter
+                </Button>
+              )}
+            </div>
             {parsedLines.map((line, i) => {
               const cfg = typeConfig[line.line_type];
               const Icon = cfg.icon;
@@ -391,6 +400,10 @@ export default function Scripts() {
           </div>
         )}
       </main>
+
+      {showTeleprompter && (
+        <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} />
+      )}
     </div>
   );
 }
