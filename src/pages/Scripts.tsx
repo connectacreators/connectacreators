@@ -3,23 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Film,
-  Mic,
-  Scissors,
-  Sparkles,
-  ArrowLeft,
-  Plus,
-  User,
-  FileText,
-  Loader2,
-  ChevronLeft,
-  ExternalLink,
-  Eye,
+  Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
+  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import connectaLogo from "@/assets/connecta-logo.png";
 import { useClients, type Client } from "@/hooks/useClients";
-import { useScripts, type ScriptLine } from "@/hooks/useScripts";
+import { useScripts, type ScriptLine, type Script } from "@/hooks/useScripts";
+import { useAuth } from "@/hooks/useAuth";
+import ScriptsLogin from "@/components/ScriptsLogin";
+import { toast } from "sonner";
 
 const typeConfig = {
   filming: {
@@ -48,11 +41,15 @@ const typeConfig = {
   },
 };
 
-type View = "clients" | "client-detail" | "new-script" | "view-script";
+type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script";
 
 export default function Scripts() {
+  const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin } = useAuth();
   const { clients, loading: clientsLoading, addClient } = useClients();
-  const { scripts, loading: scriptsLoading, fetchScriptsByClient, categorizeAndSave, getScriptLines } = useScripts();
+  const {
+    scripts, loading: scriptsLoading, fetchScriptsByClient,
+    categorizeAndSave, getScriptLines, deleteScript, updateScript,
+  } = useScripts();
 
   const [view, setView] = useState<View>("clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -63,11 +60,34 @@ export default function Scripts() {
   const [newEmail, setNewEmail] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
 
-  // New script form
+  // Script form
   const [scriptTitle, setScriptTitle] = useState("");
   const [scriptInput, setScriptInput] = useState("");
   const [inspirationUrl, setInspirationUrl] = useState("");
   const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
+
+  // Edit mode
+  const [editingScript, setEditingScript] = useState<Script | null>(null);
+
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center" style={{ fontFamily: "Arial, sans-serif" }}>
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!user) {
+    return (
+      <ScriptsLogin
+        onSignIn={() => {}}
+        signInWithEmail={signInWithEmail}
+        signUpWithEmail={signUpWithEmail}
+      />
+    );
+  }
 
   const handleSelectClient = async (client: Client) => {
     setSelectedClient(client);
@@ -100,21 +120,51 @@ export default function Scripts() {
     }
   };
 
-  const handleViewScript = async (script: { id: string; inspiration_url: string | null }) => {
+  const handleUpdate = async () => {
+    if (!scriptInput.trim() || !editingScript) return;
+    const lines = await updateScript(
+      editingScript.id,
+      scriptTitle.trim() || "Sin título",
+      scriptInput.trim(),
+      inspirationUrl.trim() || undefined
+    );
+    if (lines) {
+      setParsedLines(lines);
+      setViewingInspirationUrl(inspirationUrl.trim() || null);
+      setEditingScript(null);
+      setView("view-script");
+    }
+  };
+
+  const handleViewScript = async (script: Script) => {
     const lines = await getScriptLines(script.id);
     setParsedLines(lines);
     setViewingInspirationUrl(script.inspiration_url);
     setView("view-script");
   };
 
+  const handleEditScript = (script: Script) => {
+    setEditingScript(script);
+    setScriptTitle(script.title);
+    setScriptInput(script.raw_content);
+    setInspirationUrl(script.inspiration_url || "");
+    setView("edit-script");
+  };
+
+  const handleDeleteScript = async (scriptId: string) => {
+    if (!confirm("¿Estás seguro de que quieres eliminar este script?")) return;
+    await deleteScript(scriptId);
+  };
+
   const goBack = () => {
-    if (view === "view-script" || view === "new-script") {
+    if (view === "view-script" || view === "new-script" || view === "edit-script") {
       setView("client-detail");
       setParsedLines([]);
       setScriptTitle("");
       setScriptInput("");
       setInspirationUrl("");
       setViewingInspirationUrl(null);
+      setEditingScript(null);
     } else if (view === "client-detail") {
       setView("clients");
       setSelectedClient(null);
@@ -122,33 +172,32 @@ export default function Scripts() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Header */}
       <header className="border-b border-border/50 sticky top-0 z-50 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm"
-            >
+            <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm">
               <ArrowLeft className="w-4 h-4" />
               Inicio
             </Link>
             <img src={connectaLogo} alt="Connecta" className="h-8" />
           </div>
-          <span className="text-sm font-inter text-muted-foreground">
-            Script Breakdown Tool
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
+            </span>
+            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
+              <LogOut className="w-3.5 h-3.5" /> Salir
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-5xl">
-        {/* Breadcrumb / Back */}
+        {/* Breadcrumb */}
         {view !== "clients" && (
-          <button
-            onClick={goBack}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth"
-          >
+          <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth">
             <ChevronLeft className="w-4 h-4" />
             {view === "client-detail" ? "Clientes" : selectedClient?.name}
           </button>
@@ -161,44 +210,30 @@ export default function Scripts() {
               <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
                 Script <span className="text-primary">Breakdown</span>
               </h1>
-              <p className="text-muted-foreground font-inter max-w-xl mx-auto">
-                Selecciona un cliente para gestionar sus scripts, o crea uno
-                nuevo.
+              <p className="text-muted-foreground max-w-xl mx-auto">
+                {isAdmin ? "Gestiona los scripts de todos tus clientes." : "Gestiona tus scripts."}
               </p>
             </div>
 
-            {/* New Client Toggle */}
-            {showNewClient ? (
-              <div className="bg-card border border-border rounded-lg p-6 mb-6 space-y-4 animate-fade-in">
-                <h3 className="font-semibold text-foreground">Nuevo Cliente</h3>
-                <Input
-                  placeholder="Nombre del cliente *"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-                <Input
-                  placeholder="Correo electrónico (opcional)"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                />
-                <div className="flex gap-3">
-                  <Button onClick={handleCreateClient} disabled={!newName.trim()}>
-                    <Plus className="w-4 h-4 mr-2" /> Crear Cliente
-                  </Button>
-                  <Button variant="ghost" onClick={() => setShowNewClient(false)}>
-                    Cancelar
-                  </Button>
+            {/* New Client (admin only) */}
+            {isAdmin && (
+              showNewClient ? (
+                <div className="bg-card border border-border rounded-lg p-6 mb-6 space-y-4 animate-fade-in">
+                  <h3 className="font-semibold text-foreground">Nuevo Cliente</h3>
+                  <Input placeholder="Nombre del cliente *" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                  <Input placeholder="Correo electrónico (opcional)" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                  <div className="flex gap-3">
+                    <Button onClick={handleCreateClient} disabled={!newName.trim()}>
+                      <Plus className="w-4 h-4 mr-2" /> Crear Cliente
+                    </Button>
+                    <Button variant="ghost" onClick={() => setShowNewClient(false)}>Cancelar</Button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <Button
-                onClick={() => setShowNewClient(true)}
-                variant="outline"
-                className="mb-6 gap-2"
-              >
-                <Plus className="w-4 h-4" /> Nuevo Cliente
-              </Button>
+              ) : (
+                <Button onClick={() => setShowNewClient(true)} variant="outline" className="mb-6 gap-2">
+                  <Plus className="w-4 h-4" /> Nuevo Cliente
+                </Button>
+              )
             )}
 
             {/* Client Cards */}
@@ -208,7 +243,7 @@ export default function Scripts() {
               </div>
             ) : clients.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">
-                No hay clientes aún. Crea el primero arriba.
+                {isAdmin ? "No hay clientes aún. Crea el primero." : "No tienes scripts asignados aún."}
               </p>
             ) : (
               <div className="grid gap-3">
@@ -222,14 +257,8 @@ export default function Scripts() {
                       <User className="w-5 h-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate">
-                        {c.name}
-                      </p>
-                      {c.email && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          {c.email}
-                        </p>
-                      )}
+                      <p className="font-semibold text-foreground truncate">{c.name}</p>
+                      {c.email && <p className="text-sm text-muted-foreground truncate">{c.email}</p>}
                     </div>
                     <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180" />
                   </button>
@@ -243,95 +272,70 @@ export default function Scripts() {
         {view === "client-detail" && selectedClient && (
           <>
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-foreground">
-                {selectedClient.name}
-              </h1>
-              {selectedClient.email && (
-                <p className="text-muted-foreground text-sm">
-                  {selectedClient.email}
-                </p>
-              )}
+              <h1 className="text-2xl font-bold text-foreground">{selectedClient.name}</h1>
+              {selectedClient.email && <p className="text-muted-foreground text-sm">{selectedClient.email}</p>}
             </div>
 
-            <Button
-              onClick={() => {
-                setScriptTitle("");
-                setScriptInput("");
-                setView("new-script");
-              }}
-              variant="cta"
-              className="mb-6 gap-2"
-            >
-              <Plus className="w-4 h-4" /> Nuevo Script
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setView("new-script"); }} variant="cta" className="mb-6 gap-2">
+                <Plus className="w-4 h-4" /> Nuevo Script
+              </Button>
+            )}
 
-            {/* Scripts list */}
             {scripts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No hay scripts para este cliente.
-              </p>
+              <p className="text-muted-foreground text-center py-8">No hay scripts para este cliente.</p>
             ) : (
               <div className="grid gap-3">
                 {scripts.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleViewScript(s)}
-                    className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth text-left w-full"
-                  >
-                    <FileText className="w-5 h-5 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate">
-                        {s.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(s.created_at).toLocaleDateString("es-MX")}
-                      </p>
+                  <div key={s.id} className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-smooth">
+                    <button onClick={() => handleViewScript(s)} className="flex items-center gap-4 flex-1 min-w-0 text-left">
+                      <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{s.title}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
+                      </div>
+                    </button>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar">
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
           </>
         )}
 
-        {/* ===== NEW SCRIPT ===== */}
-        {view === "new-script" && (
+        {/* ===== NEW / EDIT SCRIPT ===== */}
+        {(view === "new-script" || view === "edit-script") && (
           <>
             <h2 className="text-xl font-bold text-foreground mb-2">
-              Nuevo Script para{" "}
+              {view === "edit-script" ? "Editar Script" : "Nuevo Script"} para{" "}
               <span className="text-primary">{selectedClient?.name}</span>
             </h2>
 
             {/* Legend */}
             <div className="flex flex-wrap gap-4 mb-6">
               {Object.entries(typeConfig).map(([key, cfg]) => (
-                <div key={key} className="flex items-center gap-2 text-sm font-inter">
+                <div key={key} className="flex items-center gap-2 text-sm">
                   <span className={`w-3 h-3 rounded-full ${cfg.dot}`} />
                   <span className={cfg.color}>{cfg.label}</span>
                 </div>
               ))}
             </div>
 
-            <p className="text-sm text-muted-foreground mb-4 font-inter">
+            <p className="text-sm text-muted-foreground mb-4">
               Pega el script tal cual — la IA lo categorizará automáticamente.
-              También puedes usar tags opcionales como{" "}
-              <code className="text-red-400">[filming]</code>,{" "}
-              <code className="text-purple-400">[actor]</code>,{" "}
-              <code className="text-emerald-400">[editor]</code>.
             </p>
 
-            <Input
-              placeholder="Título del script"
-              value={scriptTitle}
-              onChange={(e) => setScriptTitle(e.target.value)}
-              className="mb-3"
-            />
-            <Input
-              placeholder="URL de inspiración (opcional)"
-              value={inspirationUrl}
-              onChange={(e) => setInspirationUrl(e.target.value)}
-              className="mb-3"
-            />
+            <Input placeholder="Título del script" value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
+            <Input placeholder="URL de inspiración (opcional)" value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
             <Textarea
               value={scriptInput}
               onChange={(e) => setScriptInput(e.target.value)}
@@ -339,18 +343,14 @@ export default function Scripts() {
               className="min-h-[200px] bg-card border-border font-mono text-sm resize-y mb-4"
             />
             <Button
-              onClick={handleCategorize}
+              onClick={view === "edit-script" ? handleUpdate : handleCategorize}
               variant="cta"
               size="lg"
               className="gap-2"
               disabled={scriptsLoading || !scriptInput.trim()}
             >
-              {scriptsLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-              {scriptsLoading ? "Analizando..." : "Analizar y Guardar"}
+              {scriptsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {scriptsLoading ? "Analizando..." : view === "edit-script" ? "Actualizar y Recategorizar" : "Analizar y Guardar"}
             </Button>
           </>
         )}
@@ -358,54 +358,33 @@ export default function Scripts() {
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-3 animate-fade-in">
-            {/* Inspiration URL - always first */}
             {viewingInspirationUrl && (
               <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Eye className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-primary font-inter uppercase tracking-wider">
-                    Inspiración
-                  </span>
+                  <span className="text-sm font-semibold text-primary uppercase tracking-wider">Inspiración</span>
                 </div>
-                <a
-                  href={viewingInspirationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-inter break-all"
-                >
+                <a href={viewingInspirationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all">
                   <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
                   {viewingInspirationUrl}
                 </a>
               </div>
             )}
 
-            <h2 className="text-xl font-bold text-foreground mb-4 font-inter">
-              Resultado — {parsedLines.length} líneas
-            </h2>
+            <h2 className="text-xl font-bold text-foreground mb-4">Resultado — {parsedLines.length} líneas</h2>
             {parsedLines.map((line, i) => {
               const cfg = typeConfig[line.line_type];
               const Icon = cfg.icon;
               return (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}
-                >
+                <div key={i} className={`flex items-start gap-3 p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}>
                   <div className={`mt-0.5 p-1.5 rounded-md ${cfg.bg}`}>
                     <Icon className={`w-4 h-4 ${cfg.color}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider ${cfg.color} font-inter`}
-                    >
-                      {cfg.label}
-                    </span>
-                    <p className="text-foreground font-inter mt-1 text-sm leading-relaxed">
-                      {line.text}
-                    </p>
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+                    <p className="text-foreground mt-1 text-sm leading-relaxed">{line.text}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground font-mono mt-1">
-                    #{i + 1}
-                  </span>
+                  <span className="text-xs text-muted-foreground font-mono mt-1">#{i + 1}</span>
                 </div>
               );
             })}
