@@ -27,7 +27,8 @@ serve(async (req) => {
 
 1. Extract metadata from the script:
    - "idea_ganadora": The winning idea or hook of the video. Summarize it in one clear sentence if not explicitly stated.
-   - "target": The target audience for this content. Infer from context if not explicitly stated.
+   - "target": The target audience for this content. Infer from context if not explicitly stated. Common values: "Viral", "Educativo", "Ventas", etc.
+   - "formato": The video format. Detect from the script structure or explicit mentions. Must be one of: "TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO". If not stated, infer from the script style (e.g. if there's mostly dialogue with camera directions = TALKING HEAD, if there's mostly B-roll and text overlays = B-ROLL CAPTION, if it's a Q&A = ENTREVISTA, if mixed = VARIADO).
 
 2. Categorize EVERY line of the actual script content into one of three types:
    - "filming": Camera/filming instructions (angles, lighting, transitions, locations, visual directions)
@@ -35,8 +36,7 @@ serve(async (req) => {
    - "editor": Post-production instructions (text overlays, music, effects, B-roll inserts, transitions added in editing)
 
 Rules:
-- If the script contains lines labeled "Idea Ganadora:" or "Target:", extract those values and do NOT include them in the categorized lines
-- If the script contains lines labeled "Formato:" or "Google Drive:", do NOT include them in the categorized lines either
+- If the script contains lines labeled "Idea Ganadora:", "Target:", "Formato:", or "Google Drive:", extract those values and do NOT include them in the categorized lines
 - Every other non-empty line must be categorized
 - If a line has a tag like [filming], [actor], [editor] etc., use it as a hint but still validate
 - Lines without tags: use context to determine the type
@@ -80,6 +80,11 @@ Rules:
                       type: "string",
                       description: "The target audience for this content",
                     },
+                    formato: {
+                      type: "string",
+                      enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"],
+                      description: "The video format detected from the script",
+                    },
                     lines: {
                       type: "array",
                       items: {
@@ -96,7 +101,7 @@ Rules:
                       },
                     },
                   },
-                  required: ["idea_ganadora", "target", "lines"],
+                  required: ["idea_ganadora", "target", "formato", "lines"],
                   additionalProperties: false,
                 },
               },

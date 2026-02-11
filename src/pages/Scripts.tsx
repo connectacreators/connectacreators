@@ -487,88 +487,27 @@ export default function Scripts() {
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-3 animate-fade-in">
-            {/* Metadata cards */}
-            {viewingMetadata && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            {/* Metadata inline */}
+            {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
+              <div className="mb-4 space-y-1">
                 {viewingMetadata.idea_ganadora && (
-                  <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Lightbulb className="w-4 h-4 text-amber-400" />
-                      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Idea Ganadora</span>
-                    </div>
-                    <p className="text-sm text-foreground">{viewingMetadata.idea_ganadora}</p>
-                  </div>
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold text-amber-400">Idea Ganadora:</span>{" "}
+                    {viewingMetadata.idea_ganadora}
+                  </p>
                 )}
                 {viewingMetadata.target && (
-                  <div className="p-4 rounded-lg border border-blue-500/30 bg-blue-500/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Target className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Target</span>
-                    </div>
-                    <p className="text-sm text-foreground">{viewingMetadata.target}</p>
-                  </div>
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold text-blue-400">Target:</span>{" "}
+                    {viewingMetadata.target}
+                  </p>
                 )}
                 {viewingMetadata.formato && (
-                  <div className="p-4 rounded-lg border border-violet-500/30 bg-violet-500/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Film className="w-4 h-4 text-violet-400" />
-                      <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Formato</span>
-                    </div>
-                    <p className="text-sm text-foreground">{viewingMetadata.formato}</p>
-                  </div>
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold text-violet-400">Formato:</span>{" "}
+                    {viewingMetadata.formato}
+                  </p>
                 )}
-                <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Link2 className="w-4 h-4 text-green-400" />
-                    <span className="text-xs font-semibold text-green-400 uppercase tracking-wider">Google Drive</span>
-                  </div>
-                  {editingDriveLink ? (
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        value={tempDriveLink}
-                        onChange={(e) => setTempDriveLink(e.target.value)}
-                        placeholder="Pega el link de Google Drive"
-                        className="text-sm h-8"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && viewingScriptId) {
-                            updateGoogleDriveLink(viewingScriptId, tempDriveLink);
-                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
-                            setEditingDriveLink(false);
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          if (viewingScriptId) {
-                            await updateGoogleDriveLink(viewingScriptId, tempDriveLink);
-                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
-                            setEditingDriveLink(false);
-                          }
-                        }}
-                      >
-                        <Save className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ) : viewingMetadata.google_drive_link ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => window.open(viewingMetadata.google_drive_link!, '_blank', 'noopener,noreferrer')}
-                        className="text-sm text-green-400 hover:underline break-all text-left truncate"
-                      >
-                        {viewingMetadata.google_drive_link}
-                      </button>
-                      <Button size="sm" variant="ghost" onClick={() => { setTempDriveLink(viewingMetadata.google_drive_link || ""); setEditingDriveLink(true); }}>
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="ghost" onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground">
-                      + Agregar link
-                    </Button>
-                  )}
-                </div>
               </div>
             )}
 
@@ -609,6 +548,62 @@ export default function Scripts() {
                 </div>
               );
             })}
+
+            {/* Google Drive link at the end */}
+            {viewingMetadata && (
+              <div className="mt-6 pt-4 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-semibold text-green-400">Google Drive:</span>
+                  {editingDriveLink ? (
+                    <div className="flex gap-2 flex-1">
+                      <Input
+                        value={tempDriveLink}
+                        onChange={(e) => setTempDriveLink(e.target.value)}
+                        placeholder="Pega el link de Google Drive"
+                        className="text-sm h-8"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && viewingScriptId) {
+                            updateGoogleDriveLink(viewingScriptId, tempDriveLink);
+                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
+                            setEditingDriveLink(false);
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          if (viewingScriptId) {
+                            await updateGoogleDriveLink(viewingScriptId, tempDriveLink);
+                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
+                            setEditingDriveLink(false);
+                          }
+                        }}
+                      >
+                        <Save className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : viewingMetadata.google_drive_link ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => window.open(viewingMetadata.google_drive_link!, '_blank', 'noopener,noreferrer')}
+                        className="text-sm text-green-400 hover:underline break-all text-left"
+                      >
+                        {viewingMetadata.google_drive_link}
+                      </button>
+                      <Button size="sm" variant="ghost" onClick={() => { setTempDriveLink(viewingMetadata.google_drive_link || ""); setEditingDriveLink(true); }}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">
+                      + Agregar link
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

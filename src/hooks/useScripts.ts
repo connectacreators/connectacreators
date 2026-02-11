@@ -73,7 +73,7 @@ export function useScripts() {
         return null;
       }
 
-      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string };
+      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string; formato: string };
 
       // Save script with metadata
       const { data: script, error: scriptErr } = await supabase
@@ -85,7 +85,7 @@ export function useScripts() {
           inspiration_url: inspirationUrl || null,
           idea_ganadora: result.idea_ganadora || null,
           target: result.target || null,
-          formato: formato || null,
+          formato: result.formato || formato || null,
           google_drive_link: googleDriveLink || null,
         })
         .select()
@@ -110,7 +110,7 @@ export function useScripts() {
         metadata: {
           idea_ganadora: result.idea_ganadora || null,
           target: result.target || null,
-          formato: formato || null,
+          formato: result.formato || formato || null,
           google_drive_link: googleDriveLink || null,
         },
       };
@@ -177,7 +177,7 @@ export function useScripts() {
         return null;
       }
 
-      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string };
+      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string; formato: string };
 
       // Update script
       const { error: scriptErr } = await supabase
@@ -188,7 +188,7 @@ export function useScripts() {
           inspiration_url: inspirationUrl || null,
           idea_ganadora: result.idea_ganadora || null,
           target: result.target || null,
-          formato: formato || null,
+          formato: result.formato || formato || null,
           google_drive_link: googleDriveLink || null,
         })
         .eq("id", scriptId);
@@ -216,7 +216,7 @@ export function useScripts() {
                 inspiration_url: inspirationUrl || null,
                 idea_ganadora: result.idea_ganadora || null,
                 target: result.target || null,
-                formato: formato || null,
+                formato: result.formato || formato || null,
                 google_drive_link: googleDriveLink || null,
               }
             : s
