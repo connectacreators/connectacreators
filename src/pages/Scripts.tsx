@@ -4,18 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
-  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay,
+  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Target, Lightbulb, Save,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import { Link } from "react-router-dom";
 import connectaLogo from "@/assets/connecta-logo.png";
 import { useClients, type Client } from "@/hooks/useClients";
-import { useScripts, type ScriptLine, type Script } from "@/hooks/useScripts";
+import { useScripts, type ScriptLine, type Script, type ScriptMetadata } from "@/hooks/useScripts";
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const typeConfig = {
   filming: {
@@ -51,7 +52,7 @@ export default function Scripts() {
   const { clients, loading: clientsLoading, addClient } = useClients(!!user);
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
-    categorizeAndSave, getScriptLines, deleteScript, updateScript,
+    categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink,
   } = useScripts();
 
   const [view, setView] = useState<View>("clients");
@@ -67,7 +68,13 @@ export default function Scripts() {
   const [scriptTitle, setScriptTitle] = useState("");
   const [scriptInput, setScriptInput] = useState("");
   const [inspirationUrl, setInspirationUrl] = useState("");
+  const [formato, setFormato] = useState("");
+  const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
+  const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
+  const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
+  const [editingDriveLink, setEditingDriveLink] = useState(false);
+  const [tempDriveLink, setTempDriveLink] = useState("");
 
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
@@ -193,30 +200,36 @@ export default function Scripts() {
 
   const handleCategorize = async () => {
     if (!scriptInput.trim() || !selectedClient) return;
-    const lines = await categorizeAndSave(
+    const result = await categorizeAndSave(
       selectedClient.id,
       scriptTitle.trim() || "Sin título",
       scriptInput.trim(),
-      inspirationUrl.trim() || undefined
+      inspirationUrl.trim() || undefined,
+      formato || undefined,
+      googleDriveLink.trim() || undefined
     );
-    if (lines) {
-      setParsedLines(lines);
+    if (result) {
+      setParsedLines(result.lines);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
+      setViewingMetadata(result.metadata);
       setView("view-script");
     }
   };
 
   const handleUpdate = async () => {
     if (!scriptInput.trim() || !editingScript) return;
-    const lines = await updateScript(
+    const result = await updateScript(
       editingScript.id,
       scriptTitle.trim() || "Sin título",
       scriptInput.trim(),
-      inspirationUrl.trim() || undefined
+      inspirationUrl.trim() || undefined,
+      formato || undefined,
+      googleDriveLink.trim() || undefined
     );
-    if (lines) {
-      setParsedLines(lines);
+    if (result) {
+      setParsedLines(result.lines);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
+      setViewingMetadata(result.metadata);
       setEditingScript(null);
       setView("view-script");
     }
@@ -226,6 +239,13 @@ export default function Scripts() {
     const lines = await getScriptLines(script.id);
     setParsedLines(lines);
     setViewingInspirationUrl(script.inspiration_url);
+    setViewingMetadata({
+      idea_ganadora: script.idea_ganadora,
+      target: script.target,
+      formato: script.formato,
+      google_drive_link: script.google_drive_link,
+    });
+    setViewingScriptId(script.id);
     setView("view-script");
   };
 
@@ -234,6 +254,8 @@ export default function Scripts() {
     setScriptTitle(script.title);
     setScriptInput(script.raw_content);
     setInspirationUrl(script.inspiration_url || "");
+    setFormato(script.formato || "");
+    setGoogleDriveLink(script.google_drive_link || "");
     setView("edit-script");
   };
 
@@ -249,8 +271,13 @@ export default function Scripts() {
       setScriptTitle("");
       setScriptInput("");
       setInspirationUrl("");
+      setFormato("");
+      setGoogleDriveLink("");
       setViewingInspirationUrl(null);
+      setViewingMetadata(null);
+      setViewingScriptId(null);
       setEditingScript(null);
+      setEditingDriveLink(false);
     } else if (view === "client-detail") {
       setView("clients");
       setSelectedClient(null);
@@ -362,7 +389,7 @@ export default function Scripts() {
               {selectedClient.email && <p className="text-muted-foreground text-sm">{selectedClient.email}</p>}
             </div>
 
-            <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setView("new-script"); }} variant="cta" className="mb-6 gap-2">
+            <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="mb-6 gap-2">
               <Plus className="w-4 h-4" /> Nuevo Script
             </Button>
 
@@ -420,6 +447,24 @@ export default function Scripts() {
 
             <Input placeholder="Título del script" value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
             <Input placeholder="URL de inspiración (opcional)" value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
+            
+            <div className="mb-3">
+              <label className="text-sm text-muted-foreground mb-1 block">Formato</label>
+              <Select value={formato} onValueChange={setFormato}>
+                <SelectTrigger className="bg-card">
+                  <SelectValue placeholder="Selecciona un formato" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border z-50">
+                  <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
+                  <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
+                  <SelectItem value="ENTREVISTA">Entrevista</SelectItem>
+                  <SelectItem value="VARIADO">Variado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Input placeholder="Google Drive link (opcional)" value={googleDriveLink} onChange={(e) => setGoogleDriveLink(e.target.value)} className="mb-3" />
+
             <Textarea
               value={scriptInput}
               onChange={(e) => setScriptInput(e.target.value)}
@@ -442,6 +487,91 @@ export default function Scripts() {
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-3 animate-fade-in">
+            {/* Metadata cards */}
+            {viewingMetadata && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                {viewingMetadata.idea_ganadora && (
+                  <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Lightbulb className="w-4 h-4 text-amber-400" />
+                      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Idea Ganadora</span>
+                    </div>
+                    <p className="text-sm text-foreground">{viewingMetadata.idea_ganadora}</p>
+                  </div>
+                )}
+                {viewingMetadata.target && (
+                  <div className="p-4 rounded-lg border border-blue-500/30 bg-blue-500/5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Target className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Target</span>
+                    </div>
+                    <p className="text-sm text-foreground">{viewingMetadata.target}</p>
+                  </div>
+                )}
+                {viewingMetadata.formato && (
+                  <div className="p-4 rounded-lg border border-violet-500/30 bg-violet-500/5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Film className="w-4 h-4 text-violet-400" />
+                      <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Formato</span>
+                    </div>
+                    <p className="text-sm text-foreground">{viewingMetadata.formato}</p>
+                  </div>
+                )}
+                <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Link2 className="w-4 h-4 text-green-400" />
+                    <span className="text-xs font-semibold text-green-400 uppercase tracking-wider">Google Drive</span>
+                  </div>
+                  {editingDriveLink ? (
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        value={tempDriveLink}
+                        onChange={(e) => setTempDriveLink(e.target.value)}
+                        placeholder="Pega el link de Google Drive"
+                        className="text-sm h-8"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && viewingScriptId) {
+                            updateGoogleDriveLink(viewingScriptId, tempDriveLink);
+                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
+                            setEditingDriveLink(false);
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          if (viewingScriptId) {
+                            await updateGoogleDriveLink(viewingScriptId, tempDriveLink);
+                            setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
+                            setEditingDriveLink(false);
+                          }
+                        }}
+                      >
+                        <Save className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : viewingMetadata.google_drive_link ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => window.open(viewingMetadata.google_drive_link!, '_blank', 'noopener,noreferrer')}
+                        className="text-sm text-green-400 hover:underline break-all text-left truncate"
+                      >
+                        {viewingMetadata.google_drive_link}
+                      </button>
+                      <Button size="sm" variant="ghost" onClick={() => { setTempDriveLink(viewingMetadata.google_drive_link || ""); setEditingDriveLink(true); }}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground">
+                      + Agregar link
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {viewingInspirationUrl && (
               <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-2">
                 <div className="flex items-center gap-2 mb-2">

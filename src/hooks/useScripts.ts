@@ -13,7 +13,18 @@ export type Script = {
   title: string;
   raw_content: string;
   inspiration_url: string | null;
+  idea_ganadora: string | null;
+  target: string | null;
+  formato: string | null;
+  google_drive_link: string | null;
   created_at: string;
+};
+
+export type ScriptMetadata = {
+  idea_ganadora: string | null;
+  target: string | null;
+  formato: string | null;
+  google_drive_link: string | null;
 };
 
 export function useScripts() {
@@ -37,8 +48,10 @@ export function useScripts() {
     clientId: string,
     title: string,
     rawContent: string,
-    inspirationUrl?: string
-  ): Promise<ScriptLine[] | null> => {
+    inspirationUrl?: string,
+    formato?: string,
+    googleDriveLink?: string
+  ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata } | null> => {
     setLoading(true);
     try {
       // Call AI to categorize
@@ -60,31 +73,47 @@ export function useScripts() {
         return null;
       }
 
-      const { lines } = (await res.json()) as { lines: ScriptLine[] };
+      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string };
 
-      // Save script
+      // Save script with metadata
       const { data: script, error: scriptErr } = await supabase
         .from("scripts")
-        .insert({ client_id: clientId, title, raw_content: rawContent, inspiration_url: inspirationUrl || null })
+        .insert({
+          client_id: clientId,
+          title,
+          raw_content: rawContent,
+          inspiration_url: inspirationUrl || null,
+          idea_ganadora: result.idea_ganadora || null,
+          target: result.target || null,
+          formato: formato || null,
+          google_drive_link: googleDriveLink || null,
+        })
         .select()
         .single();
       if (scriptErr) throw scriptErr;
 
       // Save lines
-      const lineRows = lines.map((l, i) => ({
+      const lineRows = result.lines.map((l, i) => ({
         script_id: script.id,
         line_number: i + 1,
         line_type: l.line_type,
         text: l.text,
       }));
-      const { error: linesErr } = await supabase
-        .from("script_lines")
-        .insert(lineRows);
+      const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
       if (linesErr) throw linesErr;
 
       toast.success("Script guardado y categorizado");
       setScripts((prev) => [script, ...prev]);
-      return lines;
+
+      return {
+        lines: result.lines,
+        metadata: {
+          idea_ganadora: result.idea_ganadora || null,
+          target: result.target || null,
+          formato: formato || null,
+          google_drive_link: googleDriveLink || null,
+        },
+      };
     } catch (e) {
       console.error(e);
       toast.error("Error al procesar script");
@@ -123,8 +152,10 @@ export function useScripts() {
     scriptId: string,
     title: string,
     rawContent: string,
-    inspirationUrl?: string
-  ): Promise<ScriptLine[] | null> => {
+    inspirationUrl?: string,
+    formato?: string,
+    googleDriveLink?: string
+  ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata } | null> => {
     setLoading(true);
     try {
       // Re-categorize with AI
@@ -146,18 +177,26 @@ export function useScripts() {
         return null;
       }
 
-      const { lines } = (await res.json()) as { lines: ScriptLine[] };
+      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string };
 
       // Update script
       const { error: scriptErr } = await supabase
         .from("scripts")
-        .update({ title, raw_content: rawContent, inspiration_url: inspirationUrl || null })
+        .update({
+          title,
+          raw_content: rawContent,
+          inspiration_url: inspirationUrl || null,
+          idea_ganadora: result.idea_ganadora || null,
+          target: result.target || null,
+          formato: formato || null,
+          google_drive_link: googleDriveLink || null,
+        })
         .eq("id", scriptId);
       if (scriptErr) throw scriptErr;
 
       // Delete old lines and insert new
       await supabase.from("script_lines").delete().eq("script_id", scriptId);
-      const lineRows = lines.map((l, i) => ({
+      const lineRows = result.lines.map((l, i) => ({
         script_id: scriptId,
         line_number: i + 1,
         line_type: l.line_type,
@@ -169,10 +208,30 @@ export function useScripts() {
       toast.success("Script actualizado");
       setScripts((prev) =>
         prev.map((s) =>
-          s.id === scriptId ? { ...s, title, raw_content: rawContent, inspiration_url: inspirationUrl || null } : s
+          s.id === scriptId
+            ? {
+                ...s,
+                title,
+                raw_content: rawContent,
+                inspiration_url: inspirationUrl || null,
+                idea_ganadora: result.idea_ganadora || null,
+                target: result.target || null,
+                formato: formato || null,
+                google_drive_link: googleDriveLink || null,
+              }
+            : s
         )
       );
-      return lines;
+
+      return {
+        lines: result.lines,
+        metadata: {
+          idea_ganadora: result.idea_ganadora || null,
+          target: result.target || null,
+          formato: formato || null,
+          google_drive_link: googleDriveLink || null,
+        },
+      };
     } catch (e) {
       console.error(e);
       toast.error("Error al actualizar script");
@@ -182,5 +241,30 @@ export function useScripts() {
     }
   };
 
-  return { scripts, loading, fetchScriptsByClient, categorizeAndSave, getScriptLines, deleteScript, updateScript };
+  const updateGoogleDriveLink = async (scriptId: string, link: string) => {
+    const { error } = await supabase
+      .from("scripts")
+      .update({ google_drive_link: link || null })
+      .eq("id", scriptId);
+    if (error) {
+      toast.error("Error al guardar link");
+      return false;
+    }
+    setScripts((prev) =>
+      prev.map((s) => (s.id === scriptId ? { ...s, google_drive_link: link || null } : s))
+    );
+    toast.success("Link guardado");
+    return true;
+  };
+
+  return {
+    scripts,
+    loading,
+    fetchScriptsByClient,
+    categorizeAndSave,
+    getScriptLines,
+    deleteScript,
+    updateScript,
+    updateGoogleDriveLink,
+  };
 }
