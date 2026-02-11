@@ -174,7 +174,7 @@ export default function Scripts() {
 
   // Check if user needs to set a name (Google sign-ups without name)
   useEffect(() => {
-    if (!user || authLoading || isAdmin) return;
+    if (!user || authLoading || isAdmin || isVideographer) return;
     const checkName = async () => {
       const { data } = await supabase
         .from("profiles")
@@ -589,9 +589,11 @@ export default function Scripts() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-              <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
-                <Plus className="w-4 h-4" /> Nuevo Script
-              </Button>
+              {!isVideographer && (
+                <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
+                  <Plus className="w-4 h-4" /> Nuevo Script
+                </Button>
+              )}
               <div className="flex gap-1 bg-gradient-to-r from-card via-card to-muted/30 border border-border rounded-2xl p-1">
                 {[
                   { key: "all" as const, label: "Todos" },
@@ -647,16 +649,18 @@ export default function Scripts() {
                           <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
                         </div>
                       </button>
-                      <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        {isAdmin && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive h-8 w-8 p-0">
-                            <Trash2 className="w-4 h-4" />
+                      {!isVideographer && (
+                        <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                          <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
+                            <Pencil className="w-4 h-4" />
                           </Button>
-                        )}
-                      </div>
+                          {isAdmin && (
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive h-8 w-8 p-0">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
