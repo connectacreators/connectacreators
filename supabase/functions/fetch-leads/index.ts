@@ -159,6 +159,7 @@ serve(async (req) => {
         notes: props["Notes"]?.rich_text?.[0]?.plain_text || "",
         createdDate: props["Created Date"]?.date?.start || "",
         lastContacted: props["Last Contacted"]?.date?.start || "",
+        appointmentDate: props["Appointment Date"]?.date?.start || "",
         notionUrl: page.url,
       };
     });

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
-import { FileText, LogOut, Loader2, Settings, Target } from "lucide-react";
+import { FileText, LogOut, Loader2, Settings, Target, CalendarDays } from "lucide-react";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 
@@ -57,7 +57,7 @@ export default function Dashboard() {
           <p className="text-muted-foreground">¡Bienvenido! Selecciona una herramienta para comenzar.</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           {/* Scripts tool card */}
           <button
             onClick={() => navigate("/scripts")}
@@ -83,6 +83,20 @@ export default function Dashboard() {
             <div>
               <h2 className="text-lg font-bold text-foreground mb-1">Lead Tracker</h2>
               <p className="text-sm text-muted-foreground">Visualiza y gestiona tus leads del CRM.</p>
+            </div>
+          </button>
+
+          {/* Lead Calendar card */}
+          <button
+            onClick={() => navigate("/lead-calendar")}
+            className="flex flex-col items-center gap-4 p-8 bg-card border border-border rounded-xl hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5 text-center group"
+          >
+            <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+              <CalendarDays className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground mb-1">Lead Calendar</h2>
+              <p className="text-sm text-muted-foreground">Visualiza citas programadas de tus leads.</p>
             </div>
           </button>
         </div>
