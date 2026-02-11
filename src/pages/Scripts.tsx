@@ -741,7 +741,7 @@ export default function Scripts() {
       )}
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl">
           <DialogHeader>
             <DialogTitle>Establecer nueva contraseña</DialogTitle>
           </DialogHeader>
@@ -762,7 +762,7 @@ export default function Scripts() {
       </Dialog>
 
       <Dialog open={showNamePrompt} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-sm bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>¿Cómo te llamas?</DialogTitle>
           </DialogHeader>
