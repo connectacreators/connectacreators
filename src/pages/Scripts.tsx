@@ -267,7 +267,8 @@ export default function Scripts() {
       // Videographers see the client list, don't auto-select
       return;
     }
-    const myClient = clients.find((c) => c.user_id === user?.id) || clients[0];
+    const myClient = clients.find((c) => c.user_id === user?.id);
+    if (!myClient) return; // No linked client yet
     setSelectedClient(myClient);
     fetchScriptsByClient(myClient.id);
     setView("client-detail");
