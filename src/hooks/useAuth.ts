@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-type UserRole = "admin" | "client";
+type UserRole = "admin" | "client" | "videographer";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -18,9 +18,8 @@ export function useAuth() {
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
-          .eq("role", "admin")
           .maybeSingle();
-        if (isMounted) return data ? "admin" as UserRole : "client" as UserRole;
+        if (isMounted && data) return data.role as UserRole;
       } catch {
         // ignore
       }
@@ -90,5 +89,5 @@ export function useAuth() {
     return { error };
   };
 
-  return { user, role, loading, signOut, signInWithEmail, signUpWithEmail, isAdmin: role === "admin" };
+  return { user, role, loading, signOut, signInWithEmail, signUpWithEmail, isAdmin: role === "admin", isVideographer: role === "videographer" };
 }
