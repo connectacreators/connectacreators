@@ -791,7 +791,7 @@ export default function Scripts() {
               ) : (
                 <div className="grid gap-3">
                   {filtered.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:to-primary/10 transition-smooth">
+                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:to-primary/10 transition-smooth overflow-hidden">
                       <button
                         onClick={async () => {
                           await toggleGrabado(s.id, !s.grabado);
@@ -805,10 +805,10 @@ export default function Scripts() {
                           <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />
                         )}
                       </button>
-                      <button onClick={() => handleViewScript(s)} className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left">
+                      <button onClick={() => handleViewScript(s)} className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left overflow-hidden">
                         <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0 hidden sm:block" />
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-semibold truncate ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>{s.title}</p>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className={`font-semibold truncate max-w-full ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>{s.title}</p>
                           <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
                         </div>
                       </button>
