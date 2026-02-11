@@ -502,12 +502,28 @@ export default function Scripts() {
                     {viewingMetadata.target}
                   </p>
                 )}
-                {viewingMetadata.formato && (
-                  <p className="text-sm text-foreground">
-                    <span className="font-semibold text-violet-400">Formato:</span>{" "}
-                    {viewingMetadata.formato}
-                  </p>
-                )}
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <span className="font-semibold text-violet-400">Formato:</span>
+                  <Select
+                    value={viewingMetadata.formato || ""}
+                    onValueChange={async (val) => {
+                      if (viewingScriptId) {
+                        await supabase.from("scripts").update({ formato: val }).eq("id", viewingScriptId);
+                        setViewingMetadata((prev) => prev ? { ...prev, formato: val } : prev);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-auto min-w-[160px] border-violet-500/30 bg-transparent text-foreground text-sm px-2 py-0">
+                      <SelectValue placeholder="Seleccionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TALKING HEAD">TALKING HEAD</SelectItem>
+                      <SelectItem value="B-ROLL CAPTION">B-ROLL CAPTION</SelectItem>
+                      <SelectItem value="ENTREVISTA">ENTREVISTA</SelectItem>
+                      <SelectItem value="VARIADO">VARIADO</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 
