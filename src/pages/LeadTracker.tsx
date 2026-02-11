@@ -38,6 +38,7 @@ type Lead = {
   notes: string;
   createdDate: string;
   lastContacted: string;
+  appointmentDate: string;
   notionUrl: string;
 };
 
@@ -310,6 +311,12 @@ export default function LeadTracker() {
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
                           {new Date(lead.createdDate).toLocaleDateString("es-MX")}
+                        </span>
+                      )}
+                      {lead.appointmentDate && (
+                        <span className="flex items-center gap-1 text-green-400 font-medium">
+                          <Calendar className="w-3 h-3" />
+                          Cita: {new Date(lead.appointmentDate).toLocaleDateString("es-MX")}
                         </span>
                       )}
                       {lead.campaignName && (

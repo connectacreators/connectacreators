@@ -9,6 +9,7 @@ import Onboarding from "./pages/Onboarding";
 import Scripts from "./pages/Scripts";
 import Dashboard from "./pages/Dashboard";
 import LeadTracker from "./pages/LeadTracker";
+import LeadCalendar from "./pages/LeadCalendar";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/scripts" element={<Scripts />} />
           <Route path="/leads" element={<LeadTracker />} />
+          <Route path="/lead-calendar" element={<LeadCalendar />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
