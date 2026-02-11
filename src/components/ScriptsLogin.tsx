@@ -5,7 +5,7 @@ import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
-import chessKnightIcon from "@/assets/chess-knight-icon.png";
+import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 
 type Props = {
   onSignIn: () => void;
@@ -171,10 +171,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
       {/* Chess knight icon footer */}
       <div className="py-6 flex justify-center">
-        <div className="flex flex-col items-center gap-1">
-          <img src={chessKnightIcon} alt="Connecta" className="h-16 w-16 object-contain" />
-          <span className="text-sm font-bold text-muted-foreground">Connecta</span>
-        </div>
+        <img src={connectaLoginLogo} alt="Connecta" className="h-16 object-contain" />
       </div>
     </div>
   );
