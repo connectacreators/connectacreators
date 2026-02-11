@@ -6,6 +6,7 @@ export type Client = {
   id: string;
   name: string;
   email: string | null;
+  user_id: string | null;
   created_at: string;
 };
 
