@@ -171,7 +171,10 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
       {/* Chess knight icon footer */}
       <div className="py-6 flex justify-center">
-        <img src={chessKnightIcon} alt="Connecta" className="h-16 w-16 object-contain" />
+        <div className="flex flex-col items-center gap-1">
+          <img src={chessKnightIcon} alt="Connecta" className="h-16 w-16 object-contain" />
+          <span className="text-sm font-bold text-muted-foreground">Connecta</span>
+        </div>
       </div>
     </div>
   );
