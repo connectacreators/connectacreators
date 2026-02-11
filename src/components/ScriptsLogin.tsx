@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogIn, Mail, Loader2 } from "lucide-react";
+import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import connectaLogo from "@/assets/connecta-logo.png";
@@ -17,7 +18,19 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgot, setIsForgot] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handleForgotPassword = useCallback(async () => {
+    if (!email.trim()) { toast.error("Ingresa tu correo electrónico"); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/scripts`,
+    });
+    setLoading(false);
+    if (error) toast.error(error.message);
+    else toast.success("Revisa tu correo para restablecer tu contraseña");
+  }, [email]);
 
   const handleEmailAuth = async () => {
     if (!email.trim() || !password.trim()) return;
@@ -50,35 +63,61 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
           <img src={connectaLogo} alt="Connecta" className="h-10 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Script Breakdown</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isSignUp ? "Crea tu cuenta" : "Inicia sesión para continuar"}
+            {isForgot ? "Ingresa tu correo para restablecer tu contraseña" : isSignUp ? "Crea tu cuenta" : "Inicia sesión para continuar"}
           </p>
         </div>
 
         <div className="space-y-3">
-          {isSignUp && (
-            <Input
-              placeholder="Nombre completo *"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+          {isForgot ? (
+            <>
+              <Input
+                placeholder="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
+              />
+              <Button onClick={handleForgotPassword} className="w-full gap-2" disabled={loading}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                Enviar enlace de recuperación
+              </Button>
+              <button onClick={() => setIsForgot(false)} className="text-sm text-primary hover:underline w-full text-center">
+                Volver al inicio de sesión
+              </button>
+            </>
+          ) : (
+            <>
+              {isSignUp && (
+                <Input
+                  placeholder="Nombre completo *"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              )}
+              <Input
+                placeholder="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input
+                placeholder="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
+              />
+              <Button onClick={handleEmailAuth} className="w-full gap-2" disabled={loading}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                {isSignUp ? "Registrarse" : "Iniciar Sesión"}
+              </Button>
+              {!isSignUp && (
+                <button onClick={() => setIsForgot(true)} className="text-sm text-muted-foreground hover:text-primary hover:underline w-full text-center">
+                  ¿Olvidaste tu contraseña?
+                </button>
+              )}
+            </>
           )}
-          <Input
-            placeholder="Correo electrónico"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Input
-            placeholder="Contraseña"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
-          />
-          <Button onClick={handleEmailAuth} className="w-full gap-2" disabled={loading}>
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-            {isSignUp ? "Registrarse" : "Iniciar Sesión"}
-          </Button>
         </div>
 
         <div className="relative">
@@ -95,15 +134,17 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
           Continuar con Google
         </Button>
 
-        <p className="text-center text-sm text-muted-foreground">
-          {isSignUp ? "¿Ya tienes cuenta?" : "¿No tienes cuenta?"}{" "}
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-primary hover:underline font-semibold"
-          >
-            {isSignUp ? "Inicia sesión" : "Regístrate"}
-          </button>
-        </p>
+        {!isForgot && (
+          <p className="text-center text-sm text-muted-foreground">
+            {isSignUp ? "¿Ya tienes cuenta?" : "¿No tienes cuenta?"}{" "}
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-primary hover:underline font-semibold"
+            >
+              {isSignUp ? "Inicia sesión" : "Regístrate"}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );
