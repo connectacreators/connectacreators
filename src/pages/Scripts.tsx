@@ -76,6 +76,11 @@ export default function Scripts() {
   const [newPassword, setNewPassword] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
 
+  // Name prompt for Google sign-ups
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [promptName, setPromptName] = useState("");
+  const [namePromptLoading, setNamePromptLoading] = useState(false);
+
   // Listen for PASSWORD_RECOVERY event
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -94,6 +99,51 @@ export default function Scripts() {
     if (error) toast.error(error.message);
     else { toast.success("Contraseña actualizada exitosamente"); setShowResetPassword(false); setNewPassword(""); }
   }, [newPassword]);
+
+  // Check if user needs to set a name (Google sign-ups without name)
+  useEffect(() => {
+    if (!user || authLoading || isAdmin) return;
+    const checkName = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const name = data?.display_name;
+      const email = user.email || "";
+      // If no name, or name equals the email, prompt
+      if (!name || name === email || name === email.split("@")[0]) {
+        setShowNamePrompt(true);
+      }
+    };
+    checkName();
+  }, [user, authLoading, isAdmin]);
+
+  const handleSaveName = useCallback(async () => {
+    if (!promptName.trim() || !user) return;
+    setNamePromptLoading(true);
+    try {
+      // Update profile
+      await supabase
+        .from("profiles")
+        .update({ display_name: promptName.trim() })
+        .eq("user_id", user.id);
+      // Update client record name
+      await supabase
+        .from("clients")
+        .update({ name: promptName.trim() })
+        .eq("user_id", user.id);
+      setShowNamePrompt(false);
+      toast.success("¡Nombre guardado!");
+      // Refresh clients
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al guardar el nombre");
+    } finally {
+      setNamePromptLoading(false);
+    }
+  }, [promptName, user]);
 
   // Auto-select client for non-admin users
   useEffect(() => {
@@ -453,6 +503,30 @@ export default function Scripts() {
             <Button onClick={handleSetNewPassword} className="w-full" disabled={resetLoading}>
               {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Guardar contraseña
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNamePrompt} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>¿Cómo te llamas?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Necesitamos tu nombre para crear tu perfil de cliente.
+          </p>
+          <div className="space-y-4">
+            <Input
+              placeholder="Tu nombre completo"
+              value={promptName}
+              onChange={(e) => setPromptName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+              autoFocus
+            />
+            <Button onClick={handleSaveName} className="w-full" disabled={namePromptLoading || !promptName.trim()}>
+              {namePromptLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Guardar nombre
             </Button>
           </div>
         </DialogContent>
