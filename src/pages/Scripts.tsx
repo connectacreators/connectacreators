@@ -324,6 +324,7 @@ export default function Scripts() {
       setParsedLines(result.lines);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
+      setViewingScriptId(result.scriptId);
       setView("view-script");
     }
   };
@@ -342,6 +343,7 @@ export default function Scripts() {
       setParsedLines(result.lines);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
+      setViewingScriptId(editingScript.id);
       setEditingScript(null);
       setView("view-script");
     }

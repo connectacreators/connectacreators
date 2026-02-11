@@ -53,7 +53,7 @@ export function useScripts() {
     inspirationUrl?: string,
     formato?: string,
     googleDriveLink?: string
-  ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata } | null> => {
+  ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata; scriptId: string } | null> => {
     setLoading(true);
     try {
       // Call AI to categorize
@@ -116,6 +116,7 @@ export function useScripts() {
           formato: result.formato || formato || null,
           google_drive_link: googleDriveLink || null,
         },
+        scriptId: script.id,
       };
     } catch (e) {
       console.error(e);
