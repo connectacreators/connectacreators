@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
-  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle,
+  Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import { Link } from "react-router-dom";
@@ -17,6 +17,56 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Mic button using Web Speech API
+function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef<any>(null);
+
+  const toggle = useCallback(() => {
+    if (listening && recRef.current) {
+      recRef.current.stop();
+      setListening(false);
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error("Tu navegador no soporta reconocimiento de voz");
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "es-MX";
+    rec.interimResults = false;
+    rec.continuous = true;
+    rec.onresult = (e: any) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) transcript += e.results[i][0].transcript;
+      }
+      if (transcript) onTranscript(transcript);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    rec.start();
+    recRef.current = rec;
+    setListening(true);
+  }, [listening, onTranscript]);
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className={`absolute bottom-3 right-3 p-2 rounded-full transition-smooth ${
+        listening
+          ? "bg-red-500 text-white animate-pulse"
+          : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+      }`}
+      title={listening ? "Detener dictado" : "Dictar con micrófono"}
+    >
+      {listening ? <MicOff className="w-4 h-4" /> : <MicIcon className="w-4 h-4" />}
+    </button>
+  );
+}
 
 const typeConfig = {
   filming: {
@@ -510,12 +560,15 @@ export default function Scripts() {
 
             <Input placeholder="Google Drive link (opcional)" value={googleDriveLink} onChange={(e) => setGoogleDriveLink(e.target.value)} className="mb-3" />
 
-            <Textarea
-              value={scriptInput}
-              onChange={(e) => setScriptInput(e.target.value)}
-              placeholder="Pega o escribe el guión completo aquí..."
-              className="min-h-[200px] bg-card border-border font-mono text-sm resize-y mb-4"
-            />
+            <div className="relative mb-4">
+              <Textarea
+                value={scriptInput}
+                onChange={(e) => setScriptInput(e.target.value)}
+                placeholder="Pega, escribe o dicta el guión completo aquí..."
+                className="min-h-[200px] bg-card border-border font-mono text-sm resize-y pr-12"
+              />
+              <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
+            </div>
             <Button
               onClick={view === "edit-script" ? handleUpdate : handleCategorize}
               variant="cta"
@@ -593,19 +646,32 @@ export default function Scripts() {
                 </Button>
               )}
             </div>
-            {parsedLines.map((line, i) => {
-              const cfg = typeConfig[line.line_type];
-              const Icon = cfg.icon;
+            {/* Render lines grouped by section */}
+            {(["hook", "body", "cta"] as const).map((section) => {
+              const sectionLines = parsedLines.filter((l) => l.section === section);
+              if (sectionLines.length === 0) return null;
+              const sectionLabels = { hook: "🪝 Hook", body: "📝 Body", cta: "📣 CTA" };
               return (
-                <div key={i} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}>
-                  <div className={`mt-0.5 p-1.5 rounded-md ${cfg.bg}`}>
-                    <Icon className={`w-4 h-4 ${cfg.color}`} />
+                <div key={section} className="space-y-3">
+                  <div className="flex items-center gap-2 mt-4 mb-2">
+                    <span className="text-sm font-bold text-foreground uppercase tracking-wider">{sectionLabels[section]}</span>
+                    <div className="flex-1 h-px bg-border" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
-                    <p className="text-foreground mt-1 text-sm leading-relaxed">{line.text}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono mt-1">#{i + 1}</span>
+                  {sectionLines.map((line, i) => {
+                    const cfg = typeConfig[line.line_type];
+                    const Icon = cfg.icon;
+                    return (
+                      <div key={`${section}-${i}`} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border ${cfg.bg} ${cfg.border} transition-smooth`}>
+                        <div className={`mt-0.5 p-1.5 rounded-md ${cfg.bg}`}>
+                          <Icon className={`w-4 h-4 ${cfg.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+                          <p className="text-foreground mt-1 text-sm leading-relaxed">{line.text}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

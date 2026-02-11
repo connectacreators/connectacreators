@@ -35,6 +35,12 @@ serve(async (req) => {
    - "actor": Dialogue, voiceover, or anything the talent/actor says on camera
    - "editor": Post-production instructions (text overlays, music, effects, B-roll inserts, transitions added in editing)
 
+3. IMPORTANT: Assign each line to one of three SECTIONS of the script:
+   - "hook": The opening lines that grab attention (typically the first few lines)
+   - "body": The main content/argument of the video (the bulk of the script)
+   - "cta": The call-to-action or closing lines (typically the last few lines urging the viewer to act)
+   Every script MUST have all three sections. If the script is very short, still divide it into hook, body, and cta.
+
 Rules:
 - If the script contains lines labeled "Idea Ganadora:", "Target:", "Formato:", or "Google Drive:", extract those values and do NOT include them in the categorized lines
 - Every other non-empty line must be categorized
@@ -94,9 +100,14 @@ Rules:
                             type: "string",
                             enum: ["filming", "actor", "editor"],
                           },
+                          section: {
+                            type: "string",
+                            enum: ["hook", "body", "cta"],
+                            description: "Which section of the script this line belongs to",
+                          },
                           text: { type: "string" },
                         },
-                        required: ["line_type", "text"],
+                        required: ["line_type", "section", "text"],
                         additionalProperties: false,
                       },
                     },
