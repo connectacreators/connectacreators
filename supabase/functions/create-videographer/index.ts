@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
     // Set username on profile
     await supabaseAdmin.from("profiles").update({ username }).eq("user_id", userId);
 
+    // Remove any auto-created client record (videographers are not clients)
+    await supabaseAdmin.from("clients").delete().eq("user_id", userId);
+
     return new Response(JSON.stringify({ success: true, user_id: userId }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
