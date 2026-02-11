@@ -448,10 +448,10 @@ export default function Scripts() {
                   <Eye className="w-4 h-4 text-primary" />
                   <span className="text-sm font-semibold text-primary uppercase tracking-wider">Inspiración</span>
                 </div>
-                <a href={viewingInspirationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all">
+                <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all text-left">
                   <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
                   {viewingInspirationUrl}
-                </a>
+                </button>
               </div>
             )}
 
