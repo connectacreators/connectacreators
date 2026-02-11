@@ -10,7 +10,7 @@ import {
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
 import { Link } from "react-router-dom";
-import connectaLogo from "@/assets/connecta-logo.png";
+import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import { useClients, type Client } from "@/hooks/useClients";
 import { useScripts, type ScriptLine, type Script, type ScriptMetadata } from "@/hooks/useScripts";
 import { useAuth } from "@/hooks/useAuth";
@@ -410,7 +410,7 @@ export default function Scripts() {
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Inicio</span>
             </Link>
-            <img src={connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
+            <img src={chessKnightIcon} alt="Connecta" className="h-7 sm:h-8" />
           </div>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
@@ -709,7 +709,7 @@ export default function Scripts() {
                     {isAdmin && videographers.length > 0 && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setAssignOverlayClient(assignOverlayClient === c.id ? null : c.id); }}
-                        className="absolute top-3 right-12 p-1.5 rounded-full border-2 border-dashed border-muted-foreground/40 hover:border-primary/60 transition-smooth"
+                        className="absolute top-1/2 -translate-y-1/2 right-12 p-1.5 rounded-full border-2 border-dashed border-muted-foreground/40 hover:border-primary/60 transition-smooth"
                         title="Asignar videographer"
                       >
                         <Camera className="w-3.5 h-3.5 text-muted-foreground" />
