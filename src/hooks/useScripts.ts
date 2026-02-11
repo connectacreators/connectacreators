@@ -320,6 +320,29 @@ export function useScripts() {
     return true;
   };
 
+  const addScriptLine = async (scriptId: string, section: string, lineType: string, text: string) => {
+    // Get the max line_number for this script to append
+    const { data: existing } = await supabase
+      .from("script_lines")
+      .select("line_number")
+      .eq("script_id", scriptId)
+      .order("line_number", { ascending: false })
+      .limit(1);
+    const nextLineNumber = (existing?.[0]?.line_number ?? 0) + 1;
+    const { error } = await supabase.from("script_lines").insert({
+      script_id: scriptId,
+      line_number: nextLineNumber,
+      line_type: lineType,
+      section,
+      text,
+    });
+    if (error) {
+      toast.error("Error al agregar línea");
+      return null;
+    }
+    return nextLineNumber;
+  };
+
   return {
     scripts,
     loading,
@@ -333,5 +356,6 @@ export function useScripts() {
     updateScriptLine,
     deleteScriptLine,
     updateScriptLineType,
+    addScriptLine,
   };
 }
