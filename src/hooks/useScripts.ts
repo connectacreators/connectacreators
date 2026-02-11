@@ -80,7 +80,7 @@ export function useScripts() {
         .from("scripts")
         .insert({
           client_id: clientId,
-          title,
+          title: result.idea_ganadora || title,
           raw_content: rawContent,
           inspiration_url: inspirationUrl || null,
           idea_ganadora: result.idea_ganadora || null,
@@ -183,7 +183,7 @@ export function useScripts() {
       const { error: scriptErr } = await supabase
         .from("scripts")
         .update({
-          title,
+          title: result.idea_ganadora || title,
           raw_content: rawContent,
           inspiration_url: inspirationUrl || null,
           idea_ganadora: result.idea_ganadora || null,
