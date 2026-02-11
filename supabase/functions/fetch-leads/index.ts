@@ -130,7 +130,6 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           filter,
-          sorts: [{ property: "Created Date", direction: "descending" }],
           page_size: 100,
         }),
       }
