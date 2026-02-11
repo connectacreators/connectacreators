@@ -14,7 +14,7 @@ type Props = {
 };
 
 export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmail }: Props) {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState(""); // email or username
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -22,31 +22,48 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   const [loading, setLoading] = useState(false);
 
   const handleForgotPassword = useCallback(async () => {
-    if (!email.trim()) { toast.error("Ingresa tu correo electrónico"); return; }
+    if (!identifier.trim()) { toast.error("Ingresa tu correo electrónico"); return; }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(identifier, {
       redirectTo: `${window.location.origin}/scripts`,
-    
     });
     setLoading(false);
     if (error) toast.error(error.message);
     else toast.success("Revisa tu correo para restablecer tu contraseña");
-  }, [email]);
+  }, [identifier]);
+
+  const resolveEmail = async (input: string): Promise<string | null> => {
+    // If it looks like an email, return as-is
+    if (input.includes("@")) return input;
+    // Otherwise look up by username
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("username", input.trim().toLowerCase())
+      .maybeSingle();
+    if (error || !data?.email) {
+      toast.error("Usuario no encontrado");
+      return null;
+    }
+    return data.email;
+  };
 
   const handleEmailAuth = async () => {
-    if (!email.trim() || !password.trim()) return;
+    if (!identifier.trim() || !password.trim()) return;
     if (isSignUp && !fullName.trim()) { toast.error("El nombre es obligatorio"); return; }
     setLoading(true);
-    const { error } = isSignUp
-      ? await signUpWithEmail(email, password, fullName.trim())
-      : await signInWithEmail(email, password);
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else if (isSignUp) {
-      toast.success("Revisa tu correo para confirmar tu cuenta");
+    if (isSignUp) {
+      const { error } = await signUpWithEmail(identifier, password, fullName.trim());
+      setLoading(false);
+      if (error) toast.error(error.message);
+      else toast.success("Revisa tu correo para confirmar tu cuenta");
     } else {
-      onSignIn();
+      const email = await resolveEmail(identifier);
+      if (!email) { setLoading(false); return; }
+      const { error } = await signInWithEmail(email, password);
+      setLoading(false);
+      if (error) toast.error(error.message);
+      else onSignIn();
     }
   };
 
@@ -74,8 +91,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
               <Input
                 placeholder="Correo electrónico"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
               />
               <Button onClick={handleForgotPassword} className="w-full gap-2 bg-gradient-to-b from-primary to-primary-dark hover:from-primary/90 hover:to-primary-dark/90" disabled={loading}>
@@ -96,10 +113,10 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
                 />
               )}
               <Input
-                placeholder="Correo electrónico"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder={isSignUp ? "Correo electrónico" : "Correo electrónico o username"}
+                type={isSignUp ? "email" : "text"}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
               <Input
                 placeholder="Contraseña"

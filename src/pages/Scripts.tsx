@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
+  Camera,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import { Link } from "react-router-dom";
@@ -98,7 +99,7 @@ const typeConfig = {
 type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script";
 
 export default function Scripts() {
-  const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin } = useAuth();
+  const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer } = useAuth();
   const { clients, loading: clientsLoading, addClient } = useClients(!!user);
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
@@ -107,6 +108,10 @@ export default function Scripts() {
 
   const [grabadoFilter, setGrabadoFilter] = useState<"all" | "grabado" | "no-grabado">("all");
 
+  // Videographer assignment state (admin only)
+  const [videographers, setVideographers] = useState<{ user_id: string; display_name: string; username: string | null }[]>([]);
+  const [assignmentsMap, setAssignmentsMap] = useState<Record<string, string[]>>({}); // client_id -> videographer_user_ids
+  const [assignOverlayClient, setAssignOverlayClient] = useState<string | null>(null); // client id with open overlay
   const [view, setView] = useState<View>("clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [parsedLines, setParsedLines] = useState<ScriptLine[]>([]);
@@ -134,6 +139,14 @@ export default function Scripts() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+
+  // Create videographer form (admin)
+  const [showNewVideographer, setShowNewVideographer] = useState(false);
+  const [vidUsername, setVidUsername] = useState("");
+  const [vidEmail, setVidEmail] = useState("");
+  const [vidPassword, setVidPassword] = useState("");
+  const [vidName, setVidName] = useState("");
+  const [vidLoading, setVidLoading] = useState(false);
 
   // Name prompt for Google sign-ups
   const [showNamePrompt, setShowNamePrompt] = useState(false);
@@ -204,15 +217,51 @@ export default function Scripts() {
     }
   }, [promptName, user]);
 
-  // Auto-select client for non-admin users
+  // Fetch videographers list and assignments (admin only)
   useEffect(() => {
-    if (!isAdmin && !clientsLoading && clients.length > 0 && !selectedClient) {
-      const myClient = clients.find((c) => c.user_id === user?.id) || clients[0];
-      setSelectedClient(myClient);
-      fetchScriptsByClient(myClient.id);
-      setView("client-detail");
+    if (!isAdmin || !user) return;
+    const fetchVid = async () => {
+      // Get all videographer user_ids
+      const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "videographer");
+      if (!roles || roles.length === 0) { setVideographers([]); return; }
+      const ids = roles.map((r) => r.user_id);
+      const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, username").in("user_id", ids);
+      setVideographers((profiles || []).map((p) => ({ user_id: p.user_id, display_name: p.display_name || "Sin nombre", username: p.username })));
+      // Fetch all assignments
+      const { data: assignments } = await supabase.from("videographer_clients").select("videographer_user_id, client_id");
+      const map: Record<string, string[]> = {};
+      (assignments || []).forEach((a) => {
+        if (!map[a.client_id]) map[a.client_id] = [];
+        map[a.client_id].push(a.videographer_user_id);
+      });
+      setAssignmentsMap(map);
+    };
+    fetchVid();
+  }, [isAdmin, user]);
+
+  const toggleVideographerAssignment = async (clientId: string, vidUserId: string) => {
+    const current = assignmentsMap[clientId] || [];
+    if (current.includes(vidUserId)) {
+      await supabase.from("videographer_clients").delete().eq("client_id", clientId).eq("videographer_user_id", vidUserId);
+      setAssignmentsMap((prev) => ({ ...prev, [clientId]: current.filter((v) => v !== vidUserId) }));
+    } else {
+      await supabase.from("videographer_clients").insert({ client_id: clientId, videographer_user_id: vidUserId });
+      setAssignmentsMap((prev) => ({ ...prev, [clientId]: [...current, vidUserId] }));
     }
-  }, [isAdmin, clientsLoading, clients, selectedClient, user]);
+  };
+
+  // Auto-select client for non-admin users (client or videographer)
+  useEffect(() => {
+    if (isAdmin || clientsLoading || clients.length === 0 || selectedClient) return;
+    if (isVideographer) {
+      // Videographers see the client list, don't auto-select
+      return;
+    }
+    const myClient = clients.find((c) => c.user_id === user?.id) || clients[0];
+    setSelectedClient(myClient);
+    fetchScriptsByClient(myClient.id);
+    setView("client-detail");
+  }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user]);
 
   // Auth loading
   if (authLoading) {
@@ -351,6 +400,7 @@ export default function Scripts() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
               {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
+              {isVideographer && <span className="text-emerald-400 font-bold">(Videographer)</span>}
             </span>
             <Button variant="ghost" size="sm" onClick={signOut} className="gap-1 flex-shrink-0">
               <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Salir</span>
@@ -376,7 +426,7 @@ export default function Scripts() {
                 Script <span className="text-primary">Breakdown</span>
               </h1>
               <p className="text-muted-foreground max-w-xl mx-auto">
-                {isAdmin ? "Gestiona los scripts de todos tus clientes." : "Gestiona tus scripts."}
+                {isAdmin ? "Gestiona los scripts de todos tus clientes." : isVideographer ? "Clientes asignados a ti." : "Gestiona tus scripts."}
               </p>
             </div>
 
@@ -401,6 +451,58 @@ export default function Scripts() {
               )
             )}
 
+            {/* Create Videographer (admin only) */}
+            {isAdmin && (
+              showNewVideographer ? (
+                <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
+                  <h3 className="font-semibold text-foreground flex items-center gap-2"><Camera className="w-4 h-4 text-emerald-400" /> Nuevo Videographer</h3>
+                  <Input placeholder="Username *" value={vidUsername} onChange={(e) => setVidUsername(e.target.value)} />
+                  <Input placeholder="Nombre completo" value={vidName} onChange={(e) => setVidName(e.target.value)} />
+                  <Input placeholder="Correo electrónico *" type="email" value={vidEmail} onChange={(e) => setVidEmail(e.target.value)} />
+                  <Input placeholder="Contraseña *" type="password" value={vidPassword} onChange={(e) => setVidPassword(e.target.value)} />
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={async () => {
+                        if (!vidUsername.trim() || !vidEmail.trim() || !vidPassword.trim()) { toast.error("Username, email y contraseña son obligatorios"); return; }
+                        setVidLoading(true);
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-videographer`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ email: vidEmail, password: vidPassword, username: vidUsername.toLowerCase(), full_name: vidName || vidUsername }),
+                          });
+                          const result = await res.json();
+                          if (!res.ok) throw new Error(result.error);
+                          toast.success("Videographer creado exitosamente");
+                          setShowNewVideographer(false); setVidUsername(""); setVidEmail(""); setVidPassword(""); setVidName("");
+                          const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "videographer");
+                          if (roles) {
+                            const ids = roles.map((r) => r.user_id);
+                            const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, username").in("user_id", ids);
+                            setVideographers((profiles || []).map((p) => ({ user_id: p.user_id, display_name: p.display_name || "Sin nombre", username: p.username })));
+                          }
+                        } catch (e: any) {
+                          toast.error(e.message || "Error al crear videographer");
+                        } finally {
+                          setVidLoading(false);
+                        }
+                      }}
+                      disabled={vidLoading || !vidUsername.trim() || !vidEmail.trim() || !vidPassword.trim()}
+                    >
+                      {vidLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                      Crear Videographer
+                    </Button>
+                    <Button variant="ghost" onClick={() => setShowNewVideographer(false)}>Cancelar</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button onClick={() => setShowNewVideographer(true)} variant="outline" className="mb-6 gap-2 ml-2">
+                  <Camera className="w-4 h-4" /> Nuevo Videographer
+                </Button>
+              )
+            )}
+
             {/* Client Cards */}
             {clientsLoading ? (
               <div className="flex justify-center py-12">
@@ -408,25 +510,70 @@ export default function Scripts() {
               </div>
             ) : clients.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">
-                {isAdmin ? "No hay clientes aún. Crea el primero." : "No tienes scripts asignados aún."}
+                {isAdmin ? "No hay clientes aún. Crea el primero." : isVideographer ? "No tienes clientes asignados aún." : "No tienes scripts asignados aún."}
               </p>
             ) : (
               <div className="grid gap-3">
                 {clients.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => handleSelectClient(c)}
-                    className="flex items-center gap-4 p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:from-card hover:to-primary/10 transition-smooth text-left w-full"
-                  >
-                    <div className="p-2 rounded-full bg-primary/10">
-                      <User className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate">{c.name}</p>
-                      {c.email && <p className="text-sm text-muted-foreground truncate">{c.email}</p>}
-                    </div>
-                    <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180" />
-                  </button>
+                  <div key={c.id} className="relative">
+                    <button
+                      onClick={() => handleSelectClient(c)}
+                      className="flex items-center gap-4 p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:from-card hover:to-primary/10 transition-smooth text-left w-full"
+                    >
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <User className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{c.name}</p>
+                        {c.email && <p className="text-sm text-muted-foreground truncate">{c.email}</p>}
+                        {/* Show assigned videographers */}
+                        {isAdmin && assignmentsMap[c.id]?.length > 0 && (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {assignmentsMap[c.id].map((vid) => {
+                              const v = videographers.find((x) => x.user_id === vid);
+                              return (
+                                <span key={vid} className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">
+                                  {v?.username || v?.display_name || "?"}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180" />
+                    </button>
+
+                    {/* Videographer assignment button (admin only) */}
+                    {isAdmin && videographers.length > 0 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setAssignOverlayClient(assignOverlayClient === c.id ? null : c.id); }}
+                        className="absolute top-3 right-12 p-1.5 rounded-full border-2 border-dashed border-muted-foreground/40 hover:border-primary/60 transition-smooth"
+                        title="Asignar videographer"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+
+                    {/* Assignment overlay */}
+                    {isAdmin && assignOverlayClient === c.id && (
+                      <div className="absolute top-14 right-4 z-50 bg-gradient-to-br from-card to-muted/40 border border-border rounded-xl p-3 shadow-lg min-w-[180px] animate-fade-in">
+                        <p className="text-xs font-semibold text-foreground mb-2">Asignar Videographer</p>
+                        {videographers.map((v) => {
+                          const assigned = (assignmentsMap[c.id] || []).includes(v.user_id);
+                          return (
+                            <button
+                              key={v.user_id}
+                              onClick={() => toggleVideographerAssignment(c.id, v.user_id)}
+                              className={`flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-sm transition-smooth ${assigned ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-muted/50 text-muted-foreground"}`}
+                            >
+                              {assigned ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                              {v.username || v.display_name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
