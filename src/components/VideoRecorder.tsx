@@ -30,8 +30,13 @@ export default function VideoRecorder({ pip = false, scriptTitle, onClose }: Vid
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: true,
+        video: {
+          facingMode: facing,
+          width: { ideal: 3840, min: 1920 },
+          height: { ideal: 2160, min: 1080 },
+          frameRate: { ideal: 60, min: 30 },
+        },
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -72,7 +77,7 @@ export default function VideoRecorder({ pip = false, scriptTitle, onClose }: Vid
       ? "video/webm;codecs=vp9,opus"
       : "video/webm";
 
-    const mr = new MediaRecorder(streamRef.current, { mimeType });
+    const mr = new MediaRecorder(streamRef.current, { mimeType, videoBitsPerSecond: 20_000_000 });
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
