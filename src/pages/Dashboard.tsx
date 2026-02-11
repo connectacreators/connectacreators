@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
 import { FileText, LogOut, Loader2, Settings } from "lucide-react";
-import connectaLogo from "@/assets/connecta-logo.png";
+import chessKnightIcon from "@/assets/chess-knight-icon.png";
+import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 
 export default function Dashboard() {
   const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
@@ -34,7 +35,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <img src={connectaLogo} alt="Connecta" className="h-8 sm:h-10" />
+          <img src={chessKnightIcon} alt="Connecta" className="h-8 sm:h-10" />
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
               {user.email}
@@ -52,10 +53,8 @@ export default function Dashboard() {
 
       <main className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="text-center mb-10">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-            Bienvenido a <span className="text-primary">Connecta</span>
-          </h1>
-          <p className="text-muted-foreground">Selecciona una herramienta para comenzar.</p>
+          <img src={connectaLoginLogo} alt="Connecta" className="h-10 object-contain mx-auto mb-3" />
+          <p className="text-muted-foreground">¡Bienvenido! Selecciona una herramienta para comenzar.</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
