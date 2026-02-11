@@ -99,6 +99,25 @@ serve(async (req) => {
         }
       : undefined;
 
+    // Fetch database schema to get Lead Status options
+    const schemaResponse = await fetch(
+      `https://api.notion.com/v1/databases/${LEADS_DATABASE_ID}`,
+      {
+        headers: {
+          Authorization: `Bearer ${NOTION_API_KEY}`,
+          "Notion-Version": NOTION_API_VERSION,
+        },
+      }
+    );
+
+    let statusOptions: string[] = [];
+    let sourceOptions: string[] = [];
+    if (schemaResponse.ok) {
+      const schemaData = await schemaResponse.json();
+      statusOptions = (schemaData.properties?.["Lead Status"]?.select?.options || []).map((o: any) => o.name);
+      sourceOptions = (schemaData.properties?.["Lead Source"]?.select?.options || []).map((o: any) => o.name);
+    }
+
     // Query Notion
     const notionResponse = await fetch(
       `https://api.notion.com/v1/databases/${LEADS_DATABASE_ID}/query`,
@@ -145,7 +164,7 @@ serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ leads, hasMore: notionData.has_more, total: leads.length }),
+      JSON.stringify({ leads, hasMore: notionData.has_more, total: leads.length, statusOptions, sourceOptions }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
