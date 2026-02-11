@@ -104,7 +104,7 @@ export default function Scripts() {
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
     categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
-    updateScriptLine, deleteScriptLine,
+    updateScriptLine, deleteScriptLine, updateScriptLineType,
   } = useScripts();
 
   // Inline editing script lines
@@ -977,9 +977,22 @@ export default function Scripts() {
                     const isEditingThis = editingLineKey === lineKey;
                     return (
                       <div key={lineKey} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
-                        <div className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg}`}>
+                        <button
+                          className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg} cursor-pointer hover:opacity-80 transition-smooth`}
+                          title="Cambiar tipo de línea"
+                          onClick={async () => {
+                            if (!viewingScriptId) return;
+                            const types: ("filming" | "actor" | "editor")[] = ["filming", "actor", "editor"];
+                            const currentIdx = types.indexOf(line.line_type);
+                            const nextType = types[(currentIdx + 1) % types.length];
+                            const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
+                            if (ok) {
+                              setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
+                            }
+                          }}
+                        >
                           <Icon className={`w-4 h-4 ${cfg.color}`} />
-                        </div>
+                        </button>
                         <div className="flex-1 min-w-0">
                           <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
                           {isEditingThis ? (

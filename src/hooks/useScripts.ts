@@ -307,6 +307,19 @@ export function useScripts() {
     return true;
   };
 
+  const updateScriptLineType = async (scriptId: string, lineNumber: number, newType: string) => {
+    const { error } = await supabase
+      .from("script_lines")
+      .update({ line_type: newType })
+      .eq("script_id", scriptId)
+      .eq("line_number", lineNumber);
+    if (error) {
+      toast.error("Error al cambiar tipo de línea");
+      return false;
+    }
+    return true;
+  };
+
   return {
     scripts,
     loading,
@@ -319,5 +332,6 @@ export function useScripts() {
     toggleGrabado,
     updateScriptLine,
     deleteScriptLine,
+    updateScriptLineType,
   };
 }
