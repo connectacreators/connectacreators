@@ -58,8 +58,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4" style={{ fontFamily: "Arial, sans-serif" }}>
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex items-center justify-center px-4" style={{ fontFamily: "Arial, sans-serif" }}>
+      <div className="w-full max-w-sm space-y-6 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 shadow-card">
         <div className="text-center">
           <img src={connectaLogo} alt="Connecta" className="h-10 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Script Breakdown</h1>
@@ -123,10 +123,10 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
+            <span className="w-full border-t border-border/50" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">o</span>
+            <span className="bg-card px-2 text-muted-foreground">o</span>
           </div>
         </div>
 
