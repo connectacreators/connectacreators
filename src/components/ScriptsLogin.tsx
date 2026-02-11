@@ -78,7 +78,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
     <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex items-center justify-center px-4" style={{ fontFamily: "Arial, sans-serif" }}>
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <img src={connectaLogo} alt="Connecta" className="h-64 mx-auto mb-4" />
+          
           <h1 className="text-2xl font-bold text-foreground">
             Let's make some killer <em>scripts</em>
           </h1>
@@ -165,6 +165,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
             </button>
           </p>
         )}
+
+        <img src={connectaLogo} alt="Connecta" className="h-64 mx-auto mt-8" />
       </div>
     </div>
   );
