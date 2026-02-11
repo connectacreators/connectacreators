@@ -5,7 +5,7 @@ import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
-import connectaLogo from "@/assets/connecta-logo-new.png";
+
 
 type Props = {
   onSignIn: () => void;
@@ -169,9 +169,21 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
       </div>
       </div>
 
-      {/* Logo footer */}
-      <div className="py-6">
-        <img src={connectaLogo} alt="Connecta" className="h-32 mx-auto" />
+      {/* Chess knight icon footer */}
+      <div className="py-6 flex justify-center">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="knightGrad" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="white" />
+              <stop offset="100%" stopColor="#9ca3af" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M20 56h24v-4H20v4Zm2-6h20c1 0 2-.5 2-1.5 0 0 2-8.5 2-14.5 0-8-4-14-10-17l2-5c.3-.8-.2-1.5-1-1.5h-4l-1-3c-.3-.8-1.2-1-1.8-.4L22 16c-4 4-6 9-6 15 0 6 2 13.5 2 13.5 0 1 1 1.5 2 1.5h2Z"
+            fill="url(#knightGrad)"
+          />
+          <circle cx="28" cy="22" r="2" fill="hsl(var(--background))" />
+        </svg>
       </div>
     </div>
   );
