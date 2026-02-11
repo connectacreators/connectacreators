@@ -5,9 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings,
+  Camera, Settings, Video,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
+import VideoRecorder from "@/components/VideoRecorder";
 import { Link } from "react-router-dom";
 import connectaLogo from "@/assets/connecta-logo.png";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -141,6 +142,7 @@ export default function Scripts() {
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
@@ -952,11 +954,16 @@ export default function Scripts() {
 
             <div className="flex items-center justify-between gap-2 mb-4">
               <h2 className="text-base sm:text-xl font-bold text-foreground truncate">Resultado — {parsedLines.length} líneas</h2>
-              {parsedLines.some((l) => l.line_type === "actor") && (
-                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 flex-shrink-0 text-xs sm:text-sm">
-                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Teleprompter</span><span className="sm:hidden">TP</span>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                  <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Grabar</span><span className="sm:hidden">Rec</span>
                 </Button>
-              )}
+                {parsedLines.some((l) => l.line_type === "actor") && (
+                  <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                    <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Teleprompter</span><span className="sm:hidden">TP</span>
+                  </Button>
+                )}
+              </div>
             </div>
             {/* Render lines grouped by section */}
             {(["hook", "body", "cta"] as const).map((section) => {
@@ -1118,7 +1125,11 @@ export default function Scripts() {
       </main>
 
       {showTeleprompter && (
-        <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} />
+        <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} showRecorder={showRecorder} onToggleRecorder={() => setShowRecorder((p) => !p)} />
+      )}
+
+      {showRecorder && !showTeleprompter && (
+        <VideoRecorder pip onClose={() => setShowRecorder(false)} />
       )}
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>

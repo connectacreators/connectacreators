@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Play, Pause, RotateCcw } from "lucide-react";
+import { X, Play, Pause, RotateCcw, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { ScriptLine } from "@/hooks/useScripts";
+import VideoRecorder from "@/components/VideoRecorder";
 
 interface TeleprompterProps {
   lines: ScriptLine[];
   onClose: () => void;
+  showRecorder?: boolean;
+  onToggleRecorder?: () => void;
 }
 
-export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
+export default function Teleprompter({ lines, onClose, showRecorder = false, onToggleRecorder }: TeleprompterProps) {
   const actorLines = lines.filter((l) => l.line_type === "actor");
   const scrollRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number | null>(null);
@@ -18,6 +21,11 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
   const [speed, setSpeed] = useState(40);
   const [showControls, setShowControls] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Local recorder state if parent doesn't control it
+  const [localRecorder, setLocalRecorder] = useState(false);
+  const isRecorderVisible = onToggleRecorder ? showRecorder : localRecorder;
+  const toggleRecorder = onToggleRecorder || (() => setLocalRecorder((p) => !p));
 
   // Lock body scroll when teleprompter is open
   useEffect(() => {
@@ -91,7 +99,6 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
       style={{
         fontFamily: "Arial, Helvetica, sans-serif",
         cursor: showControls ? "default" : "none",
-        // Ensure it covers everything including notch areas
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
@@ -115,9 +122,18 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
             <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Reiniciar</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => { e.stopPropagation(); toggleRecorder(); }}
+            className={`text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 ${isRecorderVisible ? "bg-red-500/30" : ""}`}
+          >
+            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">{isRecorderVisible ? "Ocultar Cam" : "Grabar"}</span>
+          </Button>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4 min-w-[140px] sm:min-w-[280px]">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-[100px] sm:min-w-[280px]">
           <span className="text-white/70 text-xs sm:text-sm whitespace-nowrap hidden sm:inline">Velocidad</span>
           <Slider
             value={[speed]}
@@ -157,6 +173,11 @@ export default function Teleprompter({ lines, onClose }: TeleprompterProps) {
         {/* Bottom padding */}
         <div className="h-[80vh]" />
       </div>
+
+      {/* Video recorder PIP inside teleprompter */}
+      {isRecorderVisible && (
+        <VideoRecorder pip onClose={() => { if (onToggleRecorder) onToggleRecorder(); else setLocalRecorder(false); }} />
+      )}
     </div>
   );
 }
