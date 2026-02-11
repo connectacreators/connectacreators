@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +70,16 @@ export default function Scripts() {
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
+
+  // Auto-select client for non-admin users
+  useEffect(() => {
+    if (!isAdmin && !clientsLoading && clients.length > 0 && !selectedClient) {
+      const myClient = clients.find((c) => c.user_id === user?.id) || clients[0];
+      setSelectedClient(myClient);
+      fetchScriptsByClient(myClient.id);
+      setView("client-detail");
+    }
+  }, [isAdmin, clientsLoading, clients, selectedClient, user]);
 
   // Auth loading
   if (authLoading) {
@@ -278,11 +288,9 @@ export default function Scripts() {
               {selectedClient.email && <p className="text-muted-foreground text-sm">{selectedClient.email}</p>}
             </div>
 
-            {isAdmin && (
-              <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setView("new-script"); }} variant="cta" className="mb-6 gap-2">
-                <Plus className="w-4 h-4" /> Nuevo Script
-              </Button>
-            )}
+            <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setView("new-script"); }} variant="cta" className="mb-6 gap-2">
+              <Plus className="w-4 h-4" /> Nuevo Script
+            </Button>
 
             {scripts.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No hay scripts para este cliente.</p>

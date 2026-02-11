@@ -9,20 +9,22 @@ import connectaLogo from "@/assets/connecta-logo.png";
 type Props = {
   onSignIn: () => void;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
-  signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
 };
 
 export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmail }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleEmailAuth = async () => {
     if (!email.trim() || !password.trim()) return;
+    if (isSignUp && !fullName.trim()) { toast.error("El nombre es obligatorio"); return; }
     setLoading(true);
     const { error } = isSignUp
-      ? await signUpWithEmail(email, password)
+      ? await signUpWithEmail(email, password, fullName.trim())
       : await signInWithEmail(email, password);
     setLoading(false);
     if (error) {
@@ -53,6 +55,13 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
         </div>
 
         <div className="space-y-3">
+          {isSignUp && (
+            <Input
+              placeholder="Nombre completo *"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          )}
           <Input
             placeholder="Correo electrónico"
             type="email"
