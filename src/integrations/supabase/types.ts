@@ -75,6 +75,7 @@ export type Database = {
           line_number: number
           line_type: string
           script_id: string
+          section: string
           text: string
         }
         Insert: {
@@ -83,6 +84,7 @@ export type Database = {
           line_number: number
           line_type: string
           script_id: string
+          section?: string
           text: string
         }
         Update: {
@@ -91,6 +93,7 @@ export type Database = {
           line_number?: number
           line_type?: string
           script_id?: string
+          section?: string
           text?: string
         }
         Relationships: [

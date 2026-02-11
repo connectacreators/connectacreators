@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 export type ScriptLine = {
   line_type: "filming" | "actor" | "editor";
+  section: "hook" | "body" | "cta";
   text: string;
 };
 
@@ -98,6 +99,7 @@ export function useScripts() {
         script_id: script.id,
         line_number: i + 1,
         line_type: l.line_type,
+        section: l.section || "body",
         text: l.text,
       }));
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
@@ -127,14 +129,18 @@ export function useScripts() {
   const getScriptLines = async (scriptId: string): Promise<ScriptLine[]> => {
     const { data, error } = await supabase
       .from("script_lines")
-      .select("line_type, text")
+      .select("line_type, text, section")
       .eq("script_id", scriptId)
       .order("line_number");
     if (error) {
       console.error(error);
       return [];
     }
-    return (data || []) as ScriptLine[];
+    return (data || []).map((d: any) => ({
+      line_type: d.line_type,
+      section: d.section || "body",
+      text: d.text,
+    })) as ScriptLine[];
   };
 
   const deleteScript = async (scriptId: string) => {
@@ -201,6 +207,7 @@ export function useScripts() {
         script_id: scriptId,
         line_number: i + 1,
         line_type: l.line_type,
+        section: l.section || "body",
         text: l.text,
       }));
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
