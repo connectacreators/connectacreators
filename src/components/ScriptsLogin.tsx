@@ -75,8 +75,9 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex flex-col justify-end px-4" style={{ fontFamily: "Arial, sans-serif" }}>
-      <div className="w-full max-w-sm mx-auto space-y-6 mb-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
+      <div className="flex-1 flex items-center justify-center">
+      <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           
           <h1 className="text-2xl font-bold text-foreground">
@@ -166,10 +167,11 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
           </p>
         )}
       </div>
+      </div>
 
-      {/* Logo always at bottom */}
-      <div className="py-8">
-        <img src={connectaLogo} alt="Connecta" className="h-64 mx-auto" />
+      {/* Logo footer */}
+      <div className="py-6">
+        <img src={connectaLogo} alt="Connecta" className="h-32 mx-auto" />
       </div>
     </div>
   );
