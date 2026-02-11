@@ -1,38 +1,30 @@
 
 
-## Issue 1: robertogaunaj@gmail.com cannot login with email/password
+## Client Account Verification Status
 
-This account was created through Google Sign-In, so it has no password. Email/password login will always fail for this account.
+### What will change
 
-**Fix options (pick one):**
-- **Option A (Recommended)**: Always use Google Sign-In for this account -- no code changes needed.
-- **Option B**: Add a "Forgot password" / "Set password" flow so Google-created accounts can also set a password for email login.
+When an admin creates a client with an email (e.g., "Dr Calvin's Clinic" with email drcalvinsclinic@gmail.com), the client card will show a small red "no verificado" label next to the name until that person creates an account with the same email. Once they register and sign in, the system automatically links the account (this already works via the existing database trigger), and the label disappears.
 
-I will not make changes for this unless you want Option B.
+### Steps
 
----
+1. **Update the client list UI in `src/pages/Scripts.tsx`** -- Next to each client name, check if `user_id` is `null`. If so, render a small red "no verificado" text. Once the client registers with the matching email, `user_id` gets populated automatically and the label goes away.
 
-## Issue 2: Google consent screen shows "Lovable" instead of your app name
+2. **Update the client detail header** -- Same indicator in the client detail view so admins always see the verification status.
 
-The default managed Google OAuth uses Lovable's credentials, so the consent screen says "Lovable." To show your own brand name (e.g., "Connecta Creators"), you need to set up your own Google OAuth credentials:
+No database changes needed -- the `handle_new_user` trigger already runs `UPDATE public.clients SET user_id = NEW.id WHERE email = NEW.email AND user_id IS NULL`, which handles the automatic merge when a user signs up with a matching email.
 
-### Steps (you do this in Google Cloud Console):
+### Technical Details
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project (or use an existing one).
-2. Go to **APIs & Services > OAuth consent screen** and configure it with your app name, logo, and authorized domains (e.g., `lovable.app` and any custom domain).
-3. Go to **APIs & Services > Credentials**, click **Create Credentials > OAuth Client ID**, choose **Web application**.
-4. Under **Authorized redirect URIs**, add the callback URL from Lovable Cloud's Authentication Settings for Google.
-5. Copy the **Client ID** and **Client Secret**.
-6. In Lovable, open the **Cloud tab > Users > Authentication Settings > Sign In Methods > Google** and paste your Client ID and Secret there.
+- In the client card (around line 613-615 of `Scripts.tsx`), add a conditional `<span>` after the client name:
+  ```tsx
+  <p className="font-semibold text-foreground truncate">
+    {c.name}
+    {!c.user_id && (
+      <span className="text-xs text-red-500 font-normal ml-2">no verificado</span>
+    )}
+  </p>
+  ```
 
-No code changes are needed -- the existing `lovable.auth.signInWithOAuth("google")` call will automatically use your custom credentials once configured.
-
----
-
-### Summary
-
-| Issue | Root Cause | Action |
-|---|---|---|
-| Admin email login fails | Account created via Google, no password exists | Use Google login, or I can add a password-reset flow |
-| Consent screen says "Lovable" | Using Lovable's managed Google OAuth credentials | Configure your own Google OAuth credentials in Cloud settings |
+- Files modified: `src/pages/Scripts.tsx` only (two spots: client list card + client detail breadcrumb/header area)
 
