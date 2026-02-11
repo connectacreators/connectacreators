@@ -8,6 +8,7 @@ import IndexEN from "./pages/IndexEN";
 import Onboarding from "./pages/Onboarding";
 import Scripts from "./pages/Scripts";
 import Dashboard from "./pages/Dashboard";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/reto/en" element={<IndexEN />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/scripts" element={<Scripts />} />
+          <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

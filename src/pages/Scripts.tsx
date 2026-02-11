@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera,
+  Camera, Settings,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import { Link } from "react-router-dom";
@@ -100,7 +100,7 @@ type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-s
 
 export default function Scripts() {
   const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer } = useAuth();
-  const { clients, loading: clientsLoading, addClient } = useClients(!!user);
+  const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
     categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
@@ -152,6 +152,11 @@ export default function Scripts() {
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [promptName, setPromptName] = useState("");
   const [namePromptLoading, setNamePromptLoading] = useState(false);
+
+  // Inline editing client name/email
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<"name" | "email" | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   // Listen for PASSWORD_RECOVERY event
   useEffect(() => {
@@ -402,6 +407,11 @@ export default function Scripts() {
               {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
               {isVideographer && <span className="text-emerald-400 font-bold">(Videographer)</span>}
             </span>
+            <Link to="/settings">
+              <Button variant="ghost" size="sm" className="flex-shrink-0">
+                <Settings className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
             <Button variant="ghost" size="sm" onClick={signOut} className="gap-1 flex-shrink-0">
               <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Salir</span>
             </Button>
@@ -611,13 +621,63 @@ export default function Scripts() {
                         <User className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground truncate">
-                          {c.name}
-                          {!c.user_id && (
-                            <span className="text-xs text-red-500 font-normal ml-2">no verificado</span>
-                          )}
-                        </p>
-                        {c.email && <p className="text-sm text-muted-foreground truncate">{c.email}</p>}
+                        {editingClientId === c.id && editingField === "name" ? (
+                          <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (editValue.trim()) {
+                              const ok = await updateClient(c.id, { name: editValue.trim() });
+                              if (ok && selectedClient?.id === c.id) setSelectedClient({ ...selectedClient, name: editValue.trim() });
+                            }
+                            setEditingClientId(null); setEditingField(null);
+                          }} onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => { setEditingClientId(null); setEditingField(null); }}
+                              className="h-7 text-sm font-semibold"
+                            />
+                          </form>
+                        ) : (
+                          <p
+                            className="font-semibold text-foreground truncate cursor-pointer hover:underline"
+                            onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("name"); setEditValue(c.name); } }}
+                            title={isAdmin ? "Click para editar nombre" : undefined}
+                          >
+                            {c.name}
+                            {!c.user_id && (
+                              <span className="text-xs text-red-500 font-normal ml-2">no verificado</span>
+                            )}
+                          </p>
+                        )}
+                        {editingClientId === c.id && editingField === "email" ? (
+                          <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const ok = await updateClient(c.id, { email: editValue.trim() || null });
+                            if (ok && selectedClient?.id === c.id) setSelectedClient({ ...selectedClient, email: editValue.trim() || null });
+                            setEditingClientId(null); setEditingField(null);
+                          }} onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              autoFocus
+                              type="email"
+                              placeholder="Añadir email"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => { setEditingClientId(null); setEditingField(null); }}
+                              className="h-6 text-xs mt-0.5"
+                            />
+                          </form>
+                        ) : (
+                          <p
+                            className="text-sm text-muted-foreground truncate cursor-pointer hover:underline"
+                            onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("email"); setEditValue(c.email || ""); } }}
+                            title={isAdmin ? "Click para editar email" : undefined}
+                          >
+                            {c.email || (isAdmin ? <span className="text-xs italic text-muted-foreground/50">+ Añadir email</span> : null)}
+                          </p>
+                        )}
                         {/* Show assigned videographers */}
                         {isAdmin && assignmentsMap[c.id]?.length > 0 && (
                           <div className="flex gap-1 mt-1 flex-wrap">
