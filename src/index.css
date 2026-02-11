@@ -122,11 +122,13 @@ All colors MUST be HSL for consistency and theming.
   }
 
   body {
-    @apply bg-background text-foreground font-inter antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: Arial, Helvetica, sans-serif;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-playfair;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 700;
   }
 
   /* Connecta Custom Utility Classes */
