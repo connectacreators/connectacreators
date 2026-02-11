@@ -76,7 +76,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center pt-16">
       <div className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-6">
         <div className="text-center">
           
