@@ -75,10 +75,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
-      {/* Logo fixed at top */}
-      <div className="flex-1" />
-      <div className="w-full max-w-sm mx-auto space-y-6 mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex flex-col justify-end px-4" style={{ fontFamily: "Arial, sans-serif" }}>
+      <div className="w-full max-w-sm mx-auto space-y-6 mb-4">
         <div className="text-center">
           
           <h1 className="text-2xl font-bold text-foreground">
