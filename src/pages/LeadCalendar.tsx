@@ -249,7 +249,7 @@ export default function LeadCalendar() {
       {/* Body: sidebar (1/4) + calendar (3/4) */}
       <div className="flex-1 flex flex-col lg:flex-row max-w-[1600px] mx-auto w-full">
         {/* LEFT SIDEBAR - 25% */}
-        <aside className="lg:w-1/4 lg:max-w-[320px] lg:min-w-[240px] border-b lg:border-b-0 lg:border-r border-border bg-card/50 flex flex-col order-2 lg:order-1">
+        <aside className="lg:w-1/4 lg:max-w-[320px] lg:min-w-[240px] border-b lg:border-b-0 lg:border-r border-border bg-card/50 flex flex-col order-1 lg:order-1">
           <div className="p-3 border-b border-border">
             <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-primary" />
@@ -304,7 +304,7 @@ export default function LeadCalendar() {
         </aside>
 
         {/* RIGHT - Calendar 75% */}
-        <main className="flex-1 flex flex-col order-1 lg:order-2 min-w-0 p-3">
+        <main className="flex-1 flex flex-col order-2 lg:order-2 min-w-0 p-3">
           {/* Controls */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1">
