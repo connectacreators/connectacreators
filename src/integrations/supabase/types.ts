@@ -174,6 +174,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          deleted_at: string | null
           formato: string | null
           google_drive_link: string | null
           grabado: boolean
@@ -188,6 +189,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          deleted_at?: string | null
           formato?: string | null
           google_drive_link?: string | null
           grabado?: boolean
@@ -202,6 +204,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          deleted_at?: string | null
           formato?: string | null
           google_drive_link?: string | null
           grabado?: boolean

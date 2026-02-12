@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, GripVertical,
+  Camera, Settings, Video, GripVertical, RotateCcw, Archive,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
@@ -345,10 +345,14 @@ export default function Scripts() {
   const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
-    scripts, loading: scriptsLoading, fetchScriptsByClient,
-    categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
+    scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
+    categorizeAndSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
+    updateScript, updateGoogleDriveLink, toggleGrabado,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine,
+    bulkSyncToNotion,
   } = useScripts();
+
+  const [showTrash, setShowTrash] = useState(false);
 
   // Inline editing script lines
   const [editingLineKey, setEditingLineKey] = useState<string | null>(null);
@@ -616,8 +620,15 @@ export default function Scripts() {
   };
 
   const handleDeleteScript = async (scriptId: string) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este script?")) return;
+    if (!confirm("¿Mover este script a la papelera? Se eliminará permanentemente después de 30 días.")) return;
     await deleteScript(scriptId);
+  };
+
+  const handleToggleTrash = async () => {
+    if (!showTrash && selectedClient) {
+      await fetchTrashedScripts(selectedClient.id);
+    }
+    setShowTrash(!showTrash);
   };
 
   const goBack = () => {
@@ -1009,9 +1020,9 @@ export default function Scripts() {
                 ].map((f) => (
                   <button
                     key={f.key}
-                    onClick={() => setGrabadoFilter(f.key)}
+                    onClick={() => { setGrabadoFilter(f.key); setShowTrash(false); }}
                     className={`px-3 py-1.5 text-xs sm:text-sm rounded-xl transition-smooth font-medium ${
-                      grabadoFilter === f.key
+                      !showTrash && grabadoFilter === f.key
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
@@ -1020,9 +1031,82 @@ export default function Scripts() {
                   </button>
                 ))}
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleTrash}
+                className={`gap-1.5 ${showTrash ? "text-destructive" : "text-muted-foreground"}`}
+              >
+                <Trash2 className="w-4 h-4" /> Papelera
+              </Button>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={bulkSyncToNotion}
+                  className="gap-1.5 text-muted-foreground ml-auto"
+                  title="Sincronizar todos los scripts con Notion"
+                >
+                  <RotateCcw className="w-4 h-4" /> Sync Notion
+                </Button>
+              )}
             </div>
 
-            {(() => {
+            {showTrash ? (
+              /* ===== TRASH VIEW ===== */
+              <>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" /> Papelera (se eliminan después de 30 días)
+                </h3>
+                {trashedScripts.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">La papelera está vacía.</p>
+                ) : (
+                  <div className="grid gap-3">
+                    {trashedScripts.map((s) => {
+                      const deletedDate = s.deleted_at ? new Date(s.deleted_at) : new Date();
+                      const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                      return (
+                        <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-destructive/5 border border-border rounded-2xl transition-smooth overflow-hidden opacity-70">
+                          <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="font-semibold text-muted-foreground truncate line-through">{s.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Eliminado {deletedDate.toLocaleDateString("es-MX")} · {daysLeft} días restantes
+                            </p>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => { await restoreScript(s.id); }}
+                              title="Restaurar"
+                              className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!confirm("¿Eliminar permanentemente? Esta acción no se puede deshacer.")) return;
+                                  await permanentlyDeleteScript(s.id);
+                                }}
+                                title="Eliminar permanentemente"
+                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
+            (() => {
               const filtered = scripts.filter((s) => {
                 if (grabadoFilter === "grabado") return s.grabado;
                 if (grabadoFilter === "no-grabado") return !s.grabado;
@@ -1060,17 +1144,16 @@ export default function Scripts() {
                         <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        {isAdmin && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Eliminar" className="text-destructive hover:text-destructive h-8 w-8 p-0">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Mover a papelera" className="text-destructive hover:text-destructive h-8 w-8 p-0">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               );
-            })()}
+            })()
+            )}
           </>
         )}
 

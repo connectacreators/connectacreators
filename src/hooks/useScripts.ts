@@ -20,6 +20,7 @@ export type Script = {
   google_drive_link: string | null;
   grabado: boolean;
   created_at: string;
+  deleted_at?: string | null;
 };
 
 export type ScriptMetadata = {
@@ -62,18 +63,34 @@ const syncToNotion = async (params: {
 export function useScripts() {
   const [loading, setLoading] = useState(false);
   const [scripts, setScripts] = useState<Script[]>([]);
+  const [trashedScripts, setTrashedScripts] = useState<Script[]>([]);
 
   const fetchScriptsByClient = async (clientId: string) => {
     const { data, error } = await supabase
       .from("scripts")
       .select("*")
       .eq("client_id", clientId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
     if (error) {
       console.error(error);
       return;
     }
     setScripts(data || []);
+  };
+
+  const fetchTrashedScripts = async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("scripts")
+      .select("*")
+      .eq("client_id", clientId)
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false });
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setTrashedScripts(data || []);
   };
 
   const categorizeAndSave = async (
@@ -86,7 +103,6 @@ export function useScripts() {
   ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata; scriptId: string } | null> => {
     setLoading(true);
     try {
-      // Call AI to categorize
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/categorize-script`,
@@ -108,7 +124,6 @@ export function useScripts() {
 
       const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string; formato: string };
 
-      // Save script with metadata
       const { data: script, error: scriptErr } = await supabase
         .from("scripts")
         .insert({
@@ -125,7 +140,6 @@ export function useScripts() {
         .single();
       if (scriptErr) throw scriptErr;
 
-      // Save lines
       const lineRows = result.lines.map((l, i) => ({
         script_id: script.id,
         line_number: i + 1,
@@ -139,7 +153,6 @@ export function useScripts() {
       toast.success("Script guardado y categorizado");
       setScripts((prev) => [script, ...prev]);
 
-      // Sync to Notion (fire-and-forget)
       syncToNotion({
         script_id: script.id,
         client_id: clientId,
@@ -184,15 +197,52 @@ export function useScripts() {
     })) as ScriptLine[];
   };
 
+  // Soft delete — moves to trash
   const deleteScript = async (scriptId: string) => {
-    const { error } = await supabase.from("scripts").delete().eq("id", scriptId);
+    const { error } = await supabase
+      .from("scripts")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", scriptId);
     if (error) {
-      toast.error("Error al eliminar script");
+      toast.error("Error al mover a papelera");
       console.error(error);
       return false;
     }
     setScripts((prev) => prev.filter((s) => s.id !== scriptId));
-    toast.success("Script eliminado");
+    toast.success("Script movido a la papelera");
+    return true;
+  };
+
+  // Restore from trash
+  const restoreScript = async (scriptId: string) => {
+    const { error } = await supabase
+      .from("scripts")
+      .update({ deleted_at: null })
+      .eq("id", scriptId);
+    if (error) {
+      toast.error("Error al restaurar script");
+      console.error(error);
+      return false;
+    }
+    const restored = trashedScripts.find((s) => s.id === scriptId);
+    setTrashedScripts((prev) => prev.filter((s) => s.id !== scriptId));
+    if (restored) {
+      setScripts((prev) => [{ ...restored, deleted_at: null }, ...prev]);
+    }
+    toast.success("Script restaurado");
+    return true;
+  };
+
+  // Permanently delete
+  const permanentlyDeleteScript = async (scriptId: string) => {
+    const { error } = await supabase.from("scripts").delete().eq("id", scriptId);
+    if (error) {
+      toast.error("Error al eliminar permanentemente");
+      console.error(error);
+      return false;
+    }
+    setTrashedScripts((prev) => prev.filter((s) => s.id !== scriptId));
+    toast.success("Script eliminado permanentemente");
     return true;
   };
 
@@ -206,7 +256,6 @@ export function useScripts() {
   ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata } | null> => {
     setLoading(true);
     try {
-      // Re-categorize with AI
       const { data: { session: updateSession } } = await supabase.auth.getSession();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/categorize-script`,
@@ -228,7 +277,6 @@ export function useScripts() {
 
       const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string; formato: string };
 
-      // Update script
       const { error: scriptErr } = await supabase
         .from("scripts")
         .update({
@@ -243,7 +291,6 @@ export function useScripts() {
         .eq("id", scriptId);
       if (scriptErr) throw scriptErr;
 
-      // Delete old lines and insert new
       await supabase.from("script_lines").delete().eq("script_id", scriptId);
       const lineRows = result.lines.map((l, i) => ({
         script_id: scriptId,
@@ -257,7 +304,6 @@ export function useScripts() {
 
       toast.success("Script actualizado");
 
-      // We need the client_id to sync — find it from current scripts state
       const currentScript = scripts.find(s => s.id === scriptId);
 
       setScripts((prev) =>
@@ -277,7 +323,6 @@ export function useScripts() {
         )
       );
 
-      // Sync to Notion (fire-and-forget)
       if (currentScript) {
         syncToNotion({
           script_id: scriptId,
@@ -316,7 +361,6 @@ export function useScripts() {
       return false;
     }
     
-    // Find script for sync
     const currentScript = scripts.find(s => s.id === scriptId);
     
     setScripts((prev) =>
@@ -324,7 +368,6 @@ export function useScripts() {
     );
     toast.success("Link guardado");
 
-    // Sync to Notion (fire-and-forget)
     if (currentScript) {
       syncToNotion({
         script_id: scriptId,
@@ -393,7 +436,6 @@ export function useScripts() {
   };
 
   const addScriptLine = async (scriptId: string, section: string, lineType: string, text: string) => {
-    // Get all lines to find the correct insertion position within the section
     const { data: allLines } = await supabase
       .from("script_lines")
       .select("line_number, section")
@@ -404,8 +446,6 @@ export function useScripts() {
     const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
     const targetOrder = sectionOrder[section] ?? 1;
 
-    // Find insertion point: after the last line of the same section,
-    // or after all lines of earlier sections if this section is empty
     let insertAfter = 0;
     for (const l of lines) {
       const lOrder = sectionOrder[l.section] ?? 1;
@@ -416,7 +456,6 @@ export function useScripts() {
 
     const insertAt = insertAfter + 1;
 
-    // Shift all lines at or after insertAt by +1
     const toShift = lines.filter((l) => l.line_number >= insertAt);
     for (const l of toShift.reverse()) {
       await supabase
@@ -441,7 +480,6 @@ export function useScripts() {
   };
 
   const moveScriptLine = async (scriptId: string, lineNumber: number, direction: "up" | "down") => {
-    // Get all lines ordered
     const { data: allLines } = await supabase
       .from("script_lines")
       .select("line_number, section")
@@ -455,12 +493,10 @@ export function useScripts() {
     const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
     if (swapIndex < 0 || swapIndex >= allLines.length) return false;
 
-    // Only allow swapping within the same section
     if (allLines[currentIndex].section !== allLines[swapIndex].section) return false;
 
     const otherLineNumber = allLines[swapIndex].line_number;
 
-    // Swap line_numbers using a temp value
     const tempNum = 999999;
     await supabase.from("script_lines").update({ line_number: tempNum }).eq("script_id", scriptId).eq("line_number", lineNumber);
     await supabase.from("script_lines").update({ line_number: lineNumber }).eq("script_id", scriptId).eq("line_number", otherLineNumber);
@@ -469,13 +505,47 @@ export function useScripts() {
     return true;
   };
 
+  // Bulk sync all unsynced scripts to Notion
+  const bulkSyncToNotion = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bulk-sync-notion-scripts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Bulk sync error:", err);
+        toast.error("Error al sincronizar scripts");
+        return false;
+      }
+      const result = await res.json();
+      toast.success(`${result.synced || 0} scripts sincronizados con Notion`);
+      return true;
+    } catch (e) {
+      console.error("Bulk sync failed:", e);
+      toast.error("Error al sincronizar");
+      return false;
+    }
+  };
+
   return {
     scripts,
+    trashedScripts,
     loading,
     fetchScriptsByClient,
+    fetchTrashedScripts,
     categorizeAndSave,
     getScriptLines,
     deleteScript,
+    restoreScript,
+    permanentlyDeleteScript,
     updateScript,
     updateGoogleDriveLink,
     toggleGrabado,
@@ -484,5 +554,6 @@ export function useScripts() {
     updateScriptLineType,
     addScriptLine,
     moveScriptLine,
+    bulkSyncToNotion,
   };
 }
