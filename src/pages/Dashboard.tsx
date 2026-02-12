@@ -5,12 +5,15 @@ import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
 import { FileText, LogOut, Loader2, Settings, Target, CalendarDays } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/hooks/useTheme";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
+import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
 
 export default function Dashboard() {
   const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
+  const { theme } = useTheme();
 
   // If not logged in, show login
   if (loading) {
@@ -36,7 +39,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <img src={chessKnightIcon} alt="Connecta" className="h-8 sm:h-10" />
+          <img src={chessKnightIcon} alt="Connecta" className="h-8 sm:h-10" style={theme === "light" ? { filter: "invert(1)" } : undefined} />
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
               {user.email}
@@ -55,7 +58,7 @@ export default function Dashboard() {
 
       <main className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="text-center mb-10">
-          <img src={connectaLoginLogo} alt="Connecta" className="h-10 object-contain mx-auto mb-3" />
+          <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain mx-auto mb-3" />
           <p className="text-muted-foreground">¡Bienvenido! Selecciona una herramienta para comenzar.</p>
         </div>
 

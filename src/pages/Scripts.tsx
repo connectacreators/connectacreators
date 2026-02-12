@@ -10,6 +10,7 @@ import {
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/hooks/useTheme";
 import { Link } from "react-router-dom";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -101,6 +102,7 @@ const typeConfig = {
 type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script";
 
 export default function Scripts() {
+  const { theme } = useTheme();
   const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
@@ -411,7 +413,7 @@ export default function Scripts() {
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Inicio</span>
             </Link>
-            <img src={chessKnightIcon} alt="Connecta" className="h-7 sm:h-8" />
+            <img src={chessKnightIcon} alt="Connecta" className="h-7 sm:h-8" style={theme === "light" ? { filter: "invert(1)" } : undefined} />
           </div>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">

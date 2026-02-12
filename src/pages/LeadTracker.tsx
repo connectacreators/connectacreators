@@ -25,6 +25,7 @@ import {
   Users,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/hooks/useTheme";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 
 type Lead = {
@@ -61,6 +62,7 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 export default function LeadTracker() {
+  const { theme } = useTheme();
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { clients } = useClients(isAdmin);
   const navigate = useNavigate();
@@ -158,7 +160,7 @@ export default function LeadTracker() {
           <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <img src={chessKnightIcon} alt="Connecta" className="h-7" />
+          <img src={chessKnightIcon} alt="Connecta" className="h-7" style={theme === "light" ? { filter: "invert(1)" } : undefined} />
           <h1 className="font-bold text-lg">Lead Tracker</h1>
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />

@@ -25,6 +25,7 @@ import {
   Clock,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/hooks/useTheme";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 
 type Lead = {
@@ -112,6 +113,7 @@ function formatHourLabel(h: number) {
 }
 
 export default function LeadCalendar() {
+  const { theme } = useTheme();
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { clients } = useClients(isAdmin);
   const navigate = useNavigate();
@@ -232,7 +234,7 @@ export default function LeadCalendar() {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <img src={chessKnightIcon} alt="Connecta" className="h-6" />
+          <img src={chessKnightIcon} alt="Connecta" className="h-6" style={theme === "light" ? { filter: "invert(1)" } : undefined} />
           <h1 className="font-bold text-base sm:text-lg">Lead Calendar</h1>
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />

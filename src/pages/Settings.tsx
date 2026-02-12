@@ -2,14 +2,17 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Save, Eye, EyeOff } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import connectaLogo from "@/assets/connecta-logo.png";
+import connectaLogoDark from "@/assets/connecta-logo-dark.png";
 
 export default function Settings() {
+  const { theme } = useTheme();
   const { user, role, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -110,7 +113,7 @@ export default function Settings() {
             <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <img src={connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
+            <img src={theme === "light" ? connectaLogoDark : connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
           </div>
           <ThemeToggle />
         </div>
