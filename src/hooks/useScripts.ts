@@ -29,6 +29,36 @@ export type ScriptMetadata = {
   google_drive_link: string | null;
 };
 
+// Fire-and-forget Notion sync helper
+const syncToNotion = async (params: {
+  script_id: string;
+  client_id: string;
+  title: string;
+  google_drive_link?: string | null;
+  action: "create" | "update";
+}) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-notion-script`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(params),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error("Notion sync error:", err);
+    }
+  } catch (e) {
+    console.error("Notion sync failed:", e);
+  }
+};
+
 export function useScripts() {
   const [loading, setLoading] = useState(false);
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -108,6 +138,15 @@ export function useScripts() {
 
       toast.success("Script guardado y categorizado");
       setScripts((prev) => [script, ...prev]);
+
+      // Sync to Notion (fire-and-forget)
+      syncToNotion({
+        script_id: script.id,
+        client_id: clientId,
+        title: result.idea_ganadora || title,
+        google_drive_link: googleDriveLink || null,
+        action: "create",
+      });
 
       return {
         lines: result.lines,
@@ -217,6 +256,10 @@ export function useScripts() {
       if (linesErr) throw linesErr;
 
       toast.success("Script actualizado");
+
+      // We need the client_id to sync — find it from current scripts state
+      const currentScript = scripts.find(s => s.id === scriptId);
+
       setScripts((prev) =>
         prev.map((s) =>
           s.id === scriptId
@@ -233,6 +276,17 @@ export function useScripts() {
             : s
         )
       );
+
+      // Sync to Notion (fire-and-forget)
+      if (currentScript) {
+        syncToNotion({
+          script_id: scriptId,
+          client_id: currentScript.client_id,
+          title: result.idea_ganadora || title,
+          google_drive_link: googleDriveLink || null,
+          action: "update",
+        });
+      }
 
       return {
         lines: result.lines,
@@ -261,10 +315,26 @@ export function useScripts() {
       toast.error("Error al guardar link");
       return false;
     }
+    
+    // Find script for sync
+    const currentScript = scripts.find(s => s.id === scriptId);
+    
     setScripts((prev) =>
       prev.map((s) => (s.id === scriptId ? { ...s, google_drive_link: link || null } : s))
     );
     toast.success("Link guardado");
+
+    // Sync to Notion (fire-and-forget)
+    if (currentScript) {
+      syncToNotion({
+        script_id: scriptId,
+        client_id: currentScript.client_id,
+        title: currentScript.idea_ganadora || currentScript.title,
+        google_drive_link: link || null,
+        action: "update",
+      });
+    }
+
     return true;
   };
 
