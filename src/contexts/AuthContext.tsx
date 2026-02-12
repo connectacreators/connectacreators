@@ -1,0 +1,130 @@
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
+
+type UserRole = "admin" | "client" | "videographer";
+
+interface AuthContextType {
+  user: User | null;
+  role: UserRole;
+  loading: boolean;
+  isAdmin: boolean;
+  isVideographer: boolean;
+  signOut: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
+  isPasswordRecovery: boolean;
+  clearPasswordRecovery: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<UserRole>("client");
+  const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchRole = async (userId: string) => {
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (isMounted && data) return data.role as UserRole;
+      } catch {
+        // ignore
+      }
+      return "client" as UserRole;
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log("[AuthProvider] onAuthStateChange:", event, "user:", session?.user?.email ?? "null");
+        if (!isMounted) return;
+
+        if (event === "PASSWORD_RECOVERY") {
+          setIsPasswordRecovery(true);
+        }
+
+        const u = session?.user ?? null;
+        setUser(u);
+
+        if (u) {
+          // Use setTimeout to avoid Supabase auth deadlock
+          setTimeout(() => {
+            fetchRole(u.id).then((r) => {
+              if (isMounted) setRole(r);
+            });
+          }, 0);
+        } else {
+          setRole("client");
+        }
+
+        // Mark loading done on initial session
+        if (event === "INITIAL_SESSION") {
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setRole("client");
+  }, []);
+
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error };
+  }, []);
+
+  const signUpWithEmail = useCallback(async (email: string, password: string, fullName?: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: { full_name: fullName || email },
+      },
+    });
+    return { error };
+  }, []);
+
+  const clearPasswordRecovery = useCallback(() => setIsPasswordRecovery(false), []);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        role,
+        loading,
+        isAdmin: role === "admin",
+        isVideographer: role === "videographer",
+        signOut,
+        signInWithEmail,
+        signUpWithEmail,
+        isPasswordRecovery,
+        clearPasswordRecovery,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
+}
