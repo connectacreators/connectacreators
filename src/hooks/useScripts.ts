@@ -323,17 +323,42 @@ export function useScripts() {
   };
 
   const addScriptLine = async (scriptId: string, section: string, lineType: string, text: string) => {
-    // Get the max line_number for this script to append
-    const { data: existing } = await supabase
+    // Get all lines to find the correct insertion position within the section
+    const { data: allLines } = await supabase
       .from("script_lines")
-      .select("line_number")
+      .select("line_number, section")
       .eq("script_id", scriptId)
-      .order("line_number", { ascending: false })
-      .limit(1);
-    const nextLineNumber = (existing?.[0]?.line_number ?? 0) + 1;
+      .order("line_number", { ascending: true });
+
+    const lines = allLines || [];
+    const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
+    const targetOrder = sectionOrder[section] ?? 1;
+
+    // Find insertion point: after the last line of the same section,
+    // or after all lines of earlier sections if this section is empty
+    let insertAfter = 0;
+    for (const l of lines) {
+      const lOrder = sectionOrder[l.section] ?? 1;
+      if (lOrder <= targetOrder) {
+        insertAfter = l.line_number;
+      }
+    }
+
+    const insertAt = insertAfter + 1;
+
+    // Shift all lines at or after insertAt by +1
+    const toShift = lines.filter((l) => l.line_number >= insertAt);
+    for (const l of toShift.reverse()) {
+      await supabase
+        .from("script_lines")
+        .update({ line_number: l.line_number + 1 })
+        .eq("script_id", scriptId)
+        .eq("line_number", l.line_number);
+    }
+
     const { error } = await supabase.from("script_lines").insert({
       script_id: scriptId,
-      line_number: nextLineNumber,
+      line_number: insertAt,
       line_type: lineType,
       section,
       text,
@@ -342,7 +367,36 @@ export function useScripts() {
       toast.error("Error al agregar línea");
       return null;
     }
-    return nextLineNumber;
+    return insertAt;
+  };
+
+  const moveScriptLine = async (scriptId: string, lineNumber: number, direction: "up" | "down") => {
+    // Get all lines ordered
+    const { data: allLines } = await supabase
+      .from("script_lines")
+      .select("line_number, section")
+      .eq("script_id", scriptId)
+      .order("line_number", { ascending: true });
+    if (!allLines) return false;
+
+    const currentIndex = allLines.findIndex((l) => l.line_number === lineNumber);
+    if (currentIndex === -1) return false;
+
+    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (swapIndex < 0 || swapIndex >= allLines.length) return false;
+
+    // Only allow swapping within the same section
+    if (allLines[currentIndex].section !== allLines[swapIndex].section) return false;
+
+    const otherLineNumber = allLines[swapIndex].line_number;
+
+    // Swap line_numbers using a temp value
+    const tempNum = 999999;
+    await supabase.from("script_lines").update({ line_number: tempNum }).eq("script_id", scriptId).eq("line_number", lineNumber);
+    await supabase.from("script_lines").update({ line_number: lineNumber }).eq("script_id", scriptId).eq("line_number", otherLineNumber);
+    await supabase.from("script_lines").update({ line_number: otherLineNumber }).eq("script_id", scriptId).eq("line_number", tempNum);
+
+    return true;
   };
 
   return {
@@ -359,5 +413,6 @@ export function useScripts() {
     deleteScriptLine,
     updateScriptLineType,
     addScriptLine,
+    moveScriptLine,
   };
 }
