@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_notion_mapping: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          notion_database_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          notion_database_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          notion_database_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_notion_mapping_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -40,6 +69,38 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      notion_script_sync: {
+        Row: {
+          created_at: string
+          id: string
+          notion_database_id: string
+          notion_page_id: string
+          script_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notion_database_id: string
+          notion_page_id: string
+          script_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notion_database_id?: string
+          notion_page_id?: string
+          script_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notion_script_sync_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: true
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

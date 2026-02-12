@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.update-lead-status]
 verify_jwt = false
+
+[functions.sync-notion-script]
+verify_jwt = false
