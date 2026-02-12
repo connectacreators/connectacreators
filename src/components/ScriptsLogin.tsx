@@ -88,7 +88,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
         <div className="text-center">
           
           <h1 className="text-2xl font-bold text-foreground">
-            Let's make some killer <em>scripts</em>
+            Your content, leads, and systems in one place.
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isForgot ? "Ingresa tu correo para restablecer tu contraseña" : isSignUp ? "Crea tu cuenta" : "Inicia sesión para continuar"}
