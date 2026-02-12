@@ -106,7 +106,7 @@ type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-s
 
 export default function Scripts() {
   const { theme } = useTheme();
-  const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer } = useAuth();
+  const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
@@ -171,15 +171,13 @@ export default function Scripts() {
   const [editingField, setEditingField] = useState<"name" | "email" | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  // Listen for PASSWORD_RECOVERY event
+  // Listen for PASSWORD_RECOVERY event from AuthProvider
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setShowResetPassword(true);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    if (isPasswordRecovery) {
+      setShowResetPassword(true);
+      clearPasswordRecovery();
+    }
+  }, [isPasswordRecovery, clearPasswordRecovery]);
 
   const handleSetNewPassword = useCallback(async () => {
     if (newPassword.length < 6) { toast.error("La contraseña debe tener al menos 6 caracteres"); return; }
