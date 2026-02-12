@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Save, Eye, EyeOff } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -111,6 +112,7 @@ export default function Settings() {
             </button>
             <img src={connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
           </div>
+          <ThemeToggle />
         </div>
       </header>
 

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Sparkles, CheckCircle } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Link } from "react-router-dom";
 
 const Onboarding = () => {
@@ -211,6 +212,9 @@ const Onboarding = () => {
 
   return (
     <div className="min-h-screen gradient-dark flex items-center justify-center p-6">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">

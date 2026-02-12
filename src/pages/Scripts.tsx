@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Link } from "react-router-dom";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -417,6 +418,7 @@ export default function Scripts() {
               {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
               {isVideographer && <span className="text-emerald-400 font-bold">(Videographer)</span>}
             </span>
+            <ThemeToggle />
             <Link to="/settings">
               <Button variant="ghost" size="sm" className="flex-shrink-0">
                 <Settings className="w-3.5 h-3.5" />
