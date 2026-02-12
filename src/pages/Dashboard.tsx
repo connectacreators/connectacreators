@@ -155,6 +155,17 @@ export default function Dashboard() {
               className="h-6 object-contain"
             />
           </button>
+          <div className="ml-auto flex items-center gap-2">
+            <LanguageToggle />
+            <ThemeToggle />
+            <button
+              onClick={signOut}
+              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+              title={tr(t.dashboard.signOut, language)}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         {!sidebarOpen && (
           <div className="border-b border-border/50 px-4 py-3 hidden lg:flex items-center gap-3">
