@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video,
+  Camera, Settings, Video, ArrowUp, ArrowDown,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
@@ -111,7 +111,7 @@ export default function Scripts() {
   const {
     scripts, loading: scriptsLoading, fetchScriptsByClient,
     categorizeAndSave, getScriptLines, deleteScript, updateScript, updateGoogleDriveLink, toggleGrabado,
-    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine,
+    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine,
   } = useScripts();
 
   // Inline editing script lines
@@ -980,7 +980,20 @@ export default function Scripts() {
                 if (!viewingScriptId) return;
                 const lineNumber = await addScriptLine(viewingScriptId, section, "filming", "");
                 if (lineNumber) {
-                  setParsedLines((prev) => [...prev, { line_type: "filming" as any, text: "", section }]);
+                  // Insert at correct position: after last line of this section
+                  const newLine: ScriptLine = { line_type: "filming" as any, text: "", section };
+                  setParsedLines((prev) => {
+                    const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
+                    const targetOrder = sectionOrder[section] ?? 1;
+                    // Find the index after the last line of this section
+                    let insertIdx = 0;
+                    for (let j = 0; j < prev.length; j++) {
+                      if ((sectionOrder[prev[j].section] ?? 1) <= targetOrder) {
+                        insertIdx = j + 1;
+                      }
+                    }
+                    return [...prev.slice(0, insertIdx), newLine, ...prev.slice(insertIdx)];
+                  });
                 }
               };
 
@@ -1085,21 +1098,58 @@ export default function Scripts() {
                             )}
                           </div>
                           {!isEditingThis && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-smooth text-destructive hover:text-destructive h-8 w-8 p-0 flex-shrink-0 mt-1"
-                              title="Eliminar línea"
-                              onClick={async () => {
-                                if (!viewingScriptId) return;
-                                const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
-                                if (ok) {
-                                  setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-smooth flex-shrink-0 mt-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                title="Mover arriba"
+                                disabled={i === 0}
+                                onClick={async () => {
+                                  if (!viewingScriptId) return;
+                                  const ok = await moveScriptLine(viewingScriptId, globalIndex + 1, "up");
+                                  if (ok) {
+                                    // Refresh lines from DB to get correct order
+                                    const lines = await getScriptLines(viewingScriptId);
+                                    setParsedLines(lines);
+                                  }
+                                }}
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                title="Mover abajo"
+                                disabled={i === sectionLines.length - 1}
+                                onClick={async () => {
+                                  if (!viewingScriptId) return;
+                                  const ok = await moveScriptLine(viewingScriptId, globalIndex + 1, "down");
+                                  if (ok) {
+                                    const lines = await getScriptLines(viewingScriptId);
+                                    setParsedLines(lines);
+                                  }
+                                }}
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                title="Eliminar línea"
+                                onClick={async () => {
+                                  if (!viewingScriptId) return;
+                                  const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
+                                  if (ok) {
+                                    setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       );
