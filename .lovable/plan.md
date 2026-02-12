@@ -1,54 +1,81 @@
 
-# Plan: Lead Status Update + Lead Detail Modal
+# Notion Editing Queue Sync
 
-## What will change
+## What This Does
+Every time a script is created or updated in the app, a row will automatically be created or updated in the correct client's Notion database inside the Editing Queue. The script title becomes the "Reel title", the Google Drive link maps to "Footage", and the script's raw content link maps to "Script".
 
-### 1. New Edge Function: `update-lead-status`
-A new backend function that receives a lead's Notion page ID and a new status, then updates it via the Notion API. It will:
-- Authenticate the user (same pattern as `fetch-leads`)
-- Verify the user has permission (admin, videographer with assigned client, or client owning the lead)
-- Call the Notion API to update the "Lead Status" select property on the page
-- Return success/error
+## How It Works
 
-### 2. Fix `fetch-leads` auth (same bug as categorize-script)
-The `fetch-leads` edge function still uses the broken `getClaims` method. It needs to be updated to use `supabase.auth.getUser()` like the recently fixed `categorize-script`.
+1. **New Edge Function: `sync-notion-script`**
+   - Receives: `script_id`, `client_id`, `title`, `google_drive_link`, and `action` ("create" or "update")
+   - Looks up a mapping table to find the correct Notion database (data source) ID for the given client
+   - On **create**: Creates a new page in the client's Notion database with:
+     - `Reel title` = script title (idea_ganadora)
+     - `Status` = "Not started"
+     - `Footage` = google_drive_link (if provided)
+     - `Script` = link back to the script in the app
+   - On **update**: Finds the existing Notion page by `notion_page_id` (stored in our DB) and updates the same fields
+   - Uses the `NOTION_API_KEY` secret (already configured)
 
-### 3. Lead Detail Modal (LeadTracker.tsx)
-When clicking on a lead card, a dialog will open showing:
-- Full Name, Email, Phone (clickable), Lead Status, Lead Source
-- Client name, Campaign Name, Notes, Created Date, Last Contacted
-- A status dropdown limited to 3 options: **Meta Ad (Not Booked)**, **Appointment Booked**, **Cancelled**
-- A "Save" button to update the status via the new edge function
-- Admin-only: link to open in Notion
+2. **New Database Table: `notion_script_sync`**
+   - Maps each script to its Notion page ID so updates can target the right row
+   - Columns: `id`, `script_id` (FK), `notion_page_id`, `notion_database_id`, `created_at`
 
-### 4. "Cancelled" status color
-Add a color entry for "Cancelled" in the `STATUS_COLORS` map (red theme).
+3. **New Database Table: `client_notion_mapping`**
+   - Maps each client to their Notion database (data source) ID
+   - Columns: `id`, `client_id` (FK), `notion_database_id` (text), `created_at`
+   - Pre-populated with:
+     - Dr Calvin Clinic's -> `29ad6442-e09c-8111-b103-000b6066c231`
+     - Connecta Creators -> `1f3d6442-e09c-8004-a317-000b6aa4ad7e`
+     - Saratoga Chiropractic -> `2e8d6442-e09c-8131-a2f1-000bf04916a4`
+     - The Pack -> `2ebd6442-e09c-81dd-8123-000bd424f130`
 
-### 5. Translations
-Add new i18n keys for the modal labels (Full Name, Email, Phone, Status, Source, Campaign, Notes, Date, Save, etc.).
-
----
+4. **Hook Changes (`useScripts.ts`)**
+   - After `categorizeAndSave` successfully saves a script, call the `sync-notion-script` edge function with action "create"
+   - After `updateScript` succeeds, call it with action "update"
+   - After `updateGoogleDriveLink` succeeds, also trigger an update sync
 
 ## Technical Details
 
-### Edge Function: `supabase/functions/update-lead-status/index.ts`
-- Method: POST
-- Body: `{ leadId: string, newStatus: string }`
-- Allowed statuses: `["Meta Ad (Not Booked)", "Appointment Booked", "Cancelled"]`
-- Auth: validates user via `supabase.auth.getUser()`, checks role (admin/videographer/client) and verifies they have access to the lead's client
-- Notion API call: `PATCH https://api.notion.com/v1/pages/{leadId}` with `properties: { "Lead Status": { select: { name: newStatus } } }`
+### Edge Function: `sync-notion-script`
 
-### Fix `fetch-leads/index.ts`
-- Replace `getClaims(token)` with `supabase.auth.getUser()`
-- Use `user.id` instead of `claimsData.claims.sub`
-- Also add videographer support: check `videographer_clients` table so videographers can see their assigned clients' leads
+```
+POST /sync-notion-script
+Body: { script_id, client_id, title, google_drive_link, action }
+```
 
-### LeadTracker.tsx changes
-- Add state for selected lead and modal open/close
-- Make each lead card clickable (open modal)
-- Dialog shows all lead info + status dropdown (3 options only)
-- On save, call `update-lead-status` edge function, then refresh leads
-- Add "Cancelled" to `STATUS_COLORS` with red styling
+- Uses the Notion API directly (`https://api.notion.com/v1/pages`) with the existing `NOTION_API_KEY` secret
+- On create: `POST /v1/pages` with parent = client's database ID
+- On update: `PATCH /v1/pages/{notion_page_id}` with updated properties
+- Stores/reads the `notion_page_id` mapping via Supabase service role client
 
-### Translations (`src/i18n/translations.ts`)
-- Add keys: `leadDetail`, `status`, `source`, `campaign`, `notes`, `date`, `lastContacted`, `save`, `saving`, `statusUpdated`, `close`, `changeStatus`
+### Database Migrations
+
+**Table 1: `client_notion_mapping`**
+- `client_id` UUID references clients(id)
+- `notion_database_id` TEXT (the Notion data source / collection ID)
+- Unique constraint on client_id
+- RLS: admin-only access
+
+**Table 2: `notion_script_sync`**
+- `script_id` UUID references scripts(id) ON DELETE CASCADE
+- `notion_page_id` TEXT
+- `notion_database_id` TEXT
+- Unique constraint on script_id
+- RLS: admin-only access
+
+### Property Mapping
+
+| App Field | Notion Property | Type |
+|-----------|----------------|------|
+| idea_ganadora (title) | Reel title | title |
+| google_drive_link | Footage | url |
+| (app script URL) | Script | url |
+| "Not started" (default) | Status | status |
+
+### Files to Create/Modify
+
+- **Create**: `supabase/functions/sync-notion-script/index.ts`
+- **Modify**: `supabase/config.toml` (add function config)
+- **Modify**: `src/hooks/useScripts.ts` (add sync calls after create/update)
+- **Create**: 1 database migration (both tables + seed data)
