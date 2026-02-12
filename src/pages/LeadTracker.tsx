@@ -25,7 +25,10 @@ import {
   Users,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t, tr } from "@/i18n/translations";
 
 
 type Lead = {
@@ -63,6 +66,7 @@ const SOURCE_COLORS: Record<string, string> = {
 
 export default function LeadTracker() {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { clients } = useClients(isAdmin);
   const navigate = useNavigate();
@@ -161,8 +165,9 @@ export default function LeadTracker() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           
-          <h1 className="font-bold text-lg">Lead Tracker</h1>
+          <h1 className="font-bold text-lg">{tr(t.leadTracker.title, language)}</h1>
           <div className="ml-auto flex items-center gap-1.5">
+            <LanguageToggle />
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -183,15 +188,15 @@ export default function LeadTracker() {
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-card border border-border rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-foreground">{totalLeads}</p>
-            <p className="text-xs text-muted-foreground">Total Leads</p>
+            <p className="text-xs text-muted-foreground">{tr(t.leadTracker.totalLeads, language)}</p>
           </div>
           <div className="bg-card border border-border rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-green-400">{bookedCount}</p>
-            <p className="text-xs text-muted-foreground">Booked</p>
+            <p className="text-xs text-muted-foreground">{tr(t.leadTracker.booked, language)}</p>
           </div>
           <div className="bg-card border border-border rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-primary">{conversionRate}%</p>
-            <p className="text-xs text-muted-foreground">Conversión</p>
+            <p className="text-xs text-muted-foreground">{tr(t.leadTracker.conversion, language)}</p>
           </div>
         </div>
 
@@ -204,7 +209,7 @@ export default function LeadTracker() {
                 <SelectValue placeholder="Cliente" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los clientes</SelectItem>
+                <SelectItem value="all">{tr(t.leadTracker.allClients, language)}</SelectItem>
                 {clients.map((c) => (
                   <SelectItem key={c.id} value={c.name}>
                     {c.name}
@@ -217,7 +222,7 @@ export default function LeadTracker() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, email o teléfono..."
+              placeholder={tr(t.leadTracker.searchPlaceholder, language)}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -229,7 +234,7 @@ export default function LeadTracker() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los status</SelectItem>
+              <SelectItem value="all">{tr(t.leadTracker.allStatuses, language)}</SelectItem>
               {statuses.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
@@ -243,7 +248,7 @@ export default function LeadTracker() {
               <SelectValue placeholder="Fuente" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas las fuentes</SelectItem>
+              <SelectItem value="all">{tr(t.leadTracker.allSources, language)}</SelectItem>
               {sources.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
@@ -270,7 +275,7 @@ export default function LeadTracker() {
         {/* Leads list */}
         {!loading && filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            {leads.length === 0 ? "No hay leads para mostrar." : "No hay resultados con estos filtros."}
+            {leads.length === 0 ? tr(t.leadTracker.noLeads, language) : tr(t.leadTracker.noResults, language)}
           </div>
         )}
 
@@ -285,7 +290,7 @@ export default function LeadTracker() {
                   {/* Name & badges */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="font-semibold text-foreground truncate">{lead.fullName || "Sin nombre"}</h3>
+                      <h3 className="font-semibold text-foreground truncate">{lead.fullName || tr(t.leadTracker.noName, language)}</h3>
                       {lead.leadStatus && (
                         <Badge
                           variant="outline"

@@ -25,7 +25,10 @@ import {
   Clock,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t, tr } from "@/i18n/translations";
 
 
 type Lead = {
@@ -114,6 +117,7 @@ function formatHourLabel(h: number) {
 
 export default function LeadCalendar() {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { clients } = useClients(isAdmin);
   const navigate = useNavigate();
@@ -235,10 +239,11 @@ export default function LeadCalendar() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           
-          <h1 className="font-bold text-base sm:text-lg">Lead Calendar</h1>
+          <h1 className="font-bold text-base sm:text-lg">{tr(t.leadCalendar.title, language)}</h1>
           <div className="ml-auto flex items-center gap-1.5">
+            <LanguageToggle />
             <ThemeToggle />
-            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>Hoy</Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>{tr(t.leadCalendar.today, language)}</Button>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined)} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
@@ -253,7 +258,7 @@ export default function LeadCalendar() {
           <div className="p-3 border-b border-border">
             <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-primary" />
-              Leads ({leads.length})
+              {tr(t.leadCalendar.leads, language)} ({leads.length})
             </h3>
             {isAdmin && (
               <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -261,7 +266,7 @@ export default function LeadCalendar() {
                   <SelectValue placeholder="Cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los clientes</SelectItem>
+                  <SelectItem value="all">{tr(t.leadCalendar.allClients, language)}</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                   ))}
@@ -271,7 +276,7 @@ export default function LeadCalendar() {
           </div>
           <div className="flex-1 overflow-y-auto max-h-[250px] lg:max-h-none divide-y divide-border">
             {sortedLeads.length === 0 ? (
-              <p className="text-xs text-muted-foreground p-4 text-center">No hay leads.</p>
+              <p className="text-xs text-muted-foreground p-4 text-center">{tr(t.leadCalendar.noLeads, language)}</p>
             ) : (
               sortedLeads.map((lead) => {
                 const dateKey = lead.appointmentDate.split("T")[0];
@@ -319,7 +324,7 @@ export default function LeadCalendar() {
                   onClick={() => setViewMode(mode)}
                   className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  {mode === "week" ? "Semana" : mode === "month" ? "Mes" : "Año"}
+                  {mode === "week" ? tr(t.leadCalendar.week, language) : mode === "month" ? tr(t.leadCalendar.month, language) : tr(t.leadCalendar.year, language)}
                 </button>
               ))}
             </div>
