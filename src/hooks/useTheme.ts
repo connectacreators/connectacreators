@@ -7,7 +7,7 @@ type Theme = "dark" | "light";
 
 function getTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  return (localStorage.getItem(THEME_KEY) as Theme) || "dark";
+  return (localStorage.getItem(THEME_KEY) as Theme) || "light";
 }
 
 function subscribe(callback: () => void) {
@@ -21,7 +21,7 @@ function subscribe(callback: () => void) {
 }
 
 export function useTheme() {
-  const theme = useSyncExternalStore(subscribe, getTheme, () => "dark" as Theme);
+  const theme = useSyncExternalStore(subscribe, getTheme, () => "light" as Theme);
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light");

@@ -50,7 +50,7 @@ export default function Dashboard() {
   const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -74,11 +74,16 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
       <aside
         className={`${
-          sidebarOpen ? "w-56" : "w-0 overflow-hidden"
-        } transition-all duration-300 border-r border-border bg-card/60 flex flex-col flex-shrink-0 h-screen sticky top-0`}
+          sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full lg:w-0 lg:translate-x-0 lg:overflow-hidden"
+        } fixed lg:relative z-40 lg:z-auto transition-all duration-300 border-r border-border bg-card/95 lg:bg-card/60 backdrop-blur-md lg:backdrop-blur-none flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
       >
         {/* Sidebar header */}
         <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50">
@@ -133,9 +138,23 @@ export default function Dashboard() {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-h-screen">
-        {/* Top bar when sidebar collapsed */}
+        {/* Top bar - always visible on mobile, only when sidebar collapsed on desktop */}
+        {(!sidebarOpen || true) && (
+          <div className="border-b border-border/50 px-4 py-3 flex items-center gap-3 lg:hidden">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <img
+                src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
+                alt="Connecta"
+                className="h-6 object-contain"
+              />
+            </button>
+          </div>
+        )}
         {!sidebarOpen && (
-          <div className="border-b border-border/50 px-4 py-3 flex items-center gap-3">
+          <div className="border-b border-border/50 px-4 py-3 hidden lg:flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
               className="text-muted-foreground hover:text-foreground transition-colors"
