@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
 import { FileText, LogOut, Loader2, Settings, Target, CalendarDays } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 
@@ -40,6 +41,7 @@ export default function Dashboard() {
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
               {user.email}
             </span>
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={() => navigate("/settings")} className="gap-1 flex-shrink-0">
               <Settings className="w-3.5 h-3.5" />
             </Button>

@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Users,
 } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 
 type Lead = {
@@ -159,7 +160,8 @@ export default function LeadTracker() {
           </Button>
           <img src={chessKnightIcon} alt="Connecta" className="h-7" />
           <h1 className="font-bold text-lg">Lead Tracker</h1>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1.5">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"

@@ -24,6 +24,7 @@ import {
   Mail,
   Clock,
 } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 
 type Lead = {
@@ -234,6 +235,7 @@ export default function LeadCalendar() {
           <img src={chessKnightIcon} alt="Connecta" className="h-6" />
           <h1 className="font-bold text-base sm:text-lg">Lead Calendar</h1>
           <div className="ml-auto flex items-center gap-1.5">
+            <ThemeToggle />
             <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>Hoy</Button>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined)} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />

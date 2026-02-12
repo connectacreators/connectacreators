@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 import HeroVProjectEN from "@/components/en/HeroVProjectEN";
 
 // Lazy load sections below the fold for better mobile performance
@@ -21,6 +22,9 @@ const SectionLoader = () => (
 const IndexEN = () => {
   return (
     <div className="min-h-screen bg-background">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <HeroVProjectEN />
       <Suspense fallback={<SectionLoader />}>
         <FounderSectionEN />
