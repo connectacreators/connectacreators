@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, ArrowUp, ArrowDown,
+  Camera, Settings, Video, GripVertical,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
@@ -24,6 +24,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // Mic button using Web Speech API
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
@@ -103,6 +106,239 @@ const typeConfig = {
 };
 
 type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script";
+
+// Sortable line item for drag and drop
+function SortableLineItem({
+  line,
+  lineKey,
+  globalIndex,
+  isEditingThis,
+  editLineText,
+  setEditLineText,
+  setEditingLineKey,
+  viewingScriptId,
+  updateScriptLineType,
+  updateScriptLine,
+  deleteScriptLine,
+  setParsedLines,
+}: {
+  line: ScriptLine;
+  lineKey: string;
+  globalIndex: number;
+  isEditingThis: boolean;
+  editLineText: string;
+  setEditLineText: (v: string) => void;
+  setEditingLineKey: (v: string | null) => void;
+  viewingScriptId: string | null;
+  updateScriptLineType: (scriptId: string, lineNumber: number, newType: string) => Promise<boolean>;
+  updateScriptLine: (scriptId: string, lineNumber: number, text: string) => Promise<boolean>;
+  deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
+  setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lineKey });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const isPlaceholder = !line.text || line.text.trim() === "";
+  const cfg = isPlaceholder
+    ? { label: "Selecciona tipo", icon: Plus, color: "text-muted-foreground", bg: "bg-gradient-to-br from-muted/30 to-muted/10", border: "border-muted-foreground/20", dot: "bg-muted-foreground" }
+    : typeConfig[line.line_type];
+  const Icon = cfg.icon;
+
+  return (
+    <div ref={setNodeRef} style={style} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="mt-1 p-1 rounded-lg cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground touch-none"
+        title="Arrastra para reordenar"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <button
+        className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg} cursor-pointer hover:opacity-80 transition-smooth`}
+        title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
+        onClick={async () => {
+          if (!viewingScriptId) return;
+          const types: ("filming" | "actor" | "editor")[] = ["filming", "actor", "editor"];
+          let nextType: "filming" | "actor" | "editor";
+          if (isPlaceholder) {
+            nextType = "filming";
+          } else {
+            const currentIdx = types.indexOf(line.line_type);
+            nextType = types[(currentIdx + 1) % types.length];
+          }
+          const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
+          if (ok) {
+            setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
+          }
+        }}
+      >
+        <Icon className={`w-4 h-4 ${cfg.color}`} />
+      </button>
+      <div className="flex-1 min-w-0">
+        <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+        {isEditingThis ? (
+          <Textarea
+            autoFocus
+            value={editLineText}
+            onChange={(e) => setEditLineText(e.target.value)}
+            className="mt-1 text-sm bg-background/50 min-h-[60px]"
+            onKeyDown={async (e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (viewingScriptId && editLineText.trim()) {
+                  const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+                  if (ok) {
+                    setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                  }
+                }
+                setEditingLineKey(null);
+              }
+              if (e.key === "Escape") setEditingLineKey(null);
+            }}
+            onBlur={async () => {
+              if (viewingScriptId && editLineText.trim()) {
+                const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+                if (ok) {
+                  setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                }
+              }
+              setEditingLineKey(null);
+            }}
+          />
+        ) : (
+          <p
+            className={`mt-1 text-sm leading-relaxed cursor-pointer ${isPlaceholder ? "text-muted-foreground/60 italic" : "text-foreground"}`}
+            onDoubleClick={() => { setEditingLineKey(lineKey); setEditLineText(line.text); }}
+          >
+            {isPlaceholder && !line.text ? "Doble clic para escribir..." : line.text}
+          </p>
+        )}
+      </div>
+      {!isEditingThis && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="opacity-0 group-hover:opacity-100 transition-smooth text-destructive hover:text-destructive h-7 w-7 p-0 flex-shrink-0 mt-1"
+          title="Eliminar línea"
+          onClick={async () => {
+            if (!viewingScriptId) return;
+            const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
+            if (ok) {
+              setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
+            }
+          }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// Wrapper that provides DnD context for a section
+function SortableSection({
+  sectionLines,
+  section,
+  parsedLines,
+  editingLineKey,
+  editLineText,
+  setEditLineText,
+  setEditingLineKey,
+  viewingScriptId,
+  updateScriptLineType,
+  updateScriptLine,
+  deleteScriptLine,
+  setParsedLines,
+  getScriptLines,
+  moveScriptLine,
+}: {
+  sectionLines: ScriptLine[];
+  section: string;
+  parsedLines: ScriptLine[];
+  editingLineKey: string | null;
+  editLineText: string;
+  setEditLineText: (v: string) => void;
+  setEditingLineKey: (v: string | null) => void;
+  viewingScriptId: string | null;
+  updateScriptLineType: (scriptId: string, lineNumber: number, newType: string) => Promise<boolean>;
+  updateScriptLine: (scriptId: string, lineNumber: number, text: string) => Promise<boolean>;
+  deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
+  setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
+  getScriptLines: (scriptId: string) => Promise<ScriptLine[]>;
+  moveScriptLine: (scriptId: string, lineNumber: number, direction: "up" | "down") => Promise<boolean>;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  const itemIds = sectionLines.map((_, i) => `${section}-${i}`);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !viewingScriptId) return;
+
+    const oldIndex = itemIds.indexOf(active.id as string);
+    const newIndex = itemIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Determine direction and how many moves
+    const direction = newIndex > oldIndex ? "down" : "up";
+    const steps = Math.abs(newIndex - oldIndex);
+
+    // Get global index for the line being moved
+    const globalIndex = parsedLines.indexOf(sectionLines[oldIndex]);
+
+    // Perform sequential swaps
+    let currentLineNumber = globalIndex + 1;
+    for (let s = 0; s < steps; s++) {
+      const ok = await moveScriptLine(viewingScriptId, currentLineNumber, direction);
+      if (!ok) break;
+      currentLineNumber = direction === "down" ? currentLineNumber + 1 : currentLineNumber - 1;
+    }
+
+    // Refresh from DB
+    const lines = await getScriptLines(viewingScriptId);
+    setParsedLines(lines);
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        <div className="space-y-3">
+          {sectionLines.map((line, i) => {
+            const globalIndex = parsedLines.indexOf(line);
+            const lineKey = `${section}-${i}`;
+            return (
+              <SortableLineItem
+                key={lineKey}
+                line={line}
+                lineKey={lineKey}
+                globalIndex={globalIndex}
+                isEditingThis={editingLineKey === lineKey}
+                editLineText={editLineText}
+                setEditLineText={setEditLineText}
+                setEditingLineKey={setEditingLineKey}
+                viewingScriptId={viewingScriptId}
+                updateScriptLineType={updateScriptLineType}
+                updateScriptLine={updateScriptLine}
+                deleteScriptLine={deleteScriptLine}
+                setParsedLines={setParsedLines}
+              />
+            );
+          })}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
 
 export default function Scripts() {
   const { theme } = useTheme();
@@ -1025,135 +1261,22 @@ export default function Scripts() {
                       </div>
                     </div>
                   ) : (
-                    sectionLines.map((line, i) => {
-                      const isPlaceholder = !line.text || line.text.trim() === "";
-                      const cfg = isPlaceholder
-                        ? { label: "Selecciona tipo", icon: Plus, color: "text-muted-foreground", bg: "bg-gradient-to-br from-muted/30 to-muted/10", border: "border-muted-foreground/20", dot: "bg-muted-foreground" }
-                        : typeConfig[line.line_type];
-                      const Icon = cfg.icon;
-                      const globalIndex = parsedLines.indexOf(line);
-                      const lineKey = `${section}-${i}`;
-                      const isEditingThis = editingLineKey === lineKey;
-                      return (
-                        <div key={lineKey} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
-                          <button
-                            className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg} cursor-pointer hover:opacity-80 transition-smooth`}
-                            title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
-                            onClick={async () => {
-                              if (!viewingScriptId) return;
-                              const types: ("filming" | "actor" | "editor")[] = ["filming", "actor", "editor"];
-                              let nextType: "filming" | "actor" | "editor";
-                              if (isPlaceholder) {
-                                nextType = "filming";
-                              } else {
-                                const currentIdx = types.indexOf(line.line_type);
-                                nextType = types[(currentIdx + 1) % types.length];
-                              }
-                              const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
-                              if (ok) {
-                                setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
-                              }
-                            }}
-                          >
-                            <Icon className={`w-4 h-4 ${cfg.color}`} />
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
-                            {isEditingThis ? (
-                              <Textarea
-                                autoFocus
-                                value={editLineText}
-                                onChange={(e) => setEditLineText(e.target.value)}
-                                className="mt-1 text-sm bg-background/50 min-h-[60px]"
-                                onKeyDown={async (e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    if (viewingScriptId && editLineText.trim()) {
-                                      const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
-                                      if (ok) {
-                                        setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
-                                      }
-                                    }
-                                    setEditingLineKey(null);
-                                  }
-                                  if (e.key === "Escape") setEditingLineKey(null);
-                                }}
-                                onBlur={async () => {
-                                  if (viewingScriptId && editLineText.trim()) {
-                                    const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
-                                    if (ok) {
-                                      setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
-                                    }
-                                  }
-                                  setEditingLineKey(null);
-                                }}
-                              />
-                            ) : (
-                              <p
-                                className={`mt-1 text-sm leading-relaxed cursor-pointer ${isPlaceholder ? "text-muted-foreground/60 italic" : "text-foreground"}`}
-                                onDoubleClick={() => { setEditingLineKey(lineKey); setEditLineText(line.text); }}
-                              >
-                                {isPlaceholder && !line.text ? "Doble clic para escribir..." : line.text}
-                              </p>
-                            )}
-                          </div>
-                          {!isEditingThis && (
-                            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-smooth flex-shrink-0 mt-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                                title="Mover arriba"
-                                disabled={i === 0}
-                                onClick={async () => {
-                                  if (!viewingScriptId) return;
-                                  const ok = await moveScriptLine(viewingScriptId, globalIndex + 1, "up");
-                                  if (ok) {
-                                    // Refresh lines from DB to get correct order
-                                    const lines = await getScriptLines(viewingScriptId);
-                                    setParsedLines(lines);
-                                  }
-                                }}
-                              >
-                                <ArrowUp className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                                title="Mover abajo"
-                                disabled={i === sectionLines.length - 1}
-                                onClick={async () => {
-                                  if (!viewingScriptId) return;
-                                  const ok = await moveScriptLine(viewingScriptId, globalIndex + 1, "down");
-                                  if (ok) {
-                                    const lines = await getScriptLines(viewingScriptId);
-                                    setParsedLines(lines);
-                                  }
-                                }}
-                              >
-                                <ArrowDown className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                                title="Eliminar línea"
-                                onClick={async () => {
-                                  if (!viewingScriptId) return;
-                                  const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
-                                  if (ok) {
-                                    setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
-                                  }
-                                }}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
+                    <SortableSection
+                      sectionLines={sectionLines}
+                      section={section}
+                      parsedLines={parsedLines}
+                      editingLineKey={editingLineKey}
+                      editLineText={editLineText}
+                      setEditLineText={setEditLineText}
+                      setEditingLineKey={setEditingLineKey}
+                      viewingScriptId={viewingScriptId}
+                      updateScriptLineType={updateScriptLineType}
+                      updateScriptLine={updateScriptLine}
+                      deleteScriptLine={deleteScriptLine}
+                      setParsedLines={setParsedLines}
+                      getScriptLines={getScriptLines}
+                      moveScriptLine={moveScriptLine}
+                    />
                   )}
                 </div>
               );
