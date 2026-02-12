@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.fetch-leads]
 verify_jwt = false
+
+[functions.update-lead-status]
+verify_jwt = false

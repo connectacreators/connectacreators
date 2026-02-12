@@ -15,7 +15,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Authenticate
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -30,27 +29,24 @@ serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-  if (claimsError || !claimsData?.claims) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const userId = claimsData.claims.sub;
+  const userId = user.id;
 
   try {
     const NOTION_API_KEY = Deno.env.get("NOTION_API_KEY");
     if (!NOTION_API_KEY) throw new Error("NOTION_API_KEY not configured");
 
-    // Determine which client name to filter by
-    // Admins can pass a client_name param, otherwise we look up the user's client
     const url = new URL(req.url);
     let clientName = url.searchParams.get("client_name");
 
-    // Check if user is admin
+    // Check user role
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -58,48 +54,97 @@ serve(async (req) => {
       .maybeSingle();
 
     const isAdmin = roleData?.role === "admin";
+    const isVideographer = roleData?.role === "videographer";
 
     if (!clientName) {
-      // Get the client linked to this user
-      const { data: clientData } = await supabase
-        .from("clients")
-        .select("name")
-        .eq("user_id", userId)
-        .maybeSingle();
+      if (isVideographer) {
+        // Get all assigned client names for videographer
+        const { data: assignments } = await supabase
+          .from("videographer_clients")
+          .select("client_id, clients(name)")
+          .eq("videographer_user_id", userId);
 
-      if (!clientData && !isAdmin) {
-        return new Response(JSON.stringify({ error: "No client linked to user" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const assignedNames = (assignments || [])
+          .map((a: any) => a.clients?.name)
+          .filter(Boolean);
+
+        if (assignedNames.length === 0 && !isAdmin) {
+          return new Response(JSON.stringify({ leads: [], total: 0, statusOptions: [], sourceOptions: [] }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // We'll handle multi-client filter below
+        clientName = null;
+        // Store for later use
+        (req as any).__assignedNames = assignedNames;
+      } else if (!isAdmin) {
+        // Regular client
+        const { data: clientData } = await supabase
+          .from("clients")
+          .select("name")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!clientData) {
+          return new Response(JSON.stringify({ error: "No client linked to user" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        clientName = clientData.name;
       }
-
-      clientName = clientData?.name || null;
     } else if (!isAdmin) {
-      // Non-admins can only see their own client's leads
-      const { data: clientData } = await supabase
-        .from("clients")
-        .select("name")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Non-admin passed client_name — verify access
+      if (isVideographer) {
+        const { data: assignments } = await supabase
+          .from("videographer_clients")
+          .select("client_id, clients(name)")
+          .eq("videographer_user_id", userId);
 
-      if (!clientData || clientData.name !== clientName) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const assignedNames = (assignments || []).map((a: any) => a.clients?.name).filter(Boolean);
+        if (!assignedNames.includes(clientName)) {
+          return new Response(JSON.stringify({ error: "Forbidden" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        const { data: clientData } = await supabase
+          .from("clients")
+          .select("name")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!clientData || clientData.name !== clientName) {
+          return new Response(JSON.stringify({ error: "Forbidden" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
     // Build Notion query filter
-    const filter = clientName
-      ? {
-          property: "Client",
-          select: { equals: clientName },
-        }
-      : undefined;
+    let filter: any = undefined;
+    const assignedNames = (req as any).__assignedNames as string[] | undefined;
 
-    // Fetch database schema to get Lead Status options
+    if (clientName) {
+      filter = { property: "Client", select: { equals: clientName } };
+    } else if (isVideographer && assignedNames && assignedNames.length > 0) {
+      if (assignedNames.length === 1) {
+        filter = { property: "Client", select: { equals: assignedNames[0] } };
+      } else {
+        filter = {
+          or: assignedNames.map((name: string) => ({
+            property: "Client",
+            select: { equals: name },
+          })),
+        };
+      }
+    }
+
+    // Fetch database schema
     const schemaResponse = await fetch(
       `https://api.notion.com/v1/databases/${LEADS_DATABASE_ID}`,
       {
@@ -116,6 +161,8 @@ serve(async (req) => {
       const schemaData = await schemaResponse.json();
       statusOptions = (schemaData.properties?.["Lead Status"]?.select?.options || []).map((o: any) => o.name);
       sourceOptions = (schemaData.properties?.["Lead Source"]?.select?.options || []).map((o: any) => o.name);
+    } else {
+      await schemaResponse.text(); // consume body
     }
 
     // Query Notion
@@ -128,10 +175,7 @@ serve(async (req) => {
           "Notion-Version": NOTION_API_VERSION,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          filter,
-          page_size: 100,
-        }),
+        body: JSON.stringify({ filter, page_size: 100 }),
       }
     );
 
@@ -143,7 +187,6 @@ serve(async (req) => {
 
     const notionData = await notionResponse.json();
 
-    // Transform Notion results into clean leads
     const leads = notionData.results.map((page: any) => {
       const props = page.properties;
       return {
