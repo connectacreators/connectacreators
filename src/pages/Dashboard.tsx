@@ -83,12 +83,10 @@ export default function Dashboard() {
         {/* Sidebar header */}
         <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50">
           <img
-            src={chessKnightIcon}
+            src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
-            className="h-7"
-            style={theme === "light" ? { filter: "invert(1)" } : undefined}
+            className="h-6 object-contain"
           />
-          <span className="font-bold text-foreground text-sm tracking-wide">Connecta</span>
           <button
             onClick={() => setSidebarOpen(false)}
             className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
@@ -143,10 +141,9 @@ export default function Dashboard() {
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <img
-                src={chessKnightIcon}
+                src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
                 alt="Connecta"
-                className="h-7"
-                style={theme === "light" ? { filter: "invert(1)" } : undefined}
+                className="h-6 object-contain"
               />
             </button>
           </div>
