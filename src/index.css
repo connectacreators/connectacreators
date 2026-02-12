@@ -9,13 +9,13 @@ All colors MUST be HSL for consistency and theming.
 @layer base {
   :root {
     /* Connecta Elegant Design System - Black & Gold Luxury Theme */
-    --background: 0 0% 4%;
+    --background: 220 8% 8%;
     --foreground: 45 10% 95%;
 
-    --card: 0 0% 7%;
+    --card: 220 8% 11%;
     --card-foreground: 45 10% 95%;
 
-    --popover: 0 0% 7%;
+    --popover: 220 8% 11%;
     --popover-foreground: 45 10% 95%;
 
     /* Primary: Luxurious Gold - Elegant, Premium, Prestigious */
@@ -31,7 +31,7 @@ All colors MUST be HSL for consistency and theming.
     --secondary-foreground: 45 10% 95%;
 
     /* Muted: Subtle warm grays for text hierarchy */
-    --muted: 30 5% 12%;
+    --muted: 220 6% 14%;
     --muted-foreground: 40 5% 60%;
 
     /* Accent: Rich Gold variants */
@@ -41,8 +41,8 @@ All colors MUST be HSL for consistency and theming.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 10% 18%;
-    --input: 30 5% 12%;
+    --border: 220 8% 18%;
+    --input: 220 6% 14%;
     --ring: 43 74% 49%;
 
     --radius: 0.75rem;
@@ -52,7 +52,7 @@ All colors MUST be HSL for consistency and theming.
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);
     --gradient-bg: radial-gradient(ellipse at top, hsl(var(--primary) / 0.1), transparent 50%);
-    --gradient-dark: linear-gradient(135deg, hsl(0 0% 6%) 0%, hsl(0 0% 3%) 100%);
+    --gradient-dark: linear-gradient(135deg, hsl(220 8% 10%) 0%, hsl(220 10% 5%) 100%);
     
     /* Blur effects - Apple-style */
     --blur-subtle: blur(20px);
@@ -67,7 +67,7 @@ All colors MUST be HSL for consistency and theming.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    --sidebar-background: 0 0% 6%;
+    --sidebar-background: 220 8% 9%;
     --sidebar-foreground: 45 10% 90%;
     --sidebar-primary: 43 74% 49%;
     --sidebar-primary-foreground: 0 0% 5%;
@@ -184,6 +184,13 @@ All colors MUST be HSL for consistency and theming.
   body {
     @apply bg-background text-foreground antialiased;
     font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(145deg, hsl(220 10% 10%) 0%, hsl(220 8% 7%) 40%, hsl(225 10% 9%) 100%);
+    background-attachment: fixed;
+  }
+
+  .light body,
+  body:has(.light) {
+    background: hsl(0 0% 98%);
   }
   
   h1, h2, h3, h4, h5, h6 {

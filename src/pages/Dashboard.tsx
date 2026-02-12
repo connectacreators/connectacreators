@@ -3,19 +3,55 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Button } from "@/components/ui/button";
-import { FileText, LogOut, Loader2, Settings, Target, CalendarDays } from "lucide-react";
+import {
+  FileText, LogOut, Loader2, Settings, Target, CalendarDays,
+  Home, ChevronLeft,
+} from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useTheme } from "@/hooks/useTheme";
 import chessKnightIcon from "@/assets/chess-knight-icon.png";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
+import { useState } from "react";
+
+const navItems = [
+  { label: "Home", icon: Home, path: "/" },
+  { label: "Scripts", icon: FileText, path: "/scripts" },
+  { label: "Lead Tracker", icon: Target, path: "/leads" },
+  { label: "Lead Calendar", icon: CalendarDays, path: "/lead-calendar" },
+  { label: "Settings", icon: Settings, path: "/settings" },
+];
+
+const toolCards = [
+  {
+    label: "Script Breakdown",
+    description: "Categoriza y gestiona tus guiones de video.",
+    icon: FileText,
+    color: "text-primary",
+    path: "/scripts",
+  },
+  {
+    label: "Lead Tracker",
+    description: "Visualiza y gestiona tus leads del CRM.",
+    icon: Target,
+    color: "text-emerald-400",
+    path: "/leads",
+  },
+  {
+    label: "Lead Calendar",
+    description: "Visualiza citas programadas de tus leads.",
+    icon: CalendarDays,
+    color: "text-violet-400",
+    path: "/lead-calendar",
+  },
+];
 
 export default function Dashboard() {
   const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // If not logged in, show login
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -34,76 +70,117 @@ export default function Dashboard() {
     );
   }
 
+  const displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuario";
+
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
-      {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <img src={chessKnightIcon} alt="Connecta" className="h-8 sm:h-10" style={theme === "light" ? { filter: "invert(1)" } : undefined} />
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
-              {user.email}
-            </span>
+    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      {/* Sidebar */}
+      <aside
+        className={`${
+          sidebarOpen ? "w-56" : "w-0 overflow-hidden"
+        } transition-all duration-300 border-r border-border bg-card/60 flex flex-col flex-shrink-0 h-screen sticky top-0`}
+      >
+        {/* Sidebar header */}
+        <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50">
+          <img
+            src={chessKnightIcon}
+            alt="Connecta"
+            className="h-7"
+            style={theme === "light" ? { filter: "invert(1)" } : undefined}
+          />
+          <span className="font-bold text-foreground text-sm tracking-wide">Connecta</span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Nav items */}
+        <nav className="flex-1 py-3 px-2 space-y-0.5">
+          {navItems.map((item) => {
+            const isActive = item.path === "/";
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-accent/20 text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar footer */}
+        <div className="border-t border-border/50 p-3 space-y-1">
+          <div className="flex items-center gap-2 px-2">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={() => navigate("/settings")} className="gap-1 flex-shrink-0">
-              <Settings className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1">
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Salir</span>
-            </Button>
           </div>
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Cerrar sesión
+          </button>
         </div>
-      </header>
+      </aside>
 
-      <main className="container mx-auto px-4 py-12 max-w-3xl">
-        <div className="text-center mb-10">
-          <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain mx-auto mb-3" />
-          <p className="text-muted-foreground">¡Bienvenido! Selecciona una herramienta para comenzar.</p>
-        </div>
+      {/* Main content */}
+      <main className="flex-1 flex flex-col min-h-screen">
+        {/* Top bar when sidebar collapsed */}
+        {!sidebarOpen && (
+          <div className="border-b border-border/50 px-4 py-3 flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <img
+                src={chessKnightIcon}
+                alt="Connecta"
+                className="h-7"
+                style={theme === "light" ? { filter: "invert(1)" } : undefined}
+              />
+            </button>
+          </div>
+        )}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* Scripts tool card */}
-          <button
-            onClick={() => navigate("/scripts")}
-            className="flex flex-col items-center gap-4 p-8 bg-card border border-border rounded-xl hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5 text-center group"
-          >
-            <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-              <FileText className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground mb-1">Script Breakdown</h2>
-              <p className="text-sm text-muted-foreground">Categoriza y gestiona tus guiones de video.</p>
-            </div>
-          </button>
+        {/* Center content */}
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="max-w-3xl w-full text-center">
+            {/* Greeting */}
+            <p className="text-muted-foreground text-sm mb-1">👋 Hola, {displayName}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-10">
+              ¿Qué quieres hacer hoy?
+            </h1>
 
-          {/* Lead Tracker card */}
-          <button
-            onClick={() => navigate("/leads")}
-            className="flex flex-col items-center gap-4 p-8 bg-card border border-border rounded-xl hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5 text-center group"
-          >
-            <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-              <Target className="w-8 h-8 text-primary" />
+            {/* Tool cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {toolCards.map((tool, i) => (
+                <button
+                  key={tool.path}
+                  onClick={() => navigate(tool.path)}
+                  className="group flex flex-col items-center gap-4 p-8 bg-card border border-border/60 rounded-xl hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 text-center relative"
+                >
+                  <tool.icon className={`w-8 h-8 ${tool.color}`} />
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground mb-1">{tool.label}</h2>
+                    <p className="text-xs text-muted-foreground">{tool.description}</p>
+                  </div>
+                  {i < toolCards.length - 1 && (
+                    <span className="hidden sm:block absolute -right-3 top-1/2 -translate-y-1/2 text-muted-foreground/30 text-lg">→</span>
+                  )}
+                </button>
+              ))}
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground mb-1">Lead Tracker</h2>
-              <p className="text-sm text-muted-foreground">Visualiza y gestiona tus leads del CRM.</p>
-            </div>
-          </button>
-
-          {/* Lead Calendar card */}
-          <button
-            onClick={() => navigate("/lead-calendar")}
-            className="flex flex-col items-center gap-4 p-8 bg-card border border-border rounded-xl hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5 text-center group"
-          >
-            <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-              <CalendarDays className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground mb-1">Lead Calendar</h2>
-              <p className="text-sm text-muted-foreground">Visualiza citas programadas de tus leads.</p>
-            </div>
-          </button>
+          </div>
         </div>
       </main>
     </div>
