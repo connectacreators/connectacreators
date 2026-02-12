@@ -336,89 +336,85 @@ export default function LeadCalendar() {
                 return (
                   <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
                     {/* Day headers */}
-                    <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border bg-muted">
-                      <div className="p-1" />
-                      {weekDates.map((d, i) => {
-                        const dateStr = formatDateStr(d);
-                        const isToday = dateStr === todayStr;
-                        return (
-                          <div key={i} className={`p-1.5 text-center border-l border-border ${isToday ? "bg-primary/10" : ""}`}>
-                            <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[i]}</span>
-                            <span className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
-                              {d.getDate()}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Time grid - scrollable */}
-                    <div className="flex-1 overflow-y-auto relative" style={{ maxHeight: "calc(100vh - 200px)" }}>
-                      <div className="grid grid-cols-[48px_repeat(7,1fr)]" style={{ height: HOURS.length * HOUR_HEIGHT }}>
-                        {/* Hour labels */}
-                        <div className="relative">
-                          {HOURS.map((h) => (
-                            <div
-                              key={h}
-                              className="absolute left-0 right-0 border-t border-border/50 flex items-start"
-                              style={{ top: (h - HOURS[0]) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-                            >
-                              <span className="text-[9px] text-muted-foreground px-1 -translate-y-1/2">{formatHourLabel(h)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Day columns */}
-                        {weekDates.map((d, colIdx) => {
+                    <div className="flex border-b border-border bg-muted">
+                      <div className="w-12 flex-shrink-0" />
+                      <div className="flex-1 grid grid-cols-7">
+                        {weekDates.map((d, i) => {
                           const dateStr = formatDateStr(d);
-                          const dayLeads = leadsByDate[dateStr] || [];
                           const isToday = dateStr === todayStr;
                           return (
-                            <div
-                              key={colIdx}
-                              className={`relative border-l border-border ${isToday ? "bg-primary/5" : ""}`}
-                              onClick={() => setSelectedDate(dateStr === selectedDate ? null : dateStr)}
-                            >
-                              {/* Hour grid lines */}
-                              {HOURS.map((h) => (
-                                <div
-                                  key={h}
-                                  className="absolute left-0 right-0 border-t border-border/30"
-                                  style={{ top: (h - HOURS[0]) * HOUR_HEIGHT }}
-                                />
-                              ))}
-                              {/* Lead blocks positioned by time */}
-                              {dayLeads.map((lead) => {
-                                const hourDec = getHourDecimal(lead.appointmentDate);
-                                const time = formatTime(lead.appointmentDate);
-                                if (hourDec === null) return null;
-                                const top = (hourDec - HOURS[0]) * HOUR_HEIGHT;
-                                if (top < 0) return null;
-                                return (
-                                  <div
-                                    key={lead.id}
-                                    className="absolute left-0.5 right-0.5 bg-green-500/20 border-l-2 border-l-green-400 rounded-r px-1 py-0.5 cursor-pointer hover:bg-green-500/30 transition-colors z-10 overflow-hidden"
-                                    style={{ top, minHeight: 24, maxHeight: HOUR_HEIGHT - 2 }}
-                                    title={`${lead.fullName} - ${time}`}
-                                  >
-                                    <p className="text-[9px] sm:text-[10px] font-bold text-green-400 truncate">{time}</p>
-                                    <p className="text-[8px] sm:text-[9px] text-foreground truncate">{lead.fullName || "Sin nombre"}</p>
-                                  </div>
-                                );
-                              })}
-                              {/* Now indicator */}
-                              {isToday && (() => {
-                                const nowHour = now.getHours() + now.getMinutes() / 60;
-                                if (nowHour < HOURS[0] || nowHour > HOURS[HOURS.length - 1] + 1) return null;
-                                const top = (nowHour - HOURS[0]) * HOUR_HEIGHT;
-                                return (
-                                  <div className="absolute left-0 right-0 z-20 flex items-center" style={{ top }}>
-                                    <div className="w-2 h-2 rounded-full bg-destructive -ml-1" />
-                                    <div className="flex-1 h-px bg-destructive" />
-                                  </div>
-                                );
-                              })()}
+                            <div key={i} className={`p-1.5 text-center border-l border-border/30 ${isToday ? "bg-primary/10" : ""}`}>
+                              <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[i]}</span>
+                              <span className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                                {d.getDate()}
+                              </span>
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                    {/* Time grid - scrollable */}
+                    <div className="flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+                      <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+                        {/* Full-width horizontal hour lines + labels */}
+                        {HOURS.map((h) => {
+                          const top = (h - HOURS[0]) * HOUR_HEIGHT;
+                          return (
+                            <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top }}>
+                              <div className="w-12 flex-shrink-0 pr-1 text-right -translate-y-1/2">
+                                <span className="text-[9px] text-muted-foreground leading-none">{formatHourLabel(h)}</span>
+                              </div>
+                              <div className="flex-1 border-t border-border/40" />
+                            </div>
+                          );
+                        })}
+                        {/* Day columns overlay */}
+                        <div className="absolute top-0 bottom-0 left-12 right-0 grid grid-cols-7">
+                          {weekDates.map((d, colIdx) => {
+                            const dateStr = formatDateStr(d);
+                            const dayLeads = leadsByDate[dateStr] || [];
+                            const isToday = dateStr === todayStr;
+                            return (
+                              <div
+                                key={colIdx}
+                                className={`relative border-l border-border/30 ${isToday ? "bg-primary/5" : ""}`}
+                                onClick={() => setSelectedDate(dateStr === selectedDate ? null : dateStr)}
+                              >
+                                {/* Lead blocks positioned by time */}
+                                {dayLeads.map((lead) => {
+                                  const hourDec = getHourDecimal(lead.appointmentDate);
+                                  const time = formatTime(lead.appointmentDate);
+                                  if (hourDec === null) return null;
+                                  const top = (hourDec - HOURS[0]) * HOUR_HEIGHT;
+                                  if (top < 0) return null;
+                                  return (
+                                    <div
+                                      key={lead.id}
+                                      className="absolute left-0.5 right-0.5 bg-green-500/20 border-l-2 border-l-green-400 rounded-r px-1 py-0.5 cursor-pointer hover:bg-green-500/30 transition-colors z-10 overflow-hidden"
+                                      style={{ top, minHeight: 24, maxHeight: HOUR_HEIGHT - 2 }}
+                                      title={`${lead.fullName} - ${time}`}
+                                    >
+                                      <p className="text-[9px] sm:text-[10px] font-bold text-green-400 truncate">{time}</p>
+                                      <p className="text-[8px] sm:text-[9px] text-foreground truncate">{lead.fullName || "Sin nombre"}</p>
+                                    </div>
+                                  );
+                                })}
+                                {/* Now indicator */}
+                                {isToday && (() => {
+                                  const nowHour = now.getHours() + now.getMinutes() / 60;
+                                  if (nowHour < HOURS[0] || nowHour > HOURS[HOURS.length - 1] + 1) return null;
+                                  const top = (nowHour - HOURS[0]) * HOUR_HEIGHT;
+                                  return (
+                                    <div className="absolute left-0 right-0 z-20 flex items-center" style={{ top }}>
+                                      <div className="w-2 h-2 rounded-full bg-destructive -ml-1" />
+                                      <div className="flex-1 h-px bg-destructive" />
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
