@@ -28,12 +28,13 @@ export function useAuth() {
 
     // Listener for ongoing changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log("[useAuth] onAuthStateChange:", event, "user:", session?.user?.email ?? "null");
         if (!isMounted) return;
         const u = session?.user ?? null;
         setUser(u);
         if (u) {
-          fetchRole(u.id).then((r) => { if (isMounted) setRole(r); });
+          fetchRole(u.id).then((r) => { if (isMounted) { console.log("[useAuth] role resolved:", r); setRole(r); } });
         } else {
           setRole("client");
         }
