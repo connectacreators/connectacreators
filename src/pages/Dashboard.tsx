@@ -50,7 +50,8 @@ export default function Dashboard() {
   const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   if (loading) {
     return (
