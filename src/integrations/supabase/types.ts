@@ -18,20 +18,29 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          footage_property: string | null
           id: string
           notion_database_id: string
+          script_property: string | null
+          title_property: string
         }
         Insert: {
           client_id: string
           created_at?: string
+          footage_property?: string | null
           id?: string
           notion_database_id: string
+          script_property?: string | null
+          title_property?: string
         }
         Update: {
           client_id?: string
           created_at?: string
+          footage_property?: string | null
           id?: string
           notion_database_id?: string
+          script_property?: string | null
+          title_property?: string
         }
         Relationships: [
           {
