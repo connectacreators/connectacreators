@@ -1,25 +1,54 @@
 
+# Plan: Lead Status Update + Lead Detail Modal
 
-# Fix: Logo oscuro y caballo de ajedrez en modo claro
+## What will change
 
-## Problema
-El archivo `connecta-logo-dark.png` que se copio anteriormente puede no haberse guardado correctamente. La imagen que subiste ahora (logo negro sobre fondo blanco) es la correcta y necesita reemplazar el archivo existente.
+### 1. New Edge Function: `update-lead-status`
+A new backend function that receives a lead's Notion page ID and a new status, then updates it via the Notion API. It will:
+- Authenticate the user (same pattern as `fetch-leads`)
+- Verify the user has permission (admin, videographer with assigned client, or client owning the lead)
+- Call the Notion API to update the "Lead Status" select property on the page
+- Return success/error
 
-## Lo que ya esta bien (no necesita cambios de codigo)
-La logica de cambio de tema ya esta implementada correctamente en todos los archivos:
-- **Dashboard**: Logo condicional y caballo con `filter: invert(1)` en modo claro
-- **Scripts**: Caballo con inversion de color
-- **LeadTracker**: Caballo con inversion de color  
-- **LeadCalendar**: Caballo con inversion de color
-- **Settings**: Logo condicional (claro/oscuro)
-- **Navbar**: Logo condicional (claro/oscuro)
-- **ScriptsLogin**: Logo condicional (claro/oscuro)
+### 2. Fix `fetch-leads` auth (same bug as categorize-script)
+The `fetch-leads` edge function still uses the broken `getClaims` method. It needs to be updated to use `supabase.auth.getUser()` like the recently fixed `categorize-script`.
 
-## Unico cambio necesario
-Reemplazar el archivo `src/assets/connecta-logo-dark.png` con la imagen correcta que acabas de subir (el logo negro "CONNECTA Creators").
+### 3. Lead Detail Modal (LeadTracker.tsx)
+When clicking on a lead card, a dialog will open showing:
+- Full Name, Email, Phone (clickable), Lead Status, Lead Source
+- Client name, Campaign Name, Notes, Created Date, Last Contacted
+- A status dropdown limited to 3 options: **Meta Ad (Not Booked)**, **Appointment Booked**, **Cancelled**
+- A "Save" button to update the status via the new edge function
+- Admin-only: link to open in Notion
 
-## Detalles tecnicos
-- Copiar `user-uploads://Connecta_Logo_blackn-2.png` a `src/assets/connecta-logo-dark.png` (sobreescribir el existente)
-- No se requieren cambios de codigo ya que todas las paginas ya tienen la logica condicional implementada
-- El caballo de ajedrez ya tiene `style={theme === "light" ? { filter: "invert(1)" } : undefined}` en las 4 paginas donde aparece
+### 4. "Cancelled" status color
+Add a color entry for "Cancelled" in the `STATUS_COLORS` map (red theme).
 
+### 5. Translations
+Add new i18n keys for the modal labels (Full Name, Email, Phone, Status, Source, Campaign, Notes, Date, Save, etc.).
+
+---
+
+## Technical Details
+
+### Edge Function: `supabase/functions/update-lead-status/index.ts`
+- Method: POST
+- Body: `{ leadId: string, newStatus: string }`
+- Allowed statuses: `["Meta Ad (Not Booked)", "Appointment Booked", "Cancelled"]`
+- Auth: validates user via `supabase.auth.getUser()`, checks role (admin/videographer/client) and verifies they have access to the lead's client
+- Notion API call: `PATCH https://api.notion.com/v1/pages/{leadId}` with `properties: { "Lead Status": { select: { name: newStatus } } }`
+
+### Fix `fetch-leads/index.ts`
+- Replace `getClaims(token)` with `supabase.auth.getUser()`
+- Use `user.id` instead of `claimsData.claims.sub`
+- Also add videographer support: check `videographer_clients` table so videographers can see their assigned clients' leads
+
+### LeadTracker.tsx changes
+- Add state for selected lead and modal open/close
+- Make each lead card clickable (open modal)
+- Dialog shows all lead info + status dropdown (3 options only)
+- On save, call `update-lead-status` edge function, then refresh leads
+- Add "Cancelled" to `STATUS_COLORS` with red styling
+
+### Translations (`src/i18n/translations.ts`)
+- Add keys: `leadDetail`, `status`, `source`, `campaign`, `notes`, `date`, `lastContacted`, `save`, `saving`, `statusUpdated`, `close`, `changeStatus`
