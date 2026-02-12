@@ -15,6 +15,7 @@ interface TeleprompterProps {
 
 export default function Teleprompter({ lines, onClose, showRecorder = false, onToggleRecorder, scriptTitle }: TeleprompterProps) {
   const actorLines = lines.filter((l) => l.line_type === "actor");
+  const displayLines = actorLines.length > 0 ? actorLines : lines;
   const scrollRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number | null>(null);
 
@@ -162,7 +163,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
         {/* Top padding so text starts mid-screen */}
         <div className="h-[45vh] sm:h-[50vh]" />
 
-        {actorLines.map((line, i) => (
+        {displayLines.map((line, i) => (
           <p
             key={i}
             className="text-white text-xl sm:text-3xl md:text-5xl lg:text-6xl leading-relaxed mb-8 sm:mb-12 text-center font-bold"
