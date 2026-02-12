@@ -10,7 +10,10 @@ import {
 import Teleprompter from "@/components/Teleprompter";
 import VideoRecorder from "@/components/VideoRecorder";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t, tr } from "@/i18n/translations";
 import { Link } from "react-router-dom";
 
 import { useClients, type Client } from "@/hooks/useClients";
@@ -420,6 +423,7 @@ export default function Scripts() {
               {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
               {isVideographer && <span className="text-emerald-400 font-bold">(Videographer)</span>}
             </span>
+            <LanguageToggle />
             <ThemeToggle />
             <Link to="/settings">
               <Button variant="ghost" size="sm" className="flex-shrink-0">

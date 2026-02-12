@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Save, Eye, EyeOff } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t, tr } from "@/i18n/translations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +16,7 @@ import connectaLogoDark from "@/assets/connecta-logo-dark.png";
 
 export default function Settings() {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const { user, role, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -54,7 +58,7 @@ export default function Settings() {
     return null;
   }
 
-  const roleLabel = role === "admin" ? "Admin" : role === "videographer" ? "Videographer" : "Cliente";
+  const roleLabel = role === "admin" ? tr(t.settings.admin, language) : role === "videographer" ? tr(t.settings.videographer, language) : tr(t.settings.client, language);
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -70,12 +74,12 @@ export default function Settings() {
       if (email.trim() !== user.email) {
         const { error: emailErr } = await supabase.auth.updateUser({ email: email.trim() });
         if (emailErr) throw emailErr;
-        toast.success("Se envió un correo de confirmación al nuevo email.");
+        toast.success(tr(t.settings.emailConfirmation, language));
       } else {
-        toast.success("Perfil actualizado");
+        toast.success(tr(t.settings.profileUpdated, language));
       }
     } catch (e: any) {
-      toast.error(e.message || "Error al guardar");
+      toast.error(e.message || tr(t.settings.saveError, language));
     } finally {
       setSaving(false);
     }
@@ -83,23 +87,23 @@ export default function Settings() {
 
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres");
+      toast.error(tr(t.settings.passwordMinLength, language));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Las contraseñas no coinciden");
+      toast.error(tr(t.settings.passwordMismatch, language));
       return;
     }
     setChangingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success("Contraseña actualizada");
+      toast.success(tr(t.settings.passwordUpdated, language));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (e: any) {
-      toast.error(e.message || "Error al cambiar contraseña");
+      toast.error(e.message || tr(t.settings.passwordError, language));
     } finally {
       setChangingPassword(false);
     }
@@ -116,41 +120,42 @@ export default function Settings() {
             <img src={theme === "light" ? connectaLogoDark : connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
           </div>
           <ThemeToggle />
+          <LanguageToggle />
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-lg">
-        <h1 className="text-2xl font-bold text-foreground mb-8">Configuración de Cuenta</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-8">{tr(t.settings.title, language)}</h1>
 
         {/* Profile info */}
         <div className="space-y-5 mb-8">
           <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Nombre</label>
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Tu nombre" />
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">{tr(t.settings.name, language)}</label>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr(t.settings.namePlaceholder, language)} />
           </div>
           <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Correo electrónico</label>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">{tr(t.settings.email, language)}</label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Tipo de cuenta</label>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">{tr(t.settings.accountType, language)}</label>
             <div className="px-3 py-2 bg-muted/30 border border-border rounded-md text-foreground text-sm">
               {roleLabel}
             </div>
           </div>
           <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Guardar cambios
+            {tr(t.settings.saveChanges, language)}
           </Button>
         </div>
 
         {/* Change password */}
         <div className="border-t border-border pt-6 space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Cambiar Contraseña</h2>
+          <h2 className="text-lg font-semibold text-foreground">{tr(t.settings.changePassword, language)}</h2>
           <div className="relative">
             <Input
               type={showPasswords ? "text" : "password"}
-              placeholder="Nueva contraseña"
+              placeholder={tr(t.settings.newPassword, language)}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
@@ -158,7 +163,7 @@ export default function Settings() {
           <div className="relative">
             <Input
               type={showPasswords ? "text" : "password"}
-              placeholder="Confirmar nueva contraseña"
+              placeholder={tr(t.settings.confirmPassword, language)}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
@@ -169,7 +174,7 @@ export default function Settings() {
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             {showPasswords ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            {showPasswords ? "Ocultar" : "Mostrar"} contraseñas
+            {showPasswords ? tr(t.settings.hidePasswords, language) : tr(t.settings.showPasswords, language)} {tr(t.settings.passwords, language)}
           </button>
           <Button
             onClick={handleChangePassword}
@@ -178,7 +183,7 @@ export default function Settings() {
             className="gap-2"
           >
             {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Cambiar Contraseña
+            {tr(t.settings.changePassword, language)}
           </Button>
         </div>
       </main>
