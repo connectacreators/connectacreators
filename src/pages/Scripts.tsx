@@ -1200,11 +1200,9 @@ export default function Scripts() {
                 <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
                   <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Grabar</span><span className="sm:hidden">Rec</span>
                 </Button>
-                {parsedLines.some((l) => l.line_type === "actor") && (
-                  <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
-                    <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Teleprompter</span><span className="sm:hidden">TP</span>
-                  </Button>
-                )}
+                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Teleprompter</span><span className="sm:hidden">TP</span>
+                </Button>
               </div>
             </div>
             {/* Render lines grouped by section */}
