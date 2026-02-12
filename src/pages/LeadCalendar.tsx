@@ -341,7 +341,7 @@ export default function LeadCalendar() {
                   <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
                     {/* Day headers */}
                     <div className="flex border-b border-border bg-muted">
-                      <div className="w-12 flex-shrink-0" />
+                      <div className="w-14 flex-shrink-0" />
                       <div className="flex-1 grid grid-cols-7">
                         {weekDates.map((d, i) => {
                           const dateStr = formatDateStr(d);
@@ -364,16 +364,16 @@ export default function LeadCalendar() {
                         {HOURS.map((h) => {
                           const top = (h - HOURS[0]) * HOUR_HEIGHT;
                           return (
-                            <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top }}>
-                              <div className="w-12 flex-shrink-0 pr-1 text-right -translate-y-1/2">
-                                <span className="text-[9px] text-muted-foreground leading-none">{formatHourLabel(h)}</span>
+                            <div key={h} className="absolute left-0 right-0 flex items-center" style={{ top }}>
+                              <div className="w-14 flex-shrink-0 pr-2 text-right">
+                                <span className="text-[10px] text-muted-foreground leading-none">{formatHourLabel(h)}</span>
                               </div>
                               <div className="flex-1 border-t border-border/40" />
                             </div>
                           );
                         })}
                         {/* Day columns overlay */}
-                        <div className="absolute top-0 bottom-0 left-12 right-0 grid grid-cols-7">
+                        <div className="absolute top-0 bottom-0 left-14 right-0 grid grid-cols-7">
                           {weekDates.map((d, colIdx) => {
                             const dateStr = formatDateStr(d);
                             const dayLeads = leadsByDate[dateStr] || [];
