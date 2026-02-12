@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTheme } from "@/hooks/useTheme";
 import connectaLogo from "@/assets/connecta-logo.png";
+import connectaLogoDark from "@/assets/connecta-logo-dark.png";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { theme } = useTheme();
 
   const navItems = [
     { label: "Servicios", href: "#servicios" },
@@ -20,7 +23,7 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <img src={connectaLogo} alt="Connecta" className="h-20" />
+            <img src={theme === "light" ? connectaLogoDark : connectaLogo} alt="Connecta" className="h-20" />
           </div>
 
           {/* Desktop Navigation */}

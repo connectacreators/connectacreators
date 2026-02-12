@@ -5,7 +5,9 @@ import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
+import { useTheme } from "@/hooks/useTheme";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
+import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
 
 type Props = {
   onSignIn: () => void;
@@ -14,6 +16,7 @@ type Props = {
 };
 
 export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmail }: Props) {
+  const { theme } = useTheme();
   const [identifier, setIdentifier] = useState(""); // email or username
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -171,7 +174,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
       {/* Chess knight icon footer */}
       <div className="py-6 flex justify-center">
-        <img src={connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
+        <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
       </div>
     </div>
   );
