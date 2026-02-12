@@ -59,6 +59,7 @@ const MONTH_NAMES = [
 const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const DAY_NAMES_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7am to 9pm
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
@@ -80,6 +81,17 @@ function formatDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function getHourDecimal(dateStr: string): number | null {
+  if (!dateStr || !dateStr.includes("T")) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.getHours() + d.getMinutes() / 60;
+  } catch {
+    return null;
+  }
+}
+
 function formatTime(dateStr: string): string | null {
   if (!dateStr || !dateStr.includes("T")) return null;
   try {
@@ -89,6 +101,13 @@ function formatTime(dateStr: string): string | null {
   } catch {
     return null;
   }
+}
+
+function formatHourLabel(h: number) {
+  if (h === 0) return "12 AM";
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return "12 PM";
+  return `${h - 12} PM`;
 }
 
 export default function LeadCalendar() {
@@ -101,7 +120,7 @@ export default function LeadCalendar() {
   const [error, setError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [viewMode, setViewMode] = useState<ViewMode>("week");
 
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -157,49 +176,30 @@ export default function LeadCalendar() {
     return map;
   }, [leads]);
 
-  // Sorted leads for sidebar
   const sortedLeads = useMemo(() => {
-    return [...leads].sort((a, b) => {
-      const da = new Date(a.appointmentDate).getTime();
-      const db = new Date(b.appointmentDate).getTime();
-      return da - db;
-    });
+    return [...leads].sort((a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime());
   }, [leads]);
 
   const todayStr = formatDateStr(now);
 
-  // Navigation
   const goPrev = () => {
     if (viewMode === "month") {
-      if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
-      else setViewMonth(viewMonth - 1);
+      if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); } else setViewMonth(viewMonth - 1);
     } else if (viewMode === "week") {
-      const d = new Date(viewWeekStart);
-      d.setDate(d.getDate() - 7);
-      setViewWeekStart(d);
-    } else {
-      setViewYear(viewYear - 1);
-    }
+      const d = new Date(viewWeekStart); d.setDate(d.getDate() - 7); setViewWeekStart(d);
+    } else { setViewYear(viewYear - 1); }
   };
   const goNext = () => {
     if (viewMode === "month") {
-      if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
-      else setViewMonth(viewMonth + 1);
+      if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); } else setViewMonth(viewMonth + 1);
     } else if (viewMode === "week") {
-      const d = new Date(viewWeekStart);
-      d.setDate(d.getDate() + 7);
-      setViewWeekStart(d);
-    } else {
-      setViewYear(viewYear + 1);
-    }
+      const d = new Date(viewWeekStart); d.setDate(d.getDate() + 7); setViewWeekStart(d);
+    } else { setViewYear(viewYear + 1); }
   };
   const goToday = () => {
     const n = new Date();
-    setViewYear(n.getFullYear());
-    setViewMonth(n.getMonth());
-    const ws = new Date(n);
-    ws.setDate(ws.getDate() - ws.getDay());
-    setViewWeekStart(ws);
+    setViewYear(n.getFullYear()); setViewMonth(n.getMonth());
+    const ws = new Date(n); ws.setDate(ws.getDate() - ws.getDay()); setViewWeekStart(ws);
     setSelectedDate(formatDateStr(n));
   };
 
@@ -217,150 +217,213 @@ export default function LeadCalendar() {
   const selectedLeads = selectedDate ? (leadsByDate[selectedDate] || []) : [];
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
   if (!user) { navigate("/"); return null; }
+
+  const HOUR_HEIGHT = 56; // px per hour slot
 
   return (
     <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-10">
-        <div className="container mx-auto px-3 py-2.5 flex items-center gap-2">
+        <div className="mx-auto px-3 py-2.5 flex items-center gap-2 max-w-[1600px]">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <img src={chessKnightIcon} alt="Connecta" className="h-6" />
           <h1 className="font-bold text-base sm:text-lg">Lead Calendar</h1>
           <div className="ml-auto flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>
-              Hoy
-            </Button>
-            <Button
-              variant="ghost" size="sm" className="h-7 w-7 p-0"
-              onClick={() => fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined)}
-              disabled={loading}
-            >
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>Hoy</Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined)} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col container mx-auto px-3 py-3 max-w-7xl">
-        {/* Controls row */}
-        <div className="flex flex-col sm:flex-row gap-2 mb-3">
-          {isAdmin && (
-            <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger className="w-full sm:w-[200px] h-8 text-xs">
-                <Users className="w-3.5 h-3.5 mr-1.5" />
-                <SelectValue placeholder="Cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los clientes</SelectItem>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {/* View mode toggle */}
-          <div className="flex bg-muted rounded-md p-0.5 sm:ml-auto">
-            {(["week", "month", "year"] as ViewMode[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {mode === "week" ? "Semana" : mode === "month" ? "Mes" : "Año"}
-              </button>
-            ))}
+      {/* Body: sidebar (1/4) + calendar (3/4) */}
+      <div className="flex-1 flex flex-col lg:flex-row max-w-[1600px] mx-auto w-full">
+        {/* LEFT SIDEBAR - 25% */}
+        <aside className="lg:w-1/4 lg:max-w-[320px] lg:min-w-[240px] border-b lg:border-b-0 lg:border-r border-border bg-card/50 flex flex-col order-2 lg:order-1">
+          <div className="p-3 border-b border-border">
+            <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              Leads ({leads.length})
+            </h3>
+            {isAdmin && (
+              <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <SelectTrigger className="w-full h-7 text-xs mt-2">
+                  <SelectValue placeholder="Cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los clientes</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-        </div>
+          <div className="flex-1 overflow-y-auto max-h-[250px] lg:max-h-none divide-y divide-border">
+            {sortedLeads.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-4 text-center">No hay leads.</p>
+            ) : (
+              sortedLeads.map((lead) => {
+                const dateKey = lead.appointmentDate.split("T")[0];
+                const time = formatTime(lead.appointmentDate);
+                const isActive = selectedDate === dateKey;
+                return (
+                  <button
+                    key={lead.id}
+                    onClick={() => setSelectedDate(dateKey === selectedDate ? null : dateKey)}
+                    className={`w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors ${isActive ? "bg-accent/40 border-l-2 border-l-primary" : ""}`}
+                  >
+                    <p className="text-xs font-semibold text-foreground truncate">{lead.fullName || "Sin nombre"}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(lead.appointmentDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
+                      </span>
+                      {time && (
+                        <>
+                          <Clock className="w-3 h-3 text-primary flex-shrink-0" />
+                          <span className="text-[10px] text-primary font-medium">{time}</span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </aside>
 
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-3 text-xs text-destructive">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          /* Main layout: sidebar + calendar */
-          <div className="flex-1 flex flex-col lg:flex-row gap-3">
-            {/* LEFT SIDEBAR - Lead list */}
-            <div className="lg:w-72 xl:w-80 flex-shrink-0 order-2 lg:order-1">
-              <div className="bg-card border border-border rounded-lg overflow-hidden">
-                <div className="p-3 border-b border-border bg-muted/50">
-                  <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-primary" />
-                    Leads ({leads.length})
-                  </h3>
-                </div>
-                <div className="max-h-[300px] lg:max-h-[calc(100vh-220px)] overflow-y-auto divide-y divide-border">
-                  {sortedLeads.length === 0 ? (
-                    <p className="text-xs text-muted-foreground p-4 text-center">No hay leads con citas.</p>
-                  ) : (
-                    sortedLeads.map((lead) => {
-                      const dateKey = lead.appointmentDate.split("T")[0];
-                      const time = formatTime(lead.appointmentDate);
-                      const isActive = selectedDate === dateKey;
-                      return (
-                        <button
-                          key={lead.id}
-                          onClick={() => setSelectedDate(dateKey === selectedDate ? null : dateKey)}
-                          className={`w-full text-left p-2.5 hover:bg-accent/50 transition-colors ${isActive ? "bg-accent/30" : ""}`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-foreground truncate">
-                                {lead.fullName || "Sin nombre"}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(lead.appointmentDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
-                                </span>
-                                {time && (
-                                  <>
-                                    <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                    <span className="text-[10px] text-primary font-medium">{time}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            {lead.leadStatus && (
-                              <span className={`text-[8px] px-1 py-0.5 rounded border whitespace-nowrap ${STATUS_COLORS[lead.leadStatus] || "bg-muted text-muted-foreground border-border"}`}>
-                                {lead.leadStatus.length > 12 ? lead.leadStatus.slice(0, 12) + "…" : lead.leadStatus}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+        {/* RIGHT - Calendar 75% */}
+        <main className="flex-1 flex flex-col order-1 lg:order-2 min-w-0 p-3">
+          {/* Controls */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goPrev}><ChevronLeft className="w-4 h-4" /></Button>
+              <h2 className="text-sm sm:text-base font-bold text-foreground min-w-[140px] text-center">{headerLabel}</h2>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goNext}><ChevronRight className="w-4 h-4" /></Button>
             </div>
+            <div className="flex bg-muted rounded-md p-0.5">
+              {(["week", "month", "year"] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {mode === "week" ? "Semana" : mode === "month" ? "Mes" : "Año"}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* RIGHT - Calendar */}
-            <div className="flex-1 flex flex-col order-1 lg:order-2 min-w-0">
-              {/* Navigation */}
-              <div className="flex items-center justify-between mb-3">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goPrev}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <h2 className="text-sm sm:text-base font-bold text-foreground">{headerLabel}</h2>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goNext}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-2 text-xs text-destructive">{error}</div>
+          )}
+
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="flex-1 flex flex-col">
+
+              {/* ===== WEEK VIEW with time grid ===== */}
+              {viewMode === "week" && (() => {
+                const weekDates = getWeekDates(viewWeekStart);
+                return (
+                  <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
+                    {/* Day headers */}
+                    <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border bg-muted">
+                      <div className="p-1" />
+                      {weekDates.map((d, i) => {
+                        const dateStr = formatDateStr(d);
+                        const isToday = dateStr === todayStr;
+                        return (
+                          <div key={i} className={`p-1.5 text-center border-l border-border ${isToday ? "bg-primary/10" : ""}`}>
+                            <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[i]}</span>
+                            <span className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                              {d.getDate()}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Time grid - scrollable */}
+                    <div className="flex-1 overflow-y-auto relative" style={{ maxHeight: "calc(100vh - 200px)" }}>
+                      <div className="grid grid-cols-[48px_repeat(7,1fr)]" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+                        {/* Hour labels */}
+                        <div className="relative">
+                          {HOURS.map((h) => (
+                            <div
+                              key={h}
+                              className="absolute left-0 right-0 border-t border-border/50 flex items-start"
+                              style={{ top: (h - HOURS[0]) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                            >
+                              <span className="text-[9px] text-muted-foreground px-1 -translate-y-1/2">{formatHourLabel(h)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Day columns */}
+                        {weekDates.map((d, colIdx) => {
+                          const dateStr = formatDateStr(d);
+                          const dayLeads = leadsByDate[dateStr] || [];
+                          const isToday = dateStr === todayStr;
+                          return (
+                            <div
+                              key={colIdx}
+                              className={`relative border-l border-border ${isToday ? "bg-primary/5" : ""}`}
+                              onClick={() => setSelectedDate(dateStr === selectedDate ? null : dateStr)}
+                            >
+                              {/* Hour grid lines */}
+                              {HOURS.map((h) => (
+                                <div
+                                  key={h}
+                                  className="absolute left-0 right-0 border-t border-border/30"
+                                  style={{ top: (h - HOURS[0]) * HOUR_HEIGHT }}
+                                />
+                              ))}
+                              {/* Lead blocks positioned by time */}
+                              {dayLeads.map((lead) => {
+                                const hourDec = getHourDecimal(lead.appointmentDate);
+                                const time = formatTime(lead.appointmentDate);
+                                if (hourDec === null) return null;
+                                const top = (hourDec - HOURS[0]) * HOUR_HEIGHT;
+                                if (top < 0) return null;
+                                return (
+                                  <div
+                                    key={lead.id}
+                                    className="absolute left-0.5 right-0.5 bg-green-500/20 border-l-2 border-l-green-400 rounded-r px-1 py-0.5 cursor-pointer hover:bg-green-500/30 transition-colors z-10 overflow-hidden"
+                                    style={{ top, minHeight: 24, maxHeight: HOUR_HEIGHT - 2 }}
+                                    title={`${lead.fullName} - ${time}`}
+                                  >
+                                    <p className="text-[9px] sm:text-[10px] font-bold text-green-400 truncate">{time}</p>
+                                    <p className="text-[8px] sm:text-[9px] text-foreground truncate">{lead.fullName || "Sin nombre"}</p>
+                                  </div>
+                                );
+                              })}
+                              {/* Now indicator */}
+                              {isToday && (() => {
+                                const nowHour = now.getHours() + now.getMinutes() / 60;
+                                if (nowHour < HOURS[0] || nowHour > HOURS[HOURS.length - 1] + 1) return null;
+                                const top = (nowHour - HOURS[0]) * HOUR_HEIGHT;
+                                return (
+                                  <div className="absolute left-0 right-0 z-20 flex items-center" style={{ top }}>
+                                    <div className="w-2 h-2 rounded-full bg-destructive -ml-1" />
+                                    <div className="flex-1 h-px bg-destructive" />
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ===== MONTH VIEW ===== */}
               {viewMode === "month" && (
@@ -400,9 +463,7 @@ export default function LeadCalendar() {
                                 </div>
                               );
                             })}
-                            {dayLeads.length > 2 && (
-                              <span className="text-[7px] text-muted-foreground">+{dayLeads.length - 2}</span>
-                            )}
+                            {dayLeads.length > 2 && <span className="text-[7px] text-muted-foreground">+{dayLeads.length - 2}</span>}
                           </div>
                         )}
                       </button>
@@ -411,55 +472,10 @@ export default function LeadCalendar() {
                 </div>
               )}
 
-              {/* ===== WEEK VIEW ===== */}
-              {viewMode === "week" && (() => {
-                const weekDates = getWeekDates(viewWeekStart);
-                return (
-                  <div className="flex-1 grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-                    {weekDates.map((d, i) => {
-                      const dateStr = formatDateStr(d);
-                      const dayLeads = leadsByDate[dateStr] || [];
-                      const isToday = dateStr === todayStr;
-                      const isSelected = dateStr === selectedDate;
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                          className={`bg-card p-1.5 sm:p-2 min-h-[120px] sm:min-h-[200px] text-left transition-colors hover:bg-accent/50 flex flex-col ${isSelected ? "ring-2 ring-primary ring-inset" : ""}`}
-                        >
-                          <div className="text-center mb-1">
-                            <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[i]}</span>
-                            <span className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
-                              {d.getDate()}
-                            </span>
-                          </div>
-                          {dayLeads.length > 0 && (
-                            <div className="space-y-0.5 overflow-hidden flex-1">
-                              {dayLeads.slice(0, 4).map((lead) => {
-                                const time = formatTime(lead.appointmentDate);
-                                return (
-                                  <div key={lead.id} className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-400 rounded px-1 py-0.5 truncate">
-                                    {time && <span className="font-bold">{time} </span>}
-                                    {lead.fullName || "Sin nombre"}
-                                  </div>
-                                );
-                              })}
-                              {dayLeads.length > 4 && (
-                                <span className="text-[9px] text-muted-foreground">+{dayLeads.length - 4} más</span>
-                              )}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-
               {/* ===== YEAR VIEW ===== */}
               {viewMode === "year" && (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-                  {MONTH_NAMES.map((mName, mIdx) => {
+                  {MONTH_NAMES.map((_mName, mIdx) => {
                     const monthDays = getDaysInMonth(viewYear, mIdx);
                     const firstDow = getFirstDayOfWeek(viewYear, mIdx);
                     let monthLeadCount = 0;
@@ -477,28 +493,21 @@ export default function LeadCalendar() {
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-xs font-bold text-foreground">{MONTH_SHORT[mIdx]}</span>
                           {monthLeadCount > 0 && (
-                            <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-green-500/15 text-green-400">
-                              {monthLeadCount}
-                            </Badge>
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-green-500/15 text-green-400">{monthLeadCount}</Badge>
                           )}
                         </div>
                         <div className="grid grid-cols-7 gap-px">
                           {DAY_NAMES_SHORT.map((dn) => (
                             <span key={dn} className="text-[7px] text-muted-foreground text-center">{dn}</span>
                           ))}
-                          {Array.from({ length: firstDow }).map((_, i) => (
-                            <span key={`e-${i}`} />
-                          ))}
+                          {Array.from({ length: firstDow }).map((_, i) => <span key={`e-${i}`} />)}
                           {Array.from({ length: monthDays }).map((_, i) => {
                             const d = i + 1;
                             const ds = `${viewYear}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                             const has = !!leadsByDate[ds];
                             const isTd = ds === todayStr;
                             return (
-                              <span
-                                key={d}
-                                className={`text-[7px] sm:text-[8px] text-center leading-tight rounded-sm ${isTd ? "bg-primary text-primary-foreground font-bold" : has ? "bg-green-500/20 text-green-400 font-semibold" : "text-muted-foreground"}`}
-                              >
+                              <span key={d} className={`text-[7px] sm:text-[8px] text-center leading-tight rounded-sm ${isTd ? "bg-primary text-primary-foreground font-bold" : has ? "bg-green-500/20 text-green-400 font-semibold" : "text-muted-foreground"}`}>
                                 {d}
                               </span>
                             );
@@ -510,7 +519,7 @@ export default function LeadCalendar() {
                 </div>
               )}
 
-              {/* Selected date detail panel */}
+              {/* Selected date detail */}
               {selectedDate && (
                 <div className="border-t border-border pt-3 mt-3">
                   <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm">
@@ -532,8 +541,7 @@ export default function LeadCalendar() {
                                   <h4 className="font-semibold text-foreground text-sm truncate">{lead.fullName || "Sin nombre"}</h4>
                                   {time && (
                                     <span className="flex items-center gap-0.5 text-[10px] text-primary font-medium">
-                                      <Clock className="w-3 h-3" />
-                                      {time}
+                                      <Clock className="w-3 h-3" />{time}
                                     </span>
                                   )}
                                   {lead.leadStatus && (
@@ -543,24 +551,13 @@ export default function LeadCalendar() {
                                   )}
                                 </div>
                                 <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
-                                  {lead.email && (
-                                    <span className="flex items-center gap-1">
-                                      <Mail className="w-3 h-3" />
-                                      {lead.email}
-                                    </span>
-                                  )}
-                                  {isAdmin && lead.client && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0">{lead.client}</Badge>
-                                  )}
+                                  {lead.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{lead.email}</span>}
+                                  {isAdmin && lead.client && <Badge variant="outline" className="text-[9px] px-1 py-0">{lead.client}</Badge>}
                                 </div>
                               </div>
                               {lead.phone && (
-                                <a
-                                  href={`tel:${lead.phone}`}
-                                  className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors font-semibold text-sm flex-shrink-0"
-                                >
-                                  <Phone className="w-4 h-4" />
-                                  {lead.phone}
+                                <a href={`tel:${lead.phone}`} className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors font-semibold text-sm flex-shrink-0">
+                                  <Phone className="w-4 h-4" />{lead.phone}
                                 </a>
                               )}
                             </div>
@@ -576,9 +573,9 @@ export default function LeadCalendar() {
                 <p className="text-center text-muted-foreground py-8 text-sm">No hay leads con citas programadas.</p>
               )}
             </div>
-          </div>
-        )}
-      </main>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
