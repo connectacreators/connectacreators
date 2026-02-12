@@ -14,6 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   Loader2,
   RefreshCw,
@@ -23,13 +30,14 @@ import {
   Calendar,
   ExternalLink,
   Users,
+  Save,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-
+import { toast } from "sonner";
 
 type Lead = {
   id: string;
@@ -53,6 +61,7 @@ const STATUS_COLORS: Record<string, string> = {
   "Follow up #2 (Not Booked)": "bg-blue-500/15 text-blue-400 border-blue-500/30",
   "Follow up #3 (Not Booked)": "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Meta Ad (Not Booked)": "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+  "Cancelled": "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -63,6 +72,8 @@ const SOURCE_COLORS: Record<string, string> = {
   Organic: "bg-cyan-500/15 text-cyan-400",
   Other: "bg-gray-500/15 text-gray-400",
 };
+
+const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Cancelled"];
 
 export default function LeadTracker() {
   const { theme } = useTheme();
@@ -80,6 +91,12 @@ export default function LeadTracker() {
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [statusOptions, setStatusOptions] = useState<string[]>([]);
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
+
+  // Modal state
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const fetchLeads = useCallback(async (clientName?: string) => {
     setLoading(true);
@@ -109,9 +126,10 @@ export default function LeadTracker() {
       const result = await res.json();
       setLeads(result.leads || []);
       if (result.statusOptions) setStatusOptions(result.statusOptions);
+      if (result.sourceOptions) setSourceOptions(result.sourceOptions);
     } catch (e: any) {
       console.error("Error fetching leads:", e);
-      setError(e.message || "Error al cargar leads");
+      setError(e.message || "Error loading leads");
     } finally {
       setLoading(false);
     }
@@ -122,6 +140,52 @@ export default function LeadTracker() {
       fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined);
     }
   }, [authLoading, user, isAdmin, selectedClient, fetchLeads]);
+
+  const openLeadDetail = (lead: Lead) => {
+    setSelectedLead(lead);
+    setNewStatus(lead.leadStatus);
+    setModalOpen(true);
+  };
+
+  const handleSaveStatus = async () => {
+    if (!selectedLead || newStatus === selectedLead.leadStatus) {
+      setModalOpen(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-lead-status`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ leadId: selectedLead.id, newStatus }),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Error ${res.status}`);
+      }
+
+      toast.success(tr(t.leadDetail.statusUpdated, language));
+      setModalOpen(false);
+      // Refresh leads
+      fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined);
+    } catch (e: any) {
+      console.error("Error updating status:", e);
+      toast.error(tr(t.leadDetail.statusError, language));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -155,6 +219,8 @@ export default function LeadTracker() {
   const totalLeads = leads.length;
   const bookedCount = leads.filter((l) => l.leadStatus === "Appointment Booked").length;
   const conversionRate = totalLeads > 0 ? Math.round((bookedCount / totalLeads) * 100) : 0;
+
+  const na = tr(t.leadDetail.noData, language);
 
   return (
     <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
@@ -284,7 +350,8 @@ export default function LeadTracker() {
             {filtered.map((lead) => (
               <div
                 key={lead.id}
-                className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors"
+                onClick={() => openLeadDetail(lead)}
+                className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors cursor-pointer"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   {/* Name & badges */}
@@ -335,7 +402,7 @@ export default function LeadTracker() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     {isAdmin && lead.client && (
                       <Badge variant="outline" className="text-[10px]">
                         {lead.client}
@@ -367,6 +434,128 @@ export default function LeadTracker() {
           </div>
         )}
       </main>
+
+      {/* Lead Detail Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{tr(t.leadDetail.title, language)}</DialogTitle>
+          </DialogHeader>
+
+          {selectedLead && (
+            <div className="space-y-4">
+              {/* Info rows */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.fullName, language)}</p>
+                  <p className="font-medium text-foreground">{selectedLead.fullName || na}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.email, language)}</p>
+                  <p className="font-medium text-foreground">{selectedLead.email || na}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.phone, language)}</p>
+                  {selectedLead.phone ? (
+                    <a href={`tel:${selectedLead.phone}`} className="font-medium text-primary hover:underline">
+                      {selectedLead.phone}
+                    </a>
+                  ) : (
+                    <p className="font-medium text-foreground">{na}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.source, language)}</p>
+                  <p className="font-medium text-foreground">{selectedLead.leadSource || na}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.client, language)}</p>
+                  <p className="font-medium text-foreground">{selectedLead.client || na}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.campaign, language)}</p>
+                  <p className="font-medium text-foreground">{selectedLead.campaignName || na}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.date, language)}</p>
+                  <p className="font-medium text-foreground">
+                    {selectedLead.createdDate ? new Date(selectedLead.createdDate).toLocaleDateString() : na}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">{tr(t.leadDetail.lastContacted, language)}</p>
+                  <p className="font-medium text-foreground">
+                    {selectedLead.lastContacted ? new Date(selectedLead.lastContacted).toLocaleDateString() : na}
+                  </p>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedLead.notes && (
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">{tr(t.leadDetail.notes, language)}</p>
+                  <p className="text-sm text-foreground bg-muted/50 rounded-md p-2">{selectedLead.notes}</p>
+                </div>
+              )}
+
+              {/* Status dropdown */}
+              <div>
+                <p className="text-muted-foreground text-xs mb-1.5">{tr(t.leadDetail.changeStatus, language)}</p>
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALLOWED_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${
+                            s === "Appointment Booked" ? "bg-green-400" :
+                            s === "Cancelled" ? "bg-red-400" : "bg-yellow-400"
+                          }`} />
+                          {s}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Admin: Notion link */}
+              {isAdmin && selectedLead.notionUrl && (
+                <a
+                  href={selectedLead.notionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  {tr(t.leadDetail.openInNotion, language)}
+                </a>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)} size="sm">
+              {tr(t.leadDetail.close, language)}
+            </Button>
+            <Button onClick={handleSaveStatus} disabled={saving || newStatus === selectedLead?.leadStatus} size="sm">
+              {saving ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  {tr(t.leadDetail.saving, language)}
+                </>
+              ) : (
+                <>
+                  <Save className="w-3 h-3 mr-1" />
+                  {tr(t.leadDetail.save, language)}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
