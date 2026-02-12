@@ -21,7 +21,6 @@ serve(async (req) => {
     });
   }
 
-  // Auth check
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -44,7 +43,6 @@ serve(async (req) => {
     });
   }
 
-  // Use service role client for reading/writing mapping tables (RLS = admin only)
   const serviceSupabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -63,10 +61,10 @@ serve(async (req) => {
     const NOTION_API_KEY = Deno.env.get("NOTION_API_KEY");
     if (!NOTION_API_KEY) throw new Error("NOTION_API_KEY not configured");
 
-    // Look up client's Notion database ID
+    // Look up client's Notion database ID and property mapping
     const { data: mapping, error: mapErr } = await serviceSupabase
       .from("client_notion_mapping")
-      .select("notion_database_id")
+      .select("notion_database_id, title_property, script_property, footage_property")
       .eq("client_id", client_id)
       .maybeSingle();
 
@@ -79,24 +77,27 @@ serve(async (req) => {
     }
 
     const notionDbId = mapping.notion_database_id;
+    const titleProp = mapping.title_property || "Reel title";
+    const scriptProp = mapping.script_property;
+    const footageProp = mapping.footage_property;
     const scriptUrl = `https://connectacreators.lovable.app/scripts?id=${script_id}`;
 
-    // Build Notion properties
+    // Build Notion properties dynamically based on mapping
     const properties: Record<string, unknown> = {
-      "Reel title": {
+      [titleProp]: {
         title: [{ text: { content: title || "Sin título" } }],
-      },
-      "Script": {
-        url: scriptUrl,
       },
     };
 
-    if (google_drive_link) {
-      properties["Footage"] = { url: google_drive_link };
+    if (scriptProp) {
+      properties[scriptProp] = { url: scriptUrl };
+    }
+
+    if (footageProp && google_drive_link) {
+      properties[footageProp] = { url: google_drive_link };
     }
 
     if (action === "create") {
-      // Add default status on create
       properties["Status"] = { status: { name: "Not started" } };
 
       const notionRes = await fetch("https://api.notion.com/v1/pages", {
@@ -120,7 +121,6 @@ serve(async (req) => {
 
       const notionPage = await notionRes.json();
 
-      // Store mapping
       const { error: syncErr } = await serviceSupabase
         .from("notion_script_sync")
         .insert({
@@ -137,7 +137,6 @@ serve(async (req) => {
       });
 
     } else if (action === "update") {
-      // Find existing Notion page ID
       const { data: syncData, error: syncErr } = await serviceSupabase
         .from("notion_script_sync")
         .select("notion_page_id")

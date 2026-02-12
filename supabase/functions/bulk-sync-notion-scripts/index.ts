@@ -21,7 +21,6 @@ serve(async (req) => {
     });
   }
 
-  // Auth check
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -44,7 +43,6 @@ serve(async (req) => {
     });
   }
 
-  // Check admin role
   const { data: roleData } = await userSupabase
     .from("user_roles")
     .select("role")
@@ -67,10 +65,10 @@ serve(async (req) => {
     const NOTION_API_KEY = Deno.env.get("NOTION_API_KEY");
     if (!NOTION_API_KEY) throw new Error("NOTION_API_KEY not configured");
 
-    // Get all client->notion mappings
+    // Get all client->notion mappings with property names
     const { data: mappings, error: mapErr } = await serviceSupabase
       .from("client_notion_mapping")
-      .select("client_id, notion_database_id");
+      .select("client_id, notion_database_id, title_property, script_property, footage_property");
     if (mapErr) throw mapErr;
     if (!mappings || mappings.length === 0) {
       return new Response(JSON.stringify({ synced: 0, message: "No client mappings found" }), {
@@ -78,9 +76,9 @@ serve(async (req) => {
       });
     }
 
-    const clientDbMap = new Map(mappings.map(m => [m.client_id, m.notion_database_id]));
+    const clientDbMap = new Map(mappings.map(m => [m.client_id, m]));
 
-    // Get all scripts that DON'T have a sync record yet and are not deleted
+    // Get all scripts not deleted
     const { data: allScripts, error: scriptsErr } = await serviceSupabase
       .from("scripts")
       .select("id, client_id, idea_ganadora, title, google_drive_link, deleted_at")
@@ -102,19 +100,26 @@ serve(async (req) => {
     const errors: string[] = [];
 
     for (const script of toSync) {
-      const notionDbId = clientDbMap.get(script.client_id)!;
+      const mapping = clientDbMap.get(script.client_id)!;
+      const notionDbId = mapping.notion_database_id;
+      const titleProp = mapping.title_property || "Reel title";
+      const scriptProp = mapping.script_property;
+      const footageProp = mapping.footage_property;
       const scriptUrl = `https://connectacreators.lovable.app/scripts?id=${script.id}`;
 
       const properties: Record<string, unknown> = {
-        "Reel title": {
+        [titleProp]: {
           title: [{ text: { content: script.idea_ganadora || script.title || "Sin título" } }],
         },
-        "Script": { url: scriptUrl },
         "Status": { status: { name: "Not started" } },
       };
 
-      if (script.google_drive_link) {
-        properties["Footage"] = { url: script.google_drive_link };
+      if (scriptProp) {
+        properties[scriptProp] = { url: scriptUrl };
+      }
+
+      if (footageProp && script.google_drive_link) {
+        properties[footageProp] = { url: script.google_drive_link };
       }
 
       try {
@@ -140,11 +145,12 @@ serve(async (req) => {
 
         const notionPage = await notionRes.json();
 
-        await serviceSupabase.from("notion_script_sync").insert({
+        // Save immediately after each successful sync
+        await serviceSupabase.from("notion_script_sync").upsert({
           script_id: script.id,
           notion_page_id: notionPage.id,
           notion_database_id: notionDbId,
-        });
+        }, { onConflict: "script_id" });
 
         synced++;
       } catch (e) {
