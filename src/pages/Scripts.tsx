@@ -1179,7 +1179,6 @@ export default function Scripts() {
             </div>
 
              <p className="text-sm text-muted-foreground mb-4">{tr(t.scripts.pasteHint, language)}</p>
-            </p>
 
              <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
              <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
@@ -1428,7 +1427,6 @@ export default function Scripts() {
                   </div>
                 ) : (
                    <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">{tr(t.scripts.addLink, language)}</button>
-                  </button>
                 )}
               </div>
             )}
