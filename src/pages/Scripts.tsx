@@ -907,14 +907,18 @@ export default function Scripts() {
                           </form>
                         ) : (
                           <p
-                            className="font-semibold text-foreground truncate cursor-pointer hover:underline"
-                            onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("name"); setEditValue(c.name); } }}
-                            title={isAdmin ? tr(t.scripts.clickToEditName, language) : undefined}
+                            className="font-semibold text-foreground truncate"
                           >
+                            <span
+                              className={isAdmin ? "cursor-pointer hover:underline" : ""}
+                              onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("name"); setEditValue(c.name); } }}
+                              title={isAdmin ? tr(t.scripts.clickToEditName, language) : undefined}
+                            >
                             {c.name}
                              {!c.user_id && (
                                <span className="text-xs text-red-500 font-normal ml-2">{tr(t.scripts.notVerified, language)}</span>
                             )}
+                            </span>
                           </p>
                         )}
                         {editingClientId === c.id && editingField === "email" ? (
@@ -936,12 +940,14 @@ export default function Scripts() {
                             />
                           </form>
                         ) : (
-                          <p
-                            className="text-sm text-muted-foreground truncate cursor-pointer hover:underline"
-                            onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("email"); setEditValue(c.email || ""); } }}
-                            title={isAdmin ? tr(t.scripts.clickToEditEmail, language) : undefined}
-                          >
-                            {c.email || (isAdmin ? <span className="text-xs italic text-muted-foreground/50">{tr(t.scripts.addEmail, language)}</span> : null)}
+                          <p className="text-sm text-muted-foreground truncate">
+                            <span
+                              className={isAdmin ? "cursor-pointer hover:underline" : ""}
+                              onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("email"); setEditValue(c.email || ""); } }}
+                              title={isAdmin ? tr(t.scripts.clickToEditEmail, language) : undefined}
+                            >
+                              {c.email || (isAdmin ? <span className="text-xs italic text-muted-foreground/50">{tr(t.scripts.addEmail, language)}</span> : null)}
+                            </span>
                           </p>
                         )}
                         {/* Show assigned videographers */}
