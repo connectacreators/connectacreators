@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
@@ -98,8 +98,30 @@ export default function LeadTracker() {
   const [newStatus, setNewStatus] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchLeads = useCallback(async (clientName?: string) => {
-    setLoading(true);
+  // Track known lead IDs for new-lead detection
+  const knownLeadIdsRef = useRef<Set<string>>(new Set());
+  const isFirstFetchRef = useRef(true);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+      // Audio not available
+    }
+  }, []);
+
+  const fetchLeads = useCallback(async (clientName?: string, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -124,22 +146,51 @@ export default function LeadTracker() {
       }
 
       const result = await res.json();
-      setLeads(result.leads || []);
+      const fetchedLeads: Lead[] = result.leads || [];
+
+      // Detect new leads
+      if (!isFirstFetchRef.current) {
+        const newLeads = fetchedLeads.filter(l => !knownLeadIdsRef.current.has(l.id));
+        if (newLeads.length > 0) {
+          playNotificationSound();
+          newLeads.forEach(l => {
+            toast.success(`🚀 New lead: ${l.fullName || "Unknown"}`, {
+              description: [l.leadSource, l.client].filter(Boolean).join(" • "),
+              duration: 6000,
+            });
+          });
+        }
+      }
+
+      // Update known IDs
+      knownLeadIdsRef.current = new Set(fetchedLeads.map(l => l.id));
+      isFirstFetchRef.current = false;
+
+      setLeads(fetchedLeads);
       if (result.statusOptions) setStatusOptions(result.statusOptions);
       if (result.sourceOptions) setSourceOptions(result.sourceOptions);
     } catch (e: any) {
       console.error("Error fetching leads:", e);
-      setError(e.message || "Error loading leads");
+      if (!silent) setError(e.message || "Error loading leads");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, []);
+  }, [playNotificationSound]);
 
   useEffect(() => {
     if (!authLoading && user) {
       fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined);
     }
   }, [authLoading, user, isAdmin, selectedClient, fetchLeads]);
+
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    if (!user || authLoading) return;
+    const interval = setInterval(() => {
+      fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined, true);
+    }, 120_000);
+    return () => clearInterval(interval);
+  }, [user, authLoading, isAdmin, selectedClient, fetchLeads]);
 
   const openLeadDetail = (lead: Lead) => {
     setSelectedLead(lead);
