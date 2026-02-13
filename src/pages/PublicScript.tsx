@@ -14,6 +14,7 @@ type ScriptData = {
   idea_ganadora: string | null;
   target: string | null;
   formato: string | null;
+  inspiration_url: string | null;
 };
 
 const typeConfig = {
@@ -34,7 +35,7 @@ export default function PublicScript() {
     const fetch = async () => {
       const { data: s, error: sErr } = await supabase
         .from("scripts")
-        .select("title, idea_ganadora, target, formato")
+        .select("title, idea_ganadora, target, formato, inspiration_url")
         .eq("id", id)
         .is("deleted_at", null)
         .maybeSingle();
@@ -101,6 +102,14 @@ export default function PublicScript() {
           {script.formato && (
             <p className="text-sm text-foreground">
               <span className="font-semibold text-violet-400">Formato:</span> {script.formato}
+            </p>
+          )}
+          {script.inspiration_url && (
+            <p className="text-sm text-foreground">
+              <span className="font-semibold text-blue-400">Inspiración:</span>{" "}
+              <a href={script.inspiration_url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
+                {script.inspiration_url}
+              </a>
             </p>
           )}
         </div>
