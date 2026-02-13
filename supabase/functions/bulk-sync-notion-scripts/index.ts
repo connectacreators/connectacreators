@@ -88,15 +88,14 @@ serve(async (req) => {
     // Get existing sync records
     const { data: existingSyncs } = await serviceSupabase
       .from("notion_script_sync")
-      .select("script_id");
-    const syncedIds = new Set((existingSyncs || []).map(s => s.script_id));
+      .select("script_id, notion_page_id");
+    const syncMap = new Map((existingSyncs || []).map(s => [s.script_id, s.notion_page_id]));
 
-    // Filter to unsynced scripts that have a client mapping
-    const toSync = (allScripts || []).filter(
-      s => !syncedIds.has(s.id) && clientDbMap.has(s.client_id)
-    );
+    // All scripts that have a client mapping
+    const toSync = (allScripts || []).filter(s => clientDbMap.has(s.client_id));
 
-    let synced = 0;
+    let created = 0;
+    let updated = 0;
     const errors: string[] = [];
 
     for (const script of toSync) {
@@ -111,7 +110,6 @@ serve(async (req) => {
         [titleProp]: {
           title: [{ text: { content: script.idea_ganadora || script.title || "Sin título" } }],
         },
-        "Status": { status: { name: "Not started" } },
       };
 
       if (scriptProp) {
@@ -122,44 +120,70 @@ serve(async (req) => {
         properties[footageProp] = { url: script.google_drive_link };
       }
 
+      const existingPageId = syncMap.get(script.id);
+
       try {
-        const notionRes = await fetch("https://api.notion.com/v1/pages", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${NOTION_API_KEY}`,
-            "Notion-Version": NOTION_API_VERSION,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            parent: { database_id: notionDbId },
-            properties,
-          }),
-        });
+        if (existingPageId) {
+          // UPDATE existing Notion page
+          const notionRes = await fetch(`https://api.notion.com/v1/pages/${existingPageId}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${NOTION_API_KEY}`,
+              "Notion-Version": NOTION_API_VERSION,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ properties }),
+          });
 
-        if (!notionRes.ok) {
-          const errText = await notionRes.text();
-          console.error(`Failed to sync script ${script.id}:`, notionRes.status, errText);
-          errors.push(`${script.id}: ${notionRes.status}`);
-          continue;
+          if (!notionRes.ok) {
+            const errText = await notionRes.text();
+            console.error(`Failed to update script ${script.id}:`, notionRes.status, errText);
+            errors.push(`${script.id}: update ${notionRes.status}`);
+            continue;
+          }
+
+          updated++;
+        } else {
+          // CREATE new Notion page
+          properties["Status"] = { status: { name: "Not started" } };
+
+          const notionRes = await fetch("https://api.notion.com/v1/pages", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${NOTION_API_KEY}`,
+              "Notion-Version": NOTION_API_VERSION,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              parent: { database_id: notionDbId },
+              properties,
+            }),
+          });
+
+          if (!notionRes.ok) {
+            const errText = await notionRes.text();
+            console.error(`Failed to create script ${script.id}:`, notionRes.status, errText);
+            errors.push(`${script.id}: create ${notionRes.status}`);
+            continue;
+          }
+
+          const notionPage = await notionRes.json();
+
+          await serviceSupabase.from("notion_script_sync").upsert({
+            script_id: script.id,
+            notion_page_id: notionPage.id,
+            notion_database_id: notionDbId,
+          }, { onConflict: "script_id" });
+
+          created++;
         }
-
-        const notionPage = await notionRes.json();
-
-        // Save immediately after each successful sync
-        await serviceSupabase.from("notion_script_sync").upsert({
-          script_id: script.id,
-          notion_page_id: notionPage.id,
-          notion_database_id: notionDbId,
-        }, { onConflict: "script_id" });
-
-        synced++;
       } catch (e) {
         console.error(`Error syncing script ${script.id}:`, e);
         errors.push(`${script.id}: ${e instanceof Error ? e.message : "Unknown"}`);
       }
     }
 
-    return new Response(JSON.stringify({ synced, total: toSync.length, errors }), {
+    return new Response(JSON.stringify({ created, updated, total: toSync.length, errors }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
