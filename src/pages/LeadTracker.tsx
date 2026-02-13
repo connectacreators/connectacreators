@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
@@ -98,27 +98,7 @@ export default function LeadTracker() {
   const [newStatus, setNewStatus] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Track known lead IDs for new-lead detection
-  const knownLeadIdsRef = useRef<Set<string>>(new Set());
-  const isFirstFetchRef = useRef(true);
-
-  const playNotificationSound = useCallback(() => {
-    try {
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = "sine";
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.4);
-    } catch (e) {
-      // Audio not available
-    }
-  }, []);
+  // (Lead notifications are now handled globally by LeadNotificationProvider)
 
   const fetchLeads = useCallback(async (clientName?: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -148,24 +128,6 @@ export default function LeadTracker() {
       const result = await res.json();
       const fetchedLeads: Lead[] = result.leads || [];
 
-      // Detect new leads
-      if (!isFirstFetchRef.current) {
-        const newLeads = fetchedLeads.filter(l => !knownLeadIdsRef.current.has(l.id));
-        if (newLeads.length > 0) {
-          playNotificationSound();
-          newLeads.forEach(l => {
-            toast.success(`🚀 New lead: ${l.fullName || "Unknown"}`, {
-              description: [l.leadSource, l.client].filter(Boolean).join(" • "),
-              duration: 6000,
-            });
-          });
-        }
-      }
-
-      // Update known IDs
-      knownLeadIdsRef.current = new Set(fetchedLeads.map(l => l.id));
-      isFirstFetchRef.current = false;
-
       setLeads(fetchedLeads);
       if (result.statusOptions) setStatusOptions(result.statusOptions);
       if (result.sourceOptions) setSourceOptions(result.sourceOptions);
@@ -175,7 +137,7 @@ export default function LeadTracker() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [playNotificationSound]);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
