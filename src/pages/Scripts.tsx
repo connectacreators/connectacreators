@@ -41,7 +41,7 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      toast.error("Tu navegador no soporta reconocimiento de voz");
+      toast.error("Speech recognition not supported");
       return;
     }
     const rec = new SR();
@@ -78,9 +78,9 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   );
 }
 
-const typeConfig = {
+const getTypeConfig = (lang: "en" | "es") => ({
   filming: {
-    label: "Instrucciones de Filmación",
+    label: tr(t.scripts.filmingInstructions, lang),
     icon: Film,
     color: "text-red-400",
     bg: "bg-gradient-to-br from-red-500/25 to-red-900/10",
@@ -88,7 +88,7 @@ const typeConfig = {
     dot: "bg-red-500",
   },
   actor: {
-    label: "Voiceover / Diálogo",
+    label: tr(t.scripts.voiceoverDialogue, lang),
     icon: Mic,
     color: "text-purple-400",
     bg: "bg-gradient-to-br from-purple-500/25 to-purple-900/10",
@@ -96,14 +96,14 @@ const typeConfig = {
     dot: "bg-purple-500",
   },
   editor: {
-    label: "Instrucciones de Edición",
+    label: tr(t.scripts.editingInstructions, lang),
     icon: Scissors,
     color: "text-emerald-400",
     bg: "bg-gradient-to-br from-emerald-500/25 to-emerald-900/10",
     border: "border-emerald-500/40",
     dot: "bg-emerald-500",
   },
-};
+});
 
 type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script";
 
@@ -144,6 +144,8 @@ function SortableLineItem({
   };
 
   const isPlaceholder = !line.text || line.text.trim() === "";
+  const { language } = useLanguage();
+  const typeConfig = getTypeConfig(language);
   const cfg = isPlaceholder
     ? { label: "Selecciona tipo", icon: Plus, color: "text-muted-foreground", bg: "bg-gradient-to-br from-muted/30 to-muted/10", border: "border-muted-foreground/20", dot: "bg-muted-foreground" }
     : typeConfig[line.line_type];
@@ -342,6 +344,7 @@ function SortableSection({
 
 export default function Scripts() {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
@@ -420,12 +423,12 @@ export default function Scripts() {
   }, [isPasswordRecovery, clearPasswordRecovery]);
 
   const handleSetNewPassword = useCallback(async () => {
-    if (newPassword.length < 6) { toast.error("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (newPassword.length < 6) { toast.error(tr(t.scripts.passwordMinLength, language)); return; }
     setResetLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setResetLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("Contraseña actualizada exitosamente"); setShowResetPassword(false); setNewPassword(""); }
+    else { toast.success(tr(t.scripts.passwordUpdated, language)); setShowResetPassword(false); setNewPassword(""); }
   }, [newPassword]);
 
   // Check if user needs to set a name (Google sign-ups without name)
@@ -462,12 +465,12 @@ export default function Scripts() {
         .update({ name: promptName.trim() })
         .eq("user_id", user.id);
       setShowNamePrompt(false);
-      toast.success("¡Nombre guardado!");
+      toast.success(tr(t.scripts.nameSaved, language));
       // Refresh clients
       window.location.reload();
     } catch (e) {
       console.error(e);
-      toast.error("Error al guardar el nombre");
+      toast.error(tr(t.scripts.errorSavingName, language));
     } finally {
       setNamePromptLoading(false);
     }
@@ -620,7 +623,7 @@ export default function Scripts() {
   };
 
   const handleDeleteScript = async (scriptId: string) => {
-    if (!confirm("¿Mover este script a la papelera? Se eliminará permanentemente después de 30 días.")) return;
+    if (!confirm(tr(t.scripts.confirmDelete, language))) return;
     await deleteScript(scriptId);
   };
 
@@ -659,7 +662,7 @@ export default function Scripts() {
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Link to="/" className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Inicio</span>
+              <span className="hidden sm:inline">{tr(t.scripts.home, language)}</span>
             </Link>
             
           </div>
@@ -676,7 +679,7 @@ export default function Scripts() {
               </Button>
             </Link>
             <Button variant="ghost" size="sm" onClick={signOut} className="gap-1 flex-shrink-0">
-              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Salir</span>
+              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{tr(t.scripts.exit, language)}</span>
             </Button>
           </div>
         </div>
@@ -687,7 +690,7 @@ export default function Scripts() {
         {view !== "clients" && (
           <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth">
             <ChevronLeft className="w-4 h-4" />
-            {view === "client-detail" ? "Clientes" : selectedClient?.name}
+            {view === "client-detail" ? tr(t.scripts.clients, language) : selectedClient?.name}
           </button>
         )}
 
@@ -699,7 +702,7 @@ export default function Scripts() {
                 Script <span className="text-primary">Breakdown</span>
               </h1>
               <p className="text-muted-foreground max-w-xl mx-auto">
-                {isAdmin ? "Gestiona los scripts de todos tus clientes." : isVideographer ? "Clientes asignados a ti." : "Gestiona tus scripts."}
+                {isAdmin ? tr(t.scripts.manageAll, language) : isVideographer ? tr(t.scripts.assignedClients, language) : tr(t.scripts.manageYour, language)}
               </p>
             </div>
 
@@ -707,19 +710,19 @@ export default function Scripts() {
             {isAdmin && (
               showNewClient ? (
                 <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
-                  <h3 className="font-semibold text-foreground">Nuevo Cliente</h3>
-                  <Input placeholder="Nombre del cliente *" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                  <Input placeholder="Correo electrónico (opcional)" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-                  <div className="flex gap-3">
-                    <Button onClick={handleCreateClient} disabled={!newName.trim()}>
-                      <Plus className="w-4 h-4 mr-2" /> Crear Cliente
-                    </Button>
-                    <Button variant="ghost" onClick={() => setShowNewClient(false)}>Cancelar</Button>
+                   <h3 className="font-semibold text-foreground">{tr(t.scripts.newClient, language)}</h3>
+                   <Input placeholder={tr(t.scripts.clientName, language)} value={newName} onChange={(e) => setNewName(e.target.value)} />
+                   <Input placeholder={tr(t.scripts.emailOptional, language)} type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                   <div className="flex gap-3">
+                     <Button onClick={handleCreateClient} disabled={!newName.trim()}>
+                       <Plus className="w-4 h-4 mr-2" /> {tr(t.scripts.createClient, language)}
+                     </Button>
+                     <Button variant="ghost" onClick={() => setShowNewClient(false)}>{tr(t.scripts.cancel, language)}</Button>
                   </div>
                 </div>
               ) : (
-                <Button onClick={() => setShowNewClient(true)} variant="outline" className="mb-6 gap-2">
-                  <Plus className="w-4 h-4" /> Nuevo Cliente
+                 <Button onClick={() => setShowNewClient(true)} variant="outline" className="mb-6 gap-2">
+                   <Plus className="w-4 h-4" /> {tr(t.scripts.newClient, language)}
                 </Button>
               )
             )}
@@ -730,7 +733,7 @@ export default function Scripts() {
                 <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <Camera className="w-5 h-5 text-emerald-400" /> Videógrafos
+                      <Camera className="w-5 h-5 text-emerald-400" /> {tr(t.scripts.videographers, language)}
                     </h3>
                     <button onClick={() => setShowNewVideographer(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
                   </div>
@@ -756,7 +759,7 @@ export default function Scripts() {
                                 size="sm"
                                 className="text-destructive hover:text-destructive h-7 w-7 p-0"
                                 onClick={async () => {
-                                  if (!confirm(`¿Eliminar al videógrafo ${v.display_name}?`)) return;
+                                  if (!confirm(`${tr(t.scripts.confirmDeleteVideographer, language)} ${v.display_name}?`)) return;
                                   try {
                                     const { data: { session } } = await supabase.auth.getSession();
                                     const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-videographer`, {
@@ -766,14 +769,14 @@ export default function Scripts() {
                                     });
                                     if (res.ok) {
                                       setVideographers((prev) => prev.filter((x) => x.user_id !== v.user_id));
-                                      toast.success("Videógrafo eliminado");
+                                      toast.success(tr(t.scripts.videographerDeleted, language));
                                     } else {
                                       const r = await res.json();
-                                      toast.error(r.error || "Error al eliminar");
+                                       toast.error(r.error || "Error");
                                     }
-                                  } catch { toast.error("Error al eliminar"); }
+                                  } catch { toast.error("Error"); }
                                 }}
-                                title="Eliminar videógrafo"
+                                title={tr(t.scripts.deleteVideographer, language)}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
@@ -787,14 +790,14 @@ export default function Scripts() {
                                   <button onClick={() => toggleVideographerAssignment(c!.id, v.user_id)} className="hover:text-red-400">✕</button>
                                 </span>
                               )) : (
-                                <span className="text-[10px] text-muted-foreground italic">Sin clientes asignados</span>
+                                <span className="text-[10px] text-muted-foreground italic">{tr(t.scripts.noAssignedClients, language)}</span>
                               )}
                             </div>
 
                             {/* Assign client dropdown */}
                             <Select onValueChange={(clientId) => toggleVideographerAssignment(clientId, v.user_id)}>
                               <SelectTrigger className="h-7 text-xs bg-transparent border-dashed border-muted-foreground/30">
-                                <SelectValue placeholder="+ Asignar cliente" />
+                                <SelectValue placeholder={tr(t.scripts.assignClient, language)} />
                               </SelectTrigger>
                               <SelectContent>
                                 {clients
@@ -811,19 +814,19 @@ export default function Scripts() {
                   )}
 
                   {videographers.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-2">No hay videógrafos aún.</p>
+                    <p className="text-sm text-muted-foreground text-center py-2">{tr(t.scripts.noVideographers, language)}</p>
                   )}
 
                   {/* Create new videographer form */}
                   <div className="border-t border-border pt-4 space-y-3">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Crear nuevo videógrafo</h4>
-                    <Input placeholder="Username *" value={vidUsername} onChange={(e) => setVidUsername(e.target.value)} />
-                    <Input placeholder="Nombre completo" value={vidName} onChange={(e) => setVidName(e.target.value)} />
-                    <Input placeholder="Correo electrónico *" type="email" value={vidEmail} onChange={(e) => setVidEmail(e.target.value)} />
-                    <Input placeholder="Contraseña *" type="password" value={vidPassword} onChange={(e) => setVidPassword(e.target.value)} />
+                     <h4 className="text-sm font-semibold text-muted-foreground">{tr(t.scripts.createNewVideographer, language)}</h4>
+                     <Input placeholder={tr(t.scripts.username, language)} value={vidUsername} onChange={(e) => setVidUsername(e.target.value)} />
+                     <Input placeholder={tr(t.scripts.fullNameLabel, language)} value={vidName} onChange={(e) => setVidName(e.target.value)} />
+                     <Input placeholder={tr(t.scripts.emailRequired, language)} type="email" value={vidEmail} onChange={(e) => setVidEmail(e.target.value)} />
+                     <Input placeholder={tr(t.scripts.passwordRequired, language)} type="password" value={vidPassword} onChange={(e) => setVidPassword(e.target.value)} />
                     <Button
                       onClick={async () => {
-                        if (!vidUsername.trim() || !vidEmail.trim() || !vidPassword.trim()) { toast.error("Username, email y contraseña son obligatorios"); return; }
+                        if (!vidUsername.trim() || !vidEmail.trim() || !vidPassword.trim()) { toast.error(tr(t.scripts.usernameEmailPasswordRequired, language)); return; }
                         setVidLoading(true);
                         try {
                           const { data: { session } } = await supabase.auth.getSession();
@@ -834,7 +837,7 @@ export default function Scripts() {
                           });
                           const result = await res.json();
                           if (!res.ok) throw new Error(result.error);
-                          toast.success("Videógrafo creado exitosamente");
+                          toast.success(tr(t.scripts.videographerCreated, language));
                           setVidUsername(""); setVidEmail(""); setVidPassword(""); setVidName("");
                           const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "videographer");
                           if (roles) {
@@ -843,7 +846,7 @@ export default function Scripts() {
                             setVideographers((profiles || []).map((p) => ({ user_id: p.user_id, display_name: p.display_name || "Sin nombre", username: p.username })));
                           }
                         } catch (e: any) {
-                          toast.error(e.message || "Error al crear videógrafo");
+                          toast.error(e.message || "Error");
                         } finally {
                           setVidLoading(false);
                         }
@@ -852,13 +855,13 @@ export default function Scripts() {
                       className="w-full"
                     >
                       {vidLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                      Crear Videógrafo
+                      {tr(t.scripts.createVideographer, language)}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <Button onClick={() => setShowNewVideographer(true)} variant="outline" className="mb-6 gap-2 ml-2">
-                  <Camera className="w-4 h-4" /> Videógrafos
+                  <Camera className="w-4 h-4" /> {tr(t.scripts.videographers, language)}
                 </Button>
               )
             )}
@@ -870,7 +873,7 @@ export default function Scripts() {
               </div>
             ) : clients.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">
-                {isAdmin ? "No hay clientes aún. Crea el primero." : isVideographer ? "No tienes clientes asignados aún." : "No tienes scripts asignados aún."}
+                {isAdmin ? tr(t.scripts.noClientsAdmin, language) : isVideographer ? tr(t.scripts.noClientsVideographer, language) : tr(t.scripts.noClientsClient, language)}
               </p>
             ) : (
               <div className="grid gap-3">
@@ -906,11 +909,11 @@ export default function Scripts() {
                           <p
                             className="font-semibold text-foreground truncate cursor-pointer hover:underline"
                             onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("name"); setEditValue(c.name); } }}
-                            title={isAdmin ? "Click para editar nombre" : undefined}
+                            title={isAdmin ? tr(t.scripts.clickToEditName, language) : undefined}
                           >
                             {c.name}
-                            {!c.user_id && (
-                              <span className="text-xs text-red-500 font-normal ml-2">no verificado</span>
+                             {!c.user_id && (
+                               <span className="text-xs text-red-500 font-normal ml-2">{tr(t.scripts.notVerified, language)}</span>
                             )}
                           </p>
                         )}
@@ -925,7 +928,7 @@ export default function Scripts() {
                             <Input
                               autoFocus
                               type="email"
-                              placeholder="Añadir email"
+                              placeholder={tr(t.scripts.addEmail, language)}
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
                               onBlur={() => { setEditingClientId(null); setEditingField(null); }}
@@ -936,9 +939,9 @@ export default function Scripts() {
                           <p
                             className="text-sm text-muted-foreground truncate cursor-pointer hover:underline"
                             onClick={(e) => { if (isAdmin) { e.stopPropagation(); setEditingClientId(c.id); setEditingField("email"); setEditValue(c.email || ""); } }}
-                            title={isAdmin ? "Click para editar email" : undefined}
+                            title={isAdmin ? tr(t.scripts.clickToEditEmail, language) : undefined}
                           >
-                            {c.email || (isAdmin ? <span className="text-xs italic text-muted-foreground/50">+ Añadir email</span> : null)}
+                            {c.email || (isAdmin ? <span className="text-xs italic text-muted-foreground/50">{tr(t.scripts.addEmail, language)}</span> : null)}
                           </p>
                         )}
                         {/* Show assigned videographers */}
@@ -963,7 +966,7 @@ export default function Scripts() {
                       <button
                         onClick={(e) => { e.stopPropagation(); setAssignOverlayClient(assignOverlayClient === c.id ? null : c.id); }}
                         className="absolute top-1/2 -translate-y-1/2 right-12 p-1.5 rounded-full border-2 border-dashed border-muted-foreground/40 hover:border-primary/60 transition-smooth"
-                        title="Asignar videographer"
+                        title={tr(t.scripts.assignVideographer, language)}
                       >
                         <Camera className="w-3.5 h-3.5 text-muted-foreground" />
                       </button>
@@ -972,7 +975,7 @@ export default function Scripts() {
                     {/* Assignment overlay */}
                     {isAdmin && assignOverlayClient === c.id && (
                       <div className="absolute top-14 right-4 z-50 bg-gradient-to-br from-card to-muted/40 border border-border rounded-xl p-3 shadow-lg min-w-[180px] animate-fade-in">
-                        <p className="text-xs font-semibold text-foreground mb-2">Asignar Videographer</p>
+                        <p className="text-xs font-semibold text-foreground mb-2">{tr(t.scripts.assignVideographer, language)}</p>
                         {videographers.map((v) => {
                           const assigned = (assignmentsMap[c.id] || []).includes(v.user_id);
                           return (
@@ -1002,7 +1005,7 @@ export default function Scripts() {
               <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                 {selectedClient.name}
                 {!selectedClient.user_id && (
-                  <span className="text-sm text-red-500 font-normal ml-2">no verificado</span>
+                  <span className="text-sm text-red-500 font-normal ml-2">{tr(t.scripts.notVerified, language)}</span>
                 )}
               </h1>
               {selectedClient.email && <p className="text-muted-foreground text-sm truncate">{selectedClient.email}</p>}
@@ -1010,13 +1013,13 @@ export default function Scripts() {
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
               <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
-                <Plus className="w-4 h-4" /> Nuevo Script
+                <Plus className="w-4 h-4" /> {tr(t.scripts.newScript, language)}
               </Button>
               <div className="flex gap-1 bg-gradient-to-r from-card via-card to-muted/30 border border-border rounded-2xl p-1">
                 {[
-                  { key: "all" as const, label: "Todos" },
-                  { key: "no-grabado" as const, label: "No Grabados" },
-                  { key: "grabado" as const, label: "Grabados" },
+                   { key: "all" as const, label: tr(t.scripts.all, language) },
+                   { key: "no-grabado" as const, label: tr(t.scripts.notRecorded, language) },
+                   { key: "grabado" as const, label: tr(t.scripts.recorded, language) },
                 ].map((f) => (
                   <button
                     key={f.key}
@@ -1037,7 +1040,7 @@ export default function Scripts() {
                 onClick={handleToggleTrash}
                 className={`gap-1.5 ${showTrash ? "text-destructive" : "text-muted-foreground"}`}
               >
-                <Trash2 className="w-4 h-4" /> Papelera
+                 <Trash2 className="w-4 h-4" /> {tr(t.scripts.trash, language)}
               </Button>
               {isAdmin && (
                 <Button
@@ -1056,10 +1059,10 @@ export default function Scripts() {
               /* ===== TRASH VIEW ===== */
               <>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                  <Trash2 className="w-4 h-4" /> Papelera (se eliminan después de 30 días)
+                  <Trash2 className="w-4 h-4" /> {tr(t.scripts.trashHint, language)}
                 </h3>
                 {trashedScripts.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">La papelera está vacía.</p>
+                  <p className="text-muted-foreground text-center py-8">{tr(t.scripts.trashEmpty, language)}</p>
                 ) : (
                   <div className="grid gap-3">
                     {trashedScripts.map((s) => {
@@ -1071,7 +1074,7 @@ export default function Scripts() {
                           <div className="flex-1 min-w-0 overflow-hidden">
                             <p className="font-semibold text-muted-foreground truncate line-through">{s.title}</p>
                             <p className="text-xs text-muted-foreground">
-                              Eliminado {deletedDate.toLocaleDateString("es-MX")} · {daysLeft} días restantes
+                              {tr(t.scripts.deleted, language)} {deletedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX")} · {daysLeft} {tr(t.scripts.daysLeft, language)}
                             </p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
@@ -1079,7 +1082,7 @@ export default function Scripts() {
                               variant="ghost"
                               size="sm"
                               onClick={async () => { await restoreScript(s.id); }}
-                              title="Restaurar"
+                              title={tr(t.scripts.restore, language)}
                               className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400"
                             >
                               <RotateCcw className="w-4 h-4" />
@@ -1089,10 +1092,10 @@ export default function Scripts() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={async () => {
-                                  if (!confirm("¿Eliminar permanentemente? Esta acción no se puede deshacer.")) return;
+                                  if (!confirm(tr(t.scripts.confirmDeletePermanent, language))) return;
                                   await permanentlyDeleteScript(s.id);
                                 }}
-                                title="Eliminar permanentemente"
+                                title={tr(t.scripts.deletePermanently, language)}
                                 className="text-destructive hover:text-destructive h-8 w-8 p-0"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1114,7 +1117,7 @@ export default function Scripts() {
               });
               return filtered.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  {scripts.length === 0 ? "No hay scripts para este cliente." : "No hay scripts en esta categoría."}
+                  {scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
                 </p>
               ) : (
                 <div className="grid gap-3">
@@ -1160,14 +1163,14 @@ export default function Scripts() {
         {/* ===== NEW / EDIT SCRIPT ===== */}
         {(view === "new-script" || view === "edit-script") && (
           <>
-            <h2 className="text-xl font-bold text-foreground mb-2">
-              {view === "edit-script" ? "Editar Script" : "Nuevo Script"} para{" "}
+             <h2 className="text-xl font-bold text-foreground mb-2">
+               {view === "edit-script" ? tr(t.scripts.editScriptFor, language) : tr(t.scripts.newScriptFor, language)}{" "}
               <span className="text-primary">{selectedClient?.name}</span>
             </h2>
 
             {/* Legend */}
             <div className="flex flex-wrap gap-3 sm:gap-4 mb-6">
-              {Object.entries(typeConfig).map(([key, cfg]) => (
+              {Object.entries(getTypeConfig(language)).map(([key, cfg]) => (
                 <div key={key} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
                   <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${cfg.dot}`} />
                   <span className={cfg.color}>{cfg.label}</span>
@@ -1175,35 +1178,34 @@ export default function Scripts() {
               ))}
             </div>
 
-            <p className="text-sm text-muted-foreground mb-4">
-              Pega el script tal cual — la IA lo categorizará automáticamente.
+             <p className="text-sm text-muted-foreground mb-4">{tr(t.scripts.pasteHint, language)}</p>
             </p>
 
-            <Input placeholder="Título del script" value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
-            <Input placeholder="URL de inspiración (opcional)" value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
+             <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
+             <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
             
             <div className="mb-3">
-              <label className="text-sm text-muted-foreground mb-1 block">Formato</label>
-              <Select value={formato} onValueChange={setFormato}>
-                <SelectTrigger className="bg-gradient-to-r from-card to-muted/30">
-                  <SelectValue placeholder="Selecciona un formato" />
-                </SelectTrigger>
-                <SelectContent className="bg-gradient-to-br from-card to-muted/20 border-border z-50">
-                  <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
-                  <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
-                  <SelectItem value="ENTREVISTA">Entrevista</SelectItem>
-                  <SelectItem value="VARIADO">Variado</SelectItem>
-                </SelectContent>
-              </Select>
+               <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
+               <Select value={formato} onValueChange={setFormato}>
+                 <SelectTrigger className="bg-gradient-to-r from-card to-muted/30">
+                   <SelectValue placeholder={tr(t.scripts.selectFormat, language)} />
+                 </SelectTrigger>
+                 <SelectContent className="bg-gradient-to-br from-card to-muted/20 border-border z-50">
+                   <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
+                   <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
+                   <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
+                   <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
+                 </SelectContent>
+               </Select>
             </div>
 
-            <Input placeholder="Google Drive link (opcional)" value={googleDriveLink} onChange={(e) => setGoogleDriveLink(e.target.value)} className="mb-3" />
+            <Input placeholder={tr(t.scripts.googleDriveLink, language)} value={googleDriveLink} onChange={(e) => setGoogleDriveLink(e.target.value)} className="mb-3" />
 
             <div className="relative mb-4">
               <Textarea
                 value={scriptInput}
                 onChange={(e) => setScriptInput(e.target.value)}
-                placeholder="Pega, escribe o dicta el guión completo aquí..."
+                placeholder={tr(t.scripts.pasteDictate, language)}
                 className="min-h-[200px] bg-gradient-to-br from-card to-muted/20 border-border font-mono text-sm resize-y pr-12"
               />
               <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
@@ -1216,7 +1218,7 @@ export default function Scripts() {
               disabled={scriptsLoading || !scriptInput.trim()}
             >
               {scriptsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {scriptsLoading ? "Analizando..." : view === "edit-script" ? "Actualizar y Recategorizar" : "Analizar y Guardar"}
+              {scriptsLoading ? tr(t.scripts.analyzing, language) : view === "edit-script" ? tr(t.scripts.updateRecategorize, language) : tr(t.scripts.analyzeAndSave, language)}
             </Button>
           </>
         )}
@@ -1251,13 +1253,13 @@ export default function Scripts() {
                     }}
                   >
                     <SelectTrigger className="h-7 w-auto min-w-[140px] max-w-[200px] border-violet-500/30 bg-transparent text-foreground text-sm px-2 py-0">
-                      <SelectValue placeholder="Seleccionar..." />
+                      <SelectValue placeholder={tr(t.scripts.selectPlaceholder, language)} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TALKING HEAD">TALKING HEAD</SelectItem>
                       <SelectItem value="B-ROLL CAPTION">B-ROLL CAPTION</SelectItem>
-                      <SelectItem value="ENTREVISTA">ENTREVISTA</SelectItem>
-                      <SelectItem value="VARIADO">VARIADO</SelectItem>
+                       <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
+                       <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1268,7 +1270,7 @@ export default function Scripts() {
               <div className="p-4 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Eye className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-primary uppercase tracking-wider">Inspiración</span>
+                  <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.inspiration, language)}</span>
                 </div>
                 <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all text-left">
                   <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1278,25 +1280,25 @@ export default function Scripts() {
             )}
 
             <div className="flex items-center justify-between gap-2 mb-4">
-              <h2 className="text-base sm:text-xl font-bold text-foreground truncate">Resultado — {parsedLines.length} líneas</h2>
+              <h2 className="text-base sm:text-xl font-bold text-foreground truncate">{tr(t.scripts.result, language)} — {parsedLines.length} {tr(t.scripts.lines, language)}</h2>
               <div className="flex gap-1.5 flex-shrink-0">
                 <Button
                   onClick={() => {
                     const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
                     navigator.clipboard.writeText(publicUrl);
-                    toast.success("Link público copiado al portapapeles");
+                    toast.success(tr(t.scripts.publicLinkCopied, language));
                   }}
                   variant="outline"
                   size="sm"
                   className="gap-1.5 text-xs sm:text-sm"
                 >
-                  <Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Compartir</span><span className="sm:hidden">Link</span>
-                </Button>
+                   <Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.share, language)}</span><span className="sm:hidden">{tr(t.scripts.link, language)}</span>
+                 </Button>
                 <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
-                  <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Grabar</span><span className="sm:hidden">Rec</span>
+                  <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.record, language)}</span><span className="sm:hidden">Rec</span>
                 </Button>
                 <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
-                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Teleprompter</span><span className="sm:hidden">TP</span>
+                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.teleprompter, language)}</span><span className="sm:hidden">TP</span>
                 </Button>
               </div>
             </div>
@@ -1387,7 +1389,7 @@ export default function Scripts() {
                     <Input
                       value={tempDriveLink}
                       onChange={(e) => setTempDriveLink(e.target.value)}
-                      placeholder="Pega el link de Google Drive"
+                      placeholder={tr(t.scripts.pasteDriveLink, language)}
                       className="text-sm h-8 flex-1 min-w-0"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && viewingScriptId) {
@@ -1425,8 +1427,7 @@ export default function Scripts() {
                     </Button>
                   </div>
                 ) : (
-                  <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">
-                    + Agregar link
+                   <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">{tr(t.scripts.addLink, language)}</button>
                   </button>
                 )}
               </div>
@@ -1446,19 +1447,19 @@ export default function Scripts() {
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
         <DialogContent className="sm:max-w-sm bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Establecer nueva contraseña</DialogTitle>
+            <DialogTitle>{tr(t.scripts.setNewPassword, language)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
               type="password"
-              placeholder="Nueva contraseña (mín. 6 caracteres)"
+              placeholder={tr(t.scripts.newPasswordPlaceholder, language)}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSetNewPassword()}
             />
             <Button onClick={handleSetNewPassword} className="w-full" disabled={resetLoading}>
               {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Guardar contraseña
+              {tr(t.scripts.savePassword, language)}
             </Button>
           </div>
         </DialogContent>
@@ -1467,14 +1468,14 @@ export default function Scripts() {
       <Dialog open={showNamePrompt} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-sm bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>¿Cómo te llamas?</DialogTitle>
+            <DialogTitle>{tr(t.scripts.whatsYourName, language)}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Necesitamos tu nombre para crear tu perfil de cliente.
+            {tr(t.scripts.nameNeeded, language)}
           </p>
           <div className="space-y-4">
             <Input
-              placeholder="Tu nombre completo"
+              placeholder={tr(t.scripts.yourFullName, language)}
               value={promptName}
               onChange={(e) => setPromptName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
@@ -1482,7 +1483,7 @@ export default function Scripts() {
             />
             <Button onClick={handleSaveName} className="w-full" disabled={namePromptLoading || !promptName.trim()}>
               {namePromptLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Guardar nombre
+              {tr(t.scripts.saveName, language)}
             </Button>
           </div>
         </DialogContent>
