@@ -105,7 +105,7 @@ serve(async (req) => {
       const titleProp = mapping.title_property || "Reel title";
       const scriptProp = mapping.script_property;
       const footageProp = mapping.footage_property;
-      const scriptUrl = `https://connectacreators.lovable.app/scripts?id=${script.id}`;
+      const scriptUrl = `https://connectacreators.lovable.app/s/${script.id}`;
 
       const properties: Record<string, unknown> = {
         [titleProp]: {

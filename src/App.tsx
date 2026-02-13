@@ -13,6 +13,7 @@ import LeadTracker from "./pages/LeadTracker";
 import LeadCalendar from "./pages/LeadCalendar";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import PublicScript from "./pages/PublicScript";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/leads" element={<LeadTracker />} />
             <Route path="/lead-calendar" element={<LeadCalendar />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/s/:id" element={<PublicScript />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

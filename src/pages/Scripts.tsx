@@ -1280,6 +1280,18 @@ export default function Scripts() {
             <div className="flex items-center justify-between gap-2 mb-4">
               <h2 className="text-base sm:text-xl font-bold text-foreground truncate">Resultado — {parsedLines.length} líneas</h2>
               <div className="flex gap-1.5 flex-shrink-0">
+                <Button
+                  onClick={() => {
+                    const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
+                    navigator.clipboard.writeText(publicUrl);
+                    toast.success("Link público copiado al portapapeles");
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs sm:text-sm"
+                >
+                  <Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Compartir</span><span className="sm:hidden">Link</span>
+                </Button>
                 <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
                   <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Grabar</span><span className="sm:hidden">Rec</span>
                 </Button>

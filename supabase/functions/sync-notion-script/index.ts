@@ -80,7 +80,7 @@ serve(async (req) => {
     const titleProp = mapping.title_property || "Reel title";
     const scriptProp = mapping.script_property;
     const footageProp = mapping.footage_property;
-    const scriptUrl = `https://connectacreators.lovable.app/scripts?id=${script_id}`;
+    const scriptUrl = `https://connectacreators.lovable.app/s/${script_id}`;
 
     // Build Notion properties dynamically based on mapping
     const properties: Record<string, unknown> = {
