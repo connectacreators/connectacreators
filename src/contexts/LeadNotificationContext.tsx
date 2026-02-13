@@ -22,11 +22,26 @@ const LeadNotificationContext = createContext<LeadNotificationContextType>({
 export const useLeadNotifications = () => useContext(LeadNotificationContext);
 
 const POLL_INTERVAL = 120_000; // 2 minutes
+const STORAGE_KEY = "connecta_known_lead_ids";
+
+function loadKnownIds(): Set<string> {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return new Set(JSON.parse(stored));
+  } catch {}
+  return new Set();
+}
+
+function saveKnownIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {}
+}
 
 export function LeadNotificationProvider({ children }: { children: React.ReactNode }) {
-  const knownIdsRef = useRef<Set<string>>(new Set());
-  const isFirstRef = useRef(true);
+  const knownIdsRef = useRef<Set<string>>(loadKnownIds());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [newLeadCount, setNewLeadCount] = useState(0);
 
   // Pre-load the notification sound
@@ -44,7 +59,7 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
     } catch {}
   }, []);
 
-  const pollLeads = useCallback(async (silent = true) => {
+  const pollLeads = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -67,7 +82,10 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
         client: l.client,
       }));
 
-      if (!isFirstRef.current) {
+      const previousSize = knownIdsRef.current.size;
+
+      // If we had known IDs (from storage or previous poll), detect new ones
+      if (previousSize > 0) {
         const newLeads = fetched.filter(l => !knownIdsRef.current.has(l.id));
         if (newLeads.length > 0) {
           playSound();
@@ -81,47 +99,52 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
         }
       }
 
+      // Update known IDs and persist
       knownIdsRef.current = new Set(fetched.map(l => l.id));
-      isFirstRef.current = false;
+      saveKnownIds(knownIdsRef.current);
     } catch {
       // silent fail
     }
   }, [playSound]);
 
-  // Initial fetch + interval
+  const startPolling = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    pollLeads();
+    intervalRef.current = setInterval(() => pollLeads(), POLL_INTERVAL);
+  }, [pollLeads]);
+
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  // Initial fetch + interval + auth listener
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-
-    const start = async () => {
+    const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await pollLeads();
-      interval = setInterval(() => pollLeads(), POLL_INTERVAL);
+      if (session) startPolling();
     };
+    init();
 
-    start();
-
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
-        isFirstRef.current = true;
-        knownIdsRef.current = new Set();
-        pollLeads();
-        interval = setInterval(() => pollLeads(), POLL_INTERVAL);
+        startPolling();
       }
       if (event === "SIGNED_OUT") {
-        clearInterval(interval);
+        stopPolling();
         knownIdsRef.current = new Set();
-        isFirstRef.current = true;
+        localStorage.removeItem(STORAGE_KEY);
         setNewLeadCount(0);
       }
     });
 
     return () => {
-      clearInterval(interval);
+      stopPolling();
       subscription.unsubscribe();
     };
-  }, [pollLeads]);
+  }, [startPolling, stopPolling]);
 
   const resetCount = useCallback(() => setNewLeadCount(0), []);
 
