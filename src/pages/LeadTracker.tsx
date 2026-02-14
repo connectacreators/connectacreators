@@ -61,7 +61,7 @@ const STATUS_COLORS: Record<string, string> = {
   "Follow up #2 (Not Booked)": "bg-blue-500/15 text-blue-400 border-blue-500/30",
   "Follow up #3 (Not Booked)": "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Meta Ad (Not Booked)": "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  "Cancelled": "bg-red-500/15 text-red-400 border-red-500/30",
+  "Canceled": "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -73,7 +73,7 @@ const SOURCE_COLORS: Record<string, string> = {
   Other: "bg-gray-500/15 text-gray-400",
 };
 
-const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Cancelled"];
+const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Canceled"];
 
 export default function LeadTracker() {
   const { theme } = useTheme();
@@ -528,7 +528,7 @@ export default function LeadTracker() {
                         <span className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${
                             s === "Appointment Booked" ? "bg-green-400" :
-                            s === "Cancelled" ? "bg-red-400" : "bg-yellow-400"
+                            s === "Canceled" ? "bg-red-400" : "bg-yellow-400"
                           }`} />
                           {s}
                         </span>
