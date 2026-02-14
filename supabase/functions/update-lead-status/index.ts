@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const NOTION_API_VERSION = "2022-06-28";
-const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Cancelled"];
+const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Canceled"];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
