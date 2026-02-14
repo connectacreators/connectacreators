@@ -175,7 +175,11 @@ serve(async (req) => {
           "Notion-Version": NOTION_API_VERSION,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ filter, page_size: 100 }),
+        body: JSON.stringify({
+          filter,
+          page_size: 100,
+          sorts: [{ property: "Date", direction: "descending" }],
+        }),
       }
     );
 

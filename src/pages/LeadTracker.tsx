@@ -126,7 +126,11 @@ export default function LeadTracker() {
       }
 
       const result = await res.json();
-      const fetchedLeads: Lead[] = result.leads || [];
+      const fetchedLeads: Lead[] = (result.leads || []).sort((a: Lead, b: Lead) => {
+        const dateA = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+        const dateB = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+        return dateB - dateA;
+      });
 
       setLeads(fetchedLeads);
       if (result.statusOptions) setStatusOptions(result.statusOptions);
