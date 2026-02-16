@@ -61,11 +61,11 @@ serve(async (req) => {
         // Get all assigned client names for videographer
         const { data: assignments } = await supabase
           .from("videographer_clients")
-          .select("client_id, clients(name)")
+          .select("client_id, clients(name, notion_lead_name)")
           .eq("videographer_user_id", userId);
 
         const assignedNames = (assignments || [])
-          .map((a: any) => a.clients?.name)
+          .map((a: any) => a.clients?.notion_lead_name || a.clients?.name)
           .filter(Boolean);
 
         if (assignedNames.length === 0 && !isAdmin) {
@@ -82,7 +82,7 @@ serve(async (req) => {
         // Regular client
         const { data: clientData } = await supabase
           .from("clients")
-          .select("name")
+          .select("name, notion_lead_name")
           .eq("user_id", userId)
           .maybeSingle();
 
@@ -92,7 +92,7 @@ serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        clientName = clientData.name;
+        clientName = clientData.notion_lead_name || clientData.name;
       }
     } else if (!isAdmin) {
       // Non-admin passed client_name — verify access
