@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.bulk-sync-notion-scripts]
 verify_jwt = false
+
+[functions.get-subscription]
+verify_jwt = false

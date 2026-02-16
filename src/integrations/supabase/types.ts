@@ -59,6 +59,7 @@ export type Database = {
           id: string
           name: string
           notion_lead_name: string | null
+          stripe_customer_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -68,6 +69,7 @@ export type Database = {
           id?: string
           name: string
           notion_lead_name?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -77,6 +79,7 @@ export type Database = {
           id?: string
           name?: string
           notion_lead_name?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id?: string | null
         }

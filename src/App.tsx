@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import LeadTracker from "./pages/LeadTracker";
 import LeadCalendar from "./pages/LeadCalendar";
 import Settings from "./pages/Settings";
+import Subscription from "./pages/Subscription";
 import NotFound from "./pages/NotFound";
 import PublicScript from "./pages/PublicScript";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/leads" element={<LeadTracker />} />
             <Route path="/lead-calendar" element={<LeadCalendar />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/subscription" element={<Subscription />} />
             <Route path="/s/:id" element={<PublicScript />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />

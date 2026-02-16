@@ -274,6 +274,23 @@ export const t = {
     nextStep3: { en: "Free diagnostic call", es: "Llamada de diagnóstico gratuita" },
     backToHome: { en: "Back to home", es: "Volver al inicio" },
   },
+  // Subscription
+  subscription: {
+    navLabel: { en: "Manage Subscription", es: "Mi Suscripción" },
+    title: { en: "Manage Subscription", es: "Mi Suscripción" },
+    noSubscription: { en: "No active subscription found.", es: "No se encontró una suscripción activa." },
+    currentPlan: { en: "Current Plan", es: "Plan Actual" },
+    cancelsAtEnd: { en: "Cancels at period end", es: "Se cancela al final del periodo" },
+    amount: { en: "Amount", es: "Monto" },
+    nextPayment: { en: "Next Payment", es: "Próximo Pago" },
+    billingPeriod: { en: "Billing Period", es: "Periodo de Facturación" },
+    paymentHistory: { en: "Payment History", es: "Historial de Pagos" },
+    noInvoices: { en: "No invoices yet.", es: "No hay facturas aún." },
+    date: { en: "Date", es: "Fecha" },
+    invoiceNumber: { en: "Invoice #", es: "Factura #" },
+    status: { en: "Status", es: "Estado" },
+    invoice: { en: "Invoice", es: "Factura" },
+  },
 } as const;
 
 import type { Language } from "@/hooks/useLanguage";
