@@ -43,6 +43,8 @@ serve(async (req) => {
     const NOTION_API_KEY = Deno.env.get("NOTION_API_KEY");
     if (!NOTION_API_KEY) throw new Error("NOTION_API_KEY not configured");
 
+    console.log("[fetch-leads] START for user:", userId);
+
     const url = new URL(req.url);
     let clientName = url.searchParams.get("client_name");
 
@@ -80,11 +82,14 @@ serve(async (req) => {
         (req as any).__assignedNames = assignedNames;
       } else if (!isAdmin) {
         // Regular client
-        const { data: clientData } = await supabase
+        console.log("[fetch-leads] Fetching client for userId:", userId);
+        const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select("name, notion_lead_name")
           .eq("user_id", userId)
           .maybeSingle();
+
+        console.log("[fetch-leads] clientData:", JSON.stringify(clientData), "error:", JSON.stringify(clientError));
 
         if (!clientData) {
           return new Response(JSON.stringify({ error: "No client linked to user" }), {
@@ -92,7 +97,7 @@ serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        clientName = clientData.notion_lead_name || clientData.name;
+        clientName = (clientData as any).notion_lead_name || clientData.name;
       }
     } else if (!isAdmin) {
       // Non-admin passed client_name — verify access
@@ -131,6 +136,7 @@ serve(async (req) => {
 
     if (clientName) {
       filter = { property: "Client", select: { equals: clientName } };
+      console.log("[fetch-leads] Using filter for client:", clientName);
     } else if (isVideographer && assignedNames && assignedNames.length > 0) {
       if (assignedNames.length === 1) {
         filter = { property: "Client", select: { equals: assignedNames[0] } };
@@ -190,6 +196,8 @@ serve(async (req) => {
     }
 
     const notionData = await notionResponse.json();
+
+    console.log("[fetch-leads] Notion results count:", notionData.results?.length, "filter:", JSON.stringify(filter));
 
     const leads = notionData.results.map((page: any) => {
       const props = page.properties;
