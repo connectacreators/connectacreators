@@ -129,8 +129,6 @@ serve(async (req) => {
     let filter: any = undefined;
     const assignedNames = (req as any).__assignedNames as string[] | undefined;
 
-    console.log("[fetch-leads] userId:", userId, "clientName:", JSON.stringify(clientName), "isAdmin:", isAdmin, "isVideographer:", isVideographer);
-
     if (clientName) {
       filter = { property: "Client", select: { equals: clientName } };
     } else if (isVideographer && assignedNames && assignedNames.length > 0) {
@@ -159,14 +157,12 @@ serve(async (req) => {
 
     let statusOptions: string[] = [];
     let sourceOptions: string[] = [];
-    let clientOptions: string[] = [];
     if (schemaResponse.ok) {
       const schemaData = await schemaResponse.json();
       statusOptions = (schemaData.properties?.["Lead Status"]?.select?.options || []).map((o: any) => o.name);
       sourceOptions = (schemaData.properties?.["Lead Source"]?.select?.options || []).map((o: any) => o.name);
-      clientOptions = (schemaData.properties?.["Client"]?.select?.options || []).map((o: any) => o.name);
-      console.log("[fetch-leads] Client options in Notion:", JSON.stringify(clientOptions));
     } else {
+      await schemaResponse.text(); // consume body
     }
 
     // Query Notion
@@ -195,12 +191,6 @@ serve(async (req) => {
 
     const notionData = await notionResponse.json();
 
-    console.log("[fetch-leads] Notion returned", notionData.results?.length, "results. Filter used:", JSON.stringify(filter));
-    if (notionData.results?.length > 0) {
-      const firstClient = notionData.results[0]?.properties?.["Client"]?.select?.name;
-      console.log("[fetch-leads] First result client:", JSON.stringify(firstClient));
-    }
-
     const leads = notionData.results.map((page: any) => {
       const props = page.properties;
       return {
@@ -221,7 +211,7 @@ serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ leads, hasMore: notionData.has_more, total: leads.length, statusOptions, sourceOptions, clientOptions }),
+      JSON.stringify({ leads, hasMore: notionData.has_more, total: leads.length, statusOptions, sourceOptions }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
