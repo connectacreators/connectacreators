@@ -37,6 +37,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 type Lead = {
   id: string;
@@ -288,6 +289,7 @@ function TimeGridLines({ hours, hourHeight }: { hours: number[]; hourHeight: num
 
 
 export default function LeadCalendar() {
+  const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -418,7 +420,7 @@ export default function LeadCalendar() {
             return `${s.getDate()} ${MONTH_SHORT[s.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]} ${e.getFullYear()}`;
           })();
 
-  if (authLoading) {
+  if (authLoading || subscriptionChecking) {
     return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
   if (!user) { navigate("/"); return null; }

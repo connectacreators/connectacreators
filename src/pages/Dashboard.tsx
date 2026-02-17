@@ -30,11 +30,16 @@ export default function Dashboard() {
     if (!user) return;
     supabase
       .from("clients")
-      .select("plan_type")
+      .select("plan_type, subscription_status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data && !data.plan_type) {
+        if (!data || !data.plan_type) {
+          navigate("/select-plan");
+        } else if (
+          data.subscription_status !== "active" &&
+          data.subscription_status !== "pending_contact"
+        ) {
           navigate("/select-plan");
         }
       });

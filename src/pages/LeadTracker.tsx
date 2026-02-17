@@ -38,6 +38,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { toast } from "sonner";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 type Lead = {
   id: string;
@@ -76,6 +77,7 @@ const SOURCE_COLORS: Record<string, string> = {
 const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Canceled"];
 
 export default function LeadTracker() {
+  const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -204,7 +206,7 @@ export default function LeadTracker() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || subscriptionChecking) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
