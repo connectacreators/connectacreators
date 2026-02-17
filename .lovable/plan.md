@@ -1,52 +1,70 @@
 
 
-# Home Page - Connecta Creators CRM Introduction
+# Rediseno Estilo Cregg Paris - Connecta Creators
 
-## Overview
-Create a new public Home page at `/` that introduces the Connecta Creators CRM. The current Dashboard (which includes the login) moves to `/dashboard`. The Home page will showcase CRM features with stock imagery, matching the existing branding (gold/blue theme, Arial font), and have "Registrarte" buttons at top and bottom that link to `/dashboard` (the login page).
+## Inspiracion del Estilo Cregg Paris
 
-## What You'll See
+El sitio de Cregg Paris se caracteriza por:
+- **Fondo oscuro profundo** (casi negro puro, ~#0d0d0d) con mucho espacio en blanco (breathing room)
+- **Navegacion con botones pill/rounded** con bordes sutiles grises
+- **Tipografia grande, limpia y minimalista** - titulos enormes con mucho tracking
+- **Un solo color de acento** que contrasta (en su caso rojo, en Connecta sera el azul/dorado existente)
+- **Animaciones sutiles y elegantes** - sin ser llamativas, solo transiciones suaves de opacidad y posicion
+- **Secciones con mucho padding vertical** - cada seccion respira
+- **Estetica monocromatica** con textos en gris claro sobre fondo oscuro
 
-1. **Hero Section**: Full-width header with headline "Connecta con tus clientes mas rapido" (ES) / "Connect with your clients faster" (EN), a subtitle explaining the CRM, and a prominent "Registrarte" / "Sign Up" button. Uses a gradient background matching the existing design system.
+## Cambios a Realizar
 
-2. **Features Section**: 3 cards highlighting the main CRM tools:
-   - **Script Builder**: AI-powered script creation
-   - **Lead Tracker**: Manage and track your leads
-   - **Lead Calendar**: Schedule and organize follow-ups
-   Each card uses a Lucide icon and a brief description.
+### 1. Home Page (`src/pages/Home.tsx`) - Rediseno completo del estilo
 
-3. **How It Works**: 3-step visual flow (Sign Up -> Set Up Your Clients -> Start Creating) with numbered steps.
+**Hero:**
+- Fondo oscuro solido (sin gradiente azul) con un glow sutil del color primario muy difuminado
+- Titular mucho mas grande (text-6xl a text-8xl) con letter-spacing amplio (tracking-tight)
+- Subtitulo en gris suave (text-neutral-400)
+- Boton CTA con estilo pill (rounded-full) y borde sutil, no solido
+- Mucho mas espacio vertical (min-h-screen completo)
 
-4. **Bottom CTA**: Repeated "Registrarte" button with a closing line.
+**Navbar:**
+- Fondo casi transparente oscuro con backdrop-blur
+- Logo a la izquierda, botones de navegacion como pills con bordes sutiles a la derecha
+- Boton "Sign Up" como pill con borde, no relleno solido
 
-5. **Footer**: Connecta logo, minimal links (Privacy Policy, Terms).
+**Feature Cards:**
+- Fondo casi transparente con borde sutil (border-white/10)
+- Sin sombras pesadas, solo bordes delicados
+- Hover sutil con cambio de borde a color primario
+- Layout mas espacioso
 
-All sections use `framer-motion` fade-in animations on scroll for polish. Stock images will use placeholder gradient backgrounds and icons rather than external URLs, keeping the app self-contained.
+**How It Works:**
+- Fondo ligeramente diferente (un tono mas claro del oscuro)
+- Numeros grandes y elegantes
+- Lineas conectoras sutiles entre pasos
 
-## Technical Details
+**Footer:**
+- Ultra minimalista, solo logo + links + copyright
+- Separador con linea delgada (border-white/5)
 
-### 1. New Page: `src/pages/Home.tsx`
-- Public page, no auth required
-- Includes `ThemeToggle` and `LanguageToggle` in top-right corner (same as login page)
-- Uses existing components: `Button`, `motion` from framer-motion
-- Bilingual via `useLanguage` + `t` / `tr` helpers
-- "Registrarte" buttons use `<Link to="/dashboard">` via react-router
+### 2. CSS Global (`src/index.css`) - Ajustes menores
+- Asegurar que el fondo base del body en dark mode sea casi negro puro
+- Los cards en dark mode deben ser transparentes con borde, no con fondo solido
 
-### 2. Route Changes in `src/App.tsx`
-- `/` -> `Home` (new public intro page)
-- `/dashboard` -> `Dashboard` (existing, includes login)
-- All sidebar nav links (`/scripts`, `/leads`, etc.) remain unchanged since they already check auth internally
+### 3. Modo Claro
+- Mantener un estilo igualmente limpio: fondo blanco puro, textos en gris oscuro, bordes sutiles grises
+- El mismo principio de minimalismo y espacio
 
-### 3. Update Navigation References
-- `DashboardSidebar.tsx`: Update the logo link / home link if it points to `/` to point to `/dashboard`
-- Existing links to `/` in sidebar/topbar should go to `/dashboard` instead
+## Resumen de Archivos
 
-### 4. Translations in `src/i18n/translations.ts`
-- Add a `home` section with all strings: hero headline, subtitle, feature titles/descriptions, CTA button labels, how-it-works steps
+| Archivo | Accion |
+|---|---|
+| `src/pages/Home.tsx` | Rediseno completo del estilo visual (mismo contenido) |
+| `src/index.css` | Ajustes menores al fondo base |
 
-### Files Modified
-- `src/pages/Home.tsx` (new)
-- `src/App.tsx` (add `/` route, move Dashboard to `/dashboard`)
-- `src/i18n/translations.ts` (add home strings)
-- `src/components/DashboardSidebar.tsx` (update home link to `/dashboard`)
+## Detalles Tecnicos
+
+- Se mantienen las mismas secciones y contenido (Hero, Features, How It Works, CTA, Footer)
+- Se mantiene `framer-motion` pero con animaciones mas sutiles (solo opacity + translateY minimo)
+- Se mantiene el soporte bilingue con `useLanguage`
+- Los botones usaran `rounded-full` + bordes en lugar de fondos solidos para el estilo pill
+- El color primario se usa como acento puntual (palabras clave, hovers, iconos) no como fondos grandes
+- Tipografia: titulos mas grandes con `tracking-tight`, subtitulos con `tracking-wide` en uppercase para jerarquia
 
