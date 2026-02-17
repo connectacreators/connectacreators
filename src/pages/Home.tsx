@@ -12,21 +12,20 @@ import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 16 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.15, duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as const },
+    transition: { delay: i * 0.06, duration: 0.3 },
   }),
 };
 
 const letterPull = {
-  hidden: { opacity: 0, y: 60, rotateX: 40 },
+  hidden: { opacity: 0, y: 24 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    rotateX: 0,
-    transition: { delay: 0.3 + i * 0.04, duration: 0.6, ease: [0.22, 1, 0.36, 1] as const },
+    transition: { delay: 0.1 + i * 0.025, duration: 0.3 },
   }),
 };
 
@@ -118,17 +117,17 @@ export default function Home() {
 
           <motion.p
             className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto mb-10 text-center"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
+            transition={{ delay: 0.35, duration: 0.3 }}
           >
             {tr(t.home.heroSubtitle, language)}
           </motion.p>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 1.1, duration: 0.5 }}
+            transition={{ delay: 0.5, duration: 0.25 }}
           >
             <Button asChild size="xl" variant="cta" className="shadow-glow">
               <Link to="/dashboard">{tr(t.home.cta, language)}</Link>
