@@ -130,6 +130,98 @@ function isLand(row: number, col: number): boolean {
   return landSet.has(row * MAP_COLS + (col % MAP_COLS));
 }
 
+// Compute distance to nearest land for each cell (BFS), cached
+const MAX_DIST = 6;
+const landDistMap = new Float32Array(MAP_ROWS * MAP_COLS);
+landDistMap.fill(MAX_DIST);
+
+// BFS from all land cells
+const queue: number[] = [];
+for (let r = 0; r < MAP_ROWS; r++) {
+  for (let c = 0; c < MAP_COLS; c++) {
+    const idx = r * MAP_COLS + c;
+    if (landSet.has(idx)) {
+      landDistMap[idx] = 0;
+      queue.push(idx);
+    }
+  }
+}
+let qi = 0;
+while (qi < queue.length) {
+  const idx = queue[qi++];
+  const r = Math.floor(idx / MAP_COLS);
+  const c = idx % MAP_COLS;
+  const d = landDistMap[idx];
+  if (d >= MAX_DIST - 1) continue;
+  const neighbors = [
+    [r - 1, c], [r + 1, c], [r, (c - 1 + MAP_COLS) % MAP_COLS], [r, (c + 1) % MAP_COLS],
+  ];
+  for (const [nr, nc] of neighbors) {
+    if (nr < 0 || nr >= MAP_ROWS) continue;
+    const ni = nr * MAP_COLS + nc;
+    if (landDistMap[ni] > d + 1) {
+      landDistMap[ni] = d + 1;
+      queue.push(ni);
+    }
+  }
+}
+
+// Also compute "land depth" - distance from land edge inward
+const landDepthMap = new Float32Array(MAP_ROWS * MAP_COLS);
+const edgeQueue: number[] = [];
+for (let r = 0; r < MAP_ROWS; r++) {
+  for (let c = 0; c < MAP_COLS; c++) {
+    const idx = r * MAP_COLS + c;
+    if (!landSet.has(idx)) continue;
+    // Check if it's an edge cell (adjacent to non-land)
+    const neighbors = [
+      [r - 1, c], [r + 1, c], [r, (c - 1 + MAP_COLS) % MAP_COLS], [r, (c + 1) % MAP_COLS],
+    ];
+    let isEdge = false;
+    for (const [nr, nc] of neighbors) {
+      if (nr < 0 || nr >= MAP_ROWS || !landSet.has(nr * MAP_COLS + nc)) {
+        isEdge = true; break;
+      }
+    }
+    if (isEdge) {
+      landDepthMap[idx] = 1;
+      edgeQueue.push(idx);
+    }
+  }
+}
+let ei = 0;
+while (ei < edgeQueue.length) {
+  const idx = edgeQueue[ei++];
+  const r = Math.floor(idx / MAP_COLS);
+  const c = idx % MAP_COLS;
+  const d = landDepthMap[idx];
+  const neighbors = [
+    [r - 1, c], [r + 1, c], [r, (c - 1 + MAP_COLS) % MAP_COLS], [r, (c + 1) % MAP_COLS],
+  ];
+  for (const [nr, nc] of neighbors) {
+    if (nr < 0 || nr >= MAP_ROWS) continue;
+    const ni = nr * MAP_COLS + nc;
+    if (landSet.has(ni) && landDepthMap[ni] === 0) {
+      landDepthMap[ni] = d + 1;
+      edgeQueue.push(ni);
+    }
+  }
+}
+
+function getLandInfluence(row: number, col: number): number {
+  if (row < 0 || row >= MAP_ROWS) return 0;
+  const idx = row * MAP_COLS + (col % MAP_COLS);
+  if (landSet.has(idx)) {
+    // On land: scale by depth (deeper = bigger)
+    const depth = landDepthMap[idx];
+    return Math.min(1, 0.5 + depth * 0.1);
+  }
+  // Near land: gradual falloff
+  const dist = landDistMap[idx];
+  if (dist >= MAX_DIST) return 0;
+  return Math.max(0, 0.3 * (1 - dist / MAX_DIST));
+}
+
 export default function DottedGlobe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
@@ -165,14 +257,11 @@ export default function DottedGlobe() {
       ctx.clearRect(0, 0, w, h);
 
       // Dense grid of dots covering the entire screen
-      const spacing = 12; // pixels between dots
-      const dotSmall = 1.2; // ocean dot radius
-      const dotLarge = 3.0; // land dot radius
+      const spacing = 12;
+      const dotMin = 1.0;   // base ocean dot
+      const dotMax = 3.8;   // max land dot (deep inland)
 
-      const colorOcean = isLight ? "rgba(80,130,200,0.08)" : "rgba(100,180,255,0.1)";
-      const colorLand = isLight ? "rgba(80,130,200,0.3)" : "rgba(100,180,255,0.45)";
-
-      // Map scale: how many pixels = full 360° width
+      // Map scale
       const mapW = h * 2.2;
       const mapH = h * 1.1;
       const mapOffsetY = (h - mapH) / 2;
@@ -186,24 +275,28 @@ export default function DottedGlobe() {
         for (let gx = -1; gx < cols; gx++) {
           const screenX = gx * spacing;
 
-          // Map this screen position to map coordinates
-          // Account for scrolling offset
           const mapX = ((screenX - offset) % mapW + mapW) % mapW;
           const mapY = y - mapOffsetY;
 
           const mapCol = Math.floor((mapX / mapW) * MAP_COLS);
           const mapRow = Math.floor((mapY / mapH) * MAP_ROWS);
 
-          const onLand = mapRow >= 0 && mapRow < MAP_ROWS && isLand(mapRow, mapCol);
+          const influence = getLandInfluence(mapRow, mapCol);
+          const radius = dotMin + (dotMax - dotMin) * influence;
+          const alpha = isLight
+            ? 0.06 + influence * 0.28
+            : 0.08 + influence * 0.42;
 
           ctx.beginPath();
-          ctx.arc(screenX, y, onLand ? dotLarge : dotSmall, 0, Math.PI * 2);
-          ctx.fillStyle = onLand ? colorLand : colorOcean;
+          ctx.arc(screenX, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = isLight
+            ? `rgba(80,130,200,${alpha})`
+            : `rgba(100,180,255,${alpha})`;
           ctx.fill();
         }
       }
 
-      offset += 0.6;
+      offset += 1.0;
       if (offset >= mapW) offset -= mapW;
       animId = requestAnimationFrame(draw);
     };
