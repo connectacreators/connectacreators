@@ -212,14 +212,13 @@ function getLandInfluence(row: number, col: number): number {
   if (row < 0 || row >= MAP_ROWS) return 0;
   const idx = row * MAP_COLS + (col % MAP_COLS);
   if (landSet.has(idx)) {
-    // On land: scale by depth (deeper = bigger)
     const depth = landDepthMap[idx];
-    return Math.min(1, 0.5 + depth * 0.1);
+    return Math.min(1, 0.4 + depth * 0.12);
   }
-  // Near land: gradual falloff
+  // Near land: gradual falloff for relief effect
   const dist = landDistMap[idx];
   if (dist >= MAX_DIST) return 0;
-  return Math.max(0, 0.3 * (1 - dist / MAX_DIST));
+  return Math.max(0, 0.25 * (1 - dist / MAX_DIST));
 }
 
 export default function DottedGlobe() {
@@ -256,14 +255,14 @@ export default function DottedGlobe() {
 
       ctx.clearRect(0, 0, w, h);
 
-      // Dense grid of dots covering the entire screen
-      const spacing = 12;
-      const dotMin = 1.0;   // base ocean dot
-      const dotMax = 3.8;   // max land dot (deep inland)
+      // Dense grid — tighter spacing for more detail
+      const spacing = 10;
+      const dotMin = 0.7;   // tiny ocean dots
+      const dotMax = 3.2;   // prominent land dots
 
-      // Map scale
-      const mapW = h * 2.2;
-      const mapH = h * 1.1;
+      // Map scale — zoom out more to show full continents clearly
+      const mapW = h * 2.6;
+      const mapH = h * 1.3;
       const mapOffsetY = (h - mapH) / 2;
 
       const rows = Math.ceil(h / spacing) + 1;
@@ -283,15 +282,17 @@ export default function DottedGlobe() {
 
           const influence = getLandInfluence(mapRow, mapCol);
           const radius = dotMin + (dotMax - dotMin) * influence;
+
+          // Lower overall opacity; land still visible but subtle
           const alpha = isLight
-            ? 0.06 + influence * 0.28
-            : 0.08 + influence * 0.42;
+            ? 0.04 + influence * 0.16
+            : 0.06 + influence * 0.24;
 
           ctx.beginPath();
           ctx.arc(screenX, y, radius, 0, Math.PI * 2);
           ctx.fillStyle = isLight
-            ? `rgba(80,130,200,${alpha})`
-            : `rgba(100,180,255,${alpha})`;
+            ? `rgba(100,140,200,${alpha})`
+            : `rgba(140,190,255,${alpha})`;
           ctx.fill();
         }
       }
