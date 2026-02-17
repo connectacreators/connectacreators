@@ -665,8 +665,13 @@ export default function Scripts() {
       setEditingScript(null);
       setEditingDriveLink(false);
     } else if (view === "client-detail") {
-      setView("clients");
-      setSelectedClient(null);
+      if (urlClientId) {
+        // Staff coming from /clients/:clientId/scripts → go back to client detail
+        window.location.href = `/clients/${urlClientId}`;
+      } else {
+        setView("clients");
+        setSelectedClient(null);
+      }
     }
   };
 
@@ -676,7 +681,7 @@ export default function Scripts() {
       <header className="border-b border-border/50 sticky top-0 z-50 bg-gradient-to-r from-background/90 to-card/90 backdrop-blur-xl">
         <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <Link to="/" className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm flex-shrink-0">
+            <Link to="/dashboard" className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">{tr(t.scripts.home, language)}</span>
             </Link>
@@ -706,7 +711,11 @@ export default function Scripts() {
         {view !== "clients" && (
           <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth">
             <ChevronLeft className="w-4 h-4" />
-            {view === "client-detail" ? tr(t.scripts.clients, language) : selectedClient?.name}
+            {view === "client-detail" && urlClientId
+              ? (language === "en" ? "Back" : "Volver")
+              : view === "client-detail"
+                ? tr(t.scripts.clients, language)
+                : selectedClient?.name}
           </button>
         )}
 
