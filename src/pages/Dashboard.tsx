@@ -99,7 +99,7 @@ export default function Dashboard() {
               👋 {tr(t.dashboard.greeting, language)}, {displayName}
             </motion.p>
             <motion.h1
-              className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-16 tracking-tight leading-[0.95]"
+              className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]"
               initial="hidden"
               animate="visible"
               custom={1}
