@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Returns { checking: true } while the check is in progress.
  */
 export function useSubscriptionGuard() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isVideographer } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 
@@ -20,7 +20,7 @@ export function useSubscriptionGuard() {
       setChecking(false);
       return;
     }
-    if (isAdmin) {
+    if (isAdmin || isVideographer) {
       setChecking(false);
       return;
     }
@@ -41,7 +41,7 @@ export function useSubscriptionGuard() {
         }
         setChecking(false);
       });
-  }, [user, loading, isAdmin, navigate]);
+  }, [user, loading, isAdmin, isVideographer, navigate]);
 
   return { checking };
 }
