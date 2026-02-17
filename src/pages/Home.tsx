@@ -12,20 +12,11 @@ import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.06, duration: 0.3 },
-  }),
-};
-
-const letterPull = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: 0.1 + i * 0.025, duration: 0.3 },
+    transition: { delay: i * 0.08, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   }),
 };
 
@@ -61,54 +52,61 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen text-foreground relative overflow-hidden">
-      {/* Full-page gradient background */}
-      <div className="fixed inset-0 -z-10" style={{
-        background: theme === "light"
-          ? "linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 80% 96%) 40%, hsl(210 70% 90%) 100%)"
-          : "linear-gradient(135deg, hsl(220 15% 10%) 0%, hsl(215 20% 12%) 40%, hsl(210 25% 15%) 100%)"
-      }}>
-        {/* Radial glow accents */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full blur-[120px]"
-          style={{ background: theme === "light" ? "hsl(210 80% 70% / 0.15)" : "hsl(var(--primary) / 0.08)" }} />
-        <div className="absolute bottom-0 right-0 w-[600px] h-[500px] rounded-full blur-[100px]"
-          style={{ background: theme === "light" ? "hsl(210 90% 80% / 0.12)" : "hsl(var(--primary) / 0.05)" }} />
+    <div className="min-h-screen text-foreground relative">
+      {/* Subtle primary glow */}
+      <div className="fixed inset-0 -z-10 bg-background">
+        <div
+          className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-[0.07] blur-[150px]"
+          style={{ background: `hsl(var(--primary))` }}
+        />
       </div>
 
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-border/30 backdrop-blur-xl"
-        style={{ background: theme === "light" ? "hsla(0,0%,100%,0.6)" : "hsl(var(--background) / 0.6)" }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
+      <header className="fixed top-0 w-full z-50 backdrop-blur-xl bg-background/60 border-b border-border/20">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
-            className="h-7 object-contain"
+            className="h-6 object-contain"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <LanguageToggle />
             <ThemeToggle />
-            <Button asChild size="sm" variant="cta">
-              <Link to="/dashboard">{tr(t.home.cta, language)}</Link>
-            </Button>
+            <Link to="/dashboard">
+              <button className="rounded-full border border-foreground/20 px-5 py-1.5 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
+                {tr(t.home.cta, language)}
+              </button>
+            </Link>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative min-h-[85vh] flex items-center justify-center">
-        <div className="relative z-10 max-w-4xl mx-auto px-4 py-24 sm:py-32 text-center flex flex-col items-center">
-          {/* Animated headline word-by-word */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6" style={{ perspective: 600 }}>
+      <section className="min-h-screen flex items-center justify-center px-6">
+        <div className="max-w-5xl mx-auto text-center flex flex-col items-center pt-20">
+          {/* Pill label */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="mb-8"
+          >
+            <span className="inline-block rounded-full border border-foreground/15 px-4 py-1.5 text-xs tracking-widest uppercase text-muted-foreground">
+              AI + Social Media
+            </span>
+          </motion.div>
+
+          {/* Giant headline */}
+          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight leading-[0.9] mb-8">
             {heroWords.map((word, i) => (
               <motion.span
                 key={i}
-                className="inline-block mr-[0.3em]"
-                initial="hidden"
-                animate="visible"
-                custom={i}
-                variants={letterPull}
+                className="inline-block mr-[0.25em]"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 + i * 0.06, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
               >
-                <span className={i === 0 || (language === "es" && i <= 0) ? "text-primary" : ""}>
+                <span className={i === 0 ? "text-primary" : ""}>
                   {word}
                 </span>
               </motion.span>
@@ -116,53 +114,65 @@ export default function Home() {
           </h1>
 
           <motion.p
-            className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto mb-10 text-center"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.3 }}
+            className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
           >
             {tr(t.home.heroSubtitle, language)}
           </motion.p>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5, duration: 0.25 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.4 }}
           >
-            <Button asChild size="xl" variant="cta" className="shadow-glow">
-              <Link to="/dashboard">{tr(t.home.cta, language)}</Link>
-            </Button>
+            <Link to="/dashboard">
+              <button className="rounded-full border border-primary/40 bg-primary/10 px-8 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+                {tr(t.home.cta, language)}
+              </button>
+            </Link>
           </motion.div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="max-w-5xl mx-auto px-4 py-20">
-        <motion.h2
-          className="text-2xl sm:text-3xl font-bold text-center mb-12"
+      <section className="max-w-6xl mx-auto px-6 py-32">
+        <motion.p
+          className="text-xs tracking-[0.3em] uppercase text-muted-foreground text-center mb-4"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
           custom={0}
           variants={fadeUp}
         >
+          {tr({ en: "Features", es: "Funcionalidades" }, language)}
+        </motion.p>
+        <motion.h2
+          className="text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-20 tracking-tight"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          custom={1}
+          variants={fadeUp}
+        >
           {tr(t.home.featuresHeading, language)}
         </motion.h2>
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-8">
           {features.map((f, i) => (
             <motion.div
               key={i}
-              className="rounded-xl border border-border bg-card p-6 shadow-card hover:shadow-glow transition-smooth text-center flex flex-col items-center"
+              className="rounded-2xl border border-border/50 bg-card/30 p-8 hover:border-primary/30 transition-colors group"
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
-              custom={i + 1}
+              custom={i + 2}
               variants={fadeUp}
             >
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                <f.icon className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-full border border-foreground/10 flex items-center justify-center mb-6 group-hover:border-primary/30 transition-colors">
+                <f.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
+              <h3 className="font-semibold text-lg mb-3 tracking-tight">{f.title}</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
@@ -170,34 +180,46 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <section className="py-20" style={{ background: theme === "light" ? "hsl(210 60% 95% / 0.5)" : "hsl(220 10% 8% / 0.4)" }}>
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <motion.h2
-            className="text-2xl sm:text-3xl font-bold mb-12"
+      <section className="py-32 border-t border-border/20">
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <motion.p
+            className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-4"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             custom={0}
             variants={fadeUp}
           >
+            {tr({ en: "Process", es: "Proceso" }, language)}
+          </motion.p>
+          <motion.h2
+            className="text-3xl sm:text-4xl md:text-5xl font-bold mb-20 tracking-tight"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            custom={1}
+            variants={fadeUp}
+          >
             {tr(t.home.howItWorksHeading, language)}
           </motion.h2>
-          <div className="grid sm:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-3 gap-12">
             {steps.map((s, i) => (
               <motion.div
                 key={i}
-                className="flex flex-col items-center gap-3"
+                className="flex flex-col items-center gap-5"
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true }}
-                custom={i + 1}
+                custom={i + 2}
                 variants={fadeUp}
               >
-                <div className="w-14 h-14 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center text-primary font-bold text-xl">
-                  {i + 1}
+                <span className="text-6xl font-bold text-foreground/10">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div className="w-14 h-14 rounded-full border border-foreground/10 flex items-center justify-center">
+                  <s.icon className="w-6 h-6 text-muted-foreground" />
                 </div>
-                <s.icon className="w-6 h-6 text-primary" />
-                <p className="font-medium text-sm">{s.label}</p>
+                <p className="font-medium text-sm text-muted-foreground">{s.label}</p>
               </motion.div>
             ))}
           </div>
@@ -205,49 +227,53 @@ export default function Home() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center flex flex-col items-center">
-        <motion.h2
-          className="text-2xl sm:text-3xl font-bold mb-4"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          custom={0}
-          variants={fadeUp}
-        >
-          {tr(t.home.bottomCtaTitle, language)}
-        </motion.h2>
-        <motion.p
-          className="text-muted-foreground mb-8"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          custom={1}
-          variants={fadeUp}
-        >
-          {tr(t.home.bottomCtaDesc, language)}
-        </motion.p>
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          custom={2}
-          variants={fadeUp}
-        >
-          <Button asChild size="xl" variant="cta" className="shadow-glow">
-            <Link to="/dashboard">{tr(t.home.cta, language)}</Link>
-          </Button>
-        </motion.div>
+      <section className="py-32 px-6">
+        <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
+          <motion.h2
+            className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 tracking-tight"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            custom={0}
+            variants={fadeUp}
+          >
+            {tr(t.home.bottomCtaTitle, language)}
+          </motion.h2>
+          <motion.p
+            className="text-muted-foreground text-lg mb-10 max-w-xl"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            custom={1}
+            variants={fadeUp}
+          >
+            {tr(t.home.bottomCtaDesc, language)}
+          </motion.p>
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            custom={2}
+            variants={fadeUp}
+          >
+            <Link to="/dashboard">
+              <button className="rounded-full border border-primary/40 bg-primary/10 px-8 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+                {tr(t.home.cta, language)}
+              </button>
+            </Link>
+          </motion.div>
+        </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 py-8">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center gap-4 text-sm text-muted-foreground text-center">
+      <footer className="border-t border-border/10 py-10">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
-            className="h-5 object-contain"
+            className="h-5 object-contain opacity-60"
           />
-          <div className="flex gap-4">
+          <div className="flex gap-6 text-xs text-muted-foreground">
             <Link to="/privacy-policy" className="hover:text-foreground transition-colors">
               {tr(t.home.privacy, language)}
             </Link>
@@ -255,6 +281,9 @@ export default function Home() {
               {tr(t.home.terms, language)}
             </Link>
           </div>
+          <p className="text-xs text-muted-foreground/50">
+            © {new Date().getFullYear()} Connecta
+          </p>
         </div>
       </footer>
     </div>

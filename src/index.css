@@ -8,15 +8,15 @@ All colors MUST be HSL for consistency and theming.
 
 @layer base {
   :root {
-    /* Connecta Elegant Design System - Black & Gold Luxury Theme */
-    --background: 220 8% 8%;
-    --foreground: 45 10% 95%;
+    /* Connecta Cregg-Inspired Design System - Deep Dark Minimal */
+    --background: 0 0% 5%;
+    --foreground: 0 0% 90%;
 
-    --card: 220 8% 11%;
-    --card-foreground: 45 10% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 90%;
 
-    --popover: 220 8% 11%;
-    --popover-foreground: 45 10% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 90%;
 
     /* Primary: Luxurious Gold - Elegant, Premium, Prestigious */
     --primary: 43 74% 49%;
@@ -30,9 +30,9 @@ All colors MUST be HSL for consistency and theming.
     --secondary: 0 0% 0%;
     --secondary-foreground: 45 10% 95%;
 
-    /* Muted: Subtle warm grays for text hierarchy */
-    --muted: 220 6% 14%;
-    --muted-foreground: 40 5% 60%;
+    /* Muted: Neutral grays for text hierarchy */
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 50%;
 
     /* Accent: Rich Gold variants */
     --accent: 43 74% 49%;
@@ -41,8 +41,8 @@ All colors MUST be HSL for consistency and theming.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 8% 18%;
-    --input: 220 6% 14%;
+    --border: 0 0% 15%;
+    --input: 0 0% 12%;
     --ring: 43 74% 49%;
 
     --radius: 0.75rem;
@@ -67,13 +67,13 @@ All colors MUST be HSL for consistency and theming.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    --sidebar-background: 220 8% 9%;
-    --sidebar-foreground: 45 10% 90%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 85%;
     --sidebar-primary: 43 74% 49%;
     --sidebar-primary-foreground: 0 0% 5%;
-    --sidebar-accent: 30 5% 12%;
-    --sidebar-accent-foreground: 45 10% 90%;
-    --sidebar-border: 40 10% 18%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 85%;
+    --sidebar-border: 0 0% 15%;
     --sidebar-ring: 43 74% 49%;
   }
 
@@ -184,8 +184,7 @@ All colors MUST be HSL for consistency and theming.
   body {
     @apply bg-background text-foreground antialiased;
     font-family: Arial, Helvetica, sans-serif;
-    background: linear-gradient(145deg, hsl(220 10% 10%) 0%, hsl(220 8% 7%) 40%, hsl(225 10% 9%) 100%);
-    background-attachment: fixed;
+    background: hsl(0 0% 5%);
   }
 
   .light body,
@@ -243,10 +242,10 @@ All colors MUST be HSL for consistency and theming.
 
   /* Apple-style blur effects */
   .glass-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .light .glass-card {
