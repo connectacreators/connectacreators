@@ -10,6 +10,7 @@ import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles } from "lucid
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
+import DottedGlobe from "@/components/DottedGlobe";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -55,6 +56,7 @@ export default function Home() {
     <div className="min-h-screen text-foreground relative">
       {/* Subtle primary glow */}
       <div className="fixed inset-0 -z-10 bg-background">
+        <DottedGlobe />
         <div
           className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-[0.07] blur-[150px]"
           style={{ background: `hsl(var(--primary))` }}
