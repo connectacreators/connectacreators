@@ -27,7 +27,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   useEffect(() => {
-    if (!user) return;
+    if (loading || !user) return;
     // Admins and videographers bypass subscription check
     if (isAdmin || isVideographer) return;
 
@@ -46,7 +46,7 @@ export default function Dashboard() {
           navigate("/select-plan");
         }
       });
-  }, [user, isAdmin, isVideographer, navigate]);
+  }, [user, loading, isAdmin, isVideographer, navigate]);
 
   const toolCards = [
     {
