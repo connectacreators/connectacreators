@@ -170,7 +170,7 @@ Generate a hook following this template format. Make it irresistible.`
       if (!topic || !hook || !structure) throw new Error("topic, hook, structure are required");
 
       const factsText = (selectedFacts || []).map((f: any) => `- ${f.fact}`).join("\n");
-      const lengthGuide = length === "short" ? "30-45 seconds (8-12 lines)" : length === "long" ? "90-120 seconds (25-35 lines)" : "60-75 seconds (15-22 lines)";
+      const lengthGuide = length === "short" ? "30 seconds (6-10 lines)" : length === "long" ? "60 seconds (18-25 lines)" : "45 seconds (12-16 lines)";
 
       const systemPrompt = `You are an expert short-form video scriptwriter. You create complete scripts for social media videos (TikTok, Reels, Shorts).
 

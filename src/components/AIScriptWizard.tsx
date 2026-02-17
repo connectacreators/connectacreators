@@ -78,7 +78,7 @@ type Fact = { fact: string; impact_score: number; why_shocking: string };
 
 interface AIScriptWizardProps {
   selectedClient: Client;
-  onComplete: (rawContent: string, title: string) => void;
+  onComplete: (rawContent: string, title: string) => Promise<void> | void;
   onCancel: () => void;
 }
 
@@ -110,9 +110,9 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   const [generatedScript, setGeneratedScript] = useState<any>(null);
 
   const lengthLabels = [
-    tr({ en: "Short", es: "Corto" }, language),
-    tr({ en: "Medium", es: "Medio" }, language),
-    tr({ en: "Long", es: "Largo" }, language),
+    tr({ en: "Short (30s)", es: "Corto (30s)" }, language),
+    tr({ en: "Medium (45s)", es: "Medio (45s)" }, language),
+    tr({ en: "Long (60s)", es: "Largo (60s)" }, language),
   ];
 
   const hookCategoryNames: Record<string, { en: string; es: string }> = {
@@ -219,11 +219,18 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     }
   };
 
-  const handleSave = () => {
-    if (!generatedScript?.lines) return;
-    const rawContent = generatedScript.lines.map((l: any) => l.text).join("\n");
-    const title = generatedScript.idea_ganadora || topic;
-    onComplete(rawContent, title);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!generatedScript?.lines || saving) return;
+    setSaving(true);
+    try {
+      const rawContent = generatedScript.lines.map((l: any) => l.text).join("\n");
+      const title = generatedScript.idea_ganadora || topic;
+      await onComplete(rawContent, title);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleFact = (idx: number) => {
@@ -498,27 +505,21 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
             {tr({ en: "Your AI-Generated Script", es: "Tu Script Generado por IA" }, language)}
           </h3>
 
-          {/* Script preview */}
+          {/* Script preview — dialogue only */}
           <Card className="border-primary/20">
             <CardContent className="p-4 space-y-2">
-              {generatedScript.lines?.map((line: any, i: number) => {
-                const colors: Record<string, string> = {
-                  filming: "border-red-500/40 bg-red-500/10 text-red-400",
-                  actor: "border-purple-500/40 bg-purple-500/10 text-purple-400",
-                  editor: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-                };
+              {generatedScript.lines?.filter((line: any) => line.line_type === "actor").map((line: any, i: number) => {
                 const sectionBadge: Record<string, string> = {
                   hook: "bg-amber-500/20 text-amber-400",
                   body: "bg-blue-500/20 text-blue-400",
                   cta: "bg-green-500/20 text-green-400",
                 };
                 return (
-                  <div key={i} className={`p-3 rounded-xl border ${colors[line.line_type] || "border-border"}`}>
+                  <div key={i} className="p-3 rounded-xl border border-purple-500/40 bg-purple-500/10">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${sectionBadge[line.section] || ""}`}>
                         {line.section}
                       </span>
-                      <span className="text-[10px] uppercase font-semibold opacity-70">{line.line_type}</span>
                     </div>
                     <p className="text-sm text-foreground">{line.text}</p>
                   </div>
@@ -560,8 +561,9 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
             <Button variant="outline" onClick={() => setStep(5)} className="gap-2">
               <ArrowLeft className="w-4 h-4" /> {tr({ en: "Back", es: "Atrás" }, language)}
             </Button>
-            <Button variant="cta" onClick={handleSave} className="gap-2 flex-1">
-              <Save className="w-4 h-4" /> {tr({ en: "Save Script", es: "Guardar Script" }, language)}
+            <Button variant="cta" onClick={handleSave} disabled={saving} className="gap-2 flex-1">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {saving ? tr({ en: "Saving...", es: "Guardando..." }, language) : tr({ en: "Save Script", es: "Guardar Script" }, language)}
             </Button>
           </div>
         </div>

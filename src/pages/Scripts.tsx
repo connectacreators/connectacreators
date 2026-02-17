@@ -1324,18 +1324,41 @@ export default function Scripts() {
               </div>
             )}
 
-            {viewingInspirationUrl && (
-              <div className="p-4 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 mb-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Eye className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.inspiration, language)}</span>
-                </div>
+            <div className="p-4 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 mb-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.inspiration, language)}</span>
+              </div>
+              {viewingInspirationUrl ? (
                 <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all text-left">
                   <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
                   {viewingInspirationUrl}
                 </button>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder={tr({ en: "Paste inspiration URL...", es: "Pega URL de inspiración..." }, language)}
+                    className="text-sm h-8"
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter" && viewingScriptId) {
+                        const val = (e.target as HTMLInputElement).value.trim();
+                        if (val) {
+                          await supabase.from("scripts").update({ inspiration_url: val }).eq("id", viewingScriptId);
+                          setViewingInspirationUrl(val);
+                        }
+                      }
+                    }}
+                    onBlur={async (e) => {
+                      const val = e.target.value.trim();
+                      if (val && viewingScriptId) {
+                        await supabase.from("scripts").update({ inspiration_url: val }).eq("id", viewingScriptId);
+                        setViewingInspirationUrl(val);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-between gap-2 mb-4">
               <h2 className="text-base sm:text-xl font-bold text-foreground truncate">{tr(t.scripts.result, language)} — {parsedLines.length} {tr(t.scripts.lines, language)}</h2>
