@@ -97,7 +97,7 @@ export default function Home() {
           </motion.div>
 
           {/* Giant headline */}
-          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight leading-[0.9] mb-8">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[0.9] mb-6">
             {heroWords.map((word, i) => (
               <motion.span
                 key={i}
