@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import ScriptsLogin from "@/components/ScriptsLogin";
-import { Loader2, Search, FileText, Target, CalendarDays, User } from "lucide-react";
+import { Loader2, Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
@@ -47,7 +47,6 @@ export default function Clients() {
         .order("name");
       setClients(data || []);
     } else if (isVideographer) {
-      // Get assigned client IDs first
       const { data: assignments } = await supabase
         .from("videographer_clients")
         .select("client_id")
@@ -101,12 +100,6 @@ export default function Clients() {
       (c.email && c.email.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const tools = [
-    { label: language === "en" ? "Scripts" : "Guiones", icon: FileText, path: "scripts" },
-    { label: language === "en" ? "Lead Tracker" : "Lead Tracker", icon: Target, path: "leads" },
-    { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", icon: CalendarDays, path: "lead-calendar" },
-  ];
-
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
       {sidebarOpen && (
@@ -118,10 +111,16 @@ export default function Clients() {
       <main className="flex-1 flex flex-col min-h-screen">
         <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        <div className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
-          <h1 className="text-xl font-bold text-foreground mb-6">
-            {language === "en" ? "Clients" : "Clientes"}
-          </h1>
+        <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
+          <motion.h1
+            className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-8 tracking-tight text-center"
+            initial="hidden"
+            animate="visible"
+            custom={0}
+            variants={fadeUp}
+          >
+            {language === "en" ? "Who are we working on today?" : "¿Con quién trabajamos hoy?"}
+          </motion.h1>
 
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -144,39 +143,25 @@ export default function Clients() {
           ) : (
             <div className="space-y-3">
               {filtered.map((client, i) => (
-                <motion.div
+                <motion.button
                   key={client.id}
-                  className="border border-border/50 rounded-xl p-5 bg-card/30"
+                  onClick={() => navigate(`/clients/${client.id}`)}
+                  className="w-full border border-border/50 rounded-xl p-5 bg-card/30 hover:border-primary/30 transition-colors flex items-center gap-3 text-left"
                   initial="hidden"
                   animate="visible"
-                  custom={i}
+                  custom={i + 1}
                   variants={fadeUp}
                 >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-foreground">{client.name}</h2>
-                      {client.email && (
-                        <p className="text-xs text-muted-foreground">{client.email}</p>
-                      )}
-                    </div>
+                  <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-muted-foreground" />
                   </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {tools.map((tool) => (
-                      <button
-                        key={tool.path}
-                        onClick={() => navigate(`/clients/${client.id}/${tool.path}`)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-                      >
-                        <tool.icon className="w-3.5 h-3.5" />
-                        {tool.label}
-                      </button>
-                    ))}
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground">{client.name}</h2>
+                    {client.email && (
+                      <p className="text-xs text-muted-foreground">{client.email}</p>
+                    )}
                   </div>
-                </motion.div>
+                </motion.button>
               ))}
             </div>
           )}

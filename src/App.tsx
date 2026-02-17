@@ -11,6 +11,7 @@ import IndexEN from "./pages/IndexEN";
 import Onboarding from "./pages/Onboarding";
 import Scripts from "./pages/Scripts";
 import Clients from "./pages/Clients";
+import ClientDetail from "./pages/ClientDetail";
 import Dashboard from "./pages/Dashboard";
 import LeadTracker from "./pages/LeadTracker";
 import LeadCalendar from "./pages/LeadCalendar";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/scripts" element={<Scripts />} />
             <Route path="/clients" element={<Clients />} />
+            <Route path="/clients/:clientId" element={<ClientDetail />} />
             <Route path="/clients/:clientId/scripts" element={<Scripts />} />
             <Route path="/clients/:clientId/leads" element={<LeadTracker />} />
             <Route path="/clients/:clientId/lead-calendar" element={<LeadCalendar />} />
