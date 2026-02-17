@@ -16,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { Link } from "react-router-dom";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { useClients, type Client } from "@/hooks/useClients";
 import { useScripts, type ScriptLine, type Script, type ScriptMetadata } from "@/hooks/useScripts";
@@ -344,6 +345,7 @@ function SortableSection({
 }
 
 export default function Scripts() {
+  const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
@@ -526,7 +528,7 @@ export default function Scripts() {
   }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user]);
 
   // Auth loading
-  if (authLoading) {
+  if (authLoading || subscriptionChecking) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center" style={{ fontFamily: "Arial, sans-serif" }}>
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />

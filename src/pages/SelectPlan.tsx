@@ -20,16 +20,12 @@ const plans = [
       "Script generator access",
       "Save and organize scripts",
     ],
+    isStripe: true,
     data: {
       plan_type: "starter",
-      script_limit: 75,
-      scripts_used: 0,
-      lead_tracker_enabled: false,
-      facebook_integration_enabled: false,
-      subscription_status: "active",
+      subscription_status: "pending_contact",
     },
     cta: "Select Starter",
-    redirect: "/dashboard",
   },
   {
     key: "growth",
@@ -42,16 +38,12 @@ const plans = [
       "Script generator access",
       "Save and organize scripts",
     ],
+    isStripe: true,
     data: {
       plan_type: "growth",
-      script_limit: 200,
-      scripts_used: 0,
-      lead_tracker_enabled: false,
-      facebook_integration_enabled: false,
-      subscription_status: "active",
+      subscription_status: "pending_contact",
     },
     cta: "Select Growth",
-    redirect: "/dashboard",
   },
   {
     key: "enterprise",
@@ -66,16 +58,12 @@ const plans = [
       "Facebook lead integration",
       "Automatic syncing of leads",
     ],
+    isStripe: true,
     data: {
       plan_type: "enterprise",
-      script_limit: 500,
-      scripts_used: 0,
-      lead_tracker_enabled: true,
-      facebook_integration_enabled: true,
-      subscription_status: "active",
+      subscription_status: "pending_contact",
     },
     cta: "Select Enterprise",
-    redirect: "/dashboard",
   },
   {
     key: "connecta_dfy",
@@ -91,6 +79,7 @@ const plans = [
       "Automation setup",
       "One-on-one coaching",
     ],
+    isStripe: false,
     data: {
       plan_type: "connecta_dfy",
       subscription_status: "pending_contact",
@@ -109,6 +98,7 @@ const plans = [
       "AI follow-up agent",
       "Full automation and optimization",
     ],
+    isStripe: false,
     data: {
       plan_type: "connecta_plus",
       subscription_status: "pending_contact",
@@ -132,11 +122,11 @@ export default function SelectPlan() {
     if (user) {
       supabase
         .from("clients")
-        .select("id, plan_type")
+        .select("id, plan_type, subscription_status")
         .eq("user_id", user.id)
         .maybeSingle()
         .then(({ data }) => {
-          if (data?.plan_type) {
+          if (data?.plan_type && (data.subscription_status === "active" || data.subscription_status === "pending_contact")) {
             navigate("/dashboard");
           } else if (data) {
             setClientId(data.id);
@@ -148,17 +138,43 @@ export default function SelectPlan() {
   const handleSelect = async (plan: (typeof plans)[number]) => {
     if (!clientId) return;
     setSelecting(plan.key);
-    const { error } = await supabase
-      .from("clients")
-      .update(plan.data as any)
-      .eq("id", clientId);
 
-    if (error) {
-      toast.error("Failed to select plan. Please try again.");
-      setSelecting(null);
-      return;
+    if (plan.isStripe) {
+      // Redirect to Stripe Checkout
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
+
+        const { data, error } = await supabase.functions.invoke("create-checkout", {
+          body: { plan_type: plan.key },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (error) throw error;
+        if (data?.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error("No checkout URL returned");
+        }
+      } catch (err: any) {
+        console.error("Checkout error:", err);
+        toast.error("Failed to start checkout. Please try again.");
+        setSelecting(null);
+      }
+    } else {
+      // Contact plans - save directly to DB
+      const { error } = await supabase
+        .from("clients")
+        .update(plan.data as any)
+        .eq("id", clientId);
+
+      if (error) {
+        toast.error("Failed to select plan. Please try again.");
+        setSelecting(null);
+        return;
+      }
+      navigate(plan.redirect!);
     }
-    navigate(plan.redirect);
   };
 
   if (loading || !user || !clientId) {
