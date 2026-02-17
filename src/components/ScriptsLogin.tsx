@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -12,6 +12,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
+import { AnimatePresence, motion } from "framer-motion";
 
 type Props = {
   onSignIn: () => void;
@@ -22,6 +23,16 @@ type Props = {
 export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmail }: Props) {
   const { theme } = useTheme();
   const { language } = useLanguage();
+  const [wordIndex, setWordIndex] = useState(0);
+  const words = t.login.headlineWords[language];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setWordIndex((i) => (i + 1) % words.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [words.length]);
+
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -90,7 +101,22 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
       <div className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
-            {tr(t.login.headline, language)}
+            {tr(t.login.headlinePre, language)}{" "}
+            <span className="inline-block relative" style={{ minWidth: "7ch" }}>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={words[wordIndex]}
+                  initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
+                  animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+                  exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="text-primary inline-block"
+                >
+                  {words[wordIndex]}
+                </motion.span>
+              </AnimatePresence>
+            </span>{" "}
+            {tr(t.login.headlinePost, language)}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isForgot ? tr(t.login.forgotPrompt, language) : isSignUp ? tr(t.login.createAccount, language) : tr(t.login.signInToContinue, language)}
