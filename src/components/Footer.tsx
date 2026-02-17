@@ -1,77 +1,40 @@
-import { Button } from "@/components/ui/button";
-import { Instagram, Linkedin, Twitter, Mail, Phone } from "lucide-react";
+import { Instagram, Linkedin, Twitter } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className="bg-secondary text-secondary-foreground py-16">
+    <footer className="border-t border-border/10 py-10">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-          {/* Brand */}
-          <div className="lg:col-span-2">
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold gradient-hero bg-clip-text text-transparent">
-                Connecta
-              </h3>
-              <p className="text-white/80 text-sm">AI + Social Media</p>
-            </div>
-            <p className="text-white/70 leading-relaxed mb-6 max-w-md">
-              Transformamos tu presencia digital en ingresos reales y automatizados. 
-              La agencia que combina viralidad con inteligencia artificial.
-            </p>
-            <div className="flex gap-4">
-              <Button variant="ghost" size="icon" className="text-white/60 hover:text-primary">
-                <Instagram className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-white/60 hover:text-primary">
-                <Linkedin className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-white/60 hover:text-primary">
-                <Twitter className="w-5 h-5" />
-              </Button>
-            </div>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <h3 className="text-lg font-bold text-foreground/80 tracking-tight">
+            Connecta
+          </h3>
+
+          <div className="flex items-center gap-6">
+            <a href="#servicios" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Servicios</a>
+            <a href="#proceso" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Proceso</a>
+            <a href="#nosotros" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Nosotros</a>
           </div>
 
-          {/* Services */}
-          <div>
-            <h4 className="font-bold text-white mb-4">Servicios</h4>
-            <ul className="space-y-3 text-white/70">
-              <li><a href="#servicios" className="hover:text-primary transition-colors">Contenido Viral</a></li>
-              <li><a href="#servicios" className="hover:text-primary transition-colors">Publicidad en Redes</a></li>
-              <li><a href="#servicios" className="hover:text-primary transition-colors">Automatización IA</a></li>
-              <li><a href="#servicios" className="hover:text-primary transition-colors">Embudos de Conversión</a></li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="font-bold text-white mb-4">Contacto</h4>
-            <div className="space-y-3 text-white/70">
-              <div className="flex items-center gap-3">
-                <Mail className="w-4 h-4 text-primary" />
-                <a href="mailto:hola@connecta.com" className="hover:text-primary transition-colors">
-                  hola@connecta.com
-                </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-primary" />
-                <a href="tel:+1234567890" className="hover:text-primary transition-colors">
-                  +1 (234) 567-890
-                </a>
-              </div>
-            </div>
+          <div className="flex items-center gap-4">
+            <a href="#" className="text-muted-foreground/50 hover:text-foreground transition-colors">
+              <Instagram className="w-4 h-4" />
+            </a>
+            <a href="#" className="text-muted-foreground/50 hover:text-foreground transition-colors">
+              <Linkedin className="w-4 h-4" />
+            </a>
+            <a href="#" className="text-muted-foreground/50 hover:text-foreground transition-colors">
+              <Twitter className="w-4 h-4" />
+            </a>
           </div>
         </div>
 
-        {/* Bottom */}
-        <div className="border-t border-white/10 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-white/60 text-sm">
-              © 2024 Connecta. Todos los derechos reservados.
-            </p>
-            <div className="flex gap-6 text-sm text-white/60">
-              <a href="#" className="hover:text-primary transition-colors">Términos y Condiciones</a>
-              <a href="#" className="hover:text-primary transition-colors">Política de Privacidad</a>
-            </div>
+        <div className="mt-8 pt-6 border-t border-border/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground/40">
+            © {new Date().getFullYear()} Connecta. Todos los derechos reservados.
+          </p>
+          <div className="flex gap-6 text-xs text-muted-foreground/40">
+            <a href="/terms-and-conditions" className="hover:text-foreground transition-colors">Términos</a>
+            <a href="/privacy-policy" className="hover:text-foreground transition-colors">Privacidad</a>
           </div>
         </div>
       </div>
