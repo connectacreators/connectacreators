@@ -6,8 +6,9 @@ import DashboardTopBar from "@/components/DashboardTopBar";
 import { Loader2, FileText, Target, CalendarDays } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -24,6 +25,20 @@ export default function Dashboard() {
   const { language } = useLanguage();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("clients")
+      .select("plan_type")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && !data.plan_type) {
+          navigate("/select-plan");
+        }
+      });
+  }, [user, navigate]);
 
   const toolCards = [
     {

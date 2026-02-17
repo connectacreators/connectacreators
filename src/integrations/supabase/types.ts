@@ -56,30 +56,48 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          facebook_integration_enabled: boolean | null
           id: string
+          lead_tracker_enabled: boolean | null
           name: string
           notion_lead_name: string | null
+          plan_type: string | null
+          script_limit: number | null
+          scripts_used: number | null
           stripe_customer_id: string | null
+          subscription_status: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
+          facebook_integration_enabled?: boolean | null
           id?: string
+          lead_tracker_enabled?: boolean | null
           name: string
           notion_lead_name?: string | null
+          plan_type?: string | null
+          script_limit?: number | null
+          scripts_used?: number | null
           stripe_customer_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
+          facebook_integration_enabled?: boolean | null
           id?: string
+          lead_tracker_enabled?: boolean | null
           name?: string
           notion_lead_name?: string | null
+          plan_type?: string | null
+          script_limit?: number | null
+          scripts_used?: number | null
           stripe_customer_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
           user_id?: string | null
         }

@@ -19,6 +19,8 @@ import NotFound from "./pages/NotFound";
 import PublicScript from "./pages/PublicScript";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import SelectPlan from "./pages/SelectPlan";
+import ComingSoon from "./pages/ComingSoon";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ const App = () => (
             <Route path="/lead-calendar" element={<LeadCalendar />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/subscription" element={<Subscription />} />
+            <Route path="/select-plan" element={<SelectPlan />} />
+            <Route path="/coming-soon" element={<ComingSoon />} />
             <Route path="/s/:id" element={<PublicScript />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
