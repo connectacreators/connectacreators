@@ -10,7 +10,6 @@ import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles } from "lucid
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
-import heroImage from "@/assets/home-hero.jpg";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -63,9 +62,23 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground relative overflow-hidden">
+      {/* Full-page gradient background */}
+      <div className="fixed inset-0 -z-10" style={{
+        background: theme === "light"
+          ? "linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 80% 96%) 40%, hsl(210 70% 90%) 100%)"
+          : "linear-gradient(135deg, hsl(220 15% 10%) 0%, hsl(215 20% 12%) 40%, hsl(210 25% 15%) 100%)"
+      }}>
+        {/* Radial glow accents */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full blur-[120px]"
+          style={{ background: theme === "light" ? "hsl(210 80% 70% / 0.15)" : "hsl(var(--primary) / 0.08)" }} />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[500px] rounded-full blur-[100px]"
+          style={{ background: theme === "light" ? "hsl(210 90% 80% / 0.12)" : "hsl(var(--primary) / 0.05)" }} />
+      </div>
+
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-border/30 backdrop-blur-xl"
+        style={{ background: theme === "light" ? "hsla(0,0%,100%,0.6)" : "hsl(var(--background) / 0.6)" }}>
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
@@ -83,19 +96,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden min-h-[85vh] flex items-center justify-center">
-        {/* Background image */}
-        <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="eager"
-          />
-          <div className="absolute inset-0 bg-background/75 backdrop-blur-[2px]" />
-          <div className="absolute inset-0 gradient-bg opacity-60" />
-        </div>
-
+      <section className="relative min-h-[85vh] flex items-center justify-center">
         <div className="relative z-10 max-w-4xl mx-auto px-4 py-24 sm:py-32 text-center flex flex-col items-center">
           {/* Animated headline word-by-word */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6" style={{ perspective: 600 }}>
@@ -170,7 +171,7 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <section className="bg-muted/30 py-20">
+      <section className="py-20" style={{ background: theme === "light" ? "hsl(210 60% 95% / 0.5)" : "hsl(220 10% 8% / 0.4)" }}>
         <div className="max-w-4xl mx-auto px-4 text-center">
           <motion.h2
             className="text-2xl sm:text-3xl font-bold mb-12"
