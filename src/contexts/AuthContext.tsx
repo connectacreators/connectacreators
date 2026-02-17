@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole>("client");
   const [loading, setLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
@@ -55,19 +56,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(u);
 
         if (u) {
+          setRoleLoading(true);
           // Use setTimeout to avoid Supabase auth deadlock
           setTimeout(() => {
             fetchRole(u.id).then((r) => {
-              if (isMounted) setRole(r);
+              if (isMounted) {
+                setRole(r);
+                setRoleLoading(false);
+              }
             });
           }, 0);
         } else {
           setRole("client");
+          setRoleLoading(false);
         }
 
         // Mark loading done on initial session
         if (event === "INITIAL_SESSION") {
-          setLoading(false);
+          // If there's a user, wait for role to load before marking done
+          if (!u) {
+            setLoading(false);
+          }
+          // else loading will be set to false after role resolves
         }
       }
     );
@@ -78,6 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // When role finishes loading, mark overall loading as done
+  useEffect(() => {
+    if (user && !roleLoading && loading) {
+      setLoading(false);
+    }
+  }, [user, roleLoading, loading]);
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
