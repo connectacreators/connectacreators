@@ -10,19 +10,33 @@ import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles } from "lucid
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
+import heroImage from "@/assets/home-hero.jpg";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.15, duration: 0.5, ease: [0, 0, 0.2, 1] as const },
+    transition: { delay: i * 0.15, duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as const },
+  }),
+};
+
+const letterPull = {
+  hidden: { opacity: 0, y: 60, rotateX: 40 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    rotateX: 0,
+    transition: { delay: 0.3 + i * 0.04, duration: 0.6, ease: [0.22, 1, 0.36, 1] as const },
   }),
 };
 
 export default function Home() {
   const { language } = useLanguage();
   const { theme } = useTheme();
+
+  const heroTitle = tr(t.home.heroTitle, language);
+  const heroWords = heroTitle.split(" ");
 
   const features = [
     {
@@ -69,29 +83,53 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 gradient-bg pointer-events-none" />
-        <div className="max-w-4xl mx-auto px-4 py-24 sm:py-32 text-center relative z-10">
-          <motion.h1
-            className="text-3xl sm:text-5xl font-bold leading-tight mb-4"
-            initial="hidden"
-            animate="visible"
-            custom={0}
-            variants={fadeUp}
-          >
-            {tr(t.home.heroTitle, language)}
-          </motion.h1>
+      <section className="relative overflow-hidden min-h-[85vh] flex items-center justify-center">
+        {/* Background image */}
+        <div className="absolute inset-0">
+          <img
+            src={heroImage}
+            alt=""
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
+          <div className="absolute inset-0 bg-background/75 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 gradient-bg opacity-60" />
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 py-24 sm:py-32 text-center flex flex-col items-center">
+          {/* Animated headline word-by-word */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6" style={{ perspective: 600 }}>
+            {heroWords.map((word, i) => (
+              <motion.span
+                key={i}
+                className="inline-block mr-[0.3em]"
+                initial="hidden"
+                animate="visible"
+                custom={i}
+                variants={letterPull}
+              >
+                <span className={i === 0 || (language === "es" && i <= 0) ? "text-primary" : ""}>
+                  {word}
+                </span>
+              </motion.span>
+            ))}
+          </h1>
+
           <motion.p
-            className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto mb-8"
-            initial="hidden"
-            animate="visible"
-            custom={1}
-            variants={fadeUp}
+            className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto mb-10 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
           >
             {tr(t.home.heroSubtitle, language)}
           </motion.p>
-          <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp}>
-            <Button asChild size="xl" variant="cta">
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.1, duration: 0.5 }}
+          >
+            <Button asChild size="xl" variant="cta" className="shadow-glow">
               <Link to="/dashboard">{tr(t.home.cta, language)}</Link>
             </Button>
           </motion.div>
@@ -114,15 +152,15 @@ export default function Home() {
           {features.map((f, i) => (
             <motion.div
               key={i}
-              className="rounded-xl border border-border bg-card p-6 shadow-card hover:shadow-glow transition-smooth"
+              className="rounded-xl border border-border bg-card p-6 shadow-card hover:shadow-glow transition-smooth text-center flex flex-col items-center"
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
               custom={i + 1}
               variants={fadeUp}
             >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <f.icon className="w-5 h-5 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                <f.icon className="w-6 h-6 text-primary" />
               </div>
               <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
@@ -133,9 +171,9 @@ export default function Home() {
 
       {/* How It Works */}
       <section className="bg-muted/30 py-20">
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="max-w-4xl mx-auto px-4 text-center">
           <motion.h2
-            className="text-2xl sm:text-3xl font-bold text-center mb-12"
+            className="text-2xl sm:text-3xl font-bold mb-12"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
@@ -144,7 +182,7 @@ export default function Home() {
           >
             {tr(t.home.howItWorksHeading, language)}
           </motion.h2>
-          <div className="grid sm:grid-cols-3 gap-8 text-center">
+          <div className="grid sm:grid-cols-3 gap-8">
             {steps.map((s, i) => (
               <motion.div
                 key={i}
@@ -167,7 +205,7 @@ export default function Home() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-3xl mx-auto px-4 py-20 text-center flex flex-col items-center">
         <motion.h2
           className="text-2xl sm:text-3xl font-bold mb-4"
           initial="hidden"
@@ -195,7 +233,7 @@ export default function Home() {
           custom={2}
           variants={fadeUp}
         >
-          <Button asChild size="xl" variant="cta">
+          <Button asChild size="xl" variant="cta" className="shadow-glow">
             <Link to="/dashboard">{tr(t.home.cta, language)}</Link>
           </Button>
         </motion.div>
@@ -203,7 +241,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border/50 py-8">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center gap-4 text-sm text-muted-foreground text-center">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
