@@ -20,7 +20,7 @@ const fadeUp = {
 };
 
 export default function Dashboard() {
-  const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, loading, isAdmin, isVideographer, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
@@ -28,6 +28,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return;
+    // Admins and videographers bypass subscription check
+    if (isAdmin || isVideographer) return;
+
     supabase
       .from("clients")
       .select("plan_type, subscription_status")
@@ -43,7 +46,7 @@ export default function Dashboard() {
           navigate("/select-plan");
         }
       });
-  }, [user, navigate]);
+  }, [user, isAdmin, isVideographer, navigate]);
 
   const toolCards = [
     {

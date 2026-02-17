@@ -1,13 +1,27 @@
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Menu, X, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
+import { supabase } from "@/integrations/supabase/client";
 import connectaLogo from "@/assets/connecta-logo.png";
 import connectaLogoDark from "@/assets/connecta-logo-dark.png";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
   const { theme } = useTheme();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setLoggedIn(!!data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setLoggedIn(!!session));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
 
   const navItems = [
     { label: "Servicios", href: "#servicios" },
@@ -38,13 +52,30 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* CTA Button - Pill style */}
-          <div className="hidden md:block">
-            <Link to="/onboarding">
-              <button className="rounded-full border border-foreground/20 px-5 py-1.5 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
-                Empezar ahora
-              </button>
-            </Link>
+          {/* CTA / Logout Button */}
+          <div className="hidden md:flex items-center gap-3">
+            {loggedIn ? (
+              <>
+                <Link to="/dashboard">
+                  <button className="rounded-full border border-foreground/20 px-5 py-1.5 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
+                    Dashboard
+                  </button>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors flex items-center gap-1.5"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Salir
+                </button>
+              </>
+            ) : (
+              <Link to="/onboarding">
+                <button className="rounded-full border border-foreground/20 px-5 py-1.5 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
+                  Empezar ahora
+                </button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -74,12 +105,29 @@ const Navbar = () => {
                   {item.label}
                 </a>
               ))}
-              <div className="px-4 pt-2">
-                <Link to="/onboarding">
-                  <button className="w-full rounded-full border border-foreground/20 px-5 py-2 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
-                    Empezar ahora
-                  </button>
-                </Link>
+              <div className="px-4 pt-2 flex flex-col gap-2">
+                {loggedIn ? (
+                  <>
+                    <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                      <button className="w-full rounded-full border border-foreground/20 px-5 py-2 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
+                        Dashboard
+                      </button>
+                    </Link>
+                    <button
+                      onClick={() => { setIsOpen(false); handleLogout(); }}
+                      className="w-full rounded-full border border-foreground/20 px-5 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Salir
+                    </button>
+                  </>
+                ) : (
+                  <Link to="/onboarding" onClick={() => setIsOpen(false)}>
+                    <button className="w-full rounded-full border border-foreground/20 px-5 py-2 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
+                      Empezar ahora
+                    </button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
