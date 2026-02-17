@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, Crown } from "lucide-react";
+import { Check, Loader2, Crown, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -109,13 +109,18 @@ const plans = [
 ];
 
 export default function SelectPlan() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin, isVideographer, signOut } = useAuth();
   const navigate = useNavigate();
   const [clientId, setClientId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
+      navigate("/dashboard");
+      return;
+    }
+    // Admins and videographers don't need a plan
+    if (user && (isAdmin || isVideographer)) {
       navigate("/dashboard");
       return;
     }
@@ -126,14 +131,14 @@ export default function SelectPlan() {
         .eq("user_id", user.id)
         .maybeSingle()
         .then(({ data }) => {
-          if (data?.plan_type && (data.subscription_status === "active" || data.subscription_status === "pending_contact")) {
+          if (data?.plan_type && data.subscription_status === "active") {
             navigate("/dashboard");
           } else if (data) {
             setClientId(data.id);
           }
         });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, isAdmin, isVideographer, navigate]);
 
   const handleSelect = async (plan: (typeof plans)[number]) => {
     if (!clientId) return;
@@ -162,17 +167,7 @@ export default function SelectPlan() {
         setSelecting(null);
       }
     } else {
-      // Contact plans - save directly to DB
-      const { error } = await supabase
-        .from("clients")
-        .update(plan.data as any)
-        .eq("id", clientId);
-
-      if (error) {
-        toast.error("Failed to select plan. Please try again.");
-        setSelecting(null);
-        return;
-      }
+      // Contact plans - redirect without changing subscription status
       navigate(plan.redirect!);
     }
   };
@@ -188,6 +183,12 @@ export default function SelectPlan() {
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-7xl mx-auto">
+        <div className="flex justify-end mb-4">
+          <Button variant="ghost" size="sm" onClick={() => signOut().then(() => navigate("/dashboard"))} className="text-muted-foreground">
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
         <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: -20 }}
