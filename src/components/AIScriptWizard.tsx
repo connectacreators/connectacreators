@@ -187,8 +187,15 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     setLoading(true);
     try {
       const data = await callAIBuild({ step: "research", topic: topic.trim() });
-      setFacts(data.facts || []);
-      setSelectedFacts(data.facts?.map((_: any, i: number) => i) || []);
+      const factsArr: Fact[] = data.facts || [];
+      setFacts(factsArr);
+      // Auto-select top 3 by impact_score
+      const top3 = factsArr
+        .map((f, i) => ({ score: f.impact_score, i }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map((x) => x.i);
+      setSelectedFacts(top3);
       advanceTo(2);
     } catch (e: any) {
       toast.error(e.message || "Error researching topic");
@@ -252,7 +259,15 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     }
   };
 
+  // Compute top 3 fact indices by impact score
+  const top3FactIndices = facts
+    .map((f, i) => ({ score: f.impact_score, i }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((x) => x.i);
+
   const toggleFact = (idx: number) => {
+    if (!top3FactIndices.includes(idx)) return; // only top 3 are toggleable
     setSelectedFacts((prev) =>
       prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
     );
@@ -531,12 +546,15 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                 {tr({ en: "Include these research facts:", es: "Incluir estos datos de investigación:" }, language)}
               </label>
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {facts.map((f, i) => (
-                  <label key={i} className="flex items-start gap-2 cursor-pointer text-sm">
-                    <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" />
-                    <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
-                  </label>
-                ))}
+                {facts.map((f, i) => {
+                  const isTop3 = top3FactIndices.includes(i);
+                  return (
+                    <label key={i} className={`flex items-start gap-2 text-sm ${isTop3 ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}>
+                      <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" disabled={!isTop3} />
+                      <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -598,12 +616,15 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                     {tr({ en: "Facts to include:", es: "Datos a incluir:" }, language)}
                   </label>
                   <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                    {facts.map((f, i) => (
-                      <label key={i} className="flex items-start gap-2 cursor-pointer text-sm">
-                        <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" />
-                        <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
-                      </label>
-                    ))}
+                    {facts.map((f, i) => {
+                      const isTop3 = top3FactIndices.includes(i);
+                      return (
+                        <label key={i} className={`flex items-start gap-2 text-sm ${isTop3 ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}>
+                          <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" disabled={!isTop3} />
+                          <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
                 <Button variant="outline" onClick={handleGenerateScript} disabled={loading} className="gap-2 w-full" size="sm">
