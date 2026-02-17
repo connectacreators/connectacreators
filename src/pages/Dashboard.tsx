@@ -7,6 +7,16 @@ import { Loader2, FileText, Target, CalendarDays } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useState } from "react";
+import { motion } from "framer-motion";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+  }),
+};
 
 export default function Dashboard() {
   const { user, loading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
@@ -79,27 +89,47 @@ export default function Dashboard() {
 
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="max-w-3xl w-full text-center">
-            <p className="text-muted-foreground text-sm mb-1">👋 {tr(t.dashboard.greeting, language)}, {displayName}</p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-10">
+            <motion.p
+              className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2"
+              initial="hidden"
+              animate="visible"
+              custom={0}
+              variants={fadeUp}
+            >
+              👋 {tr(t.dashboard.greeting, language)}, {displayName}
+            </motion.p>
+            <motion.h1
+              className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-16 tracking-tight leading-[0.95]"
+              initial="hidden"
+              animate="visible"
+              custom={1}
+              variants={fadeUp}
+            >
               {tr(t.dashboard.question, language)}
-            </h1>
+            </motion.h1>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {toolCards.map((tool, i) => (
-                <button
+                <motion.button
                   key={tool.path}
                   onClick={() => navigate(tool.path)}
-                  className="group flex flex-col items-center gap-4 p-8 bg-card border border-border/60 rounded-xl hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 text-center relative"
+                  className="group flex flex-col items-center gap-5 p-8 rounded-2xl border border-border/50 bg-card/30 hover:border-primary/30 transition-colors text-center relative"
+                  initial="hidden"
+                  animate="visible"
+                  custom={i + 2}
+                  variants={fadeUp}
                 >
-                  <tool.icon className={`w-8 h-8 ${tool.color}`} />
+                  <div className="w-12 h-12 rounded-full border border-foreground/10 flex items-center justify-center group-hover:border-primary/30 transition-colors">
+                    <tool.icon className={`w-5 h-5 ${tool.color} group-hover:text-primary transition-colors`} />
+                  </div>
                   <div>
-                    <h2 className="text-sm font-bold text-foreground mb-1">{tool.label}</h2>
-                    <p className="text-xs text-muted-foreground">{tool.description}</p>
+                    <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{tool.label}</h2>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
                   </div>
                   {i < toolCards.length - 1 && (
-                    <span className="hidden sm:block absolute -right-3 top-1/2 -translate-y-1/2 text-muted-foreground/30 text-lg">→</span>
+                    <span className="hidden sm:block absolute -right-3 top-1/2 -translate-y-1/2 text-muted-foreground/20 text-lg">→</span>
                   )}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
