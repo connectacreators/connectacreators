@@ -100,19 +100,19 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
       <div className="flex-1 flex items-center justify-center pt-16">
       <div className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">
-            {tr(t.login.headlinePre, language)}{" "}
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+            {(words[wordIndex] as any).pre}{" "}
             <span className="inline-block relative" style={{ minWidth: "7ch" }}>
               <AnimatePresence mode="wait">
                 <motion.span
-                  key={words[wordIndex]}
+                  key={(words[wordIndex] as any).word}
                   initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
                   animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
                   exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
                   transition={{ duration: 0.4, ease: "easeOut" }}
                   className="text-primary inline-block"
                 >
-                  {words[wordIndex]}
+                  {(words[wordIndex] as any).word}
                 </motion.span>
               </AnimatePresence>
             </span>{" "}

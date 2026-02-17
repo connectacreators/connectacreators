@@ -215,7 +215,18 @@ export const t = {
     headline: { en: "Your content, leads, and systems in one place.", es: "Tu contenido, leads y sistemas en un solo lugar." },
     headlinePre: { en: "Your", es: "Tu" },
     headlinePost: { en: "in one place.", es: "en un solo lugar." },
-    headlineWords: { en: ["content", "leads", "systems"], es: ["contenido", "leads", "sistemas"] },
+    headlineWords: {
+      en: [
+        { word: "content", pre: "Your" },
+        { word: "leads", pre: "Your" },
+        { word: "systems", pre: "Your" },
+      ],
+      es: [
+        { word: "contenido", pre: "Tu" },
+        { word: "leads", pre: "Tus" },
+        { word: "sistemas", pre: "Tus" },
+      ],
+    },
     forgotPrompt: { en: "Enter your email to reset your password", es: "Ingresa tu correo para restablecer tu contraseña" },
     createAccount: { en: "Create your account", es: "Crea tu cuenta" },
     signInToContinue: { en: "Sign in to continue", es: "Inicia sesión para continuar" },
