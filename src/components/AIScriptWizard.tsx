@@ -657,7 +657,7 @@ function StepCard({
       }`}
     >
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle className="flex items-center justify-center gap-2 text-base">
           <span className={`
             w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
             ${complete ? "bg-primary text-primary-foreground" : active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}
