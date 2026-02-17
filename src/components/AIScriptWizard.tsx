@@ -411,7 +411,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                   onClick={() => { setSelectedHookCategory(key); setSelectedTemplate(null); }}
                 >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="text-sm flex items-center justify-center gap-2">
                       <Icon className={`w-4 h-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
                       {tr(hookCategoryNames[key], language)}
                     </CardTitle>
@@ -669,9 +669,11 @@ function StepCard({
           {locked && <Lock className="w-4 h-4 text-muted-foreground ml-auto" />}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
-        {children}
-      </CardContent>
+      {!locked && (
+        <CardContent className="pt-0">
+          {children}
+        </CardContent>
+      )}
     </Card>
   );
 }
