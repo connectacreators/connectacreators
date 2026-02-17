@@ -1,41 +1,52 @@
-# Dynamic Rotating Text on Login Page
 
-## What Changes
 
-The login headline "Your content, leads, and systems in one place." becomes animated:
+# Home Page - Connecta Creators CRM Introduction
 
-**"Your `[rotating word]` in one place."**
+## Overview
+Create a new public Home page at `/` that introduces the Connecta Creators CRM. The current Dashboard (which includes the login) moves to `/dashboard`. The Home page will showcase CRM features with stock imagery, matching the existing branding (gold/blue theme, Arial font), and have "Registrarte" buttons at top and bottom that link to `/dashboard` (the login page).
 
-The rotating word cycles through **content**, **leads, systems** every 3 seconds with a roll-down (slide-down + fade +blur) transition effect. The rotating word is styled in your primary blue color.
+## What You'll See
 
-## How It Works
+1. **Hero Section**: Full-width header with headline "Connecta con tus clientes mas rapido" (ES) / "Connect with your clients faster" (EN), a subtitle explaining the CRM, and a prominent "Registrarte" / "Sign Up" button. Uses a gradient background matching the existing design system.
 
-- A small state machine in `ScriptsLogin.tsx` cycles through 3 words using `setInterval` (3s)
-- Each word animates in with a vertical slide-down + fade-in effect, and the previous word slides out
-- The rotating word is wrapped in a `<span>` with `text-primary` (blue) styling
-- Uses `framer-motion` (already installed) `AnimatePresence` + `motion.span` for smooth enter/exit transitions
+2. **Features Section**: 3 cards highlighting the main CRM tools:
+   - **Script Builder**: AI-powered script creation
+   - **Lead Tracker**: Manage and track your leads
+   - **Lead Calendar**: Schedule and organize follow-ups
+   Each card uses a Lucide icon and a brief description.
+
+3. **How It Works**: 3-step visual flow (Sign Up -> Set Up Your Clients -> Start Creating) with numbered steps.
+
+4. **Bottom CTA**: Repeated "Registrarte" button with a closing line.
+
+5. **Footer**: Connecta logo, minimal links (Privacy Policy, Terms).
+
+All sections use `framer-motion` fade-in animations on scroll for polish. Stock images will use placeholder gradient backgrounds and icons rather than external URLs, keeping the app self-contained.
 
 ## Technical Details
 
-### 1. Update `ScriptsLogin.tsx`
+### 1. New Page: `src/pages/Home.tsx`
+- Public page, no auth required
+- Includes `ThemeToggle` and `LanguageToggle` in top-right corner (same as login page)
+- Uses existing components: `Button`, `motion` from framer-motion
+- Bilingual via `useLanguage` + `t` / `tr` helpers
+- "Registrarte" buttons use `<Link to="/dashboard">` via react-router
 
-- Add a `useState` for the current word index and a `useEffect` with a 3-second interval
-- Define word arrays for EN (`["leads", "content", "systems"]`) and ES (`["leads", "contenido", "sistemas"]`)
-- Replace the static `{tr(t.login.headline, language)}` with a template:
-  - Static: "Your" / "Tu"
-  - Animated blue word (framer-motion `AnimatePresence` with `key` swap)
-  - Static: "in one place." / "en un solo lugar."
-- The animated word uses `motion.span` with:
-  - Enter: `y: 20, opacity: 0` to `y: 0, opacity: 1`
-  - Exit: `y: -20, opacity: 0`
-  - Duration: ~0.4s ease-out
-- Word styled with `text-primary` class for blue color
+### 2. Route Changes in `src/App.tsx`
+- `/` -> `Home` (new public intro page)
+- `/dashboard` -> `Dashboard` (existing, includes login)
+- All sidebar nav links (`/scripts`, `/leads`, etc.) remain unchanged since they already check auth internally
 
-### 2. Update `src/i18n/translations.ts`
+### 3. Update Navigation References
+- `DashboardSidebar.tsx`: Update the logo link / home link if it points to `/` to point to `/dashboard`
+- Existing links to `/` in sidebar/topbar should go to `/dashboard` instead
 
-- Split the headline into parts: `headlinePre`, `headlinePost` (static parts) and `headlineWords` (rotating words array) for both EN and ES
+### 4. Translations in `src/i18n/translations.ts`
+- Add a `home` section with all strings: hero headline, subtitle, feature titles/descriptions, CTA button labels, how-it-works steps
 
 ### Files Modified
+- `src/pages/Home.tsx` (new)
+- `src/App.tsx` (add `/` route, move Dashboard to `/dashboard`)
+- `src/i18n/translations.ts` (add home strings)
+- `src/components/DashboardSidebar.tsx` (update home link to `/dashboard`)
 
-- `src/components/ScriptsLogin.tsx` -- add rotating word animation
-- `src/i18n/translations.ts` -- split headline into parts for bilingual support
