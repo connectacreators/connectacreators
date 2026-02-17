@@ -5,9 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, GripVertical, RotateCcw, Archive,
+  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
+import AIScriptWizard from "@/components/AIScriptWizard";
 import VideoRecorder from "@/components/VideoRecorder";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -394,6 +395,7 @@ export default function Scripts() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [aiMode, setAiMode] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
   // Create videographer form (admin)
@@ -1174,57 +1176,108 @@ export default function Scripts() {
               <span className="text-primary">{selectedClient?.name}</span>
             </h2>
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 sm:gap-4 mb-6">
-              {Object.entries(getTypeConfig(language)).map(([key, cfg]) => (
-                <div key={key} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                  <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${cfg.dot}`} />
-                  <span className={cfg.color}>{cfg.label}</span>
-                </div>
-              ))}
-            </div>
+            {/* AI Mode Toggle — only on new-script */}
+            {view === "new-script" && (
+              <div className="flex gap-2 mb-6">
+                <Button
+                  variant={!aiMode ? "cta" : "outline"}
+                  size="sm"
+                  onClick={() => setAiMode(false)}
+                  className="gap-2"
+                >
+                  <Pencil className="w-4 h-4" /> Manual
+                </Button>
+                <Button
+                  variant={aiMode ? "cta" : "outline"}
+                  size="sm"
+                  onClick={() => setAiMode(true)}
+                  className="gap-2"
+                >
+                  <Wand2 className="w-4 h-4" /> {tr({ en: "Let AI Build It", es: "Que la IA lo construya" }, language)}
+                </Button>
+              </div>
+            )}
 
-             <p className="text-sm text-muted-foreground mb-4">{tr(t.scripts.pasteHint, language)}</p>
-
-             <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
-             <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
-            
-            <div className="mb-3">
-               <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
-               <Select value={formato} onValueChange={setFormato}>
-                 <SelectTrigger className="bg-gradient-to-r from-card to-muted/30">
-                   <SelectValue placeholder={tr(t.scripts.selectFormat, language)} />
-                 </SelectTrigger>
-                 <SelectContent className="bg-gradient-to-br from-card to-muted/20 border-border z-50">
-                   <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
-                   <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
-                   <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
-                   <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
-                 </SelectContent>
-               </Select>
-            </div>
-
-            <Input placeholder={tr(t.scripts.googleDriveLink, language)} value={googleDriveLink} onChange={(e) => setGoogleDriveLink(e.target.value)} className="mb-3" />
-
-            <div className="relative mb-4">
-              <Textarea
-                value={scriptInput}
-                onChange={(e) => setScriptInput(e.target.value)}
-                placeholder={tr(t.scripts.pasteDictate, language)}
-                className="min-h-[200px] bg-gradient-to-br from-card to-muted/20 border-border font-mono text-sm resize-y pr-12"
+            {/* AI Wizard Mode */}
+            {view === "new-script" && aiMode && selectedClient ? (
+              <AIScriptWizard
+                selectedClient={selectedClient}
+                onComplete={async (rawContent, title) => {
+                  setScriptInput(rawContent);
+                  setScriptTitle(title);
+                  // Use categorizeAndSave to properly categorize the AI-generated script
+                  const result = await categorizeAndSave(
+                    selectedClient.id,
+                    title,
+                    rawContent,
+                    undefined,
+                    undefined,
+                    undefined
+                  );
+                  if (result) {
+                    setParsedLines(result.lines);
+                    setViewingMetadata(result.metadata);
+                    setViewingScriptId(result.scriptId);
+                    setView("view-script");
+                  }
+                }}
+                onCancel={() => setAiMode(false)}
               />
-              <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
-            </div>
-            <Button
-              onClick={view === "edit-script" ? handleUpdate : handleCategorize}
-              variant="cta"
-              size="lg"
-              className="gap-2 w-full sm:w-auto"
-              disabled={scriptsLoading || !scriptInput.trim()}
-            >
-              {scriptsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {scriptsLoading ? tr(t.scripts.analyzing, language) : view === "edit-script" ? tr(t.scripts.updateRecategorize, language) : tr(t.scripts.analyzeAndSave, language)}
-            </Button>
+            ) : (
+              <>
+                {/* Legend */}
+                <div className="flex flex-wrap gap-3 sm:gap-4 mb-6">
+                  {Object.entries(getTypeConfig(language)).map(([key, cfg]) => (
+                    <div key={key} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                      <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${cfg.dot}`} />
+                      <span className={cfg.color}>{cfg.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                 <p className="text-sm text-muted-foreground mb-4">{tr(t.scripts.pasteHint, language)}</p>
+
+                 <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
+                 <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
+                
+                <div className="mb-3">
+                   <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
+                   <Select value={formato} onValueChange={setFormato}>
+                     <SelectTrigger className="bg-gradient-to-r from-card to-muted/30">
+                       <SelectValue placeholder={tr(t.scripts.selectFormat, language)} />
+                     </SelectTrigger>
+                     <SelectContent className="bg-gradient-to-br from-card to-muted/20 border-border z-50">
+                       <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
+                       <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
+                       <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
+                       <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
+                     </SelectContent>
+                   </Select>
+                </div>
+
+                <Input placeholder={tr(t.scripts.googleDriveLink, language)} value={googleDriveLink} onChange={(e) => setGoogleDriveLink(e.target.value)} className="mb-3" />
+
+                <div className="relative mb-4">
+                  <Textarea
+                    value={scriptInput}
+                    onChange={(e) => setScriptInput(e.target.value)}
+                    placeholder={tr(t.scripts.pasteDictate, language)}
+                    className="min-h-[200px] bg-gradient-to-br from-card to-muted/20 border-border font-mono text-sm resize-y pr-12"
+                  />
+                  <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
+                </div>
+                <Button
+                  onClick={view === "edit-script" ? handleUpdate : handleCategorize}
+                  variant="cta"
+                  size="lg"
+                  className="gap-2 w-full sm:w-auto"
+                  disabled={scriptsLoading || !scriptInput.trim()}
+                >
+                  {scriptsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {scriptsLoading ? tr(t.scripts.analyzing, language) : view === "edit-script" ? tr(t.scripts.updateRecategorize, language) : tr(t.scripts.analyzeAndSave, language)}
+                </Button>
+              </>
+            )}
           </>
         )}
 
