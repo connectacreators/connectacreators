@@ -411,7 +411,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                   onClick={() => { setSelectedHookCategory(key); setSelectedTemplate(null); }}
                 >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center justify-center gap-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
                       <Icon className={`w-4 h-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
                       {tr(hookCategoryNames[key], language)}
                     </CardTitle>
@@ -656,8 +656,8 @@ function StepCard({
               : "border-border"
       }`}
     >
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-center gap-2 text-base">
+      <CardHeader className={locked ? "pb-0" : "pb-3"}>
+        <CardTitle className="flex items-center gap-2 text-base">
           <span className={`
             w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
             ${complete ? "bg-primary text-primary-foreground" : active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}
