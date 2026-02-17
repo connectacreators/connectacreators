@@ -1,94 +1,133 @@
 
-# Subscription Selection Step in Registration Flow
+# Stripe Subscription Integration for Connecta
 
 ## Overview
-Add a plan selection page that appears after a user signs up and before they access the dashboard. This involves database changes to store plan/subscription data on the `clients` table, a new `/select-plan` page with 5 plan cards, and routing logic to redirect new users to plan selection.
+Integrate Stripe to handle real payments for the 3 paid plans (Starter, Growth, Enterprise). When a user selects a plan on `/select-plan`, instead of just writing to the database, they'll be redirected to Stripe Checkout to complete payment. Once paid, their plan data gets saved and they can access the CRM. Users without an active subscription are blocked from CRM pages.
 
-## Database Changes
+The "Contact our team" plans (Connecta Plan, Connecta Plus) remain as-is since they don't involve Stripe.
 
-Add the following columns to the existing `clients` table:
-- `plan_type` (text, nullable, default null) -- starter, growth, enterprise, connecta_dfy, connecta_plus
-- `script_limit` (integer, nullable, default 75)
-- `scripts_used` (integer, default 0)
-- `lead_tracker_enabled` (boolean, default false)
-- `facebook_integration_enabled` (boolean, default false)
-- `subscription_status` (text, default 'inactive') -- active, inactive, pending_contact
+## What Changes
 
-RLS: Clients can already read their own record. We need to add an UPDATE policy so clients can update their own plan fields (or use the existing admin policy + a new self-update policy).
+### 1. Create Stripe Products and Prices
+Create 3 recurring subscription products in Stripe:
+- **Starter** -- $30/month
+- **Growth** -- $60/month  
+- **Enterprise** -- $150/month
 
-## New Page: `/select-plan`
+### 2. New Edge Function: `create-checkout`
+When a user clicks a plan on `/select-plan`:
+- Authenticates the user
+- Looks up or creates a Stripe customer
+- Saves the `stripe_customer_id` on the `clients` table
+- Creates a Stripe Checkout session in `subscription` mode with the correct price
+- Passes the selected `plan_type` as metadata so we can use it after payment
+- Returns the checkout URL for redirect
 
-Create `src/pages/SelectPlan.tsx`:
-- Protected route (requires auth)
-- Displays 5 plan cards in a responsive grid
-- Each card shows: plan name, price, description, feature list, and CTA button
-- Plans 1-3 (Starter, Growth, Enterprise): on click, update the user's `clients` record with the corresponding plan data and redirect to `/dashboard`
-- Plans 4-5 (Connecta Plan, Connecta Plus): on click, update the record with `pending_contact` status and redirect to a "Coming Soon" confirmation view
+### 3. New Edge Function: `check-subscription`
+Called on app load and after checkout to verify subscription status:
+- Checks Stripe for an active subscription for the user
+- Updates the `clients` table with the correct `plan_type`, `script_limit`, `lead_tracker_enabled`, etc. based on the active subscription's product
+- Returns `{ subscribed: true/false, plan_type, ... }`
 
-## New Page: `/coming-soon`
+### 4. Update `SelectPlan.tsx`
+For plans 1-3 (Starter, Growth, Enterprise):
+- Instead of directly updating the database, call the `create-checkout` edge function
+- Redirect the user to Stripe Checkout in a new tab
+- Add a success route that verifies the subscription and redirects to dashboard
 
-Create `src/pages/ComingSoon.tsx`:
-- Simple page with title "Coming Soon" and message "Scheduling will be available soon. Our team will contact you shortly."
-- Button to go back to dashboard
+For plans 4-5 (Contact plans):
+- Keep existing behavior (save to DB, redirect to `/coming-soon`)
 
-## Routing Changes
+### 5. New Page: `/payment-success`
+Simple page that:
+- Calls `check-subscription` to sync Stripe status to the database
+- Shows a success message
+- Redirects to `/dashboard`
 
-In `App.tsx`:
-- Add `/select-plan` route pointing to `SelectPlan`
-- Add `/coming-soon` route pointing to `ComingSoon`
+### 6. CRM Access Guard
+Add a subscription check to protected CRM pages (`/scripts`, `/leads`, `/lead-calendar`):
+- On load, check the user's `subscription_status` from the `clients` table
+- If not `active` or `pending_contact`, redirect to `/select-plan`
+- Admin users bypass this check
 
-## Post-Signup Redirect Logic
-
-In the `Dashboard` component, after the user is authenticated:
-- Query the `clients` table for the current user
-- If `plan_type` is null, redirect to `/select-plan`
-- Otherwise, show the dashboard normally
-
-This ensures that new users who haven't picked a plan are sent to the selection page.
+### 7. Update Dashboard Guard
+The existing dashboard guard already redirects users without a `plan_type` to `/select-plan`. We enhance it to also check `subscription_status` -- if it's `inactive`, redirect to `/select-plan`.
 
 ## Technical Details
 
-### Migration SQL
-```sql
-ALTER TABLE public.clients
-  ADD COLUMN IF NOT EXISTS plan_type text,
-  ADD COLUMN IF NOT EXISTS script_limit integer DEFAULT 75,
-  ADD COLUMN IF NOT EXISTS scripts_used integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS lead_tracker_enabled boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS facebook_integration_enabled boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS subscription_status text DEFAULT 'inactive';
+### Stripe Products to Create
+| Plan | Product Name | Price | Interval |
+|------|-------------|-------|----------|
+| Starter | Connecta Starter | $30 | monthly |
+| Growth | Connecta Growth | $60 | monthly |
+| Enterprise | Connecta Enterprise | $150 | monthly |
+
+### Edge Function: `create-checkout` (new file)
+```
+supabase/functions/create-checkout/index.ts
+```
+- Accepts `{ plan_type: string }` in the request body
+- Maps plan_type to the corresponding Stripe price ID
+- Creates checkout session with `mode: "subscription"`
+- Stores `plan_type` in session metadata for later reference
+- Success URL: `/payment-success`
+- Cancel URL: `/select-plan`
+
+### Edge Function: `check-subscription` (new file)
+```
+supabase/functions/check-subscription/index.ts
+```
+- Authenticates user via JWT
+- Looks up Stripe customer by email
+- Checks for active subscription
+- Maps the Stripe product ID back to plan_type
+- Updates `clients` table with correct plan data (script_limit, lead_tracker_enabled, etc.)
+- Returns subscription status
+
+### Plan-to-Limits Mapping (used in check-subscription)
+```text
+starter:    script_limit=75,  lead_tracker=false, fb_integration=false
+growth:     script_limit=200, lead_tracker=false, fb_integration=false
+enterprise: script_limit=500, lead_tracker=true,  fb_integration=true
 ```
 
-Add RLS policy for clients to update their own subscription fields:
-```sql
-CREATE POLICY "Client can update own plan"
-  ON public.clients FOR UPDATE
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+### New Page: `src/pages/PaymentSuccess.tsx`
+- Calls `check-subscription` on mount
+- Shows loading spinner, then success message
+- Auto-redirects to `/dashboard` after 3 seconds
+
+### Route Addition in `App.tsx`
+- Add `/payment-success` route
+
+### CRM Guard Component
+Create a reusable hook or wrapper that checks `subscription_status` from the `clients` table. Apply it to:
+- `Scripts.tsx`
+- `LeadTracker.tsx`
+- `LeadCalendar.tsx`
+- `Dashboard.tsx` (enhance existing guard)
+
+Admin users (checked via `useAuth().isAdmin`) skip this check.
+
+### Config: `supabase/config.toml`
+Add JWT verification bypass for the new functions:
+```toml
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
 ```
 
-### Plan Card UI
-- Cards arranged in a scrollable horizontal layout on mobile, grid on desktop
-- Plans 1-3 show dollar prices; Plans 4-5 show "Contact our team"
-- Enterprise plan highlighted as "Most Popular" or similar badge
-- Each card lists features with checkmark icons
+### Files to Create
+- `supabase/functions/create-checkout/index.ts`
+- `supabase/functions/check-subscription/index.ts`
+- `src/pages/PaymentSuccess.tsx`
 
-### SelectPlan Page Flow
-1. Fetch the user's `clients` record to get their `client_id`
-2. On plan selection, update the `clients` row with `plan_type`, `script_limit`, `scripts_used`, `lead_tracker_enabled`, `facebook_integration_enabled`, `subscription_status`
-3. For plans 1-3: redirect to `/dashboard`
-4. For plans 4-5: redirect to `/coming-soon`
-
-### Dashboard Guard
-Add a `useEffect` in `Dashboard.tsx` that checks:
-```typescript
-const { data } = await supabase
-  .from("clients")
-  .select("plan_type")
-  .eq("user_id", user.id)
-  .maybeSingle();
-
-if (data && !data.plan_type) {
-  navigate("/select-plan");
-}
-```
+### Files to Modify
+- `src/pages/SelectPlan.tsx` -- call create-checkout for paid plans
+- `src/App.tsx` -- add PaymentSuccess route
+- `src/pages/Dashboard.tsx` -- enhance guard to check subscription_status
+- `src/pages/Scripts.tsx` -- add subscription guard
+- `src/pages/LeadTracker.tsx` -- add subscription guard
+- `src/pages/LeadCalendar.tsx` -- add subscription guard
+- `supabase/config.toml` -- add function configs (handled automatically)
