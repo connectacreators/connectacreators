@@ -656,7 +656,7 @@ function StepCard({
               : "border-border"
       }`}
     >
-      <CardHeader className={locked ? "pb-0" : "pb-3"}>
+      <CardHeader className={locked ? "py-4" : "pb-3"}>
         <CardTitle className="flex items-center gap-2 text-base">
           <span className={`
             w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
