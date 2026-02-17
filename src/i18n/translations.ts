@@ -288,6 +288,42 @@ export const t = {
     nextStep3: { en: "Free diagnostic call", es: "Llamada de diagnóstico gratuita" },
     backToHome: { en: "Back to home", es: "Volver al inicio" },
   },
+  // Home
+  home: {
+    heroTitle: { en: "Connect with your clients faster", es: "Connecta con tus clientes más rápido" },
+    heroSubtitle: {
+      en: "The all-in-one CRM for content creators. Build scripts with AI, manage your leads, and organize your calendar — all in one place.",
+      es: "El CRM todo-en-uno para creadores de contenido. Crea scripts con IA, gestiona tus leads y organiza tu calendario — todo en un solo lugar.",
+    },
+    cta: { en: "Sign Up", es: "Regístrate" },
+    featuresHeading: { en: "Everything you need to grow", es: "Todo lo que necesitas para crecer" },
+    featureScriptTitle: { en: "AI Script Builder", es: "Creador de Scripts con IA" },
+    featureScriptDesc: {
+      en: "Generate professional video scripts in seconds with AI. Categorize, edit, and share them with your team.",
+      es: "Genera scripts profesionales de video en segundos con IA. Categoriza, edita y compártelos con tu equipo.",
+    },
+    featureLeadTitle: { en: "Lead Tracker", es: "Lead Tracker" },
+    featureLeadDesc: {
+      en: "Track every lead from first contact to close. Filter by status, source, and client.",
+      es: "Rastrea cada lead desde el primer contacto hasta el cierre. Filtra por estado, fuente y cliente.",
+    },
+    featureCalendarTitle: { en: "Lead Calendar", es: "Calendario de Leads" },
+    featureCalendarDesc: {
+      en: "See all your scheduled appointments at a glance. Never miss a follow-up again.",
+      es: "Visualiza todas tus citas programadas de un vistazo. Nunca más pierdas un seguimiento.",
+    },
+    howItWorksHeading: { en: "How it works", es: "Cómo funciona" },
+    step1: { en: "Sign up for free", es: "Regístrate gratis" },
+    step2: { en: "Set up your clients", es: "Configura tus clientes" },
+    step3: { en: "Start creating", es: "Empieza a crear" },
+    bottomCtaTitle: { en: "Ready to level up?", es: "¿Listo para el siguiente nivel?" },
+    bottomCtaDesc: {
+      en: "Join creators who are saving hours every week with Connecta.",
+      es: "Únete a los creadores que ahorran horas cada semana con Connecta.",
+    },
+    privacy: { en: "Privacy Policy", es: "Política de Privacidad" },
+    terms: { en: "Terms & Conditions", es: "Términos y Condiciones" },
+  },
   // Subscription
   subscription: {
     navLabel: { en: "Manage Subscription", es: "Mi Suscripción" },
