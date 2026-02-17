@@ -213,6 +213,9 @@ export const t = {
   // Login
   login: {
     headline: { en: "Your content, leads, and systems in one place.", es: "Tu contenido, leads y sistemas en un solo lugar." },
+    headlinePre: { en: "Your", es: "Tu" },
+    headlinePost: { en: "in one place.", es: "en un solo lugar." },
+    headlineWords: { en: ["content", "leads", "systems"], es: ["contenido", "leads", "sistemas"] },
     forgotPrompt: { en: "Enter your email to reset your password", es: "Ingresa tu correo para restablecer tu contraseña" },
     createAccount: { en: "Create your account", es: "Crea tu cuenta" },
     signInToContinue: { en: "Sign in to continue", es: "Inicia sesión para continuar" },
