@@ -410,7 +410,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                   }`}
                   onClick={() => { setSelectedHookCategory(key); setSelectedTemplate(null); }}
                 >
-                  <CardHeader className="pb-2">
+                  <CardHeader className={isSelected ? "pb-2" : "py-3"}>
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Icon className={`w-4 h-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
                       {tr(hookCategoryNames[key], language)}
