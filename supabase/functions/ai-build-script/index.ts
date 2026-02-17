@@ -135,12 +135,14 @@ Rules:
 
       const systemPrompt = `You are an expert short-form video scriptwriter who specializes in creating viral hooks. You write hooks that stop people from scrolling within the first 2 seconds.
 
-You will be given a topic, research facts, and a hook format/template to follow. Generate a compelling hook that:
-- Follows the chosen template structure
-- Incorporates the topic naturally
-- Uses shocking facts when relevant
-- Is concise and punchy (2-4 sentences max)
-- Creates immediate curiosity or shock value
+You will be given a topic, research facts, and a hook format/template to follow. Generate ONLY the main hook — the opening line(s) that grab attention.
+
+Rules:
+- ONLY output the hook itself: 1-2 sentences maximum
+- Do NOT include any explanation, body content, or additional facts after the hook
+- The hook must follow the chosen template structure
+- Incorporate the topic naturally
+- Create immediate curiosity or shock value
 - Write in SPANISH (Latin American) by default`;
 
       const data = await callClaude(
