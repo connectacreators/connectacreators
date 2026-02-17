@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.get-subscription]
 verify_jwt = false
+
+[functions.ai-build-script]
+verify_jwt = false
