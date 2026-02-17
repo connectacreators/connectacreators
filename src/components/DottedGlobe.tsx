@@ -130,8 +130,7 @@ function isLand(row: number, col: number): boolean {
   return landSet.has(row * MAP_COLS + (col % MAP_COLS));
 }
 
-// Compute distance to nearest land for each cell (BFS), cached
-const MAX_DIST = 6;
+const MAX_DIST = 10;
 const landDistMap = new Float32Array(MAP_ROWS * MAP_COLS);
 landDistMap.fill(MAX_DIST);
 
@@ -213,12 +212,14 @@ function getLandInfluence(row: number, col: number): number {
   const idx = row * MAP_COLS + (col % MAP_COLS);
   if (landSet.has(idx)) {
     const depth = landDepthMap[idx];
-    return Math.min(1, 0.4 + depth * 0.12);
+    // Smooth curve: edges start at 0.35, deep inland approaches 1.0
+    return Math.min(1, 0.35 + 0.65 * (1 - Math.exp(-depth * 0.3)));
   }
-  // Near land: gradual falloff for relief effect
+  // Near land: smooth exponential falloff
   const dist = landDistMap[idx];
   if (dist >= MAX_DIST) return 0;
-  return Math.max(0, 0.25 * (1 - dist / MAX_DIST));
+  const t = 1 - dist / MAX_DIST;
+  return 0.28 * t * t; // quadratic falloff for smooth gradient
 }
 
 export default function DottedGlobe() {
