@@ -56,7 +56,6 @@ export default function Home() {
     <div className="min-h-screen text-foreground relative">
       {/* Subtle primary glow */}
       <div className="fixed inset-0 -z-10 bg-background">
-        <DottedGlobe />
         <div
           className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-[0.07] blur-[150px]"
           style={{ background: `hsl(var(--primary))` }}
@@ -84,8 +83,9 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="min-h-screen flex items-center justify-center px-6">
-        <div className="max-w-5xl mx-auto text-center flex flex-col items-center pt-20">
+      <section className="min-h-screen flex items-center justify-center px-6 relative overflow-hidden">
+        <DottedGlobe />
+        <div className="max-w-5xl mx-auto text-center flex flex-col items-center pt-20 relative z-10">
           {/* Pill label */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
