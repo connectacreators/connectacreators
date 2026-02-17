@@ -1,66 +1,94 @@
 
+# Subscription Selection Step in Registration Flow
 
-# Plan: AI Script Wizard Redesign + Brighter Dark Theme
+## Overview
+Add a plan selection page that appears after a user signs up and before they access the dashboard. This involves database changes to store plan/subscription data on the `clients` table, a new `/select-plan` page with 5 plan cards, and routing logic to redirect new users to plan selection.
 
-## 1. AI Script Wizard - Sandcastles-style Interface
+## Database Changes
 
-Currently the wizard shows only one step at a time. The new design will show **all steps visible on a single scrollable page**, with locked steps greyed out until unlocked.
+Add the following columns to the existing `clients` table:
+- `plan_type` (text, nullable, default null) -- starter, growth, enterprise, connecta_dfy, connecta_plus
+- `script_limit` (integer, nullable, default 75)
+- `scripts_used` (integer, default 0)
+- `lead_tracker_enabled` (boolean, default false)
+- `facebook_integration_enabled` (boolean, default false)
+- `subscription_status` (text, default 'inactive') -- active, inactive, pending_contact
 
-### New Layout
+RLS: Clients can already read their own record. We need to add an UPDATE policy so clients can update their own plan fields (or use the existing admin policy + a new self-update policy).
 
-**Jump-to Navigation Bar** (sticky at top):
-- Horizontal bar with step pills: Topic | Research | Hook | Generated Hook | Structure | Script
-- Completed steps get a checkmark icon
-- Current step is highlighted with primary color
-- Future (locked) steps appear dimmed/disabled
-- Clicking a completed step scrolls to it; locked steps are not clickable
+## New Page: `/select-plan`
 
-**All Steps Visible**:
-- Each step renders as a card section on the page (similar to the screenshot)
-- Completed steps show their content (editable/collapsible)
-- The current active step is fully interactive
-- Locked steps show a dimmed/disabled state with a lock icon
-- Each step card has a "Next step: X" label and a "Save & Continue" / "Continue" button at its bottom-right
+Create `src/pages/SelectPlan.tsx`:
+- Protected route (requires auth)
+- Displays 5 plan cards in a responsive grid
+- Each card shows: plan name, price, description, feature list, and CTA button
+- Plans 1-3 (Starter, Growth, Enterprise): on click, update the user's `clients` record with the corresponding plan data and redirect to `/dashboard`
+- Plans 4-5 (Connecta Plan, Connecta Plus): on click, update the record with `pending_contact` status and redirect to a "Coming Soon" confirmation view
 
-**Progressive Unlocking**:
-- Steps unlock sequentially as users complete each one
-- `maxUnlockedStep` state tracks the highest step reached
-- Users can jump back to any completed step and re-do from there
+## New Page: `/coming-soon`
 
-### Technical approach
+Create `src/pages/ComingSoon.tsx`:
+- Simple page with title "Coming Soon" and message "Scheduling will be available soon. Our team will contact you shortly."
+- Button to go back to dashboard
 
-**File: `src/components/AIScriptWizard.tsx`**
-- Replace `step` state logic: instead of conditionally rendering one step, render ALL steps
-- Add `maxUnlockedStep` state to track progress
-- Each step section wrapped with opacity/pointer-events based on lock state
-- Add `useRef` per step section for smooth scroll-to behavior
-- Add sticky "Jump to:" navigation bar at top with step pills
-- Each step card shows "Next step: [name]" + action button at bottom-right
-- When going back, reset `maxUnlockedStep` to allow re-doing later steps
+## Routing Changes
 
-## 2. Brighter Dark Theme
+In `App.tsx`:
+- Add `/select-plan` route pointing to `SelectPlan`
+- Add `/coming-soon` route pointing to `ComingSoon`
 
-The current dark background is `0 0% 5%` (HSL) which is extremely dark (#0d0d0d). We'll brighten it across the board.
+## Post-Signup Redirect Logic
 
-**File: `src/index.css`**
-- `:root` (default dark mode):
-  - `--background`: `0 0% 5%` -> `0 0% 10%` (brighter base)
-  - `--card`: `0 0% 8%` -> `0 0% 13%`
-  - `--muted`: `0 0% 12%` -> `0 0% 17%`
-  - `--border`: `0 0% 15%` -> `0 0% 20%`
-  - `--input`: `0 0% 12%` -> `0 0% 17%`
-  - `--sidebar-background`: `0 0% 6%` -> `0 0% 11%`
-  - `--sidebar-accent`: `0 0% 10%` -> `0 0% 15%`
-- `body` hardcoded background: `hsl(0 0% 5%)` -> `hsl(0 0% 10%)`
+In the `Dashboard` component, after the user is authenticated:
+- Query the `clients` table for the current user
+- If `plan_type` is null, redirect to `/select-plan`
+- Otherwise, show the dashboard normally
 
-This shifts the entire dark theme ~5% brighter while maintaining the same relative contrast between elements.
+This ensures that new users who haven't picked a plan are sent to the selection page.
 
----
+## Technical Details
 
-### Summary of files to modify
+### Migration SQL
+```sql
+ALTER TABLE public.clients
+  ADD COLUMN IF NOT EXISTS plan_type text,
+  ADD COLUMN IF NOT EXISTS script_limit integer DEFAULT 75,
+  ADD COLUMN IF NOT EXISTS scripts_used integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS lead_tracker_enabled boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS facebook_integration_enabled boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS subscription_status text DEFAULT 'inactive';
+```
 
-| File | Change |
-|------|--------|
-| `src/components/AIScriptWizard.tsx` | Full redesign: all-steps-visible layout, jump-to nav, progressive unlock |
-| `src/index.css` | Brighten dark theme background/card/muted/border values by ~5% |
+Add RLS policy for clients to update their own subscription fields:
+```sql
+CREATE POLICY "Client can update own plan"
+  ON public.clients FOR UPDATE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+```
 
+### Plan Card UI
+- Cards arranged in a scrollable horizontal layout on mobile, grid on desktop
+- Plans 1-3 show dollar prices; Plans 4-5 show "Contact our team"
+- Enterprise plan highlighted as "Most Popular" or similar badge
+- Each card lists features with checkmark icons
+
+### SelectPlan Page Flow
+1. Fetch the user's `clients` record to get their `client_id`
+2. On plan selection, update the `clients` row with `plan_type`, `script_limit`, `scripts_used`, `lead_tracker_enabled`, `facebook_integration_enabled`, `subscription_status`
+3. For plans 1-3: redirect to `/dashboard`
+4. For plans 4-5: redirect to `/coming-soon`
+
+### Dashboard Guard
+Add a `useEffect` in `Dashboard.tsx` that checks:
+```typescript
+const { data } = await supabase
+  .from("clients")
+  .select("plan_type")
+  .eq("user_id", user.id)
+  .maybeSingle();
+
+if (data && !data.plan_type) {
+  navigate("/select-plan");
+}
+```
