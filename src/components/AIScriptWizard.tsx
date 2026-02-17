@@ -380,14 +380,14 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
               </p>
               <div className="grid gap-2">
                 {facts.map((f, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-zinc-600 transition-all">
+                  <div key={i} className="p-3 rounded-lg border border-primary/10 hover:border-primary/30 transition-all">
                     <div className="flex items-start gap-3">
                       <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-1 rounded-full flex-shrink-0">
                         {f.impact_score}/10
                       </span>
                       <div>
-                        <p className="text-sm font-medium text-white">{f.fact}</p>
-                        <p className="text-xs text-zinc-400 mt-1">{f.why_shocking}</p>
+                        <p className="text-sm font-medium text-foreground">{f.fact}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{f.why_shocking}</p>
                       </div>
                     </div>
                   </div>
