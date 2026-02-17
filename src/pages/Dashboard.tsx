@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, Users } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useState, useEffect } from "react";
@@ -48,29 +48,41 @@ export default function Dashboard() {
       });
   }, [user, loading, isAdmin, isVideographer, navigate]);
 
-  const toolCards = [
-    {
-      label: "Script Breakdown",
-      description: tr(t.dashboard.scriptDesc, language),
-      icon: FileText,
-      color: "text-primary",
-      path: "/scripts",
-    },
-    {
-      label: tr(t.dashboard.leadTracker, language),
-      description: tr(t.dashboard.leadTrackerDesc, language),
-      icon: Target,
-      color: "text-emerald-400",
-      path: "/leads",
-    },
-    {
-      label: tr(t.dashboard.leadCalendar, language),
-      description: tr(t.dashboard.leadCalendarDesc, language),
-      icon: CalendarDays,
-      color: "text-violet-400",
-      path: "/lead-calendar",
-    },
-  ];
+  const isStaff = isAdmin || isVideographer;
+
+  const toolCards = isStaff
+    ? [
+        {
+          label: language === "en" ? "Clients" : "Clientes",
+          description: language === "en" ? "Manage your clients' scripts, leads and calendar" : "Gestiona los guiones, leads y calendario de tus clientes",
+          icon: Users,
+          color: "text-primary",
+          path: "/clients",
+        },
+      ]
+    : [
+        {
+          label: "Script Breakdown",
+          description: tr(t.dashboard.scriptDesc, language),
+          icon: FileText,
+          color: "text-primary",
+          path: "/scripts",
+        },
+        {
+          label: tr(t.dashboard.leadTracker, language),
+          description: tr(t.dashboard.leadTrackerDesc, language),
+          icon: Target,
+          color: "text-emerald-400",
+          path: "/leads",
+        },
+        {
+          label: tr(t.dashboard.leadCalendar, language),
+          description: tr(t.dashboard.leadCalendarDesc, language),
+          icon: CalendarDays,
+          color: "text-violet-400",
+          path: "/lead-calendar",
+        },
+      ];
 
   if (loading) {
     return (
@@ -131,7 +143,7 @@ export default function Dashboard() {
               {tr(t.dashboard.question, language)}
             </motion.h1>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 ${isStaff ? 'max-w-sm mx-auto' : 'sm:grid-cols-3'} gap-6`}>
               {toolCards.map((tool, i) => (
                 <motion.button
                   key={tool.path}

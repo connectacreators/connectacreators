@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,11 +77,13 @@ const SOURCE_COLORS: Record<string, string> = {
 const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Canceled"];
 
 export default function LeadTracker() {
+  const { clientId: urlClientId } = useParams<{ clientId?: string }>();
   const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, loading: authLoading, isAdmin } = useAuth();
-  const { clients } = useClients(isAdmin);
+  const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
+  const isStaff = isAdmin || isVideographer;
+  const { clients } = useClients(isStaff);
   const navigate = useNavigate();
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -93,6 +95,13 @@ export default function LeadTracker() {
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [statusOptions, setStatusOptions] = useState<string[]>([]);
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
+
+  // Auto-select client from URL param
+  useEffect(() => {
+    if (!urlClientId || clients.length === 0) return;
+    const target = clients.find((c) => c.id === urlClientId);
+    if (target) setSelectedClient(target.name);
+  }, [urlClientId, clients]);
 
   // Modal state
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -147,18 +156,18 @@ export default function LeadTracker() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined);
+      fetchLeads(isStaff && selectedClient !== "all" ? selectedClient : undefined);
     }
-  }, [authLoading, user, isAdmin, selectedClient, fetchLeads]);
+  }, [authLoading, user, isStaff, selectedClient, fetchLeads]);
 
   // Auto-refresh every 2 minutes
   useEffect(() => {
     if (!user || authLoading) return;
     const interval = setInterval(() => {
-      fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined, true);
+      fetchLeads(isStaff && selectedClient !== "all" ? selectedClient : undefined, true);
     }, 120_000);
     return () => clearInterval(interval);
-  }, [user, authLoading, isAdmin, selectedClient, fetchLeads]);
+  }, [user, authLoading, isStaff, selectedClient, fetchLeads]);
 
   const openLeadDetail = (lead: Lead) => {
     setSelectedLead(lead);
@@ -196,8 +205,7 @@ export default function LeadTracker() {
 
       toast.success(tr(t.leadDetail.statusUpdated, language));
       setModalOpen(false);
-      // Refresh leads
-      fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined);
+      fetchLeads(isStaff && selectedClient !== "all" ? selectedClient : undefined);
     } catch (e: any) {
       console.error("Error updating status:", e);
       toast.error(tr(t.leadDetail.statusError, language));
@@ -258,7 +266,7 @@ export default function LeadTracker() {
               variant="ghost"
               size="sm"
               onClick={() =>
-                fetchLeads(isAdmin && selectedClient !== "all" ? selectedClient : undefined)
+                fetchLeads(isStaff && selectedClient !== "all" ? selectedClient : undefined)
               }
               disabled={loading}
             >
@@ -285,9 +293,8 @@ export default function LeadTracker() {
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          {isAdmin && (
+          {isStaff && (
             <Select value={selectedClient} onValueChange={setSelectedClient}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <Users className="w-4 h-4 mr-2" />
@@ -422,7 +429,7 @@ export default function LeadTracker() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                    {isAdmin && lead.client && (
+                    {isStaff && lead.client && (
                       <Badge variant="outline" className="text-[10px]">
                         {lead.client}
                       </Badge>

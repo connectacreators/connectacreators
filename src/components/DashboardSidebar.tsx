@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
-  Home, ChevronLeft, CreditCard,
+  Home, ChevronLeft, CreditCard, Users,
 } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
@@ -23,16 +23,25 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { signOut } = useAuth();
+  const { signOut, isAdmin, isVideographer } = useAuth();
 
-  const navItems = [
-    { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
-    { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
-    { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },
-    { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: "/lead-calendar" },
-    { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
-    { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
-  ];
+  const isStaff = isAdmin || isVideographer;
+
+  const navItems = isStaff
+    ? [
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
+        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
+        { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
+      ]
+    : [
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
+        { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },
+        { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: "/lead-calendar" },
+        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
+        { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
+      ];
 
   return (
     <aside

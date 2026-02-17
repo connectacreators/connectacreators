@@ -15,7 +15,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { useClients, type Client } from "@/hooks/useClients";
@@ -345,6 +345,7 @@ function SortableSection({
 }
 
 export default function Scripts() {
+  const { clientId: urlClientId } = useParams<{ clientId?: string }>();
   const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -513,19 +514,30 @@ export default function Scripts() {
     }
   };
 
-  // Auto-select client for non-admin users (client or videographer)
+  // Auto-select client from URL param (admin/videographer deep link)
+
   useEffect(() => {
-    if (isAdmin || clientsLoading || clients.length === 0 || selectedClient) return;
-    if (isVideographer) {
-      // Videographers see the client list, don't auto-select
+    if (clientsLoading || clients.length === 0 || selectedClient) return;
+
+    // If URL has a clientId param, auto-select that client
+    if (urlClientId) {
+      const target = clients.find((c) => c.id === urlClientId);
+      if (target) {
+        setSelectedClient(target);
+        fetchScriptsByClient(target.id);
+        setView("client-detail");
+      }
       return;
     }
+
+    if (isAdmin || isVideographer) return; // Staff see the client list
+
     const myClient = clients.find((c) => c.user_id === user?.id);
-    if (!myClient) return; // No linked client yet
+    if (!myClient) return;
     setSelectedClient(myClient);
     fetchScriptsByClient(myClient.id);
     setView("client-detail");
-  }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user]);
+  }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user, urlClientId]);
 
   // Auth loading
   if (authLoading || subscriptionChecking) {
