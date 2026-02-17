@@ -7,130 +7,116 @@ const MAP_ROWS = 90;
 // Land rectangles at 2° resolution: [rowStart, rowEnd, colStart, colEnd]
 const LAND: [number, number, number, number][] = [
   // Alaska
-  [10, 16, 4, 24],
+  [10, 16, 4, 24], [8, 10, 8, 18],
   // Canada
-  [8, 18, 24, 62],
+  [8, 14, 24, 62], [14, 18, 24, 58], [6, 8, 30, 50],
+  // Hudson Bay gap (water)
   // Northern US
   [18, 24, 28, 58],
   // US
   [24, 32, 30, 58],
   // Florida
-  [30, 34, 50, 56],
+  [30, 34, 52, 56],
   // Mexico
-  [30, 38, 32, 48],
+  [30, 38, 32, 48], [32, 36, 30, 34],
   // Central America
   [38, 42, 44, 52],
   // Caribbean
-  [34, 36, 46, 50],
+  [34, 36, 46, 52], [34, 36, 54, 56],
   // Greenland
-  [4, 10, 66, 78],
-  [10, 14, 70, 76],
-  // South America - Colombia/Venezuela
-  [40, 44, 50, 64],
-  // Brazil
-  [44, 50, 50, 72],
-  [50, 56, 52, 70],
-  [56, 58, 54, 68],
-  // Peru/Bolivia
-  [44, 54, 46, 52],
-  // Argentina/Chile
-  [54, 60, 48, 56],
-  [58, 66, 50, 62],
-  [66, 70, 52, 58],
+  [4, 10, 66, 78], [10, 14, 70, 76],
+  // South America
+  [40, 44, 46, 64], [44, 48, 46, 72], [48, 52, 48, 72],
+  [52, 56, 50, 70], [56, 60, 52, 68], [60, 64, 50, 62],
+  [64, 68, 52, 58], [68, 70, 54, 56],
   // Iceland
   [12, 14, 78, 84],
   // UK/Ireland
-  [16, 20, 84, 90],
+  [16, 20, 84, 92],
   // Scandinavia
-  [10, 18, 92, 104],
+  [10, 14, 92, 100], [14, 18, 92, 104], [10, 12, 100, 108],
   // Western Europe
-  [20, 26, 84, 98],
+  [20, 24, 84, 98], [24, 28, 84, 96],
   // Iberian Peninsula
-  [26, 28, 84, 92],
+  [26, 30, 84, 92],
   // Italy
-  [24, 30, 94, 98],
+  [24, 30, 94, 100],
   // Eastern Europe
-  [18, 22, 98, 110],
-  // Balkans/Turkey
-  [22, 28, 98, 108],
+  [18, 22, 98, 112], [22, 26, 98, 108],
+  // Balkans/Greece
+  [24, 28, 98, 106],
+  // Turkey
+  [24, 28, 106, 114],
   // Western Russia
-  [10, 20, 104, 120],
-  // Central Russia
+  [10, 20, 104, 124],
+  // Central Russia / Urals
   [8, 20, 120, 150],
   // Eastern Siberia
-  [6, 18, 150, 178],
+  [6, 16, 148, 170], [8, 14, 170, 178],
   // Kamchatka
-  [8, 14, 174, 178],
-  // North Africa - Maghreb
-  [28, 32, 82, 96],
-  // Sahara
-  [28, 38, 82, 110],
+  [8, 16, 174, 178],
+  // North Africa
+  [28, 34, 82, 96], [28, 38, 82, 112],
   // West Africa
-  [38, 42, 82, 98],
+  [36, 42, 82, 100],
   // Central Africa
-  [38, 44, 96, 112],
+  [38, 48, 96, 116],
   // East Africa / Horn
-  [36, 44, 108, 116],
-  [32, 38, 108, 116],
-  // Congo basin
-  [44, 48, 96, 112],
-  // Southern Africa east
-  [48, 56, 98, 114],
-  // South Africa
-  [56, 62, 98, 110],
+  [30, 36, 108, 118], [36, 42, 110, 118],
+  // East coast Africa
+  [42, 52, 108, 116],
+  // Southern Africa
+  [52, 56, 98, 114], [56, 62, 100, 112],
   // Madagascar
-  [50, 58, 112, 114],
+  [50, 58, 114, 118],
   // Arabian Peninsula
-  [26, 34, 108, 120],
-  // Middle East / Iran
-  [24, 30, 112, 126],
+  [26, 34, 112, 124], [28, 32, 108, 114],
+  // Iran
+  [24, 30, 118, 130],
   // Central Asia
-  [20, 28, 116, 128],
+  [20, 28, 118, 132], [18, 22, 128, 138],
   // India
-  [28, 36, 124, 134],
-  [36, 42, 126, 132],
+  [28, 34, 124, 138], [34, 38, 126, 136], [38, 42, 128, 134],
   // Sri Lanka
   [42, 44, 130, 132],
   // China
-  [20, 28, 128, 148],
-  [28, 34, 130, 156],
+  [20, 26, 132, 152], [26, 30, 130, 156], [30, 36, 134, 156],
   // Mongolia
-  [18, 24, 134, 150],
+  [18, 24, 136, 152],
+  // Manchuria
+  [20, 24, 152, 160],
   // Korea
-  [24, 28, 154, 156],
+  [24, 28, 154, 158],
   // Japan
-  [22, 26, 156, 162],
-  [26, 30, 158, 162],
+  [22, 26, 158, 164], [26, 30, 160, 164], [20, 22, 160, 162],
   // Taiwan
-  [32, 34, 150, 152],
+  [32, 36, 152, 154],
   // SE Asia mainland
-  [34, 40, 138, 146],
-  [36, 42, 144, 148],
+  [34, 38, 138, 148], [38, 42, 140, 150], [36, 40, 146, 150],
   // Philippines
-  [36, 42, 148, 154],
+  [36, 42, 150, 156],
   // Malaysia/Sumatra
-  [42, 46, 138, 148],
+  [42, 48, 138, 150],
   // Borneo
-  [42, 48, 148, 158],
+  [42, 48, 150, 160],
   // Java
-  [46, 48, 142, 154],
-  // Sulawesi/Moluccas
-  [44, 48, 156, 164],
+  [46, 48, 142, 156],
+  // Sulawesi
+  [44, 48, 158, 164],
   // Papua New Guinea
-  [44, 48, 160, 168],
-  // Australia
-  [50, 58, 146, 160],
-  [52, 64, 148, 166],
-  [58, 62, 160, 166],
+  [44, 48, 162, 170],
+  // Australia - detailed shape
+  [50, 54, 146, 162], [52, 56, 148, 168], [56, 60, 150, 168],
+  [60, 64, 152, 166], [54, 58, 162, 170],
   // Tasmania
-  [60, 62, 164, 166],
+  [62, 64, 164, 168],
   // New Zealand
-  [62, 68, 174, 178],
+  [62, 66, 174, 178], [66, 70, 176, 178],
   // Antarctica
-  [78, 88, 40, 160],
+  [78, 86, 30, 160], [82, 88, 40, 140],
 ];
 
-// Pre-compute land points
+// Build land lookup
 const landSet = new Set<number>();
 for (const [r1, r2, c1, c2] of LAND) {
   for (let r = r1; r <= r2; r++) {
@@ -139,10 +125,10 @@ for (const [r1, r2, c1, c2] of LAND) {
     }
   }
 }
-const LAND_POINTS: [number, number][] = [];
-landSet.forEach((key) => {
-  LAND_POINTS.push([Math.floor(key / MAP_COLS), key % MAP_COLS]);
-});
+
+function isLand(row: number, col: number): boolean {
+  return landSet.has(row * MAP_COLS + (col % MAP_COLS));
+}
 
 export default function DottedGlobe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -178,34 +164,46 @@ export default function DottedGlobe() {
 
       ctx.clearRect(0, 0, w, h);
 
-      // Zoom out significantly so full continents are visible
-      const mapH = h * 1.4;
-      const mapW = mapH * 2;
-      const offsetY = (h - mapH) / 2;
-      const cellW = mapW / MAP_COLS;
-      const cellH = mapH / MAP_ROWS;
-      const dotR = Math.max(1.2, Math.min(cellW, cellH) * 0.18);
-      const repeats = Math.ceil(w / mapW) + 2;
+      // Dense grid of dots covering the entire screen
+      const spacing = 12; // pixels between dots
+      const dotSmall = 1.2; // ocean dot radius
+      const dotLarge = 3.0; // land dot radius
 
-      ctx.fillStyle = isLight
-        ? "rgba(80, 130, 200, 0.22)"
-        : "rgba(100, 180, 255, 0.32)";
+      const colorOcean = isLight ? "rgba(80,130,200,0.08)" : "rgba(100,180,255,0.1)";
+      const colorLand = isLight ? "rgba(80,130,200,0.3)" : "rgba(100,180,255,0.45)";
 
-      for (const [row, col] of LAND_POINTS) {
-        const y = offsetY + row * cellH + cellH / 2;
-        if (y < -dotR || y > h + dotR) continue;
-        const baseX = col * cellW + cellW / 2;
+      // Map scale: how many pixels = full 360° width
+      const mapW = h * 2.2;
+      const mapH = h * 1.1;
+      const mapOffsetY = (h - mapH) / 2;
 
-        for (let rep = -1; rep < repeats; rep++) {
-          const x = baseX + rep * mapW + offset;
-          if (x < -dotR || x > w + dotR) continue;
+      const rows = Math.ceil(h / spacing) + 1;
+      const cols = Math.ceil(w / spacing) + 2;
+
+      for (let gy = 0; gy < rows; gy++) {
+        const y = gy * spacing;
+
+        for (let gx = -1; gx < cols; gx++) {
+          const screenX = gx * spacing;
+
+          // Map this screen position to map coordinates
+          // Account for scrolling offset
+          const mapX = ((screenX - offset) % mapW + mapW) % mapW;
+          const mapY = y - mapOffsetY;
+
+          const mapCol = Math.floor((mapX / mapW) * MAP_COLS);
+          const mapRow = Math.floor((mapY / mapH) * MAP_ROWS);
+
+          const onLand = mapRow >= 0 && mapRow < MAP_ROWS && isLand(mapRow, mapCol);
+
           ctx.beginPath();
-          ctx.arc(x, y, dotR, 0, Math.PI * 2);
+          ctx.arc(screenX, y, onLand ? dotLarge : dotSmall, 0, Math.PI * 2);
+          ctx.fillStyle = onLand ? colorLand : colorOcean;
           ctx.fill();
         }
       }
 
-      offset += 0.3;
+      offset += 0.6;
       if (offset >= mapW) offset -= mapW;
       animId = requestAnimationFrame(draw);
     };
