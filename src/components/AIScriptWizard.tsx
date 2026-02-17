@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, ArrowLeft, ArrowRight, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare } from "lucide-react";
+import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
-import { t, tr } from "@/i18n/translations";
+import { tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Client } from "@/hooks/useClients";
@@ -82,11 +82,19 @@ interface AIScriptWizardProps {
   onCancel: () => void;
 }
 
+const STEP_NAMES_EN = ["Topic", "Research", "Hook", "Generated Hook", "Structure", "Script"];
+const STEP_NAMES_ES = ["Tema", "Investigación", "Hook", "Hook Generado", "Estructura", "Script"];
+const STEP_ICONS = [Search, Zap, Wand2, Sparkles, BookOpen, Save];
+
 export default function AIScriptWizard({ selectedClient, onComplete, onCancel }: AIScriptWizardProps) {
   const { language } = useLanguage();
 
-  const [step, setStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  // Step refs for scroll-to
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Step 1: Topic
   const [topic, setTopic] = useState("");
@@ -105,9 +113,10 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   const [selectedStructure, setSelectedStructure] = useState<string | null>(null);
 
   // Step 6: Final script
-  const [scriptLength, setScriptLength] = useState(1); // 0=short, 1=medium, 2=long
+  const [scriptLength, setScriptLength] = useState(1);
   const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
   const [generatedScript, setGeneratedScript] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
   const lengthLabels = [
     tr({ en: "Short (30s)", es: "Corto (30s)" }, language),
@@ -141,6 +150,18 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     longTutorial: { en: "In-depth tutorial with detailed steps", es: "Tutorial a profundidad con pasos detallados" },
   };
 
+  const stepNames = language === "es" ? STEP_NAMES_ES : STEP_NAMES_EN;
+
+  function scrollToStep(stepNum: number) {
+    stepRefs.current[stepNum - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function advanceTo(stepNum: number) {
+    setCurrentStep(stepNum);
+    setMaxUnlockedStep((prev) => Math.max(prev, stepNum));
+    setTimeout(() => scrollToStep(stepNum), 100);
+  }
+
   async function callAIBuild(payload: any) {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch(
@@ -168,7 +189,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
       const data = await callAIBuild({ step: "research", topic: topic.trim() });
       setFacts(data.facts || []);
       setSelectedFacts(data.facts?.map((_: any, i: number) => i) || []);
-      setStep(2);
+      advanceTo(2);
     } catch (e: any) {
       toast.error(e.message || "Error researching topic");
     } finally {
@@ -188,7 +209,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         hookTemplate: selectedTemplate,
       });
       setGeneratedHook(data.hook || "");
-      setStep(4);
+      advanceTo(4);
     } catch (e: any) {
       toast.error(e.message || "Error generating hook");
     } finally {
@@ -211,15 +232,13 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         length: lengthMap[scriptLength],
       });
       setGeneratedScript(data);
-      setStep(6);
+      advanceTo(6);
     } catch (e: any) {
       toast.error(e.message || "Error generating script");
     } finally {
       setLoading(false);
     }
   };
-
-  const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!generatedScript?.lines || saving) return;
@@ -239,98 +258,154 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     );
   };
 
+  function isStepComplete(s: number) {
+    return s < currentStep && s < maxUnlockedStep;
+  }
+
+  function isStepLocked(s: number) {
+    return s > maxUnlockedStep;
+  }
+
+  function isStepActive(s: number) {
+    return s === currentStep;
+  }
+
+  // Jump-to nav pill click
+  function handleJumpTo(s: number) {
+    if (s <= maxUnlockedStep) {
+      setCurrentStep(s);
+      scrollToStep(s);
+    }
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Progress bar */}
-      <div className="flex items-center gap-2 mb-4">
-        {[1, 2, 3, 4, 5, 6].map((s) => (
-          <div
-            key={s}
-            className={`h-1.5 flex-1 rounded-full transition-smooth ${
-              s <= step ? "bg-primary" : "bg-muted"
-            }`}
-          />
-        ))}
+    <div className="space-y-4 animate-fade-in">
+      {/* ===== JUMP-TO NAVIGATION BAR ===== */}
+      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-lg border-b border-border py-3 -mx-4 px-4 md:-mx-6 md:px-6">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {stepNames.map((name, i) => {
+            const stepNum = i + 1;
+            const Icon = STEP_ICONS[i];
+            const locked = isStepLocked(stepNum);
+            const active = isStepActive(stepNum);
+            const complete = stepNum < maxUnlockedStep;
+
+            return (
+              <button
+                key={stepNum}
+                onClick={() => handleJumpTo(stepNum)}
+                disabled={locked}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
+                  ${active
+                    ? "bg-primary text-primary-foreground shadow-soft"
+                    : complete
+                      ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                      : locked
+                        ? "bg-muted/50 text-muted-foreground/40 cursor-not-allowed"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 cursor-pointer"
+                  }
+                `}
+              >
+                {complete ? (
+                  <Check className="w-3 h-3" />
+                ) : locked ? (
+                  <Lock className="w-3 h-3" />
+                ) : (
+                  <Icon className="w-3 h-3" />
+                )}
+                {name}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ===== STEP 1: Topic ===== */}
-      {step === 1 && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Search className="w-5 h-5 text-primary" />
-              {tr({ en: "What's your topic or idea?", es: "¿Cuál es tu tema o idea?" }, language)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder={tr({ en: "e.g. Benefits of cold showers, How to grow on TikTok...", es: "ej. Beneficios de las duchas frías, Cómo crecer en TikTok..." }, language)}
-              className="text-base"
-              onKeyDown={(e) => { if (e.key === "Enter") handleResearch(); }}
-            />
-            <Button onClick={handleResearch} disabled={loading || !topic.trim()} variant="cta" className="gap-2 w-full">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {loading ? tr({ en: "Researching...", es: "Investigando..." }, language) : tr({ en: "Research Topic", es: "Investigar Tema" }, language)}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* ===== ALL STEPS RENDERED ===== */}
 
-      {/* ===== STEP 2: Deep Research ===== */}
-      {step === 2 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            {tr({ en: "Deep Research", es: "Investigación Profunda" }, language)}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {tr({ en: "Here are the most impactful facts we found about your topic:", es: "Estos son los datos más impactantes que encontramos sobre tu tema:" }, language)}
-          </p>
-          <div className="grid gap-3">
-            {facts.map((f, i) => (
-              <Card key={i} className="border-primary/10 hover:border-primary/30 transition-smooth">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-1 rounded-full flex-shrink-0">
-                      {f.impact_score}/10
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{f.fact}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{f.why_shocking}</p>
+      {/* STEP 1: Topic */}
+      <div ref={(el) => { stepRefs.current[0] = el; }}>
+        <StepCard
+          stepNum={1}
+          title={tr({ en: "What's your topic or idea?", es: "¿Cuál es tu tema o idea?" }, language)}
+          icon={<Search className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(1)}
+          active={isStepActive(1)}
+          complete={1 < maxUnlockedStep}
+          nextStepName={stepNames[1]}
+        >
+          <Input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder={tr({ en: "e.g. Benefits of cold showers, How to grow on TikTok...", es: "ej. Beneficios de las duchas frías, Cómo crecer en TikTok..." }, language)}
+            className="text-base"
+            onKeyDown={(e) => { if (e.key === "Enter") handleResearch(); }}
+          />
+          <Button onClick={handleResearch} disabled={loading || !topic.trim()} variant="cta" className="gap-2 w-full mt-3">
+            {loading && currentStep === 1 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 1 ? tr({ en: "Researching...", es: "Investigando..." }, language) : tr({ en: "Research Topic", es: "Investigar Tema" }, language)}
+          </Button>
+        </StepCard>
+      </div>
+
+      {/* STEP 2: Deep Research */}
+      <div ref={(el) => { stepRefs.current[1] = el; }}>
+        <StepCard
+          stepNum={2}
+          title={tr({ en: "Deep Research", es: "Investigación Profunda" }, language)}
+          icon={<Zap className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(2)}
+          active={isStepActive(2)}
+          complete={2 < maxUnlockedStep}
+          nextStepName={stepNames[2]}
+        >
+          {facts.length > 0 && (
+            <>
+              <p className="text-sm text-muted-foreground mb-3">
+                {tr({ en: "Here are the most impactful facts we found:", es: "Estos son los datos más impactantes:" }, language)}
+              </p>
+              <div className="grid gap-2">
+                {facts.map((f, i) => (
+                  <div key={i} className="p-3 rounded-lg border border-primary/10 hover:border-primary/30 transition-all">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-1 rounded-full flex-shrink-0">
+                        {f.impact_score}/10
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{f.fact}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{f.why_shocking}</p>
+                      </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> {tr({ en: "Back", es: "Atrás" }, language)}
-            </Button>
-            <Button variant="cta" onClick={() => setStep(3)} className="gap-2 flex-1">
-              {tr({ en: "Next: Choose Hook", es: "Siguiente: Elegir Hook" }, language)} <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+                ))}
+              </div>
+              <Button variant="cta" onClick={() => advanceTo(3)} className="gap-2 w-full mt-3">
+                {tr({ en: "Next: Choose Hook", es: "Siguiente: Elegir Hook" }, language)} <ArrowRight className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+        </StepCard>
+      </div>
 
-      {/* ===== STEP 3: Choose Hook Format ===== */}
-      {step === 3 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Wand2 className="w-5 h-5 text-primary" />
-            {tr({ en: "Choose Hook Format", es: "Elige el Formato de Hook" }, language)}
-          </h3>
-          <div className="grid gap-4">
+      {/* STEP 3: Choose Hook Format */}
+      <div ref={(el) => { stepRefs.current[2] = el; }}>
+        <StepCard
+          stepNum={3}
+          title={tr({ en: "Choose Hook Format", es: "Elige el Formato de Hook" }, language)}
+          icon={<Wand2 className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(3)}
+          active={isStepActive(3)}
+          complete={3 < maxUnlockedStep}
+          nextStepName={stepNames[3]}
+        >
+          <div className="grid gap-3">
             {Object.entries(HOOK_FORMATS).map(([key, cat]) => {
               const Icon = cat.icon;
               const isSelected = selectedHookCategory === key;
               return (
                 <Card
                   key={key}
-                  className={`cursor-pointer transition-smooth ${
+                  className={`cursor-pointer transition-all ${
                     isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                   }`}
                   onClick={() => { setSelectedHookCategory(key); setSelectedTemplate(null); }}
@@ -347,7 +422,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                         <button
                           key={i}
                           onClick={(e) => { e.stopPropagation(); setSelectedTemplate(tpl); }}
-                          className={`w-full text-left p-3 rounded-xl text-xs transition-smooth border ${
+                          className={`w-full text-left p-3 rounded-xl text-xs transition-all border ${
                             selectedTemplate === tpl
                               ? "border-primary bg-primary/10 text-foreground"
                               : "border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
@@ -362,74 +437,76 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
               );
             })}
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setStep(2)} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> {tr({ en: "Back", es: "Atrás" }, language)}
-            </Button>
-            <Button
-              variant="cta"
-              onClick={handleGenerateHook}
-              disabled={loading || !selectedTemplate}
-              className="gap-2 flex-1"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {loading ? tr({ en: "Generating...", es: "Generando..." }, language) : tr({ en: "Generate Hook", es: "Generar Hook" }, language)}
-            </Button>
-          </div>
-        </div>
-      )}
+          <Button
+            variant="cta"
+            onClick={handleGenerateHook}
+            disabled={loading || !selectedTemplate}
+            className="gap-2 w-full mt-3"
+          >
+            {loading && currentStep === 3 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 3 ? tr({ en: "Generating...", es: "Generando..." }, language) : tr({ en: "Generate Hook", es: "Generar Hook" }, language)}
+          </Button>
+        </StepCard>
+      </div>
 
-      {/* ===== STEP 4: Generated Hook ===== */}
-      {step === 4 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            {tr({ en: "Your Generated Hook", es: "Tu Hook Generado" }, language)}
-          </h3>
-          <Card className="border-primary/20">
-            <CardContent className="p-6">
-              <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">{generatedHook}</p>
-            </CardContent>
-          </Card>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setStep(3)} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> {tr({ en: "Back", es: "Atrás" }, language)}
-            </Button>
-            <Button variant="outline" onClick={handleGenerateHook} disabled={loading} className="gap-2">
-              <RotateCcw className="w-4 h-4" /> {tr({ en: "Regenerate", es: "Regenerar" }, language)}
-            </Button>
-            <Button variant="cta" onClick={() => setStep(5)} className="gap-2 flex-1">
-              {tr({ en: "Next: Script Structure", es: "Siguiente: Estructura" }, language)} <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* STEP 4: Generated Hook */}
+      <div ref={(el) => { stepRefs.current[3] = el; }}>
+        <StepCard
+          stepNum={4}
+          title={tr({ en: "Your Generated Hook", es: "Tu Hook Generado" }, language)}
+          icon={<Sparkles className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(4)}
+          active={isStepActive(4)}
+          complete={4 < maxUnlockedStep}
+          nextStepName={stepNames[4]}
+        >
+          {generatedHook && (
+            <>
+              <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
+                <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{generatedHook}</p>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button variant="outline" onClick={handleGenerateHook} disabled={loading} className="gap-2 flex-1" size="sm">
+                  <RotateCcw className="w-3 h-3" /> {tr({ en: "Regenerate", es: "Regenerar" }, language)}
+                </Button>
+                <Button variant="cta" onClick={() => advanceTo(5)} className="gap-2 flex-1" size="sm">
+                  {tr({ en: "Next: Structure", es: "Siguiente: Estructura" }, language)} <ArrowRight className="w-3 h-3" />
+                </Button>
+              </div>
+            </>
+          )}
+        </StepCard>
+      </div>
 
-      {/* ===== STEP 5: Choose Script Structure ===== */}
-      {step === 5 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-primary" />
-            {tr({ en: "Choose Script Structure", es: "Elige la Estructura del Script" }, language)}
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
+      {/* STEP 5: Choose Script Structure */}
+      <div ref={(el) => { stepRefs.current[4] = el; }}>
+        <StepCard
+          stepNum={5}
+          title={tr({ en: "Choose Script Structure", es: "Elige la Estructura del Script" }, language)}
+          icon={<BookOpen className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(5)}
+          active={isStepActive(5)}
+          complete={5 < maxUnlockedStep}
+          nextStepName={stepNames[5]}
+        >
+          <div className="grid grid-cols-2 gap-2">
             {SCRIPT_STRUCTURES.map((s) => {
               const Icon = s.icon;
               const isSelected = selectedStructure === s.key;
               return (
                 <Card
                   key={s.key}
-                  className={`cursor-pointer transition-smooth ${
+                  className={`cursor-pointer transition-all ${
                     isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                   }`}
                   onClick={() => setSelectedStructure(s.key)}
                 >
-                  <CardContent className="p-4 text-center space-y-2">
-                    <Icon className={`w-6 h-6 mx-auto ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                    <p className={`text-sm font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
+                  <CardContent className="p-3 text-center space-y-1">
+                    <Icon className={`w-5 h-5 mx-auto ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                    <p className={`text-xs font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
                       {tr(structureNames[s.key], language)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       {tr(structureDescriptions[s.key], language)}
                     </p>
                   </CardContent>
@@ -439,135 +516,162 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           </div>
 
           {/* Length & Fact selection */}
-          <Card className="border-border">
-            <CardContent className="p-4 space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  {tr({ en: "Script Length", es: "Duración del Script" }, language)}: <span className="text-primary">{lengthLabels[scriptLength]}</span>
-                </label>
-                <Slider
-                  value={[scriptLength]}
-                  onValueChange={(v) => setScriptLength(v[0])}
-                  min={0}
-                  max={2}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  {lengthLabels.map((l) => <span key={l}>{l}</span>)}
-                </div>
+          <div className="mt-3 p-3 rounded-lg border border-border space-y-3">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                {tr({ en: "Script Length", es: "Duración del Script" }, language)}: <span className="text-primary">{lengthLabels[scriptLength]}</span>
+              </label>
+              <Slider value={[scriptLength]} onValueChange={(v) => setScriptLength(v[0])} min={0} max={2} step={1} className="w-full" />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                {lengthLabels.map((l) => <span key={l}>{l}</span>)}
               </div>
-
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  {tr({ en: "Include these research facts:", es: "Incluir estos datos de investigación:" }, language)}
-                </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {facts.map((f, i) => (
-                    <label key={i} className="flex items-start gap-2 cursor-pointer text-sm">
-                      <Checkbox
-                        checked={selectedFacts.includes(i)}
-                        onCheckedChange={() => toggleFact(i)}
-                        className="mt-0.5"
-                      />
-                      <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>
-                        {f.fact}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                {tr({ en: "Include these research facts:", es: "Incluir estos datos de investigación:" }, language)}
+              </label>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {facts.map((f, i) => (
+                  <label key={i} className="flex items-start gap-2 cursor-pointer text-sm">
+                    <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" />
+                    <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
+                  </label>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setStep(4)} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> {tr({ en: "Back", es: "Atrás" }, language)}
-            </Button>
-            <Button
-              variant="cta"
-              onClick={handleGenerateScript}
-              disabled={loading || !selectedStructure}
-              className="gap-2 flex-1"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {loading ? tr({ en: "Generating Script...", es: "Generando Script..." }, language) : tr({ en: "Generate Script", es: "Generar Script" }, language)}
-            </Button>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* ===== STEP 6: Final Script ===== */}
-      {step === 6 && generatedScript && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            {tr({ en: "Your AI-Generated Script", es: "Tu Script Generado por IA" }, language)}
-          </h3>
+          <Button
+            variant="cta"
+            onClick={handleGenerateScript}
+            disabled={loading || !selectedStructure}
+            className="gap-2 w-full mt-3"
+          >
+            {loading && currentStep === 5 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 5 ? tr({ en: "Generating Script...", es: "Generando Script..." }, language) : tr({ en: "Generate Script", es: "Generar Script" }, language)}
+          </Button>
+        </StepCard>
+      </div>
 
-          {/* Script preview — dialogue only */}
-          <Card className="border-primary/20">
-            <CardContent className="p-4 space-y-2">
-              {generatedScript.lines?.filter((line: any) => line.line_type === "actor").map((line: any, i: number) => {
-                const sectionBadge: Record<string, string> = {
-                  hook: "bg-amber-500/20 text-amber-400",
-                  body: "bg-blue-500/20 text-blue-400",
-                  cta: "bg-green-500/20 text-green-400",
-                };
-                return (
-                  <div key={i} className="p-3 rounded-xl border border-purple-500/40 bg-purple-500/10">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${sectionBadge[line.section] || ""}`}>
-                        {line.section}
-                      </span>
+      {/* STEP 6: Final Script */}
+      <div ref={(el) => { stepRefs.current[5] = el; }}>
+        <StepCard
+          stepNum={6}
+          title={tr({ en: "Your AI-Generated Script", es: "Tu Script Generado por IA" }, language)}
+          icon={<Sparkles className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(6)}
+          active={isStepActive(6)}
+          complete={false}
+        >
+          {generatedScript && (
+            <>
+              <div className="space-y-2">
+                {generatedScript.lines?.filter((line: any) => line.line_type === "actor").map((line: any, i: number) => {
+                  const sectionBadge: Record<string, string> = {
+                    hook: "bg-amber-500/20 text-amber-400",
+                    body: "bg-blue-500/20 text-blue-400",
+                    cta: "bg-green-500/20 text-green-400",
+                  };
+                  return (
+                    <div key={i} className="p-3 rounded-xl border border-purple-500/40 bg-purple-500/10">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${sectionBadge[line.section] || ""}`}>
+                          {line.section}
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground">{line.text}</p>
                     </div>
-                    <p className="text-sm text-foreground">{line.text}</p>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Filters for regeneration */}
-          <Card className="border-border">
-            <CardContent className="p-4 space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  {tr({ en: "Adjust Length", es: "Ajustar Duración" }, language)}: <span className="text-primary">{lengthLabels[scriptLength]}</span>
-                </label>
-                <Slider value={[scriptLength]} onValueChange={(v) => setScriptLength(v[0])} min={0} max={2} step={1} />
+                  );
+                })}
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  {tr({ en: "Facts to include:", es: "Datos a incluir:" }, language)}
-                </label>
-                <div className="space-y-2 max-h-36 overflow-y-auto">
-                  {facts.map((f, i) => (
-                    <label key={i} className="flex items-start gap-2 cursor-pointer text-sm">
-                      <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" />
-                      <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
-                    </label>
-                  ))}
+
+              {/* Regeneration options */}
+              <div className="mt-3 p-3 rounded-lg border border-border space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    {tr({ en: "Adjust Length", es: "Ajustar Duración" }, language)}: <span className="text-primary">{lengthLabels[scriptLength]}</span>
+                  </label>
+                  <Slider value={[scriptLength]} onValueChange={(v) => setScriptLength(v[0])} min={0} max={2} step={1} />
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    {tr({ en: "Facts to include:", es: "Datos a incluir:" }, language)}
+                  </label>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                    {facts.map((f, i) => (
+                      <label key={i} className="flex items-start gap-2 cursor-pointer text-sm">
+                        <Checkbox checked={selectedFacts.includes(i)} onCheckedChange={() => toggleFact(i)} className="mt-0.5" />
+                        <span className={selectedFacts.includes(i) ? "text-foreground" : "text-muted-foreground"}>{f.fact}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <Button variant="outline" onClick={handleGenerateScript} disabled={loading} className="gap-2 w-full" size="sm">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  {tr({ en: "Regenerate with changes", es: "Regenerar con cambios" }, language)}
+                </Button>
               </div>
-              <Button variant="outline" onClick={handleGenerateScript} disabled={loading} className="gap-2 w-full">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-                {tr({ en: "Regenerate with changes", es: "Regenerar con cambios" }, language)}
-              </Button>
-            </CardContent>
-          </Card>
 
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setStep(5)} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> {tr({ en: "Back", es: "Atrás" }, language)}
-            </Button>
-            <Button variant="cta" onClick={handleSave} disabled={saving} className="gap-2 flex-1">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? tr({ en: "Saving...", es: "Guardando..." }, language) : tr({ en: "Save Script", es: "Guardar Script" }, language)}
-            </Button>
-          </div>
-        </div>
-      )}
+              <Button variant="cta" onClick={handleSave} disabled={saving} className="gap-2 w-full mt-3">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {saving ? tr({ en: "Saving...", es: "Guardando..." }, language) : tr({ en: "Save Script", es: "Guardar Script" }, language)}
+              </Button>
+            </>
+          )}
+        </StepCard>
+      </div>
     </div>
+  );
+}
+
+/* ===== Step Card Wrapper ===== */
+function StepCard({
+  stepNum,
+  title,
+  icon,
+  locked,
+  active,
+  complete,
+  nextStepName,
+  children,
+}: {
+  stepNum: number;
+  title: string;
+  icon: React.ReactNode;
+  locked: boolean;
+  active: boolean;
+  complete: boolean;
+  nextStepName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card
+      className={`transition-all duration-300 ${
+        locked
+          ? "opacity-40 pointer-events-none border-border"
+          : active
+            ? "border-primary/40 shadow-soft"
+            : complete
+              ? "border-primary/20 opacity-80"
+              : "border-border"
+      }`}
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <span className={`
+            w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+            ${complete ? "bg-primary text-primary-foreground" : active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}
+          `}>
+            {complete ? <Check className="w-3 h-3" /> : stepNum}
+          </span>
+          {icon}
+          {title}
+          {locked && <Lock className="w-4 h-4 text-muted-foreground ml-auto" />}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
