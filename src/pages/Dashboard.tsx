@@ -41,7 +41,8 @@ export default function Dashboard() {
           navigate("/select-plan");
         } else if (
           data.subscription_status !== "active" &&
-          data.subscription_status !== "pending_contact"
+          data.subscription_status !== "pending_contact" &&
+          data.subscription_status !== "canceling"
         ) {
           navigate("/select-plan");
         }
