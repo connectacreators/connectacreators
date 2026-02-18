@@ -83,9 +83,9 @@ interface AIScriptWizardProps {
   onCancel: () => void;
 }
 
-const STEP_NAMES_EN = ["Topic", "Research", "Hook", "Generated Hook", "Structure", "Script"];
-const STEP_NAMES_ES = ["Tema", "Investigación", "Hook", "Hook Generado", "Estructura", "Script"];
-const STEP_ICONS = [Search, Zap, Wand2, Sparkles, BookOpen, Save];
+const STEP_NAMES_EN = ["Topic", "Research", "Hook", "Script"];
+const STEP_NAMES_ES = ["Tema", "Investigación", "Hook", "Script"];
+const STEP_ICONS = [Search, Zap, Wand2, Save];
 
 export default function AIScriptWizard({ selectedClient, onComplete, onCancel }: AIScriptWizardProps) {
   const { language } = useLanguage();
@@ -103,17 +103,13 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   // Step 2: Research
   const [facts, setFacts] = useState<Fact[]>([]);
 
-  // Step 3: Hook format
+  // Step 3: Hook format + generated hook (merged)
   const [selectedHookCategory, setSelectedHookCategory] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-
-  // Step 4: Generated hook
   const [generatedHook, setGeneratedHook] = useState("");
 
-  // Step 5: Script structure
+  // Step 4: Script structure + final script (merged)
   const [selectedStructure, setSelectedStructure] = useState<string | null>(null);
-
-  // Step 6: Final script
   const [scriptLength, setScriptLength] = useState(1);
   const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
   const [generatedScript, setGeneratedScript] = useState<any>(null);
@@ -193,7 +189,6 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
       const data = await callAIBuild({ step: "research", topic: topic.trim() });
       const factsArr: Fact[] = data.facts || [];
       setFacts(factsArr);
-      // Auto-select top 3 by impact_score
       const top3 = factsArr
         .map((f, i) => ({ score: f.impact_score, i }))
         .sort((a, b) => b.score - a.score)
@@ -220,7 +215,6 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         hookTemplate: selectedTemplate,
       });
       setGeneratedHook(data.hook || "");
-      advanceTo(4);
     } catch (e: any) {
       toast.error(e.message || "Error generating hook");
     } finally {
@@ -243,7 +237,6 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         length: lengthMap[scriptLength],
       });
       setGeneratedScript(data);
-      advanceTo(6);
     } catch (e: any) {
       toast.error(e.message || "Error generating script");
     } finally {
@@ -301,22 +294,11 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     }
   };
 
-  // Compute top 3 fact indices by impact score
-  const top3FactIndices = facts
-    .map((f, i) => ({ score: f.impact_score, i }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((x) => x.i);
-
   const toggleFact = (idx: number) => {
     setSelectedFacts((prev) =>
       prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
     );
   };
-
-  function isStepComplete(s: number) {
-    return s < currentStep && s < maxUnlockedStep;
-  }
 
   function isStepLocked(s: number) {
     return s > maxUnlockedStep;
@@ -326,12 +308,18 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     return s === currentStep;
   }
 
-  // Jump-to nav pill click
   function handleJumpTo(s: number) {
     if (s <= maxUnlockedStep) {
       setCurrentStep(s);
       scrollToStep(s);
     }
+  }
+
+  // Virality score color helper
+  function viralityColor(score: number) {
+    if (score >= 8) return "text-green-500 bg-green-500/20";
+    if (score >= 6) return "text-amber-500 bg-amber-500/20";
+    return "text-red-500 bg-red-500/20";
   }
 
   return (
@@ -377,9 +365,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         </div>
       </div>
 
-      {/* ===== ALL STEPS RENDERED ===== */}
-
-      {/* STEP 1: Topic */}
+      {/* ===== STEP 1: Topic ===== */}
       <div ref={(el) => { stepRefs.current[0] = el; }}>
         <StepCard
           stepNum={1}
@@ -388,7 +374,6 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           locked={isStepLocked(1)}
           active={isStepActive(1)}
           complete={1 < maxUnlockedStep}
-          nextStepName={stepNames[1]}
         >
           <Input
             value={topic}
@@ -404,7 +389,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         </StepCard>
       </div>
 
-      {/* STEP 2: Deep Research */}
+      {/* ===== STEP 2: Deep Research ===== */}
       <div ref={(el) => { stepRefs.current[1] = el; }}>
         <StepCard
           stepNum={2}
@@ -413,7 +398,6 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           locked={isStepLocked(2)}
           active={isStepActive(2)}
           complete={2 < maxUnlockedStep}
-          nextStepName={stepNames[2]}
         >
           {facts.length > 0 && (
             <>
@@ -443,17 +427,17 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         </StepCard>
       </div>
 
-      {/* STEP 3: Choose Hook Format */}
+      {/* ===== STEP 3: Hook (merged: pick format + generate + see result) ===== */}
       <div ref={(el) => { stepRefs.current[2] = el; }}>
         <StepCard
           stepNum={3}
-          title={tr({ en: "Choose Hook Format", es: "Elige el Formato de Hook" }, language)}
+          title={tr({ en: "Choose & Generate Hook", es: "Elige y Genera Hook" }, language)}
           icon={<Wand2 className="w-5 h-5 text-primary" />}
           locked={isStepLocked(3)}
           active={isStepActive(3)}
           complete={3 < maxUnlockedStep}
-          nextStepName={stepNames[3]}
         >
+          {/* Hook category + template picker */}
           <div className="grid gap-3">
             {Object.entries(HOOK_FORMATS).map(([key, cat]) => {
               const Icon = cat.icon;
@@ -493,58 +477,49 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
               );
             })}
           </div>
+
           <Button
             variant="cta"
             onClick={handleGenerateHook}
             disabled={loading || !selectedTemplate}
             className="gap-2 w-full mt-3"
           >
-            {loading && currentStep === 3 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading && currentStep === 3 ? tr({ en: "Generating...", es: "Generando..." }, language) : tr({ en: "Generate Hook", es: "Generar Hook" }, language)}
+            {loading && currentStep === 3 && !generatedHook ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 3 && !generatedHook
+              ? tr({ en: "Generating...", es: "Generando..." }, language)
+              : tr({ en: "Generate Hook", es: "Generar Hook" }, language)}
           </Button>
-        </StepCard>
-      </div>
 
-      {/* STEP 4: Generated Hook */}
-      <div ref={(el) => { stepRefs.current[3] = el; }}>
-        <StepCard
-          stepNum={4}
-          title={tr({ en: "Your Generated Hook", es: "Tu Hook Generado" }, language)}
-          icon={<Sparkles className="w-5 h-5 text-primary" />}
-          locked={isStepLocked(4)}
-          active={isStepActive(4)}
-          complete={4 < maxUnlockedStep}
-          nextStepName={stepNames[4]}
-        >
+          {/* Generated hook inline */}
           {generatedHook && (
-            <>
+            <div className="mt-4 space-y-3">
               <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
                 <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{generatedHook}</p>
               </div>
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2">
                 <Button variant="outline" onClick={handleGenerateHook} disabled={loading} className="gap-2 flex-1" size="sm">
                   <RotateCcw className="w-3 h-3" /> {tr({ en: "Regenerate", es: "Regenerar" }, language)}
                 </Button>
-                <Button variant="cta" onClick={() => advanceTo(5)} className="gap-2 flex-1" size="sm">
-                  {tr({ en: "Next: Structure", es: "Siguiente: Estructura" }, language)} <ArrowRight className="w-3 h-3" />
+                <Button variant="cta" onClick={() => advanceTo(4)} className="gap-2 flex-1" size="sm">
+                  {tr({ en: "Next: Script", es: "Siguiente: Script" }, language)} <ArrowRight className="w-3 h-3" />
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </StepCard>
       </div>
 
-      {/* STEP 5: Choose Script Structure */}
-      <div ref={(el) => { stepRefs.current[4] = el; }}>
+      {/* ===== STEP 4: Script (merged: structure + length + facts + generate + result) ===== */}
+      <div ref={(el) => { stepRefs.current[3] = el; }}>
         <StepCard
-          stepNum={5}
-          title={tr({ en: "Choose Script Structure", es: "Elige la Estructura del Script" }, language)}
-          icon={<BookOpen className="w-5 h-5 text-primary" />}
-          locked={isStepLocked(5)}
-          active={isStepActive(5)}
-          complete={5 < maxUnlockedStep}
-          nextStepName={stepNames[5]}
+          stepNum={4}
+          title={tr({ en: "Build & Generate Script", es: "Construir y Generar Script" }, language)}
+          icon={<Save className="w-5 h-5 text-primary" />}
+          locked={isStepLocked(4)}
+          active={isStepActive(4)}
+          complete={false}
         >
+          {/* Structure picker */}
           <div className="grid grid-cols-2 gap-2">
             {SCRIPT_STRUCTURES.map((s) => {
               const Icon = s.icon;
@@ -603,55 +578,33 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
             disabled={loading || !selectedStructure}
             className="gap-2 w-full mt-3"
           >
-            {loading && currentStep === 5 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading && currentStep === 5 ? tr({ en: "Generating Script...", es: "Generando Script..." }, language) : tr({ en: "Generate Script", es: "Generar Script" }, language)}
+            {loading && currentStep === 4 && !generatedScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 4 && !generatedScript
+              ? tr({ en: "Generating Script...", es: "Generando Script..." }, language)
+              : tr({ en: "Generate Script", es: "Generar Script" }, language)}
           </Button>
-        </StepCard>
-      </div>
 
-      {/* STEP 6: Final Script */}
-      <div ref={(el) => { stepRefs.current[5] = el; }}>
-        <StepCard
-          stepNum={6}
-          title={tr({ en: "Your AI-Generated Script", es: "Tu Script Generado por IA" }, language)}
-          icon={<Sparkles className="w-5 h-5 text-primary" />}
-          locked={isStepLocked(6)}
-          active={isStepActive(6)}
-          complete={false}
-        >
+          {/* Generated script inline */}
           {generatedScript && (
-            <>
-              {/* Quality Scores Checklist */}
-              {generatedScript.quality_scores && (
-                <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
-                  <p className="text-sm font-semibold text-foreground mb-2">
-                    {tr({ en: "📋 Execution Quality Checklist", es: "📋 Checklist de Calidad de Ejecución" }, language)}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {[
-                      { key: "massive_tam", en: "Massive TAM", es: "TAM Masivo" },
-                      { key: "idea_explosivity", en: "Idea Explosivity", es: "Explosividad de Idea" },
-                      { key: "emotional_resonance", en: "Emotional Resonance", es: "Resonancia Emocional" },
-                      { key: "novel_take", en: "Novel Take/Timing", es: "Ángulo/Timing Novedoso" },
-                      { key: "value_teased_quickly", en: "Value Teased Quickly", es: "Valor Mostrado Rápido" },
-                      { key: "curiosity_hook", en: "Curiosity Hook", es: "Hook de Curiosidad" },
-                      { key: "easy_absorption", en: "Easy Absorption", es: "Fácil Absorción" },
-                      { key: "rehook_present", en: "Rehook Present", es: "Rehook Presente" },
-                      { key: "sticky_idea", en: "Sticky Idea", es: "Idea Pegajosa" },
-                    ].map((item) => {
-                      const score = generatedScript.quality_scores[item.key] || 0;
-                      const color = score >= 8 ? "text-green-500" : score >= 6 ? "text-amber-500" : "text-red-500";
-                      return (
-                        <div key={item.key} className="flex items-center justify-between text-xs gap-2 py-1">
-                          <span className="text-muted-foreground">{tr({ en: item.en, es: item.es }, language)}</span>
-                          <span className={`font-bold ${color}`}>{score}/10</span>
-                        </div>
-                      );
-                    })}
+            <div className="mt-4 space-y-4">
+              {/* Virality Check Badge */}
+              {generatedScript.virality_score != null && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${viralityColor(generatedScript.virality_score)}`}>
+                    {Math.round(generatedScript.virality_score * 10) / 10}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {tr({ en: "🔥 Virality Check", es: "🔥 Virality Check" }, language)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {tr({ en: "Average of 9 quality criteria", es: "Promedio de 9 criterios de calidad" }, language)}
+                    </p>
                   </div>
                 </div>
               )}
 
+              {/* Script lines */}
               <div className="space-y-2">
                 {generatedScript.lines?.filter((line: any) => line.line_type === "actor").map((line: any, i: number) => {
                   const sectionBadge: Record<string, string> = {
@@ -672,8 +625,8 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                 })}
               </div>
 
-              {/* Fix / Feedback section */}
-              <div className="mt-3 p-3 rounded-lg border border-border space-y-2">
+              {/* Refine section */}
+              <div className="p-3 rounded-lg border border-border space-y-2">
                 <label className="text-sm font-medium text-foreground block">
                   {tr({ en: "✏️ What do you want to fix?", es: "✏️ ¿Qué quieres corregir?" }, language)}
                 </label>
@@ -702,31 +655,19 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
               </div>
 
               {/* Translate buttons */}
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleTranslate("en")}
-                  disabled={translating}
-                  className="gap-2 flex-1"
-                  size="sm"
-                >
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleTranslate("en")} disabled={translating} className="gap-2 flex-1" size="sm">
                   {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
                   {tr({ en: "Translate to English", es: "Traducir al Inglés" }, language)}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleTranslate("es")}
-                  disabled={translating}
-                  className="gap-2 flex-1"
-                  size="sm"
-                >
+                <Button variant="outline" onClick={() => handleTranslate("es")} disabled={translating} className="gap-2 flex-1" size="sm">
                   {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
                   {tr({ en: "Translate to Spanish", es: "Traducir al Español" }, language)}
                 </Button>
               </div>
 
               {/* Regeneration options */}
-              <div className="mt-3 p-3 rounded-lg border border-border space-y-3">
+              <div className="p-3 rounded-lg border border-border space-y-3">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     {tr({ en: "Adjust Length", es: "Ajustar Duración" }, language)}: <span className="text-primary">{lengthLabels[scriptLength]}</span>
@@ -752,11 +693,11 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                 </Button>
               </div>
 
-              <Button variant="cta" onClick={handleSave} disabled={saving} className="gap-2 w-full mt-3">
+              <Button variant="cta" onClick={handleSave} disabled={saving} className="gap-2 w-full">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? tr({ en: "Saving...", es: "Guardando..." }, language) : tr({ en: "Save Script", es: "Guardar Script" }, language)}
               </Button>
-            </>
+            </div>
           )}
         </StepCard>
       </div>
@@ -772,7 +713,6 @@ function StepCard({
   locked,
   active,
   complete,
-  nextStepName,
   children,
 }: {
   stepNum: number;
@@ -781,7 +721,6 @@ function StepCard({
   locked: boolean;
   active: boolean;
   complete: boolean;
-  nextStepName?: string;
   children: React.ReactNode;
 }) {
   return (
