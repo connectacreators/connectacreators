@@ -143,7 +143,7 @@ Rules:
 - The hook must follow the chosen template structure
 - Incorporate the topic naturally
 - Create immediate curiosity or shock value
-- Write in SPANISH (Latin American) by default`;
+- Write in ENGLISH by default`;
 
       const data = await callClaude(
         ANTHROPIC_API_KEY,
@@ -180,7 +180,7 @@ You must categorize EVERY line into:
 - line_type: "filming" (camera/visual instructions), "actor" (dialogue/voiceover), or "editor" (post-production/text overlays/effects)
 - section: "hook" (opening), "body" (main content), or "cta" (call-to-action closing)
 
-BEFORE finalizing the script, internally evaluate it against this 9-Step Execution Quality Checklist and adjust until ALL criteria are met:
+BEFORE finalizing the script, internally evaluate it against this 9-Step Execution Quality Checklist and adjust until ALL criteria score highly:
 1. Massive TAM — Does the idea appeal to a large total addressable market?
 2. High Idea Explosivity — Is this idea inherently shareable/explosive?
 3. High Emotional Resonance — Does it trigger strong emotions (shock, curiosity, desire, fear)?
@@ -191,10 +191,10 @@ BEFORE finalizing the script, internally evaluate it against this 9-Step Executi
 8. Rehook present — Is there a rehook moment mid-script to retain viewers?
 9. Sticky idea — Does the core idea feel memorable and worth sharing?
 
-Also return a quality_scores object with your rating (1-10) for each criterion.
+Return a single virality_score which is the average of your internal ratings (1-10) for all 9 criteria above.
 
 Rules:
-- Write in SPANISH (Latin American)
+- Write in ENGLISH by default
 - The hook is already provided — include it as the first actor lines in the hook section
 - Add appropriate filming and editor instructions throughout
 - End with a strong CTA
@@ -240,24 +240,12 @@ Generate the complete script.`,
               idea_ganadora: { type: "string", description: "The winning idea/hook summary" },
               target: { type: "string", description: "Target audience" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
-              quality_scores: {
-                type: "object",
-                description: "Quality scores from the 9-step checklist",
-                properties: {
-                  massive_tam: { type: "number" },
-                  idea_explosivity: { type: "number" },
-                  emotional_resonance: { type: "number" },
-                  novel_take: { type: "number" },
-                  value_teased_quickly: { type: "number" },
-                  curiosity_hook: { type: "number" },
-                  easy_absorption: { type: "number" },
-                  rehook_present: { type: "number" },
-                  sticky_idea: { type: "number" },
-                },
-                required: ["massive_tam", "idea_explosivity", "emotional_resonance", "novel_take", "value_teased_quickly", "curiosity_hook", "easy_absorption", "rehook_present", "sticky_idea"],
+              virality_score: {
+                type: "number",
+                description: "Average score (1-10) across all 9 quality criteria: TAM, explosivity, emotional resonance, novelty, value tease, curiosity hook, absorption, rehook, stickiness",
               },
             },
-            required: ["lines", "idea_ganadora", "target", "formato", "quality_scores"],
+            required: ["lines", "idea_ganadora", "target", "formato", "virality_score"],
           },
         }],
         { type: "tool", name: "return_script" }
@@ -286,7 +274,9 @@ After refining, re-evaluate against the 9-Step Quality Checklist:
 1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing
 5. Value teased quickly  6. Curiosity hook  7. Easy absorption  8. Rehook present  9. Sticky idea
 
-Write in SPANISH (Latin American) unless told otherwise.`;
+Return a single virality_score which is the average of all 9 criteria (1-10).
+
+Write in ENGLISH unless told otherwise.`;
 
       const data = await callClaude(
         ANTHROPIC_API_KEY,
@@ -321,19 +311,12 @@ Apply the requested changes and return the refined script.`,
               idea_ganadora: { type: "string" },
               target: { type: "string" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
-              quality_scores: {
-                type: "object",
-                properties: {
-                  massive_tam: { type: "number" }, idea_explosivity: { type: "number" },
-                  emotional_resonance: { type: "number" }, novel_take: { type: "number" },
-                  value_teased_quickly: { type: "number" }, curiosity_hook: { type: "number" },
-                  easy_absorption: { type: "number" }, rehook_present: { type: "number" },
-                  sticky_idea: { type: "number" },
-                },
-                required: ["massive_tam", "idea_explosivity", "emotional_resonance", "novel_take", "value_teased_quickly", "curiosity_hook", "easy_absorption", "rehook_present", "sticky_idea"],
+              virality_score: {
+                type: "number",
+                description: "Average score (1-10) across all 9 quality criteria",
               },
             },
-            required: ["lines", "idea_ganadora", "target", "formato", "quality_scores"],
+            required: ["lines", "idea_ganadora", "target", "formato", "virality_score"],
           },
         }],
         { type: "tool", name: "return_script" }
