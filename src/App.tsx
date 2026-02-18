@@ -12,6 +12,8 @@ import Onboarding from "./pages/Onboarding";
 import Scripts from "./pages/Scripts";
 import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
+import Videographers from "./pages/Videographers";
+import VideographerDetail from "./pages/VideographerDetail";
 import Dashboard from "./pages/Dashboard";
 import LeadTracker from "./pages/LeadTracker";
 import LeadCalendar from "./pages/LeadCalendar";
@@ -48,6 +50,8 @@ const App = () => (
             <Route path="/clients/:clientId/scripts" element={<Scripts />} />
             <Route path="/clients/:clientId/leads" element={<LeadTracker />} />
             <Route path="/clients/:clientId/lead-calendar" element={<LeadCalendar />} />
+            <Route path="/videographers" element={<Videographers />} />
+            <Route path="/videographers/:videographerId" element={<VideographerDetail />} />
             <Route path="/leads" element={<LeadTracker />} />
             <Route path="/lead-calendar" element={<LeadCalendar />} />
             <Route path="/settings" element={<Settings />} />
