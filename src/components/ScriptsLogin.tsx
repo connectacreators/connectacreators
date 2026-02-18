@@ -205,7 +205,9 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
       </div>
 
       <div className="py-6 flex justify-center">
-        <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
+        <a href="/" className="cursor-pointer">
+          <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
+        </a>
       </div>
     </div>
   );
