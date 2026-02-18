@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
               timezone: settings.timezone,
               booking_title: settings.booking_title,
               booking_description: settings.booking_description,
+              primary_color: settings.primary_color || "#C4922A",
+              secondary_color: settings.secondary_color || "#1A1A1A",
             },
             client_name: clientData.name,
           }),

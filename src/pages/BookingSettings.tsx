@@ -25,13 +25,31 @@ import {
   ExternalLink,
   CalendarDays,
   Code,
+  Palette,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 
 const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-type BookingSettings = {
+const TIMEZONES = [
+  { value: "America/New_York", label: "EST – Nueva York" },
+  { value: "America/Chicago", label: "CST – Chicago" },
+  { value: "America/Denver", label: "MST – Denver" },
+  { value: "America/Los_Angeles", label: "PST – Los Ángeles" },
+  { value: "America/Mexico_City", label: "CDMX – Ciudad de México" },
+  { value: "America/Bogota", label: "COT – Bogotá" },
+  { value: "America/Lima", label: "PET – Lima" },
+  { value: "America/Santiago", label: "CLT – Santiago" },
+  { value: "America/Argentina/Buenos_Aires", label: "ART – Buenos Aires" },
+  { value: "America/Sao_Paulo", label: "BRT – São Paulo" },
+  { value: "Europe/Madrid", label: "CET – Madrid" },
+  { value: "Europe/London", label: "GMT – Londres" },
+  { value: "UTC", label: "UTC" },
+];
+
+type BookingSettingsData = {
   id?: string;
   client_id: string;
   is_active: boolean;
@@ -42,6 +60,8 @@ type BookingSettings = {
   timezone: string;
   booking_title: string;
   booking_description: string | null;
+  primary_color: string;
+  secondary_color: string;
 };
 
 export default function BookingSettings() {
@@ -52,7 +72,7 @@ export default function BookingSettings() {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
-  const [settings, setSettings] = useState<BookingSettings | null>(null);
+  const [settings, setSettings] = useState<BookingSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clientName, setClientName] = useState("");
@@ -85,6 +105,8 @@ export default function BookingSettings() {
         timezone: "America/Mexico_City",
         booking_title: "Agenda tu cita",
         booking_description: null,
+        primary_color: "#C4922A",
+        secondary_color: "#1A1A1A",
       });
     }
     setLoading(false);
@@ -112,6 +134,8 @@ export default function BookingSettings() {
       timezone: settings.timezone,
       booking_title: settings.booking_title,
       booking_description: settings.booking_description,
+      primary_color: settings.primary_color,
+      secondary_color: settings.secondary_color,
     };
 
     let error;
@@ -235,8 +259,8 @@ export default function BookingSettings() {
               </div>
             </div>
 
-            {/* Hours & Duration */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Hours, Duration & Timezone */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Hora Inicio</Label>
                 <Select value={String(settings.start_hour)} onValueChange={(v) => setSettings({ ...settings, start_hour: Number(v) })}>
@@ -272,6 +296,62 @@ export default function BookingSettings() {
                     <SelectItem value="120">2 hrs</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+                  <Globe className="w-3 h-3" /> Zona Horaria
+                </Label>
+                <Select value={settings.timezone} onValueChange={(v) => setSettings({ ...settings, timezone: v })}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Colors */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block flex items-center gap-1">
+                <Palette className="w-3 h-3" /> Colores del Calendario Público
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground mb-1 block">Color Principal (botones, acentos)</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={settings.primary_color}
+                      onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
+                      className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent"
+                    />
+                    <Input
+                      value={settings.primary_color}
+                      onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
+                      className="h-10 font-mono text-xs uppercase"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground mb-1 block">Color de Fondo</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={settings.secondary_color}
+                      onChange={(e) => setSettings({ ...settings, secondary_color: e.target.value })}
+                      className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent"
+                    />
+                    <Input
+                      value={settings.secondary_color}
+                      onChange={(e) => setSettings({ ...settings, secondary_color: e.target.value })}
+                      className="h-10 font-mono text-xs uppercase"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
