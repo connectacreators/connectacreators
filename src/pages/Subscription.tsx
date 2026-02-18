@@ -249,9 +249,14 @@ export default function Subscription() {
                       {subscription.status}
                     </Badge>
                     {subscription.cancel_at_period_end && (
-                      <Badge variant="outline" className="text-amber-400 border-amber-500/30">
-                        {tr(t.subscription.cancelsAtEnd, language)}
-                      </Badge>
+                      <>
+                        <Badge variant="outline" className="text-amber-400 border-amber-500/30">
+                          {tr(t.subscription.cancelsAtEnd, language)}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          Available until {formatDate(subscription.current_period_end)}
+                        </span>
+                      </>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -263,7 +268,9 @@ export default function Subscription() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">{tr(t.subscription.nextPayment, language)}</p>
+                      <p className="text-muted-foreground">
+                        {subscription.cancel_at_period_end ? "Access ends" : tr(t.subscription.nextPayment, language)}
+                      </p>
                       <p className="text-foreground font-medium flex items-center gap-1">
                         <CalendarDays className="w-4 h-4 text-muted-foreground" />
                         {formatDate(subscription.current_period_end)}
@@ -279,15 +286,17 @@ export default function Subscription() {
 
                   {/* Upgrade & Cancel actions */}
                   <div className="flex items-center justify-between pt-4 border-t border-border">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate("/select-plan")}
-                      className="gap-2"
-                    >
-                      <ArrowUpCircle className="w-4 h-4" />
-                      Upgrade Plan
-                    </Button>
+                    {!subscription.cancel_at_period_end && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/select-plan?upgrade=true")}
+                        className="gap-2"
+                      >
+                        <ArrowUpCircle className="w-4 h-4" />
+                        Upgrade Plan
+                      </Button>
+                    )}
                     {!subscription.cancel_at_period_end && (
                       <button
                         onClick={() => setCancelOpen(true)}

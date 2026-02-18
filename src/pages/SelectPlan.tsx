@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +21,7 @@ const plans = [
       "Save and organize scripts",
     ],
     isStripe: true,
-    data: {
-      plan_type: "starter",
-      subscription_status: "pending_contact",
-    },
+    data: { plan_type: "starter", subscription_status: "pending_contact" },
     cta: "Select Starter",
   },
   {
@@ -39,10 +36,7 @@ const plans = [
       "Save and organize scripts",
     ],
     isStripe: true,
-    data: {
-      plan_type: "growth",
-      subscription_status: "pending_contact",
-    },
+    data: { plan_type: "growth", subscription_status: "pending_contact" },
     cta: "Select Growth",
   },
   {
@@ -59,10 +53,7 @@ const plans = [
       "Automatic syncing of leads",
     ],
     isStripe: true,
-    data: {
-      plan_type: "enterprise",
-      subscription_status: "pending_contact",
-    },
+    data: { plan_type: "enterprise", subscription_status: "pending_contact" },
     cta: "Select Enterprise",
   },
   {
@@ -80,10 +71,7 @@ const plans = [
       "One-on-one coaching",
     ],
     isStripe: false,
-    data: {
-      plan_type: "connecta_dfy",
-      subscription_status: "pending_contact",
-    },
+    data: { plan_type: "connecta_dfy", subscription_status: "pending_contact" },
     cta: "Contact our team",
     redirect: "/coming-soon",
   },
@@ -99,10 +87,7 @@ const plans = [
       "Full automation and optimization",
     ],
     isStripe: false,
-    data: {
-      plan_type: "connecta_plus",
-      subscription_status: "pending_contact",
-    },
+    data: { plan_type: "connecta_plus", subscription_status: "pending_contact" },
     cta: "Contact our team",
     redirect: "/coming-soon",
   },
@@ -111,7 +96,11 @@ const plans = [
 export default function SelectPlan() {
   const { user, loading, isAdmin, isVideographer, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isUpgrade = searchParams.get("upgrade") === "true";
+
   const [clientId, setClientId] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<string | null>(null);
 
   useEffect(() => {
@@ -119,7 +108,6 @@ export default function SelectPlan() {
       navigate("/dashboard");
       return;
     }
-    // Admins and videographers don't need a plan
     if (user && (isAdmin || isVideographer)) {
       navigate("/dashboard");
       return;
@@ -131,24 +119,48 @@ export default function SelectPlan() {
         .eq("user_id", user.id)
         .maybeSingle()
         .then(({ data }) => {
-          if (data?.plan_type && data.subscription_status === "active") {
+          if (!isUpgrade && data?.plan_type && data.subscription_status === "active") {
             navigate("/dashboard");
           } else if (data) {
             setClientId(data.id);
+            setCurrentPlan(data.plan_type);
           }
         });
     }
-  }, [user, loading, isAdmin, isVideographer, navigate]);
+  }, [user, loading, isAdmin, isVideographer, navigate, isUpgrade]);
+
+  const handleUpgrade = async (planKey: string) => {
+    setSelecting(planKey);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke("upgrade-subscription", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: { new_plan_type: planKey },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Upgraded to ${planKey.charAt(0).toUpperCase() + planKey.slice(1)} plan!`);
+      navigate("/subscription");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upgrade plan");
+    } finally {
+      setSelecting(null);
+    }
+  };
 
   const handleSelect = async (plan: (typeof plans)[number]) => {
     if (!clientId) return;
-    setSelecting(plan.key);
 
+    // Upgrade flow: call upgrade-subscription instead of checkout
+    if (isUpgrade && plan.isStripe) {
+      await handleUpgrade(plan.key);
+      return;
+    }
+
+    setSelecting(plan.key);
     if (plan.isStripe) {
-      // Navigate to native checkout page
       navigate(`/checkout?plan=${plan.key}`);
     } else {
-      // Contact plans - redirect without changing subscription status
       navigate(plan.redirect!);
     }
   };
@@ -161,14 +173,25 @@ export default function SelectPlan() {
     );
   }
 
+  const visiblePlans = isUpgrade
+    ? plans.filter((p) => p.key !== currentPlan)
+    : plans;
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-end mb-4">
-          <Button variant="ghost" size="sm" onClick={() => signOut().then(() => navigate("/dashboard"))} className="text-muted-foreground">
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+          {!isUpgrade && (
+            <Button variant="ghost" size="sm" onClick={() => signOut().then(() => navigate("/dashboard"))} className="text-muted-foreground">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          )}
+          {isUpgrade && (
+            <Button variant="ghost" size="sm" onClick={() => navigate("/subscription")} className="text-muted-foreground">
+              ← Back to Subscription
+            </Button>
+          )}
         </div>
         <motion.div
           className="text-center mb-12"
@@ -177,15 +200,17 @@ export default function SelectPlan() {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Choose Your Plan
+            {isUpgrade ? "Upgrade Your Plan" : "Choose Your Plan"}
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Select the plan that best fits your needs. You can upgrade anytime.
+            {isUpgrade
+              ? "Select a new plan. You'll only be charged the prorated difference for the rest of your billing cycle."
+              : "Select the plan that best fits your needs. You can upgrade anytime."}
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-          {plans.map((plan, i) => (
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${!isUpgrade ? "xl:grid-cols-5" : ""} gap-6`}>
+          {visiblePlans.map((plan, i) => (
             <motion.div
               key={plan.key}
               initial={{ opacity: 0, y: 24 }}
@@ -195,9 +220,7 @@ export default function SelectPlan() {
             >
               <Card
                 className={`flex flex-col w-full relative ${
-                  plan.badge
-                    ? "border-primary shadow-lg shadow-primary/10"
-                    : "border-border"
+                  plan.badge ? "border-primary shadow-lg shadow-primary/10" : "border-border"
                 }`}
               >
                 {plan.badge && (
@@ -208,12 +231,8 @@ export default function SelectPlan() {
                 )}
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {plan.price}
-                  </p>
-                  <CardDescription className="mt-2">
-                    {plan.description}
-                  </CardDescription>
+                  <p className="text-2xl font-bold text-foreground mt-1">{plan.price}</p>
+                  <CardDescription className="mt-2">{plan.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1">
                   <ul className="space-y-2.5">
@@ -235,7 +254,7 @@ export default function SelectPlan() {
                     {selecting === plan.key ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : null}
-                    {plan.cta}
+                    {isUpgrade && plan.isStripe ? `Upgrade to ${plan.name}` : plan.cta}
                   </Button>
                 </CardFooter>
               </Card>
