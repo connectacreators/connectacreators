@@ -99,10 +99,12 @@ serve(async (req) => {
       if (isVideographer) {
         const { data: assignments } = await supabase
           .from("videographer_clients")
-          .select("client_id, clients(name)")
+          .select("client_id, clients(name, notion_lead_name)")
           .eq("videographer_user_id", userId);
 
-        const assignedNames = (assignments || []).map((a: any) => a.clients?.name).filter(Boolean);
+        const assignedNames = (assignments || []).flatMap((a: any) => 
+          [a.clients?.name, a.clients?.notion_lead_name].filter(Boolean)
+        );
         if (!assignedNames.includes(clientName)) {
           return new Response(JSON.stringify({ error: "Forbidden" }), {
             status: 403,
