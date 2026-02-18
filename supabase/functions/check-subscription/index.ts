@@ -73,27 +73,61 @@ serve(async (req) => {
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      const rawEnd = subscription.current_period_end;
-      logStep("Raw current_period_end value", { rawEnd, type: typeof rawEnd });
       
-      // Defensive date handling: Stripe may return a Unix timestamp (number), 
-      // an ISO string, or a Date-like value depending on the API version
+      // Log the full subscription keys to understand the shape
+      logStep("Subscription keys", { keys: Object.keys(subscription) });
+      logStep("Subscription raw data", { 
+        id: subscription.id,
+        status: subscription.status,
+        current_period_end: subscription.current_period_end,
+        current_period_end_type: typeof subscription.current_period_end,
+        current_period_end_str: String(subscription.current_period_end),
+      });
+      
+      // Extremely defensive date handling
       try {
-        if (typeof rawEnd === "number") {
-          // If it's a small number (Unix seconds), multiply by 1000
-          // If it's already in milliseconds (very large), use directly
+        const rawEnd = subscription.current_period_end;
+        if (rawEnd === null || rawEnd === undefined) {
+          subscriptionEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          logStep("WARNING: current_period_end is null, defaulting to +30 days");
+        } else if (typeof rawEnd === "number" && !isNaN(rawEnd)) {
           const ms = rawEnd < 1e12 ? rawEnd * 1000 : rawEnd;
           subscriptionEnd = new Date(ms).toISOString();
-        } else if (typeof rawEnd === "string") {
-          subscriptionEnd = new Date(rawEnd).toISOString();
+        } else if (typeof rawEnd === "string" && rawEnd.length > 0) {
+          const parsed = Date.parse(rawEnd);
+          if (!isNaN(parsed)) {
+            subscriptionEnd = new Date(parsed).toISOString();
+          } else {
+            // Try parsing as unix timestamp string
+            const num = Number(rawEnd);
+            if (!isNaN(num)) {
+              const ms = num < 1e12 ? num * 1000 : num;
+              subscriptionEnd = new Date(ms).toISOString();
+            } else {
+              subscriptionEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+              logStep("WARNING: Unparseable string current_period_end", { rawEnd });
+            }
+          }
+        } else if (typeof rawEnd === "object" && rawEnd !== null) {
+          // Some Stripe versions return Date objects or objects with valueOf
+          const val = rawEnd.valueOf ? rawEnd.valueOf() : Number(rawEnd);
+          if (typeof val === "number" && !isNaN(val)) {
+            const ms = val < 1e12 ? val * 1000 : val;
+            subscriptionEnd = new Date(ms).toISOString();
+          } else {
+            subscriptionEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            logStep("WARNING: Object current_period_end not convertible", { rawEnd: String(rawEnd) });
+          }
         } else {
-          subscriptionEnd = new Date().toISOString();
-          logStep("WARNING: Unexpected current_period_end format, using now()", { rawEnd });
+          subscriptionEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          logStep("WARNING: Unknown current_period_end type", { type: typeof rawEnd });
         }
       } catch (dateErr) {
-        logStep("WARNING: Failed to parse current_period_end, using now()", { rawEnd, error: String(dateErr) });
-        subscriptionEnd = new Date().toISOString();
+        subscriptionEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        logStep("WARNING: Exception parsing date, defaulting to +30 days", { error: String(dateErr) });
       }
+      
+      logStep("Resolved subscriptionEnd", { subscriptionEnd });
       
       const productId = subscription.items.data[0].price.product as string;
       logStep("Active subscription found", { subscriptionId: subscription.id, productId, subscriptionEnd });
