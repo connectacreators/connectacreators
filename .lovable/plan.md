@@ -1,72 +1,75 @@
 
 
-# Fix Payment Verification + Subscription Management Overhaul
+# Subscription Cancellation Access + Upgrade with Proration
 
-## Problem
-After completing a Stripe payment, the `/payment-success` page shows "Something went wrong" because the `check-subscription` edge function crashes with an `"Invalid time value"` error. The Stripe API version `2025-08-27.basil` returns `current_period_end` in a format that fails when multiplied by 1000 and passed to `new Date()`. This means subscriptions are never verified and users get stuck.
+## What Will Change
 
-Additionally, the Subscription management page lacks cancel and upgrade functionality, and there is no cancellation questionnaire flow.
+### 1. "Available until" text after cancellation
+When a user cancels their subscription, the Subscription page will show an "Available until [date]" message next to their plan badge. The date will be the last day of their current billing period (the day before their next payment would have been). This makes it clear they still have full access until that date.
 
-## What Will Be Fixed/Built
+### 2. Keep access during "canceling" status
+The subscription guard (`useSubscriptionGuard`) currently only allows `active` and `pending_contact` statuses. It will be updated to also allow `canceling` status, so users who canceled but are still within their billing period retain full dashboard access.
 
-### 1. Fix the `check-subscription` edge function (root cause)
-- Add defensive handling for `current_period_end` -- check if it's already a Date/string or a Unix timestamp before converting
-- Add more logging around the subscription data to catch future issues
-- Add a retry with longer delays in `PaymentSuccess.tsx` (up to 3 retries with exponential backoff) since Stripe can take a few seconds to finalize
+### 3. Upgrade Plan flow
+The "Upgrade Plan" button will navigate to `/select-plan` but the page will be updated to:
+- Detect the user's current plan and hide it (or mark it as "Current Plan")
+- Show the remaining plans as selectable options
+- When a plan is selected, instead of creating a brand new subscription, call a new `upgrade-subscription` edge function
 
-### 2. Fix `PaymentSuccess.tsx` retry logic
-- Implement proper retry with multiple attempts (3 retries, 3s/5s/8s delays)
-- Show a "Retry" button on error state instead of just "Go to Dashboard"
-- If all retries fail, still redirect to dashboard (the subscription guard will handle redirecting if needed)
+### 4. New `upgrade-subscription` edge function
+This function will:
+- Find the user's active Stripe subscription
+- Swap the subscription item (price) to the new plan using `stripe.subscriptions.update()`
+- Set `proration_behavior: "always_invoice"` so Stripe automatically charges the prorated difference (new plan cost minus what they already paid for the current period)
+- Update the `clients` table with the new plan type and limits
+- The user does NOT need to re-enter their card details since their payment method is already on file
 
-### 3. Add Cancel Subscription flow in Subscription page
-- Add a small "Cancel Subscription" text link at the bottom of the current plan card
-- Clicking it opens a modal dialog with:
-  - Header: "We're sad to see you go"
-  - Multiple-choice questionnaire asking the reason for canceling:
-    - "Too expensive"
-    - "Not using it enough"
-    - "Found a better alternative"
-    - "Missing features I need"
-    - "Other"
-  - Optional text field for additional feedback
-  - "Next" button (disabled until a reason is selected)
-- After clicking Next, the subscription is canceled via a new `cancel-subscription` edge function
-- Show confirmation message and update the UI
-
-### 4. Create `cancel-subscription` edge function
-- Authenticates the user
-- Looks up their `stripe_customer_id` from the `clients` table
-- Cancels the subscription at period end (`cancel_at_period_end: true`) so they keep access until the billing cycle ends
-- Updates `clients.subscription_status` to "canceling"
-- Returns success/failure
-
-### 5. Add Upgrade Plan option
-- Add an "Upgrade Plan" button that navigates to `/select-plan` where they can pick a different tier
-- The existing checkout flow will handle creating a new subscription
-
-### 6. Invoice download (already working)
-- The current Subscription page already has invoice download buttons via the `get-subscription` edge function. This is confirmed working -- each invoice row has a download icon that opens the Stripe PDF.
+### 5. Subscription page improvements
+- Show "Available until [date]" when `cancel_at_period_end` is true
+- Change the "Next Payment" label to "Access ends" when subscription is canceling
 
 ## Technical Details
 
 ### Files to modify:
-- `supabase/functions/check-subscription/index.ts` -- fix date handling
-- `src/pages/PaymentSuccess.tsx` -- better retry logic
-- `src/pages/Subscription.tsx` -- add cancel flow with questionnaire modal, upgrade button
+- `src/hooks/useSubscriptionGuard.ts` -- add "canceling" to allowed statuses
+- `src/pages/Subscription.tsx` -- show "Available until" date for canceled subscriptions
+- `src/pages/SelectPlan.tsx` -- detect current plan, hide it or mark as current, handle upgrade flow
+- `supabase/config.toml` -- register new edge function
 
 ### Files to create:
-- `supabase/functions/cancel-subscription/index.ts` -- new edge function
+- `supabase/functions/upgrade-subscription/index.ts` -- new edge function for plan upgrades with Stripe proration
 
-### Edge function: cancel-subscription
-- Accepts POST with `{ reason: string, feedback?: string }`
-- Uses service role key to update client record
-- Calls `stripe.subscriptions.update(subId, { cancel_at_period_end: true })` to cancel gracefully
-- Logs the cancellation reason for business analytics
+### Upgrade subscription edge function logic:
+1. Authenticate the user
+2. Get their `stripe_customer_id` from the `clients` table
+3. List active subscriptions for that customer
+4. Get the current subscription item ID
+5. Call `stripe.subscriptions.update()` with:
+   - Delete the old subscription item
+   - Add the new price
+   - `proration_behavior: "always_invoice"` (charges the difference immediately)
+6. Update the `clients` table with the new `plan_type`, `script_limit`, and feature flags
+7. Return success
 
-### Cancel Questionnaire UI
-- Radix Dialog modal triggered by a small muted text link "Cancel subscription"
-- Step 1: Radio buttons with reasons, "Next" button
-- Step 2: Confirmation screen showing "Your subscription will remain active until [end date]"
-- After confirmation, the subscription page refreshes to show updated status with a "Cancels at end of period" badge (already exists in the UI)
+### Proration example:
+If a user is on Starter ($30/month) and upgrades to Growth ($60/month) halfway through their billing cycle:
+- They've used $15 worth of Starter
+- They owe $30 for the remaining half of Growth
+- Stripe charges them $30 - $15 = $15 prorated difference immediately
+- Next month they pay the full $60
+
+### SelectPlan.tsx changes:
+- Accept an optional `?upgrade=true` query param
+- If upgrading, fetch the user's current `plan_type` from the `clients` table
+- Filter out or disable the current plan card
+- When a plan is selected during upgrade, call `upgrade-subscription` instead of navigating to `/checkout`
+- Show a confirmation toast on success and redirect to `/subscription`
+
+### Subscription guard update:
+Allow `canceling` status so users keep access:
+```
+subscription_status === "active" ||
+subscription_status === "pending_contact" ||
+subscription_status === "canceling"
+```
 
