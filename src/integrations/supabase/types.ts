@@ -19,6 +19,7 @@ export type Database = {
           available_days: number[]
           booking_description: string | null
           booking_title: string
+          break_times: Json
           client_id: string
           created_at: string
           end_hour: number
@@ -35,6 +36,7 @@ export type Database = {
           available_days?: number[]
           booking_description?: string | null
           booking_title?: string
+          break_times?: Json
           client_id: string
           created_at?: string
           end_hour?: number
@@ -51,6 +53,7 @@ export type Database = {
           available_days?: number[]
           booking_description?: string | null
           booking_title?: string
+          break_times?: Json
           client_id?: string
           created_at?: string
           end_hour?: number

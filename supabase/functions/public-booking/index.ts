@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
               booking_description: settings.booking_description,
               primary_color: settings.primary_color || "#C4922A",
               secondary_color: settings.secondary_color || "#1A1A1A",
+              break_times: settings.break_times || [],
             },
             client_name: clientData.name,
           }),
@@ -138,6 +139,13 @@ Deno.serve(async (req) => {
         console.error("Notion query failed:", await notionResponse.text());
       }
 
+      // Parse break times
+      const breakTimes: { start: number; end: number }[] = (settings.break_times || []).map((bt: any) => {
+        const [sh, sm] = bt.start.split(":").map(Number);
+        const [eh, em] = bt.end.split(":").map(Number);
+        return { start: sh + sm / 60, end: eh + em / 60 };
+      });
+
       // Generate available slots
       const slots: string[] = [];
       const durationHours = settings.slot_duration_minutes / 60;
@@ -145,7 +153,10 @@ Deno.serve(async (req) => {
         const isBusy = busySlots.some(
           (b: any) => h < b.end && h + durationHours > b.start
         );
-        if (!isBusy) {
+        const isBreak = breakTimes.some(
+          (bt) => h < bt.end && h + durationHours > bt.start
+        );
+        if (!isBusy && !isBreak) {
           const hours = Math.floor(h);
           const minutes = Math.round((h - hours) * 60);
           slots.push(`${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`);
