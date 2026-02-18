@@ -290,6 +290,16 @@ export default function Checkout() {
             </motion.div>
           </div>
         </div>
+
+        {/* Contact Info Footer */}
+        <div className="mt-12 text-center pb-4">
+          <p className="text-xs text-muted-foreground/60">
+            Need help? Contact us:{" "}
+            <a href="mailto:admin@connectacreators.com" className="text-primary hover:underline">
+              admin@connectacreators.com
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

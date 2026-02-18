@@ -287,6 +287,14 @@ export default function Home() {
             © {new Date().getFullYear()} Connecta
           </p>
         </div>
+        <div className="mt-6 text-center">
+          <p className="text-xs text-muted-foreground/60">
+            {tr({ en: "Contact us", es: "Contáctanos" }, language)}:{" "}
+            <a href="mailto:admin@connectacreators.com" className="text-primary hover:underline">
+              admin@connectacreators.com
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );
