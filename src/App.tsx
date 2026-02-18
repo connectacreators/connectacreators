@@ -21,6 +21,8 @@ import Settings from "./pages/Settings";
 import Subscription from "./pages/Subscription";
 import NotFound from "./pages/NotFound";
 import PublicScript from "./pages/PublicScript";
+import PublicBooking from "./pages/PublicBooking";
+import BookingSettings from "./pages/BookingSettings";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import SelectPlan from "./pages/SelectPlan";
@@ -50,6 +52,7 @@ const App = () => (
             <Route path="/clients/:clientId/scripts" element={<Scripts />} />
             <Route path="/clients/:clientId/leads" element={<LeadTracker />} />
             <Route path="/clients/:clientId/lead-calendar" element={<LeadCalendar />} />
+            <Route path="/clients/:clientId/booking-settings" element={<BookingSettings />} />
             <Route path="/videographers" element={<Videographers />} />
             <Route path="/videographers/:videographerId" element={<VideographerDetail />} />
             <Route path="/leads" element={<LeadTracker />} />
@@ -61,6 +64,7 @@ const App = () => (
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/s/:id" element={<PublicScript />} />
+            <Route path="/book/:clientId" element={<PublicBooking />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
