@@ -108,7 +108,7 @@ export default function BookingSettings() {
         start_hour: 9,
         end_hour: 18,
         slot_duration_minutes: 60,
-        timezone: "America/Mexico_City",
+        timezone: "America/Denver",
         booking_title: "Agenda tu cita",
         booking_description: null,
         primary_color: "#C4922A",
