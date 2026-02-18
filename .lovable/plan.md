@@ -1,77 +1,72 @@
 
 
-# Native Checkout Page with Embedded Stripe Payment
+# Fix Payment Verification + Subscription Management Overhaul
 
-## Overview
-Replace the current flow that redirects users to Stripe's hosted checkout page with a custom, in-app checkout experience. Users will see their personal and contact information pre-filled (from their account), review their selected plan, and complete payment without leaving the app -- all while Stripe still handles the secure payment processing.
+## Problem
+After completing a Stripe payment, the `/payment-success` page shows "Something went wrong" because the `check-subscription` edge function crashes with an `"Invalid time value"` error. The Stripe API version `2025-08-27.basil` returns `current_period_end` in a format that fails when multiplied by 1000 and passed to `new Date()`. This means subscriptions are never verified and users get stuck.
 
-## How It Will Work
+Additionally, the Subscription management page lacks cancel and upgrade functionality, and there is no cancellation questionnaire flow.
 
-1. User selects a plan on `/select-plan`
-2. Instead of redirecting to Stripe, they go to a new `/checkout` page
-3. The checkout page has:
-   - **Personal Info section**: First name, last name, email (pre-filled from their account)
-   - **Contact Info section**: Phone number, email (no double-typing -- pulled from their profile)
-   - **Plan summary**: Shows selected plan name, price, and features
-   - **Payment section**: Stripe's Embedded Checkout renders inline (secure card form handled by Stripe)
-4. After successful payment, they're taken to `/payment-success` as usual
+## What Will Be Fixed/Built
 
-## User Experience Flow
+### 1. Fix the `check-subscription` edge function (root cause)
+- Add defensive handling for `current_period_end` -- check if it's already a Date/string or a Unix timestamp before converting
+- Add more logging around the subscription data to catch future issues
+- Add a retry with longer delays in `PaymentSuccess.tsx` (up to 3 retries with exponential backoff) since Stripe can take a few seconds to finalize
 
-```text
-Select Plan Page --> Checkout Page --> Payment Success
-                    +---------------------------+
-                    | Personal Info (pre-filled) |
-                    | - First Name               |
-                    | - Last Name                |
-                    | - Email                    |
-                    +---------------------------+
-                    | Contact Info               |
-                    | - Phone Number             |
-                    | - Email (same, read-only)  |
-                    +---------------------------+
-                    | Plan Summary               |
-                    | - Plan name & price        |
-                    +---------------------------+
-                    | [Stripe Embedded Checkout] |
-                    | (card form renders here)   |
-                    +---------------------------+
-```
+### 2. Fix `PaymentSuccess.tsx` retry logic
+- Implement proper retry with multiple attempts (3 retries, 3s/5s/8s delays)
+- Show a "Retry" button on error state instead of just "Go to Dashboard"
+- If all retries fail, still redirect to dashboard (the subscription guard will handle redirecting if needed)
+
+### 3. Add Cancel Subscription flow in Subscription page
+- Add a small "Cancel Subscription" text link at the bottom of the current plan card
+- Clicking it opens a modal dialog with:
+  - Header: "We're sad to see you go"
+  - Multiple-choice questionnaire asking the reason for canceling:
+    - "Too expensive"
+    - "Not using it enough"
+    - "Found a better alternative"
+    - "Missing features I need"
+    - "Other"
+  - Optional text field for additional feedback
+  - "Next" button (disabled until a reason is selected)
+- After clicking Next, the subscription is canceled via a new `cancel-subscription` edge function
+- Show confirmation message and update the UI
+
+### 4. Create `cancel-subscription` edge function
+- Authenticates the user
+- Looks up their `stripe_customer_id` from the `clients` table
+- Cancels the subscription at period end (`cancel_at_period_end: true`) so they keep access until the billing cycle ends
+- Updates `clients.subscription_status` to "canceling"
+- Returns success/failure
+
+### 5. Add Upgrade Plan option
+- Add an "Upgrade Plan" button that navigates to `/select-plan` where they can pick a different tier
+- The existing checkout flow will handle creating a new subscription
+
+### 6. Invoice download (already working)
+- The current Subscription page already has invoice download buttons via the `get-subscription` edge function. This is confirmed working -- each invoice row has a download icon that opens the Stripe PDF.
 
 ## Technical Details
 
-### 1. Install Stripe React libraries
-- Add `@stripe/stripe-js` and `@stripe/react-stripe-js` as dependencies
-- These provide the `EmbeddedCheckoutProvider` and `EmbeddedCheckout` components that render Stripe's secure payment form inline
+### Files to modify:
+- `supabase/functions/check-subscription/index.ts` -- fix date handling
+- `src/pages/PaymentSuccess.tsx` -- better retry logic
+- `src/pages/Subscription.tsx` -- add cancel flow with questionnaire modal, upgrade button
 
-### 2. Update the edge function (`create-checkout`)
-- Modify the existing `create-checkout` edge function to return a `client_secret` instead of a `url`
-- Set `ui_mode: "embedded"` on the Stripe Checkout Session so it works with the embedded component
-- Set a `return_url` instead of `success_url`/`cancel_url`
-- Accept optional `phone` parameter to store on the Stripe customer
+### Files to create:
+- `supabase/functions/cancel-subscription/index.ts` -- new edge function
 
-### 3. Create a new `/checkout` page (`src/pages/Checkout.tsx`)
-- Accepts the selected plan via URL query param (e.g., `/checkout?plan=starter`)
-- Fetches user profile data to pre-fill name, email, and phone
-- Displays a form with personal info and contact info sections (pre-filled, editable)
-- On "Continue to Payment", calls the updated `create-checkout` edge function
-- Renders Stripe's `EmbeddedCheckout` component inline with the returned client secret
-- The Stripe form handles card input, validation, and 3D Secure -- all within the page
+### Edge function: cancel-subscription
+- Accepts POST with `{ reason: string, feedback?: string }`
+- Uses service role key to update client record
+- Calls `stripe.subscriptions.update(subId, { cancel_at_period_end: true })` to cancel gracefully
+- Logs the cancellation reason for business analytics
 
-### 4. Update `SelectPlan.tsx`
-- Change the Stripe plan buttons to navigate to `/checkout?plan=starter` (etc.) instead of calling the edge function directly
-- Non-Stripe plans (Connecta DFY, Connecta Plus) continue redirecting to `/coming-soon`
-
-### 5. Add route in `App.tsx`
-- Register `/checkout` route pointing to the new `Checkout` page
-
-### 6. Profile data
-- The checkout page will query the `clients` table and `profiles` table to get the user's name and email
-- If any info is missing, the user can fill it in manually
-- Phone number will be saved to the client record for future use
-
-### Notes
-- Stripe's embedded checkout is fully PCI-compliant -- card data never touches your server
-- PayPal button: Stripe Checkout supports PayPal as a payment method if enabled in your Stripe dashboard. The "Continue with PayPal" option would appear automatically within Stripe's embedded form if you enable it in Stripe settings. No custom code needed for that.
-- The personal info form is purely for your records and display -- Stripe handles the actual payment security
+### Cancel Questionnaire UI
+- Radix Dialog modal triggered by a small muted text link "Cancel subscription"
+- Step 1: Radio buttons with reasons, "Next" button
+- Step 2: Confirmation screen showing "Your subscription will remain active until [end date]"
+- After confirmation, the subscription page refreshes to show updated status with a "Cancels at end of period" badge (already exists in the UI)
 
