@@ -1,75 +1,54 @@
 
 
-# Subscription Cancellation Access + Upgrade with Proration
+## Changes to the AI Script Builder
 
-## What Will Change
+### 1. Replace 9 Quality Metrics with a Single "Virality Check" Score
 
-### 1. "Available until" text after cancellation
-When a user cancels their subscription, the Subscription page will show an "Available until [date]" message next to their plan badge. The date will be the last day of their current billing period (the day before their next payment would have been). This makes it clear they still have full access until that date.
+**Edge function** (`supabase/functions/ai-build-script/index.ts`):
+- Keep the 9 internal criteria in the system prompt so the AI still evaluates against all of them, but change the tool schema to return a single `virality_score` (the average of all 9) instead of the full `quality_scores` object.
+- Apply this change in the `generate-script` and `refine-script` steps.
 
-### 2. Keep access during "canceling" status
-The subscription guard (`useSubscriptionGuard`) currently only allows `active` and `pending_contact` statuses. It will be updated to also allow `canceling` status, so users who canceled but are still within their billing period retain full dashboard access.
+**Frontend** (`src/components/AIScriptWizard.tsx`):
+- Replace the 9-row quality checklist grid with a single "Virality Check" display showing the averaged score (e.g., a bold number out of 10 with color coding: green >= 8, amber >= 6, red < 6).
 
-### 3. Upgrade Plan flow
-The "Upgrade Plan" button will navigate to `/select-plan` but the page will be updated to:
-- Detect the user's current plan and hide it (or mark it as "Current Plan")
-- Show the remaining plans as selectable options
-- When a plan is selected, instead of creating a brand new subscription, call a new `upgrade-subscription` edge function
+### 2. Generate Hooks in English by Default
 
-### 4. New `upgrade-subscription` edge function
-This function will:
-- Find the user's active Stripe subscription
-- Swap the subscription item (price) to the new plan using `stripe.subscriptions.update()`
-- Set `proration_behavior: "always_invoice"` so Stripe automatically charges the prorated difference (new plan cost minus what they already paid for the current period)
-- Update the `clients` table with the new plan type and limits
-- The user does NOT need to re-enter their card details since their payment method is already on file
+**Edge function** (`supabase/functions/ai-build-script/index.ts`):
+- In the `generate-hook` step, change the system prompt from "Write in SPANISH (Latin American) by default" to "Write in ENGLISH by default".
+- In the `generate-script` step, change the system prompt from "Write in SPANISH (Latin American)" to "Write in ENGLISH".
+- In the `refine-script` step, change the default language instruction from Spanish to English.
+- The existing translate buttons on the final step still let the user convert to Spanish whenever needed.
 
-### 5. Subscription page improvements
-- Show "Available until [date]" when `cancel_at_period_end` is true
-- Change the "Next Payment" label to "Access ends" when subscription is canceling
+### 3. Reducing Steps Without Losing Effectiveness
 
-## Technical Details
+Currently the wizard has 6 steps with 4 separate AI calls:
+1. Topic input
+2. Research (AI call 1)
+3. Pick hook format/template
+4. Generate hook (AI call 2)
+5. Pick structure + length + facts
+6. Generate script (AI call 3) + optional refine (AI call 4)
 
-### Files to modify:
-- `src/hooks/useSubscriptionGuard.ts` -- add "canceling" to allowed statuses
-- `src/pages/Subscription.tsx` -- show "Available until" date for canceled subscriptions
-- `src/pages/SelectPlan.tsx` -- detect current plan, hide it or mark as current, handle upgrade flow
-- `supabase/config.toml` -- register new edge function
+**Recommended consolidation -- merge Steps 3+4 into one and Steps 5+6 into one, reducing to 4 steps total:**
 
-### Files to create:
-- `supabase/functions/upgrade-subscription/index.ts` -- new edge function for plan upgrades with Stripe proration
+| New Step | Old Steps | What Happens |
+|----------|-----------|-------------|
+| 1. Topic | 1 | User types topic |
+| 2. Research | 2 | AI researches facts (same AI call) |
+| 3. Hook | 3 + 4 | User picks format/template, generates hook, sees result -- all in one card |
+| 4. Script | 5 + 6 | User picks structure/length/facts, generates script, sees result with Virality Check, refine, translate -- all in one card |
 
-### Upgrade subscription edge function logic:
-1. Authenticate the user
-2. Get their `stripe_customer_id` from the `clients` table
-3. List active subscriptions for that customer
-4. Get the current subscription item ID
-5. Call `stripe.subscriptions.update()` with:
-   - Delete the old subscription item
-   - Add the new price
-   - `proration_behavior: "always_invoice"` (charges the difference immediately)
-6. Update the `clients` table with the new `plan_type`, `script_limit`, and feature flags
-7. Return success
+This cuts the visible steps from 6 to 4 while keeping the same number of AI calls (the quality stays identical). The hook step simply shows the generated hook inline after clicking "Generate" instead of scrolling to a new card. Same for the script step.
 
-### Proration example:
-If a user is on Starter ($30/month) and upgrades to Growth ($60/month) halfway through their billing cycle:
-- They've used $15 worth of Starter
-- They owe $30 for the remaining half of Growth
-- Stripe charges them $30 - $15 = $15 prorated difference immediately
-- Next month they pay the full $60
+**UI changes:**
+- Update `STEP_NAMES` arrays to 4 entries: `["Topic", "Research", "Hook", "Script"]`
+- Update `STEP_ICONS` to 4 icons
+- Merge Step 3 (pick format) and Step 4 (see hook) into a single StepCard that shows the generated hook below the format picker once generated, with a Regenerate button inline
+- Merge Step 5 (pick structure) and Step 6 (see script) into a single StepCard that shows the script output below the structure/length/facts selectors once generated
 
-### SelectPlan.tsx changes:
-- Accept an optional `?upgrade=true` query param
-- If upgrading, fetch the user's current `plan_type` from the `clients` table
-- Filter out or disable the current plan card
-- When a plan is selected during upgrade, call `upgrade-subscription` instead of navigating to `/checkout`
-- Show a confirmation toast on success and redirect to `/subscription`
+### Technical Details
 
-### Subscription guard update:
-Allow `canceling` status so users keep access:
-```
-subscription_status === "active" ||
-subscription_status === "pending_contact" ||
-subscription_status === "canceling"
-```
+**Files to modify:**
+- `supabase/functions/ai-build-script/index.ts` -- simplify quality_scores to virality_score, change language defaults to English
+- `src/components/AIScriptWizard.tsx` -- merge steps 3+4 and 5+6, replace quality grid with single Virality Check badge
 
