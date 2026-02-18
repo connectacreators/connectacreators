@@ -27,6 +27,9 @@ import {
   Code,
   Palette,
   Globe,
+  Plus,
+  Trash2,
+  Coffee,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -49,6 +52,8 @@ const TIMEZONES = [
   { value: "UTC", label: "UTC" },
 ];
 
+type BreakTime = { start: string; end: string };
+
 type BookingSettingsData = {
   id?: string;
   client_id: string;
@@ -62,6 +67,7 @@ type BookingSettingsData = {
   booking_description: string | null;
   primary_color: string;
   secondary_color: string;
+  break_times: BreakTime[];
 };
 
 export default function BookingSettings() {
@@ -78,7 +84,7 @@ export default function BookingSettings() {
   const [clientName, setClientName] = useState("");
   const [copied, setCopied] = useState<"link" | "embed" | null>(null);
 
-  const bookingUrl = `https://connectacreators.lovable.app/book/${clientId}`;
+  const bookingUrl = `https://connectacreators.com/book/${clientId}`;
   const embedCode = `<iframe src="${bookingUrl}" width="100%" height="700" frameborder="0" style="border:none;border-radius:16px;"></iframe>`;
 
   const fetchSettings = useCallback(async () => {
@@ -107,6 +113,7 @@ export default function BookingSettings() {
         booking_description: null,
         primary_color: "#C4922A",
         secondary_color: "#1A1A1A",
+        break_times: [],
       });
     }
     setLoading(false);
@@ -136,6 +143,7 @@ export default function BookingSettings() {
       booking_description: settings.booking_description,
       primary_color: settings.primary_color,
       secondary_color: settings.secondary_color,
+      break_times: settings.break_times,
     };
 
     let error;
@@ -353,6 +361,73 @@ export default function BookingSettings() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Break Times */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block flex items-center gap-1">
+                <Coffee className="w-3 h-3" /> Descansos / Break Times
+              </Label>
+              <p className="text-[10px] text-muted-foreground mb-3">Los horarios de descanso bloquean slots durante esos periodos.</p>
+              <div className="space-y-2">
+                {settings.break_times.map((bt, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Select value={bt.start} onValueChange={(v) => {
+                      const updated = [...settings.break_times];
+                      updated[idx] = { ...updated[idx], start: v };
+                      setSettings({ ...settings, break_times: updated });
+                    }}>
+                      <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: (settings.end_hour - settings.start_hour) * 2 }, (_, i) => {
+                          const h = settings.start_hour + Math.floor(i / 2);
+                          const m = (i % 2) * 30;
+                          const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+                          return <SelectItem key={val} value={val}>{val}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground">a</span>
+                    <Select value={bt.end} onValueChange={(v) => {
+                      const updated = [...settings.break_times];
+                      updated[idx] = { ...updated[idx], end: v };
+                      setSettings({ ...settings, break_times: updated });
+                    }}>
+                      <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: (settings.end_hour - settings.start_hour) * 2 }, (_, i) => {
+                          const h = settings.start_hour + Math.floor(i / 2);
+                          const m = (i % 2) * 30;
+                          const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+                          return <SelectItem key={val} value={val}>{val}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => {
+                        const updated = settings.break_times.filter((_, i) => i !== idx);
+                        setSettings({ ...settings, break_times: updated });
+                      }}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 h-8 text-xs"
+                onClick={() => {
+                  const defaultStart = `${String(settings.start_hour + 4).padStart(2, "0")}:00`;
+                  const defaultEnd = `${String(settings.start_hour + 5).padStart(2, "0")}:00`;
+                  setSettings({ ...settings, break_times: [...settings.break_times, { start: defaultStart, end: defaultEnd }] });
+                }}
+              >
+                <Plus className="w-3 h-3 mr-1" /> Agregar descanso
+              </Button>
             </div>
 
             {/* Save button */}
