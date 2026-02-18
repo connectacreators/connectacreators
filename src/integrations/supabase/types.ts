@@ -60,6 +60,7 @@ export type Database = {
           id: string
           lead_tracker_enabled: boolean | null
           name: string
+          notion_lead_database_id: string | null
           notion_lead_name: string | null
           plan_type: string | null
           script_limit: number | null
@@ -76,6 +77,7 @@ export type Database = {
           id?: string
           lead_tracker_enabled?: boolean | null
           name: string
+          notion_lead_database_id?: string | null
           notion_lead_name?: string | null
           plan_type?: string | null
           script_limit?: number | null
@@ -92,6 +94,7 @@ export type Database = {
           id?: string
           lead_tracker_enabled?: boolean | null
           name?: string
+          notion_lead_database_id?: string | null
           notion_lead_name?: string | null
           plan_type?: string | null
           script_limit?: number | null
