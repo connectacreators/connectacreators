@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight } from "lucide-react";
+import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight, Languages, Send } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,6 +118,9 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
   const [generatedScript, setGeneratedScript] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [refining, setRefining] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
   const lengthLabels = [
     tr({ en: "Short (30s)", es: "Corto (30s)" }, language),
@@ -256,6 +260,44 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
       await onComplete(rawContent, title);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRefine = async () => {
+    if (!feedbackText.trim() || !generatedScript || refining) return;
+    setRefining(true);
+    try {
+      const data = await callAIBuild({
+        step: "refine-script",
+        topic,
+        currentScript: generatedScript,
+        feedback: feedbackText.trim(),
+      });
+      setGeneratedScript(data);
+      setFeedbackText("");
+      toast.success(tr({ en: "Script refined!", es: "¡Script refinado!" }, language));
+    } catch (e: any) {
+      toast.error(e.message || "Error refining script");
+    } finally {
+      setRefining(false);
+    }
+  };
+
+  const handleTranslate = async (targetLang: "en" | "es") => {
+    if (!generatedScript || translating) return;
+    setTranslating(true);
+    try {
+      const data = await callAIBuild({
+        step: "translate-script",
+        currentScript: generatedScript,
+        targetLanguage: targetLang,
+      });
+      setGeneratedScript(data);
+      toast.success(tr({ en: `Translated to ${targetLang === "en" ? "English" : "Spanish"}!`, es: `¡Traducido al ${targetLang === "en" ? "inglés" : "español"}!` }, language));
+    } catch (e: any) {
+      toast.error(e.message || "Error translating script");
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -579,6 +621,37 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         >
           {generatedScript && (
             <>
+              {/* Quality Scores Checklist */}
+              {generatedScript.quality_scores && (
+                <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                  <p className="text-sm font-semibold text-foreground mb-2">
+                    {tr({ en: "📋 Execution Quality Checklist", es: "📋 Checklist de Calidad de Ejecución" }, language)}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {[
+                      { key: "massive_tam", en: "Massive TAM", es: "TAM Masivo" },
+                      { key: "idea_explosivity", en: "Idea Explosivity", es: "Explosividad de Idea" },
+                      { key: "emotional_resonance", en: "Emotional Resonance", es: "Resonancia Emocional" },
+                      { key: "novel_take", en: "Novel Take/Timing", es: "Ángulo/Timing Novedoso" },
+                      { key: "value_teased_quickly", en: "Value Teased Quickly", es: "Valor Mostrado Rápido" },
+                      { key: "curiosity_hook", en: "Curiosity Hook", es: "Hook de Curiosidad" },
+                      { key: "easy_absorption", en: "Easy Absorption", es: "Fácil Absorción" },
+                      { key: "rehook_present", en: "Rehook Present", es: "Rehook Presente" },
+                      { key: "sticky_idea", en: "Sticky Idea", es: "Idea Pegajosa" },
+                    ].map((item) => {
+                      const score = generatedScript.quality_scores[item.key] || 0;
+                      const color = score >= 8 ? "text-green-500" : score >= 6 ? "text-amber-500" : "text-red-500";
+                      return (
+                        <div key={item.key} className="flex items-center justify-between text-xs gap-2 py-1">
+                          <span className="text-muted-foreground">{tr({ en: item.en, es: item.es }, language)}</span>
+                          <span className={`font-bold ${color}`}>{score}/10</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 {generatedScript.lines?.filter((line: any) => line.line_type === "actor").map((line: any, i: number) => {
                   const sectionBadge: Record<string, string> = {
@@ -587,7 +660,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                     cta: "bg-green-500/20 text-green-400",
                   };
                   return (
-                    <div key={i} className="p-3 rounded-xl border border-purple-500/40 bg-purple-500/10">
+                    <div key={i} className="p-3 rounded-xl border border-primary/30 bg-primary/5">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${sectionBadge[line.section] || ""}`}>
                           {line.section}
@@ -597,6 +670,59 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Fix / Feedback section */}
+              <div className="mt-3 p-3 rounded-lg border border-border space-y-2">
+                <label className="text-sm font-medium text-foreground block">
+                  {tr({ en: "✏️ What do you want to fix?", es: "✏️ ¿Qué quieres corregir?" }, language)}
+                </label>
+                <Textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder={tr({
+                    en: "e.g. Make the CTA more aggressive, change the hook to be more shocking, add more data...",
+                    es: "ej. Haz el CTA más agresivo, cambia el hook para que sea más impactante, agrega más datos..."
+                  }, language)}
+                  className="min-h-[60px] text-sm"
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleRefine}
+                  disabled={refining || !feedbackText.trim()}
+                  className="gap-2 w-full"
+                  size="sm"
+                >
+                  {refining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {refining
+                    ? tr({ en: "Refining...", es: "Refinando..." }, language)
+                    : tr({ en: "Refine Script", es: "Refinar Script" }, language)
+                  }
+                </Button>
+              </div>
+
+              {/* Translate buttons */}
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleTranslate("en")}
+                  disabled={translating}
+                  className="gap-2 flex-1"
+                  size="sm"
+                >
+                  {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
+                  {tr({ en: "Translate to English", es: "Traducir al Inglés" }, language)}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleTranslate("es")}
+                  disabled={translating}
+                  className="gap-2 flex-1"
+                  size="sm"
+                >
+                  {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
+                  {tr({ en: "Translate to Spanish", es: "Traducir al Español" }, language)}
+                </Button>
               </div>
 
               {/* Regeneration options */}

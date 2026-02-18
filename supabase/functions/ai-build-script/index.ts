@@ -180,6 +180,19 @@ You must categorize EVERY line into:
 - line_type: "filming" (camera/visual instructions), "actor" (dialogue/voiceover), or "editor" (post-production/text overlays/effects)
 - section: "hook" (opening), "body" (main content), or "cta" (call-to-action closing)
 
+BEFORE finalizing the script, internally evaluate it against this 9-Step Execution Quality Checklist and adjust until ALL criteria are met:
+1. Massive TAM — Does the idea appeal to a large total addressable market?
+2. High Idea Explosivity — Is this idea inherently shareable/explosive?
+3. High Emotional Resonance — Does it trigger strong emotions (shock, curiosity, desire, fear)?
+4. Novel take or timing — Is this fresh given current trends or perspective?
+5. Value teased quickly — Is the value/payoff teased within the first 2-3 seconds?
+6. Curiosity-inducing hook — Does the opening line create an irresistible curiosity gap?
+7. Easy absorption — Are the words and concepts easy to absorb while watching?
+8. Rehook present — Is there a rehook moment mid-script to retain viewers?
+9. Sticky idea — Does the core idea feel memorable and worth sharing?
+
+Also return a quality_scores object with your rating (1-10) for each criterion.
+
 Rules:
 - Write in SPANISH (Latin American)
 - The hook is already provided — include it as the first actor lines in the hook section
@@ -226,6 +239,153 @@ Generate the complete script.`,
               },
               idea_ganadora: { type: "string", description: "The winning idea/hook summary" },
               target: { type: "string", description: "Target audience" },
+              formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
+              quality_scores: {
+                type: "object",
+                description: "Quality scores from the 9-step checklist",
+                properties: {
+                  massive_tam: { type: "number" },
+                  idea_explosivity: { type: "number" },
+                  emotional_resonance: { type: "number" },
+                  novel_take: { type: "number" },
+                  value_teased_quickly: { type: "number" },
+                  curiosity_hook: { type: "number" },
+                  easy_absorption: { type: "number" },
+                  rehook_present: { type: "number" },
+                  sticky_idea: { type: "number" },
+                },
+                required: ["massive_tam", "idea_explosivity", "emotional_resonance", "novel_take", "value_teased_quickly", "curiosity_hook", "easy_absorption", "rehook_present", "sticky_idea"],
+              },
+            },
+            required: ["lines", "idea_ganadora", "target", "formato", "quality_scores"],
+          },
+        }],
+        { type: "tool", name: "return_script" }
+      );
+
+      const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+      if (!toolUse) throw new Error("No tool use in Claude response");
+
+      return new Response(JSON.stringify(toolUse.input), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ==================== STEP: REFINE SCRIPT ====================
+    if (step === "refine-script") {
+      const { topic, currentScript, feedback } = body;
+      if (!currentScript || !feedback) throw new Error("currentScript and feedback are required");
+
+      const currentLines = (currentScript.lines || []).map((l: any) => `[${l.section}/${l.line_type}] ${l.text}`).join("\n");
+
+      const systemPrompt = `You are an expert short-form video scriptwriter. The user has a script that needs refinement based on their specific feedback. 
+
+Apply ONLY the changes the user requests. Keep everything else the same. Maintain the same format (line_type, section categorization).
+
+After refining, re-evaluate against the 9-Step Quality Checklist:
+1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing
+5. Value teased quickly  6. Curiosity hook  7. Easy absorption  8. Rehook present  9. Sticky idea
+
+Write in SPANISH (Latin American) unless told otherwise.`;
+
+      const data = await callClaude(
+        ANTHROPIC_API_KEY,
+        systemPrompt,
+        `Topic: "${topic || ""}"
+
+Current script:
+${currentLines}
+
+User feedback — what to fix:
+${feedback}
+
+Apply the requested changes and return the refined script.`,
+        [{
+          name: "return_script",
+          description: "Return the refined categorized script",
+          input_schema: {
+            type: "object",
+            properties: {
+              lines: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    line_type: { type: "string", enum: ["filming", "actor", "editor"] },
+                    section: { type: "string", enum: ["hook", "body", "cta"] },
+                    text: { type: "string" },
+                  },
+                  required: ["line_type", "section", "text"],
+                },
+              },
+              idea_ganadora: { type: "string" },
+              target: { type: "string" },
+              formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
+              quality_scores: {
+                type: "object",
+                properties: {
+                  massive_tam: { type: "number" }, idea_explosivity: { type: "number" },
+                  emotional_resonance: { type: "number" }, novel_take: { type: "number" },
+                  value_teased_quickly: { type: "number" }, curiosity_hook: { type: "number" },
+                  easy_absorption: { type: "number" }, rehook_present: { type: "number" },
+                  sticky_idea: { type: "number" },
+                },
+                required: ["massive_tam", "idea_explosivity", "emotional_resonance", "novel_take", "value_teased_quickly", "curiosity_hook", "easy_absorption", "rehook_present", "sticky_idea"],
+              },
+            },
+            required: ["lines", "idea_ganadora", "target", "formato", "quality_scores"],
+          },
+        }],
+        { type: "tool", name: "return_script" }
+      );
+
+      const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+      if (!toolUse) throw new Error("No tool use in Claude response");
+
+      return new Response(JSON.stringify(toolUse.input), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ==================== STEP: TRANSLATE SCRIPT ====================
+    if (step === "translate-script") {
+      const { currentScript, targetLanguage } = body;
+      if (!currentScript) throw new Error("currentScript is required");
+
+      const currentLines = (currentScript.lines || []).map((l: any) => `[${l.section}/${l.line_type}] ${l.text}`).join("\n");
+      const langLabel = targetLanguage === "en" ? "English" : "Spanish (Latin American)";
+
+      const systemPrompt = `You are a professional translator specializing in social media content. Translate the script to ${langLabel}. 
+Maintain the same tone, energy, cultural impact, and structure. Adapt idioms and expressions naturally — do NOT translate literally. Keep line_type and section categorization identical.`;
+
+      const data = await callClaude(
+        ANTHROPIC_API_KEY,
+        systemPrompt,
+        `Translate this script to ${langLabel}:
+
+${currentLines}
+
+Return the translated script with the same structure.`,
+        [{
+          name: "return_script",
+          description: "Return the translated script",
+          input_schema: {
+            type: "object",
+            properties: {
+              lines: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    line_type: { type: "string", enum: ["filming", "actor", "editor"] },
+                    section: { type: "string", enum: ["hook", "body", "cta"] },
+                    text: { type: "string" },
+                  },
+                  required: ["line_type", "section", "text"],
+                },
+              },
+              idea_ganadora: { type: "string" },
+              target: { type: "string" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
             },
             required: ["lines", "idea_ganadora", "target", "formato"],
