@@ -46,7 +46,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { plan_type } = await req.json();
+    const { plan_type, phone } = await req.json();
     if (!plan_type || !PLAN_PRICE_MAP[plan_type]) {
       throw new Error(`Invalid plan_type: ${plan_type}`);
     }
@@ -60,9 +60,14 @@ serve(async (req) => {
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       logStep("Existing Stripe customer found", { customerId });
+      // Update phone if provided
+      if (phone) {
+        await stripe.customers.update(customerId, { phone });
+      }
     } else {
       const customer = await stripe.customers.create({
         email: user.email,
+        phone: phone || undefined,
         metadata: { supabase_user_id: user.id },
       });
       customerId = customer.id;
@@ -81,17 +86,17 @@ serve(async (req) => {
       customer: customerId,
       line_items: [{ price: PLAN_PRICE_MAP[plan_type], quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/payment-success`,
-      cancel_url: `${origin}/select-plan`,
+      ui_mode: "embedded",
+      return_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { plan_type, supabase_user_id: user.id },
       subscription_data: {
         metadata: { plan_type, supabase_user_id: user.id },
       },
     });
 
-    logStep("Checkout session created", { sessionId: session.id, url: session.url });
+    logStep("Embedded checkout session created", { sessionId: session.id });
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    return new Response(JSON.stringify({ client_secret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
