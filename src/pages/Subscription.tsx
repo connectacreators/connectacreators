@@ -20,12 +20,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Loader2,
   Download,
   CreditCard,
   CalendarDays,
   AlertCircle,
+  ArrowUpCircle,
+  CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface SubscriptionData {
   id: string;
@@ -50,6 +63,14 @@ interface InvoiceData {
   hosted_url: string | null;
 }
 
+const CANCEL_REASONS = [
+  { value: "too_expensive", label: "Too expensive" },
+  { value: "not_using", label: "Not using it enough" },
+  { value: "better_alternative", label: "Found a better alternative" },
+  { value: "missing_features", label: "Missing features I need" },
+  { value: "other", label: "Other" },
+];
+
 export default function Subscription() {
   const { user, loading: authLoading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
@@ -63,27 +84,62 @@ export default function Subscription() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Cancel modal state
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelStep, setCancelStep] = useState<"reason" | "confirming" | "done">("reason");
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelFeedback, setCancelFeedback] = useState("");
+  const [canceling, setCanceling] = useState(false);
+
+  const fetchData = async () => {
     if (!user) return;
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await supabase.functions.invoke("get-subscription", {
-          headers: { Authorization: `Bearer ${session?.access_token}` },
-        });
-        if (res.error) throw new Error(res.error.message);
-        setSubscription(res.data.subscription);
-        setInvoices(res.data.invoices || []);
-      } catch (err: any) {
-        setError(err.message || "Error loading subscription");
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("get-subscription", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (res.error) throw new Error(res.error.message);
+      setSubscription(res.data.subscription);
+      setInvoices(res.data.invoices || []);
+    } catch (err: any) {
+      setError(err.message || "Error loading subscription");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [user]);
+
+  const handleCancel = async () => {
+    setCanceling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase.functions.invoke("cancel-subscription", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: { reason: cancelReason, feedback: cancelFeedback },
+      });
+      if (error) throw error;
+      setCancelStep("done");
+      toast.success("Subscription canceled");
+      // Refresh data
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel subscription");
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const closeCancelModal = () => {
+    setCancelOpen(false);
+    setCancelStep("reason");
+    setCancelReason("");
+    setCancelFeedback("");
+  };
 
   if (authLoading) {
     return (
@@ -173,7 +229,11 @@ export default function Subscription() {
             <Card>
               <CardContent className="py-12 text-center">
                 <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">{tr(t.subscription.noSubscription, language)}</p>
+                <p className="text-muted-foreground mb-4">{tr(t.subscription.noSubscription, language)}</p>
+                <Button onClick={() => navigate("/select-plan")} className="gap-2">
+                  <ArrowUpCircle className="w-4 h-4" />
+                  Choose a Plan
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -215,6 +275,27 @@ export default function Subscription() {
                         {formatDate(subscription.current_period_start)} – {formatDate(subscription.current_period_end)}
                       </p>
                     </div>
+                  </div>
+
+                  {/* Upgrade & Cancel actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-border">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/select-plan")}
+                      className="gap-2"
+                    >
+                      <ArrowUpCircle className="w-4 h-4" />
+                      Upgrade Plan
+                    </Button>
+                    {!subscription.cancel_at_period_end && (
+                      <button
+                        onClick={() => setCancelOpen(true)}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
+                      >
+                        Cancel subscription
+                      </button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -277,6 +358,68 @@ export default function Subscription() {
           )}
         </div>
       </main>
+
+      {/* Cancel Subscription Modal */}
+      <Dialog open={cancelOpen} onOpenChange={(open) => { if (!open) closeCancelModal(); }}>
+        <DialogContent className="sm:max-w-md">
+          {cancelStep === "reason" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>We're sad to see you go 😢</DialogTitle>
+                <DialogDescription>
+                  Please let us know why you're canceling so we can improve.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <RadioGroup value={cancelReason} onValueChange={setCancelReason}>
+                  {CANCEL_REASONS.map((r) => (
+                    <div key={r.value} className="flex items-center space-x-3">
+                      <RadioGroupItem value={r.value} id={r.value} />
+                      <Label htmlFor={r.value} className="cursor-pointer">{r.label}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+                <Textarea
+                  placeholder="Additional feedback (optional)"
+                  value={cancelFeedback}
+                  onChange={(e) => setCancelFeedback(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={closeCancelModal}>
+                  Never mind
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!cancelReason || canceling}
+                  onClick={handleCancel}
+                >
+                  {canceling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Cancel Subscription
+                </Button>
+              </div>
+            </>
+          )}
+          {cancelStep === "done" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Subscription Canceled</DialogTitle>
+              </DialogHeader>
+              <div className="py-6 text-center">
+                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+                <p className="text-muted-foreground">
+                  Your subscription will remain active until the end of your current billing period
+                  {subscription ? ` (${formatDate(subscription.current_period_end)})` : ""}.
+                </p>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={closeCancelModal}>Close</Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

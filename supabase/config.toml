@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.check-subscription]
 verify_jwt = false
+
+[functions.cancel-subscription]
+verify_jwt = false

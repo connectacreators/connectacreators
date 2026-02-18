@@ -73,9 +73,30 @@ serve(async (req) => {
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+      const rawEnd = subscription.current_period_end;
+      logStep("Raw current_period_end value", { rawEnd, type: typeof rawEnd });
+      
+      // Defensive date handling: Stripe may return a Unix timestamp (number), 
+      // an ISO string, or a Date-like value depending on the API version
+      try {
+        if (typeof rawEnd === "number") {
+          // If it's a small number (Unix seconds), multiply by 1000
+          // If it's already in milliseconds (very large), use directly
+          const ms = rawEnd < 1e12 ? rawEnd * 1000 : rawEnd;
+          subscriptionEnd = new Date(ms).toISOString();
+        } else if (typeof rawEnd === "string") {
+          subscriptionEnd = new Date(rawEnd).toISOString();
+        } else {
+          subscriptionEnd = new Date().toISOString();
+          logStep("WARNING: Unexpected current_period_end format, using now()", { rawEnd });
+        }
+      } catch (dateErr) {
+        logStep("WARNING: Failed to parse current_period_end, using now()", { rawEnd, error: String(dateErr) });
+        subscriptionEnd = new Date().toISOString();
+      }
+      
       const productId = subscription.items.data[0].price.product as string;
-      logStep("Active subscription found", { subscriptionId: subscription.id, productId });
+      logStep("Active subscription found", { subscriptionId: subscription.id, productId, subscriptionEnd });
 
       planData = PRODUCT_PLAN_MAP[productId];
       if (planData) {
