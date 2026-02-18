@@ -213,6 +213,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         facts,
         hookCategory: selectedHookCategory,
         hookTemplate: selectedTemplate,
+        language,
       });
       setGeneratedHook(data.hook || "");
     } catch (e: any) {
@@ -235,6 +236,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
         hook: generatedHook,
         structure: selectedStructure,
         length: lengthMap[scriptLength],
+        language,
       });
       setGeneratedScript(data);
     } catch (e: any) {

@@ -128,8 +128,9 @@ Rules:
 
     // ==================== STEP: GENERATE HOOK ====================
     if (step === "generate-hook") {
-      const { topic, facts, hookCategory, hookTemplate } = body;
+      const { topic, facts, hookCategory, hookTemplate, language: reqLang } = body;
       if (!topic || !hookCategory) throw new Error("topic and hookCategory are required");
+      const langLabel = reqLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
 
       const factsText = (facts || []).map((f: any) => `- ${f.fact}`).join("\n");
 
@@ -143,7 +144,7 @@ Rules:
 - The hook must follow the chosen template structure
 - Incorporate the topic naturally
 - Create immediate curiosity or shock value
-- Write in ENGLISH by default`;
+- Write in ${langLabel}`;
 
       const data = await callClaude(
         ANTHROPIC_API_KEY,
@@ -156,7 +157,7 @@ ${factsText}
 Hook category: ${hookCategory}
 Hook template to follow: "${hookTemplate}"
 
-Generate a hook following this template format. Make it irresistible.`
+Generate a hook following this template format. Make it irresistible. Write in ${langLabel}.`
       );
 
       const text = data.content?.find((c: any) => c.type === "text")?.text || "";
@@ -168,8 +169,9 @@ Generate a hook following this template format. Make it irresistible.`
 
     // ==================== STEP: GENERATE SCRIPT ====================
     if (step === "generate-script") {
-      const { topic, selectedFacts, hook, structure, length } = body;
+      const { topic, selectedFacts, hook, structure, length, language: reqLang } = body;
       if (!topic || !hook || !structure) throw new Error("topic, hook, structure are required");
+      const langLabel = reqLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
 
       const factsText = (selectedFacts || []).map((f: any) => `- ${f.fact}`).join("\n");
       const lengthGuide = length === "short" ? "30 seconds (6-10 lines)" : length === "long" ? "60 seconds (18-25 lines)" : "45 seconds (12-16 lines)";
@@ -194,7 +196,7 @@ BEFORE finalizing the script, internally evaluate it against this 9-Step Executi
 Return a single virality_score which is the average of your internal ratings (1-10) for all 9 criteria above.
 
 Rules:
-- Write in ENGLISH by default
+- Write in ${langLabel}
 - The hook is already provided — include it as the first actor lines in the hook section
 - Add appropriate filming and editor instructions throughout
 - End with a strong CTA
@@ -268,7 +270,10 @@ Generate the complete script.`,
 
       const systemPrompt = `You are an expert short-form video scriptwriter. The user has a script that needs refinement based on their specific feedback. 
 
-Apply ONLY the changes the user requests. Keep everything else the same. Maintain the same format (line_type, section categorization).
+CRITICAL RULES:
+- Apply ONLY the changes the user explicitly requests. Keep everything else EXACTLY the same.
+- DO NOT change the hook (the lines in the "hook" section) UNLESS the user explicitly asks to change the hook.
+- Maintain the same format (line_type, section categorization).
 
 After refining, re-evaluate against the 9-Step Quality Checklist:
 1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing
@@ -276,7 +281,7 @@ After refining, re-evaluate against the 9-Step Quality Checklist:
 
 Return a single virality_score which is the average of all 9 criteria (1-10).
 
-Write in ENGLISH unless told otherwise.`;
+Write in the same language as the current script unless told otherwise.`;
 
       const data = await callClaude(
         ANTHROPIC_API_KEY,
