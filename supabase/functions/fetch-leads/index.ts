@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const NOTION_API_VERSION = "2022-06-28";
-const LEADS_DATABASE_ID = "5c1f88c1-0938-41b3-bb84-64e70fd58eb7";
+const DEFAULT_LEADS_DATABASE_ID = "5c1f88c1-0938-41b3-bb84-64e70fd58eb7";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -127,13 +127,32 @@ serve(async (req) => {
       }
     }
 
+    // Resolve per-client Notion database ID
+    let leadsDbId = DEFAULT_LEADS_DATABASE_ID;
+    let useClientFilter = true; // whether to filter by "Client" property
+
+    if (clientName) {
+      // Look up the client's dedicated lead database
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("notion_lead_database_id")
+        .or(`notion_lead_name.eq.${clientName},name.eq.${clientName}`)
+        .maybeSingle();
+
+      if (clientRow?.notion_lead_database_id) {
+        leadsDbId = clientRow.notion_lead_database_id;
+        useClientFilter = false; // dedicated DB, no need to filter by Client property
+      }
+    }
+
     // Build Notion query filter
     let filter: any = undefined;
     const assignedNames = (req as any).__assignedNames as string[] | undefined;
 
-    if (clientName) {
+    if (useClientFilter && clientName) {
       filter = { property: "Client", select: { equals: clientName } };
     } else if (isVideographer && assignedNames && assignedNames.length > 0) {
+      // For videographers without a specific client selected, query default DB with filter
       if (assignedNames.length === 1) {
         filter = { property: "Client", select: { equals: assignedNames[0] } };
       } else {
@@ -148,7 +167,7 @@ serve(async (req) => {
 
     // Fetch database schema
     const schemaResponse = await fetch(
-      `https://api.notion.com/v1/databases/${LEADS_DATABASE_ID}`,
+      `https://api.notion.com/v1/databases/${leadsDbId}`,
       {
         headers: {
           Authorization: `Bearer ${NOTION_API_KEY}`,
@@ -169,7 +188,7 @@ serve(async (req) => {
 
     // Query Notion
     const notionResponse = await fetch(
-      `https://api.notion.com/v1/databases/${LEADS_DATABASE_ID}/query`,
+      `https://api.notion.com/v1/databases/${leadsDbId}/query`,
       {
         method: "POST",
         headers: {
@@ -178,7 +197,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          filter,
+          ...(filter ? { filter } : {}),
           page_size: 100,
           sorts: [{ property: "Date", direction: "descending" }],
         }),
