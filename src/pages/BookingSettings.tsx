@@ -78,7 +78,7 @@ export default function BookingSettings() {
   const [clientName, setClientName] = useState("");
   const [copied, setCopied] = useState<"link" | "embed" | null>(null);
 
-  const bookingUrl = `${window.location.origin}/book/${clientId}`;
+  const bookingUrl = `https://connectacreators.lovable.app/book/${clientId}`;
   const embedCode = `<iframe src="${bookingUrl}" width="100%" height="700" frameborder="0" style="border:none;border-radius:16px;"></iframe>`;
 
   const fetchSettings = useCallback(async () => {
