@@ -24,6 +24,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import SelectPlan from "./pages/SelectPlan";
 import ComingSoon from "./pages/ComingSoon";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import Checkout from "./pages/Checkout";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/select-plan" element={<SelectPlan />} />
             <Route path="/coming-soon" element={<ComingSoon />} />
+            <Route path="/checkout" element={<Checkout />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/s/:id" element={<PublicScript />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
