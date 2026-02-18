@@ -24,6 +24,8 @@ export type Database = {
           end_hour: number
           id: string
           is_active: boolean
+          primary_color: string
+          secondary_color: string
           slot_duration_minutes: number
           start_hour: number
           timezone: string
@@ -38,6 +40,8 @@ export type Database = {
           end_hour?: number
           id?: string
           is_active?: boolean
+          primary_color?: string
+          secondary_color?: string
           slot_duration_minutes?: number
           start_hour?: number
           timezone?: string
@@ -52,6 +56,8 @@ export type Database = {
           end_hour?: number
           id?: string
           is_active?: boolean
+          primary_color?: string
+          secondary_color?: string
           slot_duration_minutes?: number
           start_hour?: number
           timezone?: string
