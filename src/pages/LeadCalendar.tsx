@@ -274,12 +274,10 @@ function TimeGridLines({ hours, hourHeight }: { hours: number[]; hourHeight: num
               <div className="w-14 flex-shrink-0 pr-2 text-right">
                 <span className="text-[10px] text-muted-foreground leading-none">{formatHourLabel(h)}</span>
               </div>
-              <div className="flex-1 border-t border-border/40" />
+              <div className="flex-1 h-px bg-border/40" />
             </div>
             {/* Half-hour line */}
-            <div className="absolute left-14 right-0" style={{ top: top + hourHeight / 2 }}>
-              <div className="flex-1 border-t border-border/20" />
-            </div>
+            <div className="absolute left-14 right-0 h-px bg-border/20" style={{ top: top + hourHeight / 2 }} />
           </div>
         );
       })}
@@ -574,7 +572,7 @@ export default function LeadCalendar() {
                 const isToday = dateStr === todayStr;
                 return (
                   <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
-                    <div className="flex border-b border-border bg-muted">
+                    <div className="flex border-b border-border bg-muted/50">
                       <div className="w-14 flex-shrink-0" />
                       <div className="flex-1 p-2 text-center">
                         <span className="text-xs text-muted-foreground">{DAY_NAMES[viewDate.getDay()]}</span>
@@ -605,14 +603,14 @@ export default function LeadCalendar() {
                 return (
                   <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
                     {/* Day headers */}
-                    <div className="flex border-b border-border bg-muted">
+                    <div className="flex border-b border-border bg-muted/50">
                       <div className="w-14 flex-shrink-0" />
-                      <div className={`flex-1 grid`} style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
+                      <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
                         {weekDates.map((d, i) => {
                           const dateStr = formatDateStr(d);
                           const isToday = dateStr === todayStr;
                           return (
-                            <div key={i} className={`p-1.5 text-center border-l border-border/30 ${isToday ? "bg-primary/10" : ""}`}>
+                            <div key={i} className={`p-1.5 text-center ${i > 0 ? "border-l border-border/30" : ""} ${isToday ? "bg-primary/10" : ""}`}>
                               <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[d.getDay()]}</span>
                               <button
                                 onClick={() => navigateToDay(d)}
@@ -629,14 +627,14 @@ export default function LeadCalendar() {
                     <div className="flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
                       <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
                         <TimeGridLines hours={HOURS} hourHeight={HOUR_HEIGHT} />
-                        {/* Day columns overlay */}
-                        <div className={`absolute top-0 bottom-0 left-14 right-0 grid`} style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
+                        {/* Day columns overlay — vertical separators */}
+                        <div className="absolute top-0 bottom-0 left-14 right-0 grid" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
                           {weekDates.map((d, colIdx) => {
                             const dateStr = formatDateStr(d);
                             const dayLeads = leadsByDate[dateStr] || [];
                             const isToday = dateStr === todayStr;
                             return (
-                              <div key={colIdx} className={`relative border-l border-border/30 ${isToday ? "bg-primary/5" : ""}`}>
+                              <div key={colIdx} className={`relative ${colIdx > 0 ? "border-l border-border/30" : ""} ${isToday ? "bg-primary/5" : ""}`}>
                                 {dayLeads.map((lead) => (
                                   <EventBlock key={lead.id} lead={lead} hourHeight={HOUR_HEIGHT} startHour={HOURS[0]} isAdmin={isAdmin} />
                                 ))}
