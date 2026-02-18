@@ -572,16 +572,17 @@ export default function LeadCalendar() {
                 const isToday = dateStr === todayStr;
                 return (
                   <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
-                    <div className="flex border-b border-border bg-muted/50">
-                      <div className="w-14 flex-shrink-0" />
-                      <div className="flex-1 p-2 text-center">
-                        <span className="text-xs text-muted-foreground">{DAY_NAMES[viewDate.getDay()]}</span>
-                        <span className={`text-lg font-bold inline-flex items-center justify-center w-9 h-9 rounded-full ml-2 ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
-                          {viewDate.getDate()}
-                        </span>
+                    <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+                      {/* Sticky day header inside scroll container */}
+                      <div className="sticky top-0 z-10 flex bg-muted/50 border-b border-border">
+                        <div className="w-14 flex-shrink-0" />
+                        <div className="flex-1 p-2 text-center">
+                          <span className="text-xs text-muted-foreground">{DAY_NAMES[viewDate.getDay()]}</span>
+                          <span className={`text-lg font-bold inline-flex items-center justify-center w-9 h-9 rounded-full ml-2 ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                            {viewDate.getDate()}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
                       <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
                         <TimeGridLines hours={HOURS} hourHeight={HOUR_HEIGHT} />
                         <div className="absolute top-0 bottom-0 left-14 right-0">
@@ -602,32 +603,31 @@ export default function LeadCalendar() {
                 const colCount = weekDates.length;
                 return (
                   <div className="flex-1 flex flex-col border border-border rounded-lg overflow-hidden">
-                    {/* Day headers */}
-                    <div className="flex border-b border-border bg-muted/50">
-                      <div className="w-14 flex-shrink-0" />
-                      <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
-                        {weekDates.map((d, i) => {
-                          const dateStr = formatDateStr(d);
-                          const isToday = dateStr === todayStr;
-                          return (
-                            <div key={i} className={`p-1.5 text-center ${i > 0 ? "border-l border-border/30" : ""} ${isToday ? "bg-primary/10" : ""}`}>
-                              <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[d.getDay()]}</span>
-                              <button
-                                onClick={() => navigateToDay(d)}
-                                className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-accent transition-colors ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}
-                              >
-                                {d.getDate()}
-                              </button>
-                            </div>
-                          );
-                        })}
+                    <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+                      {/* Sticky day headers inside scroll container so they share the same width */}
+                      <div className="sticky top-0 z-10 flex bg-muted/50 border-b border-border">
+                        <div className="w-14 flex-shrink-0" />
+                        <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
+                          {weekDates.map((d, i) => {
+                            const dateStr = formatDateStr(d);
+                            const isToday = dateStr === todayStr;
+                            return (
+                              <div key={i} className={`p-1.5 text-center ${i > 0 ? "border-l border-border/30" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                                <span className="text-[10px] text-muted-foreground block">{DAY_NAMES[d.getDay()]}</span>
+                                <button
+                                  onClick={() => navigateToDay(d)}
+                                  className={`text-sm font-bold inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-accent transition-colors ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}
+                                >
+                                  {d.getDate()}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                    {/* Time grid */}
-                    <div className="flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+                      {/* Time grid */}
                       <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
                         <TimeGridLines hours={HOURS} hourHeight={HOUR_HEIGHT} />
-                        {/* Day columns overlay — vertical separators */}
                         <div className="absolute top-0 bottom-0 left-14 right-0 grid" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
                           {weekDates.map((d, colIdx) => {
                             const dateStr = formatDateStr(d);
