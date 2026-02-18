@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_settings: {
+        Row: {
+          available_days: number[]
+          booking_description: string | null
+          booking_title: string
+          client_id: string
+          created_at: string
+          end_hour: number
+          id: string
+          is_active: boolean
+          slot_duration_minutes: number
+          start_hour: number
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          available_days?: number[]
+          booking_description?: string | null
+          booking_title?: string
+          client_id: string
+          created_at?: string
+          end_hour?: number
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes?: number
+          start_hour?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          available_days?: number[]
+          booking_description?: string | null
+          booking_title?: string
+          client_id?: string
+          created_at?: string
+          end_hour?: number
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes?: number
+          start_hour?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_settings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_notion_mapping: {
         Row: {
           client_id: string

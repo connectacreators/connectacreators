@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 
@@ -73,6 +73,13 @@ export default function ClientDetail() {
       icon: CalendarDays,
       color: "text-violet-400",
       path: `/clients/${clientId}/lead-calendar`,
+    },
+    {
+      label: language === "en" ? "Public Booking" : "Booking Público",
+      description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly",
+      icon: Globe,
+      color: "text-sky-400",
+      path: `/clients/${clientId}/booking-settings`,
     },
   ];
 

@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.upgrade-subscription]
 verify_jwt = false
+
+[functions.public-booking]
+verify_jwt = false
