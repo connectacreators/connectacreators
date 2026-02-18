@@ -36,6 +36,19 @@ import { useLanguage } from "@/hooks/useLanguage";
 
 const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
+const formatHour12 = (h: number) => {
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:00 ${ampm}`;
+};
+
+const formatTime12 = (time: string) => {
+  const [h, m] = time.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+};
+
 const TIMEZONES = [
   { value: "America/New_York", label: "EST – Nueva York" },
   { value: "America/Chicago", label: "CST – Chicago" },
@@ -275,7 +288,7 @@ export default function BookingSettings() {
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 16 }, (_, i) => i + 6).map((h) => (
-                      <SelectItem key={h} value={String(h)}>{`${h}:00`}</SelectItem>
+                      <SelectItem key={h} value={String(h)}>{formatHour12(h)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -286,7 +299,7 @@ export default function BookingSettings() {
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 16 }, (_, i) => i + 6).map((h) => (
-                      <SelectItem key={h} value={String(h)}>{`${h}:00`}</SelectItem>
+                      <SelectItem key={h} value={String(h)}>{formatHour12(h)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -383,7 +396,7 @@ export default function BookingSettings() {
                           const h = settings.start_hour + Math.floor(i / 2);
                           const m = (i % 2) * 30;
                           const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-                          return <SelectItem key={val} value={val}>{val}</SelectItem>;
+                          return <SelectItem key={val} value={val}>{formatTime12(val)}</SelectItem>;
                         })}
                       </SelectContent>
                     </Select>
@@ -399,7 +412,7 @@ export default function BookingSettings() {
                           const h = settings.start_hour + Math.floor(i / 2);
                           const m = (i % 2) * 30;
                           const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-                          return <SelectItem key={val} value={val}>{val}</SelectItem>;
+                          return <SelectItem key={val} value={val}>{formatTime12(val)}</SelectItem>;
                         })}
                       </SelectContent>
                     </Select>
