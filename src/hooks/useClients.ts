@@ -8,6 +8,7 @@ export type Client = {
   email: string | null;
   user_id: string | null;
   created_at: string;
+  notion_lead_name: string | null;
 };
 
 export function useClients(enabled: boolean) {

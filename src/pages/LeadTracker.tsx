@@ -100,7 +100,7 @@ export default function LeadTracker() {
   useEffect(() => {
     if (!urlClientId || clients.length === 0) return;
     const target = clients.find((c) => c.id === urlClientId);
-    if (target) setSelectedClient(target.name);
+    if (target) setSelectedClient((target as any).notion_lead_name || target.name);
   }, [urlClientId, clients]);
 
   // Modal state
@@ -303,7 +303,7 @@ export default function LeadTracker() {
               <SelectContent>
                 <SelectItem value="all">{tr(t.leadTracker.allClients, language)}</SelectItem>
                 {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>
+                  <SelectItem key={c.id} value={(c as any).notion_lead_name || c.name}>
                     {c.name}
                   </SelectItem>
                 ))}

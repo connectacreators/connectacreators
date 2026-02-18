@@ -309,7 +309,7 @@ export default function LeadCalendar() {
   useEffect(() => {
     if (!urlClientId || clients.length === 0) return;
     const target = clients.find((c) => c.id === urlClientId);
-    if (target) setSelectedClient(target.name);
+    if (target) setSelectedClient((target as any).notion_lead_name || target.name);
   }, [urlClientId, clients]);
 
   const now = new Date();
@@ -493,7 +493,7 @@ export default function LeadCalendar() {
                 <SelectContent>
                   <SelectItem value="all">{tr(t.leadCalendar.allClients, language)}</SelectItem>
                   {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={(c as any).notion_lead_name || c.name}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
