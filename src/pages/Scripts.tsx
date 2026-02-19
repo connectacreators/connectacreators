@@ -1234,7 +1234,7 @@ export default function Scripts() {
             {view === "new-script" && aiMode && selectedClient ? (
               <AIScriptWizard
                 selectedClient={selectedClient}
-                onComplete={async (rawContent, title) => {
+                onComplete={async (rawContent, title, inspirationUrl) => {
                   setScriptInput(rawContent);
                   setScriptTitle(title);
                   // Use categorizeAndSave to properly categorize the AI-generated script
@@ -1242,12 +1242,13 @@ export default function Scripts() {
                     selectedClient.id,
                     title,
                     rawContent,
-                    undefined,
+                    inspirationUrl || undefined,
                     undefined,
                     undefined
                   );
                   if (result) {
                     setParsedLines(result.lines);
+                    setViewingInspirationUrl(inspirationUrl || null);
                     setViewingMetadata(result.metadata);
                     setViewingScriptId(result.scriptId);
                     setView("view-script");
@@ -1273,20 +1274,18 @@ export default function Scripts() {
                  <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
                  
                  {/* Use as Template Toggle */}
-                 {inspirationUrl.trim() && (
-                   <div className="flex items-center gap-3 mb-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/30">
-                     <Switch checked={useAsTemplate} onCheckedChange={setUseAsTemplate} />
-                     <div className="flex-1 min-w-0">
-                       <label className="text-sm font-medium text-foreground cursor-pointer" onClick={() => setUseAsTemplate(!useAsTemplate)}>
-                         {tr({ en: "Use as Template", es: "Usar como plantilla" }, language)}
-                       </label>
-                       <p className="text-xs text-muted-foreground">
-                         {tr({ en: "Transcribe the video and use its structure as a template", es: "Transcribir el video y usar su estructura como plantilla" }, language)}
-                       </p>
-                     </div>
-                     <Copy className={`w-4 h-4 flex-shrink-0 ${useAsTemplate ? "text-primary" : "text-muted-foreground"}`} />
+                 <div className="flex items-center gap-3 mb-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/30">
+                   <Switch checked={useAsTemplate} onCheckedChange={setUseAsTemplate} />
+                   <div className="flex-1 min-w-0">
+                     <label className="text-sm font-medium text-foreground cursor-pointer" onClick={() => setUseAsTemplate(!useAsTemplate)}>
+                       {tr({ en: "Use as Template", es: "Usar como plantilla" }, language)}
+                     </label>
+                     <p className="text-xs text-muted-foreground">
+                       {tr({ en: "Transcribe the video and use its structure as a template", es: "Transcribir el video y usar su estructura como plantilla" }, language)}
+                     </p>
                    </div>
-                 )}
+                   <Copy className={`w-4 h-4 flex-shrink-0 ${useAsTemplate ? "text-primary" : "text-muted-foreground"}`} />
+                 </div>
                 
                 <div className="mb-3">
                    <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
