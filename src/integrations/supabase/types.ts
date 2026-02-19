@@ -233,6 +233,59 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_posts: {
+        Row: {
+          caption: string | null
+          client_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          platforms: string[]
+          published_at: string | null
+          scheduled_time: string | null
+          status: string
+          thumbnail_url: string | null
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          caption?: string | null
+          client_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          platforms?: string[]
+          published_at?: string | null
+          scheduled_time?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          caption?: string | null
+          client_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          platforms?: string[]
+          published_at?: string | null
+          scheduled_time?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       script_lines: {
         Row: {
           created_at: string
@@ -320,6 +373,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "scripts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_accounts: {
+        Row: {
+          access_token: string | null
+          account_name: string | null
+          client_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          platform: string
+          refresh_token: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          account_name?: string | null
+          client_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          platform: string
+          refresh_token?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          account_name?: string | null
+          client_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          platform?: string
+          refresh_token?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_accounts_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
