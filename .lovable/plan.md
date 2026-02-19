@@ -1,76 +1,75 @@
 
 
-# "Use This Script as Template" Feature
+# Fix Timezone Mismatch + Add Zapier Webhook
 
-## What It Does
-When creating a script (either manually or with AI), you can toggle "Use This Script as Template." This takes the inspiration URL, sends it to a transcription service, gets the transcript back, then has AI create a templatized version -- keeping the same structure, length, and flow but replacing the specific content with your topic/values.
-
-## How It Works
-
-1. You paste an inspiration URL (Instagram, TikTok, YouTube, etc.)
-2. Toggle "Use as Template"
-3. The system transcribes the video from the URL
-4. AI analyzes the transcript's structure and creates a template
-5. The template is used as the base for your new script
+## Problem
+The `public-booking` edge function uses `new Date(dateVal).getHours()` (line 137) which returns **UTC hours** on the server. But slot generation uses `start_hour`/`end_hour` which are in the **client's local timezone** (e.g. America/Denver = MST, UTC-7). A 10:30 AM MST appointment returns hour 17 in UTC, so the overlap check never matches and the slot stays "available."
 
 ## Changes
 
-### 1. Store the API Key securely
-- Save the GetTranscribe API key as a backend secret (`GETTRANSCRIBE_API_KEY`)
+### 1. Fix timezone in `public-booking` edge function
+- Replace `d.getHours() + d.getMinutes() / 60` with `Intl.DateTimeFormat` using `settings.timezone` to extract local hours/minutes
+- This ensures busy slot detection matches the same timezone as slot generation
 
-### 2. New Edge Function: `transcribe-video`
-- Accepts `{ url }` in the request body
-- Calls GetTranscribe API: `POST https://api.gettranscribe.ai/transcriptions` with the video URL
-- Returns the transcription text back to the frontend
+### 2. Store booking datetime with explicit timezone offset
+- When creating a booking (POST), compute the proper ISO offset for the client's timezone and append it to the datetime sent to Notion (e.g. `2026-02-19T10:30:00.000-07:00` for MST)
+- This ensures Notion stores the time unambiguously so the lead calendar also reads it correctly
 
-### 3. New step in `ai-build-script` Edge Function: `templatize-script`
-- Receives the transcription text + the user's topic/context
-- AI analyzes the original script's structure (hook style, body pattern, CTA approach, length, pacing)
-- Outputs a "templatized" version: same structure and length, but with the user's topic swapped in
-- Returns the same structured format (lines with line_type, section, virality_score, etc.)
+### 3. Add `zapier_webhook_url` column to `booking_settings`
+- New nullable TEXT column
+- No RLS changes needed (existing policies cover it)
 
-### 4. Manual Script Mode (Scripts.tsx)
-- Add a toggle/switch next to the inspiration URL field: "Use as Template" / "Usar como plantilla"
-- When toggled ON and inspiration URL is present:
-  - "Analyze & Save" button changes to "Transcribe & Template" / "Transcribir y Crear Plantilla"
-  - On click: calls `transcribe-video` to get the transcript, then calls `ai-build-script` with step `templatize-script` passing the transcript + title/topic
-  - The resulting structured script is saved normally
+### 4. Send webhook after booking creation
+- After successfully creating the Notion page, if `zapier_webhook_url` is set, POST all booking data (name, email, phone, message, date, time, client name) to that URL
+- Fire-and-forget (don't block the response)
 
-### 5. AI Script Wizard (AIScriptWizard.tsx)
-- Add the same toggle in Step 1 (Topic), alongside the topic input
-- Add an inspiration URL input that appears when toggled ON
-- When active, the wizard flow changes:
-  - Step 1: Enter topic + paste inspiration URL + toggle on "Use as Template"
-  - Clicking "Research" still researches the topic normally
-  - At Step 4 (Script generation), the system first transcribes the URL, then generates the script using the transcription as a structural template instead of the selected structure format
+### 5. Add Zapier Webhook input in BookingSettings UI
+- New input field in the settings page for the webhook URL
+- Included in the save payload
+
+### 6. Set Dr. Calvin's webhook via SQL
+- Insert/update the webhook URL `https://hooks.zapier.com/hooks/catch/26299881/ue5dt3f/` for the client whose booking settings page you're currently viewing (client ID `3b26679f-9ac1-437a-bb71-4d3107992d83`)
 
 ---
 
 ## Technical Details
 
-### Edge Function: `transcribe-video`
-```
-POST /functions/v1/transcribe-video
-Body: { url: string }
-Response: { transcription: string }
-```
-- Uses `GETTRANSCRIBE_API_KEY` secret
-- Requires auth (Bearer token)
+### Timezone fix (edge function, busy slot extraction)
+```text
+// BEFORE (broken - returns UTC hours):
+const d = new Date(dateVal);
+const hourDec = d.getHours() + d.getMinutes() / 60;
 
-### New `ai-build-script` step: `templatize-script`
+// AFTER (correct - returns hours in client's timezone):
+const d = new Date(dateVal);
+const fmt = new Intl.DateTimeFormat("en-US", {
+  timeZone: settings.timezone,
+  hour: "numeric", minute: "numeric", hour12: false
+});
+const parts = fmt.formatToParts(d);
+const localH = Number(parts.find(p => p.type === "hour")?.value);
+const localM = Number(parts.find(p => p.type === "minute")?.value);
+const hourDec = localH + localM / 60;
 ```
-POST /functions/v1/ai-build-script
-Body: {
-  step: "templatize-script",
-  topic: string,
-  transcription: string,  // from GetTranscribe
-  language: "en" | "es"
+
+### Timezone fix (edge function, booking creation)
+```text
+// Compute UTC offset for the client's timezone at the booking time
+// Then store as e.g. "2026-02-19T10:30:00.000-07:00" so Notion knows the exact moment
+```
+
+### Webhook call (after Notion page created)
+```text
+if (settings.zapier_webhook_url) {
+  fetch(settings.zapier_webhook_url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, phone, message, date, time, client_name: clientNotionName })
+  }).catch(err => console.error("Zapier webhook failed:", err));
 }
 ```
-- AI prompt instructs: "Analyze this transcription's structure (hook type, body flow, CTA, length, pacing). Create a NEW script about the given topic that follows the EXACT same structure and approximate length, but with completely new content."
-- Returns same format: `{ lines, idea_ganadora, target, formato, virality_score }`
 
-### UI Toggle
-- Simple switch component with label "Use as Template" / "Usar como plantilla"
-- In manual mode: appears next to the inspiration URL input
-- In AI mode: appears in Step 1 with its own URL input
+### BookingSettings UI
+- New "Zapier Webhook URL" input field below the break times section
+- Saved alongside all other settings
+
