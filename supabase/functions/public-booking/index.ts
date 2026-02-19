@@ -91,20 +91,26 @@ Deno.serve(async (req) => {
       }
 
       // Fetch existing leads for this date from Notion to find busy slots
-      const startOfDay = `${dateStr}T00:00:00.000Z`;
-      const endOfDay = `${dateStr}T23:59:59.999Z`;
+      // Use date-only boundaries without Z suffix to match Notion's local time storage
+      const startOfDay = `${dateStr}T00:00:00.000`;
+      const endOfDay = `${dateStr}T23:59:59.999`;
 
-      const filter: any = {
-        and: [
-          { property: "Date", date: { on_or_after: startOfDay } },
-          { property: "Date", date: { on_or_before: endOfDay } },
-        ],
-      };
+      const filterClauses: any[] = [
+        { property: "Date", date: { on_or_after: startOfDay } },
+        { property: "Date", date: { on_or_before: endOfDay } },
+        // Exclude canceled leads so their slots become available again
+        {
+          property: "Lead Status",
+          select: { does_not_equal: "Canceled" },
+        },
+      ];
 
       // If using shared DB, filter by client
       if (!clientData.notion_lead_database_id) {
-        filter.and.push({ property: "Client", select: { equals: clientNotionName } });
+        filterClauses.push({ property: "Client", select: { equals: clientNotionName } });
       }
+
+      const filter = { and: filterClauses };
 
       const notionResponse = await fetch(
         `https://api.notion.com/v1/databases/${leadsDbId}/query`,
