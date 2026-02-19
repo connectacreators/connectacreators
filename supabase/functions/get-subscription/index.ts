@@ -37,15 +37,15 @@ Deno.serve(async (req) => {
     });
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
 
     // Look up stripe_customer_id from clients table
     const { data: client, error: clientError } = await supabase
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
       id: inv.id,
       number: inv.number,
       date: inv.created,
-      amount: inv.amount_paid,
+      amount: inv.status === "paid" ? inv.amount_paid : inv.amount_due,
       currency: inv.currency,
       status: inv.status,
       pdf_url: inv.invoice_pdf,
