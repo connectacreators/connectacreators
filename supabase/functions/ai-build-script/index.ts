@@ -390,6 +390,84 @@ Return the translated script with the same structure.`,
       });
     }
 
+    // ==================== STEP: TEMPLATIZE SCRIPT ====================
+    if (step === "templatize-script") {
+      const { topic, transcription, language: reqLang } = body;
+      if (!topic || !transcription) throw new Error("topic and transcription are required");
+      const langLabel = reqLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
+
+      const systemPrompt = `You are an expert short-form video scriptwriter who specializes in reverse-engineering viral video structures. You will receive a transcription from a viral video AND a new topic. Your job is to:
+
+1. Analyze the transcription's EXACT structure: hook style, body flow, CTA approach, pacing, approximate length, number of sections, rhetorical devices used
+2. Create a COMPLETELY NEW script about the given topic that follows the EXACT SAME structure, flow, and approximate length
+3. The new script should feel like it was written by the same creator but about a different topic
+4. Keep the same energy, pacing, and engagement techniques
+
+CRITICAL RULES:
+- Match the original's approximate word count and number of sections
+- Use the same hook TYPE (question, statement, shock, etc.) but with new content
+- Maintain the same body pattern (tips, story, comparison, etc.)
+- Mirror the CTA style
+- Write in ${langLabel}
+- Categorize EVERY line into line_type ("filming", "actor", "editor") and section ("hook", "body", "cta")
+
+BEFORE finalizing, evaluate against the 9-Step Quality Checklist:
+1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing
+5. Value teased quickly  6. Curiosity hook  7. Easy absorption  8. Rehook present  9. Sticky idea
+
+Return a virality_score which is the average of all 9 criteria (1-10).`;
+
+      const data = await callClaude(
+        ANTHROPIC_API_KEY,
+        systemPrompt,
+        `ORIGINAL TRANSCRIPTION (use this as your structural template):
+"""
+${transcription}
+"""
+
+NEW TOPIC to write about: "${topic}"
+
+Create a new script about this topic following the EXACT same structure, length, and flow as the original transcription. Write in ${langLabel}.`,
+        [{
+          name: "return_script",
+          description: "Return the templatized script",
+          input_schema: {
+            type: "object",
+            properties: {
+              lines: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    line_type: { type: "string", enum: ["filming", "actor", "editor"] },
+                    section: { type: "string", enum: ["hook", "body", "cta"] },
+                    text: { type: "string" },
+                  },
+                  required: ["line_type", "section", "text"],
+                },
+              },
+              idea_ganadora: { type: "string", description: "The winning idea/hook summary" },
+              target: { type: "string", description: "Target audience" },
+              formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
+              virality_score: {
+                type: "number",
+                description: "Average score (1-10) across all 9 quality criteria",
+              },
+            },
+            required: ["lines", "idea_ganadora", "target", "formato", "virality_score"],
+          },
+        }],
+        { type: "tool", name: "return_script" }
+      );
+
+      const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+      if (!toolUse) throw new Error("No tool use in Claude response");
+
+      return new Response(JSON.stringify(toolUse.input), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid step parameter" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

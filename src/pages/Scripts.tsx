@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2,
+  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2, Copy,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import AIScriptWizard from "@/components/AIScriptWizard";
@@ -390,6 +391,8 @@ export default function Scripts() {
   const [scriptTitle, setScriptTitle] = useState("");
   const [scriptInput, setScriptInput] = useState("");
   const [inspirationUrl, setInspirationUrl] = useState("");
+  const [useAsTemplate, setUseAsTemplate] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
   const [formato, setFormato] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
@@ -1268,6 +1271,22 @@ export default function Scripts() {
 
                  <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
                  <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
+                 
+                 {/* Use as Template Toggle */}
+                 {inspirationUrl.trim() && (
+                   <div className="flex items-center gap-3 mb-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/30">
+                     <Switch checked={useAsTemplate} onCheckedChange={setUseAsTemplate} />
+                     <div className="flex-1 min-w-0">
+                       <label className="text-sm font-medium text-foreground cursor-pointer" onClick={() => setUseAsTemplate(!useAsTemplate)}>
+                         {tr({ en: "Use as Template", es: "Usar como plantilla" }, language)}
+                       </label>
+                       <p className="text-xs text-muted-foreground">
+                         {tr({ en: "Transcribe the video and use its structure as a template", es: "Transcribir el video y usar su estructura como plantilla" }, language)}
+                       </p>
+                     </div>
+                     <Copy className={`w-4 h-4 flex-shrink-0 ${useAsTemplate ? "text-primary" : "text-muted-foreground"}`} />
+                   </div>
+                 )}
                 
                 <div className="mb-3">
                    <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
@@ -1290,20 +1309,109 @@ export default function Scripts() {
                   <Textarea
                     value={scriptInput}
                     onChange={(e) => setScriptInput(e.target.value)}
-                    placeholder={tr(t.scripts.pasteDictate, language)}
+                    placeholder={useAsTemplate
+                      ? tr({ en: "Enter your topic/title above. The script content will be auto-generated from the template.", es: "Ingresa tu tema/título arriba. El contenido del script se generará automáticamente desde la plantilla." }, language)
+                      : tr(t.scripts.pasteDictate, language)
+                    }
                     className="min-h-[200px] bg-gradient-to-br from-card to-muted/20 border-border font-mono text-sm resize-y pr-12"
+                    disabled={useAsTemplate && inspirationUrl.trim() !== ""}
                   />
-                  <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
+                  {!useAsTemplate && (
+                    <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
+                  )}
                 </div>
                 <Button
-                  onClick={view === "edit-script" ? handleUpdate : handleCategorize}
+                  onClick={async () => {
+                    if (useAsTemplate && inspirationUrl.trim() && selectedClient) {
+                      // Template flow: transcribe → templatize → save
+                      setTemplateLoading(true);
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const headers = {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                        };
+
+                        // Step 1: Transcribe
+                        toast.info(tr({ en: "Transcribing video...", es: "Transcribiendo video..." }, language));
+                        const transcribeRes = await fetch(
+                          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-video`,
+                          { method: "POST", headers, body: JSON.stringify({ url: inspirationUrl.trim() }) }
+                        );
+                        if (!transcribeRes.ok) {
+                          const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
+                          throw new Error(err.error || "Transcription failed");
+                        }
+                        const { transcription } = await transcribeRes.json();
+                        if (!transcription) throw new Error("Empty transcription");
+
+                        // Step 2: Templatize
+                        toast.info(tr({ en: "Creating template script...", es: "Creando script desde plantilla..." }, language));
+                        const templatizeRes = await fetch(
+                          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-build-script`,
+                          {
+                            method: "POST",
+                            headers,
+                            body: JSON.stringify({
+                              step: "templatize-script",
+                              topic: scriptTitle.trim() || "Script from template",
+                              transcription,
+                              language,
+                            }),
+                          }
+                        );
+                        if (!templatizeRes.ok) {
+                          const err = await templatizeRes.json().catch(() => ({ error: "Template generation failed" }));
+                          throw new Error(err.error || "Template generation failed");
+                        }
+                        const templateResult = await templatizeRes.json();
+
+                        // Step 3: Save using categorizeAndSave
+                        const rawContent = templateResult.lines?.map((l: any) => l.text).join("\n") || "";
+                        const title = scriptTitle.trim() || templateResult.idea_ganadora || "Script from template";
+
+                        const result = await categorizeAndSave(
+                          selectedClient.id,
+                          title,
+                          rawContent,
+                          inspirationUrl.trim() || undefined,
+                          templateResult.formato || formato || undefined,
+                          googleDriveLink.trim() || undefined
+                        );
+                        if (result) {
+                          setParsedLines(result.lines);
+                          setViewingInspirationUrl(inspirationUrl.trim() || null);
+                          setViewingMetadata(result.metadata);
+                          setViewingScriptId(result.scriptId);
+                          setView("view-script");
+                          toast.success(tr({ en: "Template script created!", es: "¡Script desde plantilla creado!" }, language));
+                        }
+                      } catch (e: any) {
+                        toast.error(e.message || "Error creating template script");
+                      } finally {
+                        setTemplateLoading(false);
+                      }
+                    } else if (view === "edit-script") {
+                      handleUpdate();
+                    } else {
+                      handleCategorize();
+                    }
+                  }}
                   variant="cta"
                   size="lg"
                   className="gap-2 w-full sm:w-auto"
-                  disabled={scriptsLoading || !scriptInput.trim()}
+                  disabled={scriptsLoading || templateLoading || (useAsTemplate ? !inspirationUrl.trim() || !scriptTitle.trim() : !scriptInput.trim())}
                 >
-                  {scriptsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {scriptsLoading ? tr(t.scripts.analyzing, language) : view === "edit-script" ? tr(t.scripts.updateRecategorize, language) : tr(t.scripts.analyzeAndSave, language)}
+                  {(scriptsLoading || templateLoading) ? <Loader2 className="w-4 h-4 animate-spin" /> : useAsTemplate ? <Copy className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                  {templateLoading
+                    ? tr({ en: "Transcribing & Building...", es: "Transcribiendo y Construyendo..." }, language)
+                    : scriptsLoading
+                      ? tr(t.scripts.analyzing, language)
+                      : useAsTemplate
+                        ? tr({ en: "Transcribe & Template", es: "Transcribir y Crear Plantilla" }, language)
+                        : view === "edit-script"
+                          ? tr(t.scripts.updateRecategorize, language)
+                          : tr(t.scripts.analyzeAndSave, language)}
                 </Button>
               </>
             )}
