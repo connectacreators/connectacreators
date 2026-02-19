@@ -419,6 +419,24 @@ export function useScripts() {
       toast.error("Error al eliminar línea");
       return false;
     }
+    // Renumber all remaining lines to close gaps
+    const { data: remaining } = await supabase
+      .from("script_lines")
+      .select("line_number")
+      .eq("script_id", scriptId)
+      .order("line_number", { ascending: true });
+    if (remaining) {
+      for (let i = 0; i < remaining.length; i++) {
+        const expected = i + 1;
+        if (remaining[i].line_number !== expected) {
+          await supabase
+            .from("script_lines")
+            .update({ line_number: expected })
+            .eq("script_id", scriptId)
+            .eq("line_number", remaining[i].line_number);
+        }
+      }
+    }
     return true;
   };
 
@@ -477,6 +495,53 @@ export function useScripts() {
       return null;
     }
     return insertAt;
+  };
+
+  // Batch reorder lines within a section after drag-and-drop
+  const reorderSectionLines = async (scriptId: string, section: string, orderedLines: ScriptLine[]) => {
+    // Get ALL lines to rebuild line_numbers
+    const { data: allLines } = await supabase
+      .from("script_lines")
+      .select("line_number, section, line_type, text")
+      .eq("script_id", scriptId)
+      .order("line_number", { ascending: true });
+    if (!allLines) return false;
+
+    // Rebuild: keep non-target sections in place, replace target section with new order
+    const otherLines = allLines.filter((l) => l.section !== section);
+    const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
+    const targetOrder = sectionOrder[section] ?? 1;
+
+    // Find insertion point for the reordered section
+    const rebuilt: { line_type: string; section: string; text: string }[] = [];
+    let sectionInserted = false;
+    for (const l of otherLines) {
+      const lOrder = sectionOrder[l.section] ?? 1;
+      if (!sectionInserted && lOrder > targetOrder) {
+        rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text })));
+        sectionInserted = true;
+      }
+      rebuilt.push({ line_type: l.line_type, section: l.section, text: l.text });
+    }
+    if (!sectionInserted) {
+      rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text })));
+    }
+
+    // Delete all and re-insert in correct order
+    await supabase.from("script_lines").delete().eq("script_id", scriptId);
+    const rows = rebuilt.map((l, i) => ({
+      script_id: scriptId,
+      line_number: i + 1,
+      line_type: l.line_type,
+      section: l.section,
+      text: l.text,
+    }));
+    const { error } = await supabase.from("script_lines").insert(rows);
+    if (error) {
+      toast.error("Error al reordenar");
+      return false;
+    }
+    return true;
   };
 
   const moveScriptLine = async (scriptId: string, lineNumber: number, direction: "up" | "down") => {
@@ -554,6 +619,7 @@ export function useScripts() {
     updateScriptLineType,
     addScriptLine,
     moveScriptLine,
+    reorderSectionLines,
     bulkSyncToNotion,
   };
 }
