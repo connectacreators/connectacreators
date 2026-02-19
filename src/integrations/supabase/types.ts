@@ -31,6 +31,7 @@ export type Database = {
           start_hour: number
           timezone: string
           updated_at: string
+          zapier_webhook_url: string | null
         }
         Insert: {
           available_days?: number[]
@@ -48,6 +49,7 @@ export type Database = {
           start_hour?: number
           timezone?: string
           updated_at?: string
+          zapier_webhook_url?: string | null
         }
         Update: {
           available_days?: number[]
@@ -65,6 +67,7 @@ export type Database = {
           start_hour?: number
           timezone?: string
           updated_at?: string
+          zapier_webhook_url?: string | null
         }
         Relationships: [
           {

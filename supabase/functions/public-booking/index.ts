@@ -8,6 +8,43 @@ const corsHeaders = {
 
 const NOTION_API_VERSION = "2022-06-28";
 
+/** Convert a Date to decimal hours in a given IANA timezone */
+function toLocalDecimalHour(date: Date, timezone: string): number {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(date);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return h + m / 60;
+}
+
+/** Compute the UTC offset string (e.g. "-07:00") for a timezone at a given instant */
+function getTimezoneOffset(date: Date, timezone: string): string {
+  const utcFmt = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", hour: "numeric", minute: "numeric", hour12: false, year: "numeric", month: "2-digit", day: "2-digit" });
+  const tzFmt = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "numeric", hour12: false, year: "numeric", month: "2-digit", day: "2-digit" });
+
+  const utcParts = Object.fromEntries(utcFmt.formatToParts(date).map((p) => [p.type, p.value]));
+  const tzParts = Object.fromEntries(tzFmt.formatToParts(date).map((p) => [p.type, p.value]));
+
+  const utcMin = (Number(utcParts.day) * 24 + Number(utcParts.hour)) * 60 + Number(utcParts.minute);
+  const tzMin = (Number(tzParts.day) * 24 + Number(tzParts.hour)) * 60 + Number(tzParts.minute);
+
+  let diffMin = tzMin - utcMin;
+  // Handle day boundary wrap
+  if (diffMin > 720) diffMin -= 1440;
+  if (diffMin < -720) diffMin += 1440;
+
+  const sign = diffMin >= 0 ? "+" : "-";
+  const absDiff = Math.abs(diffMin);
+  const oh = String(Math.floor(absDiff / 60)).padStart(2, "0");
+  const om = String(absDiff % 60).padStart(2, "0");
+  return `${sign}${oh}:${om}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -64,12 +101,12 @@ Deno.serve(async (req) => {
     const DEFAULT_LEADS_DATABASE_ID = "5c1f88c1-0938-41b3-bb84-64e70fd58eb7";
     const leadsDbId = clientData.notion_lead_database_id || DEFAULT_LEADS_DATABASE_ID;
     const clientNotionName = clientData.notion_lead_name || clientData.name;
+    const clientTimezone = settings.timezone || "America/Denver";
 
     // ===== GET: Fetch available slots =====
     if (req.method === "GET") {
       const dateStr = url.searchParams.get("date"); // YYYY-MM-DD
       if (!dateStr) {
-        // Return settings only
         return new Response(
           JSON.stringify({
             settings: {
@@ -77,7 +114,7 @@ Deno.serve(async (req) => {
               start_hour: settings.start_hour,
               end_hour: settings.end_hour,
               slot_duration_minutes: settings.slot_duration_minutes,
-              timezone: settings.timezone,
+              timezone: clientTimezone,
               booking_title: settings.booking_title,
               booking_description: settings.booking_description,
               primary_color: settings.primary_color || "#C4922A",
@@ -91,21 +128,15 @@ Deno.serve(async (req) => {
       }
 
       // Fetch existing leads for this date from Notion to find busy slots
-      // Use date-only boundaries without Z suffix to match Notion's local time storage
       const startOfDay = `${dateStr}T00:00:00.000`;
       const endOfDay = `${dateStr}T23:59:59.999`;
 
       const filterClauses: any[] = [
         { property: "Date", date: { on_or_after: startOfDay } },
         { property: "Date", date: { on_or_before: endOfDay } },
-        // Exclude canceled leads so their slots become available again
-        {
-          property: "Lead Status",
-          select: { does_not_equal: "Canceled" },
-        },
+        { property: "Lead Status", select: { does_not_equal: "Canceled" } },
       ];
 
-      // If using shared DB, filter by client
       if (!clientData.notion_lead_database_id) {
         filterClauses.push({ property: "Client", select: { equals: clientNotionName } });
       }
@@ -134,7 +165,8 @@ Deno.serve(async (req) => {
             const dateVal = page.properties["Date"]?.date?.start;
             if (!dateVal || !dateVal.includes("T")) return null;
             const d = new Date(dateVal);
-            const hourDec = d.getHours() + d.getMinutes() / 60;
+            // Convert to the CLIENT's timezone so it matches slot generation
+            const hourDec = toLocalDecimalHour(d, clientTimezone);
             return {
               start: hourDec,
               end: hourDec + settings.slot_duration_minutes / 60,
@@ -187,8 +219,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Build the datetime
-      const dateTime = `${date}T${time}:00.000`;
+      // Build the datetime with explicit timezone offset so Notion stores it unambiguously
+      const bookingDate = new Date(`${date}T${time}:00.000Z`);
+      const offset = getTimezoneOffset(bookingDate, clientTimezone);
+      const dateTime = `${date}T${time}:00.000${offset}`;
 
       // Create a new page in the Notion leads database
       const properties: any = {
@@ -200,12 +234,10 @@ Deno.serve(async (req) => {
         "Lead Source": { select: { name: "Website Booking" } },
       };
 
-      // Add client select if using shared DB
       if (!clientData.notion_lead_database_id) {
         properties["Client"] = { select: { name: clientNotionName } };
       }
 
-      // Add notes/message
       if (message) {
         properties["Notes"] = { rich_text: [{ text: { content: message } }] };
       }
@@ -233,6 +265,25 @@ Deno.serve(async (req) => {
       }
 
       const createdPage = await createResponse.json();
+
+      // Fire-and-forget: send webhook if configured
+      if (settings.zapier_webhook_url) {
+        fetch(settings.zapier_webhook_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            email,
+            phone,
+            message: message || "",
+            date,
+            time,
+            client_name: clientNotionName,
+            booking_id: createdPage.id,
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch((err) => console.error("Zapier webhook failed:", err));
+      }
 
       return new Response(
         JSON.stringify({ success: true, booking_id: createdPage.id }),
