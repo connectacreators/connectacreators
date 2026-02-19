@@ -142,10 +142,7 @@ Rules:
               },
             },
           ],
-          tool_choice: {
-            type: "function",
-            function: { name: "categorize_script" },
-          },
+          tool_choice: "auto",
         }),
       }
     );
@@ -170,9 +167,20 @@ Rules:
 
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No tool call in AI response");
-
-    const parsed = JSON.parse(toolCall.function.arguments);
+    let parsed;
+    if (toolCall) {
+      parsed = JSON.parse(toolCall.function.arguments);
+    } else {
+      // Fallback: try to parse from message content (Gemini sometimes returns JSON directly)
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        console.error("No tool call and no JSON in response:", JSON.stringify(data));
+        throw new Error("AI did not return structured data");
+      }
+    }
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
