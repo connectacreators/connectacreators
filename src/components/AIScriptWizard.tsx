@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight, Languages, Send } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight, Languages, Send, Copy } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,6 +100,8 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
 
   // Step 1: Topic
   const [topic, setTopic] = useState("");
+  const [useAsTemplate, setUseAsTemplate] = useState(false);
+  const [templateUrl, setTemplateUrl] = useState("");
 
   // Step 2: Research
   const [facts, setFacts] = useState<Fact[]>([]);
@@ -224,21 +227,51 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   };
 
   const handleGenerateScript = async () => {
-    if (!selectedStructure) return;
+    if (!selectedStructure && !useAsTemplate) return;
     setLoading(true);
     try {
-      const lengthMap = ["short", "medium", "long"];
-      const chosenFacts = selectedFacts.map((i) => facts[i]).filter(Boolean);
-      const data = await callAIBuild({
-        step: "generate-script",
-        topic,
-        selectedFacts: chosenFacts,
-        hook: generatedHook,
-        structure: selectedStructure,
-        length: lengthMap[scriptLength],
-        language,
-      });
-      setGeneratedScript(data);
+      if (useAsTemplate && templateUrl.trim()) {
+        // Template flow: transcribe → templatize
+        toast.info(tr({ en: "Transcribing video...", es: "Transcribiendo video..." }, language));
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        };
+        const transcribeRes = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-video`,
+          { method: "POST", headers, body: JSON.stringify({ url: templateUrl.trim() }) }
+        );
+        if (!transcribeRes.ok) {
+          const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
+          throw new Error(err.error || "Transcription failed");
+        }
+        const { transcription } = await transcribeRes.json();
+        if (!transcription) throw new Error("Empty transcription");
+
+        toast.info(tr({ en: "Creating template script...", es: "Creando script desde plantilla..." }, language));
+        const data = await callAIBuild({
+          step: "templatize-script",
+          topic,
+          transcription,
+          language,
+        });
+        setGeneratedScript(data);
+      } else {
+        // Normal flow
+        const lengthMap = ["short", "medium", "long"];
+        const chosenFacts = selectedFacts.map((i) => facts[i]).filter(Boolean);
+        const data = await callAIBuild({
+          step: "generate-script",
+          topic,
+          selectedFacts: chosenFacts,
+          hook: generatedHook,
+          structure: selectedStructure,
+          length: lengthMap[scriptLength],
+          language,
+        });
+        setGeneratedScript(data);
+      }
     } catch (e: any) {
       toast.error(e.message || "Error generating script");
     } finally {
@@ -384,6 +417,30 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
             className="text-base"
             onKeyDown={(e) => { if (e.key === "Enter") handleResearch(); }}
           />
+
+          {/* Use as Template Toggle */}
+          <div className="flex items-center gap-3 mt-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/30">
+            <Switch checked={useAsTemplate} onCheckedChange={setUseAsTemplate} />
+            <div className="flex-1 min-w-0">
+              <label className="text-sm font-medium text-foreground cursor-pointer" onClick={() => setUseAsTemplate(!useAsTemplate)}>
+                {tr({ en: "Use as Template", es: "Usar como plantilla" }, language)}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {tr({ en: "Paste a video URL to use its structure as a template", es: "Pega una URL de video para usar su estructura como plantilla" }, language)}
+              </p>
+            </div>
+            <Copy className={`w-4 h-4 flex-shrink-0 ${useAsTemplate ? "text-primary" : "text-muted-foreground"}`} />
+          </div>
+
+          {useAsTemplate && (
+            <Input
+              value={templateUrl}
+              onChange={(e) => setTemplateUrl(e.target.value)}
+              placeholder={tr({ en: "Paste inspiration video URL (TikTok, Instagram, YouTube...)", es: "Pega URL del video de inspiración (TikTok, Instagram, YouTube...)" }, language)}
+              className="mt-2 text-sm"
+            />
+          )}
+
           <Button onClick={handleResearch} disabled={loading || !topic.trim()} variant="cta" className="gap-2 w-full mt-3">
             {loading && currentStep === 1 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {loading && currentStep === 1 ? tr({ en: "Researching...", es: "Investigando..." }, language) : tr({ en: "Research Topic", es: "Investigar Tema" }, language)}
@@ -574,16 +631,26 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
             </div>
           </div>
 
+          {/* Template mode notice */}
+          {useAsTemplate && templateUrl.trim() && (
+            <div className="mt-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <p className="text-sm text-foreground flex items-center gap-2">
+                <Copy className="w-4 h-4 text-primary" />
+                {tr({ en: "Template mode active — structure selection above will be ignored. The script will follow the structure from your inspiration video.", es: "Modo plantilla activo — la selección de estructura será ignorada. El script seguirá la estructura del video de inspiración." }, language)}
+              </p>
+            </div>
+          )}
+
           <Button
             variant="cta"
             onClick={handleGenerateScript}
-            disabled={loading || !selectedStructure}
+            disabled={loading || (!selectedStructure && !useAsTemplate) || (useAsTemplate && !templateUrl.trim())}
             className="gap-2 w-full mt-3"
           >
-            {loading && currentStep === 4 && !generatedScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 4 && !generatedScript ? <Loader2 className="w-4 h-4 animate-spin" /> : useAsTemplate ? <Copy className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
             {loading && currentStep === 4 && !generatedScript
-              ? tr({ en: "Generating Script...", es: "Generando Script..." }, language)
-              : tr({ en: "Generate Script", es: "Generar Script" }, language)}
+              ? tr({ en: useAsTemplate ? "Transcribing & Building..." : "Generating Script...", es: useAsTemplate ? "Transcribiendo y Construyendo..." : "Generando Script..." }, language)
+              : tr({ en: useAsTemplate ? "Transcribe & Generate" : "Generate Script", es: useAsTemplate ? "Transcribir y Generar" : "Generar Script" }, language)}
           </Button>
 
           {/* Generated script inline */}
