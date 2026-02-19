@@ -260,8 +260,7 @@ function SortableSection({
   updateScriptLine,
   deleteScriptLine,
   setParsedLines,
-  getScriptLines,
-  moveScriptLine,
+  reorderSectionLines,
 }: {
   sectionLines: ScriptLine[];
   section: string;
@@ -275,12 +274,11 @@ function SortableSection({
   updateScriptLine: (scriptId: string, lineNumber: number, text: string) => Promise<boolean>;
   deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
   setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
-  getScriptLines: (scriptId: string) => Promise<ScriptLine[]>;
-  moveScriptLine: (scriptId: string, lineNumber: number, direction: "up" | "down") => Promise<boolean>;
+  reorderSectionLines: (scriptId: string, section: string, orderedLines: ScriptLine[]) => Promise<boolean>;
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
   );
 
   const itemIds = sectionLines.map((_, i) => `${section}-${i}`);
@@ -293,24 +291,32 @@ function SortableSection({
     const newIndex = itemIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    // Determine direction and how many moves
-    const direction = newIndex > oldIndex ? "down" : "up";
-    const steps = Math.abs(newIndex - oldIndex);
+    // Optimistic local reorder
+    const reordered = [...sectionLines];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
 
-    // Get global index for the line being moved
-    const globalIndex = parsedLines.indexOf(sectionLines[oldIndex]);
+    // Update parsedLines optimistically
+    setParsedLines((prev) => {
+      const otherLines = prev.filter((l) => l.section !== section);
+      const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
+      const targetOrder = sectionOrder[section] ?? 1;
+      const result: ScriptLine[] = [];
+      let inserted = false;
+      for (const l of otherLines) {
+        const lOrder = sectionOrder[l.section] ?? 1;
+        if (!inserted && lOrder > targetOrder) {
+          result.push(...reordered);
+          inserted = true;
+        }
+        result.push(l);
+      }
+      if (!inserted) result.push(...reordered);
+      return result;
+    });
 
-    // Perform sequential swaps
-    let currentLineNumber = globalIndex + 1;
-    for (let s = 0; s < steps; s++) {
-      const ok = await moveScriptLine(viewingScriptId, currentLineNumber, direction);
-      if (!ok) break;
-      currentLineNumber = direction === "down" ? currentLineNumber + 1 : currentLineNumber - 1;
-    }
-
-    // Refresh from DB
-    const lines = await getScriptLines(viewingScriptId);
-    setParsedLines(lines);
+    // Persist to DB in one batch
+    await reorderSectionLines(viewingScriptId, section, reordered);
   };
 
   return (
@@ -355,7 +361,7 @@ export default function Scripts() {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
     categorizeAndSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado,
-    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine,
+    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines,
     bulkSyncToNotion,
   } = useScripts();
 
@@ -1473,8 +1479,7 @@ export default function Scripts() {
                       updateScriptLine={updateScriptLine}
                       deleteScriptLine={deleteScriptLine}
                       setParsedLines={setParsedLines}
-                      getScriptLines={getScriptLines}
-                      moveScriptLine={moveScriptLine}
+                      reorderSectionLines={reorderSectionLines}
                     />
                   )}
                 </div>
