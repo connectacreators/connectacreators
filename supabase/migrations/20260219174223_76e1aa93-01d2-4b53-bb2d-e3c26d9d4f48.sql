@@ -1,0 +1,1 @@
+ALTER TABLE public.booking_settings ADD COLUMN zapier_webhook_url TEXT DEFAULT NULL;

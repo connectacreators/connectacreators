@@ -81,6 +81,7 @@ type BookingSettingsData = {
   primary_color: string;
   secondary_color: string;
   break_times: BreakTime[];
+  zapier_webhook_url: string | null;
 };
 
 export default function BookingSettings() {
@@ -127,6 +128,7 @@ export default function BookingSettings() {
         primary_color: "#C4922A",
         secondary_color: "#1A1A1A",
         break_times: [],
+        zapier_webhook_url: null,
       });
     }
     setLoading(false);
@@ -157,6 +159,7 @@ export default function BookingSettings() {
       primary_color: settings.primary_color,
       secondary_color: settings.secondary_color,
       break_times: settings.break_times,
+      zapier_webhook_url: settings.zapier_webhook_url,
     };
 
     let error;
@@ -441,6 +444,18 @@ export default function BookingSettings() {
               >
                 <Plus className="w-3 h-3 mr-1" /> Agregar descanso
               </Button>
+            </div>
+
+            {/* Zapier Webhook */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Zapier Webhook URL (opcional)</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">Envía automáticamente los datos del booking a Zapier para follow-ups.</p>
+              <Input
+                value={settings.zapier_webhook_url || ""}
+                onChange={(e) => setSettings({ ...settings, zapier_webhook_url: e.target.value || null })}
+                className="h-10 font-mono text-xs"
+                placeholder="https://hooks.zapier.com/hooks/catch/..."
+              />
             </div>
 
             {/* Save button */}
