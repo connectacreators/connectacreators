@@ -90,12 +90,23 @@ export default function Subscription() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [canceling, setCanceling] = useState(false);
+  const [clientPlanType, setClientPlanType] = useState<string | null>(null);
+
+  const isManagedPlan = clientPlanType === "connecta_plan" || clientPlanType === "connecta_plus";
 
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
+      // Fetch client plan type
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("plan_type")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (clientData) setClientPlanType(clientData.plan_type);
+
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("get-subscription", {
         headers: { Authorization: `Bearer ${session?.access_token}` },
@@ -284,28 +295,30 @@ export default function Subscription() {
                     </div>
                   </div>
 
-                  {/* Upgrade & Cancel actions */}
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
-                    {!subscription.cancel_at_period_end && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate("/select-plan?upgrade=true")}
-                        className="gap-2"
-                      >
-                        <ArrowUpCircle className="w-4 h-4" />
-                        Upgrade Plan
-                      </Button>
-                    )}
-                    {!subscription.cancel_at_period_end && (
-                      <button
-                        onClick={() => setCancelOpen(true)}
-                        className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
-                      >
-                        Cancel subscription
-                      </button>
-                    )}
-                  </div>
+                  {/* Upgrade & Cancel actions — hidden for managed plans */}
+                  {!isManagedPlan && (
+                    <div className="flex items-center justify-between pt-4 border-t border-border">
+                      {!subscription.cancel_at_period_end && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate("/select-plan?upgrade=true")}
+                          className="gap-2"
+                        >
+                          <ArrowUpCircle className="w-4 h-4" />
+                          Upgrade Plan
+                        </Button>
+                      )}
+                      {!subscription.cancel_at_period_end && (
+                        <button
+                          onClick={() => setCancelOpen(true)}
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
+                        >
+                          Cancel subscription
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -344,7 +357,18 @@ export default function Subscription() {
                                   {inv.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right flex items-center justify-end gap-1">
+                                {inv.status === "open" && inv.hosted_url && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => window.open(inv.hosted_url!, "_blank")}
+                                    className="gap-1"
+                                  >
+                                    <CreditCard className="w-3.5 h-3.5" />
+                                    {language === "es" ? "Pagar" : "Pay"}
+                                  </Button>
+                                )}
                                 {inv.pdf_url && (
                                   <Button
                                     variant="ghost"
