@@ -5,11 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import ScriptsLogin from "@/components/ScriptsLogin";
-import { Loader2, Search, User } from "lucide-react";
+import { Loader2, Search, User, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import AnimatedDots from "@/components/ui/AnimatedDots";
+import { toast } from "sonner";
 
 type ClientRow = {
   id: string;
@@ -36,8 +40,41 @@ export default function Clients() {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [search, setSearch] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const canManageClients = isAdmin || isVideographer || isUser;
+  const canAddClients = isAdmin || isUser;
+  const MAX_CLIENTS = 20;
+
+  const handleAddClient = async () => {
+    if (!newClientName.trim() || !user) return;
+    if (isUser && clients.length >= MAX_CLIENTS) {
+      toast.error(language === "en" ? `You can have up to ${MAX_CLIENTS} clients` : `Puedes tener hasta ${MAX_CLIENTS} clientes`);
+      return;
+    }
+    setAdding(true);
+    const insertData: any = {
+      name: newClientName.trim(),
+      email: newClientEmail.trim() || null,
+    };
+    if (isUser) {
+      insertData.owner_user_id = user.id;
+    }
+    const { error } = await supabase.from("clients").insert(insertData);
+    if (error) {
+      toast.error(language === "en" ? "Error adding client" : "Error al agregar cliente");
+    } else {
+      toast.success(language === "en" ? "Client added" : "Cliente agregado");
+      setNewClientName("");
+      setNewClientEmail("");
+      setShowAddDialog(false);
+      fetchClients();
+    }
+    setAdding(false);
+  };
 
   const fetchClients = useCallback(async () => {
     if (!user) return;
@@ -133,14 +170,26 @@ export default function Clients() {
             {language === "en" ? "Who are we working on today?" : "¿Con quién trabajamos hoy?"}
           </motion.h1>
 
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder={language === "en" ? "Search clients..." : "Buscar clientes..."}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={language === "en" ? "Search clients..." : "Buscar clientes..."}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {canAddClients && (
+              <Button
+                size="sm"
+                onClick={() => setShowAddDialog(true)}
+                className="shrink-0"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {language === "en" ? "Add" : "Agregar"}
+              </Button>
+            )}
           </div>
 
           {loadingClients ? (
@@ -178,6 +227,49 @@ export default function Clients() {
           )}
         </div>
       </main>
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Add Client" : "Agregar Cliente"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Name" : "Nombre"}</Label>
+              <Input
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder={language === "en" ? "Client name" : "Nombre del cliente"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Email (optional)" : "Email (opcional)"}</Label>
+              <Input
+                type="email"
+                value={newClientEmail}
+                onChange={(e) => setNewClientEmail(e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+            {isUser && (
+              <p className="text-xs text-muted-foreground">
+                {language === "en"
+                  ? `${clients.length}/${MAX_CLIENTS} clients`
+                  : `${clients.length}/${MAX_CLIENTS} clientes`}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button onClick={handleAddClient} disabled={adding || !newClientName.trim()}>
+              {adding && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {language === "en" ? "Add" : "Agregar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
