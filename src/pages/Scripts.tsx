@@ -722,7 +722,7 @@ export default function Scripts() {
 
       <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
         {/* Breadcrumb */}
-        {view !== "clients" && (
+        {view !== "clients" && (isAdmin || isVideographer || view !== "client-detail") && (
           <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth">
             <ChevronLeft className="w-4 h-4" />
             {view === "client-detail" && urlClientId
