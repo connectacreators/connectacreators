@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X,
+  Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X, ChevronDown, ChevronUp,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import AnimatedDots from "@/components/ui/AnimatedDots";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
@@ -311,58 +312,127 @@ function VaultContent({
         </div>
       ) : (
         <div className="grid gap-3">
-          {templates.map((tpl) => {
-            const analysis = tpl.structure_analysis as any;
-            return (
-              <Card key={tpl.id} className="group hover:border-primary/30 transition-colors">
-                <CardContent className="p-4 flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Archive className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground truncate">{tpl.name}</h3>
-                    {tpl.source_url && (
-                      <a
-                        href={tpl.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
-                      >
-                        <Link2 className="w-3 h-3" />
-                        {tr({ en: "Source video", es: "Video fuente" }, language)}
-                      </a>
-                    )}
-                    <div className="flex items-center gap-3 mt-1.5">
-                      {analysis?.hook_type && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          Hook: {analysis.hook_type}
-                        </span>
-                      )}
-                      {analysis?.body_pattern && (
-                        <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                          {analysis.body_pattern}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <CalendarDays className="w-3 h-3" />
-                        {new Date(tpl.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive h-8 w-8 p-0"
-                    onClick={() => handleDelete(tpl.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {templates.map((tpl) => (
+            <VaultTemplateCard
+              key={tpl.id}
+              tpl={tpl}
+              language={language}
+              handleDelete={handleDelete}
+            />
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+// ===================== VAULT TEMPLATE CARD =====================
+
+function VaultTemplateCard({
+  tpl,
+  language,
+  handleDelete,
+}: {
+  tpl: VaultTemplate;
+  language: "en" | "es";
+  handleDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const lines = useMemo(() => {
+    if (!tpl.template_lines) return [];
+    if (Array.isArray(tpl.template_lines)) return tpl.template_lines;
+    return [];
+  }, [tpl.template_lines]);
+
+  const previewLines = lines.slice(0, 3);
+  const hasMore = lines.length > 3;
+
+  return (
+    <Card className="group hover:border-primary/30 transition-colors">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Archive className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-foreground truncate">{tpl.name}</h3>
+            {tpl.source_url && (
+              <a
+                href={tpl.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
+              >
+                <Link2 className="w-3 h-3" />
+                {tr({ en: "Source video", es: "Video fuente" }, language)}
+              </a>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive h-8 w-8 p-0"
+            onClick={() => handleDelete(tpl.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Script preview */}
+        {previewLines.length > 0 && (
+          <div className="mt-3 ml-14 space-y-1.5">
+            {previewLines.map((line: any, i: number) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
+                  {line.section || line.line_type || "Line"}
+                </span>
+                <span className="text-muted-foreground line-clamp-1">{line.text}</span>
+              </div>
+            ))}
+            {hasMore && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-primary hover:text-primary h-7 px-2 gap-1 mt-1"
+                onClick={() => setExpanded(true)}
+              >
+                <ChevronDown className="w-3 h-3" />
+                {tr({ en: "View entire script", es: "Ver guión completo" }, language)}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Full script dialog */}
+        <Dialog open={expanded} onOpenChange={setExpanded}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base">{tpl.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 mt-2">
+              {lines.map((line: any, i: number) => (
+                <div key={i} className="flex items-start gap-2 text-sm">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center mt-0.5">
+                    {line.section || line.line_type || "Line"}
+                  </span>
+                  <span className="text-foreground">{line.text}</span>
+                </div>
+              ))}
+              {lines.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {tr({ en: "No script lines available", es: "No hay líneas de guión disponibles" }, language)}
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-2 ml-14">
+          <CalendarDays className="w-3 h-3" />
+          {new Date(tpl.created_at).toLocaleDateString()}
+        </span>
+      </CardContent>
+    </Card>
   );
 }
