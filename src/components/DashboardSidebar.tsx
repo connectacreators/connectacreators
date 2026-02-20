@@ -61,6 +61,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: "/lead-calendar" },
+      { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
       { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
     ];
   };
