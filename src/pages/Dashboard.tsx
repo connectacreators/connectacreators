@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, Users } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, Users, UserCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useState, useEffect } from "react";
@@ -26,6 +26,20 @@ export default function Dashboard() {
   const { language } = useLanguage();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [ownClientId, setOwnClientId] = useState<string | null>(null);
+
+  // Fetch the user's own client record (for "Me" card)
+  useEffect(() => {
+    if (!user || !isUser) return;
+    supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setOwnClientId(data.id);
+      });
+  }, [user, isUser]);
 
   useEffect(() => {
     if (loading || !user) return;
@@ -74,25 +88,11 @@ export default function Dashboard() {
           path: "/clients",
         },
         {
-          label: "Script Breakdown",
-          description: tr(t.dashboard.scriptDesc, language),
-          icon: FileText,
+          label: language === "en" ? "Me" : "Yo",
+          description: language === "en" ? "Scripts, leads, calendar, vault & booking" : "Guiones, leads, calendario, vault y booking",
+          icon: UserCircle,
           color: "text-primary",
-          path: "/scripts",
-        },
-        {
-          label: tr(t.dashboard.leadTracker, language),
-          description: tr(t.dashboard.leadTrackerDesc, language),
-          icon: Target,
-          color: "text-emerald-400",
-          path: "/leads",
-        },
-        {
-          label: tr(t.dashboard.leadCalendar, language),
-          description: tr(t.dashboard.leadCalendarDesc, language),
-          icon: CalendarDays,
-          color: "text-violet-400",
-          path: "/lead-calendar",
+          path: ownClientId ? `/clients/${ownClientId}` : "/scripts",
         },
       ];
     }

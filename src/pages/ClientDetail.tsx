@@ -4,10 +4,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import AnimatedDots from "@/components/ui/AnimatedDots";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -26,6 +32,14 @@ export default function ClientDetail() {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientOwnerId, setClientOwnerId] = useState<string | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const canViewClient = isAdmin || isVideographer || isUser;
 
@@ -33,13 +47,50 @@ export default function ClientDetail() {
     if (!clientId || !user) return;
     supabase
       .from("clients")
-      .select("name")
+      .select("name, email, owner_user_id")
       .eq("id", clientId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setClientName(data.name);
+        if (data) {
+          setClientName(data.name);
+          setClientEmail(data.email || "");
+          setClientOwnerId(data.owner_user_id);
+        }
       });
   }, [clientId, user]);
+
+  const isOwnedByUser = isUser && clientOwnerId === user?.id;
+
+  const handleEditClient = async () => {
+    if (!clientId || !editName.trim()) return;
+    setEditLoading(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({ name: editName.trim(), email: editEmail.trim() || null })
+      .eq("id", clientId);
+    if (error) {
+      toast.error(language === "en" ? "Error updating client" : "Error al actualizar cliente");
+    } else {
+      toast.success(language === "en" ? "Client updated" : "Cliente actualizado");
+      setClientName(editName.trim());
+      setClientEmail(editEmail.trim());
+      setShowEditDialog(false);
+    }
+    setEditLoading(false);
+  };
+
+  const handleDeleteClient = async () => {
+    if (!clientId) return;
+    setDeleteLoading(true);
+    const { error } = await supabase.from("clients").delete().eq("id", clientId);
+    if (error) {
+      toast.error(language === "en" ? "Error deleting client" : "Error al eliminar cliente");
+    } else {
+      toast.success(language === "en" ? "Client deleted" : "Cliente eliminado");
+      navigate("/clients");
+    }
+    setDeleteLoading(false);
+  };
 
   useEffect(() => {
     if (!loading && user && !canViewClient) {
@@ -119,15 +170,37 @@ export default function ClientDetail() {
               {language === "en" ? "Back to clients" : "Volver a clientes"}
             </motion.button>
 
-            <motion.p
-              className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2"
+            <motion.div
+              className="flex items-center justify-center gap-2 mb-2"
               initial="hidden"
               animate="visible"
               custom={1}
               variants={fadeUp}
             >
-              {clientName}
-            </motion.p>
+              <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">
+                {clientName}
+              </p>
+              {(isAdmin || isOwnedByUser) && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { setEditName(clientName); setEditEmail(clientEmail); setShowEditDialog(true); }}
+                    className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                    title={language === "en" ? "Edit client" : "Editar cliente"}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  {isOwnedByUser && (
+                    <button
+                      onClick={() => setShowDeleteAlert(true)}
+                      className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                      title={language === "en" ? "Delete client" : "Eliminar cliente"}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </motion.div>
 
             <motion.h1
               className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]"
@@ -166,6 +239,61 @@ export default function ClientDetail() {
           </div>
         </div>
       </main>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Edit Client" : "Editar Cliente"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Name" : "Nombre"}</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button onClick={handleEditClient} disabled={editLoading || !editName.trim()}>
+              {editLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {language === "en" ? "Save" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Client Alert */}
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "en" ? "Delete client?" : "¿Eliminar cliente?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en"
+                ? "This will permanently delete the client and all their data (scripts, leads, etc). This action cannot be undone."
+                : "Esto eliminará permanentemente al cliente y todos sus datos (guiones, leads, etc). Esta acción no se puede deshacer."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "en" ? "Cancel" : "Cancelar"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteClient}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteLoading}
+            >
+              {deleteLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {language === "en" ? "Delete" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
