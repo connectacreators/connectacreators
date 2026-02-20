@@ -233,7 +233,7 @@ export default function Subscription() {
               <CardContent className="py-16 text-center">
                 <p className="text-4xl mb-4">😎</p>
                 <p className="text-lg font-medium text-foreground">
-                  No tienes suscripción, mas bien te tenemos que pagar 😎
+                  No tienes suscripción, mas bien te tenemos que pagar
                 </p>
               </CardContent>
             </Card>
