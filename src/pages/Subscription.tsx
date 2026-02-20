@@ -39,6 +39,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import AnimatedDots from "@/components/ui/AnimatedDots";
 
 interface SubscriptionData {
   id: string;
@@ -203,6 +204,7 @@ export default function Subscription() {
 
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}

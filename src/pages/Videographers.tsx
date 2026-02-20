@@ -9,6 +9,7 @@ import { Loader2, Search, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
+import AnimatedDots from "@/components/ui/AnimatedDots";
 
 type VideographerRow = {
   user_id: string;
@@ -93,6 +94,7 @@ export default function Videographers() {
 
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
