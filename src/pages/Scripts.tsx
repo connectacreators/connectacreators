@@ -378,7 +378,7 @@ export default function Scripts() {
   const [videographers, setVideographers] = useState<{ user_id: string; display_name: string; username: string | null }[]>([]);
   const [assignmentsMap, setAssignmentsMap] = useState<Record<string, string[]>>({}); // client_id -> videographer_user_ids
   const [assignOverlayClient, setAssignOverlayClient] = useState<string | null>(null); // client id with open overlay
-  const [view, setView] = useState<View>("clients");
+  const [view, setView] = useState<View>(urlClientId ? "client-detail" : "clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [parsedLines, setParsedLines] = useState<ScriptLine[]>([]);
 
