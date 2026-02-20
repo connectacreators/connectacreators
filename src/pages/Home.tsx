@@ -195,8 +195,8 @@ export default function Home() {
               <div className={`w-12 h-12 rounded-full border flex items-center justify-center mb-6 transition-colors ${f.disabled ? "border-foreground/5" : "border-foreground/10 group-hover:border-primary/30"}`}>
                 <f.icon className={`w-5 h-5 transition-colors ${f.disabled ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-primary"}`} />
               </div>
-              <h3 className="font-semibold text-lg mb-3 tracking-tight">{f.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+              <h3 className={`font-semibold text-lg mb-3 tracking-tight ${f.disabled ? "text-foreground/40" : ""}`}>{f.title}</h3>
+              <p className={`text-sm leading-relaxed ${f.disabled ? "text-muted-foreground/40" : "text-muted-foreground"}`}>{f.desc}</p>
             </motion.div>
           ))}
         </div>
