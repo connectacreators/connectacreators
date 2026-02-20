@@ -20,12 +20,14 @@ const fadeUp = {
 
 export default function ClientDetail() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { user, loading, isAdmin, isVideographer } = useAuth();
+  const { user, loading, isAdmin, isUser, isVideographer } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [clientName, setClientName] = useState("");
+
+  const canViewClient = isAdmin || isVideographer || isUser;
 
   useEffect(() => {
     if (!clientId || !user) return;
@@ -40,10 +42,10 @@ export default function ClientDetail() {
   }, [clientId, user]);
 
   useEffect(() => {
-    if (!loading && user && !isAdmin && !isVideographer) {
+    if (!loading && user && !canViewClient) {
       navigate("/dashboard");
     }
-  }, [loading, user, isAdmin, isVideographer, navigate]);
+  }, [loading, user, canViewClient, navigate]);
 
   if (loading) {
     return (

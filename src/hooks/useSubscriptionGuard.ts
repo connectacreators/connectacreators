@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Returns { checking: true } while the check is in progress.
  */
 export function useSubscriptionGuard() {
-  const { user, loading, isAdmin, isVideographer } = useAuth();
+  const { user, loading, isAdmin, isVideographer, role } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 
@@ -20,7 +20,8 @@ export function useSubscriptionGuard() {
       setChecking(false);
       return;
     }
-    if (isAdmin || isVideographer) {
+    // Admin, videographer, and client roles bypass subscription check
+    if (isAdmin || isVideographer || role === "client") {
       setChecking(false);
       return;
     }

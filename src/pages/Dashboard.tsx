@@ -21,7 +21,7 @@ const fadeUp = {
 };
 
 export default function Dashboard() {
-  const { user, loading, isAdmin, isVideographer, signOut, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, loading, isAdmin, isUser, isVideographer, role, signOut, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
@@ -29,8 +29,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (loading || !user) return;
-    // Admins and videographers bypass subscription check
-    if (isAdmin || isVideographer) return;
+    // Admin, videographer, and client roles bypass subscription check
+    if (isAdmin || isVideographer || role === "client") return;
 
     supabase
       .from("clients")
@@ -48,12 +48,13 @@ export default function Dashboard() {
           navigate("/select-plan");
         }
       });
-  }, [user, loading, isAdmin, isVideographer, navigate]);
+  }, [user, loading, isAdmin, isVideographer, role, navigate]);
 
   const isStaff = isAdmin || isVideographer;
 
-  const toolCards = isStaff
-    ? [
+  const getToolCards = () => {
+    if (isStaff) {
+      return [
         {
           label: language === "en" ? "Clients" : "Clientes",
           description: language === "en" ? "Manage your clients' scripts, leads and calendar" : "Gestiona los guiones, leads y calendario de tus clientes",
@@ -61,8 +62,17 @@ export default function Dashboard() {
           color: "text-primary",
           path: "/clients",
         },
-      ]
-    : [
+      ];
+    }
+    if (isUser) {
+      return [
+        {
+          label: language === "en" ? "Clients" : "Clientes",
+          description: language === "en" ? "Manage your clients" : "Gestiona tus clientes",
+          icon: Users,
+          color: "text-primary",
+          path: "/clients",
+        },
         {
           label: "Script Breakdown",
           description: tr(t.dashboard.scriptDesc, language),
@@ -85,6 +95,34 @@ export default function Dashboard() {
           path: "/lead-calendar",
         },
       ];
+    }
+    // Client role
+    return [
+      {
+        label: "Script Breakdown",
+        description: tr(t.dashboard.scriptDesc, language),
+        icon: FileText,
+        color: "text-primary",
+        path: "/scripts",
+      },
+      {
+        label: tr(t.dashboard.leadTracker, language),
+        description: tr(t.dashboard.leadTrackerDesc, language),
+        icon: Target,
+        color: "text-emerald-400",
+        path: "/leads",
+      },
+      {
+        label: tr(t.dashboard.leadCalendar, language),
+        description: tr(t.dashboard.leadCalendarDesc, language),
+        icon: CalendarDays,
+        color: "text-violet-400",
+        path: "/lead-calendar",
+      },
+    ];
+  };
+
+  const toolCards = getToolCards();
 
   if (loading) {
     return (
@@ -146,7 +184,7 @@ export default function Dashboard() {
               {tr(t.dashboard.question, language)}
             </motion.h1>
 
-            <div className={`grid grid-cols-1 ${isStaff ? 'max-w-sm mx-auto' : 'sm:grid-cols-3'} gap-6`}>
+            <div className={`grid grid-cols-1 ${toolCards.length === 1 ? 'max-w-sm mx-auto' : toolCards.length <= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-6`}>
               {toolCards.map((tool, i) => (
                 <motion.button
                   key={tool.path}

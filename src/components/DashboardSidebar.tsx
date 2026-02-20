@@ -23,20 +23,30 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { signOut, isAdmin, isVideographer } = useAuth();
+  const { signOut, isAdmin, isUser, isVideographer, role } = useAuth();
 
-  const isStaff = isAdmin || isVideographer;
-
-  const navItems = isStaff
-    ? [
+  const getNavItems = () => {
+    if (isAdmin) {
+      return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
-        ...(isAdmin ? [{ label: language === "en" ? "Videographers" : "Videógrafos", icon: Video, path: "/videographers" }] : []),
+        { label: language === "en" ? "Videographers" : "Videógrafos", icon: Video, path: "/videographers" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
-      ]
-    : [
+      ];
+    }
+    if (isVideographer) {
+      return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
+        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
+        { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
+      ];
+    }
+    if (isUser) {
+      return [
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
         { label: "Vault", icon: Archive, path: "/vault" },
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },
@@ -44,6 +54,18 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
+    }
+    // Client role (default)
+    return [
+      { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+      { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
+      { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },
+      { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: "/lead-calendar" },
+      { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
+    ];
+  };
+
+  const navItems = getNavItems();
 
   return (
     <aside
