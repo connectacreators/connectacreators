@@ -1,90 +1,113 @@
 
-# Vault: Script Template Library
+# Reconfigure User Roles: Admin, User, Videographer, Client
 
-## Overview
-A new "Vault" section in the dashboard where users can transcribe viral videos and save them as reusable script templates. These templates can then be selected when building new scripts (both Manual and AI modes), replacing the current inline "Use as Template" toggle with a library of pre-built templates.
+## Summary
+Introduce a new **"user"** role for paying subscribers who manage their own clients (up to 20). Rename the current default behavior (no role = client) to an explicit **"client"** role for people invited by users. Each role gets distinct access and navigation.
 
-## How It Works
+## Role Definitions
 
-### 1. Vault Page (New)
-- Accessible from the client dashboard (ClientDetail) as a new tool card with a vault/library icon
-- Also accessible from the sidebar for regular (non-staff) users
-- Shows a list of saved templates per client, each displaying:
-  - Template name (auto-generated from transcription or user-defined)
-  - Source URL (the original video)
-  - Date created
-  - Structure summary (hook type, body pattern, CTA style)
-- "New Template" button opens a simple form:
-  - Paste a video URL (TikTok, Instagram, YouTube, etc.)
-  - Click "Transcribe & Templatize"
-  - The system transcribes the video via GetTranscribe, then sends the transcription to the AI to analyze its structure and save a templatized version
-  - User can rename the template before saving
-- Templates can be deleted
+| Role | Who | Pays? | Access |
+|------|-----|-------|--------|
+| **Admin** | You (Roberto) | No | Everything, manage all clients, videographers |
+| **Videographer** | Team members | No | Assigned clients only (scripts, leads, calendar, vault, booking) |
+| **User** | Paying subscribers | Yes | Own clients (up to 20), scripts, leads, calendar, vault, booking, subscription |
+| **Client** | Invited by a user | No | Own data only: Script Breakdown, Lead Tracker, Lead Calendar |
 
-### 2. Integration with Script Building
-- **Manual mode**: Replace the current "Use as Template" toggle + URL input with a "Choose from Vault" selector that shows saved templates. When a template is selected, the script content auto-fills based on the template structure applied to the user's title/topic.
-- **AI mode (Step 3 - Structure)**: Replace the current "Use as Template" toggle + URL input with a "Choose from Vault" picker. When selected, it skips the structure picker (same behavior as before) and uses the chosen vault template's structure.
+## What Changes
 
-### 3. Routing
-- Staff route: `/clients/:clientId/vault`
-- Regular user route: `/vault` (auto-selects own client)
-- Both use the same `Vault.tsx` page component
+### 1. Database: Add "user" to the role enum
+- `ALTER TYPE public.app_role ADD VALUE 'user';`
+- Add `is_user()` security definer function (like `is_admin()`)
+- Migrate existing paying subscribers: anyone in the `clients` table with an active subscription and no admin/videographer role gets the `user` role in `user_roles`
+
+### 2. Database: Client ownership model
+- Add `owner_user_id` column to the `clients` table -- this links a client record to the "user" who created/manages them (distinct from the client's own `user_id` which is the client's auth account)
+- Add a `client_limit` check: users can create up to 20 clients
+- Update RLS policies on `clients`, `scripts`, `script_lines`, `vault_templates`, `booking_settings`, etc. so that:
+  - **User** role can manage clients where `owner_user_id = auth.uid()`
+  - **Client** role can only read their own records (where `user_id = auth.uid()`)
+
+### 3. Auth Context updates
+- Add `"user"` to the `UserRole` type: `"admin" | "user" | "client" | "videographer"`
+- Add `isUser` boolean to the context (for `role === "user"`)
+- Update default fallback role from `"client"` to remain `"client"` (no role in DB = client)
+
+### 4. Navigation: Role-based sidebar and dashboard
+
+**Admin sidebar** (unchanged):
+- Home, Clients, Videographers, Subscription, Settings
+
+**User sidebar** (new -- similar to admin but scoped):
+- Home, Clients (own), Script Breakdown, Vault, Lead Tracker, Lead Calendar, Public Booking, Subscription, Settings
+
+**Videographer sidebar** (unchanged):
+- Home, Clients (assigned), Subscription, Settings
+
+**Client sidebar** (restricted):
+- Home, Script Breakdown, Lead Tracker, Lead Calendar, Settings
+- NO Vault, NO Public Booking, NO Subscription management
+
+### 5. Dashboard cards per role
+
+**Admin/Videographer**: "Clients" card (as now)
+
+**User**: "Clients" card + direct tool cards (Scripts, Lead Tracker, Lead Calendar, Vault)
+
+**Client**: Script Breakdown, Lead Tracker, Lead Calendar only
+
+### 6. Subscription guard updates
+- **Admin** and **Videographer**: bypass (as now)
+- **User**: must have active subscription (as current "client" behavior)
+- **Client**: bypass subscription check (they don't pay, their "user" owner pays)
+
+### 7. Client management for "user" role
+- The `/clients` page currently restricts to admin/videographer. Update to also allow "user" role, but only showing clients where `owner_user_id = auth.uid()`
+- The "Add Client" flow: user creates a client record with `owner_user_id` set to their own user ID, limited to 20 clients
+- `ClientDetail` page: allow "user" role access to their own clients
+
+### 8. Signup flow adjustment
+- The `handle_new_user()` trigger currently creates a `clients` row for every new signup
+- Update: new signups still get a client row (for backward compat), but once they select a plan and pay, they get the `user` role assigned (via `check-subscription` edge function)
+- When a user invites someone as a "client," that person signs up and gets linked to their client record (no role in `user_roles` = defaults to `client`)
 
 ---
 
 ## Technical Details
 
-### Database: New `vault_templates` table
+### Migration SQL
+1. `ALTER TYPE public.app_role ADD VALUE 'user';`
+2. Create `is_user()` function
+3. Add `owner_user_id UUID` column to `clients` table
+4. Update RLS policies across tables to account for user ownership
+5. Migrate existing paying subscribers to `user` role
 
+### Files to modify
+- **`src/contexts/AuthContext.tsx`** -- Add `"user"` to UserRole, expose `isUser`
+- **`src/hooks/useAuth.ts`** -- Re-export (no change needed)
+- **`src/components/DashboardSidebar.tsx`** -- 4-way nav: admin, user, videographer, client
+- **`src/pages/Dashboard.tsx`** -- Role-based tool cards for all 4 roles
+- **`src/pages/Clients.tsx`** -- Allow "user" role, scope to `owner_user_id`
+- **`src/pages/ClientDetail.tsx`** -- Allow "user" role for owned clients
+- **`src/hooks/useSubscriptionGuard.ts`** -- Client role bypasses, user role checks
+- **`src/hooks/useClients.ts`** -- Support user-scoped client fetching
+- **`supabase/functions/check-subscription/index.ts`** -- Assign `user` role on subscription activation
+
+### RLS policy updates (key tables)
+- `clients`: User can CRUD where `owner_user_id = auth.uid()`
+- `scripts`, `script_lines`: User can manage via owned client relationship
+- `vault_templates`: User can manage via owned client relationship
+- `booking_settings`: User can manage via owned client relationship
+
+### New helper function
 ```sql
-CREATE TABLE public.vault_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id UUID NOT NULL,
-  name TEXT NOT NULL DEFAULT 'Untitled Template',
-  source_url TEXT,
-  transcription TEXT,
-  structure_analysis JSONB,  -- { hook_type, body_pattern, cta_style, pacing, word_count, etc. }
-  template_lines JSONB,      -- Array of { line_type, section, text } with templatized placeholders
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- RLS policies (same pattern as scripts table)
--- Admin: full access
--- Client: own templates (via is_own_client)
--- Videographer: assigned client templates (via is_assigned_client)
+CREATE OR REPLACE FUNCTION public.is_owned_client(_client_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.clients
+    WHERE id = _client_id 
+    AND owner_user_id = auth.uid()
+  )
+$$;
 ```
-
-### New Page: `src/pages/Vault.tsx`
-- Follows the same layout pattern as Scripts.tsx (header, sidebar for staff, AnimatedDots background)
-- Two views: template list and create-new-template
-- Uses existing `transcribe-video` edge function for transcription
-- Uses `ai-build-script` edge function with a new step `"analyze-template"` that returns:
-  - Structure analysis (hook type, body flow, CTA approach)
-  - Templatized lines with placeholder markers (e.g., `[INSERT TOPIC]`, `[INSERT FACT]`)
-
-### Edge Function Update: `ai-build-script/index.ts`
-- New step: `"analyze-template"` -- receives a transcription and returns a structural analysis + templatized version with generic placeholders (not tied to any specific topic)
-- Update `"templatize-script"` step to accept an optional `vault_template` parameter (pre-saved template data) so it can skip transcription and use the stored template directly
-
-### Modified Files
-1. **`src/App.tsx`** -- Add routes: `/vault` and `/clients/:clientId/vault`
-2. **`src/pages/ClientDetail.tsx`** -- Add "Vault" card to the tool grid
-3. **`src/components/DashboardSidebar.tsx`** -- Add "Vault" nav item for regular users
-4. **`src/pages/Vault.tsx`** -- New page component
-5. **`src/pages/Scripts.tsx`** -- Replace "Use as Template" toggle with Vault template picker (fetches from vault_templates table)
-6. **`src/components/AIScriptWizard.tsx`** -- Replace "Use as Template" toggle in Step 3 with Vault template picker
-7. **`supabase/functions/ai-build-script/index.ts`** -- Add `"analyze-template"` step; update `"templatize-script"` to accept stored template data
-
-### Flow Diagram
-
-When creating a template:
-1. User pastes video URL in Vault
-2. Frontend calls `transcribe-video` edge function
-3. Frontend calls `ai-build-script` with step `"analyze-template"` + transcription
-4. AI returns structure analysis + templatized lines
-5. Save to `vault_templates` table
-
-When using a template in script building:
-1. User selects a template from their Vault in the Manual or AI script builder
-2. The template's stored structure/lines are passed to `ai-build-script` step `"templatize-script"` along with the new topic
-3. AI generates a new script following the template's exact structure but about the new topic
