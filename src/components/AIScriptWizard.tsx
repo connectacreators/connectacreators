@@ -702,17 +702,20 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
 
               {/* Script lines */}
               <div className="space-y-2">
-                {generatedScript.lines?.filter((line: any) => line.line_type === "actor").map((line: any, i: number) => {
+                {generatedScript.lines?.filter((line: any) => line.line_type === "actor" || line.line_type === "filming").map((line: any, i: number) => {
                   const sectionBadge: Record<string, string> = {
                     hook: "bg-amber-500/20 text-amber-400",
                     body: "bg-blue-500/20 text-blue-400",
                     cta: "bg-green-500/20 text-green-400",
                   };
                   return (
-                    <div key={i} className="p-3 rounded-xl border border-primary/30 bg-primary/5">
+                    <div key={i} className={`p-3 rounded-xl border ${line.line_type === "filming" ? "border-red-500/30 bg-red-500/5" : "border-primary/30 bg-primary/5"}`}>
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${sectionBadge[line.section] || ""}`}>
                           {line.section}
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${line.line_type === "filming" ? "bg-red-500/20 text-red-400" : "bg-purple-500/20 text-purple-400"}`}>
+                          {line.line_type === "filming" ? (tr({ en: "Filming", es: "Filmación" }, language)) : (tr({ en: "Voiceover", es: "Voiceover" }, language))}
                         </span>
                       </div>
                       <p className="text-sm text-foreground">{line.text}</p>
