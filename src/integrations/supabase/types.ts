@@ -83,6 +83,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          file_submission_property: string | null
           footage_property: string | null
           id: string
           notion_database_id: string
@@ -92,6 +93,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          file_submission_property?: string | null
           footage_property?: string | null
           id?: string
           notion_database_id: string
@@ -101,6 +103,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          file_submission_property?: string | null
           footage_property?: string | null
           id?: string
           notion_database_id?: string

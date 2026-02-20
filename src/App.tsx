@@ -30,6 +30,7 @@ import SelectPlan from "./pages/SelectPlan";
 import ComingSoon from "./pages/ComingSoon";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Checkout from "./pages/Checkout";
+import EditingQueue from "./pages/EditingQueue";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/clients/:clientId/lead-calendar" element={<LeadCalendar />} />
             <Route path="/clients/:clientId/booking-settings" element={<BookingSettings />} />
             <Route path="/clients/:clientId/vault" element={<Vault />} />
+            <Route path="/clients/:clientId/editing-queue" element={<EditingQueue />} />
             <Route path="/vault" element={<Vault />} />
             <Route path="/videographers" element={<Videographers />} />
             <Route path="/videographers/:videographerId" element={<VideographerDetail />} />

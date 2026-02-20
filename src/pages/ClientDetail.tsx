@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2 } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import AnimatedDots from "@/components/ui/AnimatedDots";
@@ -141,6 +141,13 @@ export default function ClientDetail() {
       icon: Archive,
       color: "text-amber-400",
       path: `/clients/${clientId}/vault`,
+    },
+    {
+      label: "Editing Queue",
+      description: language === "en" ? "Track video production status" : "Estado de producción de videos",
+      icon: Clapperboard,
+      color: "text-rose-400",
+      path: `/clients/${clientId}/editing-queue`,
     },
   ];
 
