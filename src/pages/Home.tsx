@@ -33,31 +33,37 @@ export default function Home() {
       icon: FileText,
       title: tr(t.home.featureScriptTitle, language),
       desc: tr(t.home.featureScriptDesc, language),
+      disabled: false,
     },
     {
       icon: Target,
       title: tr(t.home.featureLeadTitle, language),
       desc: tr(t.home.featureLeadDesc, language),
+      disabled: false,
     },
     {
       icon: CalendarDays,
       title: tr(t.home.featureCalendarTitle, language),
       desc: tr(t.home.featureCalendarDesc, language),
+      disabled: false,
     },
     {
       icon: Send,
       title: tr(t.home.featureScheduleTitle, language),
       desc: tr(t.home.featureScheduleDesc, language),
+      disabled: true,
     },
     {
       icon: Briefcase,
       title: tr(t.home.featureClientsTitle, language),
       desc: tr(t.home.featureClientsDesc, language),
+      disabled: false,
     },
     {
       icon: Film,
       title: tr(t.home.featureEditorsTitle, language),
       desc: tr(t.home.featureEditorsDesc, language),
+      disabled: true,
     },
   ];
 
@@ -179,15 +185,15 @@ export default function Home() {
           {features.map((f, i) => (
             <motion.div
               key={i}
-              className="rounded-2xl border border-border/50 bg-card/30 p-8 hover:border-primary/30 transition-colors group"
+              className={`rounded-2xl border p-8 transition-colors group ${f.disabled ? "border-border/20 bg-card/10 opacity-50" : "border-border/50 bg-card/30 hover:border-primary/30"}`}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
               custom={i + 2}
               variants={fadeUp}
             >
-              <div className="w-12 h-12 rounded-full border border-foreground/10 flex items-center justify-center mb-6 group-hover:border-primary/30 transition-colors">
-                <f.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className={`w-12 h-12 rounded-full border flex items-center justify-center mb-6 transition-colors ${f.disabled ? "border-foreground/5" : "border-foreground/10 group-hover:border-primary/30"}`}>
+                <f.icon className={`w-5 h-5 transition-colors ${f.disabled ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-primary"}`} />
               </div>
               <h3 className="font-semibold text-lg mb-3 tracking-tight">{f.title}</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
