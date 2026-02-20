@@ -396,6 +396,7 @@ export default function Scripts() {
   const [formato, setFormato] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
+  const [showInspirationVideo, setShowInspirationVideo] = useState(false);
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
   const [editingDriveLink, setEditingDriveLink] = useState(false);
@@ -1466,59 +1467,66 @@ export default function Scripts() {
                 <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.inspiration, language)}</span>
               </div>
               {viewingInspirationUrl ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all text-left">
-                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-                      {viewingInspirationUrl}
-                    </button>
-                  </div>
-                  {/* Embedded video player */}
-                  {(() => {
-                    const url = viewingInspirationUrl;
-                    // YouTube
-                    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/);
-                    if (ytMatch) {
-                      return (
-                        <div className="relative rounded-xl overflow-hidden border border-border" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
-                          <iframe src={`https://www.youtube.com/embed/${ytMatch[1]}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} title="Inspiration video" />
-                        </div>
-                      );
-                    }
-                    // Vimeo
-                    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-                    if (vimeoMatch) {
-                      return (
-                        <div className="relative rounded-xl overflow-hidden border border-border" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
-                          <iframe src={`https://player.vimeo.com/video/${vimeoMatch[1]}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} title="Inspiration video" />
-                        </div>
-                      );
-                    }
-                    // TikTok
-                    const tiktokMatch = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
-                    if (tiktokMatch) {
-                      return (
-                        <div className="relative rounded-xl overflow-hidden border border-border" style={{ maxWidth: '325px' }}>
-                          <iframe src={`https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`} allow="encrypted-media" allowFullScreen style={{ width: '325px', height: '578px', border: 'none' }} title="Inspiration video" />
-                        </div>
-                      );
-                    }
-                    // Instagram Reel/Post
-                    const igMatch = url.match(/instagram\.com\/(?:reel|p)\/([\w-]+)/);
-                    if (igMatch) {
-                      return (
-                        <div className="relative rounded-xl overflow-hidden border border-border" style={{ maxWidth: '400px' }}>
-                          <iframe src={`https://www.instagram.com/p/${igMatch[1]}/embed`} allowFullScreen style={{ width: '400px', height: '500px', border: 'none' }} title="Inspiration video" />
-                        </div>
-                      );
-                    }
-                    // Fallback: show play button to open in new tab
-                    return (
-                      <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
-                        <Play className="w-3.5 h-3.5" /> {tr({ en: "Watch video", es: "Ver video" }, language)}
-                      </Button>
-                    );
-                  })()}
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => setShowInspirationVideo(true)}>
+                    <Play className="w-3.5 h-3.5" /> {tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
+                  </Button>
+                  <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+
+                  <Dialog open={showInspirationVideo} onOpenChange={setShowInspirationVideo}>
+                    <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
+                      <DialogHeader className="p-4 pb-0">
+                        <DialogTitle className="text-sm">{tr({ en: "Inspiration Video", es: "Video de Inspiración" }, language)}</DialogTitle>
+                      </DialogHeader>
+                      <div className="p-4 pt-2">
+                        {(() => {
+                          const url = viewingInspirationUrl;
+                          const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/);
+                          if (ytMatch) {
+                            return (
+                              <div className="relative rounded-xl overflow-hidden" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
+                                <iframe src={`https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} title="Inspiration video" />
+                              </div>
+                            );
+                          }
+                          const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+                          if (vimeoMatch) {
+                            return (
+                              <div className="relative rounded-xl overflow-hidden" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
+                                <iframe src={`https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} title="Inspiration video" />
+                              </div>
+                            );
+                          }
+                          const tiktokMatch = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
+                          if (tiktokMatch) {
+                            return (
+                              <div className="flex justify-center">
+                                <iframe src={`https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`} allow="encrypted-media" allowFullScreen style={{ width: '325px', height: '578px', border: 'none' }} title="Inspiration video" />
+                              </div>
+                            );
+                          }
+                          const igMatch = url.match(/instagram\.com\/(?:reel|p)\/([\w-]+)/);
+                          if (igMatch) {
+                            return (
+                              <div className="flex justify-center">
+                                <iframe src={`https://www.instagram.com/p/${igMatch[1]}/embed`} allowFullScreen style={{ width: '400px', height: '500px', border: 'none' }} title="Inspiration video" />
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="text-center py-8">
+                              <p className="text-muted-foreground text-sm mb-3">{tr({ en: "This video can't be embedded. Open it externally:", es: "Este video no se puede embeber. Ábrelo externamente:" }, language)}</p>
+                              <Button variant="outline" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="gap-2">
+                                <ExternalLink className="w-4 h-4" /> {tr({ en: "Open video", es: "Abrir video" }, language)}
+                              </Button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
