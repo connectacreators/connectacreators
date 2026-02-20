@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
-  Home, ChevronLeft, CreditCard, Users, Video,
+  Home, ChevronLeft, CreditCard, Users, Video, Archive,
 } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
@@ -38,6 +38,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     : [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
+        { label: "Vault", icon: Archive, path: "/vault" },
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },
         { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: "/lead-calendar" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
