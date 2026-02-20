@@ -73,7 +73,8 @@ const CANCEL_REASONS = [
 ];
 
 export default function Subscription() {
-  const { user, loading: authLoading, signOut, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, loading: authLoading, isAdmin, isVideographer, signOut, signInWithEmail, signUpWithEmail } = useAuth();
+  const isStaff = isAdmin || isVideographer;
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -227,7 +228,16 @@ export default function Subscription() {
             {tr(t.subscription.title, language)}
           </h1>
 
-          {loading ? (
+          {isStaff ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <p className="text-4xl mb-4">😎</p>
+                <p className="text-lg font-medium text-foreground">
+                  No tienes suscripción, mas bien te tenemos que pagar 😎
+                </p>
+              </CardContent>
+            </Card>
+          ) : loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
