@@ -6,7 +6,7 @@ import { t, tr } from "@/i18n/translations";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
-import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles } from "lucide-react";
+import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles, Send, Briefcase, Film } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
@@ -43,6 +43,21 @@ export default function Home() {
       icon: CalendarDays,
       title: tr(t.home.featureCalendarTitle, language),
       desc: tr(t.home.featureCalendarDesc, language),
+    },
+    {
+      icon: Send,
+      title: tr(t.home.featureScheduleTitle, language),
+      desc: tr(t.home.featureScheduleDesc, language),
+    },
+    {
+      icon: Briefcase,
+      title: tr(t.home.featureClientsTitle, language),
+      desc: tr(t.home.featureClientsDesc, language),
+    },
+    {
+      icon: Film,
+      title: tr(t.home.featureEditorsTitle, language),
+      desc: tr(t.home.featureEditorsDesc, language),
     },
   ];
 
@@ -160,7 +175,7 @@ export default function Home() {
         >
           {tr(t.home.featuresHeading, language)}
         </motion.h2>
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((f, i) => (
             <motion.div
               key={i}
