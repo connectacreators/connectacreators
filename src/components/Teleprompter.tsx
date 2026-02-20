@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Play, Pause, RotateCcw, Video, FlipHorizontal } from "lucide-react";
+import { X, Play, Pause, RotateCcw, Video, FlipHorizontal, FlipVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { ScriptLine } from "@/hooks/useScripts";
@@ -22,6 +22,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(40);
   const [mirrored, setMirrored] = useState(false);
+  const [mirroredV, setMirroredV] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -137,6 +138,14 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
           <Button
             variant="ghost"
             size="sm"
+            onClick={(e) => { e.stopPropagation(); setMirroredV((m) => !m); }}
+            className={`text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 ${mirroredV ? "bg-blue-500/30" : ""}`}
+          >
+            <FlipVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">{mirroredV ? "Normal V" : "Espejo V"}</span>
+          </Button>
+          <Button
+            size="sm"
             onClick={(e) => { e.stopPropagation(); toggleRecorder(); }}
             className={`text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 ${isRecorderVisible ? "bg-red-500/30" : ""}`}
           >
@@ -168,7 +177,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-20 lg:px-40"
         onClick={handleContentTap}
-        style={{ WebkitOverflowScrolling: "touch", transform: mirrored ? "scaleX(-1)" : undefined }}
+        style={{ WebkitOverflowScrolling: "touch", transform: [mirrored ? "scaleX(-1)" : "", mirroredV ? "scaleY(-1)" : ""].join(" ").trim() || undefined }}
       >
         {/* Top padding so text starts mid-screen */}
         <div className="h-[45vh] sm:h-[50vh]" />
