@@ -390,23 +390,115 @@ Return the translated script with the same structure.`,
       });
     }
 
+    // ==================== STEP: ANALYZE TEMPLATE (for Vault) ====================
+    if (step === "analyze-template") {
+      const { transcription } = body;
+      if (!transcription) throw new Error("transcription is required");
+
+      const systemPrompt = `You are an expert at analyzing viral video scripts. Given a transcription, you must:
+
+1. Identify the structural pattern: hook type, body flow, CTA approach, pacing
+2. Create a TEMPLATIZED version where specific details are replaced with generic placeholders like [TOPIC], [FACT], [EXAMPLE], [NUMBER], [RESULT], etc.
+3. Suggest a short descriptive name for this template
+
+The template_lines should preserve the exact rhythm and structure but make it reusable for ANY topic.`;
+
+      const data = await callClaude(
+        ANTHROPIC_API_KEY,
+        systemPrompt,
+        `Analyze this transcription and create a reusable template:\n\n"""${transcription}"""`,
+        [{
+          name: "return_analysis",
+          description: "Return the template analysis",
+          input_schema: {
+            type: "object",
+            properties: {
+              suggested_name: { type: "string", description: "Short descriptive name for this template (e.g. 'Shock Fact Educational', 'Before/After Story')" },
+              structure_analysis: {
+                type: "object",
+                properties: {
+                  hook_type: { type: "string", description: "Type of hook used (question, shock statement, bold claim, etc.)" },
+                  body_pattern: { type: "string", description: "Body structure (tips list, storytelling, comparison, tutorial, etc.)" },
+                  cta_style: { type: "string", description: "CTA approach (follow prompt, question, challenge, etc.)" },
+                  pacing: { type: "string", description: "Fast, medium, slow" },
+                  estimated_duration: { type: "string", description: "Estimated video duration" },
+                  word_count: { type: "number", description: "Approximate word count" },
+                },
+                required: ["hook_type", "body_pattern", "cta_style"],
+              },
+              template_lines: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    line_type: { type: "string", enum: ["filming", "actor", "editor"] },
+                    section: { type: "string", enum: ["hook", "body", "cta"] },
+                    text: { type: "string", description: "Templatized text with [PLACEHOLDERS]" },
+                  },
+                  required: ["line_type", "section", "text"],
+                },
+              },
+            },
+            required: ["suggested_name", "structure_analysis", "template_lines"],
+          },
+        }],
+        { type: "tool", name: "return_analysis" }
+      );
+
+      const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+      if (!toolUse) throw new Error("No tool use in Claude response");
+
+      return new Response(JSON.stringify(toolUse.input), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ==================== STEP: TEMPLATIZE SCRIPT ====================
     if (step === "templatize-script") {
-      const { topic, transcription, language: reqLang } = body;
-      if (!topic || !transcription) throw new Error("topic and transcription are required");
+      const { topic, transcription, vault_template, language: reqLang } = body;
+      if (!topic) throw new Error("topic is required");
+      // Either use a vault template or a live transcription
+      if (!transcription && !vault_template) throw new Error("transcription or vault_template is required");
       const langLabel = reqLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
 
-      const systemPrompt = `You are an expert short-form video scriptwriter who specializes in reverse-engineering viral video structures. You will receive a transcription from a viral video AND a new topic. Your job is to:
+      let userPrompt: string;
 
-1. Analyze the transcription's EXACT structure: hook style, body flow, CTA approach, pacing, approximate length, number of sections, rhetorical devices used
-2. Create a COMPLETELY NEW script about the given topic that follows the EXACT SAME structure, flow, and approximate length
+      if (vault_template) {
+        // Use pre-analyzed vault template
+        const templateLines = (vault_template.template_lines || [])
+          .map((l: any) => `[${l.section}/${l.line_type}] ${l.text}`)
+          .join("\n");
+
+        userPrompt = `TEMPLATE STRUCTURE (follow this EXACTLY, replacing all [PLACEHOLDERS] with content about the new topic):
+"""
+${templateLines}
+"""
+
+NEW TOPIC to write about: "${topic}"
+
+Create a new script about this topic following the EXACT same structure, replacing all placeholders. Write in ${langLabel}.`;
+      } else {
+        userPrompt = `ORIGINAL TRANSCRIPTION (use this as your structural template):
+"""
+${transcription}
+"""
+
+NEW TOPIC to write about: "${topic}"
+
+Create a new script about this topic following the EXACT same structure, length, and flow as the original transcription. Write in ${langLabel}.`;
+      }
+
+      const systemPrompt = `You are an expert short-form video scriptwriter who specializes in reverse-engineering viral video structures. You will receive either a transcription from a viral video or a pre-analyzed template structure, AND a new topic. Your job is to:
+
+1. Analyze the structure: hook style, body flow, CTA approach, pacing, approximate length
+2. Create a COMPLETELY NEW script about the given topic that follows the EXACT SAME structure
 3. The new script should feel like it was written by the same creator but about a different topic
 4. Keep the same energy, pacing, and engagement techniques
 
 CRITICAL RULES:
 - Match the original's approximate word count and number of sections
-- Use the same hook TYPE (question, statement, shock, etc.) but with new content
-- Maintain the same body pattern (tips, story, comparison, etc.)
+- Use the same hook TYPE but with new content
+- Maintain the same body pattern
 - Mirror the CTA style
 - Write in ${langLabel}
 - Categorize EVERY line into line_type ("filming", "actor", "editor") and section ("hook", "body", "cta")
@@ -420,14 +512,7 @@ Return a virality_score which is the average of all 9 criteria (1-10).`;
       const data = await callClaude(
         ANTHROPIC_API_KEY,
         systemPrompt,
-        `ORIGINAL TRANSCRIPTION (use this as your structural template):
-"""
-${transcription}
-"""
-
-NEW TOPIC to write about: "${topic}"
-
-Create a new script about this topic following the EXACT same structure, length, and flow as the original transcription. Write in ${langLabel}.`,
+        userPrompt,
         [{
           name: "return_script",
           description: "Return the templatized script",

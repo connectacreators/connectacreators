@@ -1,17 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
-import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight, Languages, Send, Copy } from "lucide-react";
+import { Loader2, Sparkles, Wand2, RotateCcw, Save, Search, Zap, BookOpen, Shuffle, Crown, GitCompare, MessageSquare, Lock, Check, ArrowRight, Languages, Send, Copy, Archive } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Client } from "@/hooks/useClients";
+import { useParams } from "react-router-dom";
 
 // ==================== HOOK FORMAT DATA ====================
 const HOOK_FORMATS = {
@@ -90,6 +90,7 @@ const STEP_ICONS = [Search, Zap, Copy, Wand2, Save];
 
 export default function AIScriptWizard({ selectedClient, onComplete, onCancel }: AIScriptWizardProps) {
   const { language } = useLanguage();
+  const { clientId: urlClientId } = useParams<{ clientId?: string }>();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [maxUnlockedStep, setMaxUnlockedStep] = useState(1);
@@ -103,12 +104,29 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   // Step 2: Research
   const [facts, setFacts] = useState<Fact[]>([]);
 
-  // Step 3: Structure + Template
-  const [useAsTemplate, setUseAsTemplate] = useState(false);
-  const [templateUrl, setTemplateUrl] = useState("");
+  // Step 3: Structure + Vault Template
+  const [vaultTemplates, setVaultTemplates] = useState<any[]>([]);
+  const [selectedVaultTemplate, setSelectedVaultTemplate] = useState<any | null>(null);
+  const [vaultLoading, setVaultLoading] = useState(false);
   const [selectedStructure, setSelectedStructure] = useState<string | null>(null);
   const [scriptLength, setScriptLength] = useState(1);
   const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
+
+  // Fetch vault templates for this client
+  useEffect(() => {
+    const clientId = urlClientId || selectedClient.id;
+    if (!clientId) return;
+    setVaultLoading(true);
+    supabase
+      .from("vault_templates")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setVaultTemplates((data as any[]) || []);
+        setVaultLoading(false);
+      });
+  }, [selectedClient.id, urlClientId]);
 
   // Step 4: Hook format + generated hook
   const [selectedHookCategory, setSelectedHookCategory] = useState<string | null>(null);
@@ -228,32 +246,18 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
   };
 
   const handleGenerateScript = async () => {
-    if (!selectedStructure && !useAsTemplate) return;
+    if (!selectedStructure && !selectedVaultTemplate) return;
     setLoading(true);
     try {
-      if (useAsTemplate && templateUrl.trim()) {
-        toast.info(tr({ en: "Transcribing video...", es: "Transcribiendo video..." }, language));
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        };
-        const transcribeRes = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-video`,
-          { method: "POST", headers, body: JSON.stringify({ url: templateUrl.trim() }) }
-        );
-        if (!transcribeRes.ok) {
-          const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
-          throw new Error(err.error || "Transcription failed");
-        }
-        const { transcription } = await transcribeRes.json();
-        if (!transcription) throw new Error("Empty transcription");
-
-        toast.info(tr({ en: "Creating template script...", es: "Creando script desde plantilla..." }, language));
+      if (selectedVaultTemplate) {
+        toast.info(tr({ en: "Creating script from vault template...", es: "Creando script desde plantilla del Vault..." }, language));
         const data = await callAIBuild({
           step: "templatize-script",
           topic,
-          transcription,
+          vault_template: {
+            template_lines: selectedVaultTemplate.template_lines,
+            structure_analysis: selectedVaultTemplate.structure_analysis,
+          },
           language,
         });
         setGeneratedScript(data);
@@ -284,7 +288,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     try {
       const rawContent = generatedScript.lines.map((l: any) => l.text).join("\n");
       const title = generatedScript.idea_ganadora || topic;
-      const inspUrl = useAsTemplate && templateUrl.trim() ? templateUrl.trim() : undefined;
+      const inspUrl = selectedVaultTemplate?.source_url || undefined;
       await onComplete(rawContent, title, inspUrl);
     } finally {
       setSaving(false);
@@ -472,38 +476,53 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           active={isStepActive(3)}
           complete={3 < maxUnlockedStep}
         >
-          {/* Use as Template Toggle */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/30 mb-4">
-            <Switch checked={useAsTemplate} onCheckedChange={(checked) => {
-              setUseAsTemplate(checked);
-              if (checked) setSelectedStructure(null);
-            }} />
-            <div className="flex-1 min-w-0">
-              <label className="text-sm font-medium text-foreground cursor-pointer" onClick={() => {
-                const next = !useAsTemplate;
-                setUseAsTemplate(next);
-                if (next) setSelectedStructure(null);
-              }}>
-                {tr({ en: "Use as Template", es: "Usar como plantilla" }, language)}
+          {/* Vault Template Picker */}
+          {vaultTemplates.length > 0 && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                <Archive className="w-4 h-4 text-primary" />
+                {tr({ en: "Use a Vault Template", es: "Usar una plantilla del Vault" }, language)}
               </label>
-              <p className="text-xs text-muted-foreground">
-                {tr({ en: "Paste a video URL to use its structure as a template", es: "Pega una URL de video para usar su estructura como plantilla" }, language)}
-              </p>
+              <div className="grid gap-2 max-h-48 overflow-y-auto">
+                {vaultTemplates.map((vt: any) => {
+                  const isSelected = selectedVaultTemplate?.id === vt.id;
+                  return (
+                    <button
+                      key={vt.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedVaultTemplate(null);
+                        } else {
+                          setSelectedVaultTemplate(vt);
+                          setSelectedStructure(null);
+                        }
+                      }}
+                      className={`w-full text-left p-3 rounded-xl text-sm transition-all border ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <span className="font-medium">{vt.name}</span>
+                      {vt.structure_analysis?.hook_type && (
+                        <span className="ml-2 text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          {vt.structure_analysis.hook_type}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedVaultTemplate && (
+                <p className="text-xs text-primary mt-2">
+                  {tr({ en: "Template selected — structure picker is disabled", es: "Plantilla seleccionada — el selector de estructura está desactivado" }, language)}
+                </p>
+              )}
             </div>
-            <Copy className={`w-4 h-4 flex-shrink-0 ${useAsTemplate ? "text-primary" : "text-muted-foreground"}`} />
-          </div>
-
-          {useAsTemplate && (
-            <Input
-              value={templateUrl}
-              onChange={(e) => setTemplateUrl(e.target.value)}
-              placeholder={tr({ en: "Paste inspiration video URL (TikTok, Instagram, YouTube...)", es: "Pega URL del video de inspiración (TikTok, Instagram, YouTube...)" }, language)}
-              className="mb-4 text-sm"
-            />
           )}
 
           {/* Structure picker - disabled when template mode is on */}
-          <div className={`grid grid-cols-2 gap-2 ${useAsTemplate ? "opacity-40 pointer-events-none" : ""}`}>
+          <div className={`grid grid-cols-2 gap-2 ${selectedVaultTemplate ? "opacity-40 pointer-events-none" : ""}`}>
             {SCRIPT_STRUCTURES.map((s) => {
               const Icon = s.icon;
               const isSelected = selectedStructure === s.key;
@@ -513,7 +532,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                   className={`cursor-pointer transition-all ${
                     isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                   }`}
-                  onClick={() => !useAsTemplate && setSelectedStructure(s.key)}
+                  onClick={() => !selectedVaultTemplate && setSelectedStructure(s.key)}
                 >
                   <CardContent className="p-3 text-center space-y-1">
                     <Icon className={`w-5 h-5 mx-auto ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
@@ -558,7 +577,7 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           <Button
             variant="cta"
             onClick={() => advanceTo(4)}
-            disabled={!selectedStructure && !useAsTemplate}
+            disabled={!selectedStructure && !selectedVaultTemplate}
             className="gap-2 w-full mt-3"
           >
             {tr({ en: "Next: Choose Hook", es: "Siguiente: Elegir Hook" }, language)} <ArrowRight className="w-4 h-4" />
@@ -658,12 +677,12 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           active={isStepActive(5)}
           complete={false}
         >
-          {/* Template mode notice */}
-          {useAsTemplate && templateUrl.trim() && (
+          {/* Vault template mode notice */}
+          {selectedVaultTemplate && (
             <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 mb-3">
               <p className="text-sm text-foreground flex items-center gap-2">
-                <Copy className="w-4 h-4 text-primary" />
-                {tr({ en: "Template mode active — the script will follow the structure from your inspiration video.", es: "Modo plantilla activo — el script seguirá la estructura del video de inspiración." }, language)}
+                <Archive className="w-4 h-4 text-primary" />
+                {tr({ en: `Vault template: "${selectedVaultTemplate.name}" — the script will follow this structure.`, es: `Plantilla del Vault: "${selectedVaultTemplate.name}" — el script seguirá esta estructura.` }, language)}
               </p>
             </div>
           )}
@@ -671,13 +690,13 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           <Button
             variant="cta"
             onClick={handleGenerateScript}
-            disabled={loading || (!selectedStructure && !useAsTemplate) || (useAsTemplate && !templateUrl.trim())}
+            disabled={loading || (!selectedStructure && !selectedVaultTemplate)}
             className="gap-2 w-full"
           >
-            {loading && currentStep === 5 && !generatedScript ? <Loader2 className="w-4 h-4 animate-spin" /> : useAsTemplate ? <Copy className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+            {loading && currentStep === 5 && !generatedScript ? <Loader2 className="w-4 h-4 animate-spin" /> : selectedVaultTemplate ? <Archive className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
             {loading && currentStep === 5 && !generatedScript
-              ? tr({ en: useAsTemplate ? "Transcribing & Building..." : "Generating Script...", es: useAsTemplate ? "Transcribiendo y Construyendo..." : "Generando Script..." }, language)
-              : tr({ en: useAsTemplate ? "Transcribe & Generate" : "Generate Script", es: useAsTemplate ? "Transcribir y Generar" : "Generar Script" }, language)}
+              ? tr({ en: selectedVaultTemplate ? "Building from Template..." : "Generating Script...", es: selectedVaultTemplate ? "Construyendo desde Plantilla..." : "Generando Script..." }, language)
+              : tr({ en: selectedVaultTemplate ? "Generate from Template" : "Generate Script", es: selectedVaultTemplate ? "Generar desde Plantilla" : "Generar Script" }, language)}
           </Button>
 
           {/* Generated script inline */}

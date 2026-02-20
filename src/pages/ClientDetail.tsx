@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import AnimatedDots from "@/components/ui/AnimatedDots";
@@ -81,6 +81,13 @@ export default function ClientDetail() {
       icon: Globe,
       color: "text-sky-400",
       path: `/clients/${clientId}/booking-settings`,
+    },
+    {
+      label: "Vault",
+      description: language === "en" ? "Script templates from viral videos" : "Plantillas de scripts de videos virales",
+      icon: Archive,
+      color: "text-amber-400",
+      path: `/clients/${clientId}/vault`,
     },
   ];
 

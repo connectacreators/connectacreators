@@ -442,6 +442,47 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_templates: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          name: string
+          source_url: string | null
+          structure_analysis: Json | null
+          template_lines: Json | null
+          transcription: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          name?: string
+          source_url?: string | null
+          structure_analysis?: Json | null
+          template_lines?: Json | null
+          transcription?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          source_url?: string | null
+          structure_analysis?: Json | null
+          template_lines?: Json | null
+          transcription?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_templates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videographer_clients: {
         Row: {
           assigned_at: string
