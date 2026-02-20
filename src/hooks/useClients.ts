@@ -11,17 +11,20 @@ export type Client = {
   notion_lead_name: string | null;
 };
 
-export function useClients(enabled: boolean) {
+export function useClients(enabled: boolean, ownerScoped?: boolean) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchClients = useCallback(async () => {
     if (!enabled) return;
     setLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("clients")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    // RLS handles the filtering, but we still select all accessible clients
+    const { data, error } = await query;
     if (error) {
       toast.error("Error loading clients");
       console.error(error);

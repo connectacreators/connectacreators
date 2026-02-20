@@ -127,6 +127,7 @@ export type Database = {
           name: string
           notion_lead_database_id: string | null
           notion_lead_name: string | null
+          owner_user_id: string | null
           plan_type: string | null
           script_limit: number | null
           scripts_used: number | null
@@ -144,6 +145,7 @@ export type Database = {
           name: string
           notion_lead_database_id?: string | null
           notion_lead_name?: string | null
+          owner_user_id?: string | null
           plan_type?: string | null
           script_limit?: number | null
           scripts_used?: number | null
@@ -161,6 +163,7 @@ export type Database = {
           name?: string
           notion_lead_database_id?: string | null
           notion_lead_name?: string | null
+          owner_user_id?: string | null
           plan_type?: string | null
           script_limit?: number | null
           scripts_used?: number | null
@@ -560,10 +563,12 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_assigned_client: { Args: { _client_id: string }; Returns: boolean }
       is_own_client: { Args: { _client_id: string }; Returns: boolean }
+      is_owned_client: { Args: { _client_id: string }; Returns: boolean }
+      is_user: { Args: never; Returns: boolean }
       is_videographer: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "client" | "videographer"
+      app_role: "admin" | "client" | "videographer" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -691,7 +696,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "client", "videographer"],
+      app_role: ["admin", "client", "videographer", "user"],
     },
   },
 } as const

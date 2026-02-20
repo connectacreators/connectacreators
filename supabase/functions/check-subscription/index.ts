@@ -147,6 +147,26 @@ serve(async (req) => {
           })
           .eq("user_id", user.id);
         logStep("Updated client record", planData);
+
+        // Assign 'user' role if not already admin or videographer
+        const { data: existingRoles } = await supabaseClient
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        
+        const hasAdminOrVideographer = existingRoles?.some(
+          (r: any) => r.role === "admin" || r.role === "videographer"
+        );
+        
+        if (!hasAdminOrVideographer) {
+          const hasUserRole = existingRoles?.some((r: any) => r.role === "user");
+          if (!hasUserRole) {
+            await supabaseClient
+              .from("user_roles")
+              .insert({ user_id: user.id, role: "user" });
+            logStep("Assigned 'user' role to subscriber");
+          }
+        }
       }
     } else {
       logStep("No active subscription");

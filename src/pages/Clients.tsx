@@ -28,7 +28,7 @@ const fadeUp = {
 };
 
 export default function Clients() {
-  const { user, loading, isAdmin, isVideographer, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, loading, isAdmin, isUser, isVideographer, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
@@ -36,6 +36,8 @@ export default function Clients() {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [search, setSearch] = useState("");
+
+  const canManageClients = isAdmin || isVideographer || isUser;
 
   const fetchClients = useCallback(async () => {
     if (!user) return;
@@ -64,18 +66,25 @@ export default function Clients() {
       } else {
         setClients([]);
       }
+    } else if (isUser) {
+      const { data } = await supabase
+        .from("clients")
+        .select("id, name, email, user_id")
+        .eq("owner_user_id", user.id)
+        .order("name");
+      setClients(data || []);
     }
 
     setLoadingClients(false);
-  }, [user, isAdmin, isVideographer]);
+  }, [user, isAdmin, isVideographer, isUser]);
 
   useEffect(() => {
-    if (!loading && user && (isAdmin || isVideographer)) {
+    if (!loading && user && canManageClients) {
       fetchClients();
-    } else if (!loading && user && !isAdmin && !isVideographer) {
+    } else if (!loading && user && !canManageClients) {
       navigate("/dashboard");
     }
-  }, [loading, user, isAdmin, isVideographer, fetchClients, navigate]);
+  }, [loading, user, canManageClients, fetchClients, navigate]);
 
   if (loading) {
     return (
