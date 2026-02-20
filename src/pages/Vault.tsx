@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X, ChevronDown, ChevronUp,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import AnimatedDots from "@/components/ui/AnimatedDots";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
@@ -390,7 +390,7 @@ function VaultTemplateCard({
                 <span className="text-muted-foreground line-clamp-1">{line.text}</span>
               </div>
             ))}
-            {hasMore && (
+            {hasMore && !expanded && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -401,32 +401,31 @@ function VaultTemplateCard({
                 {tr({ en: "View entire script", es: "Ver guión completo" }, language)}
               </Button>
             )}
+
+            {/* Expanded full script inline */}
+            {expanded && (
+              <div className="space-y-1.5 mt-1 border-t border-border/50 pt-2">
+                {lines.slice(3).map((line: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
+                      {line.section || line.line_type || "Line"}
+                    </span>
+                    <span className="text-muted-foreground">{line.text}</span>
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary h-7 px-2 gap-1 mt-1"
+                  onClick={() => setExpanded(false)}
+                >
+                  <ChevronUp className="w-3 h-3" />
+                  {tr({ en: "Collapse", es: "Colapsar" }, language)}
+                </Button>
+              </div>
+            )}
           </div>
         )}
-
-        {/* Full script dialog */}
-        <Dialog open={expanded} onOpenChange={setExpanded}>
-          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base">{tpl.name}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2 mt-2">
-              {lines.map((line: any, i: number) => (
-                <div key={i} className="flex items-start gap-2 text-sm">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center mt-0.5">
-                    {line.section || line.line_type || "Line"}
-                  </span>
-                  <span className="text-foreground">{line.text}</span>
-                </div>
-              ))}
-              {lines.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {tr({ en: "No script lines available", es: "No hay líneas de guión disponibles" }, language)}
-                </p>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-2 ml-14">
           <CalendarDays className="w-3 h-3" />
