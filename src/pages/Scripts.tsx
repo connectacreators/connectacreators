@@ -1546,8 +1546,7 @@ export default function Scripts() {
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <h2 className="text-base sm:text-xl font-bold text-foreground truncate">{tr(t.scripts.result, language)} — {parsedLines.length} {tr(t.scripts.lines, language)}</h2>
+            <div className="flex items-center justify-end gap-2 mb-4">
               <div className="flex gap-1.5 flex-shrink-0">
                 <Button
                   onClick={() => {
