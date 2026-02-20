@@ -14,7 +14,7 @@ export default function AnimatedDots() {
             "radial-gradient(circle at 1px 1px, hsl(var(--foreground) / 0.12) 1px, transparent 0)",
           backgroundSize: "30px 30px",
           animation: "dotDrift 25s linear infinite",
-          opacity: 0.04,
+          opacity: 0.15,
         }}
       />
     </>
