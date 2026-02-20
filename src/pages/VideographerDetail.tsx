@@ -27,6 +27,7 @@ import {
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import AnimatedDots from "@/components/ui/AnimatedDots";
 
 type Task = {
   id: string;
@@ -219,6 +220,7 @@ export default function VideographerDetail() {
 
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}

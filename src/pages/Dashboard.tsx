@@ -9,6 +9,7 @@ import { t, tr } from "@/i18n/translations";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import AnimatedDots from "@/components/ui/AnimatedDots";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -107,6 +108,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}

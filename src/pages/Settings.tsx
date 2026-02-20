@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import connectaLogo from "@/assets/connecta-logo.png";
 import connectaLogoDark from "@/assets/connecta-logo-dark.png";
+import AnimatedDots from "@/components/ui/AnimatedDots";
 
 export default function Settings() {
   const { theme } = useTheme();
@@ -111,6 +112,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">

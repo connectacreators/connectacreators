@@ -39,6 +39,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { toast } from "sonner";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import AnimatedDots from "@/components/ui/AnimatedDots";
 
 type Lead = {
   id: string;
@@ -251,6 +252,7 @@ export default function LeadTracker() {
 
   return (
     <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
