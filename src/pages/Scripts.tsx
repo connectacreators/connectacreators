@@ -397,6 +397,8 @@ export default function Scripts() {
   const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
   const [showInspirationVideo, setShowInspirationVideo] = useState(false);
+  const [editingInspirationUrl, setEditingInspirationUrl] = useState(false);
+  const [tempInspirationUrl, setTempInspirationUrl] = useState("");
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
   const [editingDriveLink, setEditingDriveLink] = useState(false);
@@ -1466,13 +1468,20 @@ export default function Scripts() {
                 <Eye className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.inspiration, language)}</span>
               </div>
-              {viewingInspirationUrl ? (
+              {viewingInspirationUrl && !editingInspirationUrl ? (
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => setShowInspirationVideo(true)}>
                     <Play className="w-3.5 h-3.5" /> {tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
                   </Button>
                   <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
                     <ExternalLink className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => { setEditingInspirationUrl(true); setTempInspirationUrl(viewingInspirationUrl); }}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    title={tr({ en: "Edit inspiration URL", es: "Editar URL de inspiración" }, language)}
+                  >
+                    <Pencil className="w-3 h-3" />
                   </button>
 
                   <Dialog open={showInspirationVideo} onOpenChange={setShowInspirationVideo}>
@@ -1531,23 +1540,29 @@ export default function Scripts() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Input
+                    value={editingInspirationUrl ? tempInspirationUrl : undefined}
+                    onChange={editingInspirationUrl ? (e) => setTempInspirationUrl(e.target.value) : undefined}
                     placeholder={tr({ en: "Paste inspiration URL...", es: "Pega URL de inspiración..." }, language)}
                     className="text-sm h-8"
+                    autoFocus={editingInspirationUrl}
                     onKeyDown={async (e) => {
                       if (e.key === "Enter" && viewingScriptId) {
-                        const val = (e.target as HTMLInputElement).value.trim();
+                        const val = editingInspirationUrl ? tempInspirationUrl.trim() : (e.target as HTMLInputElement).value.trim();
                         if (val) {
                           await supabase.from("scripts").update({ inspiration_url: val }).eq("id", viewingScriptId);
                           setViewingInspirationUrl(val);
                         }
+                        setEditingInspirationUrl(false);
                       }
+                      if (e.key === "Escape") setEditingInspirationUrl(false);
                     }}
                     onBlur={async (e) => {
-                      const val = e.target.value.trim();
+                      const val = editingInspirationUrl ? tempInspirationUrl.trim() : e.target.value.trim();
                       if (val && viewingScriptId) {
                         await supabase.from("scripts").update({ inspiration_url: val }).eq("id", viewingScriptId);
                         setViewingInspirationUrl(val);
                       }
+                      setEditingInspirationUrl(false);
                     }}
                   />
                 </div>
