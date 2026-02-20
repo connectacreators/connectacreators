@@ -1,0 +1,1 @@
+ALTER TABLE public.client_notion_mapping ADD COLUMN file_submission_property text DEFAULT 'File Submission';
