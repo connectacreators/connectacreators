@@ -378,15 +378,15 @@ export default function EditingQueue() {
                         </TableCell>
                         <TableCell>
                           {item.scriptUrl ? (
-                            <a
-                              href={item.scriptUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1.5 text-xs text-primary hover:underline"
+                              onClick={() => navigate(`/clients/${clientId}/scripts`)}
                             >
                               <ExternalLink className="w-3 h-3" />
                               {language === "en" ? "View" : "Ver"}
-                            </a>
+                            </Button>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
