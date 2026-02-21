@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
-  Home, ChevronLeft, CreditCard, Users, Video, Archive,
+  Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard,
 } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-login-logo.png";
@@ -30,6 +30,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: language === "en" ? "Videographers" : "Videógrafos", icon: Video, path: "/videographers" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
@@ -39,6 +40,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
@@ -47,6 +49,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: "/scripts" },
         { label: "Vault", icon: Archive, path: "/vault" },
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/leads" },

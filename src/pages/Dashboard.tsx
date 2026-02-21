@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, Users, UserCircle } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, Users, UserCircle, Clapperboard } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useState, useEffect } from "react";
@@ -76,6 +76,13 @@ export default function Dashboard() {
           color: "text-primary",
           path: "/clients",
         },
+        {
+          label: "Editing Queue",
+          description: language === "en" ? "View all editing tasks across clients" : "Ver todas las tareas de edición de todos los clientes",
+          icon: Clapperboard,
+          color: "text-rose-400",
+          path: "/editing-queue",
+        },
       ];
     }
     if (isUser) {
@@ -86,6 +93,13 @@ export default function Dashboard() {
           icon: Users,
           color: "text-primary",
           path: "/clients",
+        },
+        {
+          label: "Editing Queue",
+          description: language === "en" ? "View all editing tasks across clients" : "Ver todas las tareas de edición de todos los clientes",
+          icon: Clapperboard,
+          color: "text-rose-400",
+          path: "/editing-queue",
         },
         {
           label: language === "en" ? "Me" : "Yo",

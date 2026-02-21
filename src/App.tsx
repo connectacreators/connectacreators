@@ -31,6 +31,7 @@ import ComingSoon from "./pages/ComingSoon";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Checkout from "./pages/Checkout";
 import EditingQueue from "./pages/EditingQueue";
+import MasterEditingQueue from "./pages/MasterEditingQueue";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/select-plan" element={<SelectPlan />} />
             <Route path="/coming-soon" element={<ComingSoon />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/editing-queue" element={<MasterEditingQueue />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/s/:id" element={<PublicScript />} />
             <Route path="/book/:clientId" element={<PublicBooking />} />
