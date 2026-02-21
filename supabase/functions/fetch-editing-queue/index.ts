@@ -148,6 +148,20 @@ serve(async (req) => {
         }
       }
 
+      // Extract revisions (rich_text property)
+      let revisions: string | null = null;
+      const revisionNames = ["Revisions", "Revisiones", "Revision", "Revisión", "Notes", "Notas"];
+      let revisionPropName: string | null = null;
+      for (const name of revisionNames) {
+        if (props[name]?.rich_text !== undefined) {
+          revisionPropName = name;
+          if (props[name].rich_text.length > 0) {
+            revisions = props[name].rich_text.map((t: any) => t.plain_text).join("");
+          }
+          break;
+        }
+      }
+
       return {
         id: page.id,
         title,
@@ -158,6 +172,8 @@ serve(async (req) => {
         assignee,
         assigneeId,
         assigneePropName,
+        revisions,
+        revisionPropName,
         lastEdited: page.last_edited_time,
       };
     });
@@ -174,17 +190,18 @@ serve(async (req) => {
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         notionUsers = (usersData.results || [])
-          .filter((u: any) => u.type === "person")
-          .map((u: any) => ({ id: u.id, name: u.name || u.person?.email || "Unknown" }));
+          .filter((u: any) => u.type === "person" || u.type === "bot")
+          .map((u: any) => ({ id: u.id, name: u.name || u.person?.email || u.bot?.owner?.user?.name || "Unknown" }));
       }
     } catch (e) {
       console.error("Failed to fetch Notion users:", e);
     }
 
-    // Detect the assignee property name from the first item that has one
+    // Detect the assignee and revision property names from the first item that has one
     const detectedAssigneeProp = items.find((i: any) => i.assigneePropName)?.assigneePropName || "Assignee";
+    const detectedRevisionProp = items.find((i: any) => i.revisionPropName)?.revisionPropName || "Revisions";
 
-    return new Response(JSON.stringify({ items, notionUsers, assigneeProperty: detectedAssigneeProp }), {
+    return new Response(JSON.stringify({ items, notionUsers, assigneeProperty: detectedAssigneeProp, revisionProperty: detectedRevisionProp }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
