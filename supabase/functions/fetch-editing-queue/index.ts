@@ -132,11 +132,20 @@ serve(async (req) => {
         scriptUrl = scriptField.url;
       }
 
-      // Extract assignee (People property)
+      // Extract assignee (People property) - store both name and ID
       let assignee: string | null = null;
-      const assigneeField = props["Assignee"] || props["Assign"] || props["Assigned to"] || props["Asignado"];
-      if (assigneeField?.people?.length > 0) {
-        assignee = assigneeField.people.map((p: any) => p.name || p.person?.email || "Unknown").join(", ");
+      let assigneeId: string | null = null;
+      let assigneePropName: string | null = null;
+      const assigneeNames = ["Assignee", "Assign", "Assigned to", "Asignado"];
+      for (const name of assigneeNames) {
+        if (props[name]?.people) {
+          assigneePropName = name;
+          if (props[name].people.length > 0) {
+            assignee = props[name].people.map((p: any) => p.name || p.person?.email || "Unknown").join(", ");
+            assigneeId = props[name].people[0]?.id || null;
+          }
+          break;
+        }
       }
 
       return {
@@ -147,11 +156,35 @@ serve(async (req) => {
         fileSubmissionUrl,
         scriptUrl,
         assignee,
+        assigneeId,
+        assigneePropName,
         lastEdited: page.last_edited_time,
       };
     });
 
-    return new Response(JSON.stringify({ items }), {
+    // Also fetch Notion workspace users for the assignee picker
+    let notionUsers: { id: string; name: string }[] = [];
+    try {
+      const usersRes = await fetch("https://api.notion.com/v1/users", {
+        headers: {
+          Authorization: `Bearer ${NOTION_API_KEY}`,
+          "Notion-Version": NOTION_API_VERSION,
+        },
+      });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        notionUsers = (usersData.results || [])
+          .filter((u: any) => u.type === "person")
+          .map((u: any) => ({ id: u.id, name: u.name || u.person?.email || "Unknown" }));
+      }
+    } catch (e) {
+      console.error("Failed to fetch Notion users:", e);
+    }
+
+    // Detect the assignee property name from the first item that has one
+    const detectedAssigneeProp = items.find((i: any) => i.assigneePropName)?.assigneePropName || "Assignee";
+
+    return new Response(JSON.stringify({ items, notionUsers, assigneeProperty: detectedAssigneeProp }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
