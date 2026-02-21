@@ -44,11 +44,30 @@ serve(async (req) => {
   }
 
   try {
-    const { page_id, status } = await req.json();
-    if (!page_id || !status) throw new Error("page_id and status are required");
+    const body = await req.json();
+    const { page_id, status, assignee_id, assignee_property } = body;
+    if (!page_id) throw new Error("page_id is required");
+    if (!status && assignee_id === undefined) throw new Error("status or assignee_id is required");
 
     const NOTION_API_KEY = Deno.env.get("NOTION_API_KEY");
     if (!NOTION_API_KEY) throw new Error("NOTION_API_KEY not configured");
+
+    const properties: Record<string, any> = {};
+
+    if (status) {
+      properties.Status = { status: { name: status } };
+    }
+
+    if (assignee_id !== undefined) {
+      // Determine which property name to use for the assignee
+      const propName = assignee_property || "Assignee";
+      if (assignee_id === null || assignee_id === "") {
+        // Clear assignee
+        properties[propName] = { people: [] };
+      } else {
+        properties[propName] = { people: [{ id: assignee_id }] };
+      }
+    }
 
     const notionRes = await fetch(`https://api.notion.com/v1/pages/${page_id}`, {
       method: "PATCH",
@@ -57,11 +76,7 @@ serve(async (req) => {
         "Notion-Version": NOTION_API_VERSION,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        properties: {
-          Status: { status: { name: status } },
-        },
-      }),
+      body: JSON.stringify({ properties }),
     });
 
     if (!notionRes.ok) {

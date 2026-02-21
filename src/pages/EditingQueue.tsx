@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown } from "lucide-react";
+import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,14 @@ interface EditingQueueItem {
   fileSubmissionUrl: string | null;
   scriptUrl: string | null;
   assignee: string | null;
+  assigneeId: string | null;
+  assigneePropName: string | null;
   lastEdited: string;
+}
+
+interface NotionUser {
+  id: string;
+  name: string;
 }
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Done", "Needs revision"];
@@ -55,6 +62,14 @@ function getStatusClassName(status: string): string {
   return "bg-muted text-muted-foreground";
 }
 
+function getStatusDotColor(status: string): string {
+  const lower = status.toLowerCase();
+  if (lower === "done" || lower === "complete") return "bg-emerald-400";
+  if (lower.includes("revision")) return "bg-destructive";
+  if (lower.includes("progress")) return "bg-amber-400";
+  return "bg-muted-foreground";
+}
+
 export default function EditingQueue() {
   const { clientId } = useParams<{ clientId: string }>();
   const { user, loading } = useAuth();
@@ -64,10 +79,13 @@ export default function EditingQueue() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [clientName, setClientName] = useState("");
   const [items, setItems] = useState<EditingQueueItem[]>([]);
+  const [notionUsers, setNotionUsers] = useState<NotionUser[]>([]);
+  const [assigneeProperty, setAssigneeProperty] = useState("Assignee");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [updatingAssignee, setUpdatingAssignee] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clientId || !user) return;
@@ -91,6 +109,8 @@ export default function EditingQueue() {
       });
       if (res.error) throw res.error;
       setItems(res.data?.items || []);
+      setNotionUsers(res.data?.notionUsers || []);
+      setAssigneeProperty(res.data?.assigneeProperty || "Assignee");
     } catch (e: any) {
       console.error("Error fetching editing queue:", e);
       setError(e.message || "Failed to fetch editing queue");
@@ -110,13 +130,11 @@ export default function EditingQueue() {
         body: { page_id: pageId, status: newStatus },
       });
       if (res.error) throw res.error;
-      // Update local state
       setItems((prev) =>
         prev.map((item) =>
           item.id === pageId ? { ...item, status: newStatus } : item
         )
       );
-      // Also update selectedItem if it's the one being changed
       setSelectedItem((prev) =>
         prev && prev.id === pageId ? { ...prev, status: newStatus } : prev
       );
@@ -126,6 +144,34 @@ export default function EditingQueue() {
       toast.error(language === "en" ? "Failed to update status" : "Error al actualizar estado");
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleAssigneeChange = async (pageId: string, userId: string | null, userName: string | null, propName: string) => {
+    setUpdatingAssignee(pageId);
+    try {
+      const res = await supabase.functions.invoke("update-editing-status", {
+        body: {
+          page_id: pageId,
+          assignee_id: userId,
+          assignee_property: propName,
+        },
+      });
+      if (res.error) throw res.error;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === pageId ? { ...item, assignee: userName, assigneeId: userId } : item
+        )
+      );
+      setSelectedItem((prev) =>
+        prev && prev.id === pageId ? { ...prev, assignee: userName, assigneeId: userId } : prev
+      );
+      toast.success(language === "en" ? "Assignee updated" : "Asignado actualizado");
+    } catch (e: any) {
+      console.error("Error updating assignee:", e);
+      toast.error(language === "en" ? "Failed to update assignee" : "Error al actualizar asignado");
+    } finally {
+      setUpdatingAssignee(null);
     }
   };
 
@@ -140,6 +186,65 @@ export default function EditingQueue() {
   const selectedDriveId = selectedItem?.fileSubmissionUrl
     ? extractGoogleDriveFileId(selectedItem.fileSubmissionUrl)
     : null;
+
+  const renderAssigneeDropdown = (item: EditingQueueItem) => {
+    const propName = item.assigneePropName || assigneeProperty;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="inline-flex items-center gap-1 focus:outline-none text-xs"
+            disabled={updatingAssignee === item.id}
+          >
+            {updatingAssignee === item.id ? (
+              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+            ) : item.assignee ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-foreground text-xs cursor-pointer hover:bg-primary/20 transition-colors">
+                <UserCircle className="w-3 h-3" />
+                {item.assignee}
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground text-xs cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
+                <UserCircle className="w-3 h-3" />
+                {language === "en" ? "Assign" : "Asignar"}
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </span>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="bg-popover border border-border z-50 min-w-[160px]">
+          {notionUsers.length === 0 ? (
+            <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+              {language === "en" ? "No users found" : "No se encontraron usuarios"}
+            </DropdownMenuItem>
+          ) : (
+            <>
+              {/* Unassign option */}
+              {item.assignee && (
+                <DropdownMenuItem
+                  onClick={() => handleAssigneeChange(item.id, null, null, propName)}
+                  className="text-xs text-muted-foreground"
+                >
+                  {language === "en" ? "Unassign" : "Desasignar"}
+                </DropdownMenuItem>
+              )}
+              {notionUsers.map((nu) => (
+                <DropdownMenuItem
+                  key={nu.id}
+                  onClick={() => handleAssigneeChange(item.id, nu.id, nu.name, propName)}
+                  className={`text-xs ${item.assigneeId === nu.id ? "font-bold" : ""}`}
+                >
+                  <UserCircle className="w-3.5 h-3.5 mr-2" />
+                  {nu.name}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
@@ -229,7 +334,7 @@ export default function EditingQueue() {
                                 </Badge>
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
+                            <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
                               {STATUS_OPTIONS.map((s) => (
                                 <DropdownMenuItem
                                   key={s}
@@ -244,11 +349,7 @@ export default function EditingQueue() {
                           </DropdownMenu>
                         </TableCell>
                         <TableCell>
-                          {item.assignee ? (
-                            <span className="text-xs text-foreground">{item.assignee}</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                          {renderAssigneeDropdown(item)}
                         </TableCell>
                         <TableCell>
                           {hasDriveVideo ? (
@@ -360,40 +461,48 @@ export default function EditingQueue() {
               </div>
             ) : null}
 
-            {/* Status changer in modal */}
+            {/* Status & Assignee changers in modal */}
             {selectedItem && (
-              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-border/50">
-                <span className="text-xs text-muted-foreground">
-                  {language === "en" ? "Change status:" : "Cambiar estado:"}
-                </span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === selectedItem.id}>
-                      <Badge variant="outline" className={`${getStatusClassName(selectedItem.status)} cursor-pointer`}>
-                        {updatingStatus === selectedItem.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <>
-                            {selectedItem.status}
-                            <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                          </>
-                        )}
-                      </Badge>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {STATUS_OPTIONS.map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() => handleStatusChange(selectedItem.id, s)}
-                        className={selectedItem.status === s ? "font-bold" : ""}
-                      >
-                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
-                        {s}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 border-t border-border/50">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {language === "en" ? "Status:" : "Estado:"}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === selectedItem.id}>
+                        <Badge variant="outline" className={`${getStatusClassName(selectedItem.status)} cursor-pointer`}>
+                          {updatingStatus === selectedItem.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              {selectedItem.status}
+                              <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+                            </>
+                          )}
+                        </Badge>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
+                      {STATUS_OPTIONS.map((s) => (
+                        <DropdownMenuItem
+                          key={s}
+                          onClick={() => handleStatusChange(selectedItem.id, s)}
+                          className={selectedItem.status === s ? "font-bold" : ""}
+                        >
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
+                          {s}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {language === "en" ? "Assignee:" : "Asignado:"}
+                  </span>
+                  {renderAssigneeDropdown(selectedItem)}
+                </div>
               </div>
             )}
           </div>
@@ -401,12 +510,4 @@ export default function EditingQueue() {
       </Dialog>
     </div>
   );
-}
-
-function getStatusDotColor(status: string): string {
-  const lower = status.toLowerCase();
-  if (lower === "done" || lower === "complete") return "bg-emerald-400";
-  if (lower.includes("revision")) return "bg-destructive";
-  if (lower.includes("progress")) return "bg-amber-400";
-  return "bg-muted-foreground";
 }
