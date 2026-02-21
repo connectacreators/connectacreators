@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X, ChevronDown, ChevronUp,
+  Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X, ChevronDown, ChevronUp, Play,
 } from "lucide-react";
 
 import AnimatedDots from "@/components/ui/AnimatedDots";
@@ -317,7 +317,7 @@ function VaultContent({
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {templates.map((tpl) => (
             <VaultTemplateCard
               key={tpl.id}
@@ -334,6 +334,44 @@ function VaultContent({
 
 // ===================== VAULT TEMPLATE CARD =====================
 
+function useOEmbedThumbnail(url: string | null) {
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+
+    const fetchThumbnail = async () => {
+      try {
+        let oembedUrl = "";
+        if (url.includes("instagram.com")) {
+          oembedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=IGQVJ&omitscript=true`;
+          // Fallback: use noembed
+          oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
+        } else if (url.includes("tiktok.com")) {
+          oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+        } else {
+          oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
+        }
+
+        const res = await fetch(oembedUrl);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.thumbnail_url) {
+          setThumbnail(data.thumbnail_url);
+        }
+      } catch {
+        // silently fail
+      }
+    };
+
+    fetchThumbnail();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  return thumbnail;
+}
+
 function VaultTemplateCard({
   tpl,
   language,
@@ -344,6 +382,7 @@ function VaultTemplateCard({
   handleDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const thumbnail = useOEmbedThumbnail(tpl.source_url);
 
   const lines = useMemo(() => {
     if (!tpl.template_lines) return [];
@@ -355,42 +394,53 @@ function VaultTemplateCard({
   const hasMore = lines.length > 3;
 
   return (
-    <Card className="group hover:border-primary/30 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Archive className="w-5 h-5 text-primary" />
+    <Card className="group hover:border-primary/30 transition-colors overflow-hidden flex flex-col">
+      {/* Thumbnail area */}
+      <div className="relative aspect-[9/16] max-h-[220px] bg-muted/30 overflow-hidden">
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={tpl.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted/20">
+            <Archive className="w-8 h-8 text-muted-foreground/30" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-foreground truncate">{tpl.name}</h3>
-            {tpl.source_url && (
-              <a
-                href={tpl.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
-              >
-                <Link2 className="w-3 h-3" />
-                {tr({ en: "Source video", es: "Video fuente" }, language)}
-              </a>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive h-8 w-8 p-0"
-            onClick={() => handleDelete(tpl.id)}
+        )}
+        {tpl.source_url && (
+          <a
+            href={tpl.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
+            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+              <Play className="w-5 h-5 text-foreground ml-0.5" fill="currentColor" />
+            </div>
+          </a>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-white hover:text-destructive bg-black/40 hover:bg-black/60 h-7 w-7 p-0 rounded-full"
+          onClick={(e) => { e.stopPropagation(); handleDelete(tpl.id); }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {/* Content area */}
+      <CardContent className="p-3 flex-1 flex flex-col">
+        <h3 className="text-sm font-semibold text-foreground truncate">{tpl.name}</h3>
 
         {/* Script preview */}
         {previewLines.length > 0 && (
-          <div className="mt-3 ml-14 space-y-1.5">
+          <div className="mt-2 space-y-1">
             {previewLines.map((line: any, i: number) => (
-              <div key={i} className="flex items-start gap-2 text-xs">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
+              <div key={i} className="flex items-start gap-1.5 text-[11px]">
+                <span className="text-[9px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1 py-0.5 rounded shrink-0">
                   {line.section || line.line_type || "Line"}
                 </span>
                 <span className="text-muted-foreground line-clamp-1">{line.text}</span>
@@ -400,20 +450,18 @@ function VaultTemplateCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs text-primary hover:text-primary h-7 px-2 gap-1 mt-1"
+                className="text-[11px] text-primary hover:text-primary h-6 px-1.5 gap-1"
                 onClick={() => setExpanded(true)}
               >
                 <ChevronDown className="w-3 h-3" />
-                {tr({ en: "View entire script", es: "Ver guión completo" }, language)}
+                {tr({ en: "More", es: "Más" }, language)}
               </Button>
             )}
-
-            {/* Expanded full script inline */}
             {expanded && (
-              <div className="space-y-1.5 mt-1 border-t border-border/50 pt-2">
+              <div className="space-y-1 border-t border-border/50 pt-1.5">
                 {lines.slice(3).map((line: any, i: number) => (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
+                  <div key={i} className="flex items-start gap-1.5 text-[11px]">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-primary/70 bg-primary/5 px-1 py-0.5 rounded shrink-0">
                       {line.section || line.line_type || "Line"}
                     </span>
                     <span className="text-muted-foreground">{line.text}</span>
@@ -422,7 +470,7 @@ function VaultTemplateCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-primary hover:text-primary h-7 px-2 gap-1 mt-1"
+                  className="text-[11px] text-primary hover:text-primary h-6 px-1.5 gap-1"
                   onClick={() => setExpanded(false)}
                 >
                   <ChevronUp className="w-3 h-3" />
@@ -433,7 +481,7 @@ function VaultTemplateCard({
           </div>
         )}
 
-        <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-2 ml-14">
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-auto pt-2">
           <CalendarDays className="w-3 h-3" />
           {new Date(tpl.created_at).toLocaleDateString()}
         </span>
