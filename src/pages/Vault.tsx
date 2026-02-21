@@ -109,14 +109,18 @@ export default function Vault() {
       }
       const analysis = await analyzeRes.json();
 
-      // Step 3: Try to auto-fetch thumbnail for TikTok
+      // Step 3: Auto-fetch thumbnail via edge function
       let thumbnailUrl = newThumbnailUrl.trim() || null;
-      if (!thumbnailUrl && newUrl.includes("tiktok.com")) {
+      if (!thumbnailUrl) {
         try {
-          const oembedRes = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(newUrl.trim())}`);
-          if (oembedRes.ok) {
-            const oembedData = await oembedRes.json();
-            if (oembedData.thumbnail_url) thumbnailUrl = oembedData.thumbnail_url;
+          toast.info(tr({ en: "Fetching thumbnail...", es: "Obteniendo miniatura..." }, language));
+          const thumbRes = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-thumbnail`,
+            { method: "POST", headers, body: JSON.stringify({ url: newUrl.trim() }) }
+          );
+          if (thumbRes.ok) {
+            const thumbData = await thumbRes.json();
+            if (thumbData.thumbnail_url) thumbnailUrl = thumbData.thumbnail_url;
           }
         } catch { /* ignore */ }
       }
