@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Clapperboard } from "lucide-react";
+import { Loader2, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Clapperboard, CalendarClock } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -368,6 +368,7 @@ export default function MasterEditingQueue() {
                     <TableHead>{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
                     <TableHead>Video</TableHead>
                     <TableHead>Script</TableHead>
+                    <TableHead>Schedule</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -457,6 +458,18 @@ export default function MasterEditingQueue() {
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href="https://metricool.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
+                              <CalendarClock className="w-3.5 h-3.5" />
+                              Schedule
+                            </Button>
+                          </a>
                         </TableCell>
                       </TableRow>
                     );
