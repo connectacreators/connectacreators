@@ -107,19 +107,46 @@ export default function MasterEditingQueue() {
     setFetching(true);
     setError(null);
     try {
-      // Get all clients with notion mapping
-      const { data: mappings, error: mapErr } = await supabase
+      // Fetch client IDs based on role:
+      // - Admins can read client_notion_mapping directly
+      // - Videographers get assigned clients
+      // - Users get owned clients
+      let clientIds: string[] = [];
+
+      // Try admin path first (client_notion_mapping)
+      const { data: mappings } = await supabase
         .from("client_notion_mapping")
         .select("client_id");
 
-      if (mapErr) throw mapErr;
-      if (!mappings || mappings.length === 0) {
+      if (mappings && mappings.length > 0) {
+        clientIds = mappings.map((m) => m.client_id);
+      } else {
+        // Videographer: get assigned clients
+        const { data: assignments } = await supabase
+          .from("videographer_clients")
+          .select("client_id")
+          .eq("videographer_user_id", user.id);
+
+        if (assignments && assignments.length > 0) {
+          clientIds = assignments.map((a) => a.client_id);
+        } else {
+          // User: get owned clients
+          const { data: ownedClients } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("owner_user_id", user.id);
+
+          if (ownedClients && ownedClients.length > 0) {
+            clientIds = ownedClients.map((c) => c.id);
+          }
+        }
+      }
+
+      if (clientIds.length === 0) {
         setItems([]);
         setFetching(false);
         return;
       }
-
-      const clientIds = mappings.map((m) => m.client_id);
 
       const res = await supabase.functions.invoke("fetch-editing-queue", {
         body: { client_ids: clientIds },
