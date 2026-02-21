@@ -1,0 +1,1 @@
+ALTER TABLE public.vault_templates ADD COLUMN thumbnail_url text;

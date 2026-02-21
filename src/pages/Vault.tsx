@@ -22,6 +22,7 @@ interface VaultTemplate {
   client_id: string;
   name: string;
   source_url: string | null;
+  thumbnail_url: string | null;
   transcription: string | null;
   structure_analysis: any;
   template_lines: any;
@@ -44,6 +45,7 @@ export default function Vault() {
   const [showCreate, setShowCreate] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newName, setNewName] = useState("");
+  const [newThumbnailUrl, setNewThumbnailUrl] = useState("");
   const [creating, setCreating] = useState(false);
 
   // Resolve client ID
@@ -107,22 +109,36 @@ export default function Vault() {
       }
       const analysis = await analyzeRes.json();
 
-      // Step 3: Save to DB
+      // Step 3: Try to auto-fetch thumbnail for TikTok
+      let thumbnailUrl = newThumbnailUrl.trim() || null;
+      if (!thumbnailUrl && newUrl.includes("tiktok.com")) {
+        try {
+          const oembedRes = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(newUrl.trim())}`);
+          if (oembedRes.ok) {
+            const oembedData = await oembedRes.json();
+            if (oembedData.thumbnail_url) thumbnailUrl = oembedData.thumbnail_url;
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Step 4: Save to DB
       const templateName = newName.trim() || analysis.suggested_name || "Template";
       const { error } = await supabase.from("vault_templates").insert({
         client_id: resolvedClientId,
         name: templateName,
         source_url: newUrl.trim(),
+        thumbnail_url: thumbnailUrl,
         transcription,
         structure_analysis: analysis.structure_analysis || null,
         template_lines: analysis.template_lines || null,
-      });
+      } as any);
       if (error) throw error;
 
       toast.success(tr({ en: "Template saved to Vault!", es: "¡Plantilla guardada en el Vault!" }, language));
       setShowCreate(false);
       setNewUrl("");
       setNewName("");
+      setNewThumbnailUrl("");
       fetchTemplates();
     } catch (e: any) {
       toast.error(e.message || "Error creating template");
@@ -170,6 +186,8 @@ export default function Vault() {
               setNewUrl={setNewUrl}
               newName={newName}
               setNewName={setNewName}
+              newThumbnailUrl={newThumbnailUrl}
+              setNewThumbnailUrl={setNewThumbnailUrl}
               creating={creating}
               handleCreate={handleCreate}
               handleDelete={handleDelete}
@@ -205,15 +223,17 @@ export default function Vault() {
           loadingTemplates={loadingTemplates}
           showCreate={showCreate}
           setShowCreate={setShowCreate}
-          newUrl={newUrl}
-          setNewUrl={setNewUrl}
-          newName={newName}
-          setNewName={setNewName}
-          creating={creating}
-          handleCreate={handleCreate}
-          handleDelete={handleDelete}
-          backPath={backPath}
-          language={language}
+            newUrl={newUrl}
+            setNewUrl={setNewUrl}
+            newName={newName}
+            setNewName={setNewName}
+            newThumbnailUrl={newThumbnailUrl}
+            setNewThumbnailUrl={setNewThumbnailUrl}
+            creating={creating}
+            handleCreate={handleCreate}
+            handleDelete={handleDelete}
+            backPath={backPath}
+            language={language}
         />
       </div>
     </div>
@@ -231,6 +251,8 @@ interface VaultContentProps {
   setNewUrl: (v: string) => void;
   newName: string;
   setNewName: (v: string) => void;
+  newThumbnailUrl: string;
+  setNewThumbnailUrl: (v: string) => void;
   creating: boolean;
   handleCreate: () => void;
   handleDelete: (id: string) => void;
@@ -240,7 +262,8 @@ interface VaultContentProps {
 
 function VaultContent({
   templates, loadingTemplates, showCreate, setShowCreate,
-  newUrl, setNewUrl, newName, setNewName, creating, handleCreate, handleDelete,
+  newUrl, setNewUrl, newName, setNewName, newThumbnailUrl, setNewThumbnailUrl,
+  creating, handleCreate, handleDelete,
   backPath, language,
 }: VaultContentProps) {
   return (
@@ -283,11 +306,17 @@ function VaultContent({
               placeholder={tr({ en: "Video URL (TikTok, Instagram, YouTube...)", es: "URL del video (TikTok, Instagram, YouTube...)" }, language)}
               className="text-sm"
             />
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={tr({ en: "Template name (optional)", es: "Nombre de la plantilla (opcional)" }, language)}
-              className="text-sm"
+             <Input
+               value={newName}
+               onChange={(e) => setNewName(e.target.value)}
+               placeholder={tr({ en: "Template name (optional)", es: "Nombre de la plantilla (opcional)" }, language)}
+               className="text-sm"
+             />
+             <Input
+               value={newThumbnailUrl}
+               onChange={(e) => setNewThumbnailUrl(e.target.value)}
+               placeholder={tr({ en: "Thumbnail image URL (optional)", es: "URL de imagen miniatura (opcional)" }, language)}
+               className="text-sm"
             />
             <Button
               variant="cta"
@@ -334,44 +363,6 @@ function VaultContent({
 
 // ===================== VAULT TEMPLATE CARD =====================
 
-function useOEmbedThumbnail(url: string | null) {
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!url) return;
-    let cancelled = false;
-
-    const fetchThumbnail = async () => {
-      try {
-        let oembedUrl = "";
-        if (url.includes("instagram.com")) {
-          oembedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=IGQVJ&omitscript=true`;
-          // Fallback: use noembed
-          oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
-        } else if (url.includes("tiktok.com")) {
-          oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
-        } else {
-          oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
-        }
-
-        const res = await fetch(oembedUrl);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data.thumbnail_url) {
-          setThumbnail(data.thumbnail_url);
-        }
-      } catch {
-        // silently fail
-      }
-    };
-
-    fetchThumbnail();
-    return () => { cancelled = true; };
-  }, [url]);
-
-  return thumbnail;
-}
-
 function VaultTemplateCard({
   tpl,
   language,
@@ -382,7 +373,7 @@ function VaultTemplateCard({
   handleDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const thumbnail = useOEmbedThumbnail(tpl.source_url);
+  const thumbnail = (tpl as any).thumbnail_url || null;
 
   const lines = useMemo(() => {
     if (!tpl.template_lines) return [];

@@ -457,6 +457,7 @@ export type Database = {
           source_url: string | null
           structure_analysis: Json | null
           template_lines: Json | null
+          thumbnail_url: string | null
           transcription: string | null
         }
         Insert: {
@@ -467,6 +468,7 @@ export type Database = {
           source_url?: string | null
           structure_analysis?: Json | null
           template_lines?: Json | null
+          thumbnail_url?: string | null
           transcription?: string | null
         }
         Update: {
@@ -477,6 +479,7 @@ export type Database = {
           source_url?: string | null
           structure_analysis?: Json | null
           template_lines?: Json | null
+          thumbnail_url?: string | null
           transcription?: string | null
         }
         Relationships: [
