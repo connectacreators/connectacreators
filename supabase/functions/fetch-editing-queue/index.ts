@@ -132,6 +132,13 @@ serve(async (req) => {
         scriptUrl = scriptField.url;
       }
 
+      // Extract assignee (People property)
+      let assignee: string | null = null;
+      const assigneeField = props["Assignee"] || props["Assign"] || props["Assigned to"] || props["Asignado"];
+      if (assigneeField?.people?.length > 0) {
+        assignee = assigneeField.people.map((p: any) => p.name || p.person?.email || "Unknown").join(", ");
+      }
+
       return {
         id: page.id,
         title,
@@ -139,6 +146,7 @@ serve(async (req) => {
         statusColor,
         fileSubmissionUrl,
         scriptUrl,
+        assignee,
         lastEdited: page.last_edited_time,
       };
     });

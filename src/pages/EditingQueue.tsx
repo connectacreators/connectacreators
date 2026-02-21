@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, ArrowLeft, Play, ExternalLink } from "lucide-react";
+import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface EditingQueueItem {
   id: string;
@@ -22,30 +26,30 @@ interface EditingQueueItem {
   statusColor: string;
   fileSubmissionUrl: string | null;
   scriptUrl: string | null;
+  assignee: string | null;
   lastEdited: string;
 }
 
+const STATUS_OPTIONS = ["Not started", "In progress", "Done", "Needs revision"];
+
 function extractGoogleDriveFileId(url: string): string | null {
-  // Match /file/d/FILE_ID/ pattern
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (match1) return match1[1];
-  // Match ?id=FILE_ID pattern
   const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (match2) return match2[1];
   return null;
 }
 
-function getStatusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  const lower = status.toLowerCase();
-  if (lower === "done" || lower === "complete" || lower === "completed") return "default";
-  if (lower.includes("progress") || lower.includes("editing")) return "secondary";
-  return "outline";
+function getGoogleDriveDownloadUrl(fileId: string): string {
+  return `https://drive.google.com/uc?export=download&id=${fileId}`;
 }
 
 function getStatusClassName(status: string): string {
   const lower = status.toLowerCase();
   if (lower === "done" || lower === "complete" || lower === "completed")
     return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+  if (lower.includes("revision") || lower.includes("revisión"))
+    return "bg-destructive/15 text-destructive border-destructive/30";
   if (lower.includes("progress") || lower.includes("editing"))
     return "bg-amber-500/15 text-amber-400 border-amber-500/30";
   return "bg-muted text-muted-foreground";
@@ -63,6 +67,7 @@ export default function EditingQueue() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clientId || !user) return;
@@ -76,33 +81,53 @@ export default function EditingQueue() {
       });
   }, [clientId, user]);
 
-  useEffect(() => {
+  const fetchQueue = async () => {
     if (!clientId || !user) return;
     setFetching(true);
     setError(null);
+    try {
+      const res = await supabase.functions.invoke("fetch-editing-queue", {
+        body: { client_id: clientId },
+      });
+      if (res.error) throw res.error;
+      setItems(res.data?.items || []);
+    } catch (e: any) {
+      console.error("Error fetching editing queue:", e);
+      setError(e.message || "Failed to fetch editing queue");
+    } finally {
+      setFetching(false);
+    }
+  };
 
-    const fetchQueue = async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        if (!token) throw new Error("No session");
-
-        const res = await supabase.functions.invoke("fetch-editing-queue", {
-          body: { client_id: clientId },
-        });
-
-        if (res.error) throw res.error;
-        setItems(res.data?.items || []);
-      } catch (e: any) {
-        console.error("Error fetching editing queue:", e);
-        setError(e.message || "Failed to fetch editing queue");
-      } finally {
-        setFetching(false);
-      }
-    };
-
+  useEffect(() => {
     fetchQueue();
   }, [clientId, user]);
+
+  const handleStatusChange = async (pageId: string, newStatus: string) => {
+    setUpdatingStatus(pageId);
+    try {
+      const res = await supabase.functions.invoke("update-editing-status", {
+        body: { page_id: pageId, status: newStatus },
+      });
+      if (res.error) throw res.error;
+      // Update local state
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === pageId ? { ...item, status: newStatus } : item
+        )
+      );
+      // Also update selectedItem if it's the one being changed
+      setSelectedItem((prev) =>
+        prev && prev.id === pageId ? { ...prev, status: newStatus } : prev
+      );
+      toast.success(language === "en" ? "Status updated" : "Estado actualizado");
+    } catch (e: any) {
+      console.error("Error updating status:", e);
+      toast.error(language === "en" ? "Failed to update status" : "Error al actualizar estado");
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -171,6 +196,7 @@ export default function EditingQueue() {
                   <TableRow>
                     <TableHead>{language === "en" ? "Title" : "Título"}</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>{language === "en" ? "Assignee" : "Asignado"}</TableHead>
                     <TableHead>Video</TableHead>
                     <TableHead>Script</TableHead>
                   </TableRow>
@@ -185,9 +211,44 @@ export default function EditingQueue() {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium text-foreground">{item.title}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={getStatusClassName(item.status)}>
-                            {item.status}
-                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="inline-flex items-center gap-1 focus:outline-none"
+                                disabled={updatingStatus === item.id}
+                              >
+                                <Badge variant="outline" className={`${getStatusClassName(item.status)} cursor-pointer`}>
+                                  {updatingStatus === item.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      {item.status}
+                                      <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+                                    </>
+                                  )}
+                                </Badge>
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {STATUS_OPTIONS.map((s) => (
+                                <DropdownMenuItem
+                                  key={s}
+                                  onClick={() => handleStatusChange(item.id, s)}
+                                  className={item.status === s ? "font-bold" : ""}
+                                >
+                                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
+                                  {s}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                        <TableCell>
+                          {item.assignee ? (
+                            <span className="text-xs text-foreground">{item.assignee}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {hasDriveVideo ? (
@@ -243,7 +304,7 @@ export default function EditingQueue() {
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
+            <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span>{selectedItem?.title}</span>
               {selectedItem && (
                 <Badge variant="outline" className={getStatusClassName(selectedItem.status)}>
@@ -254,14 +315,38 @@ export default function EditingQueue() {
           </DialogHeader>
           <div className="mt-2">
             {selectedDriveId ? (
-              <div className="aspect-video rounded-lg overflow-hidden bg-black">
-                <iframe
-                  src={`https://drive.google.com/file/d/${selectedDriveId}/preview`}
-                  className="w-full h-full"
-                  allow="autoplay"
-                  allowFullScreen
-                />
-              </div>
+              <>
+                <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                  <iframe
+                    src={`https://drive.google.com/file/d/${selectedDriveId}/preview`}
+                    className="w-full h-full"
+                    allow="autoplay"
+                    allowFullScreen
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <a
+                    href={getGoogleDriveDownloadUrl(selectedDriveId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {language === "en" ? "Download Video" : "Descargar Video"}
+                  </a>
+                  {selectedItem?.scriptUrl && (
+                    <a
+                      href={selectedItem.scriptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      {language === "en" ? "View Script" : "Ver Guión"}
+                    </a>
+                  )}
+                </div>
+              </>
             ) : selectedItem?.fileSubmissionUrl ? (
               <div className="text-center py-10">
                 <a
@@ -274,17 +359,41 @@ export default function EditingQueue() {
                 </a>
               </div>
             ) : null}
-            {selectedItem?.scriptUrl && (
-              <div className="mt-3 text-right">
-                <a
-                  href={selectedItem.scriptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  {language === "en" ? "View Script" : "Ver Guión"}
-                </a>
+
+            {/* Status changer in modal */}
+            {selectedItem && (
+              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-border/50">
+                <span className="text-xs text-muted-foreground">
+                  {language === "en" ? "Change status:" : "Cambiar estado:"}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === selectedItem.id}>
+                      <Badge variant="outline" className={`${getStatusClassName(selectedItem.status)} cursor-pointer`}>
+                        {updatingStatus === selectedItem.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            {selectedItem.status}
+                            <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+                          </>
+                        )}
+                      </Badge>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {STATUS_OPTIONS.map((s) => (
+                      <DropdownMenuItem
+                        key={s}
+                        onClick={() => handleStatusChange(selectedItem.id, s)}
+                        className={selectedItem.status === s ? "font-bold" : ""}
+                      >
+                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
+                        {s}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
@@ -292,4 +401,12 @@ export default function EditingQueue() {
       </Dialog>
     </div>
   );
+}
+
+function getStatusDotColor(status: string): string {
+  const lower = status.toLowerCase();
+  if (lower === "done" || lower === "complete") return "bg-emerald-400";
+  if (lower.includes("revision")) return "bg-destructive";
+  if (lower.includes("progress")) return "bg-amber-400";
+  return "bg-muted-foreground";
 }
