@@ -16,7 +16,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { useClients, type Client } from "@/hooks/useClients";
@@ -530,6 +530,8 @@ export default function Scripts() {
   };
 
   // Auto-select client from URL param (admin/videographer deep link)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [autoOpenScriptTitle, setAutoOpenScriptTitle] = useState<string | null>(null);
 
   useEffect(() => {
     if (clientsLoading || clients.length === 0 || selectedClient) return;
@@ -541,6 +543,14 @@ export default function Scripts() {
         setSelectedClient(target);
         fetchScriptsByClient(target.id);
         setView("client-detail");
+        // Check for scriptTitle query param to auto-open
+        const scriptTitleParam = searchParams.get("scriptTitle");
+        if (scriptTitleParam) {
+          setAutoOpenScriptTitle(scriptTitleParam);
+          // Clean the param from the URL
+          searchParams.delete("scriptTitle");
+          setSearchParams(searchParams, { replace: true });
+        }
       }
       return;
     }
@@ -553,6 +563,18 @@ export default function Scripts() {
     fetchScriptsByClient(myClient.id);
     setView("client-detail");
   }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user, urlClientId]);
+
+  // Auto-open script by title from query param
+  useEffect(() => {
+    if (!autoOpenScriptTitle || scriptsLoading || scripts.length === 0) return;
+    const match = scripts.find(
+      (s) => s.title.toLowerCase().trim() === autoOpenScriptTitle.toLowerCase().trim()
+    );
+    if (match) {
+      handleViewScript(match);
+    }
+    setAutoOpenScriptTitle(null);
+  }, [autoOpenScriptTitle, scriptsLoading, scripts]);
 
   // Auth loading
   if (authLoading || subscriptionChecking) {
