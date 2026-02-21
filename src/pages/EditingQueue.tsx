@@ -382,7 +382,7 @@ export default function EditingQueue() {
                               variant="ghost"
                               size="sm"
                               className="gap-1.5 text-xs text-primary hover:underline"
-                              onClick={() => navigate(`/clients/${clientId}/scripts`)}
+                              onClick={() => navigate(`/clients/${clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}
                             >
                               <ExternalLink className="w-3 h-3" />
                               {language === "en" ? "View" : "Ver"}
