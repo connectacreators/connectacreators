@@ -190,9 +190,9 @@ serve(async (req) => {
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         (usersData.results || [])
-          .filter((u: any) => u.type === "person" || u.type === "bot")
+          .filter((u: any) => u.type === "person")
           .forEach((u: any) => {
-            const name = u.name || u.person?.email || u.bot?.owner?.user?.name || "Unknown";
+            const name = u.name || u.person?.email || "Unknown";
             notionUsersMap.set(u.id, name);
           });
       }
