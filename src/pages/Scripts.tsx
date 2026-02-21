@@ -394,6 +394,8 @@ export default function Scripts() {
   const [inspirationUrl, setInspirationUrl] = useState("");
   const [useAsTemplate, setUseAsTemplate] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
+  const [vaultTemplates, setVaultTemplates] = useState<{ id: string; name: string; template_lines: any }[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [formato, setFormato] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
@@ -1278,9 +1280,73 @@ export default function Scripts() {
                  <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
                  <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
                  
-                 {/* Vault Template Picker */}
-                 {/* Note: Vault templates loaded inline for manual mode */}
-                
+                 {/* Vault Template Toggle */}
+                 <div className="flex items-center gap-3 mb-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/20">
+                   <Switch
+                     checked={useAsTemplate}
+                     onCheckedChange={(checked) => {
+                       setUseAsTemplate(checked);
+                       if (checked && vaultTemplates.length === 0) {
+                         setTemplateLoading(true);
+                         supabase
+                           .from("vault_templates")
+                           .select("id, name, template_lines")
+                           .eq("client_id", selectedClient!.id)
+                           .order("created_at", { ascending: false })
+                           .then(({ data }) => {
+                             setVaultTemplates(data || []);
+                             setTemplateLoading(false);
+                           });
+                       }
+                     }}
+                   />
+                   <div className="flex items-center gap-2">
+                     <Archive className="w-4 h-4 text-amber-400" />
+                     <span className="text-sm font-medium text-foreground">
+                       {tr({ en: "Use a script from the Vault", es: "Usar un guion del Vault" }, language)}
+                     </span>
+                   </div>
+                 </div>
+
+                 {useAsTemplate && (
+                   <div className="mb-3 p-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-amber-900/5">
+                     {templateLoading ? (
+                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                         <Loader2 className="w-4 h-4 animate-spin" />
+                         {tr({ en: "Loading templates...", es: "Cargando plantillas..." }, language)}
+                       </div>
+                     ) : vaultTemplates.length === 0 ? (
+                       <p className="text-sm text-muted-foreground">
+                         {tr({ en: "No templates in the Vault yet. Add some first!", es: "No hay plantillas en el Vault aún. ¡Agrega algunas primero!" }, language)}
+                       </p>
+                     ) : (
+                       <Select
+                         value={selectedTemplateId}
+                         onValueChange={(id) => {
+                           setSelectedTemplateId(id);
+                           const tpl = vaultTemplates.find((t) => t.id === id);
+                           if (tpl?.template_lines && Array.isArray(tpl.template_lines)) {
+                             const text = (tpl.template_lines as any[])
+                               .map((l: any) => l.text || "")
+                               .filter(Boolean)
+                               .join("\n");
+                             setScriptInput(text);
+                           }
+                         }}
+                       >
+                         <SelectTrigger className="bg-transparent border-amber-500/30">
+                           <SelectValue placeholder={tr({ en: "Select a Vault template", es: "Selecciona una plantilla del Vault" }, language)} />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {vaultTemplates.map((tpl) => (
+                             <SelectItem key={tpl.id} value={tpl.id}>{tpl.name}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     )}
+                   </div>
+                 )}
+
                 <div className="mb-3">
                    <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
                    <Select value={formato} onValueChange={setFormato}>
