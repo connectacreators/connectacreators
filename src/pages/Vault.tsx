@@ -246,7 +246,12 @@ function VaultContent({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
+        <Link to={backPath} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          {tr({ en: "Go Back", es: "Volver" }, language)}
+        </Link>
+        <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Archive className="w-5 h-5 text-primary" />
@@ -262,6 +267,7 @@ function VaultContent({
             ? tr({ en: "Cancel", es: "Cancelar" }, language)
             : tr({ en: "New Template", es: "Nueva Plantilla" }, language)}
         </Button>
+      </div>
       </div>
 
       {/* Create form */}
