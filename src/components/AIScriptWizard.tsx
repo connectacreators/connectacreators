@@ -67,14 +67,6 @@ const HOOK_FORMATS = {
   },
 };
 
-const SCRIPT_STRUCTURES = [
-  { key: "storytelling", icon: MessageSquare },
-  { key: "educational", icon: BookOpen },
-  { key: "comparison", icon: GitCompare },
-  { key: "authoritarian", icon: Crown },
-  { key: "simpleTips", icon: Zap },
-  { key: "longTutorial", icon: Search },
-];
 
 type Fact = { fact: string; impact_score: number; why_shocking: string };
 
@@ -154,23 +146,6 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
     storytellingInspo: { en: "Storytelling Inspo", es: "Inspo de Storytelling" },
   };
 
-  const structureNames: Record<string, { en: string; es: string }> = {
-    storytelling: { en: "Storytelling", es: "Storytelling" },
-    educational: { en: "Educational", es: "Educativo" },
-    comparison: { en: "Comparison", es: "Comparación" },
-    authoritarian: { en: "Authoritarian", es: "Autoritario" },
-    simpleTips: { en: "Simple Tips", es: "Tips Simples" },
-    longTutorial: { en: "Long Tutorial", es: "Tutorial Largo" },
-  };
-
-  const structureDescriptions: Record<string, { en: string; es: string }> = {
-    storytelling: { en: "Narrative arc with beginning, conflict, resolution", es: "Arco narrativo con inicio, conflicto y resolución" },
-    educational: { en: "Teach something step by step", es: "Enseña algo paso a paso" },
-    comparison: { en: "Compare two things side by side", es: "Compara dos cosas lado a lado" },
-    authoritarian: { en: "Expert-driven, authority positioning", es: "Basado en expertise, posicionamiento de autoridad" },
-    simpleTips: { en: "Quick numbered tips format", es: "Formato de tips numerados rápidos" },
-    longTutorial: { en: "In-depth tutorial with detailed steps", es: "Tutorial a profundidad con pasos detallados" },
-  };
 
   const stepNames = language === "es" ? STEP_NAMES_ES : STEP_NAMES_EN;
 
@@ -477,12 +452,16 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
           complete={3 < maxUnlockedStep}
         >
           {/* Vault Template Picker */}
-          {vaultTemplates.length > 0 && (
-            <div className="mb-4">
-              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
-                <Archive className="w-4 h-4 text-primary" />
-                {tr({ en: "Use a Vault Template", es: "Usar una plantilla del Vault" }, language)}
-              </label>
+          <div className="mb-4">
+            <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+              <Archive className="w-4 h-4 text-primary" />
+              {tr({ en: "Choose a Vault Template", es: "Elige una plantilla del Vault" }, language)}
+            </label>
+            {vaultLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="w-4 h-4 animate-spin" /> {tr({ en: "Loading templates...", es: "Cargando plantillas..." }, language)}
+              </div>
+            ) : vaultTemplates.length > 0 ? (
               <div className="grid gap-2 max-h-48 overflow-y-auto">
                 {vaultTemplates.map((vt: any) => {
                   const isSelected = selectedVaultTemplate?.id === vt.id;
@@ -513,39 +492,11 @@ export default function AIScriptWizard({ selectedClient, onComplete, onCancel }:
                   );
                 })}
               </div>
-              {selectedVaultTemplate && (
-                <p className="text-xs text-primary mt-2">
-                  {tr({ en: "Template selected — structure picker is disabled", es: "Plantilla seleccionada — el selector de estructura está desactivado" }, language)}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Structure picker - disabled when template mode is on */}
-          <div className={`grid grid-cols-2 gap-2 ${selectedVaultTemplate ? "opacity-40 pointer-events-none" : ""}`}>
-            {SCRIPT_STRUCTURES.map((s) => {
-              const Icon = s.icon;
-              const isSelected = selectedStructure === s.key;
-              return (
-                <Card
-                  key={s.key}
-                  className={`cursor-pointer transition-all ${
-                    isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                  }`}
-                  onClick={() => !selectedVaultTemplate && setSelectedStructure(s.key)}
-                >
-                  <CardContent className="p-3 text-center space-y-1">
-                    <Icon className={`w-5 h-5 mx-auto ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                    <p className={`text-xs font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
-                      {tr(structureNames[s.key], language)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {tr(structureDescriptions[s.key], language)}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">
+                {tr({ en: "No templates in your Vault yet. Save a template from the Vault page first.", es: "Aún no tienes plantillas en tu Vault. Guarda una desde la página del Vault." }, language)}
+              </p>
+            )}
           </div>
 
           {/* Length & Fact selection */}
