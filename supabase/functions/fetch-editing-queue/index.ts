@@ -179,7 +179,7 @@ serve(async (req) => {
     });
 
     // Also fetch Notion workspace users for the assignee picker
-    let notionUsers: { id: string; name: string }[] = [];
+    const notionUsersMap = new Map<string, string>();
     try {
       const usersRes = await fetch("https://api.notion.com/v1/users", {
         headers: {
@@ -189,13 +189,25 @@ serve(async (req) => {
       });
       if (usersRes.ok) {
         const usersData = await usersRes.json();
-        notionUsers = (usersData.results || [])
+        (usersData.results || [])
           .filter((u: any) => u.type === "person" || u.type === "bot")
-          .map((u: any) => ({ id: u.id, name: u.name || u.person?.email || u.bot?.owner?.user?.name || "Unknown" }));
+          .forEach((u: any) => {
+            const name = u.name || u.person?.email || u.bot?.owner?.user?.name || "Unknown";
+            notionUsersMap.set(u.id, name);
+          });
       }
     } catch (e) {
       console.error("Failed to fetch Notion users:", e);
     }
+
+    // Also collect assignees from the pages themselves (covers users not returned by /v1/users)
+    for (const item of items) {
+      if (item.assigneeId && !notionUsersMap.has(item.assigneeId) && item.assignee) {
+        notionUsersMap.set(item.assigneeId, item.assignee);
+      }
+    }
+
+    const notionUsers = Array.from(notionUsersMap.entries()).map(([id, name]) => ({ id, name }));
 
     // Detect the assignee and revision property names from the first item that has one
     const detectedAssigneeProp = items.find((i: any) => i.assigneePropName)?.assigneePropName || "Assignee";
