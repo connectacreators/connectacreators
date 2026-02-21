@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 interface EditingQueueItem {
@@ -29,6 +30,8 @@ interface EditingQueueItem {
   assignee: string | null;
   assigneeId: string | null;
   assigneePropName: string | null;
+  revisions: string | null;
+  revisionPropName: string | null;
   lastEdited: string;
 }
 
@@ -39,6 +42,7 @@ interface NotionUser {
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Done", "Needs revision"];
 
+// ... keep existing code (extractGoogleDriveFileId, getGoogleDriveDownloadUrl, getStatusClassName, getStatusDotColor)
 function extractGoogleDriveFileId(url: string): string | null {
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (match1) return match1[1];
@@ -81,11 +85,15 @@ export default function EditingQueue() {
   const [items, setItems] = useState<EditingQueueItem[]>([]);
   const [notionUsers, setNotionUsers] = useState<NotionUser[]>([]);
   const [assigneeProperty, setAssigneeProperty] = useState("Assignee");
+  const [revisionProperty, setRevisionProperty] = useState("Revisions");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [updatingAssignee, setUpdatingAssignee] = useState<string | null>(null);
+  const [revisionDialogItem, setRevisionDialogItem] = useState<EditingQueueItem | null>(null);
+  const [revisionText, setRevisionText] = useState("");
+  const [savingRevision, setSavingRevision] = useState(false);
 
   useEffect(() => {
     if (!clientId || !user) return;
@@ -111,6 +119,7 @@ export default function EditingQueue() {
       setItems(res.data?.items || []);
       setNotionUsers(res.data?.notionUsers || []);
       setAssigneeProperty(res.data?.assigneeProperty || "Assignee");
+      setRevisionProperty(res.data?.revisionProperty || "Revisions");
     } catch (e: any) {
       console.error("Error fetching editing queue:", e);
       setError(e.message || "Failed to fetch editing queue");
@@ -175,6 +184,42 @@ export default function EditingQueue() {
     }
   };
 
+  const handleOpenRevisions = (item: EditingQueueItem) => {
+    setRevisionDialogItem(item);
+    setRevisionText(item.revisions || "");
+  };
+
+  const handleSaveRevision = async () => {
+    if (!revisionDialogItem) return;
+    setSavingRevision(true);
+    try {
+      const propName = revisionDialogItem.revisionPropName || revisionProperty;
+      const res = await supabase.functions.invoke("update-editing-status", {
+        body: {
+          page_id: revisionDialogItem.id,
+          revisions: revisionText,
+          revision_property: propName,
+        },
+      });
+      if (res.error) throw res.error;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === revisionDialogItem.id ? { ...item, revisions: revisionText } : item
+        )
+      );
+      setSelectedItem((prev) =>
+        prev && prev.id === revisionDialogItem.id ? { ...prev, revisions: revisionText } : prev
+      );
+      toast.success(language === "en" ? "Revisions saved" : "Revisiones guardadas");
+      setRevisionDialogItem(null);
+    } catch (e: any) {
+      console.error("Error saving revisions:", e);
+      toast.error(language === "en" ? "Failed to save revisions" : "Error al guardar revisiones");
+    } finally {
+      setSavingRevision(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -220,7 +265,6 @@ export default function EditingQueue() {
             </DropdownMenuItem>
           ) : (
             <>
-              {/* Unassign option */}
               {item.assignee && (
                 <DropdownMenuItem
                   onClick={() => handleAssigneeChange(item.id, null, null, propName)}
@@ -302,6 +346,7 @@ export default function EditingQueue() {
                     <TableHead>{language === "en" ? "Title" : "Título"}</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>{language === "en" ? "Assignee" : "Asignado"}</TableHead>
+                    <TableHead>{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
                     <TableHead>Video</TableHead>
                     <TableHead>Script</TableHead>
                   </TableRow>
@@ -350,6 +395,21 @@ export default function EditingQueue() {
                         </TableCell>
                         <TableCell>
                           {renderAssigneeDropdown(item)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            onClick={() => handleOpenRevisions(item)}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            {item.revisions ? (
+                              <span className="max-w-[120px] truncate">{item.revisions}</span>
+                            ) : (
+                              <span className="text-muted-foreground">{language === "en" ? "Add" : "Agregar"}</span>
+                            )}
+                          </Button>
                         </TableCell>
                         <TableCell>
                           {hasDriveVideo ? (
@@ -461,7 +521,7 @@ export default function EditingQueue() {
               </div>
             ) : null}
 
-            {/* Status & Assignee changers in modal */}
+            {/* Status, Assignee & Revisions in modal */}
             {selectedItem && (
               <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-2">
@@ -503,8 +563,46 @@ export default function EditingQueue() {
                   </span>
                   {renderAssigneeDropdown(selectedItem)}
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => handleOpenRevisions(selectedItem)}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  {language === "en" ? "Revisions" : "Revisiones"}
+                </Button>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revisions Dialog */}
+      <Dialog open={!!revisionDialogItem} onOpenChange={() => setRevisionDialogItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              {language === "en" ? "Revisions" : "Revisiones"} — {revisionDialogItem?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-3">
+            <Textarea
+              value={revisionText}
+              onChange={(e) => setRevisionText(e.target.value)}
+              placeholder={language === "en" ? "Leave revision notes here..." : "Deja notas de revisión aquí..."}
+              rows={5}
+              className="text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setRevisionDialogItem(null)}>
+                {language === "en" ? "Cancel" : "Cancelar"}
+              </Button>
+              <Button size="sm" onClick={handleSaveRevision} disabled={savingRevision} className="gap-1.5">
+                {savingRevision ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {language === "en" ? "Save" : "Guardar"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

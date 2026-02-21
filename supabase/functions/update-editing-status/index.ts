@@ -45,9 +45,9 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { page_id, status, assignee_id, assignee_property } = body;
+    const { page_id, status, assignee_id, assignee_property, revisions, revision_property } = body;
     if (!page_id) throw new Error("page_id is required");
-    if (!status && assignee_id === undefined) throw new Error("status or assignee_id is required");
+    if (!status && assignee_id === undefined && revisions === undefined) throw new Error("status, assignee_id, or revisions is required");
 
     const NOTION_API_KEY = Deno.env.get("NOTION_API_KEY");
     if (!NOTION_API_KEY) throw new Error("NOTION_API_KEY not configured");
@@ -67,6 +67,13 @@ serve(async (req) => {
       } else {
         properties[propName] = { people: [{ id: assignee_id }] };
       }
+    }
+
+    if (revisions !== undefined) {
+      const propName = revision_property || "Revisions";
+      properties[propName] = {
+        rich_text: revisions ? [{ type: "text", text: { content: revisions } }] : [],
+      };
     }
 
     const notionRes = await fetch(`https://api.notion.com/v1/pages/${page_id}`, {
