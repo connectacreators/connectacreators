@@ -30,6 +30,11 @@ import {
   Plus,
   Trash2,
   Coffee,
+  History,
+  User,
+  Mail,
+  Phone,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -98,6 +103,8 @@ export default function BookingSettings() {
   const [saving, setSaving] = useState(false);
   const [clientName, setClientName] = useState("");
   const [copied, setCopied] = useState<"link" | "embed" | null>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
 
   const bookingUrl = `https://connectacreators.com/book/${clientId}`;
   const embedCode = `<iframe src="${bookingUrl}" width="100%" height="700" frameborder="0" style="border:none;border-radius:16px;"></iframe>`;
@@ -135,9 +142,25 @@ export default function BookingSettings() {
     setLoading(false);
   }, [clientId]);
 
+  const fetchBookings = useCallback(async () => {
+    if (!clientId) return;
+    setBookingsLoading(true);
+    const { data } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setBookings(data || []);
+    setBookingsLoading(false);
+  }, [clientId]);
+
   useEffect(() => {
-    if (!authLoading && user) fetchSettings();
-  }, [authLoading, user, fetchSettings]);
+    if (!authLoading && user) {
+      fetchSettings();
+      fetchBookings();
+    }
+  }, [authLoading, user, fetchSettings, fetchBookings]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/dashboard");
@@ -522,6 +545,74 @@ export default function BookingSettings() {
                 </div>
               </div>
             )}
+
+            {/* Booking History */}
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Historial de Citas</h3>
+                <span className="text-[10px] text-muted-foreground">({bookings.length})</span>
+              </div>
+
+              {bookingsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : bookings.length === 0 ? (
+                <div className="text-center py-8">
+                  <CalendarDays className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-xs text-muted-foreground">Aún no hay citas registradas.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {bookings.map((b) => (
+                    <div key={b.id} className="p-3 rounded-xl border border-border bg-card/50 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-sm font-medium text-foreground">{b.name}</span>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          b.status === "confirmed"
+                            ? "bg-green-500/10 text-green-500 border border-green-500/20"
+                            : b.status === "canceled"
+                            ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                            : "bg-muted text-muted-foreground border border-border"
+                        }`}>
+                          {b.status === "confirmed" ? "Confirmada" : b.status === "canceled" ? "Cancelada" : b.status}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{b.email}</span>
+                        <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{b.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-3 h-3" />
+                          {new Date(b.booking_date + "T00:00:00").toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="font-medium text-primary">
+                            {(() => {
+                              const [h, m] = b.booking_time.split(":").map(Number);
+                              const ampm = h >= 12 ? "PM" : "AM";
+                              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                              return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+                            })()}
+                          </span>
+                        </span>
+                      </div>
+                      {b.message && (
+                        <div className="flex items-start gap-1.5 text-xs text-muted-foreground pt-1">
+                          <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                          <span className="italic">{b.message}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>

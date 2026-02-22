@@ -266,6 +266,21 @@ Deno.serve(async (req) => {
 
       const createdPage = await createResponse.json();
 
+      // Save booking to local database
+      supabase.from("bookings").insert({
+        client_id: clientId,
+        name,
+        email,
+        phone,
+        message: message || null,
+        booking_date: date,
+        booking_time: time,
+        notion_page_id: createdPage.id,
+        status: "confirmed",
+      }).then(({ error: bookingError }) => {
+        if (bookingError) console.error("Failed to save booking locally:", bookingError);
+      });
+
       // Fire-and-forget: send webhook if configured
       if (settings.zapier_webhook_url) {
         fetch(settings.zapier_webhook_url, {
