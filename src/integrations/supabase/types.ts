@@ -79,6 +79,56 @@ export type Database = {
           },
         ]
       }
+      bookings: {
+        Row: {
+          booking_date: string
+          booking_time: string
+          client_id: string
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          name: string
+          notion_page_id: string | null
+          phone: string
+          status: string
+        }
+        Insert: {
+          booking_date: string
+          booking_time: string
+          client_id: string
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          name: string
+          notion_page_id?: string | null
+          phone: string
+          status?: string
+        }
+        Update: {
+          booking_date?: string
+          booking_time?: string
+          client_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          name?: string
+          notion_page_id?: string | null
+          phone?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_notion_mapping: {
         Row: {
           client_id: string
