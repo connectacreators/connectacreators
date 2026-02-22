@@ -43,8 +43,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (loading || !user) return;
-    // Admin, videographer, and client roles bypass subscription check
-    if (isAdmin || isVideographer || role === "client") return;
+    // Admin and videographer roles bypass subscription check
+    if (isAdmin || isVideographer) return;
 
     supabase
       .from("clients")

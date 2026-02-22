@@ -20,8 +20,8 @@ export function useSubscriptionGuard() {
       setChecking(false);
       return;
     }
-    // Admin, videographer, and client roles bypass subscription check
-    if (isAdmin || isVideographer || role === "client") {
+    // Admin and videographer roles bypass subscription check
+    if (isAdmin || isVideographer) {
       setChecking(false);
       return;
     }
