@@ -75,7 +75,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     <aside
       className={`${
         sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full lg:w-0 lg:translate-x-0 lg:overflow-hidden"
-      } fixed lg:relative z-40 lg:z-auto transition-all duration-300 border-r border-border bg-card/95 lg:bg-card/60 backdrop-blur-md lg:backdrop-blur-none flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
+      } fixed lg:relative z-40 lg:z-auto transition-all duration-300 border-r border-border/30 glass-ios-strong flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50">
         <img
