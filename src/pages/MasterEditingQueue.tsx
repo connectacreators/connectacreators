@@ -5,11 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
 import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Clapperboard, CalendarClock } from "lucide-react";
+import { Loader2, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Clapperboard, CalendarClock, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -101,6 +101,8 @@ export default function MasterEditingQueue() {
   const [revisionDialogItem, setRevisionDialogItem] = useState<EditingQueueItem | null>(null);
   const [revisionText, setRevisionText] = useState("");
   const [savingRevision, setSavingRevision] = useState(false);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<EditingQueueItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchQueue = async () => {
     if (!user) return;
@@ -260,6 +262,25 @@ export default function MasterEditingQueue() {
     }
   };
 
+  const handleDeleteItem = async () => {
+    if (!deleteConfirmItem) return;
+    setDeleting(true);
+    try {
+      const res = await supabase.functions.invoke("delete-editing-item", {
+        body: { page_id: deleteConfirmItem.id },
+      });
+      if (res.error) throw res.error;
+      setItems((prev) => prev.filter((item) => item.id !== deleteConfirmItem.id));
+      toast.success(language === "en" ? "Item deleted" : "Elemento eliminado");
+      setDeleteConfirmItem(null);
+    } catch (e: any) {
+      console.error("Error deleting item:", e);
+      toast.error(language === "en" ? "Failed to delete" : "Error al eliminar");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -396,6 +417,7 @@ export default function MasterEditingQueue() {
                     <TableHead>Video</TableHead>
                     <TableHead>Script</TableHead>
                     <TableHead>Schedule</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -497,6 +519,16 @@ export default function MasterEditingQueue() {
                               Schedule
                             </Button>
                           </a>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 p-1.5"
+                            onClick={() => setDeleteConfirmItem(item)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -622,6 +654,31 @@ export default function MasterEditingQueue() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmItem} onOpenChange={() => setDeleteConfirmItem(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              {language === "en" ? "Delete Item" : "Eliminar Elemento"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {language === "en"
+                ? `Are you sure you want to delete "${deleteConfirmItem?.title}"? This will archive it in Notion and remove the sync record.`
+                : `¿Estás seguro de que quieres eliminar "${deleteConfirmItem?.title}"? Se archivará en Notion y se eliminará el registro de sincronización.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmItem(null)} disabled={deleting}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDeleteItem} disabled={deleting} className="gap-1.5">
+              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {language === "en" ? "Delete" : "Eliminar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
