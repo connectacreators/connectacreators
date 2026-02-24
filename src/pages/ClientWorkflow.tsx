@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle } from "lucide-react";
+import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -74,10 +74,13 @@ export default function ClientWorkflow() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   // Workflow state
-  const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [workflowLoading, setWorkflowLoading] = useState(true);
   const [workflowSaving, setWorkflowSaving] = useState(false);
   const [clientName, setClientName] = useState("");
+  const [showNewWorkflowInput, setShowNewWorkflowInput] = useState(false);
+  const [newWorkflowName, setNewWorkflowName] = useState("");
 
   // Modal states
   const [showAddStepModal, setShowAddStepModal] = useState(false);
@@ -87,6 +90,9 @@ export default function ClientWorkflow() {
   const [showTestRunModal, setShowTestRunModal] = useState(false);
   const [testRunResults, setTestRunResults] = useState<TestRunResult | null>(null);
   const [isTestRunning, setIsTestRunning] = useState(false);
+
+  // Get current workflow from array
+  const workflow = workflows.find(w => w.id === selectedWorkflowId) || null;
 
   // Drag and drop
   const sensors = useSensors(
@@ -121,10 +127,11 @@ export default function ClientWorkflow() {
         .from("client_workflows")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-      if (data) {
-        setWorkflow(data as Workflow);
+      if (data && data.length > 0) {
+        setWorkflows(data as Workflow[]);
+        setSelectedWorkflowId(data[0].id);
       } else {
         // Create default workflow
         const newWorkflow: Workflow = {
@@ -146,7 +153,8 @@ export default function ClientWorkflow() {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
-        setWorkflow(newWorkflow);
+        setWorkflows([newWorkflow]);
+        setSelectedWorkflowId(newWorkflow.id || "temp");
       }
     } catch (error) {
       console.error("Error loading workflow:", error);
@@ -180,7 +188,8 @@ export default function ClientWorkflow() {
       newSteps.push(newStep);
     }
 
-    setWorkflow({ ...workflow, steps: newSteps });
+    const updatedWorkflow = { ...workflow, steps: newSteps };
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
     setEditingStepId(newStep.id);
     setShowConfigModal(true);
   };
@@ -190,10 +199,11 @@ export default function ClientWorkflow() {
       toast.error(language === "en" ? "Cannot delete trigger step" : "No se puede eliminar el paso activador");
       return;
     }
-    setWorkflow({
+    const updatedWorkflow = {
       ...workflow,
       steps: workflow.steps.filter((s) => s.id !== stepId),
-    });
+    };
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
   };
 
   const handleEditStep = (stepId: string) => {
@@ -220,10 +230,11 @@ export default function ClientWorkflow() {
       return s;
     });
 
-    setWorkflow({
+    const updatedWorkflow = {
       ...workflow,
       steps: updatedSteps,
-    });
+    };
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -238,10 +249,83 @@ export default function ClientWorkflow() {
       return;
     }
 
-    setWorkflow({
+    const updatedWorkflow = {
       ...workflow,
       steps: arrayMove(workflow.steps, activeIndex, overIndex),
-    });
+    };
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
+  };
+
+  const handleCreateNewWorkflow = async () => {
+    if (!clientId || !newWorkflowName.trim()) {
+      toast.error(language === "en" ? "Please enter a workflow name" : "Por favor ingresa un nombre");
+      return;
+    }
+
+    setWorkflowSaving(true);
+    try {
+      const { data } = await supabase.from("client_workflows").insert([
+        {
+          client_id: clientId,
+          name: newWorkflowName,
+          description: "",
+          steps: [
+            {
+              id: "trigger_1",
+              type: "trigger",
+              service: "webhooks",
+              action: "new_facebook_lead",
+              label: "Trigger on new Facebook Lead",
+              config: {},
+            },
+          ],
+          is_active: true,
+        },
+      ]).select();
+
+      if (data && data.length > 0) {
+        const newWorkflow = data[0] as Workflow;
+        setWorkflows([...workflows, newWorkflow]);
+        setSelectedWorkflowId(newWorkflow.id);
+        setNewWorkflowName("");
+        setShowNewWorkflowInput(false);
+        toast.success(language === "en" ? "Workflow created" : "Flujo creado");
+      }
+    } catch (error) {
+      console.error("Error creating workflow:", error);
+      toast.error(language === "en" ? "Failed to create workflow" : "Error al crear flujo");
+    } finally {
+      setWorkflowSaving(false);
+    }
+  };
+
+  const handleDeleteWorkflow = async (workflowId: string) => {
+    if (workflows.length <= 1) {
+      toast.error(language === "en" ? "Cannot delete the last workflow" : "No se puede eliminar el último flujo");
+      return;
+    }
+
+    if (!window.confirm(language === "en" ? "Are you sure you want to delete this workflow?" : "¿Estás seguro de que deseas eliminar este flujo?")) {
+      return;
+    }
+
+    setWorkflowSaving(true);
+    try {
+      await supabase
+        .from("client_workflows")
+        .delete()
+        .eq("id", workflowId);
+
+      const remaining = workflows.filter(w => w.id !== workflowId);
+      setWorkflows(remaining);
+      setSelectedWorkflowId(remaining[0]?.id || null);
+      toast.success(language === "en" ? "Workflow deleted" : "Flujo eliminado");
+    } catch (error) {
+      console.error("Error deleting workflow:", error);
+      toast.error(language === "en" ? "Failed to delete workflow" : "Error al eliminar flujo");
+    } finally {
+      setWorkflowSaving(false);
+    }
   };
 
   const handleTestRun = async (testData: TestData) => {
@@ -297,25 +381,17 @@ export default function ClientWorkflow() {
     if (!workflow || !clientId) return;
 
     const updated = { ...workflow, is_active: active };
-    setWorkflow(updated);
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updated : w));
 
     setWorkflowSaving(true);
     try {
-      const { data: existing } = await supabase
+      await supabase
         .from("client_workflows")
-        .select("id")
-        .eq("client_id", clientId)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase
-          .from("client_workflows")
-          .update({
-            is_active: active,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("client_id", clientId);
-      }
+        .update({
+          is_active: active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", workflow.id);
 
       toast.success(
         active
@@ -324,7 +400,7 @@ export default function ClientWorkflow() {
       );
     } catch (error) {
       console.error("Error toggling workflow:", error);
-      setWorkflow(workflow); // revert on error
+      setWorkflows(workflows.map(w => w.id === workflow.id ? workflow : w)); // revert on error
       toast.error(language === "en" ? "Failed to update workflow" : "Error al actualizar el flujo");
     } finally {
       setWorkflowSaving(false);
@@ -336,13 +412,8 @@ export default function ClientWorkflow() {
     setWorkflowSaving(true);
 
     try {
-      const { data: existing } = await supabase
-        .from("client_workflows")
-        .select("id")
-        .eq("client_id", clientId)
-        .maybeSingle();
-
-      if (existing) {
+      if (workflow.id) {
+        // Update existing workflow
         await supabase
           .from("client_workflows")
           .update({
@@ -352,9 +423,10 @@ export default function ClientWorkflow() {
             is_active: workflow.is_active,
             updated_at: new Date().toISOString(),
           })
-          .eq("client_id", clientId);
+          .eq("id", workflow.id);
       } else {
-        await supabase.from("client_workflows").insert([
+        // Create new workflow
+        const { data } = await supabase.from("client_workflows").insert([
           {
             client_id: clientId,
             name: workflow.name,
@@ -362,7 +434,13 @@ export default function ClientWorkflow() {
             steps: workflow.steps,
             is_active: workflow.is_active,
           },
-        ]);
+        ]).select();
+
+        if (data && data.length > 0) {
+          const newWorkflow = { ...workflow, id: data[0].id };
+          setWorkflows(workflows.map(w => w.id === workflow.id ? newWorkflow : w));
+          setSelectedWorkflowId(data[0].id);
+        }
       }
 
       toast.success(language === "en" ? "Workflow saved" : "Flujo guardado");
@@ -414,6 +492,83 @@ export default function ClientWorkflow() {
             <ArrowLeft className="w-3.5 h-3.5" />
             {language === "en" ? "Back to client" : "Volver al cliente"}
           </motion.button>
+
+          {/* Workflow Selector */}
+          <motion.div
+            className="mb-6 flex items-center gap-2 flex-wrap"
+            initial="hidden"
+            animate="visible"
+            custom={0.5}
+            variants={fadeUp}
+          >
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              {workflows.map((w) => (
+                <div key={w.id} className="relative group">
+                  <button
+                    onClick={() => setSelectedWorkflowId(w.id)}
+                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                      selectedWorkflowId === w.id
+                        ? "bg-blue-600 text-white"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {w.name}
+                  </button>
+                  {workflows.length > 1 && (
+                    <button
+                      onClick={() => handleDeleteWorkflow(w.id)}
+                      className="absolute -top-2 -right-2 rounded-full bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title={language === "en" ? "Delete workflow" : "Eliminar flujo"}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowNewWorkflowInput(!showNewWorkflowInput)}
+              className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              {language === "en" ? "New" : "Nuevo"}
+            </button>
+            {showNewWorkflowInput && (
+              <div className="flex gap-1">
+                <Input
+                  value={newWorkflowName}
+                  onChange={(e) => setNewWorkflowName(e.target.value)}
+                  placeholder={language === "en" ? "Workflow name" : "Nombre del flujo"}
+                  className="h-7 text-xs"
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") handleCreateNewWorkflow();
+                  }}
+                  disabled={workflowSaving}
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCreateNewWorkflow}
+                  disabled={workflowSaving}
+                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                >
+                  {language === "en" ? "Create" : "Crear"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowNewWorkflowInput(false);
+                    setNewWorkflowName("");
+                  }}
+                  disabled={workflowSaving}
+                  className="h-7 text-xs"
+                >
+                  {language === "en" ? "Cancel" : "Cancelar"}
+                </Button>
+              </div>
+            )}
+          </motion.div>
 
           {/* Centered Content Wrapper */}
           <div className="w-full max-w-2xl mx-auto">
