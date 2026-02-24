@@ -1,0 +1,603 @@
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import DashboardSidebar from "@/components/DashboardSidebar";
+import DashboardTopBar from "@/components/DashboardTopBar";
+import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import AnimatedDots from "@/components/ui/AnimatedDots";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import WorkflowStep from "@/components/workflow/WorkflowStep";
+import AddStepModal, { ServiceOption } from "@/components/workflow/AddStepModal";
+import StepConfigModal from "@/components/workflow/StepConfigModal";
+import TestRunModal, { TestData, TestRunResult } from "@/components/workflow/TestRunModal";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+  }),
+};
+
+const OPERATOR_LABELS: Record<string, string> = {
+  equals: "equals",
+  not_equals: "does not equal",
+  contains: "contains",
+  not_contains: "does not contain",
+  is_empty: "is empty",
+  is_not_empty: "is not empty",
+};
+
+export interface WorkflowStep {
+  id: string;
+  type: "trigger" | "action";
+  service: string;
+  action: string;
+  label: string;
+  config: Record<string, any>;
+}
+
+export interface Workflow {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export default function ClientWorkflow() {
+  const { clientId } = useParams<{ clientId: string }>();
+  const { user, loading, isAdmin, isUser, isVideographer } = useAuth();
+  const navigate = useNavigate();
+  const { language } = useLanguage();
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
+  // Workflow state
+  const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(true);
+  const [workflowSaving, setWorkflowSaving] = useState(false);
+  const [clientName, setClientName] = useState("");
+
+  // Modal states
+  const [showAddStepModal, setShowAddStepModal] = useState(false);
+  const [addStepAfter, setAddStepAfter] = useState<string | null>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [showTestRunModal, setShowTestRunModal] = useState(false);
+  const [testRunResults, setTestRunResults] = useState<TestRunResult | null>(null);
+  const [isTestRunning, setIsTestRunning] = useState(false);
+
+  // Drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, { distance: 8 }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // Fetch client name
+  useEffect(() => {
+    if (!clientId) return;
+    supabase
+      .from("clients")
+      .select("name")
+      .eq("id", clientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setClientName(data.name);
+      });
+  }, [clientId]);
+
+  // Load workflow
+  useEffect(() => {
+    if (!clientId) return;
+    loadWorkflow();
+  }, [clientId]);
+
+  const loadWorkflow = async () => {
+    if (!clientId) return;
+    setWorkflowLoading(true);
+    try {
+      const { data } = await supabase
+        .from("client_workflows")
+        .select("*")
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (data) {
+        setWorkflow(data as Workflow);
+      } else {
+        // Create default workflow
+        const newWorkflow: Workflow = {
+          id: "",
+          client_id: clientId,
+          name: `${clientName} Workflow`,
+          description: "",
+          steps: [
+            {
+              id: "trigger_1",
+              type: "trigger",
+              service: "webhooks",
+              action: "new_facebook_lead",
+              label: "Trigger on new Facebook Lead",
+              config: {},
+            },
+          ],
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setWorkflow(newWorkflow);
+      }
+    } catch (error) {
+      console.error("Error loading workflow:", error);
+      toast.error(language === "en" ? "Failed to load workflow" : "Error al cargar el flujo");
+    } finally {
+      setWorkflowLoading(false);
+    }
+  };
+
+  const handleAddStep = (service: ServiceOption, afterStepId: string | null = null) => {
+    if (!workflow) return;
+
+    const newStep: WorkflowStep = {
+      id: `step_${Date.now()}`,
+      type: "action",
+      service: service.service,
+      action: service.action,
+      label: service.name,
+      config: {},
+    };
+
+    let newSteps = [...workflow.steps];
+    if (afterStepId) {
+      const index = newSteps.findIndex((s) => s.id === afterStepId);
+      if (index >= 0) {
+        newSteps.splice(index + 1, 0, newStep);
+      } else {
+        newSteps.push(newStep);
+      }
+    } else {
+      newSteps.push(newStep);
+    }
+
+    setWorkflow({ ...workflow, steps: newSteps });
+    setEditingStepId(newStep.id);
+    setShowConfigModal(true);
+  };
+
+  const handleDeleteStep = (stepId: string) => {
+    if (!workflow || workflow.steps.length <= 1) {
+      toast.error(language === "en" ? "Cannot delete trigger step" : "No se puede eliminar el paso activador");
+      return;
+    }
+    setWorkflow({
+      ...workflow,
+      steps: workflow.steps.filter((s) => s.id !== stepId),
+    });
+  };
+
+  const handleEditStep = (stepId: string) => {
+    setEditingStepId(stepId);
+    setShowConfigModal(true);
+  };
+
+  const handleUpdateStepConfig = (config: Record<string, any>) => {
+    if (!workflow || !editingStepId) return;
+
+    const updatedSteps = workflow.steps.map((s) => {
+      if (s.id === editingStepId) {
+        const updatedStep = { ...s, config };
+
+        // Auto-generate label for filter steps
+        if (s.service === "filter") {
+          const op = OPERATOR_LABELS[config.operator] ?? config.operator;
+          const val = ["is_empty", "is_not_empty"].includes(config.operator) ? "" : ` "${config.value}"`;
+          updatedStep.label = `Only continue if ${config.field} ${op}${val}`;
+        }
+
+        return updatedStep;
+      }
+      return s;
+    });
+
+    setWorkflow({
+      ...workflow,
+      steps: updatedSteps,
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!workflow || !over || active.id === over.id) return;
+
+    const activeIndex = workflow.steps.findIndex((s) => s.id === active.id);
+    const overIndex = workflow.steps.findIndex((s) => s.id === over.id);
+
+    if (activeIndex === 0) {
+      toast.error(language === "en" ? "Cannot move trigger step" : "No se puede mover el paso activador");
+      return;
+    }
+
+    setWorkflow({
+      ...workflow,
+      steps: arrayMove(workflow.steps, activeIndex, overIndex),
+    });
+  };
+
+  const handleTestRun = async (testData: TestData) => {
+    if (!workflow || !clientId) return;
+    setIsTestRunning(true);
+    setTestRunResults(null);
+
+    try {
+      // Call execute-workflow edge function with test data
+      const { data, error } = await supabase.functions.invoke("execute-workflow", {
+        body: {
+          workflow_id: workflow.id,
+          client_id: clientId,
+          trigger_data: {
+            full_name: testData.full_name,
+            email: testData.email,
+            phone: testData.phone,
+            status: "new",
+            source: "manual_test",
+            created_at: new Date().toISOString(),
+          },
+          steps: workflow.steps,
+        },
+      });
+
+      if (error) {
+        console.error("Test run error:", error);
+        setTestRunResults({
+          status: "failed",
+          error_message: error.message || "Execution failed",
+        });
+      } else if (data) {
+        setTestRunResults({
+          status: data.status === "completed" ? "completed" : "failed",
+          execution_id: data.execution_id,
+          duration: data.duration,
+          steps_executed: data.steps_executed,
+          error_message: data.error_message,
+        });
+      }
+    } catch (err: any) {
+      console.error("Test run exception:", err);
+      setTestRunResults({
+        status: "failed",
+        error_message: err.message || "Unknown error occurred",
+      });
+    } finally {
+      setIsTestRunning(false);
+    }
+  };
+
+  const handleToggleActive = async (active: boolean) => {
+    if (!workflow || !clientId) return;
+
+    const updated = { ...workflow, is_active: active };
+    setWorkflow(updated);
+
+    setWorkflowSaving(true);
+    try {
+      const { data: existing } = await supabase
+        .from("client_workflows")
+        .select("id")
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("client_workflows")
+          .update({
+            is_active: active,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("client_id", clientId);
+      }
+
+      toast.success(
+        active
+          ? (language === "en" ? "Workflow activated" : "Flujo activado")
+          : (language === "en" ? "Workflow paused" : "Flujo pausado")
+      );
+    } catch (error) {
+      console.error("Error toggling workflow:", error);
+      setWorkflow(workflow); // revert on error
+      toast.error(language === "en" ? "Failed to update workflow" : "Error al actualizar el flujo");
+    } finally {
+      setWorkflowSaving(false);
+    }
+  };
+
+  const handleSaveWorkflow = async () => {
+    if (!workflow || !clientId) return;
+    setWorkflowSaving(true);
+
+    try {
+      const { data: existing } = await supabase
+        .from("client_workflows")
+        .select("id")
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("client_workflows")
+          .update({
+            name: workflow.name,
+            description: workflow.description,
+            steps: workflow.steps,
+            is_active: workflow.is_active,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("client_id", clientId);
+      } else {
+        await supabase.from("client_workflows").insert([
+          {
+            client_id: clientId,
+            name: workflow.name,
+            description: workflow.description,
+            steps: workflow.steps,
+            is_active: workflow.is_active,
+          },
+        ]);
+      }
+
+      toast.success(language === "en" ? "Workflow saved" : "Flujo guardado");
+    } catch (error) {
+      console.error("Error saving workflow:", error);
+      toast.error(language === "en" ? "Failed to save workflow" : "Error al guardar el flujo");
+    } finally {
+      setWorkflowSaving(false);
+    }
+  };
+
+  if (loading || workflowLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user || (!isAdmin && !isUser && !isVideographer) || !workflow) {
+    navigate("/dashboard");
+    return null;
+  }
+
+  const editingStep = workflow.steps.find((s) => s.id === editingStepId);
+
+  return (
+    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/workflow" />
+
+      <main className="flex-1 flex flex-col min-h-screen">
+        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+
+        <div className="flex-1 flex flex-col px-6 py-8">
+          {/* Header */}
+          <motion.button
+            onClick={() => navigate(`/clients/${clientId}`)}
+            className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6 w-fit"
+            initial="hidden"
+            animate="visible"
+            custom={0}
+            variants={fadeUp}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {language === "en" ? "Back to client" : "Volver al cliente"}
+          </motion.button>
+
+          {/* Centered Content Wrapper */}
+          <div className="w-full max-w-2xl mx-auto">
+            <motion.div className="mb-8" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+              <div className="flex items-center gap-3 mb-4">
+                <Workflow className="w-8 h-8 text-blue-400" />
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">{clientName} - Workflow</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "en" ? "Zapier-style workflow automation" : "Automatización de flujo tipo Zapier"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Workflow Name & Controls */}
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={workflow.name}
+                    onChange={(e) => setWorkflow({ ...workflow, name: e.target.value })}
+                    className="max-w-sm"
+                    placeholder="Workflow name"
+                  />
+                  <Button
+                    onClick={() => setShowTestRunModal(true)}
+                    disabled={workflowSaving || isTestRunning}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Play className="w-4 h-4" />
+                    {language === "en" ? "Test Run" : "Prueba"}
+                  </Button>
+                  <Button onClick={handleSaveWorkflow} disabled={workflowSaving} className="bg-blue-600 hover:bg-blue-700">
+                    {workflowSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {language === "en" ? "Save" : "Guardar"}
+                  </Button>
+                </div>
+
+                {/* Status Toggle */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Circle
+                    className={`w-3 h-3 ${workflow.is_active ? "fill-green-500 text-green-500" : "fill-slate-400 text-slate-400"}`}
+                  />
+                  <span className="text-sm font-medium">
+                    {workflow.is_active
+                      ? language === "en" ? "Active" : "Activo"
+                      : language === "en" ? "Paused" : "Pausado"}
+                  </span>
+                  <Switch
+                    checked={workflow.is_active}
+                    onCheckedChange={handleToggleActive}
+                    disabled={workflowSaving}
+                    className="ml-auto"
+                  />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Workflow Canvas */}
+            <motion.div
+              className="card-glass-17 p-8"
+              initial="hidden"
+              animate="visible"
+              custom={2}
+              variants={fadeUp}
+            >
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={workflow.steps.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-4">
+                  <AnimatePresence>
+                    {workflow.steps.map((step, idx) => (
+                      <div key={step.id}>
+                        <WorkflowStep
+                          id={step.id}
+                          type={step.type}
+                          service={step.service}
+                          action={step.action}
+                          label={step.label}
+                          stepNumber={idx + 1}
+                          onEdit={() => handleEditStep(step.id)}
+                          onDelete={() => handleDeleteStep(step.id)}
+                        />
+
+                        {/* Add Step Button (between steps) */}
+                        {idx < workflow.steps.length - 1 || true ? (
+                          <motion.div
+                            className="flex justify-center py-2"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                          >
+                            <div className="w-0.5 h-4 bg-gradient-to-b from-purple-500/50 to-transparent" />
+                          </motion.div>
+                        ) : null}
+
+                        {/* Add Step Trigger */}
+                        {idx < workflow.steps.length || true ? (
+                          <motion.div
+                            className="flex justify-center py-2"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                          >
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAddStepAfter(step.id);
+                                setShowAddStepModal(true);
+                              }}
+                              className="h-8 gap-2 text-xs"
+                            >
+                              <Plus className="w-3 h-3" />
+                              {language === "en" ? "Add action" : "Agregar acción"}
+                            </Button>
+                          </motion.div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </SortableContext>
+            </DndContext>
+
+            {/* Add First Action Button (if only trigger) */}
+            {workflow.steps.length === 1 && (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  onClick={() => {
+                    setAddStepAfter(workflow.steps[0].id);
+                    setShowAddStepModal(true);
+                  }}
+                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  {language === "en" ? "Add your first action" : "Agregar tu primera acción"}
+                </Button>
+              </div>
+            )}
+          </motion.div>
+
+            {/* Info Box */}
+            <motion.div
+              className="mt-6 card-glass-17 p-4 bg-blue-500/10 border-blue-500/20"
+              initial="hidden"
+              animate="visible"
+              custom={3}
+              variants={fadeUp}
+            >
+              <p className="text-sm text-muted-foreground">
+                💡 {language === "en" ? "Phase 1: Build your workflow visually. Integrations coming soon." : "Fase 1: Construye tu flujo visualmente. Integraciones próximamente."}
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </main>
+
+      {/* Modals */}
+      <AddStepModal
+        open={showAddStepModal}
+        onOpenChange={setShowAddStepModal}
+        onSelectService={(service) => handleAddStep(service, addStepAfter)}
+      />
+
+      {editingStep && (
+        <StepConfigModal
+          open={showConfigModal}
+          onOpenChange={setShowConfigModal}
+          service={editingStep.service}
+          action={editingStep.action}
+          config={editingStep.config}
+          onSave={handleUpdateStepConfig}
+          clientId={clientId}
+          prevSteps={workflow.steps.slice(0, workflow.steps.findIndex(s => s.id === editingStepId))}
+        />
+      )}
+
+      <TestRunModal
+        open={showTestRunModal}
+        onOpenChange={setShowTestRunModal}
+        onRunTest={handleTestRun}
+        isRunning={isTestRunning}
+        results={testRunResults}
+      />
+    </div>
+  );
+}
