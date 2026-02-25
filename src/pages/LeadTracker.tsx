@@ -21,6 +21,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ArrowLeft,
   Loader2,
   RefreshCw,
@@ -31,6 +39,8 @@ import {
   ExternalLink,
   Users,
   Save,
+  LayoutList,
+  Table2,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -109,6 +119,16 @@ export default function LeadTracker() {
   const [modalOpen, setModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // View mode state (with localStorage persistence)
+  const [viewMode, setViewMode] = useState<"cards" | "table">(() => {
+    return (localStorage.getItem("leadTrackerViewMode") as "cards" | "table") || "cards";
+  });
+
+  const toggleView = (mode: "cards" | "table") => {
+    setViewMode(mode);
+    localStorage.setItem("leadTrackerViewMode", mode);
+  };
 
   // (Lead notifications are now handled globally by LeadNotificationProvider)
 
@@ -195,7 +215,7 @@ export default function LeadTracker() {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ leadId: selectedLead.id, newStatus }),
+          body: JSON.stringify({ leadId: selectedLead.id, newStatus, clientId: urlClientId }),
         }
       );
 
@@ -350,6 +370,24 @@ export default function LeadTracker() {
               ))}
             </SelectContent>
           </Select>
+
+          {/* View toggle: Cards / Table */}
+          <div className="flex items-center border border-border rounded-md overflow-hidden flex-shrink-0">
+            <button
+              onClick={() => toggleView("cards")}
+              className={`px-3 py-2 text-sm transition-colors ${viewMode === "cards" ? "bg-accent/20 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              title="Card view"
+            >
+              <LayoutList className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => toggleView("table")}
+              className={`px-3 py-2 text-sm border-l border-border transition-colors ${viewMode === "table" ? "bg-accent/20 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              title="Table view"
+            >
+              <Table2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Error */}
@@ -373,7 +411,7 @@ export default function LeadTracker() {
           </div>
         )}
 
-        {!loading && filtered.length > 0 && (
+        {!loading && filtered.length > 0 && viewMode === "cards" && (
           <div className="space-y-3">
             {filtered.map((lead) => (
               <div
@@ -459,6 +497,67 @@ export default function LeadTracker() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {!loading && filtered.length > 0 && viewMode === "table" && (
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">#</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Campaign</TableHead>
+                  {isStaff && <TableHead>Client</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((lead, idx) => (
+                  <TableRow
+                    key={lead.id}
+                    onClick={() => openLeadDetail(lead)}
+                    className="cursor-pointer hover:bg-accent/10"
+                  >
+                    <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
+                    <TableCell className="font-medium">{lead.fullName || na}</TableCell>
+                    <TableCell>
+                      {lead.leadStatus && (
+                        <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[lead.leadStatus] || "bg-muted text-muted-foreground"}`}>
+                          {lead.leadStatus}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {lead.leadSource && (
+                        <Badge variant="secondary" className={`text-[10px] ${SOURCE_COLORS[lead.leadSource] || ""}`}>
+                          {lead.leadSource}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{lead.email || na}</TableCell>
+                    <TableCell className="text-xs">
+                      {lead.phone ? (
+                        <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">
+                          {lead.phone}
+                        </a>
+                      ) : (
+                        na
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {lead.createdDate ? new Date(lead.createdDate).toLocaleDateString("es-MX") : na}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{lead.campaignName || ""}</TableCell>
+                    {isStaff && <TableCell className="text-xs">{lead.client || ""}</TableCell>}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </main>

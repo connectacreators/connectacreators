@@ -129,6 +129,52 @@ serve(async (req) => {
 
     const updated = await notionRes.json();
 
+    // Fire workflows watching this status change (Phase 2 — Lead Status Changed trigger)
+    const { clientId } = await req.json();
+    if (clientId) {
+      try {
+        const adminClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+
+        const { data: workflows } = await adminClient
+          .from("client_workflows")
+          .select("*")
+          .eq("client_id", clientId)
+          .eq("trigger_type", "lead_status_changed")
+          .eq("is_active", true);
+
+        for (const workflow of workflows || []) {
+          if (workflow.trigger_config?.status_to_watch === newStatus) {
+            // Invoke execute-workflow
+            await adminClient.functions.invoke("execute-workflow", {
+              body: {
+                workflow_id: workflow.id,
+                client_id: clientId,
+                trigger_data: {
+                  notion_page_id: leadId,
+                  status: newStatus,
+                  client_id: clientId,
+                  triggered_at: new Date().toISOString(),
+                },
+                steps: workflow.steps,
+              },
+            });
+
+            // Update last_triggered_at
+            await adminClient
+              .from("client_workflows")
+              .update({ last_triggered_at: new Date().toISOString() })
+              .eq("id", workflow.id);
+          }
+        }
+      } catch (wfErr) {
+        console.error("Workflow fire error (non-fatal):", wfErr);
+        // Non-fatal — don't fail the status update if workflow trigger fails
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, id: updated.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

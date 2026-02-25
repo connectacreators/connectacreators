@@ -1,12 +1,9 @@
-project_id = "gtuaxxlrmyeplnarfmqc"
+project_id = "hxojqrilwhhrvloiwmfo"
 
 [functions.categorize-script]
 verify_jwt = false
 
 [functions.create-videographer]
-verify_jwt = false
-
-[functions.reset-password-admin]
 verify_jwt = false
 
 [functions.fetch-leads]
@@ -43,4 +40,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.transcribe-video]
+verify_jwt = false
+
+[functions.execute-workflow]
+verify_jwt = false
+
+[functions.get-notion-db-schema]
+verify_jwt = false
+
+[functions.run-scheduled-workflows]
 verify_jwt = false

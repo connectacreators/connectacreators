@@ -130,7 +130,24 @@ export default function ClientWorkflow() {
         .order("created_at", { ascending: true });
 
       if (data && data.length > 0) {
-        setWorkflows(data as Workflow[]);
+        // Restore trigger_type and trigger_config into trigger step config
+        const processedWorkflows = (data as Workflow[]).map(w => ({
+          ...w,
+          steps: (w.steps as WorkflowStep[]).map(step => {
+            if (step.type === "trigger") {
+              return {
+                ...step,
+                config: {
+                  trigger_type: (w as any).trigger_type || 'new_lead',
+                  ...((w as any).trigger_config || {}),
+                  ...step.config,
+                }
+              };
+            }
+            return step;
+          })
+        }));
+        setWorkflows(processedWorkflows);
         setSelectedWorkflowId(data[0].id);
       } else {
         // Create default workflow
@@ -146,7 +163,7 @@ export default function ClientWorkflow() {
               service: "webhooks",
               action: "new_facebook_lead",
               label: "Trigger on new Facebook Lead",
-              config: {},
+              config: { trigger_type: 'new_lead' },
             },
           ],
           is_active: true,
@@ -412,6 +429,11 @@ export default function ClientWorkflow() {
     setWorkflowSaving(true);
 
     try {
+      // Extract trigger_type and trigger_config from trigger step
+      const triggerStep = workflow.steps.find(s => s.type === "trigger");
+      const triggerType = triggerStep?.config?.trigger_type || 'new_lead';
+      const { trigger_type: _, ...triggerConfig } = triggerStep?.config || {};
+
       if (workflow.id) {
         // Update existing workflow
         await supabase
@@ -421,6 +443,8 @@ export default function ClientWorkflow() {
             description: workflow.description,
             steps: workflow.steps,
             is_active: workflow.is_active,
+            trigger_type: triggerType,
+            trigger_config: triggerConfig,
             updated_at: new Date().toISOString(),
           })
           .eq("id", workflow.id);
@@ -433,6 +457,8 @@ export default function ClientWorkflow() {
             description: workflow.description,
             steps: workflow.steps,
             is_active: workflow.is_active,
+            trigger_type: triggerType,
+            trigger_config: triggerConfig,
           },
         ]).select();
 
@@ -588,7 +614,9 @@ export default function ClientWorkflow() {
                 <div className="flex items-center gap-2">
                   <Input
                     value={workflow.name}
-                    onChange={(e) => setWorkflow({ ...workflow, name: e.target.value })}
+                    onChange={(e) => setWorkflows(workflows.map(w =>
+                      w.id === workflow.id ? { ...workflow, name: e.target.value } : w
+                    ))}
                     className="max-w-sm"
                     placeholder="Workflow name"
                   />

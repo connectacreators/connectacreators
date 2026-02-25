@@ -175,45 +175,136 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
   // Render form based on service type
   const renderForm = () => {
     switch (service) {
-      case "webhooks":
+      case "webhooks": {
+        // Trigger Type Selector for Phase 2
+        const TRIGGER_TYPES = [
+          { id: 'new_lead', label: 'New Lead', desc: '📥 When new Facebook lead arrives', color: 'blue' },
+          { id: 'lead_status_changed', label: 'Lead Status Changed', desc: '🔄 When lead status changes to...', color: 'orange' },
+          { id: 'schedule', label: 'Schedule', desc: '🕐 Run on a recurring schedule', color: 'purple' },
+          { id: 'manual', label: 'Manual', desc: '▶ Triggered only by Test Run button', color: 'green' },
+        ];
+
+        const ALL_STATUSES = [
+          "Meta Ad (Not Booked)", "Appointment Booked", "Canceled",
+          "Follow up #1 (Not Booked)", "Follow up #2 (Not Booked)", "Follow up #3 (Not Booked)",
+        ];
+
+        const SCHEDULE_PRESETS = [
+          { value: 'daily_9am', label: 'Every day at 9am' },
+          { value: 'monday_9am', label: 'Every Monday at 9am' },
+          { value: 'monthly_1st', label: '1st of every month at 9am' },
+        ];
+
+        const selectedTriggerType = formData.trigger_type || 'new_lead';
+
         return (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="form_id">Facebook Form ID (optional)</Label>
-              <Input
-                id="form_id"
-                placeholder="Leave empty to accept all forms"
-                value={formData.facebook_form_id || ""}
-                onChange={(e) => setFormData({ ...formData, facebook_form_id: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">Only trigger when leads come from this specific Facebook form ID</p>
-            </div>
-
-            {/* Test Trigger Button */}
-            <div className="space-y-2">
-              <Button onClick={handleTest} disabled={testing} variant="outline" size="sm" className="w-full gap-2">
-                {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                {testData ? "Re-test Trigger" : "Test Trigger"}
-              </Button>
-              {testError && <p className="text-xs text-destructive bg-red-500/10 px-2 py-1 rounded">{testError}</p>}
-            </div>
-
-            {/* Sample Data Display */}
-            {testData && (
-              <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-green-400 mb-2">✓ Found a lead! Available data:</p>
-                {TRIGGER_FIELDS.map((f) =>
-                  testData[f.key] ? (
-                    <div key={f.key} className="flex items-start gap-2 text-xs">
-                      <span className="text-muted-foreground min-w-fit">{f.label}:</span>
-                      <span className="font-mono bg-muted/40 px-1.5 py-0.5 rounded text-foreground flex-1 break-words">{String(testData[f.key]).slice(0, 50)}</span>
-                    </div>
-                  ) : null
-                )}
+            {/* Trigger Type Cards */}
+            <div>
+              <Label className="mb-2 block text-xs font-semibold">Trigger Type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {TRIGGER_TYPES.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setFormData({ ...formData, trigger_type: type.id })}
+                    className={`p-3 rounded-lg border-2 transition-all text-left text-sm ${
+                      selectedTriggerType === type.id
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-muted bg-muted/50 hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <div className="font-semibold text-xs">{type.label}</div>
+                    <div className="text-xs text-muted-foreground">{type.desc}</div>
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+
+            {/* Type-Specific Config */}
+            <div className="border-t border-muted pt-4">
+              {selectedTriggerType === 'new_lead' && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="form_id">Facebook Form ID (optional)</Label>
+                    <Input
+                      id="form_id"
+                      placeholder="Leave empty to accept all forms"
+                      value={formData.facebook_form_id || ""}
+                      onChange={(e) => setFormData({ ...formData, facebook_form_id: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">Only trigger when leads come from this specific Facebook form ID</p>
+                  </div>
+
+                  {/* Test Trigger Button */}
+                  <div className="space-y-2">
+                    <Button onClick={handleTest} disabled={testing} variant="outline" size="sm" className="w-full gap-2">
+                      {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                      {testData ? "Re-test Trigger" : "Test Trigger"}
+                    </Button>
+                    {testError && <p className="text-xs text-destructive bg-red-500/10 px-2 py-1 rounded">{testError}</p>}
+                  </div>
+
+                  {/* Sample Data Display */}
+                  {testData && (
+                    <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-3 space-y-1.5">
+                      <p className="text-xs font-semibold text-green-400 mb-2">✓ Found a lead! Available data:</p>
+                      {TRIGGER_FIELDS.map((f) =>
+                        testData[f.key] ? (
+                          <div key={f.key} className="flex items-start gap-2 text-xs">
+                            <span className="text-muted-foreground min-w-fit">{f.label}:</span>
+                            <span className="font-mono bg-muted/40 px-1.5 py-0.5 rounded text-foreground flex-1 break-words">{String(testData[f.key]).slice(0, 50)}</span>
+                          </div>
+                        ) : null
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedTriggerType === 'lead_status_changed' && (
+                <div className="space-y-2">
+                  <Label htmlFor="status_to_watch">Trigger when lead status changes to:</Label>
+                  <Select value={formData.status_to_watch || ""} onValueChange={(value) => setFormData({ ...formData, status_to_watch: value })}>
+                    <SelectTrigger id="status_to_watch">
+                      <SelectValue placeholder="Select a status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_STATUSES.map((status) => (
+                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">This workflow will fire whenever a lead's status is updated to the selected value</p>
+                </div>
+              )}
+
+              {selectedTriggerType === 'schedule' && (
+                <div className="space-y-2">
+                  <Label htmlFor="schedule_preset">Schedule Preset:</Label>
+                  <Select value={formData.schedule_preset || ""} onValueChange={(value) => setFormData({ ...formData, schedule_preset: value })}>
+                    <SelectTrigger id="schedule_preset">
+                      <SelectValue placeholder="Select a schedule..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCHEDULE_PRESETS.map((preset) => (
+                        <SelectItem key={preset.value} value={preset.value}>{preset.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">This workflow will run automatically on the selected schedule. Setup cron in Supabase Dashboard after deploying.</p>
+                </div>
+              )}
+
+              {selectedTriggerType === 'manual' && (
+                <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
+                  <p className="text-sm text-blue-300 font-medium">Manual Trigger</p>
+                  <p className="text-xs text-blue-200 mt-1">This workflow is only triggered when you click the "Test Run" button. No automatic triggers will fire this workflow.</p>
+                </div>
+              )}
+            </div>
           </div>
         );
+      }
 
       case "email":
         return (
