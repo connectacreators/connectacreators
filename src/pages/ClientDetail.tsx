@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Workflow } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import AnimatedDots from "@/components/ui/AnimatedDots";
@@ -41,6 +41,15 @@ export default function ClientDetail() {
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Notion mapping state (admin-only)
+  const [showNotionDialog, setShowNotionDialog] = useState(false);
+  const [notionDbId, setNotionDbId] = useState("");
+  const [notionTitleProp, setNotionTitleProp] = useState("Reel title");
+  const [notionScriptProp, setNotionScriptProp] = useState("Script");
+  const [notionFootageProp, setNotionFootageProp] = useState("Footage");
+  const [notionFileSubmissionProp, setNotionFileSubmissionProp] = useState("File Submission");
+  const [notionLoading, setNotionLoading] = useState(false);
+
   const canViewClient = isAdmin || isVideographer || isUser;
 
   useEffect(() => {
@@ -60,6 +69,51 @@ export default function ClientDetail() {
   }, [clientId, user]);
 
   const isOwnedByUser = isUser && clientOwnerId === user?.id;
+
+  // Fetch existing Notion mapping for admin
+  useEffect(() => {
+    if (!clientId || !isAdmin) return;
+    supabase
+      .from("client_notion_mapping")
+      .select("notion_database_id, title_property, script_property, footage_property, file_submission_property")
+      .eq("client_id", clientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setNotionDbId(data.notion_database_id || "");
+          setNotionTitleProp(data.title_property || "Reel title");
+          setNotionScriptProp(data.script_property || "Script");
+          setNotionFootageProp(data.footage_property || "Footage");
+          setNotionFileSubmissionProp(data.file_submission_property || "File Submission");
+        }
+      });
+  }, [clientId, isAdmin]);
+
+  const handleSaveNotion = async () => {
+    if (!clientId || !notionDbId.trim()) return;
+    setNotionLoading(true);
+    // Strip any URL prefix or view param — keep just the 32-char ID
+    const rawId = notionDbId.trim().split("?")[0].replace(/-/g, "").slice(-32);
+    const { error } = await supabase.from("client_notion_mapping").upsert(
+      {
+        client_id: clientId,
+        notion_database_id: rawId,
+        title_property: notionTitleProp.trim() || "Reel title",
+        script_property: notionScriptProp.trim() || "Script",
+        footage_property: notionFootageProp.trim() || "Footage",
+        file_submission_property: notionFileSubmissionProp.trim() || "File Submission",
+      },
+      { onConflict: "client_id" }
+    );
+    if (error) {
+      toast.error("Error saving Notion settings");
+    } else {
+      toast.success("Notion database linked successfully");
+      setNotionDbId(rawId);
+      setShowNotionDialog(false);
+    }
+    setNotionLoading(false);
+  };
 
   const handleEditClient = async () => {
     if (!clientId || !editName.trim()) return;
@@ -149,6 +203,13 @@ export default function ClientDetail() {
       color: "text-rose-400",
       path: `/clients/${clientId}/editing-queue`,
     },
+    {
+      label: "Workflow",
+      description: language === "en" ? "Facebook Leads Integration & automation" : "Integración de Leads de Facebook y automatización",
+      icon: Workflow,
+      color: "text-blue-400",
+      path: `/clients/${clientId}/workflow`,
+    },
   ];
 
   return (
@@ -196,6 +257,15 @@ export default function ClientDetail() {
                   >
                     <Pencil className="w-3 h-3" />
                   </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowNotionDialog(true)}
+                      className={`p-1 rounded-md transition-colors ${notionDbId ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
+                      title="Notion database settings"
+                    >
+                      <Database className="w-3 h-3" />
+                    </button>
+                  )}
                   {isOwnedByUser && (
                     <button
                       onClick={() => setShowDeleteAlert(true)}
@@ -224,7 +294,7 @@ export default function ClientDetail() {
                 <motion.button
                   key={tool.path}
                   onClick={() => navigate(tool.path)}
-                  className="group flex flex-col items-center gap-5 p-8 rounded-2xl border border-border/50 bg-card/30 hover:border-primary/30 transition-colors text-center relative"
+                  className="group flex flex-col items-center gap-5 p-8 text-center card-glass-17"
                   initial="hidden"
                   animate="visible"
                   custom={i + 3}
@@ -270,6 +340,59 @@ export default function ClientDetail() {
             <Button onClick={handleEditClient} disabled={editLoading || !editName.trim()}>
               {editLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {language === "en" ? "Save" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notion Settings Dialog (admin-only) */}
+      <Dialog open={showNotionDialog} onOpenChange={setShowNotionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-400" />
+              Notion Database Settings
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Notion Database ID</Label>
+              <Input
+                placeholder="e.g. 29ad6442e09c805a927de6e3fdb6112c"
+                value={notionDbId}
+                onChange={(e) => setNotionDbId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Paste the database ID or full Notion URL — the ID will be extracted automatically.</p>
+            </div>
+            <div className="border-t border-border/50 pt-3">
+              <p className="text-xs text-muted-foreground mb-3 font-medium">Property names in Notion</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Title property</Label>
+                  <Input className="h-8 text-xs" value={notionTitleProp} onChange={(e) => setNotionTitleProp(e.target.value)} placeholder="Reel title" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Script property</Label>
+                  <Input className="h-8 text-xs" value={notionScriptProp} onChange={(e) => setNotionScriptProp(e.target.value)} placeholder="Script" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Footage property</Label>
+                  <Input className="h-8 text-xs" value={notionFootageProp} onChange={(e) => setNotionFootageProp(e.target.value)} placeholder="Footage" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">File submission property</Label>
+                  <Input className="h-8 text-xs" value={notionFileSubmissionProp} onChange={(e) => setNotionFileSubmissionProp(e.target.value)} placeholder="File Submission" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotionDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNotion} disabled={notionLoading || !notionDbId.trim()}>
+              {notionLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

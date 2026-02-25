@@ -35,6 +35,8 @@ import {
   Mail,
   Phone,
   MessageSquare,
+  ImageUp,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -88,6 +90,7 @@ type BookingSettingsData = {
   secondary_color: string;
   break_times: BreakTime[];
   zapier_webhook_url: string | null;
+  logo_url: string | null;
 };
 
 export default function BookingSettings() {
@@ -105,6 +108,7 @@ export default function BookingSettings() {
   const [copied, setCopied] = useState<"link" | "embed" | null>(null);
   const [bookings, setBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const bookingUrl = `https://connectacreators.com/book/${clientId}`;
   const embedCode = `<iframe src="${bookingUrl}" width="100%" height="700" frameborder="0" style="border:none;border-radius:16px;"></iframe>`;
@@ -137,6 +141,7 @@ export default function BookingSettings() {
         secondary_color: "#1A1A1A",
         break_times: [],
         zapier_webhook_url: null,
+        logo_url: null,
       });
     }
     setLoading(false);
@@ -184,6 +189,7 @@ export default function BookingSettings() {
       secondary_color: settings.secondary_color,
       break_times: settings.break_times,
       zapier_webhook_url: settings.zapier_webhook_url,
+      logo_url: settings.logo_url,
     };
 
     let error;
@@ -217,6 +223,34 @@ export default function BookingSettings() {
     setCopied(type);
     toast.success("Copiado al portapapeles");
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !clientId) return;
+    setLogoUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${clientId}/logo.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("booking-logos")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("booking-logos").getPublicUrl(path);
+      setSettings((s) => s ? { ...s, logo_url: publicUrl } : s);
+      toast.success("Logo subido correctamente");
+    } catch (err) {
+      toast.error("Error subiendo el logo");
+    } finally {
+      setLogoUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!settings || !clientId) return;
+    setSettings({ ...settings, logo_url: null });
+    toast.success("Logo eliminado");
   };
 
   if (authLoading || loading) {
@@ -358,6 +392,47 @@ export default function BookingSettings() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block flex items-center gap-1">
+                <ImageUp className="w-3 h-3" /> Logo del Calendario Público
+              </Label>
+              <p className="text-[10px] text-muted-foreground mb-3">Se muestra en la cabecera de tu página de reservas. Máx. 2MB.</p>
+              <div className="flex items-center gap-3">
+                {settings.logo_url ? (
+                  <div className="relative w-20 h-20 rounded-xl border border-border bg-card/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                    <button
+                      onClick={handleLogoRemove}
+                      className="absolute top-1 right-1 w-4 h-4 rounded-full bg-destructive/80 flex items-center justify-center hover:bg-destructive transition-colors"
+                    >
+                      <X className="w-2.5 h-2.5 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-xl border border-dashed border-border bg-card/30 flex items-center justify-center flex-shrink-0">
+                    <ImageUp className="w-6 h-6 text-muted-foreground/40" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                      disabled={logoUploading}
+                    />
+                    <span className={`inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border text-xs font-medium transition-colors hover:bg-accent/10 ${logoUploading ? "opacity-50 pointer-events-none" : ""}`}>
+                      {logoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageUp className="w-3.5 h-3.5" />}
+                      {settings.logo_url ? "Cambiar logo" : "Subir logo"}
+                    </span>
+                  </label>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">PNG, JPG, WebP o SVG</p>
+                </div>
               </div>
             </div>
 

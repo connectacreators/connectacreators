@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) {
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { signOut } = useAuth();
@@ -25,7 +27,7 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
       <div className="border-b border-border/50 px-4 py-3 flex items-center gap-3 lg:hidden">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className="hover:opacity-80 transition-opacity focus:outline-none"
         >
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
@@ -49,8 +51,8 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
       {!sidebarOpen && (
         <div className="border-b border-border/50 px-4 py-3 hidden lg:flex items-center gap-3">
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => navigate("/")}
+            className="hover:opacity-80 transition-opacity focus:outline-none"
           >
             <img
               src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}

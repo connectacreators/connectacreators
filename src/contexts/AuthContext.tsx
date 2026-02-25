@@ -107,14 +107,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, fullName?: string) => {
+    // Sign up without email verification requirement
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        // Don't send confirmation email - user can login immediately
         emailRedirectTo: `${window.location.origin}/dashboard`,
         data: { full_name: fullName || email },
       },
     });
+
+    // Note: With Supabase auto-confirm disabled, users can login right away
     return { error };
   }, []);
 

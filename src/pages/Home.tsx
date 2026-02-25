@@ -95,7 +95,7 @@ export default function Home() {
             <LanguageToggle />
             <ThemeToggle />
             <Link to="/dashboard">
-              <button className="rounded-full border border-foreground/20 px-5 py-1.5 text-sm font-medium text-foreground hover:bg-foreground/5 transition-colors">
+              <button className="btn-17 btn-17-secondary px-5 py-1.5 text-sm font-medium">
                 {tr(t.home.cta, language)}
               </button>
             </Link>
@@ -114,7 +114,7 @@ export default function Home() {
             transition={{ duration: 0.4 }}
             className="mb-8"
           >
-            <span className="inline-block rounded-full border border-foreground/15 px-4 py-1.5 text-xs tracking-widest uppercase text-muted-foreground">
+            <span className="btn-17 btn-17-secondary inline-block px-4 py-1.5 text-xs tracking-widest uppercase">
               AI + Social Media
             </span>
           </motion.div>
@@ -151,7 +151,7 @@ export default function Home() {
             transition={{ delay: 0.7, duration: 0.4 }}
           >
             <Link to="/dashboard">
-              <button className="rounded-full border border-primary/40 bg-primary/10 px-8 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+              <button className="btn-17 btn-17-hero px-8 py-3 text-sm font-semibold tracking-wide">
                 {tr(t.home.cta, language)}
               </button>
             </Link>
@@ -185,14 +185,14 @@ export default function Home() {
           {features.map((f, i) => (
             <motion.div
               key={i}
-              className={`rounded-2xl border p-8 transition-colors group ${f.disabled ? "border-border/20 bg-card/10 opacity-50" : "border-border/50 bg-card/30 hover:border-primary/30"}`}
+              className={`p-8 group ${f.disabled ? "card-glass-17 opacity-40 pointer-events-none" : "card-glass-17"}`}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
               custom={i + 2}
               variants={fadeUp}
             >
-              <div className={`w-12 h-12 rounded-full border flex items-center justify-center mb-6 transition-colors ${f.disabled ? "border-foreground/5" : "border-foreground/10 group-hover:border-primary/30"}`}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mb-6 transition-all" style={{background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.14)',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.15)'}}>
                 <f.icon className={`w-5 h-5 transition-colors ${f.disabled ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-primary"}`} />
               </div>
               <h3 className={`font-semibold text-lg mb-3 tracking-tight ${f.disabled ? "text-foreground/40" : ""}`}>{f.title}</h3>
@@ -239,7 +239,7 @@ export default function Home() {
                 <span className="text-6xl font-bold text-foreground/10">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <div className="w-14 h-14 rounded-full border border-foreground/10 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.13)',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.15),0 4px 16px rgba(0,0,0,0.2)'}}>
                   <s.icon className="w-6 h-6 text-muted-foreground" />
                 </div>
                 <p className="font-medium text-sm text-muted-foreground">{s.label}</p>
@@ -280,7 +280,7 @@ export default function Home() {
             variants={fadeUp}
           >
             <Link to="/dashboard">
-              <button className="rounded-full border border-primary/40 bg-primary/10 px-8 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+              <button className="btn-17 btn-17-hero px-8 py-3 text-sm font-semibold tracking-wide">
                 {tr(t.home.cta, language)}
               </button>
             </Link>

@@ -44,8 +44,8 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const systemPrompt = `You are a script analysis assistant for video production. Given a raw script, you must:
 
@@ -76,17 +76,19 @@ Rules:
 - When in doubt between filming and editor: if it happens during the shoot → filming, if it happens in post → editor`;
 
     const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      "https://api.anthropic.com/v1/messages",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 4096,
+          system: systemPrompt,
           messages: [
-            { role: "system", content: systemPrompt },
             {
               role: "user",
               content: `Analyze this script and extract metadata + categorize lines:\n\n${rawScript}`,
@@ -94,55 +96,52 @@ Rules:
           ],
           tools: [
             {
-              type: "function",
-              function: {
-                name: "categorize_script",
-                description:
-                  "Return extracted metadata and categorized script lines as structured data",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    idea_ganadora: {
-                      type: "string",
-                      description: "The winning idea/hook of the video",
-                    },
-                    target: {
-                      type: "string",
-                      description: "The target audience for this content",
-                    },
-                    formato: {
-                      type: "string",
-                      enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"],
-                      description: "The video format detected from the script",
-                    },
-                    lines: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          line_type: {
-                            type: "string",
-                            enum: ["filming", "actor", "editor"],
-                          },
-                          section: {
-                            type: "string",
-                            enum: ["hook", "body", "cta"],
-                            description: "Which section of the script this line belongs to",
-                          },
-                          text: { type: "string" },
+              name: "categorize_script",
+              description:
+                "Return extracted metadata and categorized script lines as structured data",
+              input_schema: {
+                type: "object",
+                properties: {
+                  idea_ganadora: {
+                    type: "string",
+                    description: "The winning idea/hook of the video",
+                  },
+                  target: {
+                    type: "string",
+                    description: "The target audience for this content",
+                  },
+                  formato: {
+                    type: "string",
+                    enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"],
+                    description: "The video format detected from the script",
+                  },
+                  lines: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        line_type: {
+                          type: "string",
+                          enum: ["filming", "actor", "editor"],
                         },
-                        required: ["line_type", "section", "text"],
-                        additionalProperties: false,
+                        section: {
+                          type: "string",
+                          enum: ["hook", "body", "cta"],
+                          description: "Which section of the script this line belongs to",
+                        },
+                        text: { type: "string" },
                       },
+                      required: ["line_type", "section", "text"],
+                      additionalProperties: false,
                     },
                   },
-                  required: ["idea_ganadora", "target", "formato", "lines"],
-                  additionalProperties: false,
                 },
+                required: ["idea_ganadora", "target", "formato", "lines"],
+                additionalProperties: false,
               },
             },
           ],
-          tool_choice: "auto",
+          tool_choice: { type: "tool", name: "categorize_script" },
         }),
       }
     );
@@ -166,20 +165,16 @@ Rules:
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const messageContent = data.content || [];
     let parsed;
-    if (toolCall) {
-      parsed = JSON.parse(toolCall.function.arguments);
+
+    // Find the tool use block in the response
+    const toolUseBlock = messageContent.find((block: any) => block.type === "tool_use");
+    if (toolUseBlock && toolUseBlock.input) {
+      parsed = toolUseBlock.input;
     } else {
-      // Fallback: try to parse from message content (Gemini sometimes returns JSON directly)
-      const content = data.choices?.[0]?.message?.content || "";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        console.error("No tool call and no JSON in response:", JSON.stringify(data));
-        throw new Error("AI did not return structured data");
-      }
+      console.error("No tool use block in response:", JSON.stringify(data));
+      throw new Error("AI did not return structured data");
     }
 
     return new Response(JSON.stringify(parsed), {

@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play,
+  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import AIScriptWizard from "@/components/AIScriptWizard";
@@ -28,7 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import AnimatedDots from "@/components/ui/AnimatedDots";
 
@@ -125,6 +125,7 @@ function SortableLineItem({
   updateScriptLine,
   deleteScriptLine,
   setParsedLines,
+  pushUndo,
 }: {
   line: ScriptLine;
   lineKey: string;
@@ -138,11 +139,12 @@ function SortableLineItem({
   updateScriptLine: (scriptId: string, lineNumber: number, text: string) => Promise<boolean>;
   deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
   setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
+  pushUndo: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lineKey });
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease-out",
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : undefined,
   };
@@ -181,6 +183,7 @@ function SortableLineItem({
           }
           const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
           if (ok) {
+            pushUndo();
             setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
           }
         }}
@@ -201,6 +204,7 @@ function SortableLineItem({
                 if (viewingScriptId && editLineText.trim()) {
                   const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
                   if (ok) {
+                    pushUndo();
                     setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
                   }
                 }
@@ -212,6 +216,7 @@ function SortableLineItem({
               if (viewingScriptId && editLineText.trim()) {
                 const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
                 if (ok) {
+                  pushUndo();
                   setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
                 }
               }
@@ -237,6 +242,7 @@ function SortableLineItem({
             if (!viewingScriptId) return;
             const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
             if (ok) {
+              pushUndo();
               setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
             }
           }}
@@ -263,6 +269,7 @@ function SortableSection({
   deleteScriptLine,
   setParsedLines,
   reorderSectionLines,
+  pushUndo,
 }: {
   sectionLines: ScriptLine[];
   section: string;
@@ -277,10 +284,22 @@ function SortableSection({
   deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
   setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
   reorderSectionLines: (scriptId: string, section: string, orderedLines: ScriptLine[]) => Promise<boolean>;
+  pushUndo: () => void;
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+        delay: 0,
+        tolerance: 5
+      }
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 100,
+        tolerance: 5
+      }
+    })
   );
 
   const itemIds = sectionLines.map((_, i) => `${section}-${i}`);
@@ -297,6 +316,9 @@ function SortableSection({
     const reordered = [...sectionLines];
     const [moved] = reordered.splice(oldIndex, 1);
     reordered.splice(newIndex, 0, moved);
+
+    // Snapshot for undo
+    pushUndo();
 
     // Update parsedLines optimistically
     setParsedLines((prev) => {
@@ -416,6 +438,11 @@ export default function Scripts() {
   const [aiMode, setAiMode] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
+  // Script history
+  const [showHistory, setShowHistory] = useState(false);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+
   // Create videographer form (admin)
   const [showNewVideographer, setShowNewVideographer] = useState(false);
   const [vidUsername, setVidUsername] = useState("");
@@ -433,6 +460,9 @@ export default function Scripts() {
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<"name" | "email" | null>(null);
   const [editValue, setEditValue] = useState("");
+
+  // Undo/Redo stack
+  const undoStack = useRef<ScriptLine[][]>([]);
 
   // Listen for PASSWORD_RECOVERY event from AuthProvider
   useEffect(() => {
@@ -575,6 +605,97 @@ export default function Scripts() {
     }
     setAutoOpenScriptTitle(null);
   }, [autoOpenScriptTitle, scriptsLoading, scripts]);
+
+  // Undo/Redo helper
+  const pushUndo = useCallback(() => {
+    undoStack.current = [...undoStack.current.slice(-29), [...parsedLines]];
+  }, [parsedLines]);
+
+  // Keyboard listener for Ctrl+Z / Cmd+Z undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isUndo = (e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey;
+      if (!isUndo) return;
+
+      // Don't intercept if focused in a text input/textarea
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (undoStack.current.length === 0 || !viewingScriptId) return;
+
+      e.preventDefault();
+      const previousLines = undoStack.current.pop();
+      if (!previousLines) return;
+
+      setParsedLines(previousLines);
+
+      // Sync each section back to DB
+      const sections = ['hook', 'body', 'cta'] as const;
+      for (const section of sections) {
+        const sectionLines = previousLines.filter(l => l.section === section);
+        reorderSectionLines(viewingScriptId, section, sectionLines);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewingScriptId, reorderSectionLines]);
+
+  // Fetch script versions
+  const fetchVersions = useCallback(async () => {
+    if (!viewingScriptId) return;
+    setVersionsLoading(true);
+    try {
+      const { data } = await supabase
+        .from("script_versions")
+        .select("id, version_number, created_at")
+        .eq("script_id", viewingScriptId)
+        .order("created_at", { ascending: false });
+      setVersions(data || []);
+    } catch (e) {
+      console.error("Error fetching versions:", e);
+      toast.error("Error loading script history");
+    } finally {
+      setVersionsLoading(false);
+    }
+  }, [viewingScriptId]);
+
+  // Restore a previous version
+  const restoreVersion = useCallback(async (versionId: string) => {
+    if (!viewingScriptId) return;
+    try {
+      const { data: version } = await supabase
+        .from("script_versions")
+        .select("raw_content")
+        .eq("id", versionId)
+        .single();
+
+      if (!version) {
+        toast.error("Version not found");
+        return;
+      }
+
+      // Update the current script with the restored content
+      const { error } = await supabase
+        .from("scripts")
+        .update({ raw_content: version.raw_content })
+        .eq("id", viewingScriptId);
+
+      if (error) throw error;
+
+      // Reload the script
+      const result = await getScriptLines(viewingScriptId);
+      if (result) {
+        setParsedLines(result);
+      }
+
+      toast.success(tr({ en: "Script restored successfully", es: "Script restaurado correctamente" }, language));
+      setShowHistory(false);
+    } catch (e) {
+      console.error("Error restoring version:", e);
+      toast.error(tr({ en: "Error restoring version", es: "Error al restaurar versión" }, language));
+    }
+  }, [viewingScriptId, language]);
 
   // Auth loading
   if (authLoading || subscriptionChecking) {
@@ -1573,6 +1694,18 @@ export default function Scripts() {
               <div className="flex gap-1.5 flex-shrink-0">
                 <Button
                   onClick={() => {
+                    fetchVersions();
+                    setShowHistory(true);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs sm:text-sm"
+                  title={tr({ en: "View script history", es: "Ver historial del script" }, language)}
+                >
+                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr({ en: "History", es: "Historial" }, language)}</span>
+                </Button>
+                <Button
+                  onClick={() => {
                     const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
                     navigator.clipboard.writeText(publicUrl);
                     toast.success(tr(t.scripts.publicLinkCopied, language));
@@ -1772,6 +1905,58 @@ export default function Scripts() {
               {namePromptLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {tr(t.scripts.saveName, language)}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="sm:max-w-md bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              {tr({ en: "Script History", es: "Historial del Script" }, language)}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {versionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : versions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {tr({ en: "No previous versions", es: "Sin versiones previas" }, language)}
+              </p>
+            ) : (
+              versions.map((version, idx) => (
+                <div
+                  key={version.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/50 hover:bg-card/80 transition-smooth group"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-xs font-semibold text-primary flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {tr({ en: "Version", es: "Versión" }, language)} {version.version_number}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(version.created_at).toLocaleString(language === "es" ? "es-MX" : "en-US")}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => restoreVersion(version.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="text-xs">{tr({ en: "Restore", es: "Restaurar" }, language)}</span>
+                  </Button>
+                </div>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>

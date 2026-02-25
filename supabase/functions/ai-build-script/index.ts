@@ -9,7 +9,7 @@ const corsHeaders = {
 
 async function callClaude(apiKey: string, systemPrompt: string, userPrompt: string, tools?: any[], toolChoice?: any) {
   const body: any = {
-    model: "claude-sonnet-4-20250514",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
@@ -203,7 +203,8 @@ Rules:
 - Follow the chosen script structure format
 - Target length: ${lengthGuide}
 - Incorporate the selected research facts naturally into the body
-- Make it engaging, conversational, and optimized for retention`;
+- Make it engaging, conversational, and optimized for retention
+- For idea_ganadora: Generate a SHORT, PUNCHY title (max 5-7 words) that captures the core concept — NOT a full sentence`;
 
       const data = await callClaude(
         ANTHROPIC_API_KEY,
@@ -239,7 +240,7 @@ Generate the complete script.`,
                   required: ["line_type", "section", "text"],
                 },
               },
-              idea_ganadora: { type: "string", description: "The winning idea/hook summary" },
+              idea_ganadora: { type: "string", description: "Short punchy title (max 5-7 words) capturing the core concept" },
               target: { type: "string", description: "Target audience" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
               virality_score: {
@@ -268,12 +269,13 @@ Generate the complete script.`,
 
       const currentLines = (currentScript.lines || []).map((l: any) => `[${l.section}/${l.line_type}] ${l.text}`).join("\n");
 
-      const systemPrompt = `You are an expert short-form video scriptwriter. The user has a script that needs refinement based on their specific feedback. 
+      const systemPrompt = `You are an expert short-form video scriptwriter. The user has a script that needs refinement based on their specific feedback.
 
 CRITICAL RULES:
 - Apply ONLY the changes the user explicitly requests. Keep everything else EXACTLY the same.
 - DO NOT change the hook (the lines in the "hook" section) UNLESS the user explicitly asks to change the hook.
 - Maintain the same format (line_type, section categorization).
+- Keep idea_ganadora SHORT and PUNCHY (max 5-7 words) — only update if the script changes fundamentally.
 
 After refining, re-evaluate against the 9-Step Quality Checklist:
 1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing
@@ -313,7 +315,7 @@ Apply the requested changes and return the refined script.`,
                   required: ["line_type", "section", "text"],
                 },
               },
-              idea_ganadora: { type: "string" },
+              idea_ganadora: { type: "string", description: "Short punchy title (max 5-7 words)" },
               target: { type: "string" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
               virality_score: {
@@ -372,7 +374,7 @@ Return the translated script with the same structure.`,
                   required: ["line_type", "section", "text"],
                 },
               },
-              idea_ganadora: { type: "string" },
+              idea_ganadora: { type: "string", description: "Short punchy title (max 5-7 words)" },
               target: { type: "string" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
             },
@@ -502,6 +504,7 @@ CRITICAL RULES:
 - Mirror the CTA style
 - Write in ${langLabel}
 - Categorize EVERY line into line_type ("filming", "actor", "editor") and section ("hook", "body", "cta")
+- For idea_ganadora: Generate a SHORT, PUNCHY title (max 5-7 words) that captures the core concept
 
 BEFORE finalizing, evaluate against the 9-Step Quality Checklist:
 1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing

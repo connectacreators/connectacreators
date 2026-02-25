@@ -5,7 +5,6 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { Input } from "@/components/ui/input";
 import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -85,8 +84,11 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   };
 
   const handleGoogle = async () => {
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/dashboard`,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
     });
     if (error) toast.error(error.message);
   };

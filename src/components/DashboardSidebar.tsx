@@ -78,11 +78,13 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       } fixed lg:relative z-40 lg:z-auto transition-all duration-300 border-r border-border/30 glass-ios-strong flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50">
-        <img
-          src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
-          alt="Connecta"
-          className="h-6 object-contain"
-        />
+        <button onClick={() => navigate("/")} className="focus:outline-none">
+          <img
+            src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
+            alt="Connecta"
+            className="h-6 object-contain hover:opacity-80 transition-opacity"
+          />
+        </button>
         <button
           onClick={() => setSidebarOpen(false)}
           className="ml-auto text-muted-foreground hover:text-foreground transition-colors"

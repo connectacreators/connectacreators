@@ -203,13 +203,13 @@ export default function Dashboard() {
                 <motion.button
                   key={tool.path}
                   onClick={() => navigate(tool.path)}
-                  className="group flex flex-col items-center gap-5 p-8 rounded-2xl border border-border/50 bg-card/30 hover:border-primary/30 transition-colors text-center relative"
+                  className="group flex flex-col items-center gap-5 p-8 text-center card-glass-17"
                   initial="hidden"
                   animate="visible"
                   custom={i + 2}
                   variants={fadeUp}
                 >
-                  <div className="w-12 h-12 rounded-full border border-foreground/10 flex items-center justify-center group-hover:border-primary/30 transition-colors">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.14)',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.15)'}}>
                     <tool.icon className={`w-5 h-5 ${tool.color} group-hover:text-primary transition-colors`} />
                   </div>
                   <div>

@@ -70,6 +70,7 @@ type BookingSettings = {
   booking_description: string | null;
   primary_color: string;
   secondary_color: string;
+  logo_url: string | null;
 };
 
 type Step = "date" | "time" | "form" | "confirmed";
@@ -264,12 +265,22 @@ export default function PublicBooking() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: `${primaryColor}15`, border: `1px solid ${primaryColor}30` }}
-          >
-            <CalendarDays className="w-6 h-6" style={{ color: primaryColor }} />
-          </div>
+          {settings.logo_url ? (
+            <div className="flex items-center justify-center mb-4">
+              <img
+                src={settings.logo_url}
+                alt={clientName || "Logo"}
+                className="h-16 max-w-[200px] object-contain"
+              />
+            </div>
+          ) : (
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: `${primaryColor}15`, border: `1px solid ${primaryColor}30` }}
+            >
+              <CalendarDays className="w-6 h-6" style={{ color: primaryColor }} />
+            </div>
+          )}
           <h1 className="text-xl font-bold mb-1" style={{ color: cssVars["--bk-text"] }}>{settings.booking_title}</h1>
           {clientName && <p className="text-xs uppercase tracking-widest" style={{ color: cssVars["--bk-text-muted"] }}>{clientName}</p>}
           {settings.booking_description && (

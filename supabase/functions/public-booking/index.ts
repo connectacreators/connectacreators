@@ -120,6 +120,7 @@ Deno.serve(async (req) => {
               primary_color: settings.primary_color || "#C4922A",
               secondary_color: settings.secondary_color || "#1A1A1A",
               break_times: settings.break_times || [],
+              logo_url: settings.logo_url || null,
             },
             client_name: clientData.name,
           }),

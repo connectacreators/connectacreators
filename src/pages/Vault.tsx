@@ -47,6 +47,7 @@ export default function Vault() {
   const [newName, setNewName] = useState("");
   const [newThumbnailUrl, setNewThumbnailUrl] = useState("");
   const [creating, setCreating] = useState(false);
+  const [fetchingThumb, setFetchingThumb] = useState(false);
 
   // Resolve client ID
   const resolvedClientId = urlClientId || (
@@ -113,6 +114,7 @@ export default function Vault() {
       let thumbnailUrl = newThumbnailUrl.trim() || null;
       if (!thumbnailUrl) {
         try {
+          setFetchingThumb(true);
           toast.info(tr({ en: "Fetching thumbnail...", es: "Obteniendo miniatura..." }, language));
           const thumbRes = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-thumbnail`,
@@ -120,9 +122,14 @@ export default function Vault() {
           );
           if (thumbRes.ok) {
             const thumbData = await thumbRes.json();
-            if (thumbData.thumbnail_url) thumbnailUrl = thumbData.thumbnail_url;
+            if (thumbData.thumbnail_url) {
+              thumbnailUrl = thumbData.thumbnail_url;
+              toast.success(tr({ en: "Thumbnail fetched!", es: "¡Miniatura obtenida!" }, language));
+            }
           }
-        } catch { /* ignore */ }
+        } catch { /* ignore */ } finally {
+          setFetchingThumb(false);
+        }
       }
 
       // Step 4: Save to DB
@@ -193,6 +200,8 @@ export default function Vault() {
               newThumbnailUrl={newThumbnailUrl}
               setNewThumbnailUrl={setNewThumbnailUrl}
               creating={creating}
+              fetchingThumb={fetchingThumb}
+              setFetchingThumb={setFetchingThumb}
               handleCreate={handleCreate}
               handleDelete={handleDelete}
               backPath={backPath}
@@ -234,6 +243,8 @@ export default function Vault() {
             newThumbnailUrl={newThumbnailUrl}
             setNewThumbnailUrl={setNewThumbnailUrl}
             creating={creating}
+            fetchingThumb={fetchingThumb}
+            setFetchingThumb={setFetchingThumb}
             handleCreate={handleCreate}
             handleDelete={handleDelete}
             backPath={backPath}
@@ -258,6 +269,8 @@ interface VaultContentProps {
   newThumbnailUrl: string;
   setNewThumbnailUrl: (v: string) => void;
   creating: boolean;
+  fetchingThumb: boolean;
+  setFetchingThumb: (v: boolean) => void;
   handleCreate: () => void;
   handleDelete: (id: string) => void;
   backPath: string;
@@ -267,7 +280,7 @@ interface VaultContentProps {
 function VaultContent({
   templates, loadingTemplates, showCreate, setShowCreate,
   newUrl, setNewUrl, newName, setNewName, newThumbnailUrl, setNewThumbnailUrl,
-  creating, handleCreate, handleDelete,
+  creating, fetchingThumb, setFetchingThumb, handleCreate, handleDelete,
   backPath, language,
 }: VaultContentProps) {
   return (
@@ -316,12 +329,67 @@ function VaultContent({
                placeholder={tr({ en: "Template name (optional)", es: "Nombre de la plantilla (opcional)" }, language)}
                className="text-sm"
              />
-             <Input
-               value={newThumbnailUrl}
-               onChange={(e) => setNewThumbnailUrl(e.target.value)}
-               placeholder={tr({ en: "Thumbnail image URL (optional)", es: "URL de imagen miniatura (opcional)" }, language)}
-               className="text-sm"
-            />
+             <div className="space-y-2">
+               <label className="text-sm text-muted-foreground">
+                 {tr({ en: "Thumbnail (auto-fetched or paste URL)", es: "Miniatura (obtenida automáticamente o pega URL)" }, language)}
+               </label>
+               <div className="flex gap-2">
+                 <Input
+                   value={newThumbnailUrl}
+                   onChange={(e) => setNewThumbnailUrl(e.target.value)}
+                   placeholder={tr({ en: "Thumbnail image URL", es: "URL de imagen miniatura" }, language)}
+                   className="text-sm flex-1"
+                 />
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={async () => {
+                     if (!newUrl.trim()) {
+                       toast.error(tr({ en: "Enter video URL first", es: "Ingresa la URL del video primero" }, language));
+                       return;
+                     }
+                     setFetchingThumb(true);
+                     try {
+                       const { data: { session } } = await supabase.auth.getSession();
+                       const res = await fetch(
+                         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-thumbnail`,
+                         {
+                           method: "POST",
+                           headers: {
+                             "Content-Type": "application/json",
+                             Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                           },
+                           body: JSON.stringify({ url: newUrl.trim() })
+                         }
+                       );
+                       if (res.ok) {
+                         const data = await res.json();
+                         if (data.thumbnail_url) {
+                           setNewThumbnailUrl(data.thumbnail_url);
+                           toast.success(tr({ en: "Thumbnail fetched!", es: "¡Miniatura obtenida!" }, language));
+                         } else {
+                           toast.error(tr({ en: "Could not fetch thumbnail - try entering URL manually", es: "No se pudo obtener la miniatura - intenta ingresar la URL manualmente" }, language));
+                         }
+                       }
+                     } catch (e) {
+                       toast.error(tr({ en: "Error fetching thumbnail", es: "Error al obtener miniatura" }, language));
+                     } finally {
+                       setFetchingThumb(false);
+                     }
+                   }}
+                   disabled={fetchingThumb || !newUrl.trim()}
+                   className="gap-1"
+                 >
+                   {fetchingThumb ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
+                   <span className="hidden sm:inline text-xs">{tr({ en: "Fetch", es: "Obtener" }, language)}</span>
+                 </Button>
+               </div>
+               {newThumbnailUrl && (
+                 <div className="aspect-video w-full max-w-xs rounded border border-primary/20 overflow-hidden">
+                   <img src={newThumbnailUrl} alt="thumbnail preview" className="w-full h-full object-cover" />
+                 </div>
+               )}
+             </div>
             <Button
               variant="cta"
               onClick={handleCreate}

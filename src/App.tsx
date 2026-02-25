@@ -32,6 +32,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import Checkout from "./pages/Checkout";
 import EditingQueue from "./pages/EditingQueue";
 import MasterEditingQueue from "./pages/MasterEditingQueue";
+import ClientWorkflow from "./pages/ClientWorkflow";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/clients/:clientId/booking-settings" element={<BookingSettings />} />
             <Route path="/clients/:clientId/vault" element={<Vault />} />
             <Route path="/clients/:clientId/editing-queue" element={<EditingQueue />} />
+            <Route path="/clients/:clientId/workflow" element={<ClientWorkflow />} />
             <Route path="/vault" element={<Vault />} />
             <Route path="/videographers" element={<Videographers />} />
             <Route path="/videographers/:videographerId" element={<VideographerDetail />} />

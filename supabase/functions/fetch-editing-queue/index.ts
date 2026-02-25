@@ -261,9 +261,18 @@ serve(async (req) => {
     });
 
   } catch (e) {
-    console.error("fetch-editing-queue error:", e);
+    const errorMsg = e instanceof Error ? e.message : String(e);
+    console.error("fetch-editing-queue error:", errorMsg, e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({
+        error: errorMsg,
+        debug: {
+          hasNotionKey: !!Deno.env.get("NOTION_API_KEY"),
+          hasUrl: !!Deno.env.get("SUPABASE_URL"),
+          hasServiceKey: !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+          timestamp: new Date().toISOString()
+        }
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

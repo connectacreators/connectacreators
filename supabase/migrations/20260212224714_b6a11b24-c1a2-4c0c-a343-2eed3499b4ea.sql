@@ -30,8 +30,3 @@ CREATE POLICY "Admin full access notion_script_sync"
   ON public.notion_script_sync FOR ALL
   USING (is_admin()) WITH CHECK (is_admin());
 
--- Seed client_notion_mapping with known clients
-INSERT INTO public.client_notion_mapping (client_id, notion_database_id) VALUES
-  ('3b26679f-9ac1-437a-bb71-4d3107992d83', '29ad6442-e09c-8111-b103-000b6066c231'),
-  ('4fb472e8-aad4-4e4c-8938-4cfbb8619a69', '1f3d6442-e09c-8004-a317-000b6aa4ad7e'),
-  ('4fe338f9-fc16-49c7-9072-990aef152b7c', '2e8d6442-e09c-8131-a2f1-000bf04916a4');
