@@ -383,7 +383,7 @@ export default function Scripts() {
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
-    categorizeAndSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
+    categorizeAndSave, directSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines,
     bulkSyncToNotion,
@@ -735,20 +735,40 @@ export default function Scripts() {
 
   const handleCategorize = async () => {
     if (!scriptInput.trim() || !selectedClient) return;
-    const result = await categorizeAndSave(
-      selectedClient.id,
-      scriptTitle.trim() || "Sin título",
-      scriptInput.trim(),
-      inspirationUrl.trim() || undefined,
-      formato || undefined,
-      googleDriveLink.trim() || undefined
-    );
+
+    // Parse script input to extract lines
+    const scriptLines: ScriptLine[] = scriptInput
+      .trim()
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => ({
+        line_type: 'actor' as const,
+        section: 'body' as const,
+        text: line.trim(),
+      }));
+
+    if (scriptLines.length === 0) {
+      toast.error(tr({ en: "Please enter a script with at least one line", es: "Por favor ingresa un script con al menos una línea" }, language));
+      return;
+    }
+
+    const result = await directSave({
+      clientId: selectedClient.id,
+      lines: scriptLines,
+      ideaGanadora: scriptTitle.trim() || "Sin título",
+      target: "",
+      formato: formato || "",
+      inspirationUrl: inspirationUrl.trim() || undefined,
+      googleDriveLink: googleDriveLink.trim() || undefined,
+    });
+
     if (result) {
-      setParsedLines(result.lines);
+      setParsedLines(scriptLines);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
       setViewingScriptId(result.scriptId);
       setView("view-script");
+      toast.success(tr({ en: "Script saved successfully!", es: "¡Script guardado exitosamente!" }, language));
     }
   };
 
@@ -1384,23 +1404,26 @@ export default function Scripts() {
             {view === "new-script" && aiMode && selectedClient ? (
               <AIScriptWizard
                 selectedClient={selectedClient}
-                onComplete={async (rawContent, title, inspirationUrl) => {
-                  setScriptInput(rawContent);
-                  setScriptTitle(title);
-                  // Use categorizeAndSave to properly categorize the AI-generated script
-                  const result = await categorizeAndSave(
-                    selectedClient.id,
-                    title,
-                    rawContent,
-                    inspirationUrl || undefined,
-                    undefined,
-                    undefined
-                  );
-                  if (result) {
+                onComplete={async (result, inspirationUrl) => {
+                  const saved = await directSave({
+                    clientId: selectedClient.id,
+                    lines: result.lines,
+                    ideaGanadora: result.idea_ganadora || "",
+                    target: result.target || "",
+                    formato: result.formato || "",
+                    viralityScore: result.virality_score,
+                    inspirationUrl: inspirationUrl || undefined,
+                  });
+                  if (saved) {
                     setParsedLines(result.lines);
                     setViewingInspirationUrl(inspirationUrl || null);
-                    setViewingMetadata(result.metadata);
-                    setViewingScriptId(result.scriptId);
+                    setViewingMetadata({
+                      idea_ganadora: result.idea_ganadora || null,
+                      target: result.target || null,
+                      formato: result.formato || null,
+                      google_drive_link: null,
+                    });
+                    setViewingScriptId(saved.scriptId);
                     setView("view-script");
                   }
                 }}

@@ -93,6 +93,102 @@ export function useScripts() {
     setTrashedScripts(data || []);
   };
 
+  const directSave = async (params: {
+    clientId: string;
+    lines: ScriptLine[];
+    ideaGanadora: string;
+    target: string;
+    formato: string;
+    viralityScore?: number;
+    inspirationUrl?: string;
+    googleDriveLink?: string;
+  }): Promise<{ scriptId: string; metadata: ScriptMetadata } | null> => {
+    setLoading(true);
+    try {
+      // Validate input
+      if (!Array.isArray(params.lines) || params.lines.length === 0) {
+        throw new Error("Script lines are required");
+      }
+      if (!params.ideaGanadora || params.ideaGanadora.trim() === "") {
+        throw new Error("Script title (idea_ganadora) is required");
+      }
+      if (!params.clientId) {
+        throw new Error("Client ID is required");
+      }
+
+      const rawContent = params.lines.map((l) => l.text).join("\n");
+
+      console.log("[directSave] Inserting script with:", {
+        client_id: params.clientId,
+        title: params.ideaGanadora,
+        raw_content_length: rawContent.length,
+        lines_count: params.lines.length,
+      });
+
+      const { data: script, error: scriptErr } = await supabase
+        .from("scripts")
+        .insert({
+          client_id: params.clientId,
+          title: params.ideaGanadora,
+          raw_content: rawContent,
+          inspiration_url: params.inspirationUrl || null,
+          idea_ganadora: params.ideaGanadora || null,
+          target: params.target || null,
+          formato: params.formato || null,
+          google_drive_link: params.googleDriveLink || null,
+        })
+        .select()
+        .single();
+      if (scriptErr) {
+        console.error("[directSave] Supabase error:", {
+          message: scriptErr.message,
+          details: scriptErr.details,
+          hint: scriptErr.hint,
+          code: scriptErr.code,
+        });
+        throw scriptErr;
+      }
+
+      const lineRows = params.lines.map((l, i) => ({
+        script_id: script.id,
+        line_number: i + 1,
+        line_type: l.line_type,
+        section: l.section || "body",
+        text: l.text,
+      }));
+      const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
+      if (linesErr) throw linesErr;
+
+      toast.success("Script guardado");
+      setScripts((prev) => [script, ...prev]);
+
+      syncToNotion({
+        script_id: script.id,
+        client_id: params.clientId,
+        title: params.ideaGanadora,
+        google_drive_link: params.googleDriveLink || null,
+        action: "create",
+      });
+
+      return {
+        scriptId: script.id,
+        metadata: {
+          idea_ganadora: params.ideaGanadora || null,
+          target: params.target || null,
+          formato: params.formato || null,
+          google_drive_link: params.googleDriveLink || null,
+        },
+      };
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al procesar script");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // DEPRECATED: Use directSave instead
   const categorizeAndSave = async (
     clientId: string,
     title: string,
@@ -256,47 +352,38 @@ export function useScripts() {
   ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata } | null> => {
     setLoading(true);
     try {
-      const { data: { session: updateSession } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/categorize-script`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${updateSession?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ rawScript: rawContent }),
-        }
-      );
-
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Error al categorizar");
-        return null;
-      }
-
-      const result = await res.json() as { lines: ScriptLine[]; idea_ganadora: string; target: string; formato: string };
-
+      // Update script metadata directly without calling categorize-script
       const { error: scriptErr } = await supabase
         .from("scripts")
         .update({
-          title: result.idea_ganadora || title,
+          title: title || "Sin título",
           raw_content: rawContent,
           inspiration_url: inspirationUrl || null,
-          idea_ganadora: result.idea_ganadora || null,
-          target: result.target || null,
-          formato: result.formato || formato || null,
+          idea_ganadora: title || null,
+          target: null,
+          formato: formato || null,
           google_drive_link: googleDriveLink || null,
         })
         .eq("id", scriptId);
       if (scriptErr) throw scriptErr;
 
+      // Parse raw content into lines (simple splitting by newline)
+      const lines: ScriptLine[] = rawContent
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => ({
+          line_type: 'actor' as const,
+          section: 'body' as const,
+          text: line.trim(),
+        }));
+
+      // Update script lines
       await supabase.from("script_lines").delete().eq("script_id", scriptId);
-      const lineRows = result.lines.map((l, i) => ({
+      const lineRows = lines.map((l, i) => ({
         script_id: scriptId,
         line_number: i + 1,
         line_type: l.line_type,
-        section: l.section || "body",
+        section: l.section,
         text: l.text,
       }));
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
@@ -311,12 +398,12 @@ export function useScripts() {
           s.id === scriptId
             ? {
                 ...s,
-                title,
+                title: title || "Sin título",
                 raw_content: rawContent,
                 inspiration_url: inspirationUrl || null,
-                idea_ganadora: result.idea_ganadora || null,
-                target: result.target || null,
-                formato: result.formato || formato || null,
+                idea_ganadora: title || null,
+                target: null,
+                formato: formato || null,
                 google_drive_link: googleDriveLink || null,
               }
             : s
@@ -327,17 +414,17 @@ export function useScripts() {
         syncToNotion({
           script_id: scriptId,
           client_id: currentScript.client_id,
-          title: result.idea_ganadora || title,
+          title: title,
           google_drive_link: googleDriveLink || null,
           action: "update",
         });
       }
 
       return {
-        lines: result.lines,
+        lines: lines,
         metadata: {
-          idea_ganadora: result.idea_ganadora || null,
-          target: result.target || null,
+          idea_ganadora: title || null,
+          target: null,
           formato: formato || null,
           google_drive_link: googleDriveLink || null,
         },
@@ -606,6 +693,7 @@ export function useScripts() {
     loading,
     fetchScriptsByClient,
     fetchTrashedScripts,
+    directSave,
     categorizeAndSave,
     getScriptLines,
     deleteScript,

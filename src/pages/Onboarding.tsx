@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,13 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Onboarding = () => {
   const { language } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
+  const [clientId, setClientId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nombre: "",
     cuentaRedes: "",
@@ -23,13 +26,45 @@ const Onboarding = () => {
     informacionExtra: ""
   });
 
+  // Fetch client ID for current user
+  useEffect(() => {
+    const fetchClientId = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (data) setClientId(data.id);
+    };
+    fetchClientId();
+  }, []);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleNext = () => { if (currentStep < 4) setCurrentStep(currentStep + 1); };
   const handleBack = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
-  const handleSubmit = () => { console.log("Form submitted:", formData); setCurrentStep(5); };
+  const handleSubmit = async () => {
+    if (!clientId) {
+      console.error("No client record found");
+      setCurrentStep(5);
+      return;
+    }
+    const { error } = await supabase
+      .from("clients")
+      .update({ onboarding_data: formData })
+      .eq("id", clientId);
+    if (error) {
+      console.error("Error saving onboarding data:", error);
+      toast.error("Error al guardar datos");
+    } else {
+      toast.success("Datos guardados correctamente");
+    }
+    setCurrentStep(5);
+  };
 
   const isStepValid = () => {
     switch (currentStep) {

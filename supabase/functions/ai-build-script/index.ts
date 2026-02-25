@@ -83,7 +83,7 @@ serve(async (req) => {
       const systemPrompt = `You are a world-class content researcher specializing in viral social media content. Your job is to find the most shocking, surprising, and impactful facts about any given topic. These facts should make people stop scrolling and say "wait, WHAT?!"
 
 Rules:
-- Find 8-10 facts ranked from impact score 8 to 10 (10 being most mind-blowing)
+- Find exactly 5 facts ranked from impact score 8 to 10 (10 being most mind-blowing)
 - Facts must be TRUE and verifiable
 - Focus on counterintuitive, surprising, little-known facts
 - Each fact should be concise (1-2 sentences max)
@@ -106,9 +106,8 @@ Rules:
                   properties: {
                     fact: { type: "string", description: "The shocking fact" },
                     impact_score: { type: "number", description: "Impact score from 8 to 10" },
-                    why_shocking: { type: "string", description: "Brief explanation of why this is shocking" },
                   },
-                  required: ["fact", "impact_score", "why_shocking"],
+                  required: ["fact", "impact_score"],
                 },
               },
             },
@@ -125,52 +124,10 @@ Rules:
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // ==================== STEP: GENERATE HOOK ====================
-    if (step === "generate-hook") {
-      const { topic, facts, hookCategory, hookTemplate, language: reqLang } = body;
-      if (!topic || !hookCategory) throw new Error("topic and hookCategory are required");
-      const langLabel = reqLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
-
-      const factsText = (facts || []).map((f: any) => `- ${f.fact}`).join("\n");
-
-      const systemPrompt = `You are an expert short-form video scriptwriter who specializes in creating viral hooks. You write hooks that stop people from scrolling within the first 2 seconds.
-
-You will be given a topic, research facts, and a hook format/template to follow. Generate ONLY the main hook — the opening line(s) that grab attention.
-
-Rules:
-- ONLY output the hook itself: 1-2 sentences maximum
-- Do NOT include any explanation, body content, or additional facts after the hook
-- The hook must follow the chosen template structure
-- Incorporate the topic naturally
-- Create immediate curiosity or shock value
-- Write in ${langLabel}`;
-
-      const data = await callClaude(
-        ANTHROPIC_API_KEY,
-        systemPrompt,
-        `Topic: "${topic}"
-
-Research facts:
-${factsText}
-
-Hook category: ${hookCategory}
-Hook template to follow: "${hookTemplate}"
-
-Generate a hook following this template format. Make it irresistible. Write in ${langLabel}.`
-      );
-
-      const text = data.content?.find((c: any) => c.type === "text")?.text || "";
-
-      return new Response(JSON.stringify({ hook: text.trim() }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // ==================== STEP: GENERATE SCRIPT ====================
     if (step === "generate-script") {
-      const { topic, selectedFacts, hook, structure, length, language: reqLang } = body;
-      if (!topic || !hook || !structure) throw new Error("topic, hook, structure are required");
+      const { topic, selectedFacts, hookCategory, hookTemplate, structure, length, language: reqLang, onboardingContext } = body;
+      if (!topic || !hookCategory || !hookTemplate || !structure) throw new Error("topic, hook, structure are required");
       const langLabel = reqLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
 
       const factsText = (selectedFacts || []).map((f: any) => `- ${f.fact}`).join("\n");
@@ -197,22 +154,22 @@ Return a single virality_score which is the average of your internal ratings (1-
 
 Rules:
 - Write in ${langLabel}
-- The hook is already provided — include it as the first actor lines in the hook section
+You will receive a hook category and hook template. Craft the opening hook yourself based on these patterns, adapted specifically to the topic and research facts. The hook should create immediate curiosity or shock within the first 2 seconds.
 - Add appropriate filming and editor instructions throughout
 - End with a strong CTA
 - Follow the chosen script structure format
 - Target length: ${lengthGuide}
 - Incorporate the selected research facts naturally into the body
 - Make it engaging, conversational, and optimized for retention
-- For idea_ganadora: Generate a SHORT, PUNCHY title (max 5-7 words) that captures the core concept — NOT a full sentence`;
+- For idea_ganadora: Generate a SHORT, PUNCHY title (STRICT MAXIMUM 3-5 words) that captures the core concept — NOT a full sentence`;
 
       const data = await callClaude(
         ANTHROPIC_API_KEY,
         systemPrompt,
         `Topic: "${topic}"
 
-Hook (already written):
-${hook}
+Hook category: ${hookCategory}
+Hook template: ${hookTemplate}
 
 Script structure: ${structure}
 
@@ -240,7 +197,7 @@ Generate the complete script.`,
                   required: ["line_type", "section", "text"],
                 },
               },
-              idea_ganadora: { type: "string", description: "Short punchy title (max 5-7 words) capturing the core concept" },
+              idea_ganadora: { type: "string", description: "Ultra-short punchy title — STRICT MAXIMUM 3-5 words, never more" },
               target: { type: "string", description: "Target audience" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
               virality_score: {
@@ -256,6 +213,14 @@ Generate the complete script.`,
 
       const toolUse = data.content?.find((c: any) => c.type === "tool_use");
       if (!toolUse) throw new Error("No tool use in Claude response");
+
+      // Server-side enforce 3-5 word limit on idea_ganadora
+      if (toolUse.input.idea_ganadora) {
+        const words = toolUse.input.idea_ganadora.split(/\s+/);
+        if (words.length > 5) {
+          toolUse.input.idea_ganadora = words.slice(0, 5).join(" ");
+        }
+      }
 
       return new Response(JSON.stringify(toolUse.input), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -275,7 +240,7 @@ CRITICAL RULES:
 - Apply ONLY the changes the user explicitly requests. Keep everything else EXACTLY the same.
 - DO NOT change the hook (the lines in the "hook" section) UNLESS the user explicitly asks to change the hook.
 - Maintain the same format (line_type, section categorization).
-- Keep idea_ganadora SHORT and PUNCHY (max 5-7 words) — only update if the script changes fundamentally.
+- Keep idea_ganadora SHORT and PUNCHY (STRICT MAXIMUM 3-5 words) — only update if the script changes fundamentally.
 
 After refining, re-evaluate against the 9-Step Quality Checklist:
 1. Massive TAM  2. Idea Explosivity  3. Emotional Resonance  4. Novel take/timing
@@ -550,6 +515,14 @@ Return a virality_score which is the average of all 9 criteria (1-10).`;
 
       const toolUse = data.content?.find((c: any) => c.type === "tool_use");
       if (!toolUse) throw new Error("No tool use in Claude response");
+
+      // Server-side enforce 3-5 word limit on idea_ganadora
+      if (toolUse.input.idea_ganadora) {
+        const words = toolUse.input.idea_ganadora.split(/\s+/);
+        if (words.length > 5) {
+          toolUse.input.idea_ganadora = words.slice(0, 5).join(" ");
+        }
+      }
 
       return new Response(JSON.stringify(toolUse.input), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
