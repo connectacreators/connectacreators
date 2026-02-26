@@ -8,7 +8,14 @@ const corsHeaders = {
 };
 
 const NOTION_API_VERSION = "2022-06-28";
-const ALLOWED_STATUSES = ["Meta Ad (Not Booked)", "Appointment Booked", "Canceled"];
+const ALLOWED_STATUSES = [
+  "Meta Ad (Not Booked)",
+  "Appointment Booked",
+  "Canceled",
+  "Follow up #1 (Not Booked)",
+  "Follow up #2 (Not Booked)",
+  "Follow up #3 (Not Booked)",
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -45,7 +52,7 @@ serve(async (req) => {
   }
 
   try {
-    const { leadId, newStatus } = await req.json();
+    const { leadId, newStatus, clientId } = await req.json();
 
     if (!leadId || !newStatus) {
       return new Response(JSON.stringify({ error: "leadId and newStatus are required" }), {
@@ -130,7 +137,6 @@ serve(async (req) => {
     const updated = await notionRes.json();
 
     // Fire workflows watching this status change (Phase 2 — Lead Status Changed trigger)
-    const { clientId } = await req.json();
     if (clientId) {
       try {
         const adminClient = createClient(

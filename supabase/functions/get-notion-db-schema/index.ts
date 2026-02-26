@@ -20,10 +20,29 @@ serve(async (req) => {
   }
 
   try {
-    const { database_id } = await req.json();
+    const { database_id, client_id } = await req.json();
 
-    if (!database_id) {
-      return new Response(JSON.stringify({ error: "database_id required" }), {
+    let dbId = database_id;
+
+    // If database_id not provided but client_id is, look it up from mapping
+    if (!dbId && client_id) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL") || "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+      );
+
+      const { data: mapping } = await supabase
+        .from("client_notion_mapping")
+        .select("notion_database_id")
+        .eq("client_id", client_id)
+        .maybeSingle();
+
+      dbId = mapping?.notion_database_id;
+    }
+
+    if (!dbId) {
+      return new Response(JSON.stringify({ error: "database_id or client_id required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -45,7 +64,7 @@ serve(async (req) => {
     };
 
     // Fetch database schema
-    const dbResponse = await fetch(`https://api.notion.com/v1/databases/${database_id}`, {
+    const dbResponse = await fetch(`https://api.notion.com/v1/databases/${dbId}`, {
       method: "GET",
       headers,
     });

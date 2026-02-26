@@ -42,6 +42,10 @@ export const t = {
     client: { en: "Client", es: "Cliente" },
     noAppointments: { en: "No leads with scheduled appointments.", es: "No hay leads con citas programadas." },
     more: { en: "more", es: "más" },
+    monthNames: { en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"], es: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"] },
+    monthShort: { en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], es: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"] },
+    dayNames: { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"] },
+    dayNamesShort: { en: ["S", "M", "T", "W", "T", "F", "S"], es: ["D", "L", "M", "M", "J", "V", "S"] },
   },
   leadDetail: {
     title: { en: "Lead Details", es: "Detalles del Lead" },

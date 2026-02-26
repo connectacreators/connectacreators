@@ -72,13 +72,6 @@ function getStatusColor(status: string) {
   return STATUS_COLORS[status] || DEFAULT_STATUS_COLOR;
 }
 
-const MONTH_NAMES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
-const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const DAY_NAMES_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7am to 9pm
 
 function getDaysInMonth(year: number, month: number) {
@@ -137,7 +130,7 @@ function LeadPopoverCard({ lead, isAdmin }: { lead: Lead; isAdmin: boolean }) {
   return (
     <div className="space-y-2.5 min-w-[240px]">
       <div className="flex items-start justify-between gap-2">
-        <h4 className="font-semibold text-foreground text-sm">{lead.fullName || "Sin nombre"}</h4>
+        <h4 className="font-semibold text-foreground text-sm">{lead.fullName || "No name"}</h4>
         {lead.notionUrl && isAdmin && (
           <a href={lead.notionUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0">
             <ExternalLink className="w-3.5 h-3.5" />
@@ -185,7 +178,7 @@ function EventBlock({ lead, hourHeight, startHour, isAdmin, isDayView }: { lead:
           style={{ top, minHeight: 26, maxHeight: hourHeight - 2 }}
         >
           <p className={`text-[9px] ${isDayView ? "sm:text-xs" : "sm:text-[10px]"} font-bold ${sc.text} truncate`}>{time}</p>
-          <p className={`text-[8px] ${isDayView ? "sm:text-[11px]" : "sm:text-[9px]"} text-foreground truncate`}>{lead.fullName || "Sin nombre"}</p>
+          <p className={`text-[8px] ${isDayView ? "sm:text-[11px]" : "sm:text-[9px]"} text-foreground truncate`}>{lead.fullName || "No name"}</p>
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-3" side="right" align="start">
@@ -210,7 +203,7 @@ function NowIndicator({ hourHeight, startHour }: { hourHeight: number; startHour
 }
 
 // ---- Mini Calendar (sidebar) ----
-function MiniCalendar({ currentDate, onSelectDate, leadsByDate }: { currentDate: Date; onSelectDate: (d: Date) => void; leadsByDate: Record<string, Lead[]> }) {
+function MiniCalendar({ currentDate, onSelectDate, leadsByDate, monthShort, dayNamesShort }: { currentDate: Date; onSelectDate: (d: Date) => void; leadsByDate: Record<string, Lead[]>; monthShort: string[]; dayNamesShort: string[] }) {
   const [miniYear, setMiniYear] = useState(currentDate.getFullYear());
   const [miniMonth, setMiniMonth] = useState(currentDate.getMonth());
   const todayStr = formatDateStr(new Date());
@@ -228,11 +221,11 @@ function MiniCalendar({ currentDate, onSelectDate, leadsByDate }: { currentDate:
     <div className="p-2">
       <div className="flex items-center justify-between mb-1.5">
         <button onClick={goPrevMonth} className="p-0.5 hover:bg-accent rounded"><ChevronLeft className="w-3 h-3" /></button>
-        <span className="text-[11px] font-semibold text-foreground">{MONTH_SHORT[miniMonth]} {miniYear}</span>
+        <span className="text-[11px] font-semibold text-foreground">{monthShort[miniMonth]} {miniYear}</span>
         <button onClick={goNextMonth} className="p-0.5 hover:bg-accent rounded"><ChevronRight className="w-3 h-3" /></button>
       </div>
       <div className="grid grid-cols-7 gap-px">
-        {DAY_NAMES_SHORT.map((dn, i) => (
+        {dayNamesShort.map((dn, i) => (
           <span key={i} className="text-[8px] text-muted-foreground text-center font-medium">{dn}</span>
         ))}
         {Array.from({ length: firstDow }).map((_, i) => <span key={`e-${i}`} />)}
@@ -297,6 +290,12 @@ export default function LeadCalendar() {
   const { clients } = useClients(isStaff);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  // Translations for month and day names
+  const MONTH_NAMES = language === "en" ? ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] : ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const MONTH_SHORT = language === "en" ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] : ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const DAY_NAMES = language === "en" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const DAY_NAMES_SHORT = language === "en" ? ["S", "M", "T", "W", "T", "F", "S"] : ["D", "L", "M", "M", "J", "V", "S"];
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
@@ -477,6 +476,8 @@ export default function LeadCalendar() {
               currentDate={viewMode === "day" ? viewDate : new Date(viewYear, viewMonth, 1)}
               onSelectDate={navigateToDay}
               leadsByDate={leadsByDate}
+              monthShort={MONTH_SHORT}
+              dayNamesShort={DAY_NAMES_SHORT}
             />
           </div>
 
@@ -513,7 +514,7 @@ export default function LeadCalendar() {
                     onClick={() => navigateToDay(new Date(lead.appointmentDate))}
                     className="w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors"
                   >
-                    <p className="text-xs font-semibold text-foreground truncate">{lead.fullName || "Sin nombre"}</p>
+                    <p className="text-xs font-semibold text-foreground truncate">{lead.fullName || "No name"}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                       <span className="text-[10px] text-muted-foreground">

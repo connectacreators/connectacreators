@@ -29,11 +29,22 @@ const TRIGGER_FIELDS = [
   { key: "created_at", label: "Date Created", variable: "lead.created_at" },
 ];
 
+// Step output schemas for Data Mapper
+const STEP_OUTPUT_SCHEMAS: Record<string, string[]> = {
+  'notion.search_record': ['page_id', 'title', 'url'],
+  'notion.create_record': ['page_id', 'url'],
+  'notion.update_record': ['page_id'],
+  'email.send_email': ['sent_to'],
+  'formatter.date_time': ['formatted_date'],
+  'filter.if_condition': ['passed'],
+};
+
 // VariablePicker component - small + button that inserts variables
-function VariablePicker({ fieldId, value, onChange }: {
+function VariablePicker({ fieldId, value, onChange, prevSteps }: {
   fieldId: string;
   value: string;
   onChange: (v: string) => void;
+  prevSteps?: WorkflowStep[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -50,30 +61,71 @@ function VariablePicker({ fieldId, value, onChange }: {
     setOpen(false);
   };
 
+  // Compute available step outputs
+  const stepOutputs = (prevSteps || [])
+    .filter(s => s.type !== 'trigger')
+    .map(step => {
+      const key = `${step.service}.${step.action}`;
+      const fields = STEP_OUTPUT_SCHEMAS[key] || [];
+      return { step, fields };
+    })
+    .filter(item => item.fields.length > 0);
+
   return (
     <div className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="ml-1 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-bold flex items-center justify-center transition-colors"
-        title="Insert data from trigger"
+        title="Insert variables"
       >
         +
       </button>
       {open && (
-        <div className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-xl shadow-lg p-2 w-56 space-y-1">
-          <p className="text-xs text-muted-foreground px-2 py-1 font-semibold">Trigger data</p>
-          {TRIGGER_FIELDS.map((f) => (
-            <button
-              key={f.variable}
-              type="button"
-              onClick={() => insert(f.variable)}
-              className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/60 text-foreground font-mono transition-colors"
-            >
-              {`{{${f.variable}}}`}
-              <span className="text-muted-foreground ml-2 font-sans">{f.label}</span>
-            </button>
-          ))}
+        <div className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-xl shadow-lg p-2 w-64 space-y-2 max-h-64 overflow-y-auto">
+          {/* Trigger data section */}
+          <div>
+            <p className="text-xs text-muted-foreground px-2 py-1 font-semibold">Trigger data</p>
+            <div className="space-y-1">
+              {TRIGGER_FIELDS.map((f) => (
+                <button
+                  key={f.variable}
+                  type="button"
+                  onClick={() => insert(f.variable)}
+                  className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/60 text-blue-400 font-mono transition-colors"
+                >
+                  {`{{${f.variable}}}`}
+                  <span className="text-muted-foreground ml-2 font-sans">{f.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Step outputs section */}
+          {stepOutputs.length > 0 && (
+            <div className="border-t border-border pt-2">
+              <p className="text-xs text-muted-foreground px-2 py-1 font-semibold">Step outputs</p>
+              <div className="space-y-2">
+                {stepOutputs.map(({ step, fields }) => (
+                  <div key={step.id}>
+                    <p className="text-xs text-green-400 px-2 py-0.5 font-semibold">{step.service} - {step.action}</p>
+                    <div className="space-y-0.5 ml-2">
+                      {fields.map(field => (
+                        <button
+                          key={field}
+                          type="button"
+                          onClick={() => insert(`steps.${step.id}.${field}`)}
+                          className="w-full text-left text-xs px-2 py-1 rounded-lg hover:bg-muted/60 text-green-400 font-mono transition-colors"
+                        >
+                          {`{{steps.${step.id}.${field}}}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -92,18 +144,39 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   useEffect(() => {
-    setFormData(config || {});
+    const newConfig = config || {};
+    setFormData(newConfig);
     setTestData(null);
     setTestError(null);
     setNotionFields([]);
     setNotionPages([]);
     setFieldError(null);
 
-    // Auto-load Notion schema if database_id is already set and this is an update_record
-    if (open && config?.database_id && service === "notion" && action === "update_record") {
-      fetchNotionSchema(config.database_id);
+    // Auto-load client's Notion DB if not already set and this is a Notion action
+    if (open && !newConfig?.database_id && service === "notion" && clientId) {
+      supabase
+        .from("client_notion_mapping")
+        .select("notion_database_id")
+        .eq("client_id", clientId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.notion_database_id) {
+            setFormData((prev) => ({ ...prev, database_id: data.notion_database_id }));
+            // Auto-fetch schema for update_record action
+            if (action === "update_record") {
+              fetchNotionSchema(data.notion_database_id);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Error loading client Notion mapping:", err);
+        });
     }
-  }, [config, open, service, action]);
+    // Auto-load Notion schema if database_id is already set and this is an update_record
+    else if (open && newConfig?.database_id && service === "notion" && action === "update_record") {
+      fetchNotionSchema(newConfig.database_id);
+    }
+  }, [config, open, service, action, clientId]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -334,7 +407,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_to">To (email address)</Label>
-                <VariablePicker fieldId="email_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} prevSteps={prevSteps} />
               </div>
               <Input
                 id="email_to"
@@ -346,7 +419,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_subject">Subject</Label>
-                <VariablePicker fieldId="email_subject" value={formData.subject || ""} onChange={(v) => setFormData({ ...formData, subject: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_subject" value={formData.subject || ""} onChange={(v) => setFormData({ ...formData, subject: v })} prevSteps={prevSteps} />
               </div>
               <Input
                 id="email_subject"
@@ -358,7 +431,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_body">Body</Label>
-                <VariablePicker fieldId="email_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} prevSteps={prevSteps} />
               </div>
               <Textarea
                 id="email_body"
@@ -396,7 +469,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   <Label htmlFor="notion_title">Title Field Value</Label>
-                  <VariablePicker fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} />
+                  <VariablePicker prevSteps={prevSteps} fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} />
                 </div>
                 <Input
                   id="notion_title"
@@ -518,7 +591,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   <Label htmlFor="notion_search_title">Find Record by Title</Label>
-                  <VariablePicker fieldId="notion_search_title" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} />
+                  <VariablePicker prevSteps={prevSteps} fieldId="notion_search_title" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} />
                 </div>
                 <Input
                   id="notion_search_title"
@@ -617,7 +690,85 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
           );
         }
 
-        // Default Notion form for search actions
+        // Search Record form
+        if (action === "search_record") {
+          return (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="notion_db">Notion Database ID</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="notion_db"
+                    placeholder="e.g., 29ad6442e09c805a927de6e3fdb6112c"
+                    value={formData.database_id || ""}
+                    onChange={(e) => {
+                      setFormData({ ...formData, database_id: e.target.value });
+                      if (e.target.value) fetchNotionSchema(e.target.value);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => formData.database_id && fetchNotionSchema(formData.database_id)}
+                    disabled={loadingFields}
+                  >
+                    {loadingFields ? "Loading..." : "Refresh"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Get this from your Notion database URL</p>
+                {fieldError && (
+                  <p className="text-xs text-destructive bg-red-500/10 px-2 py-1 rounded">{fieldError}</p>
+                )}
+              </div>
+
+              {/* Search property selector */}
+              {notionFields.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="search_property">Search by Property</Label>
+                  <Select value={formData.search_property || "Name"} onValueChange={(val) => setFormData({ ...formData, search_property: val })}>
+                    <SelectTrigger id="search_property">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {notionFields.map((field) => (
+                        <SelectItem key={field.id} value={field.name}>
+                          {field.name} {field.type === "title" ? "📝" : field.type === "select" ? "📋" : "🔤"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Search value */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="search_value">Search Value</Label>
+                  <VariablePicker prevSteps={prevSteps} fieldId="search_value" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} />
+                </div>
+                <Input
+                  id="search_value"
+                  placeholder="{{lead.name}}"
+                  value={formData.search_title || ""}
+                  onChange={(e) => setFormData({ ...formData, search_title: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">The value to search for in the selected property</p>
+              </div>
+
+              {/* Output variables info */}
+              <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <p className="text-xs font-semibold text-blue-400 mb-2">Step Output Variables</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-blue-300"><code>{{steps.STEP_ID.page_id}}</code> - Notion page ID</p>
+                  <p className="text-xs text-blue-300"><code>{{steps.STEP_ID.title}}</code> - Record title</p>
+                  <p className="text-xs text-blue-300"><code>{{steps.STEP_ID.url}}</code> - Notion page URL</p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Default Notion form for other actions
         return (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -633,7 +784,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="notion_title">Record Title</Label>
-                <VariablePicker fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} />
               </div>
               <Input
                 id="notion_title"
@@ -703,7 +854,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="sms_to">Phone Number</Label>
-                <VariablePicker fieldId="sms_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="sms_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} />
               </div>
               <Input
                 id="sms_to"
@@ -715,7 +866,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="sms_message">Message</Label>
-                <VariablePicker fieldId="sms_message" value={formData.message || ""} onChange={(v) => setFormData({ ...formData, message: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="sms_message" value={formData.message || ""} onChange={(v) => setFormData({ ...formData, message: v })} />
               </div>
               <Textarea
                 id="sms_message"

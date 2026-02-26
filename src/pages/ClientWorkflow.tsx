@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play } from "lucide-react";
+import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play, Clock } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
@@ -90,6 +96,9 @@ export default function ClientWorkflow() {
   const [showTestRunModal, setShowTestRunModal] = useState(false);
   const [testRunResults, setTestRunResults] = useState<TestRunResult | null>(null);
   const [isTestRunning, setIsTestRunning] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Get current workflow from array
   const workflow = workflows.find(w => w.id === selectedWorkflowId) || null;
@@ -394,6 +403,25 @@ export default function ClientWorkflow() {
     }
   };
 
+  const loadHistory = async () => {
+    if (!workflow) return;
+    setHistoryLoading(true);
+    try {
+      const { data } = await supabase
+        .from("workflow_executions")
+        .select("*")
+        .eq("workflow_id", workflow.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      setExecutionHistory(data || []);
+    } catch (err) {
+      console.error("Error loading history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleToggleActive = async (active: boolean) => {
     if (!workflow || !clientId) return;
 
@@ -629,6 +657,18 @@ export default function ClientWorkflow() {
                     <Play className="w-4 h-4" />
                     {language === "en" ? "Test Run" : "Prueba"}
                   </Button>
+                  <Button
+                    onClick={() => {
+                      setShowHistory(true);
+                      loadHistory();
+                    }}
+                    disabled={workflowSaving}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Clock className="w-4 h-4" />
+                    {language === "en" ? "History" : "Historial"}
+                  </Button>
                   <Button onClick={handleSaveWorkflow} disabled={workflowSaving} className="bg-blue-600 hover:bg-blue-700">
                     {workflowSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {language === "en" ? "Save" : "Guardar"}
@@ -781,6 +821,84 @@ export default function ClientWorkflow() {
         isRunning={isTestRunning}
         results={testRunResults}
       />
+
+      {/* Execution History Dialog */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Execution History" : "Historial de Ejecuciones"}</DialogTitle>
+          </DialogHeader>
+
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : executionHistory.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                {language === "en" ? "No execution history yet" : "Sin historial de ejecuciones aún"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {executionHistory.map((execution: any) => (
+                <div key={execution.id} className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Circle
+                          className={`w-2 h-2 flex-shrink-0 ${
+                            execution.status === "completed"
+                              ? "fill-green-500 text-green-500"
+                              : execution.status === "failed"
+                              ? "fill-red-500 text-red-500"
+                              : "fill-yellow-500 text-yellow-500"
+                          }`}
+                        />
+                        <span className="text-sm font-medium capitalize">
+                          {execution.status === "completed"
+                            ? language === "en" ? "Completed" : "Completado"
+                            : execution.status === "failed"
+                            ? language === "en" ? "Failed" : "Fallido"
+                            : language === "en" ? "Running" : "Ejecutando"}
+                        </span>
+                        {execution.duration_ms && (
+                          <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">
+                            {(execution.duration_ms / 1000).toFixed(2)}s
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(execution.created_at).toLocaleString(
+                          language === "en" ? "en-US" : "es-ES"
+                        )}
+                      </p>
+                      {execution.error_message && (
+                        <p className="text-xs text-red-500 mt-2">{execution.error_message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Step Results */}
+                  {execution.steps_results && execution.steps_results.length > 0 && (
+                    <div className="mt-3 pl-6 border-l space-y-2">
+                      {execution.steps_results.map((step: any, idx: number) => (
+                        <div key={idx} className="text-xs">
+                          <span className="font-medium">{step.step_id || `Step ${idx + 1}`}</span>
+                          <span className={`ml-2 ${step.status === "success" ? "text-green-600" : "text-red-600"}`}>
+                            {step.status === "success" ? "✓" : "✗"} {step.status}
+                          </span>
+                          {step.message && <p className="text-muted-foreground mt-1">{step.message}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

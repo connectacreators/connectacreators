@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Workflow } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Workflow, Sparkles } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import AnimatedDots from "@/components/ui/AnimatedDots";
@@ -50,6 +50,7 @@ export default function ClientDetail() {
   const [notionFileSubmissionProp, setNotionFileSubmissionProp] = useState("File Submission");
   const [notionLoading, setNotionLoading] = useState(false);
 
+
   const canViewClient = isAdmin || isVideographer || isUser;
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function ClientDetail() {
         }
       });
   }, [clientId, isAdmin]);
+
 
   const handleSaveNotion = async () => {
     if (!clientId || !notionDbId.trim()) return;
@@ -145,6 +147,7 @@ export default function ClientDetail() {
     }
     setDeleteLoading(false);
   };
+
 
   useEffect(() => {
     if (!loading && user && !canViewClient) {
@@ -209,6 +212,13 @@ export default function ClientDetail() {
       icon: Workflow,
       color: "text-blue-400",
       path: `/clients/${clientId}/workflow`,
+    },
+    {
+      label: language === "en" ? "Brand Setup" : "Configuración de Marca",
+      description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding",
+      icon: Sparkles,
+      color: "text-yellow-400",
+      path: `/onboarding/${clientId}`,
     },
   ];
 
@@ -290,7 +300,7 @@ export default function ClientDetail() {
             </motion.h1>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {toolCards.map((tool, i) => (
+              {toolCards.map((tool: any, i) => (
                 <motion.button
                   key={tool.path}
                   onClick={() => navigate(tool.path)}

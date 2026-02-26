@@ -1,0 +1,70 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e9ecef;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+
+  <!-- Subtle accent circles -->
+  <circle cx="100" cy="100" r="80" fill="#3b82f6" opacity="0.08"/>
+  <circle cx="1100" cy="550" r="100" fill="#3b82f6" opacity="0.05"/>
+
+  <!-- Logo/Brand -->
+  <text x="60" y="70" font-family="Inter, sans-serif" font-size="24" font-weight="700" fill="#000">
+    CONNECTA
+  </text>
+  <text x="60" y="95" font-family="Inter, sans-serif" font-size="14" font-weight="400" fill="#666">
+    CREATORS
+  </text>
+
+  <!-- Main Heading -->
+  <text x="60" y="180" font-family="Playfair Display, serif" font-size="56" font-weight="700" fill="#000">
+    Connect with your
+  </text>
+  <text x="60" y="245" font-family="Playfair Display, serif" font-size="56" font-weight="700" fill="#000">
+    clients faster
+  </text>
+
+  <!-- Subheading -->
+  <text x="60" y="320" font-family="Inter, sans-serif" font-size="20" font-weight="400" fill="#333">
+    AI-powered scripts • Lead management • Calendar organization
+  </text>
+
+  <!-- Feature icons with text -->
+  <g>
+    <!-- Icon 1: Script -->
+    <rect x="60" y="380" width="280" height="80" rx="8" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="85" y="410" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#000">📝 AI Scripts</text>
+    <text x="85" y="435" font-family="Inter, sans-serif" font-size="13" font-weight="400" fill="#666">Generate viral content</text>
+
+    <!-- Icon 2: Leads -->
+    <rect x="370" y="380" width="280" height="80" rx="8" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="395" y="410" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#000">🎯 Lead Management</text>
+    <text x="395" y="435" font-family="Inter, sans-serif" font-size="13" font-weight="400" fill="#666">Organize & convert</text>
+
+    <!-- Icon 3: Calendar -->
+    <rect x="680" y="380" width="280" height="80" rx="8" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="705" y="410" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#000">📅 Calendar</text>
+    <text x="705" y="435" font-family="Inter, sans-serif" font-size="13" font-weight="400" fill="#666">Never miss a booking</text>
+  </g>
+
+  <!-- CTA Button -->
+  <rect x="460" y="520" width="280" height="60" rx="30" fill="#3b82f6"/>
+  <text x="600" y="555" font-family="Inter, sans-serif" font-size="18" font-weight="600" fill="#fff" text-anchor="middle">
+    Start Building
+  </text>
+
+  <!-- URL at bottom -->
+  <text x="600" y="610" font-family="Inter, sans-serif" font-size="14" font-weight="500" fill="#666" text-anchor="middle">
+    connectacreators.com
+  </text>
+</svg>

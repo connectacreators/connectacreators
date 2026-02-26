@@ -50,6 +50,7 @@ const App = () => (
             <Route path="/reto" element={<Index />} />
             <Route path="/reto/en" element={<IndexEN />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/onboarding/:clientId" element={<Onboarding />} />
             <Route path="/scripts" element={<Scripts />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:clientId" element={<ClientDetail />} />
