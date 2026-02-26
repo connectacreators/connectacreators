@@ -33,6 +33,7 @@ import Checkout from "./pages/Checkout";
 import EditingQueue from "./pages/EditingQueue";
 import MasterEditingQueue from "./pages/MasterEditingQueue";
 import ClientWorkflow from "./pages/ClientWorkflow";
+import FacebookCallback from "./pages/FacebookCallback";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/book/:clientId" element={<PublicBooking />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+            <Route path="/facebook-callback" element={<FacebookCallback />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

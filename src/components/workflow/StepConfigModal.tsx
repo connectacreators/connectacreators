@@ -143,6 +143,14 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
   const [loadingFields, setLoadingFields] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
+  // Facebook state
+  const [fbPages, setFbPages] = useState<Array<{ page_id: string; page_name: string; is_subscribed: boolean }>>([]);
+  const [fbForms, setFbForms] = useState<Array<{ form_id: string; form_name: string; status: string }>>([]);
+  const [fbLoadingPages, setFbLoadingPages] = useState(false);
+  const [fbLoadingForms, setFbLoadingForms] = useState(false);
+  const [fbConnecting, setFbConnecting] = useState(false);
+  const [fbError, setFbError] = useState<string | null>(null);
+
   useEffect(() => {
     const newConfig = config || {};
     setFormData(newConfig);
@@ -151,6 +159,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     setNotionFields([]);
     setNotionPages([]);
     setFieldError(null);
+    setFbError(null);
+    setFbPages([]);
+    setFbForms([]);
 
     // Auto-load client's Notion DB if not already set and this is a Notion action
     if (open && !newConfig?.database_id && service === "notion" && clientId) {
@@ -175,6 +186,11 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     // Auto-load Notion schema if database_id is already set and this is an update_record
     else if (open && newConfig?.database_id && service === "notion" && action === "update_record") {
       fetchNotionSchema(newConfig.database_id);
+    }
+
+    // Load Facebook pages if opening webhook trigger
+    if (open && service === "webhooks") {
+      loadFbPages();
     }
   }, [config, open, service, action, clientId]);
 
@@ -245,6 +261,122 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     setLoadingFields(false);
   };
 
+  // Facebook OAuth helpers
+  const loadFbPages = async () => {
+    if (!clientId) return;
+    setFbLoadingPages(true);
+    setFbError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("facebook-oauth", {
+        body: { action: "get_pages", client_id: clientId }
+      });
+      if (error) throw error;
+      setFbPages(data?.pages || []);
+      // If a page is already selected, auto-load its forms
+      if (formData.facebook_page_id && data?.pages?.length > 0) {
+        loadFbForms(formData.facebook_page_id);
+      }
+    } catch (err: any) {
+      setFbError(err.message || "Failed to load Facebook pages");
+    }
+    setFbLoadingPages(false);
+  };
+
+  const loadFbForms = async (pageId: string) => {
+    if (!clientId || !pageId) return;
+    setFbLoadingForms(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("facebook-oauth", {
+        body: { action: "get_forms", client_id: clientId, page_id: pageId }
+      });
+      if (error) throw error;
+      setFbForms(data?.forms || []);
+    } catch (err: any) {
+      setFbError("Failed to load forms: " + err.message);
+    }
+    setFbLoadingForms(false);
+  };
+
+  const connectFacebook = async () => {
+    if (!clientId) return;
+    setFbConnecting(true);
+    setFbError(null);
+
+    try {
+      // Get OAuth URL from edge function (use fetch instead of invoke for GET)
+      const baseUrl = supabase.supabaseUrl;
+      const response = await fetch(
+        `${baseUrl}/functions/v1/facebook-oauth?action=get_url&client_id=${clientId}&return_path=${encodeURIComponent(window.location.pathname)}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ""}`,
+            "apikey": supabase.supabaseKey,
+          }
+        }
+      );
+      const urlData = await response.json();
+      if (!urlData.url) throw new Error("Failed to get OAuth URL");
+
+      // Open popup
+      const popup = window.open(
+        urlData.url,
+        "facebook_oauth",
+        "width=600,height=700,top=100,left=200,scrollbars=yes"
+      );
+
+      if (!popup) {
+        throw new Error("Popup was blocked. Please allow popups for this site.");
+      }
+
+      // Listen for message back from /facebook-callback
+      const handler = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+
+        if (event.data?.type === "FACEBOOK_AUTH_SUCCESS") {
+          window.removeEventListener("message", handler);
+          setFbConnecting(false);
+          loadFbPages();
+        } else if (event.data?.type === "FACEBOOK_AUTH_ERROR") {
+          window.removeEventListener("message", handler);
+          setFbConnecting(false);
+          setFbError(event.data.error || "Facebook connection failed");
+        }
+      };
+
+      window.addEventListener("message", handler);
+
+      // Cleanup if popup is closed manually
+      const pollClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(pollClosed);
+          window.removeEventListener("message", handler);
+          setFbConnecting(false);
+        }
+      }, 500);
+
+    } catch (err: any) {
+      setFbConnecting(false);
+      setFbError(err.message);
+    }
+  };
+
+  const subscribeWebhook = async (pageId: string) => {
+    if (!clientId) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("facebook-oauth", {
+        body: { action: "subscribe_webhook", client_id: clientId, page_id: pageId }
+      });
+      if (error) {
+        setFbError("Webhook subscription failed: " + error.message);
+      } else {
+        // Update local state
+        setFbPages(prev => prev.map(p => p.page_id === pageId ? { ...p, is_subscribed: true } : p));
+      }
+    } catch (err: any) {
+      setFbError("Error: " + err.message);
+    }
+  };
+
   // Render form based on service type
   const renderForm = () => {
     switch (service) {
@@ -297,22 +429,157 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="border-t border-muted pt-4">
               {selectedTriggerType === 'new_lead' && (
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="form_id">Facebook Form ID (optional)</Label>
-                    <Input
-                      id="form_id"
-                      placeholder="Leave empty to accept all forms"
-                      value={formData.facebook_form_id || ""}
-                      onChange={(e) => setFormData({ ...formData, facebook_form_id: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">Only trigger when leads come from this specific Facebook form ID</p>
-                  </div>
+                  {/* Connection Status Banner */}
+                  {fbPages.length === 0 && !fbLoadingPages ? (
+                    <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-500" />
+                        <p className="text-sm font-medium text-orange-300">Facebook not connected</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Connect your Facebook account to automatically receive leads from your ad forms.</p>
+                      <Button
+                        onClick={connectFacebook}
+                        disabled={fbConnecting}
+                        className="w-full bg-[#1877F2] hover:bg-[#1468d8] text-white gap-2"
+                        size="sm"
+                      >
+                        {fbConnecting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                          </svg>
+                        )}
+                        {fbConnecting ? "Connecting..." : "Connect Facebook Account"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Connected badge + reconnect button */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <p className="text-xs font-medium text-green-400">
+                            {fbPages.length} page{fbPages.length !== 1 ? "s" : ""} connected
+                          </p>
+                        </div>
+                        <Button
+                          onClick={connectFacebook}
+                          disabled={fbConnecting}
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 text-muted-foreground"
+                        >
+                          {fbConnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add / Reconnect"}
+                        </Button>
+                      </div>
+
+                      {/* Page selector */}
+                      <div className="space-y-2">
+                        <Label htmlFor="fb_page_select">Facebook Page</Label>
+                        {fbLoadingPages ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Loading pages...
+                          </div>
+                        ) : (
+                          <Select
+                            value={formData.facebook_page_id || ""}
+                            onValueChange={(pageId) => {
+                              setFormData({ ...formData, facebook_page_id: pageId, facebook_form_id: "" });
+                              setFbForms([]);
+                              loadFbForms(pageId);
+                            }}
+                          >
+                            <SelectTrigger id="fb_page_select">
+                              <SelectValue placeholder="Select a Facebook page..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fbPages.map(page => (
+                                <SelectItem key={page.page_id} value={page.page_id}>
+                                  <span className="flex items-center gap-2">
+                                    {page.page_name}
+                                    {page.is_subscribed ? (
+                                      <span className="text-xs text-green-400">● live</span>
+                                    ) : (
+                                      <span className="text-xs text-orange-400">○ not subscribed</span>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      {/* Webhook subscription warning */}
+                      {formData.facebook_page_id && fbPages.find(p => p.page_id === formData.facebook_page_id && !p.is_subscribed) && (
+                        <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3 space-y-2">
+                          <p className="text-xs text-orange-300">Leads won't be received until you activate the webhook for this page.</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 border-orange-500/50 text-orange-300 hover:bg-orange-500/20"
+                            onClick={() => subscribeWebhook(formData.facebook_page_id)}
+                          >
+                            Activate Webhook
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Form selector */}
+                      {formData.facebook_page_id && (
+                        <div className="space-y-2">
+                          <Label htmlFor="fb_form_select">Lead Form (optional)</Label>
+                          {fbLoadingForms ? (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Loading forms...
+                            </div>
+                          ) : (
+                            <>
+                              <Select
+                                value={formData.facebook_form_id || "ALL"}
+                                onValueChange={(formId) =>
+                                  setFormData({
+                                    ...formData,
+                                    facebook_form_id: formId === "ALL" ? "" : formId
+                                  })
+                                }
+                              >
+                                <SelectTrigger id="fb_form_select">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ALL">All forms (accept any lead)</SelectItem>
+                                  {fbForms.map(form => (
+                                    <SelectItem key={form.form_id} value={form.form_id}>
+                                      {form.form_name}
+                                      {form.status === "archived" && (
+                                        <span className="ml-1 text-muted-foreground">(archived)</span>
+                                      )}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">Filter to only trigger for leads from one specific form. Leave as "All forms" to accept leads from any form on this page.</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Error display */}
+                  {fbError && (
+                    <p className="text-xs text-destructive bg-red-500/10 px-2 py-1 rounded">{fbError}</p>
+                  )}
 
                   {/* Test Trigger Button */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 border-t border-muted pt-3">
                     <Button onClick={handleTest} disabled={testing} variant="outline" size="sm" className="w-full gap-2">
                       {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                      {testData ? "Re-test Trigger" : "Test Trigger"}
+                      {testData ? "Re-test Trigger" : "Test Trigger (use latest lead)"}
                     </Button>
                     {testError && <p className="text-xs text-destructive bg-red-500/10 px-2 py-1 rounded">{testError}</p>}
                   </div>

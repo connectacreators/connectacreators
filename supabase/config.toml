@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.run-scheduled-workflows]
 verify_jwt = false
+
+[functions.facebook-oauth]
+verify_jwt = true
+
+[functions.facebook-webhook-receiver]
+verify_jwt = false
