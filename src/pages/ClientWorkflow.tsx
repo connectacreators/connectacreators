@@ -32,6 +32,7 @@ import WorkflowStep from "@/components/workflow/WorkflowStep";
 import AddStepModal, { ServiceOption } from "@/components/workflow/AddStepModal";
 import StepConfigModal from "@/components/workflow/StepConfigModal";
 import TestRunModal, { TestData, TestRunResult } from "@/components/workflow/TestRunModal";
+import LiveRunDrawer from "@/components/workflow/LiveRunDrawer";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -96,6 +97,7 @@ export default function ClientWorkflow() {
   const [showTestRunModal, setShowTestRunModal] = useState(false);
   const [testRunResults, setTestRunResults] = useState<TestRunResult | null>(null);
   const [isTestRunning, setIsTestRunning] = useState(false);
+  const [showLiveDrawer, setShowLiveDrawer] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [executionHistory, setExecutionHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -434,6 +436,7 @@ export default function ClientWorkflow() {
 
     setStepRunStatuses({});
     setIsTestRunning(true);
+    setShowLiveDrawer(true);
 
     // Build initial trigger data
     const triggerStep = workflow.steps.find(s => s.type === 'trigger');
@@ -935,6 +938,19 @@ export default function ClientWorkflow() {
         isRunning={isTestRunning}
         results={testRunResults}
         savedTriggerData={workflow ? stepTestResults[workflow.steps[0]?.id] : undefined}
+      />
+
+      <LiveRunDrawer
+        open={showLiveDrawer}
+        onOpenChange={setShowLiveDrawer}
+        steps={workflow?.steps || []}
+        stepRunStatuses={stepRunStatuses}
+        stepTestResults={stepTestResults}
+        isRunning={isTestRunning}
+        onRetry={() => {
+          setStepRunStatuses({});
+          handleSequentialTestRun();
+        }}
       />
 
       {/* Execution History Dialog */}
