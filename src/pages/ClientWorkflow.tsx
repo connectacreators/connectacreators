@@ -100,6 +100,12 @@ export default function ClientWorkflow() {
   const [executionHistory, setExecutionHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Step test results tracking (for data flow between steps)
+  const [stepTestResults, setStepTestResults] = useState<Record<string, Record<string, any>>>({});
+
+  // Step run statuses for sequential test runner (idle | running | passed | failed)
+  const [stepRunStatuses, setStepRunStatuses] = useState<Record<string, 'idle' | 'running' | 'passed' | 'failed'>>({});
+
   // Get current workflow from array
   const workflow = workflows.find(w => w.id === selectedWorkflowId) || null;
 
@@ -232,6 +238,22 @@ export default function ClientWorkflow() {
     setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
   };
 
+  const handleDuplicateStep = (stepId: string) => {
+    if (!workflow) return;
+    const step = workflow.steps.find(s => s.id === stepId);
+    if (!step || step.type === 'trigger') {
+      toast.error(language === "en" ? "Cannot duplicate trigger step" : "No se puede duplicar el paso activador");
+      return;
+    }
+    const cloned = { ...step, id: `step_${Date.now()}`, config: { ...step.config } };
+    const idx = workflow.steps.findIndex(s => s.id === stepId);
+    const newSteps = [...workflow.steps];
+    newSteps.splice(idx + 1, 0, cloned);
+    const updatedWorkflow = { ...workflow, steps: newSteps };
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
+    toast.success(language === "en" ? "Step duplicated" : "Paso duplicado");
+  };
+
   const handleEditStep = (stepId: string) => {
     setEditingStepId(stepId);
     setShowConfigModal(true);
@@ -261,6 +283,10 @@ export default function ClientWorkflow() {
       steps: updatedSteps,
     };
     setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
+  };
+
+  const handleTestComplete = (stepId: string, output: Record<string, any>) => {
+    setStepTestResults(prev => ({ ...prev, [stepId]: output }));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -385,11 +411,11 @@ export default function ClientWorkflow() {
         });
       } else if (data) {
         setTestRunResults({
-          status: data.status === "completed" ? "completed" : "failed",
+          status: data.status === "success" ? "completed" : "failed",
           execution_id: data.execution_id,
           duration: data.duration,
-          steps_executed: data.steps_executed,
-          error_message: data.error_message,
+          steps_executed: data.steps_results,
+          error_message: data.error,
         });
       }
     } catch (err: any) {
@@ -401,6 +427,87 @@ export default function ClientWorkflow() {
     } finally {
       setIsTestRunning(false);
     }
+  };
+
+  const handleSequentialTestRun = async (testData?: TestData) => {
+    if (!workflow) return;
+
+    setStepRunStatuses({});
+    setIsTestRunning(true);
+
+    // Build initial trigger data
+    const triggerStep = workflow.steps.find(s => s.type === 'trigger');
+    const savedTrigger = triggerStep ? stepTestResults[triggerStep.id] : null;
+    const triggerData: Record<string, any> = testData
+      ? {
+          full_name: testData.full_name,
+          name: testData.full_name,
+          email: testData.email,
+          phone: testData.phone,
+          status: 'new',
+          source: 'manual_test',
+          created_at: new Date().toISOString(),
+        }
+      : savedTrigger || {
+          full_name: 'Test Lead',
+          name: 'Test Lead',
+          email: 'test@example.com',
+          phone: '+1 (555) 000-0000',
+          status: 'Meta Ad (Not Booked)',
+          source: 'Facebook Lead',
+          created_at: new Date().toISOString(),
+        };
+
+    const newStepResults: Record<string, Record<string, any>> = { ...stepTestResults };
+    const stepContext: Record<string, Record<string, any>> = {};
+
+    for (const step of workflow.steps) {
+      // Trigger step: mark as passed immediately
+      if (step.type === 'trigger') {
+        setStepRunStatuses(prev => ({ ...prev, [step.id]: 'running' }));
+        await new Promise(r => setTimeout(r, 400)); // brief visual delay
+        setStepRunStatuses(prev => ({ ...prev, [step.id]: 'passed' }));
+        newStepResults[step.id] = triggerData;
+        continue;
+      }
+
+      // Action step: test via edge function
+      setStepRunStatuses(prev => ({ ...prev, [step.id]: 'running' }));
+
+      try {
+        const { data, error } = await supabase.functions.invoke('test-workflow-step', {
+          body: {
+            step: { id: step.id, service: step.service, action: step.action, config: step.config },
+            trigger_data: triggerData,
+            step_context: stepContext,
+          }
+        });
+
+        if (error || !data || data.status === 'failed') {
+          const errMsg = data?.error || error?.message || 'Unknown error';
+          setStepRunStatuses(prev => ({ ...prev, [step.id]: 'failed' }));
+          toast.error(`Step failed: ${step.label || step.service}`, { description: errMsg });
+          setIsTestRunning(false);
+          return; // stop on first failure
+        }
+
+        setStepRunStatuses(prev => ({ ...prev, [step.id]: 'passed' }));
+        if (data.output) {
+          stepContext[step.id] = data.output;
+          newStepResults[step.id] = data.output;
+        }
+      } catch (err: any) {
+        setStepRunStatuses(prev => ({ ...prev, [step.id]: 'failed' }));
+        toast.error(`Step failed: ${step.label || step.service}`, { description: err.message });
+        setIsTestRunning(false);
+        return;
+      }
+    }
+
+    // All passed
+    setStepTestResults(newStepResults);
+    toast.success('All steps passed!');
+    setIsTestRunning(false);
   };
 
   const loadHistory = async () => {
@@ -718,6 +825,9 @@ export default function ClientWorkflow() {
                           stepNumber={idx + 1}
                           onEdit={() => handleEditStep(step.id)}
                           onDelete={() => handleDeleteStep(step.id)}
+                          onDuplicate={() => handleDuplicateStep(step.id)}
+                          tested={!!stepTestResults[step.id]}
+                          runStatus={stepRunStatuses[step.id] || 'idle'}
                         />
 
                         {/* Add Step Button (between steps) */}
@@ -811,15 +921,20 @@ export default function ClientWorkflow() {
           onSave={handleUpdateStepConfig}
           clientId={clientId}
           prevSteps={workflow.steps.slice(0, workflow.steps.findIndex(s => s.id === editingStepId))}
+          stepId={editingStep.id}
+          label={editingStep.label}
+          stepTestResults={stepTestResults}
+          onTestComplete={handleTestComplete}
         />
       )}
 
       <TestRunModal
         open={showTestRunModal}
         onOpenChange={setShowTestRunModal}
-        onRunTest={handleTestRun}
+        onRunTest={handleSequentialTestRun}
         isRunning={isTestRunning}
         results={testRunResults}
+        savedTriggerData={workflow ? stepTestResults[workflow.steps[0]?.id] : undefined}
       />
 
       {/* Execution History Dialog */}

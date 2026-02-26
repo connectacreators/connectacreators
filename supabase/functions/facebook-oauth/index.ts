@@ -33,6 +33,7 @@ serve(async (req) => {
       "leads_retrieval",
       "pages_manage_metadata",
       "pages_read_engagement",
+      "pages_manage_leads",
     ].join(",");
 
     const oauthUrl = new URL("https://www.facebook.com/v19.0/dialog/oauth");

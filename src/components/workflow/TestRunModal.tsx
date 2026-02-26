@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Play, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface TestRunModalProps {
@@ -11,6 +11,7 @@ interface TestRunModalProps {
   onRunTest: (data: TestData) => Promise<void>;
   isRunning: boolean;
   results?: TestRunResult | null;
+  savedTriggerData?: Record<string, any>;
 }
 
 export interface TestData {
@@ -38,12 +39,24 @@ export default function TestRunModal({
   onRunTest,
   isRunning,
   results,
+  savedTriggerData,
 }: TestRunModalProps) {
   const [formData, setFormData] = useState<TestData>({
     full_name: "",
     email: "",
     phone: "",
   });
+
+  // Pre-fill with saved trigger data when available
+  useEffect(() => {
+    if (savedTriggerData) {
+      setFormData({
+        full_name: savedTriggerData.full_name || savedTriggerData.name || "",
+        email: savedTriggerData.email || "",
+        phone: savedTriggerData.phone || "",
+      });
+    }
+  }, [savedTriggerData]);
 
   const handleRunTest = async () => {
     if (!formData.full_name || !formData.email) {

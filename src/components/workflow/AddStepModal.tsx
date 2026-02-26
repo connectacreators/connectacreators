@@ -76,6 +76,15 @@ const AVAILABLE_SERVICES: ServiceOption[] = [
     color: "red",
   },
   {
+    id: "whatsapp_send",
+    service: "whatsapp",
+    action: "send_whatsapp",
+    name: "Send WhatsApp",
+    description: "Send a WhatsApp message via Twilio",
+    emoji: "💚",
+    color: "green",
+  },
+  {
     id: "delay",
     service: "delay",
     action: "delay_until",
@@ -98,6 +107,7 @@ const colorClasses = {
   blue: "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30",
   red: "bg-red-500/20 text-red-400 hover:bg-red-500/30",
   amber: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
+  green: "bg-green-500/20 text-green-400 hover:bg-green-500/30",
 };
 
 export default function AddStepModal({ open, onOpenChange, onSelectService }: AddStepModalProps) {

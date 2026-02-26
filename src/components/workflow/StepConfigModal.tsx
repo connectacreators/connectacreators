@@ -1,11 +1,12 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
-import { Loader2, Play, ChevronRight } from "lucide-react";
+import { Loader2, Play, ChevronRight, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { WorkflowStep } from "@/pages/ClientWorkflow";
 
@@ -18,6 +19,10 @@ interface StepConfigModalProps {
   onSave: (config: Record<string, any>) => void;
   clientId?: string;
   prevSteps?: WorkflowStep[];
+  stepId?: string;
+  label?: string;
+  stepTestResults?: Record<string, Record<string, any>>;
+  onTestComplete?: (stepId: string, output: Record<string, any>) => void;
 }
 
 const TRIGGER_FIELDS = [
@@ -40,11 +45,13 @@ const STEP_OUTPUT_SCHEMAS: Record<string, string[]> = {
 };
 
 // VariablePicker component - small + button that inserts variables
-function VariablePicker({ fieldId, value, onChange, prevSteps }: {
+function VariablePicker({ fieldId, value, onChange, prevSteps, triggerData, stepOutputResults }: {
   fieldId: string;
   value: string;
   onChange: (v: string) => void;
   prevSteps?: WorkflowStep[];
+  triggerData?: Record<string, any> | null;
+  stepOutputResults?: Record<string, Record<string, any>>;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -82,22 +89,35 @@ function VariablePicker({ fieldId, value, onChange, prevSteps }: {
         +
       </button>
       {open && (
-        <div className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-xl shadow-lg p-2 w-64 space-y-2 max-h-64 overflow-y-auto">
+        <div className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-xl shadow-lg p-2 w-72 space-y-2 max-h-80 overflow-y-auto">
           {/* Trigger data section */}
           <div>
             <p className="text-xs text-muted-foreground px-2 py-1 font-semibold">Trigger data</p>
             <div className="space-y-1">
-              {TRIGGER_FIELDS.map((f) => (
-                <button
-                  key={f.variable}
-                  type="button"
-                  onClick={() => insert(f.variable)}
-                  className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/60 text-blue-400 font-mono transition-colors"
-                >
-                  {`{{${f.variable}}}`}
-                  <span className="text-muted-foreground ml-2 font-sans">{f.label}</span>
-                </button>
-              ))}
+              {TRIGGER_FIELDS.map((f) => {
+                const resolved = triggerData?.[f.key];
+                return (
+                  <button
+                    key={f.variable}
+                    type="button"
+                    onClick={() => insert(f.variable)}
+                    className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-blue-400 font-mono shrink-0">{`{{${f.variable}}}`}</span>
+                      <span className="text-muted-foreground font-sans truncate">{f.label}</span>
+                    </div>
+                    {resolved !== undefined && (
+                      <span
+                        className="text-green-400 text-[10px] font-mono truncate max-w-[90px] shrink-0"
+                        title={String(resolved)}
+                      >
+                        {String(resolved).length > 18 ? String(resolved).slice(0, 18) + '…' : String(resolved)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -110,16 +130,27 @@ function VariablePicker({ fieldId, value, onChange, prevSteps }: {
                   <div key={step.id}>
                     <p className="text-xs text-green-400 px-2 py-0.5 font-semibold">{step.service} - {step.action}</p>
                     <div className="space-y-0.5 ml-2">
-                      {fields.map(field => (
-                        <button
-                          key={field}
-                          type="button"
-                          onClick={() => insert(`steps.${step.id}.${field}`)}
-                          className="w-full text-left text-xs px-2 py-1 rounded-lg hover:bg-muted/60 text-green-400 font-mono transition-colors"
-                        >
-                          {`{{steps.${step.id}.${field}}}`}
-                        </button>
-                      ))}
+                      {fields.map(field => {
+                        const resolved = stepOutputResults?.[step.id]?.[field];
+                        return (
+                          <button
+                            key={field}
+                            type="button"
+                            onClick={() => insert(`steps.${step.id}.${field}`)}
+                            className="w-full text-left text-xs px-2 py-1 rounded-lg hover:bg-muted/60 text-green-400 font-mono transition-colors flex items-center justify-between gap-2"
+                          >
+                            <span className="truncate">{`{{steps.${step.id}.${field}}}`}</span>
+                            {resolved !== undefined && (
+                              <span
+                                className="text-cyan-400 text-[10px] truncate max-w-[80px]"
+                                title={String(resolved)}
+                              >
+                                {String(resolved).length > 15 ? String(resolved).slice(0, 15) + '…' : String(resolved)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -132,10 +163,25 @@ function VariablePicker({ fieldId, value, onChange, prevSteps }: {
   );
 }
 
-export default function StepConfigModal({ open, onOpenChange, service, action, config, onSave, clientId, prevSteps }: StepConfigModalProps) {
+const MOCK_TRIGGER_DATA = {
+  full_name: 'Test Lead',
+  name: 'Test Lead',
+  email: 'test@example.com',
+  phone: '+1 (555) 000-0000',
+  status: 'Meta Ad (Not Booked)',
+  source: 'Facebook Lead',
+  created_at: new Date().toISOString(),
+};
+
+export default function StepConfigModal({ open, onOpenChange, service, action, config, onSave, clientId, prevSteps, stepId, label, stepTestResults, onTestComplete }: StepConfigModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>(config || {});
   const [saving, setSaving] = useState(false);
   const [testData, setTestData] = useState<Record<string, any> | null>(null);
+
+  // Derive saved trigger data from parent's stepTestResults
+  const triggerStep = prevSteps?.find(s => s.type === 'trigger');
+  const savedTriggerData: Record<string, any> | null =
+    (triggerStep && stepTestResults?.[triggerStep.id]) ? stepTestResults![triggerStep.id] : null;
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
   const [notionFields, setNotionFields] = useState<Array<{ name: string; type: string; id: string; options?: Array<{ name: string }> }>>([]);
@@ -151,6 +197,15 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
   const [fbConnecting, setFbConnecting] = useState(false);
   const [fbError, setFbError] = useState<string | null>(null);
 
+  // Step testing state
+  const [stepTestResult, setStepTestResult] = useState<{
+    status: 'completed' | 'failed' | 'skipped';
+    output?: Record<string, any>;
+    error?: string;
+    duration?: number;
+  } | null>(null);
+  const [stepTesting, setStepTesting] = useState(false);
+
   useEffect(() => {
     const newConfig = config || {};
     setFormData(newConfig);
@@ -162,6 +217,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     setFbError(null);
     setFbPages([]);
     setFbForms([]);
+    setStepTestResult(null);
 
     // Auto-load client's Notion DB if not already set and this is a Notion action
     if (open && !newConfig?.database_id && service === "notion" && clientId) {
@@ -188,8 +244,8 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
       fetchNotionSchema(newConfig.database_id);
     }
 
-    // Load Facebook pages if opening webhook trigger
-    if (open && service === "webhooks") {
+    // Load Facebook pages if opening webhook trigger or if trigger_type is new_lead
+    if (open && (service === "webhooks" || config?.trigger_type === "new_lead")) {
       loadFbPages();
     }
   }, [config, open, service, action, clientId]);
@@ -202,38 +258,69 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     setSaving(false);
   };
 
-  const handleTest = async () => {
-    if (!clientId) return;
+  const handleTest = async (useMockData: boolean = false) => {
     setTesting(true);
     setTestError(null);
     try {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      let data;
+
+      if (useMockData) {
+        // Directly use mock data
+        data = MOCK_TRIGGER_DATA;
+      } else if (clientId) {
+        // Try to fetch real lead data
+        const { data: leadData, error } = await supabase
+          .from("leads")
+          .select("*")
+          .eq("client_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error || !leadData) {
+          // Fall back to mock data instead of failing
+          data = MOCK_TRIGGER_DATA;
+        } else {
+          data = leadData;
+        }
+      } else {
+        // No clientId, use mock data
+        data = MOCK_TRIGGER_DATA;
+      }
 
       setTesting(false);
-      if (error || !data) {
-        setTestError("No leads found for this client yet. Add a test lead first.");
-        return;
-      }
       setTestData(data);
+      // Store trigger test data if callback is provided
+      if (onTestComplete && stepId && service === 'webhooks') {
+        onTestComplete(stepId, data);
+      }
     } catch (err) {
       setTesting(false);
-      setTestError("Error fetching test data");
+      // Fall back to mock data on error
+      const mockData = MOCK_TRIGGER_DATA;
+      setTestData(mockData);
+      if (onTestComplete && stepId && service === 'webhooks') {
+        onTestComplete(stepId, mockData);
+      }
     }
   };
 
   const fetchNotionSchema = async (dbId: string) => {
     if (!dbId) return;
+    // Extract 32-char hex ID from anywhere in the string (handles full Notion URLs)
+    const stripped = dbId.split('?')[0].replace(/-/g, '');
+    const match = stripped.match(/[0-9a-f]{32}/i);
+    if (!match) {
+      setFieldError("Invalid database ID — paste the 32-character ID or full Notion database URL.");
+      return;
+    }
+    const hex = match[0].toLowerCase();
+    const formattedId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
     setLoadingFields(true);
     setFieldError(null);
     try {
       const { data, error } = await supabase.functions.invoke('get-notion-db-schema', {
-        body: { database_id: dbId }
+        body: { database_id: formattedId }
       });
 
       if (error) {
@@ -375,6 +462,324 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     } catch (err: any) {
       setFbError("Error: " + err.message);
     }
+  };
+
+  // Test individual step
+  const handleTestStep = async () => {
+    if (!clientId || service === 'webhooks') return;
+
+    setStepTesting(true);
+    setStepTestResult(null);
+
+    try {
+      // Build trigger data: use saved trigger data, then testData, then mock
+      const triggerData = savedTriggerData || testData || MOCK_TRIGGER_DATA;
+
+      // Build step_context from previous step results (all steps before current one)
+      const step_context: Record<string, any> = {};
+      if (prevSteps && stepTestResults) {
+        prevSteps.forEach(step => {
+          if (step.type !== 'trigger' && stepTestResults[step.id]) {
+            step_context[step.id] = stepTestResults[step.id];
+          }
+        });
+      }
+
+      const { data, error } = await supabase.functions.invoke('test-workflow-step', {
+        body: {
+          step: { id: `step_${Date.now()}`, service, action, config: formData },
+          trigger_data: triggerData,
+          step_context: step_context
+        }
+      });
+
+      setStepTesting(false);
+
+      if (error) {
+        console.error('Edge function error:', error);
+        setStepTestResult({
+          status: 'failed',
+          error: error.message || 'Step test failed'
+        });
+      } else if (data) {
+        setStepTestResult(data);
+        // Call onTestComplete to store result in parent
+        if (onTestComplete && stepId && data.output) {
+          onTestComplete(stepId, data.output);
+        }
+      } else {
+        setStepTestResult({
+          status: 'failed',
+          error: 'No response from server'
+        });
+      }
+    } catch (err: any) {
+      setStepTesting(false);
+      console.error('Test error:', err);
+      setStepTestResult({
+        status: 'failed',
+        error: err?.message || String(err) || 'Unknown error'
+      });
+    }
+  };
+
+  // Render Setup tab
+  const renderSetupTab = () => {
+    const serviceLabels: Record<string, string> = {
+      webhooks: "Trigger",
+      notion: "Notion",
+      email: "Email",
+      sms: "SMS",
+      formatter: "Formatter",
+      delay: "Delay",
+      filter: "Filter",
+    };
+    const serviceLabel = serviceLabels[service] || service;
+    const actionLabel = action
+      ? action
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+      : "";
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 p-4 bg-muted/40 rounded-lg">
+          <div>
+            <p className="font-medium">{serviceLabel}</p>
+            {actionLabel && (
+              <p className="text-sm text-muted-foreground">{actionLabel}</p>
+            )}
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Review the step type above, then go to the Configure tab to fill in the details.
+        </p>
+      </div>
+    );
+  };
+
+  // Render Test tab
+  const renderTestTab = () => {
+    // For trigger steps
+    if (service === "webhooks") {
+      return (
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Test Trigger</h4>
+            <p className="text-xs text-muted-foreground mb-3">
+              Load test data to test this workflow. You can use real lead data from your database or test data for quick testing.
+            </p>
+            <div className="flex gap-2 w-full">
+              <Button
+                onClick={() => handleTest(false)}
+                disabled={testing}
+                className="gap-2 flex-1"
+                variant="default"
+              >
+                {testing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Real Data
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => handleTest(true)}
+                disabled={testing}
+                className="gap-2 flex-1"
+                variant="outline"
+              >
+                {testing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Test Data
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {testData && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded p-3 space-y-3">
+              <p className="text-xs font-semibold text-green-600">Edit Test Data</p>
+              <div className="space-y-2">
+                {Object.entries(testData).map(([key, value]) => (
+                  <div key={key} className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </label>
+                    <Input
+                      type="text"
+                      value={typeof value === "string" ? value : JSON.stringify(value)}
+                      onChange={(e) => {
+                        setTestData(prev => prev ? { ...prev, [key]: e.target.value } : null);
+                      }}
+                      className="h-8 text-xs"
+                      placeholder={`Enter ${key}`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <Button
+                onClick={() => {
+                  if (onTestComplete && stepId && testData) {
+                    onTestComplete(stepId, testData);
+                  }
+                }}
+                size="sm"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                Save Test Data
+              </Button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // For action steps
+    const triggerSource = savedTriggerData
+      ? `Trigger tested: ${savedTriggerData.full_name || savedTriggerData.name || 'Lead'} · ${savedTriggerData.email || ''}`
+      : testData
+      ? `Using loaded data: ${testData.full_name || testData.name || 'Lead'}`
+      : 'No trigger data — open Trigger step → Test tab and click Real Data or Test Data';
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Test This Step</h4>
+          <p className="text-xs text-muted-foreground mb-3">{triggerSource}</p>
+          <Button
+            onClick={handleTestStep}
+            disabled={stepTesting}
+            className="gap-2 w-full"
+          >
+            {stepTesting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Running...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" />
+                Run Test
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Previous step data preview */}
+        {prevSteps && prevSteps.length > 0 && stepTestResults && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
+            <p className="text-xs font-semibold text-blue-600 mb-2">
+              Available data from previous steps
+            </p>
+            <div className="space-y-2 text-xs">
+              {prevSteps.map((step) => {
+                const stepResult = stepTestResults[step.id];
+                if (!stepResult) return null;
+                return (
+                  <div key={step.id} className="bg-black/20 rounded p-2">
+                    <p className="text-blue-400 font-mono mb-1">
+                      Step: {step.service} - {step.action}
+                    </p>
+                    <div className="space-y-0.5">
+                      {Object.entries(stepResult).map(([key, value]) => (
+                        <div key={key} className="text-muted-foreground">
+                          <span className="text-cyan-400">{key}</span>: {String(value)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Test Result Display */}
+        {stepTestResult && (
+          <div
+            className={`rounded-lg border p-3 space-y-2 ${
+              stepTestResult.status === "completed"
+                ? "border-green-500/30 bg-green-500/5"
+                : stepTestResult.status === "skipped"
+                ? "border-yellow-500/30 bg-yellow-500/5"
+                : "border-red-500/30 bg-red-500/5"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {stepTestResult.status === "completed" && (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span className="text-xs font-semibold text-green-600">
+                      Completed
+                    </span>
+                  </>
+                )}
+                {stepTestResult.status === "failed" && (
+                  <>
+                    <XCircle className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-semibold text-red-600">
+                      Failed
+                    </span>
+                  </>
+                )}
+                {stepTestResult.status === "skipped" && (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                    <span className="text-xs font-semibold text-yellow-600">
+                      Skipped
+                    </span>
+                  </>
+                )}
+              </div>
+              {stepTestResult.duration && (
+                <span className="text-xs text-muted-foreground">
+                  {stepTestResult.duration}ms
+                </span>
+              )}
+            </div>
+
+            {stepTestResult.error && (
+              <div className="bg-red-500/10 rounded px-2 py-1.5">
+                <p className="text-xs text-red-600 font-mono">
+                  {stepTestResult.error}
+                </p>
+              </div>
+            )}
+
+            {stepTestResult.output &&
+              Object.keys(stepTestResult.output).length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Output:
+                  </p>
+                  <div className="bg-black/30 rounded px-2 py-1.5 space-y-1 max-h-32 overflow-y-auto">
+                    {Object.entries(stepTestResult.output).map(([key, value]) => (
+                      <div key={key} className="text-xs text-green-400 font-mono">
+                        <span className="text-yellow-400">{key}</span> →{" "}
+                        <span className="text-cyan-400">{String(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Render form based on service type
@@ -674,7 +1079,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_to">To (email address)</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="email_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
               </div>
               <Input
                 id="email_to"
@@ -686,7 +1091,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_subject">Subject</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="email_subject" value={formData.subject || ""} onChange={(v) => setFormData({ ...formData, subject: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_subject" value={formData.subject || ""} onChange={(v) => setFormData({ ...formData, subject: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
               </div>
               <Input
                 id="email_subject"
@@ -698,7 +1103,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_body">Body</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="email_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
               </div>
               <Textarea
                 id="email_body"
@@ -736,7 +1141,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   <Label htmlFor="notion_title">Title Field Value</Label>
-                  <VariablePicker prevSteps={prevSteps} fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} />
+                  <VariablePicker prevSteps={prevSteps} fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
                 </div>
                 <Input
                   id="notion_title"
@@ -815,8 +1220,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                     placeholder="e.g., 29ad6442e09c805a927de6e3fdb6112c"
                     value={formData.database_id || ""}
                     onChange={(e) => {
-                      setFormData({ ...formData, database_id: e.target.value });
-                      if (e.target.value) fetchNotionSchema(e.target.value);
+                      const raw = e.target.value;
+                      setFormData({ ...formData, database_id: raw });
+                      if (raw && raw.length >= 32) fetchNotionSchema(raw);
                     }}
                   />
                   <Button
@@ -858,7 +1264,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   <Label htmlFor="notion_search_title">Find Record by Title</Label>
-                  <VariablePicker prevSteps={prevSteps} fieldId="notion_search_title" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} />
+                  <VariablePicker prevSteps={prevSteps} fieldId="notion_search_title" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
                 </div>
                 <Input
                   id="notion_search_title"
@@ -901,8 +1307,8 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                               <SelectValue placeholder="Select option" />
                             </SelectTrigger>
                             <SelectContent>
-                              {notionFields.find(f => f.name === update.field)?.options?.map((opt: any) => (
-                                <SelectItem key={opt.name || opt} value={opt.name || opt}>{opt.name || opt}</SelectItem>
+                              {notionFields.find(f => f.name === update.field)?.options?.filter((opt: any) => opt.name && opt.name.trim()).map((opt: any) => (
+                                <SelectItem key={opt.name} value={opt.name}>{opt.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -925,6 +1331,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                                 newUpdates[idx].value = v;
                                 setFormData({ ...formData, updates: newUpdates });
                               }}
+                              prevSteps={prevSteps}
+                              triggerData={savedTriggerData || testData}
+                              stepOutputResults={stepTestResults}
                             />
                           </div>
                         )}
@@ -945,7 +1354,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                     <SelectValue placeholder="+ Add a field to update..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {notionFields.map((field) => (
+                    {notionFields.filter(f => f.name && f.name.trim()).map((field) => (
                       <SelectItem key={field.id} value={field.name}>
                         {field.name} {field.type === "select" ? "📋" : "📝"}
                       </SelectItem>
@@ -969,8 +1378,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                     placeholder="e.g., 29ad6442e09c805a927de6e3fdb6112c"
                     value={formData.database_id || ""}
                     onChange={(e) => {
-                      setFormData({ ...formData, database_id: e.target.value });
-                      if (e.target.value) fetchNotionSchema(e.target.value);
+                      const raw = e.target.value;
+                      setFormData({ ...formData, database_id: raw });
+                      if (raw && raw.length >= 32) fetchNotionSchema(raw);
                     }}
                   />
                   <Button
@@ -997,7 +1407,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {notionFields.map((field) => (
+                      {notionFields.filter(f => f.name && f.name.trim()).map((field) => (
                         <SelectItem key={field.id} value={field.name}>
                           {field.name} {field.type === "title" ? "📝" : field.type === "select" ? "📋" : "🔤"}
                         </SelectItem>
@@ -1011,7 +1421,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   <Label htmlFor="search_value">Search Value</Label>
-                  <VariablePicker prevSteps={prevSteps} fieldId="search_value" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} />
+                  <VariablePicker prevSteps={prevSteps} fieldId="search_value" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
                 </div>
                 <Input
                   id="search_value"
@@ -1051,7 +1461,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="notion_title">Record Title</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="notion_title" value={formData.title || ""} onChange={(v) => setFormData({ ...formData, title: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
               </div>
               <Input
                 id="notion_title"
@@ -1121,7 +1531,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="sms_to">Phone Number</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="sms_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="sms_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
               </div>
               <Input
                 id="sms_to"
@@ -1133,10 +1543,42 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="sms_message">Message</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="sms_message" value={formData.message || ""} onChange={(v) => setFormData({ ...formData, message: v })} />
+                <VariablePicker prevSteps={prevSteps} fieldId="sms_message" value={formData.message || ""} onChange={(v) => setFormData({ ...formData, message: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
               </div>
               <Textarea
                 id="sms_message"
+                placeholder="Hi {{lead.name}}, thanks for your interest!"
+                value={formData.message || ""}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                className="min-h-20"
+              />
+            </div>
+          </div>
+        );
+
+      case "whatsapp":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="whatsapp_to">Phone Number</Label>
+                <VariablePicker prevSteps={prevSteps} fieldId="whatsapp_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
+              </div>
+              <Input
+                id="whatsapp_to"
+                placeholder="{{lead.phone}}"
+                value={formData.to || ""}
+                onChange={(e) => setFormData({ ...formData, to: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Format: +1 (555) 000-0000</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="whatsapp_message">Message</Label>
+                <VariablePicker prevSteps={prevSteps} fieldId="whatsapp_message" value={formData.message || ""} onChange={(v) => setFormData({ ...formData, message: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
+              </div>
+              <Textarea
+                id="whatsapp_message"
                 placeholder="Hi {{lead.name}}, thanks for your interest!"
                 value={formData.message || ""}
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
@@ -1202,28 +1644,91 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Configure Step</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-[520px] flex flex-col gap-0 p-0 overflow-hidden"
+      >
+        <SheetHeader className="px-6 pt-5 pb-4 border-b">
+          <SheetTitle>
+            {label || `Configure ${service}`}
+          </SheetTitle>
+        </SheetHeader>
 
-        <div className="py-4">{renderForm()}</div>
+        <Tabs
+          defaultValue="configure"
+          className="flex-1 flex flex-col overflow-hidden"
+        >
+          <TabsList className="mx-6 mt-4 w-auto justify-start rounded-none bg-transparent border-b pb-0 h-auto gap-0 px-0">
+            <TabsTrigger
+              value="setup"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-3 py-2 text-sm"
+            >
+              Setup
+            </TabsTrigger>
+            <TabsTrigger
+              value="configure"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-3 py-2 text-sm"
+            >
+              Configure
+            </TabsTrigger>
+            <TabsTrigger
+              value="test"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-3 py-2 text-sm"
+            >
+              Test
+            </TabsTrigger>
+          </TabsList>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <TabsContent
+            value="setup"
+            className="flex-1 overflow-y-auto px-6 py-4"
+          >
+            {renderSetupTab()}
+          </TabsContent>
+
+          <TabsContent
+            value="configure"
+            className="flex-1 overflow-y-auto px-6 py-4 pb-20"
+          >
+            {renderForm()}
+          </TabsContent>
+
+          <TabsContent
+            value="test"
+            className="flex-1 overflow-y-auto px-6 py-4"
+          >
+            {renderTestTab()}
+          </TabsContent>
+        </Tabs>
+
+        {/* Sticky footer for Configure tab buttons */}
+        <div className="border-t bg-background px-6 py-3 flex gap-2 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            size="sm"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} size="sm">
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save
           </Button>
-          <Button onClick={() => { onSave(formData); onOpenChange(false); }} variant="default" className="gap-1">
+          <Button
+            onClick={() => {
+              onSave(formData);
+              onOpenChange(false);
+            }}
+            variant="default"
+            size="sm"
+            className="gap-1"
+          >
             Continue
             <ChevronRight className="w-4 h-4" />
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

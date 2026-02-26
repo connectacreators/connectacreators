@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "https://": "https://",
+    "http://": "http://"
+  }
+}
