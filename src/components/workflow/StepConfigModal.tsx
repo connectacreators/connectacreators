@@ -1588,6 +1588,61 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
           </div>
         );
 
+      case "webhook":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="webhook_url">Webhook URL</Label>
+                <VariablePicker prevSteps={prevSteps} fieldId="webhook_url" value={formData.url || ""} onChange={(v) => setFormData({ ...formData, url: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
+              </div>
+              <Input
+                id="webhook_url"
+                placeholder="https://example.com/webhook"
+                value={formData.url || ""}
+                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="webhook_method">Method</Label>
+              <Select value={formData.method || "POST"} onValueChange={(value) => setFormData({ ...formData, method: value })}>
+                <SelectTrigger id="webhook_method">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GET">GET</SelectItem>
+                  <SelectItem value="POST">POST</SelectItem>
+                  <SelectItem value="PUT">PUT</SelectItem>
+                  <SelectItem value="PATCH">PATCH</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="webhook_headers">Headers (JSON)</Label>
+              <Textarea
+                id="webhook_headers"
+                placeholder='{"Authorization": "Bearer token", "X-Custom-Header": "value"}'
+                value={formData.headers || ""}
+                onChange={(e) => setFormData({ ...formData, headers: e.target.value })}
+                className="min-h-16 font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="webhook_body">Body (JSON)</Label>
+                <VariablePicker prevSteps={prevSteps} fieldId="webhook_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
+              </div>
+              <Textarea
+                id="webhook_body"
+                placeholder='{"name": "{{lead.name}}", "email": "{{lead.email}}"}'
+                value={formData.body || ""}
+                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                className="min-h-20 font-mono text-xs"
+              />
+            </div>
+          </div>
+        );
+
       case "filter":
         return (
           <div className="space-y-4">

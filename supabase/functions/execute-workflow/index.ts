@@ -40,6 +40,7 @@ const STEP_OUTPUT_SCHEMAS: Record<string, string[]> = {
   'email.send_email': ['sent_to'],
   'sms.send_sms': ['sent_to'],
   'whatsapp.send_whatsapp': ['sent_to'],
+  'webhook.send_request': ['status_code', 'response_body'],
   'formatter.date_time': ['formatted_date'],
   'filter.if_condition': ['passed'],
 };
@@ -774,6 +775,101 @@ async function handleWhatsAppStep(
   }
 }
 
+async function handleWebhookStep(
+  config: Record<string, any>,
+  triggerData: Record<string, any>,
+  stepContext: Map<string, Record<string, any>>
+): Promise<StepExecutionResult> {
+  const startTime = Date.now();
+  try {
+    const url = interpolateVariables(config.url || '', triggerData, stepContext);
+    const method = (config.method || 'POST').toUpperCase();
+    const headersStr = config.headers || '{}';
+    const bodyTemplate = config.body || '';
+
+    if (!url) {
+      return {
+        step_id: config.step_id || '',
+        service: 'webhook',
+        action: 'send_request',
+        status: 'failed',
+        error: 'No webhook URL provided',
+        duration: Date.now() - startTime,
+      };
+    }
+
+    try {
+      // Parse headers
+      let headers: Record<string, string> = {};
+      try {
+        const parsedHeaders = JSON.parse(headersStr);
+        headers = typeof parsedHeaders === 'object' ? parsedHeaders : {};
+      } catch {
+        // If not valid JSON, use empty headers
+        headers = {};
+      }
+
+      // Set default content-type if not provided
+      if (!Object.keys(headers).some(k => k.toLowerCase() === 'content-type')) {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      // Prepare body
+      let body: string | undefined;
+      if (bodyTemplate && ['POST', 'PUT', 'PATCH'].includes(method)) {
+        const interpolatedBody = interpolateVariables(bodyTemplate, triggerData, stepContext);
+        try {
+          // Validate as JSON
+          JSON.parse(interpolatedBody);
+          body = interpolatedBody;
+        } catch {
+          // If not valid JSON, send as string in JSON format
+          body = JSON.stringify({ body: interpolatedBody });
+        }
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body,
+      });
+
+      const responseBody = await res.text();
+
+      return {
+        step_id: config.step_id || '',
+        service: 'webhook',
+        action: 'send_request',
+        status: res.ok ? 'completed' : 'failed',
+        output: {
+          status_code: res.status,
+          response_body: responseBody,
+        },
+        duration: Date.now() - startTime,
+      };
+    } catch (fetchErr) {
+      console.error('Webhook fetch error:', fetchErr);
+      return {
+        step_id: config.step_id || '',
+        service: 'webhook',
+        action: 'send_request',
+        status: 'failed',
+        error: String(fetchErr),
+        duration: Date.now() - startTime,
+      };
+    }
+  } catch (error) {
+    return {
+      step_id: config.step_id || '',
+      service: 'webhook',
+      action: 'send_request',
+      status: 'failed',
+      error: String(error),
+      duration: Date.now() - startTime,
+    };
+  }
+}
+
 // ==================== MAIN ORCHESTRATION ====================
 
 async function executeWorkflow(context: ExecutionContext): Promise<{
@@ -845,6 +941,10 @@ async function executeWorkflow(context: ExecutionContext): Promise<{
 
           case 'whatsapp':
             result = await handleWhatsAppStep(step.config, context.trigger_data, stepContext);
+            break;
+
+          case 'webhook':
+            result = await handleWebhookStep(step.config, context.trigger_data, stepContext);
             break;
 
           case 'notion':

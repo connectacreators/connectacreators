@@ -593,6 +593,97 @@ async function handleWhatsAppStep(
   }
 }
 
+async function handleWebhookStep(
+  config: Record<string, any>,
+  triggerData: Record<string, any>,
+  stepContext: Map<string, Record<string, any>>
+): Promise<StepExecutionResult> {
+  const startTime = Date.now();
+  try {
+    const url = interpolateVariables(config.url || '', triggerData, stepContext);
+    const method = (config.method || 'POST').toUpperCase();
+    const headersStr = config.headers || '{}';
+    const bodyTemplate = config.body || '';
+
+    if (!url) {
+      return {
+        step_id: config.step_id || '',
+        service: 'webhook',
+        action: 'send_request',
+        status: 'failed',
+        error: 'No webhook URL provided',
+        duration: Date.now() - startTime,
+      };
+    }
+
+    try {
+      // Parse headers
+      let headers: Record<string, string> = {};
+      try {
+        const parsedHeaders = JSON.parse(headersStr);
+        headers = typeof parsedHeaders === 'object' ? parsedHeaders : {};
+      } catch {
+        headers = {};
+      }
+
+      if (!Object.keys(headers).some(k => k.toLowerCase() === 'content-type')) {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      let body: string | undefined;
+      if (bodyTemplate && ['POST', 'PUT', 'PATCH'].includes(method)) {
+        const interpolatedBody = interpolateVariables(bodyTemplate, triggerData, stepContext);
+        try {
+          JSON.parse(interpolatedBody);
+          body = interpolatedBody;
+        } catch {
+          body = JSON.stringify({ body: interpolatedBody });
+        }
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body,
+      });
+
+      const responseBody = await res.text();
+
+      console.log(`[TEST WEBHOOK] ${method} ${url}, Status: ${res.status}`);
+      return {
+        step_id: config.step_id || '',
+        service: 'webhook',
+        action: 'send_request',
+        status: res.ok ? 'completed' : 'failed',
+        output: {
+          status_code: res.status,
+          response_body: responseBody,
+        },
+        duration: Date.now() - startTime,
+      };
+    } catch (fetchErr) {
+      console.error('[TEST WEBHOOK] Fetch error:', fetchErr);
+      return {
+        step_id: config.step_id || '',
+        service: 'webhook',
+        action: 'send_request',
+        status: 'failed',
+        error: String(fetchErr),
+        duration: Date.now() - startTime,
+      };
+    }
+  } catch (error) {
+    return {
+      step_id: config.step_id || '',
+      service: 'webhook',
+      action: 'send_request',
+      status: 'failed',
+      error: String(error),
+      duration: Date.now() - startTime,
+    };
+  }
+}
+
 // ==================== HTTP HANDLER ====================
 
 serve(async (req: Request) => {
@@ -634,6 +725,10 @@ serve(async (req: Request) => {
 
       case 'whatsapp':
         result = await handleWhatsAppStep(step.config, trigger_data, contextMap);
+        break;
+
+      case 'webhook':
+        result = await handleWebhookStep(step.config, trigger_data, contextMap);
         break;
 
       case 'notion':

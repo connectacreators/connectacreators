@@ -25,6 +25,7 @@ const SERVICE_CONFIG = {
   email: { name: "Zoho Mail", emoji: "📧", color: "bg-blue-500/20 text-blue-400", borderColor: "border-blue-500/30" },
   sms: { name: "Twilio", emoji: "💬", color: "bg-red-500/20 text-red-400", borderColor: "border-red-500/30" },
   whatsapp: { name: "WhatsApp", emoji: "💚", color: "bg-green-500/20 text-green-400", borderColor: "border-green-500/30" },
+  webhook: { name: "HTTP Webhook", emoji: "🪝", color: "bg-purple-500/20 text-purple-400", borderColor: "border-purple-500/30" },
   delay: { name: "Delay", emoji: "⏱️", color: "bg-orange-500/20 text-orange-400", borderColor: "border-orange-500/30" },
   filter: { name: "Filter / If", emoji: "🔀", color: "bg-amber-500/20 text-amber-400", borderColor: "border-amber-500/30" },
 };

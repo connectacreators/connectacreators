@@ -85,6 +85,15 @@ const AVAILABLE_SERVICES: ServiceOption[] = [
     color: "green",
   },
   {
+    id: "webhook_send",
+    service: "webhook",
+    action: "send_request",
+    name: "HTTP Webhook",
+    description: "Send an HTTP request to a webhook URL",
+    emoji: "🪝",
+    color: "purple",
+  },
+  {
     id: "delay",
     service: "delay",
     action: "delay_until",
@@ -108,6 +117,7 @@ const colorClasses = {
   red: "bg-red-500/20 text-red-400 hover:bg-red-500/30",
   amber: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
   green: "bg-green-500/20 text-green-400 hover:bg-green-500/30",
+  purple: "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30",
 };
 
 export default function AddStepModal({ open, onOpenChange, onSelectService }: AddStepModalProps) {
