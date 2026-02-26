@@ -407,7 +407,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_to">To (email address)</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="email_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} prevSteps={prevSteps} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_to" value={formData.to || ""} onChange={(v) => setFormData({ ...formData, to: v })} />
               </div>
               <Input
                 id="email_to"
@@ -419,7 +419,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_subject">Subject</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="email_subject" value={formData.subject || ""} onChange={(v) => setFormData({ ...formData, subject: v })} prevSteps={prevSteps} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_subject" value={formData.subject || ""} onChange={(v) => setFormData({ ...formData, subject: v })} />
               </div>
               <Input
                 id="email_subject"
@@ -431,7 +431,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <Label htmlFor="email_body">Body</Label>
-                <VariablePicker prevSteps={prevSteps} fieldId="email_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} prevSteps={prevSteps} />
+                <VariablePicker prevSteps={prevSteps} fieldId="email_body" value={formData.body || ""} onChange={(v) => setFormData({ ...formData, body: v })} />
               </div>
               <Textarea
                 id="email_body"
@@ -759,9 +759,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
               <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                 <p className="text-xs font-semibold text-blue-400 mb-2">Step Output Variables</p>
                 <div className="space-y-1">
-                  <p className="text-xs text-blue-300"><code>{{steps.STEP_ID.page_id}}</code> - Notion page ID</p>
-                  <p className="text-xs text-blue-300"><code>{{steps.STEP_ID.title}}</code> - Record title</p>
-                  <p className="text-xs text-blue-300"><code>{{steps.STEP_ID.url}}</code> - Notion page URL</p>
+                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.page_id}}"}</code> - Notion page ID</p>
+                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.title}}"}</code> - Record title</p>
+                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.url}}"}</code> - Notion page URL</p>
                 </div>
               </div>
             </div>
