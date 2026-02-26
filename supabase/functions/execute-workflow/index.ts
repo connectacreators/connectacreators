@@ -930,55 +930,77 @@ async function executeWorkflow(context: ExecutionContext): Promise<{
         // Add step_id to config for tracking
         step.config.step_id = step.id;
 
-        switch (step.service) {
-          case 'email':
-            result = await handleEmailStep(step.config, context.trigger_data, stepContext);
-            break;
+        // Get retry configuration
+        const retryCount = step.config.retry_count || 0;
+        const retryDelayMs = step.config.retry_delay_ms || 1000;
 
-          case 'sms':
-            result = await handleSMSStep(step.config, context.trigger_data, stepContext);
-            break;
+        // Retry loop - attempt execution up to (retryCount + 1) times
+        for (let attempt = 0; attempt <= retryCount; attempt++) {
+          switch (step.service) {
+            case 'email':
+              result = await handleEmailStep(step.config, context.trigger_data, stepContext);
+              break;
 
-          case 'whatsapp':
-            result = await handleWhatsAppStep(step.config, context.trigger_data, stepContext);
-            break;
+            case 'sms':
+              result = await handleSMSStep(step.config, context.trigger_data, stepContext);
+              break;
 
-          case 'webhook':
-            result = await handleWebhookStep(step.config, context.trigger_data, stepContext);
-            break;
+            case 'whatsapp':
+              result = await handleWhatsAppStep(step.config, context.trigger_data, stepContext);
+              break;
 
-          case 'notion':
-            // Use client's mapped database as fallback if step config doesn't have one
-            const notionConfig = step.config;
-            if (!notionConfig.database_id && clientNotionDatabaseId) {
-              notionConfig.database_id = clientNotionDatabaseId;
-            }
-            result = await handleNotionStep(step.action || 'create_record', notionConfig, context.trigger_data, stepContext);
-            break;
+            case 'webhook':
+              result = await handleWebhookStep(step.config, context.trigger_data, stepContext);
+              break;
 
-          case 'formatter':
-            result = await handleFormatterStep(step.config, context.trigger_data, stepContext);
-            break;
+            case 'notion':
+              // Use client's mapped database as fallback if step config doesn't have one
+              const notionConfig = step.config;
+              if (!notionConfig.database_id && clientNotionDatabaseId) {
+                notionConfig.database_id = clientNotionDatabaseId;
+              }
+              result = await handleNotionStep(step.action || 'create_record', notionConfig, context.trigger_data, stepContext);
+              break;
 
-          case 'delay':
-            result = await handleDelayStep(step.config, context.trigger_data, stepContext);
-            break;
+            case 'formatter':
+              result = await handleFormatterStep(step.config, context.trigger_data, stepContext);
+              break;
 
-          case 'filter':
-            result = handleFilterStep(step.config, context.trigger_data, stepContext);
-            // Check if filter failed - if so, halt remaining steps
-            if (!result.output?.passed) {
-              skipRemainingSteps = true;
-            }
-            break;
+            case 'delay':
+              result = await handleDelayStep(step.config, context.trigger_data, stepContext);
+              break;
 
-          default:
-            result = {
-              step_id: step.id,
-              service: step.service,
-              status: 'failed',
-              error: `Unknown service: ${step.service}`,
-            };
+            case 'filter':
+              result = handleFilterStep(step.config, context.trigger_data, stepContext);
+              // Check if filter failed - if so, halt remaining steps
+              if (!result.output?.passed) {
+                skipRemainingSteps = true;
+              }
+              break;
+
+            default:
+              result = {
+                step_id: step.id,
+                service: step.service,
+                status: 'failed',
+                error: `Unknown service: ${step.service}`,
+              };
+          }
+
+          // If successful, break retry loop
+          if (result.status !== 'failed') {
+            break;
+          }
+
+          // If this was the last attempt, don't retry
+          if (attempt === retryCount) {
+            break;
+          }
+
+          // Wait before retrying
+          if (retryDelayMs > 0) {
+            await new Promise(r => setTimeout(r, retryDelayMs));
+          }
         }
 
         // Store step output for next steps

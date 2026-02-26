@@ -1553,6 +1553,40 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                 className="min-h-20"
               />
             </div>
+
+            {/* Retry on Failure */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Retry on Failure</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="retry_count">Retry Count</Label>
+                  <Select value={String(formData.retry_count || 0)} onValueChange={(value) => setFormData({ ...formData, retry_count: parseInt(value) })}>
+                    <SelectTrigger id="retry_count">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">No retries</SelectItem>
+                      <SelectItem value="1">1 retry</SelectItem>
+                      <SelectItem value="2">2 retries</SelectItem>
+                      <SelectItem value="3">3 retries</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="retry_delay">Delay Between Retries</Label>
+                  <Select value={String(formData.retry_delay_ms || 1000)} onValueChange={(value) => setFormData({ ...formData, retry_delay_ms: parseInt(value) })}>
+                    <SelectTrigger id="retry_delay">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1 second</SelectItem>
+                      <SelectItem value="3000">3 seconds</SelectItem>
+                      <SelectItem value="5000">5 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </div>
         );
 
@@ -1584,6 +1618,40 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 className="min-h-20"
               />
+            </div>
+
+            {/* Retry on Failure */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Retry on Failure</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp_retry_count">Retry Count</Label>
+                  <Select value={String(formData.retry_count || 0)} onValueChange={(value) => setFormData({ ...formData, retry_count: parseInt(value) })}>
+                    <SelectTrigger id="whatsapp_retry_count">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">No retries</SelectItem>
+                      <SelectItem value="1">1 retry</SelectItem>
+                      <SelectItem value="2">2 retries</SelectItem>
+                      <SelectItem value="3">3 retries</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp_retry_delay">Delay Between Retries</Label>
+                  <Select value={String(formData.retry_delay_ms || 1000)} onValueChange={(value) => setFormData({ ...formData, retry_delay_ms: parseInt(value) })}>
+                    <SelectTrigger id="whatsapp_retry_delay">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1 second</SelectItem>
+                      <SelectItem value="3000">3 seconds</SelectItem>
+                      <SelectItem value="5000">5 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -1639,6 +1707,40 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                 onChange={(e) => setFormData({ ...formData, body: e.target.value })}
                 className="min-h-20 font-mono text-xs"
               />
+            </div>
+
+            {/* Retry on Failure */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Retry on Failure</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="webhook_retry_count">Retry Count</Label>
+                  <Select value={String(formData.retry_count || 0)} onValueChange={(value) => setFormData({ ...formData, retry_count: parseInt(value) })}>
+                    <SelectTrigger id="webhook_retry_count">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">No retries</SelectItem>
+                      <SelectItem value="1">1 retry</SelectItem>
+                      <SelectItem value="2">2 retries</SelectItem>
+                      <SelectItem value="3">3 retries</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="webhook_retry_delay">Delay Between Retries</Label>
+                  <Select value={String(formData.retry_delay_ms || 1000)} onValueChange={(value) => setFormData({ ...formData, retry_delay_ms: parseInt(value) })}>
+                    <SelectTrigger id="webhook_retry_delay">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1 second</SelectItem>
+                      <SelectItem value="3000">3 seconds</SelectItem>
+                      <SelectItem value="5000">5 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
         );
