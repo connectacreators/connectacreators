@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play, Clock } from "lucide-react";
+import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play, Clock, Zap } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +33,7 @@ import AddStepModal, { ServiceOption } from "@/components/workflow/AddStepModal"
 import StepConfigModal from "@/components/workflow/StepConfigModal";
 import TestRunModal, { TestData, TestRunResult } from "@/components/workflow/TestRunModal";
 import LiveRunDrawer from "@/components/workflow/LiveRunDrawer";
+import WorkflowTemplates from "@/components/workflow/WorkflowTemplates";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -101,6 +102,7 @@ export default function ClientWorkflow() {
   const [showHistory, setShowHistory] = useState(false);
   const [executionHistory, setExecutionHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Step test results tracking (for data flow between steps)
   const [stepTestResults, setStepTestResults] = useState<Record<string, Record<string, any>>>({});
@@ -254,6 +256,21 @@ export default function ClientWorkflow() {
     const updatedWorkflow = { ...workflow, steps: newSteps };
     setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
     toast.success(language === "en" ? "Step duplicated" : "Paso duplicado");
+  };
+
+  const handleSelectTemplate = (templateSteps: Omit<WorkflowStep, 'id'>[]) => {
+    if (!workflow) return;
+    // Add IDs to template steps and merge with existing workflow
+    const newSteps = templateSteps.map((step) => ({
+      ...step,
+      id: `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    }));
+    const updatedWorkflow = {
+      ...workflow,
+      steps: newSteps,
+    };
+    setWorkflows(workflows.map(w => w.id === workflow.id ? updatedWorkflow : w));
+    toast.success(language === "en" ? "Template loaded. Configure each step as needed." : "Plantilla cargada. Configura cada paso según sea necesario.");
   };
 
   const handleEditStep = (stepId: string) => {
@@ -779,6 +796,15 @@ export default function ClientWorkflow() {
                     <Clock className="w-4 h-4" />
                     {language === "en" ? "History" : "Historial"}
                   </Button>
+                  <Button
+                    onClick={() => setShowTemplates(true)}
+                    disabled={workflowSaving}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Zap className="w-4 h-4" />
+                    {language === "en" ? "Templates" : "Plantillas"}
+                  </Button>
                   <Button onClick={handleSaveWorkflow} disabled={workflowSaving} className="bg-blue-600 hover:bg-blue-700">
                     {workflowSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {language === "en" ? "Save" : "Guardar"}
@@ -1030,6 +1056,12 @@ export default function ClientWorkflow() {
           )}
         </DialogContent>
       </Dialog>
+
+      <WorkflowTemplates
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </div>
   );
 }
