@@ -159,6 +159,7 @@ async function handleNotionStep(
         const databaseId = config.database_id;
         const searchValue = interpolateVariables(config.search_title || '', triggerData, stepContext);
         const searchProperty = config.search_property || 'Name';
+        const searchPropertyType = config.search_property_type || 'title'; // title, text, rich_text, etc.
 
         if (!databaseId) {
           return {
@@ -171,26 +172,37 @@ async function handleNotionStep(
           };
         }
 
-        // Build the filter based on the property type
-        // For now, default to title search (most common). Could extend to support other types.
+        // Build the filter based on the actual property type
+        let filterBody: Record<string, any> = {
+          property: searchProperty,
+        };
+
+        // Add appropriate filter based on property type
+        if (searchPropertyType === 'title' || searchPropertyType === 'text' || searchPropertyType === 'rich_text') {
+          filterBody[searchPropertyType] = { contains: searchValue };
+        } else if (searchPropertyType === 'select' || searchPropertyType === 'status') {
+          filterBody[searchPropertyType] = { equals: searchValue };
+        } else if (searchPropertyType === 'number') {
+          filterBody[searchPropertyType] = { equals: parseInt(searchValue) };
+        } else {
+          // Fallback to text/title search
+          filterBody['text'] = { contains: searchValue };
+        }
+
         const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            filter: {
-              property: searchProperty,
-              title: { contains: searchValue },
-            },
-          }),
+          body: JSON.stringify({ filter: filterBody }),
         });
 
         if (!response.ok) {
+          const errorData = await response.text();
           return {
             step_id: config.step_id || '',
             service: 'notion',
             action,
             status: 'failed',
-            error: `Notion API error: ${response.status}`,
+            error: `Notion API error: ${response.status} - ${errorData}`,
             duration: Date.now() - startTime,
           };
         }
@@ -204,9 +216,26 @@ async function handleNotionStep(
             service: 'notion',
             action,
             status: 'completed',
-            output: { page_id: '', title: '', url: '' },
+            output: { page_id: '', title: '', url: '', found: false },
             duration: Date.now() - startTime,
           };
+        }
+
+        // Extract title from the actual search property, not hardcoded 'Name'
+        let extractedTitle = '';
+        const searchPropData = firstResult.properties?.[searchProperty];
+        if (searchPropData) {
+          if (searchPropData.title) {
+            extractedTitle = searchPropData.title?.[0]?.plain_text || '';
+          } else if (searchPropData.rich_text) {
+            extractedTitle = searchPropData.rich_text?.[0]?.plain_text || '';
+          } else if (searchPropData.select) {
+            extractedTitle = searchPropData.select?.name || '';
+          } else if (searchPropData.status) {
+            extractedTitle = searchPropData.status?.name || '';
+          } else if (searchPropData.number) {
+            extractedTitle = String(searchPropData.number) || '';
+          }
         }
 
         return {
@@ -216,8 +245,10 @@ async function handleNotionStep(
           status: 'completed',
           output: {
             page_id: firstResult.id,
-            title: firstResult.properties?.Name?.title?.[0]?.plain_text || '',
+            title: extractedTitle,
             url: firstResult.url,
+            found: true,
+            properties: firstResult.properties, // Include all properties for advanced use
           },
           duration: Date.now() - startTime,
         };
