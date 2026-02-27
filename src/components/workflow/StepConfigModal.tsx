@@ -36,7 +36,7 @@ const TRIGGER_FIELDS = [
 
 // Step output schemas for Data Mapper
 const STEP_OUTPUT_SCHEMAS: Record<string, string[]> = {
-  'notion.search_record': ['page_id', 'title', 'url'],
+  'notion.search_record': ['value'], // Only outputs the searched field value
   'notion.create_record': ['page_id', 'url'],
   'notion.update_record': ['page_id'],
   'email.send_email': ['sent_to'],

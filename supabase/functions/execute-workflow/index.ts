@@ -34,7 +34,7 @@ interface ExecutionContext {
 
 // ==================== STEP OUTPUT SCHEMAS ====================
 const STEP_OUTPUT_SCHEMAS: Record<string, string[]> = {
-  'notion.search_record': ['page_id', 'title', 'url'],
+  'notion.search_record': ['value'], // Only outputs the searched field value
   'notion.create_record': ['page_id', 'url'],
   'notion.update_record': ['page_id'],
   'email.send_email': ['sent_to'],
@@ -244,11 +244,7 @@ async function handleNotionStep(
           action,
           status: 'completed',
           output: {
-            page_id: firstResult.id,
-            title: extractedTitle,
-            url: firstResult.url,
-            found: true,
-            properties: firstResult.properties, // Include all properties for advanced use
+            value: extractedTitle, // Only the searched value
           },
           duration: Date.now() - startTime,
         };

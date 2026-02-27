@@ -207,11 +207,7 @@ async function handleNotionStep(
           action,
           status: 'completed',
           output: {
-            page_id: firstResult.id,
-            title: extractedTitle,
-            url: firstResult.url,
-            found: true,
-            properties: firstResult.properties,
+            value: extractedTitle, // Only the searched value
           },
           duration: Date.now() - startTime,
         };
