@@ -683,12 +683,12 @@ export default function MasterDatabase() {
                               />
                             </td>
                             <td className="p-3">
-                              <Select value={newVideoRow.script_id} onValueChange={(value) => setNewVideoRow({ ...newVideoRow, script_id: value })}>
+                              <Select value={newVideoRow.script_id} onValueChange={(value) => setNewVideoRow({ ...newVideoRow, script_id: value === "__none__" ? "" : value })}>
                                 <SelectTrigger className="h-8 text-xs">
                                   <SelectValue placeholder="Select script" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">No script</SelectItem>
+                                  <SelectItem value="__none__">No script</SelectItem>
                                   {scripts.map((script) => (
                                     <SelectItem key={script.id} value={script.id}>
                                       {script.title}
@@ -867,12 +867,12 @@ export default function MasterDatabase() {
             </div>
             <div className="space-y-2">
               <Label>Script (Optional)</Label>
-              <Select value={videoForm.script_id} onValueChange={(value) => setVideoForm({ ...videoForm, script_id: value })}>
+              <Select value={videoForm.script_id} onValueChange={(value) => setVideoForm({ ...videoForm, script_id: value === "__none__" ? "" : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a script" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No script</SelectItem>
+                  <SelectItem value="__none__">No script</SelectItem>
                   {scripts.map((script) => (
                     <SelectItem key={script.id} value={script.id}>
                       {script.title}
