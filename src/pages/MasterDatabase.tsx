@@ -432,12 +432,12 @@ export default function MasterDatabase() {
               variants={fadeUp}
             >
               <Label className="text-sm mb-2 block">Filter by Client</Label>
-              <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
+              <Select value={selectedClientFilter} onValueChange={(value) => setSelectedClientFilter(value === "__all__" ? "" : value)}>
                 <SelectTrigger className="w-full sm:w-64">
                   <SelectValue placeholder="All Clients" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Clients</SelectItem>
+                  <SelectItem value="__all__">All Clients</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
