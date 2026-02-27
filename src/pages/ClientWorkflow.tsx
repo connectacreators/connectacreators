@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play, Clock, Zap } from "lucide-react";
+import { Loader2, ArrowLeft, Workflow, Plus, ChevronDown, Circle, Trash2, Play, Clock, Zap, BarChart3, Link as LinkIcon, Copy, Check } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,6 +34,7 @@ import StepConfigModal from "@/components/workflow/StepConfigModal";
 import TestRunModal, { TestData, TestRunResult } from "@/components/workflow/TestRunModal";
 import LiveRunDrawer from "@/components/workflow/LiveRunDrawer";
 import WorkflowTemplates from "@/components/workflow/WorkflowTemplates";
+import WorkflowAnalytics from "@/components/workflow/WorkflowAnalytics";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -103,6 +104,8 @@ export default function ClientWorkflow() {
   const [executionHistory, setExecutionHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
 
   // Step test results tracking (for data flow between steps)
   const [stepTestResults, setStepTestResults] = useState<Record<string, Record<string, any>>>({});
@@ -579,6 +582,52 @@ export default function ClientWorkflow() {
     }
   };
 
+  const handleGenerateWebhook = async () => {
+    if (!workflow || !clientId) return;
+
+    setWorkflowSaving(true);
+    try {
+      // Generate webhook ID and secret if they don't exist
+      if (!workflow.webhook_id) {
+        const webhookId = `wh_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+        // Generate webhook secret: 32 bytes (64 hex characters)
+        const webhookSecret = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+
+        const updated = { ...workflow, webhook_id: webhookId, webhook_secret: webhookSecret };
+        setWorkflows(workflows.map(w => w.id === workflow.id ? updated : w));
+
+        await supabase
+          .from("client_workflows")
+          .update({ webhook_id: webhookId, webhook_secret: webhookSecret })
+          .eq("id", workflow.id);
+
+        toast.success(language === "en" ? "Webhook generated" : "Webhook generado");
+      }
+    } catch (error) {
+      console.error("Error generating webhook:", error);
+      toast.error(language === "en" ? "Failed to generate webhook" : "Error al generar webhook");
+    } finally {
+      setWorkflowSaving(false);
+    }
+  };
+
+  const handleCopyWebhook = async () => {
+    if (!workflow?.webhook_id) return;
+
+    const webhookUrl = `${window.location.origin}/.netlify/functions/workflow-webhook/${workflow.webhook_id}`;
+
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setWebhookCopied(true);
+      setTimeout(() => setWebhookCopied(false), 2000);
+      toast.success(language === "en" ? "Webhook URL copied" : "URL del webhook copiada");
+    } catch (error) {
+      toast.error(language === "en" ? "Failed to copy" : "Error al copiar");
+    }
+  };
+
   const handleSaveWorkflow = async () => {
     if (!workflow || !clientId) return;
     setWorkflowSaving(true);
@@ -785,16 +834,13 @@ export default function ClientWorkflow() {
                     {language === "en" ? "Test Run" : "Prueba"}
                   </Button>
                   <Button
-                    onClick={() => {
-                      setShowHistory(true);
-                      loadHistory();
-                    }}
-                    disabled={workflowSaving}
+                    onClick={() => setShowAnalytics(true)}
+                    disabled={workflowSaving || !selectedWorkflowId}
                     variant="outline"
                     className="gap-2"
                   >
-                    <Clock className="w-4 h-4" />
-                    {language === "en" ? "History" : "Historial"}
+                    <BarChart3 className="w-4 h-4" />
+                    {language === "en" ? "Analytics" : "Analytics"}
                   </Button>
                   <Button
                     onClick={() => setShowTemplates(true)}
@@ -827,6 +873,63 @@ export default function ClientWorkflow() {
                     disabled={workflowSaving}
                     className="ml-auto"
                   />
+                </div>
+
+                {/* Webhook Section */}
+                <div className="border-t border-muted pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <LinkIcon className="w-4 h-4 text-blue-400" />
+                      {language === "en" ? "Webhook Trigger" : "Activador Webhook"}
+                    </h3>
+                    <Button
+                      onClick={handleGenerateWebhook}
+                      disabled={workflowSaving || !!workflow.webhook_id}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                    >
+                      {workflow.webhook_id
+                        ? (language === "en" ? "Generated" : "Generado")
+                        : (language === "en" ? "Generate URL" : "Generar URL")}
+                    </Button>
+                  </div>
+
+                  {workflow.webhook_id ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 p-2 rounded bg-muted/50 font-mono text-xs">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1/workflow-webhook/${workflow.webhook_id}`}
+                          className="flex-1 bg-transparent border-none outline-none text-foreground"
+                        />
+                        <Button
+                          onClick={handleCopyWebhook}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                        >
+                          {webhookCopied ? (
+                            <Check className="w-3 h-3 text-green-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "en"
+                          ? "External services can POST data to this URL to trigger this workflow"
+                          : "Los servicios externos pueden POSTear datos a esta URL para activar este flujo"}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {language === "en"
+                        ? "Click 'Generate URL' to create a webhook endpoint"
+                        : "Haz clic en 'Generar URL' para crear un punto final de webhook"}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1042,9 +1145,10 @@ export default function ClientWorkflow() {
                       {execution.steps_results.map((step: any, idx: number) => (
                         <div key={idx} className="text-xs">
                           <span className="font-medium">{step.step_id || `Step ${idx + 1}`}</span>
-                          <span className={`ml-2 ${step.status === "success" ? "text-green-600" : "text-red-600"}`}>
-                            {step.status === "success" ? "✓" : "✗"} {step.status}
+                          <span className={`ml-2 ${step.status === "completed" ? "text-green-600" : step.status === "skipped" ? "text-yellow-600" : "text-red-600"}`}>
+                            {step.status === "completed" ? "✓" : step.status === "skipped" ? "⊘" : "✗"} {step.status}
                           </span>
+                          {step.error && <p className="text-red-500 mt-1">{step.error}</p>}
                           {step.message && <p className="text-muted-foreground mt-1">{step.message}</p>}
                         </div>
                       ))}
@@ -1062,6 +1166,14 @@ export default function ClientWorkflow() {
         onOpenChange={setShowTemplates}
         onSelectTemplate={handleSelectTemplate}
       />
+
+      {selectedWorkflowId && (
+        <WorkflowAnalytics
+          open={showAnalytics}
+          onOpenChange={setShowAnalytics}
+          workflowId={selectedWorkflowId}
+        />
+      )}
     </div>
   );
 }

@@ -684,6 +684,72 @@ async function handleWebhookStep(
   }
 }
 
+// Google Sheets handler
+async function handleSheetsStep(
+  config: Record<string, any>,
+  triggerData: Record<string, any>,
+  stepContext: Map<string, any>
+): Promise<StepExecutionResult> {
+  const startTime = Date.now();
+
+  try {
+    const action = config.action || 'append_row';
+
+    // Build request payload
+    const payload = {
+      config: {
+        spreadsheet_id: config.spreadsheet_id,
+        sheet_name: config.sheet_name || 'Sheet1',
+        action: action,
+        columns: config.columns || [],
+        search_column: config.search_column,
+        search_value: config.search_value ? interpolateVariables(config.search_value, triggerData, stepContext) : '',
+      },
+      trigger_data: triggerData,
+    };
+
+    // Call google-sheets edge function
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const sheetsUrl = supabaseUrl + '/functions/v1/google-sheets';
+
+    const response = await fetch(sheetsUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + serviceRoleKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Google Sheets API error: ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    return {
+      step_id: config.step_id || '',
+      service: 'sheets',
+      action: action,
+      status: result.status === 'completed' ? 'completed' : 'failed',
+      output: result.output || {},
+      error: result.error,
+      duration: Date.now() - startTime,
+    };
+  } catch (error) {
+    console.error('Google Sheets handler error:', error);
+    return {
+      step_id: config.step_id || '',
+      service: 'sheets',
+      status: 'failed',
+      error: String(error),
+      duration: Date.now() - startTime,
+    };
+  }
+}
+
 // ==================== HTTP HANDLER ====================
 
 serve(async (req: Request) => {
@@ -751,6 +817,10 @@ serve(async (req: Request) => {
 
         case 'filter':
           result = handleFilterStep(step.config, trigger_data, contextMap);
+          break;
+
+        case 'sheets':
+          result = await handleSheetsStep(step.config, trigger_data, contextMap);
           break;
 
         default:

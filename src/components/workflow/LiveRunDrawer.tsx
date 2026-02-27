@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, AlertTriangle, Clock, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 
@@ -80,7 +80,12 @@ export default function LiveRunDrawer({
             ) : hasFailure ? (
               <>
                 <XCircle className="w-5 h-5 text-red-500" />
-                Failed at step {failedStepIndex + 1}
+                <div className="flex flex-col gap-1">
+                  <span>Failed at step {failedStepIndex + 1}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {steps[failedStepIndex]?.label || 'Unknown step'}
+                  </span>
+                </div>
               </>
             ) : (
               "Execution Logs"
@@ -170,9 +175,38 @@ export default function LiveRunDrawer({
 
                 {/* Error Message */}
                 {status === 'failed' && (
-                  <div className="pl-9 text-xs text-red-400 font-mono break-words">
-                    {output?.error || 'Unknown error'}
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="pl-9 space-y-2 mt-2"
+                  >
+                    <div className="border-l-2 border-red-500/50 bg-red-500/10 p-2 rounded text-xs space-y-1">
+                      <div className="flex items-center gap-2 text-red-400 font-semibold">
+                        <AlertTriangle className="w-3 h-3" />
+                        Error Details
+                      </div>
+                      <p className="font-mono text-red-300 break-words whitespace-pre-wrap">
+                        {output?.error || 'Unknown error occurred'}
+                      </p>
+                      {output?.error_code && (
+                        <div className="text-muted-foreground">
+                          <span className="font-mono">Code: {output.error_code}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Suggestions */}
+                    <div className="text-xs text-muted-foreground space-y-1 pl-2">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Try increasing retry count or delay</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Check configuration values (URL, API key, etc.)</span>
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
               </motion.div>
             );

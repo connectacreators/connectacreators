@@ -153,20 +153,24 @@ serve(async (req) => {
 
         for (const workflow of workflows || []) {
           if (workflow.trigger_config?.status_to_watch === newStatus) {
-            // Invoke execute-workflow
-            await adminClient.functions.invoke("execute-workflow", {
-              body: {
+            // Enqueue the workflow for async execution
+            await adminClient
+              .from("workflow_execution_queue")
+              .insert({
                 workflow_id: workflow.id,
                 client_id: clientId,
+                status: "pending",
+                scheduled_for: new Date().toISOString(),
                 trigger_data: {
                   notion_page_id: leadId,
                   status: newStatus,
                   client_id: clientId,
                   triggered_at: new Date().toISOString(),
                 },
-                steps: workflow.steps,
-              },
-            });
+                workflow_steps: workflow.steps,
+                max_retries: 3,
+                retry_count: 0,
+              });
 
             // Update last_triggered_at
             await adminClient

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
-import { Loader2, Play, ChevronRight, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Play, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { WorkflowStep } from "@/pages/ClientWorkflow";
 
@@ -196,6 +196,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
   const [fbLoadingForms, setFbLoadingForms] = useState(false);
   const [fbConnecting, setFbConnecting] = useState(false);
   const [fbError, setFbError] = useState<string | null>(null);
+  const [fbLeads, setFbLeads] = useState<Array<{ id: string; created_time: string; name: string; email: string; phone: string; message: string; ad_name: string }>>([]);
+  const [fbLoadingLeads, setFbLoadingLeads] = useState(false);
+  const [fbLeadsError, setFbLeadsError] = useState<string | null>(null);
 
   // Step testing state
   const [stepTestResult, setStepTestResult] = useState<{
@@ -223,15 +226,17 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
     if (open && !newConfig?.database_id && service === "notion" && clientId) {
       supabase
         .from("client_notion_mapping")
-        .select("notion_database_id")
+        .select("notion_database_id, notion_leads_database_id")
         .eq("client_id", clientId)
         .maybeSingle()
         .then(({ data }) => {
-          if (data?.notion_database_id) {
-            setFormData((prev) => ({ ...prev, database_id: data.notion_database_id }));
-            // Auto-fetch schema for update_record action
-            if (action === "update_record") {
-              fetchNotionSchema(data.notion_database_id);
+          // Use leads database for search_record and update_record, otherwise use main database
+          const dbId = (action === "search_record" || action === "update_record") ? data?.notion_leads_database_id : data?.notion_database_id;
+          if (dbId) {
+            setFormData((prev) => ({ ...prev, database_id: dbId }));
+            // Auto-fetch schema for update_record and search_record actions
+            if (action === "update_record" || action === "search_record") {
+              fetchNotionSchema(dbId);
             }
           }
         })
@@ -239,8 +244,8 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
           console.error("Error loading client Notion mapping:", err);
         });
     }
-    // Auto-load Notion schema if database_id is already set and this is an update_record
-    else if (open && newConfig?.database_id && service === "notion" && action === "update_record") {
+    // Auto-load Notion schema if database_id is already set and this is an update_record or search_record
+    else if (open && newConfig?.database_id && service === "notion" && (action === "update_record" || action === "search_record")) {
       fetchNotionSchema(newConfig.database_id);
     }
 
@@ -382,6 +387,85 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
       setFbError("Failed to load forms: " + err.message);
     }
     setFbLoadingForms(false);
+  };
+
+  const fetchFbLeads = async () => {
+    if (!clientId || !formData.facebook_page_id || !formData.facebook_form_id) {
+      setFbLeadsError("Please select a Facebook page and form first");
+      return;
+    }
+    setFbLoadingLeads(true);
+    setFbLeadsError(null);
+    setFbLeads([]);
+    try {
+      console.log("📱 Fetching leads from form:", {
+        client_id: clientId,
+        page_id: formData.facebook_page_id,
+        form_id: formData.facebook_form_id,
+      });
+
+      const response = await supabase.functions.invoke("get-facebook-leads", {
+        body: {
+          client_id: clientId,
+          page_id: formData.facebook_page_id,
+          form_id: formData.facebook_form_id,
+          limit: 3
+        }
+      });
+
+      console.log("📱 Full response:", response);
+
+      if (response.error) {
+        console.error("❌ Invoke error:", response.error);
+        setFbLeadsError(`Function Error: ${response.error.message || JSON.stringify(response.error)}`);
+        return;
+      }
+
+      const data = response.data;
+      console.log("📱 Response data:", data);
+
+      if (!data) {
+        setFbLeadsError("❌ No response data from function");
+        return;
+      }
+
+      if (data.error) {
+        setFbLeadsError(`❌ Server returned error: ${data.error}`);
+        return;
+      }
+
+      if (!data.leads) {
+        setFbLeadsError("❌ No 'leads' field in response. Response: " + JSON.stringify(data));
+        return;
+      }
+
+      if (data.leads.length === 0) {
+        setFbLeadsError("ℹ️ No leads found for this form yet. Check your Facebook connection.");
+        return;
+      }
+
+      console.log("✅ Successfully loaded", data.leads.length, "leads");
+      setFbLeads(data.leads);
+    } catch (err: any) {
+      console.error("❌ fetchFbLeads exception:", err);
+      setFbLeadsError(`Exception: ${err.message || JSON.stringify(err)}`);
+    }
+    setFbLoadingLeads(false);
+  };
+
+  const useLeadAsTestData = (lead: any) => {
+    const testDataObj = {
+      full_name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      status: "new",
+      source: "facebook_form",
+      created_at: lead.created_time,
+      form_id: formData.facebook_form_id,
+      form_name: fbForms.find(f => f.form_id === formData.facebook_form_id)?.form_name || "Unknown Form"
+    };
+    setTestData(testDataObj);
+    setTestError(null);
   };
 
   const connectFacebook = async () => {
@@ -968,6 +1052,55 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                                 </SelectContent>
                               </Select>
                               <p className="text-xs text-muted-foreground">Filter to only trigger for leads from one specific form. Leave as "All forms" to accept leads from any form on this page.</p>
+
+                              {/* Get Leads Button */}
+                              {formData.facebook_form_id && (
+                                <Button
+                                  onClick={fetchFbLeads}
+                                  disabled={fbLoadingLeads}
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full gap-2 mt-2"
+                                >
+                                  {fbLoadingLeads ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                                  Get Last 3 Leads
+                                </Button>
+                              )}
+
+                              {/* Leads Display */}
+                              {fbLeads.length > 0 && (
+                                <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 space-y-2 mt-2">
+                                  <p className="text-xs font-semibold text-blue-400">✓ Latest {fbLeads.length} leads - Click any to use as test data:</p>
+                                  {fbLeads.map((lead) => (
+                                    <div key={lead.id} className="rounded-lg border border-blue-500/40 bg-blue-500/5 p-2 cursor-pointer hover:bg-blue-500/20 transition-colors">
+                                      <div className="text-xs space-y-1">
+                                        <div className="flex justify-between items-start gap-2 mb-2">
+                                          <span className="font-medium text-blue-300">{lead.name || "(No name)"}</span>
+                                          <span className="text-muted-foreground text-xs">{new Date(lead.created_time).toLocaleDateString()}</span>
+                                        </div>
+                                        {lead.email && <div className="text-muted-foreground">📧 {lead.email}</div>}
+                                        {lead.phone && <div className="text-muted-foreground">📱 {lead.phone}</div>}
+                                        {lead.message && <div className="text-muted-foreground italic">💬 "{lead.message}"</div>}
+                                        <Button
+                                          onClick={() => useLeadAsTestData(lead)}
+                                          variant="outline"
+                                          size="xs"
+                                          className="w-full mt-2 h-7 text-xs"
+                                        >
+                                          Use as Test Data
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {fbLeadsError && (
+                                <div className="text-xs text-destructive bg-red-500/10 border border-red-500/30 px-3 py-2 rounded mt-2">
+                                  <div className="font-semibold mb-1">⚠️ Error fetching leads:</div>
+                                  <div className="font-mono text-xs break-words">{fbLeadsError}</div>
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
@@ -1260,10 +1393,25 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                 </div>
               )}
 
-              {/* Find record by title */}
+              {/* Find record by page_id from previous step */}
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
-                  <Label htmlFor="notion_search_title">Find Record by Title</Label>
+                  <Label htmlFor="notion_page_id">Record ID (from Search Step)</Label>
+                  <VariablePicker prevSteps={prevSteps} fieldId="notion_page_id" value={formData.page_id || ""} onChange={(v) => setFormData({ ...formData, page_id: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
+                </div>
+                <Input
+                  id="notion_page_id"
+                  placeholder="steps.STEP_ID.page_id"
+                  value={formData.page_id || ""}
+                  onChange={(e) => setFormData({ ...formData, page_id: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Reference the page_id from your previous search step using double braces like: steps.step_1.page_id</p>
+              </div>
+
+              {/* Alternative: Find record by title */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="notion_search_title">OR Find Record by Title</Label>
                   <VariablePicker prevSteps={prevSteps} fieldId="notion_search_title" value={formData.search_title || ""} onChange={(v) => setFormData({ ...formData, search_title: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
                 </div>
                 <Input
@@ -1272,7 +1420,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                   value={formData.search_title || ""}
                   onChange={(e) => setFormData({ ...formData, search_title: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground">The title of the record to find and update</p>
+                <p className="text-xs text-muted-foreground">Alternative: search for a record by its title if you don't have the page_id</p>
               </div>
 
               {/* Update fields */}
@@ -1792,6 +1940,289 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                 />
               </div>
             )}
+
+            {/* On Failure / Else Branch */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">On Filter Failure</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    id="on_fail_stop"
+                    name="on_fail"
+                    value="stop"
+                    checked={(formData.on_fail || "stop") === "stop"}
+                    onChange={() => setFormData({ ...formData, on_fail: "stop" })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="on_fail_stop" className="cursor-pointer font-normal">
+                    Stop Workflow
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    id="on_fail_else"
+                    name="on_fail"
+                    value="else_steps"
+                    checked={(formData.on_fail || "stop") === "else_steps"}
+                    onChange={() => setFormData({ ...formData, on_fail: "else_steps", else_steps: formData.else_steps || [] })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="on_fail_else" className="cursor-pointer font-normal">
+                    Run Else Steps
+                  </Label>
+                </div>
+              </div>
+
+              {(formData.on_fail || "stop") === "else_steps" && (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    These steps will run if the filter condition fails
+                  </div>
+                  <div className="space-y-2 bg-muted/30 p-2 rounded border border-muted-foreground/20">
+                    {(formData.else_steps || []).map((step: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between text-xs p-2 bg-card rounded">
+                        <span className="text-foreground">{step.label || `${step.service} - ${step.action}`}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const newElseSteps = formData.else_steps?.filter((_: any, i: number) => i !== idx) || [];
+                            setFormData({ ...formData, else_steps: newElseSteps });
+                          }}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // Show a menu to add simple action steps
+                        const newStep = {
+                          service: "email",
+                          action: "send_email",
+                          label: "Send Email (Else)",
+                          config: { to: "", subject: "", body: "" },
+                        };
+                        setFormData({
+                          ...formData,
+                          else_steps: [...(formData.else_steps || []), newStep],
+                        });
+                      }}
+                      className="w-full text-xs"
+                    >
+                      + Add Step
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case "sheets":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sheets_id">Google Sheet ID</Label>
+              <Input
+                id="sheets_id"
+                placeholder="e.g., 1BxiMVs0XRA5nFMKUVfIvosbaK1gkSjjpWnc7W8BX3bk"
+                value={formData.spreadsheet_id || ""}
+                onChange={(e) => setFormData({ ...formData, spreadsheet_id: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Find this in the Google Sheet URL after /d/</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheets_name">Sheet Name (Tab)</Label>
+              <Input
+                id="sheets_name"
+                placeholder="Sheet1"
+                value={formData.sheet_name || "Sheet1"}
+                onChange={(e) => setFormData({ ...formData, sheet_name: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Name of the sheet tab in the spreadsheet</p>
+            </div>
+
+            {action === "append_row" && (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Column Mapping</Label>
+                <p className="text-xs text-muted-foreground mb-2">Map lead fields to spreadsheet columns</p>
+                <div className="space-y-2 bg-muted/30 p-2 rounded border border-muted-foreground/20">
+                  {(formData.columns || []).map((col: any, idx: number) => (
+                    <div key={idx} className="flex gap-2 items-center text-xs">
+                      <Input
+                        placeholder="A"
+                        value={col.column}
+                        onChange={(e) => {
+                          const newCols = [...(formData.columns || [])];
+                          newCols[idx].column = e.target.value;
+                          setFormData({ ...formData, columns: newCols });
+                        }}
+                        className="w-12"
+                      />
+                      <span className="text-muted-foreground">=</span>
+                      <Input
+                        placeholder="{{lead.name}}"
+                        value={col.value}
+                        onChange={(e) => {
+                          const newCols = [...(formData.columns || [])];
+                          newCols[idx].value = e.target.value;
+                          setFormData({ ...formData, columns: newCols });
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const newCols = (formData.columns || []).filter((_: any, i: number) => i !== idx);
+                          setFormData({ ...formData, columns: newCols });
+                        }}
+                        className="h-7 px-2"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        columns: [...(formData.columns || []), { column: "A", value: "" }],
+                      });
+                    }}
+                    className="w-full text-xs"
+                  >
+                    + Add Column
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {(action === "find_row" || action === "update_row") && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="sheets_search_col">Search Column</Label>
+                  <Input
+                    id="sheets_search_col"
+                    placeholder="A"
+                    value={formData.search_column || "A"}
+                    onChange={(e) => setFormData({ ...formData, search_column: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="sheets_search_val">Search Value</Label>
+                    <VariablePicker prevSteps={prevSteps} fieldId="sheets_search_val" value={formData.search_value || ""} onChange={(v) => setFormData({ ...formData, search_value: v })} triggerData={savedTriggerData || testData} stepOutputResults={stepTestResults} />
+                  </div>
+                  <Input
+                    id="sheets_search_val"
+                    placeholder="{{lead.email}}"
+                    value={formData.search_value || ""}
+                    onChange={(e) => setFormData({ ...formData, search_value: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+
+            {action === "update_row" && (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Columns to Update</Label>
+                <div className="space-y-2 bg-muted/30 p-2 rounded border border-muted-foreground/20">
+                  {(formData.columns || []).map((col: any, idx: number) => (
+                    <div key={idx} className="flex gap-2 items-center text-xs">
+                      <Input
+                        placeholder="B"
+                        value={col.column}
+                        onChange={(e) => {
+                          const newCols = [...(formData.columns || [])];
+                          newCols[idx].column = e.target.value;
+                          setFormData({ ...formData, columns: newCols });
+                        }}
+                        className="w-12"
+                      />
+                      <span className="text-muted-foreground">=</span>
+                      <Input
+                        placeholder="{{lead.status}}"
+                        value={col.value}
+                        onChange={(e) => {
+                          const newCols = [...(formData.columns || [])];
+                          newCols[idx].value = e.target.value;
+                          setFormData({ ...formData, columns: newCols });
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const newCols = (formData.columns || []).filter((_: any, i: number) => i !== idx);
+                          setFormData({ ...formData, columns: newCols });
+                        }}
+                        className="h-7 px-2"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        columns: [...(formData.columns || []), { column: "B", value: "" }],
+                      });
+                    }}
+                    className="w-full text-xs"
+                  >
+                    + Add Column
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Retry on Failure */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Retry on Failure</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sheets_retry_count">Retry Count</Label>
+                  <Select value={String(formData.retry_count || 0)} onValueChange={(value) => setFormData({ ...formData, retry_count: parseInt(value) })}>
+                    <SelectTrigger id="sheets_retry_count">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">No retries</SelectItem>
+                      <SelectItem value="1">1 retry</SelectItem>
+                      <SelectItem value="2">2 retries</SelectItem>
+                      <SelectItem value="3">3 retries</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sheets_retry_delay">Delay Between Retries</Label>
+                  <Select value={String(formData.retry_delay_ms || 1000)} onValueChange={(value) => setFormData({ ...formData, retry_delay_ms: parseInt(value) })}>
+                    <SelectTrigger id="sheets_retry_delay">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1 second</SelectItem>
+                      <SelectItem value="3000">3 seconds</SelectItem>
+                      <SelectItem value="5000">5 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </div>
         );
 

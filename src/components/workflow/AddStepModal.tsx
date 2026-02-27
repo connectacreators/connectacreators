@@ -102,6 +102,33 @@ const AVAILABLE_SERVICES: ServiceOption[] = [
     emoji: "⏱️",
     color: "orange",
   },
+  {
+    id: "sheets_append",
+    service: "sheets",
+    action: "append_row",
+    name: "Add Row to Google Sheet",
+    description: "Append a row with lead data to a Google Sheet",
+    emoji: "📊",
+    color: "green",
+  },
+  {
+    id: "sheets_find",
+    service: "sheets",
+    action: "find_row",
+    name: "Find Row in Google Sheet",
+    description: "Search for a row in a Google Sheet",
+    emoji: "📊",
+    color: "green",
+  },
+  {
+    id: "sheets_update",
+    service: "sheets",
+    action: "update_row",
+    name: "Update Row in Google Sheet",
+    description: "Update an existing row in a Google Sheet",
+    emoji: "📊",
+    color: "green",
+  },
 ];
 
 interface AddStepModalProps {

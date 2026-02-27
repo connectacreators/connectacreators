@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 const fadeUp = {
@@ -43,7 +44,11 @@ export default function ClientDetail() {
 
   // Notion mapping state (admin-only)
   const [showNotionDialog, setShowNotionDialog] = useState(false);
+
+  // Database dialog state
+  const [showDatabaseDialog, setShowDatabaseDialog] = useState(false);
   const [notionDbId, setNotionDbId] = useState("");
+  const [notionLeadsDbId, setNotionLeadsDbId] = useState("");
   const [notionTitleProp, setNotionTitleProp] = useState("Reel title");
   const [notionScriptProp, setNotionScriptProp] = useState("Script");
   const [notionFootageProp, setNotionFootageProp] = useState("Footage");
@@ -76,12 +81,13 @@ export default function ClientDetail() {
     if (!clientId || !isAdmin) return;
     supabase
       .from("client_notion_mapping")
-      .select("notion_database_id, title_property, script_property, footage_property, file_submission_property")
+      .select("notion_database_id, notion_leads_database_id, title_property, script_property, footage_property, file_submission_property")
       .eq("client_id", clientId)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setNotionDbId(data.notion_database_id || "");
+          setNotionLeadsDbId(data.notion_leads_database_id || "");
           setNotionTitleProp(data.title_property || "Reel title");
           setNotionScriptProp(data.script_property || "Script");
           setNotionFootageProp(data.footage_property || "Footage");
@@ -92,14 +98,17 @@ export default function ClientDetail() {
 
 
   const handleSaveNotion = async () => {
-    if (!clientId || !notionDbId.trim()) return;
+    if (!clientId || !notionDbId.trim() || !notionLeadsDbId.trim()) return;
     setNotionLoading(true);
     // Strip any URL prefix or view param — keep just the 32-char ID
     const rawId = notionDbId.trim().split("?")[0].replace(/-/g, "").slice(-32);
+    const rawLeadsId = notionLeadsDbId.trim().split("?")[0].replace(/-/g, "").slice(-32);
+
     const { error } = await supabase.from("client_notion_mapping").upsert(
       {
         client_id: clientId,
         notion_database_id: rawId,
+        notion_leads_database_id: rawLeadsId,
         title_property: notionTitleProp.trim() || "Reel title",
         script_property: notionScriptProp.trim() || "Script",
         footage_property: notionFootageProp.trim() || "Footage",
@@ -110,8 +119,9 @@ export default function ClientDetail() {
     if (error) {
       toast.error("Error saving Notion settings");
     } else {
-      toast.success("Notion database linked successfully");
+      toast.success("Notion databases linked successfully");
       setNotionDbId(rawId);
+      setNotionLeadsDbId(rawLeadsId);
       setShowNotionDialog(false);
     }
     setNotionLoading(false);
@@ -220,6 +230,13 @@ export default function ClientDetail() {
       color: "text-yellow-400",
       path: `/onboarding/${clientId}`,
     },
+    {
+      label: "Database",
+      description: language === "en" ? "(Future) Direct database access - Supabase storage" : "(Futuro) Acceso directo a base de datos - almacenamiento Supabase",
+      icon: Database,
+      color: "text-cyan-400",
+      action: "database",
+    },
   ];
 
   return (
@@ -302,8 +319,14 @@ export default function ClientDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {toolCards.map((tool: any, i) => (
                 <motion.button
-                  key={tool.path}
-                  onClick={() => navigate(tool.path)}
+                  key={tool.path || tool.action}
+                  onClick={() => {
+                    if (tool.action === "database") {
+                      setShowDatabaseDialog(true);
+                    } else {
+                      navigate(tool.path);
+                    }
+                  }}
                   className="group flex flex-col items-center gap-5 p-8 text-center card-glass-17"
                   initial="hidden"
                   animate="visible"
@@ -366,14 +389,25 @@ export default function ClientDetail() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Notion Database ID</Label>
+              <Label className="font-semibold">📋 Edit Queue Database ID</Label>
               <Input
-                placeholder="e.g. 29ad6442e09c805a927de6e3fdb6112c"
+                placeholder="e.g. 9ad6442e09c805a927de6e3fdb6112c"
                 value={notionDbId}
                 onChange={(e) => setNotionDbId(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">Paste the database ID or full Notion URL — the ID will be extracted automatically.</p>
+              <p className="text-xs text-muted-foreground">Database for storing video editing queue & reel metadata.</p>
             </div>
+
+            <div className="space-y-2">
+              <Label className="font-semibold">🎯 Leads Database ID (Workflow Data)</Label>
+              <Input
+                placeholder="e.g. 5c1f88c1093841b3bb8464e70fd58eb7"
+                value={notionLeadsDbId}
+                onChange={(e) => setNotionLeadsDbId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Separate database for storing workflow leads/data (different from video edits database).</p>
+            </div>
+
             <div className="border-t border-border/50 pt-3">
               <p className="text-xs text-muted-foreground mb-3 font-medium">Property names in Notion</p>
               <div className="grid grid-cols-2 gap-3">
@@ -403,6 +437,116 @@ export default function ClientDetail() {
             <Button onClick={handleSaveNotion} disabled={notionLoading || !notionDbId.trim()}>
               {notionLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Database Dialog (Future Supabase Integration) */}
+      <Dialog open={showDatabaseDialog} onOpenChange={setShowDatabaseDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-cyan-400" />
+              Database Management (Future Feature)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4 mb-4">
+              <p className="text-sm text-cyan-300">
+                <strong>🚀 Coming Soon:</strong> Direct database access with Supabase backend. This will replace Notion storage with native database management.
+              </p>
+            </div>
+
+            {/* Tabs for Leads and Video Database */}
+            <Tabs defaultValue="leads" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="leads" className="flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Leads Database
+                </TabsTrigger>
+                <TabsTrigger value="video" className="flex items-center gap-2">
+                  <Clapperboard className="w-4 h-4" />
+                  Video Editing
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Leads Tab */}
+              <TabsContent value="leads" className="space-y-4 mt-4">
+                <div className="bg-background/50 rounded-lg border border-border/30 p-4 space-y-3">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Client Leads</h3>
+                    <Button size="sm" variant="outline" disabled>
+                      + Add Lead (Coming Soon)
+                    </Button>
+                  </div>
+
+                  <div className="text-center py-8">
+                    <Target className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground mb-2">No leads data yet</p>
+                    <p className="text-xs text-muted-foreground">
+                      This tab will display leads stored directly in Supabase with add/edit/delete functionality
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                  <div className="bg-background/50 rounded p-2">
+                    <div className="font-semibold text-foreground">0</div>
+                    <div>Total Leads</div>
+                  </div>
+                  <div className="bg-background/50 rounded p-2">
+                    <div className="font-semibold text-foreground">0</div>
+                    <div>Active</div>
+                  </div>
+                  <div className="bg-background/50 rounded p-2">
+                    <div className="font-semibold text-foreground">0</div>
+                    <div>Archived</div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Video Editing Tab */}
+              <TabsContent value="video" className="space-y-4 mt-4">
+                <div className="bg-background/50 rounded-lg border border-border/30 p-4 space-y-3">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Video Projects</h3>
+                    <Button size="sm" variant="outline" disabled>
+                      + Add Project (Coming Soon)
+                    </Button>
+                  </div>
+
+                  <div className="text-center py-8">
+                    <Clapperboard className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground mb-2">No video projects yet</p>
+                    <p className="text-xs text-muted-foreground">
+                      This tab will display video editing queue and production status with add/edit/delete functionality
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                  <div className="bg-background/50 rounded p-2">
+                    <div className="font-semibold text-foreground">0</div>
+                    <div>Total Videos</div>
+                  </div>
+                  <div className="bg-background/50 rounded p-2">
+                    <div className="font-semibold text-foreground">0</div>
+                    <div>In Progress</div>
+                  </div>
+                  <div className="bg-background/50 rounded p-2">
+                    <div className="font-semibold text-foreground">0</div>
+                    <div>Completed</div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDatabaseDialog(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -28,6 +28,7 @@ const SERVICE_CONFIG = {
   webhook: { name: "HTTP Webhook", emoji: "🪝", color: "bg-purple-500/20 text-purple-400", borderColor: "border-purple-500/30" },
   delay: { name: "Delay", emoji: "⏱️", color: "bg-orange-500/20 text-orange-400", borderColor: "border-orange-500/30" },
   filter: { name: "Filter / If", emoji: "🔀", color: "bg-amber-500/20 text-amber-400", borderColor: "border-amber-500/30" },
+  sheets: { name: "Google Sheets", emoji: "📊", color: "bg-green-500/20 text-green-400", borderColor: "border-green-500/30" },
 };
 
 export default function WorkflowStep({ id, type, service, stepNumber, label, onEdit, onDelete, onDuplicate, tested, runStatus }: WorkflowStepProps) {

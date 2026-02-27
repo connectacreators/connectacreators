@@ -132,16 +132,24 @@ serve(async (req) => {
     let useClientFilter = true; // whether to filter by "Client" property
 
     if (clientName) {
-      // Look up the client's dedicated lead database
-      const { data: clientRow } = await supabase
+      // Look up the client's dedicated lead database from client_notion_mapping
+      const { data: clientData } = await supabase
         .from("clients")
-        .select("notion_lead_database_id")
+        .select("id")
         .or(`notion_lead_name.eq.${clientName},name.eq.${clientName}`)
         .maybeSingle();
 
-      if (clientRow?.notion_lead_database_id) {
-        leadsDbId = clientRow.notion_lead_database_id;
-        useClientFilter = false; // dedicated DB, no need to filter by Client property
+      if (clientData?.id) {
+        const { data: notionMapping } = await supabase
+          .from("client_notion_mapping")
+          .select("notion_leads_database_id")
+          .eq("client_id", clientData.id)
+          .maybeSingle();
+
+        if (notionMapping?.notion_leads_database_id) {
+          leadsDbId = notionMapping.notion_leads_database_id;
+          useClientFilter = false; // dedicated DB, no need to filter by Client property
+        }
       }
     }
 

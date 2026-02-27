@@ -43,6 +43,9 @@ const STEP_OUTPUT_SCHEMAS: Record<string, string[]> = {
   'webhook.send_request': ['status_code', 'response_body'],
   'formatter.date_time': ['formatted_date'],
   'filter.if_condition': ['passed'],
+  'sheets.append_row': ['row_number', 'spreadsheet_url'],
+  'sheets.find_row': ['found', 'row_number', 'values'],
+  'sheets.update_row': ['row_number', 'updated'],
 };
 
 // ==================== VARIABLE INTERPOLATION ====================
@@ -95,58 +98,24 @@ async function handleEmailStep(
       };
     }
 
-    // If Zoho credentials provided, attempt to send via SMTP
-    if (zohoEmail && zohoPassword) {
-      try {
-        // Use Zoho SMTP server
-        const smtpResponse = await fetch('https://api.zoho.com/crm/v2/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type: 'client_credentials',
-            client_id: zohoEmail, // In production, use proper OAuth
-            client_secret: zohoPassword,
-          }).toString(),
-        });
+    // TODO: Integrate with SendGrid, Mailgun, or Zoho Mail API for actual email delivery
+    // For now, log the email (in production, implement proper SMTP or API-based email service)
+    console.log(JSON.stringify({
+      level: 'email',
+      to,
+      subject,
+      body: body.substring(0, 200),
+      timestamp: new Date().toISOString(),
+    }));
 
-        // For now, log the attempt (Zoho would need proper OAuth setup)
-        // In production, use a proper Deno SMTP library
-        console.log(`[EMAIL] Attempting to send via Zoho SMTP: To: ${to}, Subject: ${subject}`);
-
-        return {
-          step_id: config.step_id || '',
-          service: 'email',
-          action: 'send_email',
-          status: 'completed',
-          output: { sent_to: to },
-          duration: Date.now() - startTime,
-        };
-      } catch (smtpErr) {
-        console.error('Zoho SMTP error:', smtpErr);
-        // Fall back to logging
-        console.log(`[EMAIL] Zoho SMTP unavailable, logging: To: ${to}, Subject: ${subject}`);
-        return {
-          step_id: config.step_id || '',
-          service: 'email',
-          action: 'send_email',
-          status: 'completed',
-          output: { sent_to: to },
-          duration: Date.now() - startTime,
-        };
-      }
-    } else {
-      // Log email for testing
-      console.log(`[EMAIL] To: ${to}, Subject: ${subject}, Body: ${body.substring(0, 100)}...`);
-
-      return {
-        step_id: config.step_id || '',
-        service: 'email',
-        action: 'send_email',
-        status: 'completed',
-        output: { sent_to: to },
-        duration: Date.now() - startTime,
-      };
-    }
+    return {
+      step_id: config.step_id || '',
+      service: 'email',
+      action: 'send_email',
+      status: 'completed',
+      output: { sent_to: to },
+      duration: Date.now() - startTime,
+    };
   } catch (error) {
     return {
       step_id: config.step_id || '',
@@ -492,14 +461,16 @@ async function handleDelayStep(
         break;
     }
 
-    // Cap at 30 seconds to avoid blocking edge function
+    // Delays longer than 30 seconds must be handled asynchronously
+    // TODO: In Phase 2, implement async delay resumption via queue
     if (ms > 30000) {
       return {
         step_id: config.step_id || '',
         service: 'delay',
         action: 'delay_until',
-        status: 'completed',
-        output: { deferred: true, requested_delay: ms },
+        status: 'failed',
+        error: `Delay of ${amount} ${unit}s exceeds 30-second limit. Async delay resumption not yet implemented. Maximum delay: 30 seconds.`,
+        output: { requested_delay: ms, max_supported: 30000 },
         duration: Date.now() - startTime,
       };
     }
@@ -814,6 +785,63 @@ async function handleWebhookStep(
         headers['Content-Type'] = 'application/json';
       }
 
+      // SSRF Protection: Validate URL before making request
+      try {
+        const parsedUrl = new URL(url);
+        const hostname = parsedUrl.hostname.toLowerCase();
+
+        // Block non-HTTP(S) schemes
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          throw new Error('Only HTTP(S) requests are allowed');
+        }
+
+        // Block internal hostnames
+        const blockedHosts = ['localhost', 'metadata.google.internal'];
+        if (blockedHosts.includes(hostname)) {
+          throw new Error(`Access to ${hostname} is not allowed`);
+        }
+
+        const blockedSuffixes = ['.local', '.internal', '.localhost'];
+        if (blockedSuffixes.some(suffix => hostname.endsWith(suffix))) {
+          throw new Error(`Access to .${hostname.split('.').pop()} domains is not allowed`);
+        }
+
+        // Check IP address if resolvable
+        try {
+          const ips = await Deno.resolveDns(hostname, 'A');
+          for (const ip of ips) {
+            const parts = ip.split('.').map(Number);
+            if (parts.length === 4) {
+              const [a, b] = parts;
+              // Block private IP ranges
+              if (a === 10 ||                           // 10.0.0.0/8
+                  (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+                  (a === 192 && b === 168) ||           // 192.168.0.0/16
+                  a === 127 ||                          // 127.0.0.0/8 (loopback)
+                  (a === 169 && b === 254) ||           // 169.254.0.0/16 (link-local)
+                  (a === 100 && b >= 64 && b <= 127)) { // 100.64.0.0/10
+                throw new Error(`Access to private IP ${ip} is not allowed`);
+              }
+            }
+          }
+        } catch (dnsErr) {
+          // If DNS resolution fails, treat as blocked
+          if (!dnsErr.message.includes('not allowed')) {
+            throw new Error(`Unable to resolve hostname: ${hostname}`);
+          }
+          throw dnsErr;
+        }
+      } catch (ssrfErr) {
+        return {
+          step_id: config.step_id || '',
+          service: 'webhook',
+          action: 'send_request',
+          status: 'failed',
+          error: `SSRF protection: ${String(ssrfErr)}`,
+          duration: Date.now() - startTime,
+        };
+      }
+
       // Prepare body
       let body: string | undefined;
       if (bodyTemplate && ['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -870,7 +898,184 @@ async function handleWebhookStep(
   }
 }
 
+// Google Sheets handler
+async function handleSheetsStep(
+  config: Record<string, any>,
+  triggerData: Record<string, any>,
+  stepContext: Map<string, any>
+): Promise<StepExecutionResult> {
+  const startTime = Date.now();
+
+  try {
+    const action = config.action || 'append_row';
+
+    // Build request payload
+    const payload = {
+      config: {
+        spreadsheet_id: config.spreadsheet_id,
+        sheet_name: config.sheet_name || 'Sheet1',
+        action: action,
+        columns: config.columns || [],
+        search_column: config.search_column,
+        search_value: config.search_value ? interpolateVariables(config.search_value, triggerData, stepContext) : '',
+      },
+      trigger_data: triggerData,
+    };
+
+    // Call google-sheets edge function
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const sheetsUrl = supabaseUrl + '/functions/v1/google-sheets';
+
+    const response = await fetch(sheetsUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + serviceRoleKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Google Sheets API error: ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    return {
+      step_id: config.step_id || '',
+      service: 'sheets',
+      action: action,
+      status: result.status === 'completed' ? 'completed' : 'failed',
+      output: result.output || {},
+      error: result.error,
+      duration: Date.now() - startTime,
+    };
+  } catch (error) {
+    console.error('Google Sheets handler error:', error);
+    return {
+      step_id: config.step_id || '',
+      service: 'sheets',
+      status: 'failed',
+      error: String(error),
+      duration: Date.now() - startTime,
+    };
+  }
+}
+
 // ==================== MAIN ORCHESTRATION ====================
+
+// Helper function to execute a single step with retry logic
+async function executeStepWithRetry(
+  step: WorkflowStep,
+  triggerData: Record<string, any>,
+  stepContext: Map<string, any>,
+  clientNotionDatabaseId: string | null
+): Promise<StepExecutionResult> {
+  let result: StepExecutionResult = {
+    step_id: step.id,
+    service: step.service,
+    status: 'failed',
+    error: 'Step not executed',
+  };
+
+  try {
+    // Add step_id to config for tracking
+    step.config.step_id = step.id;
+
+    // Get retry configuration
+    const retryCount = step.config.retry_count || 0;
+    const retryDelayMs = step.config.retry_delay_ms || 1000;
+
+    // Retry loop - attempt execution up to (retryCount + 1) times
+    for (let attempt = 0; attempt <= retryCount; attempt++) {
+      switch (step.service) {
+        case 'email':
+          result = await handleEmailStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'sms':
+          result = await handleSMSStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'whatsapp':
+          result = await handleWhatsAppStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'webhook':
+          result = await handleWebhookStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'notion':
+          // Use client's mapped database as fallback if step config doesn't have one
+          const notionConfig = step.config;
+          if (!notionConfig.database_id && clientNotionLeadsDatabase) {
+            // For search/create/update records, use the leads database (workflow data)
+            notionConfig.database_id = clientNotionLeadsDatabase;
+          } else if (!notionConfig.database_id && clientNotionDatabaseId) {
+            // Fallback to edit queue database
+            notionConfig.database_id = clientNotionDatabaseId;
+          }
+          result = await handleNotionStep(step.action || 'create_record', notionConfig, triggerData, stepContext);
+          break;
+
+        case 'formatter':
+          result = await handleFormatterStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'delay':
+          result = await handleDelayStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'filter':
+          result = handleFilterStep(step.config, triggerData, stepContext);
+          break;
+
+        case 'sheets':
+          result = await handleSheetsStep(step.config, triggerData, stepContext);
+          break;
+
+        default:
+          result = {
+            step_id: step.id,
+            service: step.service,
+            status: 'failed',
+            error: `Unknown service: ${step.service}`,
+          };
+      }
+
+      // If successful, break retry loop
+      if (result.status !== 'failed') {
+        break;
+      }
+
+      // If this was the last attempt, don't retry
+      if (attempt === retryCount) {
+        break;
+      }
+
+      // Wait before retrying
+      if (retryDelayMs > 0) {
+        await new Promise(r => setTimeout(r, retryDelayMs));
+      }
+    }
+  } catch (error) {
+    result = {
+      step_id: step.id,
+      service: step.service,
+      status: 'failed',
+      error: String(error),
+    };
+  }
+
+  // Store step output for next steps
+  if (result.status === 'completed' && result.output) {
+    stepContext.set(step.id, result.output);
+  }
+
+  return result;
+}
 
 async function executeWorkflow(context: ExecutionContext): Promise<{
   status: string;
@@ -884,6 +1089,7 @@ async function executeWorkflow(context: ExecutionContext): Promise<{
   const stepsResults: StepExecutionResult[] = [];
   let skipRemainingSteps = false;
   let clientNotionDatabaseId: string | null = null;
+  let clientNotionLeadsDatabase: string | null = null;
 
   try {
     const supabase = createClient(
@@ -894,11 +1100,12 @@ async function executeWorkflow(context: ExecutionContext): Promise<{
     // Load client's Notion mapping for fallback
     const { data: clientMapping } = await supabase
       .from('client_notion_mapping')
-      .select('notion_database_id')
+      .select('notion_database_id, notion_leads_database_id')
       .eq('client_id', context.client_id)
       .maybeSingle();
 
     clientNotionDatabaseId = clientMapping?.notion_database_id || null;
+    clientNotionLeadsDatabase = clientMapping?.notion_leads_database_id || null;
 
     // Create execution record
     const { data: executionData, error: executionError } = await supabase
@@ -924,100 +1131,31 @@ async function executeWorkflow(context: ExecutionContext): Promise<{
       if (step.type === 'trigger') continue; // Skip trigger step
       if (skipRemainingSteps) break;
 
-      try {
-        let result: StepExecutionResult;
+      // Execute the step
+      const result = await executeStepWithRetry(step, context.trigger_data, stepContext, clientNotionDatabaseId);
+      stepsResults.push(result);
 
-        // Add step_id to config for tracking
-        step.config.step_id = step.id;
+      // Handle filter results - if/else branching
+      if (step.service === 'filter') {
+        const filterPassed = result.output?.passed;
 
-        // Get retry configuration
-        const retryCount = step.config.retry_count || 0;
-        const retryDelayMs = step.config.retry_delay_ms || 1000;
+        if (!filterPassed) {
+          // Filter failed - check if we have else_steps
+          const onFail = step.config.on_fail || 'stop';
+          const elseSteps = step.config.else_steps || [];
 
-        // Retry loop - attempt execution up to (retryCount + 1) times
-        for (let attempt = 0; attempt <= retryCount; attempt++) {
-          switch (step.service) {
-            case 'email':
-              result = await handleEmailStep(step.config, context.trigger_data, stepContext);
-              break;
-
-            case 'sms':
-              result = await handleSMSStep(step.config, context.trigger_data, stepContext);
-              break;
-
-            case 'whatsapp':
-              result = await handleWhatsAppStep(step.config, context.trigger_data, stepContext);
-              break;
-
-            case 'webhook':
-              result = await handleWebhookStep(step.config, context.trigger_data, stepContext);
-              break;
-
-            case 'notion':
-              // Use client's mapped database as fallback if step config doesn't have one
-              const notionConfig = step.config;
-              if (!notionConfig.database_id && clientNotionDatabaseId) {
-                notionConfig.database_id = clientNotionDatabaseId;
-              }
-              result = await handleNotionStep(step.action || 'create_record', notionConfig, context.trigger_data, stepContext);
-              break;
-
-            case 'formatter':
-              result = await handleFormatterStep(step.config, context.trigger_data, stepContext);
-              break;
-
-            case 'delay':
-              result = await handleDelayStep(step.config, context.trigger_data, stepContext);
-              break;
-
-            case 'filter':
-              result = handleFilterStep(step.config, context.trigger_data, stepContext);
-              // Check if filter failed - if so, halt remaining steps
-              if (!result.output?.passed) {
-                skipRemainingSteps = true;
-              }
-              break;
-
-            default:
-              result = {
-                step_id: step.id,
-                service: step.service,
-                status: 'failed',
-                error: `Unknown service: ${step.service}`,
-              };
-          }
-
-          // If successful, break retry loop
-          if (result.status !== 'failed') {
-            break;
-          }
-
-          // If this was the last attempt, don't retry
-          if (attempt === retryCount) {
-            break;
-          }
-
-          // Wait before retrying
-          if (retryDelayMs > 0) {
-            await new Promise(r => setTimeout(r, retryDelayMs));
+          if (onFail === 'else_steps' && elseSteps.length > 0) {
+            // Execute else_steps
+            for (const elseStep of elseSteps) {
+              const elseResult = await executeStepWithRetry(elseStep, context.trigger_data, stepContext, clientNotionDatabaseId);
+              stepsResults.push(elseResult);
+            }
+            // Continue with remaining steps after else branch
+          } else {
+            // Default: stop workflow if filter fails
+            skipRemainingSteps = true;
           }
         }
-
-        // Store step output for next steps
-        if (result.status === 'completed' && result.output) {
-          stepContext.set(step.id, result.output);
-        }
-
-        stepsResults.push(result);
-
-      } catch (error) {
-        stepsResults.push({
-          step_id: step.id,
-          service: step.service,
-          action: step.action,
-          status: 'failed',
-          error: String(error),
-        });
       }
     }
 
@@ -1026,12 +1164,22 @@ async function executeWorkflow(context: ExecutionContext): Promise<{
       const allCompleted = stepsResults.every(s => s.status === 'completed' || s.status === 'skipped');
       const duration = Date.now() - executionStartTime;
 
+      // Find last failed step for analytics
+      let lastFailedStep: string | null = null;
+      for (let i = stepsResults.length - 1; i >= 0; i--) {
+        if (stepsResults[i].status === 'failed') {
+          lastFailedStep = stepsResults[i].step_id || stepsResults[i].service;
+          break;
+        }
+      }
+
       await supabase
         .from('workflow_executions')
         .update({
           status: allCompleted ? 'completed' : 'failed',
           steps_results: stepsResults,
           duration_ms: duration,
+          last_failed_step: lastFailedStep,
           completed_at: new Date().toISOString(),
         })
         .eq('id', executionId);

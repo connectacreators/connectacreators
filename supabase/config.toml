@@ -1,61 +1,83 @@
 project_id = "hxojqrilwhhrvloiwmfo"
 
+# User-authenticated functions (require JWT token)
 [functions.categorize-script]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-videographer]
-verify_jwt = false
+verify_jwt = true
+# Note: Add role check inside function — only admin can call
 
 [functions.fetch-leads]
-verify_jwt = false
+verify_jwt = true
 
 [functions.update-lead-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-notion-script]
-verify_jwt = false
+verify_jwt = true
 
 [functions.bulk-sync-notion-scripts]
-verify_jwt = false
+verify_jwt = true
+# Note: Add role check inside function — only admin can call
 
 [functions.get-subscription]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-build-script]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-checkout]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-subscription]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cancel-subscription]
-verify_jwt = false
+verify_jwt = true
 
 [functions.upgrade-subscription]
-verify_jwt = false
-
-[functions.public-booking]
-verify_jwt = false
+verify_jwt = true
 
 [functions.transcribe-video]
-verify_jwt = false
+verify_jwt = true
 
 [functions.execute-workflow]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-notion-db-schema]
-verify_jwt = false
-
-[functions.run-scheduled-workflows]
-verify_jwt = false
+verify_jwt = true
 
 [functions.facebook-oauth]
 verify_jwt = true
 
-[functions.facebook-webhook-receiver]
-verify_jwt = false
+[functions.get-facebook-leads]
+verify_jwt = true
 
 [functions.test-workflow-step]
+verify_jwt = true
+
+[functions.google-sheets]
+verify_jwt = true
+
+# Publicly accessible endpoints (no JWT required)
+[functions.public-booking]
 verify_jwt = false
+
+# Inbound webhooks (no JWT required, signature verification instead)
+[functions.facebook-webhook-receiver]
+verify_jwt = false
+# Note: Verify X-Hub-Signature-256 header instead
+
+[functions.workflow-webhook]
+verify_jwt = false
+# Note: Verify X-Webhook-Signature header instead
+
+# Internal-only functions (require internal secret header, not JWT)
+[functions.run-scheduled-workflows]
+verify_jwt = false
+# Note: Protect with X-Internal-Secret header check
+
+[functions.process-workflow-queue]
+verify_jwt = false
+# Note: Protect with X-Internal-Secret header check

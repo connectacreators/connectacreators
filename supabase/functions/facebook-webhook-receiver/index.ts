@@ -20,18 +20,80 @@ serve(async (req) => {
 
   // ─── POST: Lead Event ──────────────────────────────────────────────
   if (req.method === "POST") {
-    const body = await req.json().catch(() => null);
-    if (!body) return new Response("Bad Request", { status: 400 });
+    // Verify X-Hub-Signature-256 header
+    const appSecret = Deno.env.get("FACEBOOK_APP_SECRET");
+    const signatureHeader = req.headers.get("x-hub-signature-256");
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    if (appSecret && signatureHeader) {
+      // Read raw body for signature verification
+      const rawBody = await req.arrayBuffer();
+      const rawBodyBytes = new Uint8Array(rawBody);
 
-    try {
-      await processWebhookEvent(body, supabase);
-    } catch (err) {
-      console.error("Webhook processing error:", err);
+      if (!signatureHeader.startsWith("sha256=")) {
+        console.error("Invalid signature header format");
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const providedHex = signatureHeader.slice(7); // Remove 'sha256=' prefix
+
+      // Compute HMAC-SHA256
+      const key = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(appSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', key, rawBodyBytes);
+      const expectedHex = Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // Timing-safe comparison
+      if (providedHex.length !== expectedHex.length) {
+        console.error("Signature verification failed: length mismatch");
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      let diff = 0;
+      for (let i = 0; i < expectedHex.length; i++) {
+        diff |= expectedHex.charCodeAt(i) ^ providedHex.charCodeAt(i);
+      }
+
+      if (diff !== 0) {
+        console.error("Signature verification failed: hash mismatch");
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      // Re-create the body from raw buffer since we consumed it for verification
+      const bodyText = new TextDecoder().decode(rawBodyBytes);
+      const body = JSON.parse(bodyText);
+
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+
+      try {
+        await processWebhookEvent(body, supabase);
+      } catch (err) {
+        console.error("Webhook processing error:", err);
+      }
+    } else {
+      // Fallback for when app secret is not configured
+      const body = await req.json().catch(() => null);
+      if (!body) return new Response("Bad Request", { status: 400 });
+
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+
+      try {
+        await processWebhookEvent(body, supabase);
+      } catch (err) {
+        console.error("Webhook processing error:", err);
+      }
     }
 
     // Always return 200 to prevent Meta from retrying
@@ -164,20 +226,26 @@ async function processWebhookEvent(body: any, supabase: any) {
             continue;
           }
 
-          // Fire the workflow
+          // Enqueue the workflow for async execution
           try {
-            console.log(`Firing workflow ${workflow.id} for lead ${leadgenId}`);
-            await supabase.functions.invoke("execute-workflow", {
-              body: {
+            console.log(`Enqueuing workflow ${workflow.id} for lead ${leadgenId}`);
+
+            // Queue the workflow execution for async processing
+            await supabase
+              .from("workflow_execution_queue")
+              .insert({
                 workflow_id: workflow.id,
                 client_id: pageRow.client_id,
+                status: "pending",
+                scheduled_for: new Date().toISOString(),
                 trigger_data: {
                   ...triggerData,
                   lead_id: insertedLead?.id,
                 },
-                steps: workflow.steps,
-              },
-            });
+                workflow_steps: workflow.steps,
+                max_retries: 3,
+                retry_count: 0,
+              });
 
             // Update last_triggered_at
             await supabase
