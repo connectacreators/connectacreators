@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 const fadeUp = {
@@ -45,8 +45,7 @@ export default function ClientDetail() {
   // Notion mapping state (admin-only)
   const [showNotionDialog, setShowNotionDialog] = useState(false);
 
-  // Database dialog state
-  const [showDatabaseDialog, setShowDatabaseDialog] = useState(false);
+  // Notion database state
   const [notionDbId, setNotionDbId] = useState("");
   const [notionLeadsDbId, setNotionLeadsDbId] = useState("");
   const [notionTitleProp, setNotionTitleProp] = useState("Reel title");
@@ -95,6 +94,7 @@ export default function ClientDetail() {
         }
       });
   }, [clientId, isAdmin]);
+
 
 
   const handleSaveNotion = async () => {
@@ -322,7 +322,7 @@ export default function ClientDetail() {
                   key={tool.path || tool.action}
                   onClick={() => {
                     if (tool.action === "database") {
-                      setShowDatabaseDialog(true);
+                      navigate(`/clients/${clientId}/database`);
                     } else {
                       navigate(tool.path);
                     }
@@ -442,115 +442,6 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Database Dialog (Future Supabase Integration) */}
-      <Dialog open={showDatabaseDialog} onOpenChange={setShowDatabaseDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-cyan-400" />
-              Database Management (Future Feature)
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4 mb-4">
-              <p className="text-sm text-cyan-300">
-                <strong>🚀 Coming Soon:</strong> Direct database access with Supabase backend. This will replace Notion storage with native database management.
-              </p>
-            </div>
-
-            {/* Tabs for Leads and Video Database */}
-            <Tabs defaultValue="leads" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="leads" className="flex items-center gap-2">
-                  <Target className="w-4 h-4" />
-                  Leads Database
-                </TabsTrigger>
-                <TabsTrigger value="video" className="flex items-center gap-2">
-                  <Clapperboard className="w-4 h-4" />
-                  Video Editing
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Leads Tab */}
-              <TabsContent value="leads" className="space-y-4 mt-4">
-                <div className="bg-background/50 rounded-lg border border-border/30 p-4 space-y-3">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Client Leads</h3>
-                    <Button size="sm" variant="outline" disabled>
-                      + Add Lead (Coming Soon)
-                    </Button>
-                  </div>
-
-                  <div className="text-center py-8">
-                    <Target className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                    <p className="text-sm text-muted-foreground mb-2">No leads data yet</p>
-                    <p className="text-xs text-muted-foreground">
-                      This tab will display leads stored directly in Supabase with add/edit/delete functionality
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                  <div className="bg-background/50 rounded p-2">
-                    <div className="font-semibold text-foreground">0</div>
-                    <div>Total Leads</div>
-                  </div>
-                  <div className="bg-background/50 rounded p-2">
-                    <div className="font-semibold text-foreground">0</div>
-                    <div>Active</div>
-                  </div>
-                  <div className="bg-background/50 rounded p-2">
-                    <div className="font-semibold text-foreground">0</div>
-                    <div>Archived</div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Video Editing Tab */}
-              <TabsContent value="video" className="space-y-4 mt-4">
-                <div className="bg-background/50 rounded-lg border border-border/30 p-4 space-y-3">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Video Projects</h3>
-                    <Button size="sm" variant="outline" disabled>
-                      + Add Project (Coming Soon)
-                    </Button>
-                  </div>
-
-                  <div className="text-center py-8">
-                    <Clapperboard className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                    <p className="text-sm text-muted-foreground mb-2">No video projects yet</p>
-                    <p className="text-xs text-muted-foreground">
-                      This tab will display video editing queue and production status with add/edit/delete functionality
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                  <div className="bg-background/50 rounded p-2">
-                    <div className="font-semibold text-foreground">0</div>
-                    <div>Total Videos</div>
-                  </div>
-                  <div className="bg-background/50 rounded p-2">
-                    <div className="font-semibold text-foreground">0</div>
-                    <div>In Progress</div>
-                  </div>
-                  <div className="bg-background/50 rounded p-2">
-                    <div className="font-semibold text-foreground">0</div>
-                    <div>Completed</div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDatabaseDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Client Alert */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>

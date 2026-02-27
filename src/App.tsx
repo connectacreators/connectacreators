@@ -32,6 +32,8 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import Checkout from "./pages/Checkout";
 import EditingQueue from "./pages/EditingQueue";
 import MasterEditingQueue from "./pages/MasterEditingQueue";
+import MasterDatabase from "./pages/MasterDatabase";
+import ClientDatabase from "./pages/ClientDatabase";
 import ClientWorkflow from "./pages/ClientWorkflow";
 import FacebookCallback from "./pages/FacebookCallback";
 
@@ -62,6 +64,7 @@ const App = () => (
             <Route path="/clients/:clientId/vault" element={<Vault />} />
             <Route path="/clients/:clientId/editing-queue" element={<EditingQueue />} />
             <Route path="/clients/:clientId/workflow" element={<ClientWorkflow />} />
+            <Route path="/clients/:clientId/database" element={<ClientDatabase />} />
             <Route path="/vault" element={<Vault />} />
             <Route path="/videographers" element={<Videographers />} />
             <Route path="/videographers/:videographerId" element={<VideographerDetail />} />
@@ -73,6 +76,7 @@ const App = () => (
             <Route path="/coming-soon" element={<ComingSoon />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/editing-queue" element={<MasterEditingQueue />} />
+            <Route path="/master-database" element={<MasterDatabase />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/s/:id" element={<PublicScript />} />
             <Route path="/book/:clientId" element={<PublicBooking />} />

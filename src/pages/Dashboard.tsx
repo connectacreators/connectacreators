@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, Users, UserCircle, Clapperboard } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, Users, UserCircle, Clapperboard, Database } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useState, useEffect } from "react";
@@ -83,6 +83,13 @@ export default function Dashboard() {
           color: "text-rose-400",
           path: "/editing-queue",
         },
+        ...(isAdmin ? [{
+          label: language === "en" ? "Master Database" : "Base de Datos Principal",
+          description: language === "en" ? "View all leads and videos across all clients" : "Ver todos los leads y videos de todos los clientes",
+          icon: Database,
+          color: "text-cyan-400",
+          path: "/master-database",
+        }] : []),
       ];
     }
     if (isUser) {

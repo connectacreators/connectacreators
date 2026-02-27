@@ -1582,11 +1582,9 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
 
               {/* Output variables info */}
               <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                <p className="text-xs font-semibold text-blue-400 mb-2">Step Output Variables</p>
+                <p className="text-xs font-semibold text-blue-400 mb-2">Step Output Variable</p>
                 <div className="space-y-1">
-                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.page_id}}"}</code> - Notion page ID</p>
-                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.title}}"}</code> - Record title</p>
-                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.url}}"}</code> - Notion page URL</p>
+                  <p className="text-xs text-blue-300"><code>{"{{steps.STEP_ID.value}}"}</code> - Value from the searched property</p>
                 </div>
               </div>
             </div>
