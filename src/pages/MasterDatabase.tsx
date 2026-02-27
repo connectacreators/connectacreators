@@ -480,11 +480,6 @@ export default function MasterDatabase() {
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Loading leads...
                     </div>
-                  ) : filteredLeads.length === 0 ? (
-                    <div className="text-center py-12 bg-background/50 rounded-lg border border-border/30">
-                      <Target className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                      <p className="text-muted-foreground">No leads found</p>
-                    </div>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border/30">
                       <table className="w-full text-xs">
@@ -501,6 +496,14 @@ export default function MasterDatabase() {
                           </tr>
                         </thead>
                         <tbody>
+                          {filteredLeads.length === 0 && (
+                            <tr className="border-b border-border/20 bg-background/30">
+                              <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                                <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                                <p>No leads found. Add your first lead below.</p>
+                              </td>
+                            </tr>
+                          )}
                           {filteredLeads.map((lead, idx) => (
                             <tr key={lead.id} className={`border-b border-border/20 ${idx % 2 === 0 ? "bg-background/30" : ""} hover:bg-background/50 transition`}>
                               <td className="p-3 font-medium text-primary">{lead.client_name}</td>
@@ -621,11 +624,6 @@ export default function MasterDatabase() {
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Loading videos...
                     </div>
-                  ) : filteredVideos.length === 0 ? (
-                    <div className="text-center py-12 bg-background/50 rounded-lg border border-border/30">
-                      <Clapperboard className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                      <p className="text-muted-foreground">No videos found</p>
-                    </div>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border/30">
                       <table className="w-full text-xs">
@@ -640,6 +638,14 @@ export default function MasterDatabase() {
                           </tr>
                         </thead>
                         <tbody>
+                          {filteredVideos.length === 0 && (
+                            <tr className="border-b border-border/20 bg-background/30">
+                              <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                                <Clapperboard className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                                <p>No videos found. Add your first video below.</p>
+                              </td>
+                            </tr>
+                          )}
                           {filteredVideos.map((video, idx) => (
                             <tr key={video.id} className={`border-b border-border/20 ${idx % 2 === 0 ? "bg-background/30" : ""} hover:bg-background/50 transition`}>
                               <td className="p-3 font-medium text-primary">{video.client_name}</td>
