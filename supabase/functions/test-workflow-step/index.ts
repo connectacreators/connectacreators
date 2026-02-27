@@ -319,16 +319,44 @@ async function handleNotionStep(
               properties[field.property_name] = {
                 title: [{ text: { content: fieldValue } }],
               };
-            } else if (field.property_type === 'text') {
+            } else if (field.property_type === 'text' || field.property_type === 'rich_text') {
               properties[field.property_name] = {
                 rich_text: [{ text: { content: fieldValue } }],
               };
-            } else if (field.property_type === 'select' || field.property_type === 'status') {
+            } else if (field.property_type === 'select') {
               properties[field.property_name] = {
                 select: { name: fieldValue },
               };
+            } else if (field.property_type === 'status') {
+              properties[field.property_name] = {
+                status: { name: fieldValue },
+              };
+            } else if (field.property_type === 'checkbox') {
+              properties[field.property_name] = {
+                checkbox: fieldValue === 'true' || fieldValue === true,
+              };
+            } else if (field.property_type === 'number') {
+              properties[field.property_name] = {
+                number: parseInt(fieldValue) || 0,
+              };
+            } else if (field.property_type === 'date') {
+              properties[field.property_name] = {
+                date: { start: fieldValue },
+              };
             }
           }
+        }
+
+        // Validate that we have properties to update
+        if (Object.keys(properties).length === 0) {
+          return {
+            step_id: config.step_id || '',
+            service: 'notion',
+            action,
+            status: 'failed',
+            error: 'No fields configured to update. Add at least one field in the step configuration.',
+            duration: Date.now() - startTime,
+          };
         }
 
         const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
@@ -338,12 +366,26 @@ async function handleNotionStep(
         });
 
         if (!response.ok) {
+          let errorDetails = `Update failed: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            if (errorData.message) {
+              errorDetails = `Notion error: ${errorData.message}`;
+            } else if (errorData.error) {
+              errorDetails = `Notion error: ${errorData.error}`;
+            }
+          } catch {
+            const errorText = await response.text();
+            if (errorText) {
+              errorDetails = `Notion error: ${errorText.substring(0, 200)}`;
+            }
+          }
           return {
             step_id: config.step_id || '',
             service: 'notion',
             action,
             status: 'failed',
-            error: `Update failed: ${response.status}`,
+            error: errorDetails,
             duration: Date.now() - startTime,
           };
         }
@@ -353,7 +395,7 @@ async function handleNotionStep(
           service: 'notion',
           action,
           status: 'completed',
-          output: { page_id: pageId },
+          output: { page_id: pageId, updated: true },
           duration: Date.now() - startTime,
         };
       }
