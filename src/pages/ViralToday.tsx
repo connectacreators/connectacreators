@@ -1200,9 +1200,12 @@ export default function ViralToday() {
                     </motion.div>
 
                     {/* Pagination Controls - Prominently Displayed */}
-                    <div className="mt-8 p-4 bg-blue-600 text-white rounded-lg shadow-lg">
+                    <div className="mt-8 p-6 bg-blue-600 text-white rounded-lg shadow-2xl border-4 border-yellow-300">
+                      <div className="mb-3 text-xs bg-yellow-300 text-black p-2 rounded font-bold">
+                        ✅ PAGINATION DEPLOYED - Videos Total: {videos.length}
+                      </div>
                       <div className="flex items-center justify-between gap-4">
-                        <div className="text-sm font-semibold">
+                        <div className="text-lg font-bold">
                           📄 Page {currentPage + 1} of {Math.max(1, totalPages)} • Showing {paginatedVideos.length} of {filteredVideos.length} videos
                         </div>
                         <div className="flex items-center gap-2">
