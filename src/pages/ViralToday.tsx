@@ -1153,6 +1153,49 @@ export default function ViralToday() {
                   </div>
                 )}
 
+                {/* TOP PAGINATION BAR - ALWAYS VISIBLE */}
+                {videos.length > 0 && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-2xl border-4 border-yellow-400">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-sm sm:text-base font-bold">
+                        📊 Total Videos: {videos.length} | Page {currentPage + 1} of {Math.max(1, totalPages)} | Showing {paginatedVideos.length} videos
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-center">
+                        <button
+                          onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                          disabled={currentPage === 0}
+                          className="px-3 py-2 rounded-md text-xs font-bold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
+                        >
+                          ← Previous
+                        </button>
+                        <div className="flex items-center gap-1 flex-wrap justify-center max-h-12 overflow-y-auto">
+                          {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i).map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={cn(
+                                "px-2 py-1 rounded-md text-xs font-bold transition-all border",
+                                currentPage === page
+                                  ? "bg-yellow-400 text-blue-900 border-yellow-300"
+                                  : "bg-blue-700 text-white border-blue-500 hover:bg-blue-800"
+                              )}
+                            >
+                              {page + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
+                          disabled={currentPage >= totalPages - 1}
+                          className="px-3 py-2 rounded-md text-xs font-bold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Video grid */}
                 {loadingVideos ? (
                   <div className="flex items-center justify-center py-24">
