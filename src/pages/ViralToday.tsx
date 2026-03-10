@@ -450,8 +450,12 @@ function VideoCard({ video }: { video: ViralVideo }) {
         <div className="flex items-center gap-3 pt-0.5 dark:border-white/[0.05] border-t border-slate-300">
           {/* Outlier */}
           <div className="flex items-center gap-1" title="Outlier score">
-            <TrendingUp className={cn("w-3 h-3", outlierColor)} />
-            <span className={cn("text-[10px] font-bold tabular-nums", outlierColor)}>
+            {video.outlier_score >= 10 ? (
+              <Flame className="w-3 h-3 text-orange-400" />
+            ) : (
+              <TrendingUp className={cn("w-3 h-3", outlierColor)} />
+            )}
+            <span className={cn("text-[10px] font-bold tabular-nums", video.outlier_score >= 10 ? "text-orange-400" : outlierColor)}>
               {fmtOutlier(video.outlier_score)}
             </span>
           </div>
