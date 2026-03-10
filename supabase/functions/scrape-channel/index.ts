@@ -77,7 +77,8 @@ serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             username: [cleanUsername],
-            resultsLimit: 250,
+            resultsLimit: 200,
+            minPostsFromDaysAgo: 365, // Only posts from last 12 months
           }),
         }
       );
