@@ -681,10 +681,12 @@ export default function ViralToday() {
   const fetchVideos = useCallback(async () => {
     setLoadingVideos(true);
     try {
-      const { data, error } = await supabase
+      // Supabase returns max 1000 rows by default, use range to get all
+      const { data, error, count } = await supabase
         .from("viral_videos")
-        .select("*")
-        .order("posted_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .order("posted_at", { ascending: false })
+        .range(0, 9999); // Fetch up to 10,000 videos
       if (error) throw error;
       setVideos((data ?? []) as ViralVideo[]);
       setCurrentPage(0); // Reset to first page when fetching new data
