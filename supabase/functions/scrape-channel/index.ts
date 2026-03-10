@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
-const APIFY_TASK_ID = "connectacreators/instagram-reel-scraper-task";
+const APIFY_ACTOR_ID = "apify~instagram-reel-scraper";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,9 +69,9 @@ serve(async (req) => {
         .update({ scrape_status: "running", scrape_error: null, apify_run_id: null })
         .eq("id", channelId);
 
-      // Trigger Apify task run (wait up to 25s — stays within Supabase's 60s timeout)
+      // Trigger Apify actor run (wait up to 25s — stays within Supabase's 60s timeout)
       const apifyRes = await fetch(
-        `https://api.apify.com/v2/actor-tasks/${APIFY_TASK_ID}/runs?token=${APIFY_TOKEN}&waitForFinish=25`,
+        `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?token=${APIFY_TOKEN}&waitForFinish=25`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
