@@ -1199,42 +1199,44 @@ export default function ViralToday() {
                       </AnimatePresence>
                     </motion.div>
 
-                    {/* Pagination Controls - Always Show */}
-                    <div className="flex items-center justify-between mt-8 px-3 py-4 bg-card rounded-lg border border-border">
-                      <div className="text-sm text-muted-foreground">
-                        Page {currentPage + 1} of {Math.max(1, totalPages)} • Showing {paginatedVideos.length} of {filteredVideos.length} videos
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                          disabled={currentPage === 0}
-                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
-                        >
-                          ← Previous
-                        </button>
-                        <div className="flex items-center gap-1 max-w-xs overflow-x-auto">
-                          {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i).map((page) => (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={cn(
-                                "px-2 py-1 rounded-md text-xs font-medium transition-all border whitespace-nowrap",
-                                currentPage === page
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-muted border-border text-foreground hover:bg-muted/80"
-                              )}
-                            >
-                              {page + 1}
-                            </button>
-                          ))}
+                    {/* Pagination Controls - Prominently Displayed */}
+                    <div className="mt-8 p-4 bg-blue-600 text-white rounded-lg shadow-lg">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-sm font-semibold">
+                          📄 Page {currentPage + 1} of {Math.max(1, totalPages)} • Showing {paginatedVideos.length} of {filteredVideos.length} videos
                         </div>
-                        <button
-                          onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
-                          disabled={currentPage >= totalPages - 1}
-                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
-                        >
-                          Next →
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                            disabled={currentPage === 0}
+                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
+                          >
+                            ← Previous
+                          </button>
+                          <div className="flex items-center gap-1 max-w-md overflow-x-auto">
+                            {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => setCurrentPage(page)}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-xs font-semibold transition-all border whitespace-nowrap",
+                                  currentPage === page
+                                    ? "bg-white text-blue-600 border-white"
+                                    : "bg-blue-700 text-white border-blue-500 hover:bg-blue-800"
+                                )}
+                              >
+                                {page + 1}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
+                            disabled={currentPage >= totalPages - 1}
+                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
+                          >
+                            Next →
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
