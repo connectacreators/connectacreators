@@ -961,7 +961,7 @@ export default function ViralToday() {
   const clearFilters = () => {
     setFilterDate("12months");
     setFilterPlatform("all");
-    setFilterOutlier("2.5");
+    setFilterOutlier("0");
     setFilterViews("0");
     setFilterEngagement("0");
     setSelectedChannelIds([]);
