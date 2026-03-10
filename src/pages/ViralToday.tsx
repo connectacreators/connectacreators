@@ -650,6 +650,8 @@ export default function ViralToday() {
   const [filterEngagement, setFilterEngagement] = useState("0");
   const [filterSort, setFilterSort] = useState("recent");
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const videosPerPage = 100;
 
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
@@ -682,10 +684,10 @@ export default function ViralToday() {
       const { data, error } = await supabase
         .from("viral_videos")
         .select("*")
-        .order("posted_at", { ascending: false })
-        .limit(500);
+        .order("posted_at", { ascending: false });
       if (error) throw error;
       setVideos((data ?? []) as ViralVideo[]);
+      setCurrentPage(0); // Reset to first page when fetching new data
     } catch {
       toast.error("Error loading videos");
     } finally {
@@ -927,6 +929,13 @@ export default function ViralToday() {
     return result;
   })();
 
+  // Pagination
+  const totalPages = Math.ceil(filteredVideos.length / videosPerPage);
+  const paginatedVideos = filteredVideos.slice(
+    currentPage * videosPerPage,
+    (currentPage + 1) * videosPerPage
+  );
+
   const hasActiveFilters =
     filterPlatform !== "all" ||
     filterDate !== "12months" ||
@@ -943,6 +952,7 @@ export default function ViralToday() {
     setFilterEngagement("0");
     setSelectedChannelIds([]);
     setSearch("");
+    setCurrentPage(0);
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -1175,16 +1185,59 @@ export default function ViralToday() {
                     </button>
                   </div>
                 ) : (
-                  <motion.div
-                    layout
-                    className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
-                  >
-                    <AnimatePresence>
-                      {filteredVideos.map((v) => (
-                        <VideoCard key={v.id} video={v} />
-                      ))}
-                    </AnimatePresence>
-                  </motion.div>
+                  <div>
+                    <motion.div
+                      layout
+                      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6"
+                    >
+                      <AnimatePresence>
+                        {paginatedVideos.map((v) => (
+                          <VideoCard key={v.id} video={v} />
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-8 px-3 py-4 bg-card rounded-lg border border-border">
+                        <div className="text-sm text-muted-foreground">
+                          {t.videos} {currentPage * videosPerPage + 1} - {Math.min((currentPage + 1) * videosPerPage, filteredVideos.length)} of {filteredVideos.length}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                            disabled={currentPage === 0}
+                            className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                          >
+                            ← Previous
+                          </button>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: totalPages }, (_, i) => i).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => setCurrentPage(page)}
+                                className={cn(
+                                  "w-8 h-8 rounded-md text-xs font-medium transition-all border",
+                                  currentPage === page
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-muted border-border text-foreground hover:bg-muted/80"
+                                )}
+                              >
+                                {page + 1}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
+                            disabled={currentPage === totalPages - 1}
+                            className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                          >
+                            Next →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </motion.div>
             )}
