@@ -274,10 +274,8 @@ function FilterChip({ label, options, value, onChange, isActive }: FilterChipPro
                 key={opt.value}
                 onClick={() => { onChange(opt.value); setOpen(false); }}
                 className={cn(
-                  "w-full text-left px-3.5 py-2 text-xs transition-colors",
-                  opt.value === value
-                    ? "text-primary dark:bg-primary/10 bg-primary/20"
-                    : "dark:text-zinc-300 dark:hover:bg-white/5 text-slate-700 hover:bg-slate-100"
+                  "w-full text-left px-3.5 py-2 text-xs transition-colors text-foreground hover:bg-muted",
+                  opt.value === value && "bg-primary/20 text-primary"
                 )}
               >
                 {opt.label}
@@ -342,15 +340,15 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute top-full mt-1.5 left-0 z-50 min-w-[200px] dark:bg-[#1a1a1f] bg-white border dark:border-white/10 border-slate-300 rounded-xl shadow-2xl overflow-hidden"
+            className="absolute top-full mt-1.5 left-0 z-50 min-w-[200px] bg-popover border border-border rounded-xl shadow-2xl overflow-hidden"
           >
             {channels.length === 0 ? (
-              <p className="px-3.5 py-3 text-xs dark:text-zinc-500 text-slate-600">No channels added yet</p>
+              <p className="px-3.5 py-3 text-xs text-muted-foreground">No channels added yet</p>
             ) : (
               <>
                 <button
                   onClick={() => onChange([])}
-                  className="w-full text-left px-3.5 py-2 text-xs dark:text-zinc-400 dark:hover:bg-white/5 text-slate-700 hover:bg-slate-100 border-b dark:border-white/5 border-slate-200"
+                  className="w-full text-left px-3.5 py-2 text-xs text-foreground hover:bg-muted border-b border-border"
                 >
                   All channels
                 </button>
@@ -358,14 +356,14 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
                   <button
                     key={ch.id}
                     onClick={() => toggle(ch.id)}
-                    className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2 dark:text-zinc-300 dark:hover:bg-white/5 text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2 text-foreground hover:bg-muted transition-colors"
                   >
                     <span
                       className={cn(
                         "w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors",
                         selected.includes(ch.id)
                           ? "bg-primary border-primary"
-                          : "dark:border-white/20 dark:bg-transparent border-slate-400 bg-transparent"
+                          : "border-border bg-transparent"
                       )}
                     >
                       {selected.includes(ch.id) && (
@@ -375,7 +373,7 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
                       )}
                     </span>
                     @{ch.username}
-                    <span className="ml-auto dark:text-zinc-600 text-slate-500 text-[10px]">{ch.video_count} vids</span>
+                    <span className="ml-auto text-muted-foreground text-[10px]">{ch.video_count} vids</span>
                   </button>
                 ))}
               </>
@@ -575,23 +573,23 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin }: ChannelRowProps) {
 
 // ── Filter options ─────────────────────────────────────────────────────────
 
-const DATE_OPTS: DropdownOption[] = [
-  { label: "All time", value: "all" },
-  { label: "Last 7 days", value: "7days" },
-  { label: "Last 30 days", value: "30days" },
-  { label: "Last 3 months", value: "3months" },
-  { label: "Last 6 months", value: "6months" },
-  { label: "Last 12 months", value: "12months" },
+const getDateOpts = (t: any): DropdownOption[] => [
+  { label: t.allTime, value: "all" },
+  { label: t.last7Days, value: "7days" },
+  { label: t.last30Days, value: "30days" },
+  { label: t.last3Months, value: "3months" },
+  { label: t.last6Months, value: "6months" },
+  { label: t.last12Months, value: "12months" },
 ];
 
-const PLATFORM_OPTS: DropdownOption[] = [
-  { label: "All platforms", value: "all" },
-  { label: "Instagram", value: "instagram" },
-  { label: "TikTok", value: "tiktok" },
+const getPlatformOpts = (t: any): DropdownOption[] => [
+  { label: t.allPlatforms, value: "all" },
+  { label: t.instagram, value: "instagram" },
+  { label: t.tiktok, value: "tiktok" },
 ];
 
-const OUTLIER_OPTS: DropdownOption[] = [
-  { label: "Any outlier", value: "0" },
+const getOutlierOpts = (t: any): DropdownOption[] => [
+  { label: t.anyOutlier, value: "0" },
   { label: "> 1.5x", value: "1.5" },
   { label: "> 2x", value: "2" },
   { label: "> 5x", value: "5" },
@@ -600,8 +598,8 @@ const OUTLIER_OPTS: DropdownOption[] = [
   { label: "> 50x", value: "50" },
 ];
 
-const VIEWS_OPTS: DropdownOption[] = [
-  { label: "Any views", value: "0" },
+const getViewsOpts = (t: any): DropdownOption[] => [
+  { label: t.anyViews, value: "0" },
   { label: "> 10K", value: "10000" },
   { label: "> 50K", value: "50000" },
   { label: "> 100K", value: "100000" },
@@ -609,8 +607,8 @@ const VIEWS_OPTS: DropdownOption[] = [
   { label: "> 1M", value: "1000000" },
 ];
 
-const ENGAGEMENT_OPTS: DropdownOption[] = [
-  { label: "Any engagement", value: "0" },
+const getEngagementOpts = (t: any): DropdownOption[] => [
+  { label: t.anyEngagement, value: "0" },
   { label: "> 1%", value: "1" },
   { label: "> 3%", value: "3" },
   { label: "> 5%", value: "5" },
@@ -618,11 +616,11 @@ const ENGAGEMENT_OPTS: DropdownOption[] = [
   { label: "> 10%", value: "10" },
 ];
 
-const SORT_OPTS: DropdownOption[] = [
-  { label: "Most recent", value: "recent" },
-  { label: "Highest outlier", value: "outlier" },
-  { label: "Most views", value: "views" },
-  { label: "Best engagement", value: "engagement" },
+const getSortOpts = (t: any): DropdownOption[] => [
+  { label: t.mostRecent, value: "recent" },
+  { label: t.highestOutlier, value: "outlier" },
+  { label: t.mostViews, value: "views" },
+  { label: t.bestEngagement, value: "engagement" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -1016,8 +1014,8 @@ export default function ViralToday() {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
                       view === "channels"
-                        ? "dark:bg-white/10 dark:text-zinc-100 bg-white text-slate-900"
-                        : "dark:text-zinc-500 dark:hover:text-zinc-300 text-slate-700 hover:text-slate-900"
+                        ? "bg-card text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     <Radio className="w-3.5 h-3.5" />
@@ -1046,7 +1044,7 @@ export default function ViralToday() {
                 {/* Search + sort bar */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="relative flex-1 max-w-lg">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-zinc-500 text-slate-600 pointer-events-none" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                     <input
                       type="text"
                       value={search}
@@ -1067,7 +1065,7 @@ export default function ViralToday() {
                   {/* Sort */}
                   <FilterChip
                     label={t.sort}
-                    options={SORT_OPTS}
+                    options={getSortOpts(t)}
                     value={filterSort}
                     onChange={setFilterSort}
                     isActive={filterSort !== "recent"}
@@ -1086,7 +1084,7 @@ export default function ViralToday() {
 
                   <FilterChip
                     label={t.allTime}
-                    options={DATE_OPTS}
+                    options={getDateOpts(t)}
                     value={filterDate}
                     onChange={setFilterDate}
                     isActive={filterDate !== "all" && filterDate !== "12months"}
@@ -1094,7 +1092,7 @@ export default function ViralToday() {
 
                   <FilterChip
                     label={t.platforms}
-                    options={PLATFORM_OPTS}
+                    options={getPlatformOpts(t)}
                     value={filterPlatform}
                     onChange={setFilterPlatform}
                     isActive={filterPlatform !== "all"}
@@ -1102,7 +1100,7 @@ export default function ViralToday() {
 
                   <FilterChip
                     label={t.outlier}
-                    options={OUTLIER_OPTS}
+                    options={getOutlierOpts(t)}
                     value={filterOutlier}
                     onChange={setFilterOutlier}
                     isActive={filterOutlier !== "0"}
@@ -1110,7 +1108,7 @@ export default function ViralToday() {
 
                   <FilterChip
                     label={t.views}
-                    options={VIEWS_OPTS}
+                    options={getViewsOpts(t)}
                     value={filterViews}
                     onChange={setFilterViews}
                     isActive={filterViews !== "0"}
@@ -1118,7 +1116,7 @@ export default function ViralToday() {
 
                   <FilterChip
                     label={t.engagement}
-                    options={ENGAGEMENT_OPTS}
+                    options={getEngagementOpts(t)}
                     value={filterEngagement}
                     onChange={setFilterEngagement}
                     isActive={filterEngagement !== "0"}
@@ -1146,7 +1144,7 @@ export default function ViralToday() {
                 {/* Video grid */}
                 {loadingVideos ? (
                   <div className="flex items-center justify-center py-24">
-                    <Loader2 className="w-6 h-6 animate-spin dark:text-zinc-600 text-slate-600" />
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : videos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -1235,7 +1233,7 @@ export default function ViralToday() {
                 {/* Channel list */}
                 {loadingChannels ? (
                   <div className="flex items-center justify-center py-16">
-                    <Loader2 className="w-5 h-5 animate-spin dark:text-zinc-600 text-slate-600" />
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : channels.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
