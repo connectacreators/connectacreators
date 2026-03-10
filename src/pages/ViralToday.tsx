@@ -657,7 +657,7 @@ export default function ViralToday() {
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState("12months");
   const [filterPlatform, setFilterPlatform] = useState("all");
-  const [filterOutlier, setFilterOutlier] = useState("0");
+  const [filterOutlier, setFilterOutlier] = useState("2.5");
   const [filterViews, setFilterViews] = useState("0");
   const [filterEngagement, setFilterEngagement] = useState("0");
   const [filterSort, setFilterSort] = useState("recent");
@@ -961,7 +961,7 @@ export default function ViralToday() {
   const clearFilters = () => {
     setFilterDate("12months");
     setFilterPlatform("all");
-    setFilterOutlier("0");
+    setFilterOutlier("2.5");
     setFilterViews("0");
     setFilterEngagement("0");
     setSelectedChannelIds([]);
