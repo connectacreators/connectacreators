@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -390,6 +391,7 @@ function VideoCard({ video }: { video: ViralVideo }) {
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? Instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
   const [imgError, setImgError] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <motion.div
@@ -400,12 +402,10 @@ function VideoCard({ video }: { video: ViralVideo }) {
       transition={{ duration: 0.25 }}
       className="group relative flex flex-col rounded-xl overflow-hidden bg-card border border-border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
     >
-      {/* Thumbnail */}
-      <a
-        href={video.video_url ?? "#"}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block relative aspect-[4/5] bg-muted overflow-hidden"
+      {/* Thumbnail — click navigates to detail page */}
+      <div
+        onClick={() => navigate(`/viral-today/video/${video.id}`)}
+        className="block relative aspect-[4/5] bg-muted overflow-hidden cursor-pointer"
       >
         {video.thumbnail_url && !imgError ? (
           <img
@@ -425,11 +425,23 @@ function VideoCard({ video }: { video: ViralVideo }) {
           <PlatformIcon className="w-3 h-3 text-white/80" />
         </div>
 
-        {/* External link on hover */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
-          <ExternalLink className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200" />
+        {/* External link icon — small button top-left, stops propagation */}
+        <a
+          href={video.video_url ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 z-10 hover:bg-black/80 transition-colors"
+          title="Open original"
+        >
+          <ExternalLink className="w-3 h-3 text-white/80" />
+        </a>
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
+          <Play className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200" />
         </div>
-      </a>
+      </div>
 
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5">
@@ -681,12 +693,11 @@ export default function ViralToday() {
   const fetchVideos = useCallback(async () => {
     setLoadingVideos(true);
     try {
-      // Supabase returns max 1000 rows by default, use range to get all
+      // Fetch all videos without cap (no range limit)
       const { data, error, count } = await supabase
         .from("viral_videos")
         .select("*", { count: "exact" })
-        .order("posted_at", { ascending: false })
-        .range(0, 9999); // Fetch up to 10,000 videos
+        .order("posted_at", { ascending: false });
       if (error) throw error;
       setVideos((data ?? []) as ViralVideo[]);
       setCurrentPage(0); // Reset to first page when fetching new data
@@ -1153,48 +1164,6 @@ export default function ViralToday() {
                   </div>
                 )}
 
-                {/* TOP PAGINATION BAR - ALWAYS VISIBLE */}
-                {videos.length > 0 && (
-                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-2xl border-4 border-yellow-400">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="text-sm sm:text-base font-bold">
-                        📊 Total Videos: {videos.length} | Page {currentPage + 1} of {Math.max(1, totalPages)} | Showing {paginatedVideos.length} videos
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap justify-center">
-                        <button
-                          onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                          disabled={currentPage === 0}
-                          className="px-3 py-2 rounded-md text-xs font-bold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
-                        >
-                          ← Previous
-                        </button>
-                        <div className="flex items-center gap-1 flex-wrap justify-center max-h-12 overflow-y-auto">
-                          {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i).map((page) => (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={cn(
-                                "px-2 py-1 rounded-md text-xs font-bold transition-all border",
-                                currentPage === page
-                                  ? "bg-yellow-400 text-blue-900 border-yellow-300"
-                                  : "bg-blue-700 text-white border-blue-500 hover:bg-blue-800"
-                              )}
-                            >
-                              {page + 1}
-                            </button>
-                          ))}
-                        </div>
-                        <button
-                          onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
-                          disabled={currentPage >= totalPages - 1}
-                          className="px-3 py-2 rounded-md text-xs font-bold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
-                        >
-                          Next →
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Video grid */}
                 {loadingVideos ? (
@@ -1242,33 +1211,27 @@ export default function ViralToday() {
                       </AnimatePresence>
                     </motion.div>
 
-                    {/* Pagination Controls - Prominently Displayed */}
-                    <div className="mt-8 p-6 bg-blue-600 text-white rounded-lg shadow-2xl border-4 border-yellow-300">
-                      <div className="mb-3 text-xs bg-yellow-300 text-black p-2 rounded font-bold">
-                        ✅ PAGINATION DEPLOYED - Videos Total: {videos.length}
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="text-lg font-bold">
-                          📄 Page {currentPage + 1} of {Math.max(1, totalPages)} • Showing {paginatedVideos.length} of {filteredVideos.length} videos
-                        </div>
-                        <div className="flex items-center gap-2">
+                    {/* Pagination Controls - Simple Centered */}
+                    {videos.length > 0 && (
+                      <div className="mt-8 flex flex-col items-center justify-center gap-4">
+                        <div className="flex items-center gap-2 flex-wrap justify-center">
                           <button
                             onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                             disabled={currentPage === 0}
-                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
+                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
                           >
-                            ← Previous
+                            Previous
                           </button>
-                          <div className="flex items-center gap-1 max-w-md overflow-x-auto">
+                          <div className="flex items-center gap-1 flex-wrap justify-center">
                             {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i).map((page) => (
                               <button
                                 key={page}
                                 onClick={() => setCurrentPage(page)}
                                 className={cn(
-                                  "px-2.5 py-1 rounded-md text-xs font-semibold transition-all border whitespace-nowrap",
+                                  "px-2 py-1 rounded-md text-xs font-semibold transition-all border",
                                   currentPage === page
-                                    ? "bg-white text-blue-600 border-white"
-                                    : "bg-blue-700 text-white border-blue-500 hover:bg-blue-800"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-muted text-foreground border-border hover:bg-muted/80"
                                 )}
                               >
                                 {page + 1}
@@ -1278,13 +1241,13 @@ export default function ViralToday() {
                           <button
                             onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
                             disabled={currentPage >= totalPages - 1}
-                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-700 text-white border border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800 transition-all"
+                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
                           >
-                            Next →
+                            Next
                           </button>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </motion.div>
