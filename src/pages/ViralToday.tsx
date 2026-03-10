@@ -890,14 +890,16 @@ export default function ViralToday() {
     }
 
     // Engagement (filter by engagement_rate percentage)
-    if (filterEngagement !== "0") {
+    if (filterEngagement && filterEngagement !== "0") {
       const minEngage = parseFloat(filterEngagement);
-      result = result.filter((v) => {
-        if (v.engagement_rate === null || v.engagement_rate === undefined) return false;
-        // Handle both formats: percentage (5) and decimal (0.05)
-        const rate = v.engagement_rate > 1 ? v.engagement_rate : v.engagement_rate * 100;
-        return rate >= minEngage;
-      });
+      if (!isNaN(minEngage)) {
+        result = result.filter((v) => {
+          const rate = v.engagement_rate || 0;
+          // Handle both formats: percentage (5) and decimal (0.05)
+          const normalizedRate = rate > 1 ? rate : rate * 100;
+          return normalizedRate >= minEngage;
+        });
+      }
     }
 
     // Search
