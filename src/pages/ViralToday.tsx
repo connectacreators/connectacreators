@@ -254,7 +254,7 @@ function FilterChip({ label, options, value, onChange, isActive }: FilterChipPro
           "flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap",
           isActive
             ? "bg-primary/15 border-primary/50 text-primary"
-            : "dark:bg-white/[0.04] dark:border-white/10 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:border-white/20 bg-white/30 border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400"
+            : "bg-muted border-border text-muted-foreground hover:text-foreground hover:border-border"
         )}
       >
         {selected?.label ?? label}
@@ -267,7 +267,7 @@ function FilterChip({ label, options, value, onChange, isActive }: FilterChipPro
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute top-full mt-1.5 left-0 z-50 min-w-[160px] dark:bg-[#1a1a1f] bg-white border dark:border-white/10 border-slate-300 rounded-xl shadow-2xl overflow-hidden"
+            className="absolute top-full mt-1.5 left-0 z-50 min-w-[160px] bg-popover border border-border rounded-xl shadow-2xl overflow-hidden"
           >
             {options.map((opt) => (
               <button
@@ -329,7 +329,7 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
           "flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap",
           isActive
             ? "bg-primary/15 border-primary/50 text-primary"
-            : "dark:bg-white/[0.04] dark:border-white/10 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:border-white/20 bg-white/30 border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400"
+            : "bg-muted border-border text-muted-foreground hover:text-foreground hover:border-border"
         )}
       >
         {label}
@@ -400,14 +400,14 @@ function VideoCard({ video }: { video: ViralVideo }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.25 }}
-      className="group relative flex flex-col rounded-xl overflow-hidden dark:bg-[#111115] bg-white dark:border dark:border-white/[0.06] dark:hover:border-white/[0.14] border border-slate-200 hover:border-slate-300 transition-all duration-200 hover:-translate-y-0.5 dark:hover:shadow-xl dark:hover:shadow-black/40 hover:shadow-lg hover:shadow-slate-200/50"
+      className="group relative flex flex-col rounded-xl overflow-hidden bg-card border border-border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
     >
       {/* Thumbnail */}
       <a
         href={video.video_url ?? "#"}
         target="_blank"
         rel="noopener noreferrer"
-        className="block relative aspect-[4/5] dark:bg-zinc-900 bg-slate-200 overflow-hidden"
+        className="block relative aspect-[4/5] bg-muted overflow-hidden"
       >
         {video.thumbnail_url && !imgError ? (
           <img
@@ -417,37 +417,37 @@ function VideoCard({ video }: { video: ViralVideo }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center dark:bg-gradient-to-br dark:from-zinc-800 dark:to-zinc-900 bg-gradient-to-br from-slate-300 to-slate-400">
-            <Play className="w-8 h-8 dark:text-zinc-700 text-slate-500" />
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            <Play className="w-8 h-8 text-muted-foreground" />
           </div>
         )}
 
         {/* Platform badge */}
-        <div className="absolute top-2 right-2 w-6 h-6 rounded-full dark:bg-black/60 bg-white/80 backdrop-blur-sm flex items-center justify-center dark:border dark:border-white/10 border border-slate-300">
-          <PlatformIcon className="w-3 h-3 dark:text-white/80 text-slate-800" />
+        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10">
+          <PlatformIcon className="w-3 h-3 text-white/80" />
         </div>
 
         {/* External link on hover */}
-        <div className="absolute inset-0 dark:bg-black/0 bg-white/0 dark:group-hover:bg-black/20 group-hover:bg-white/10 transition-colors duration-200 flex items-center justify-center">
-          <ExternalLink className="w-5 h-5 dark:text-white dark:opacity-0 dark:group-hover:opacity-80 text-slate-800 opacity-0 group-hover:opacity-70 transition-opacity duration-200" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+          <ExternalLink className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200" />
         </div>
       </a>
 
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5">
         {/* Caption */}
-        <p className="text-[11px] dark:text-zinc-200 text-slate-700 leading-snug line-clamp-2 font-medium min-h-[2.5em]">
-          {video.caption || <span className="dark:text-zinc-600 text-slate-500 italic">No caption</span>}
+        <p className="text-[11px] text-foreground leading-snug line-clamp-2 font-medium min-h-[2.5em]">
+          {video.caption || <span className="text-muted-foreground italic">No caption</span>}
         </p>
 
         {/* Channel + time */}
         <div className="flex items-center justify-between">
-          <span className="text-[10px] dark:text-zinc-500 text-slate-600 font-medium">@{video.channel_username}</span>
-          <span className="text-[10px] dark:text-zinc-600 text-slate-500">{timeAgo(video.posted_at)}</span>
+          <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
+          <span className="text-[10px] text-muted-foreground">{timeAgo(video.posted_at)}</span>
         </div>
 
         {/* Stats row */}
-        <div className="flex items-center gap-3 pt-0.5 dark:border-white/[0.05] border-t border-slate-300">
+        <div className="flex items-center gap-3 pt-0.5 border-t border-border">
           {/* Outlier */}
           <div className="flex items-center gap-1" title="Outlier score">
             {video.outlier_score >= 10 ? (
@@ -461,15 +461,15 @@ function VideoCard({ video }: { video: ViralVideo }) {
           </div>
           {/* Views */}
           <div className="flex items-center gap-1" title="Views">
-            <Eye className="w-3 h-3 dark:text-zinc-500 text-slate-600" />
-            <span className="text-[10px] dark:text-zinc-400 text-slate-600 font-medium tabular-nums">
+            <Eye className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground font-medium tabular-nums">
               {fmtViews(video.views_count)}
             </span>
           </div>
           {/* Engagement */}
           <div className="flex items-center gap-1" title="Engagement rate">
-            <Zap className="w-3 h-3 dark:text-zinc-500 text-slate-600" />
-            <span className="text-[10px] dark:text-zinc-400 text-slate-600 font-medium tabular-nums">
+            <Zap className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground font-medium tabular-nums">
               {video.engagement_rate.toFixed(1)}%
             </span>
           </div>
@@ -491,33 +491,33 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin }: ChannelRowProps) {
   const status = channel.scrape_status;
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3 rounded-xl dark:bg-[#111115] bg-white dark:border dark:border-white/[0.06] dark:hover:border-white/[0.12] border border-slate-200 hover:border-slate-300 transition-all group">
+    <div className="flex items-center gap-4 px-4 py-3 rounded-xl bg-card border border-border hover:border-border transition-all group">
       {/* Platform + username */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="w-9 h-9 rounded-full dark:bg-gradient-to-br dark:from-zinc-700 dark:to-zinc-800 bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center flex-shrink-0 dark:border dark:border-white/10 border border-slate-300">
-          <PlatformIcon className="w-4 h-4 dark:text-zinc-300 text-slate-700" />
+        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0 border border-border">
+          <PlatformIcon className="w-4 h-4 text-muted-foreground" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold dark:text-zinc-100 text-slate-900">@{channel.username}</p>
-          <p className="text-[10px] dark:text-zinc-500 text-slate-600 capitalize">{channel.platform}</p>
+          <p className="text-sm font-semibold text-foreground">@{channel.username}</p>
+          <p className="text-[10px] text-muted-foreground capitalize">{channel.platform}</p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="hidden sm:flex items-center gap-5 text-center">
         <div>
-          <p className="text-sm font-bold dark:text-zinc-200 text-slate-900 tabular-nums">{channel.video_count}</p>
-          <p className="text-[10px] dark:text-zinc-600 text-slate-600">videos</p>
+          <p className="text-sm font-bold text-foreground tabular-nums">{channel.video_count}</p>
+          <p className="text-[10px] text-muted-foreground">videos</p>
         </div>
         <div>
-          <p className="text-sm font-bold dark:text-zinc-200 text-slate-900 tabular-nums">{fmtViews(channel.avg_views)}</p>
-          <p className="text-[10px] dark:text-zinc-600 text-slate-600">avg views</p>
+          <p className="text-sm font-bold text-foreground tabular-nums">{fmtViews(channel.avg_views)}</p>
+          <p className="text-[10px] text-muted-foreground">avg views</p>
         </div>
         <div>
-          <p className="text-[10px] dark:text-zinc-400 text-slate-700">
+          <p className="text-[10px] text-foreground">
             {channel.last_scraped_at ? timeAgo(channel.last_scraped_at) : "never"}
           </p>
-          <p className="text-[10px] dark:text-zinc-600 text-slate-600">last scraped</p>
+          <p className="text-[10px] text-muted-foreground">last scraped</p>
         </div>
       </div>
 
@@ -542,7 +542,7 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin }: ChannelRowProps) {
           </span>
         )}
         {status === "idle" && (
-          <span className="flex items-center gap-1 text-[10px] dark:text-zinc-600 text-slate-600">
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <Clock className="w-3 h-3" />
             Idle
           </span>
@@ -556,16 +556,16 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin }: ChannelRowProps) {
             onClick={() => onScrape(channel)}
             disabled={status === "running"}
             title="Scrape now"
-            className="h-7 w-7 rounded-lg flex items-center justify-center dark:bg-white/[0.04] dark:border dark:border-white/10 dark:hover:bg-white/[0.08] dark:hover:border-white/20 bg-slate-200 border border-slate-300 hover:bg-slate-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted border border-border hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={cn("w-3.5 h-3.5 dark:text-zinc-400 text-slate-700", status === "running" && "animate-spin")} />
+            <RefreshCw className={cn("w-3.5 h-3.5 text-muted-foreground", status === "running" && "animate-spin")} />
           </button>
           <button
             onClick={() => onDelete(channel.id)}
             title="Remove channel"
-            className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 dark:bg-white/[0.04] dark:border dark:border-white/10 dark:hover:bg-red-500/10 dark:hover:border-red-500/30 bg-slate-200 border border-slate-300 hover:bg-red-100 hover:border-red-300 transition-all"
+            className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 bg-muted border border-border hover:bg-red-500/10 hover:border-red-500/30 transition-all"
           >
-            <Trash2 className="w-3.5 h-3.5 dark:text-red-400/70 text-red-600" />
+            <Trash2 className="w-3.5 h-3.5 text-destructive" />
           </button>
         </div>
       )}
@@ -951,8 +951,8 @@ export default function ViralToday() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen dark:bg-[#1a1a1a] bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin dark:text-zinc-600 text-slate-600" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -960,9 +960,9 @@ export default function ViralToday() {
   const runningChannels = channels.filter((c) => c.scrape_status === "running");
 
   return (
-    <div className="min-h-screen flex dark:bg-[#1a1a1a] bg-slate-50">
+    <div className="min-h-screen flex bg-background">
       {sidebarOpen && (
-        <div className="fixed inset-0 dark:bg-black/40 bg-black/20 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
       <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/viral-today" />
 
@@ -975,10 +975,10 @@ export default function ViralToday() {
           <div className="mb-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h1 className="text-xl font-bold dark:text-zinc-100 text-slate-900 tracking-tight">
-                  {view === "videos" ? t.videos : t.channels}
+                <h1 className="text-xl font-bold text-foreground tracking-tight">
+                  {view === "videos" ? "Videos" : t.channels}
                 </h1>
-                <p className="text-xs dark:text-zinc-500 text-slate-600 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {view === "videos"
                     ? t.videosDesc
                     : t.channelsDesc}
@@ -989,24 +989,24 @@ export default function ViralToday() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setLang(lang === "en" ? "es" : "en")}
-                  className="px-2 py-1 rounded-md text-xs font-medium dark:bg-white/[0.04] dark:border dark:border-white/[0.08] dark:text-zinc-400 dark:hover:bg-white/[0.08] bg-slate-200 border border-slate-300 text-slate-700 hover:bg-slate-300 transition-all"
+                  className="px-2 py-1 rounded-md text-xs font-medium bg-muted border border-border text-foreground hover:bg-muted/80 transition-all"
                 >
                   {lang === "en" ? "ES" : "EN"}
                 </button>
-                <div className="flex items-center gap-1 dark:bg-white/[0.04] dark:border dark:border-white/[0.08] bg-slate-200 border border-slate-300 rounded-lg p-0.5">
+                <div className="flex items-center gap-1 bg-muted border border-border rounded-lg p-0.5">
                   <button
                     onClick={() => setView("videos")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
                       view === "videos"
-                        ? "dark:bg-white/10 dark:text-zinc-100 bg-white text-slate-900"
-                        : "dark:text-zinc-500 dark:hover:text-zinc-300 text-slate-700 hover:text-slate-900"
+                        ? "bg-card text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
                     {t.videos}
                     {videos.length > 0 && (
-                      <span className="text-[10px] dark:bg-white/10 bg-slate-300 px-1.5 py-0.5 rounded-full">
+                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
                         {filteredVideos.length}
                       </span>
                     )}
@@ -1023,7 +1023,7 @@ export default function ViralToday() {
                     <Radio className="w-3.5 h-3.5" />
                     {t.channels}
                     {channels.length > 0 && (
-                      <span className="text-[10px] dark:bg-white/10 bg-slate-300 px-1.5 py-0.5 rounded-full">
+                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
                         {channels.length}
                       </span>
                     )}
@@ -1052,14 +1052,14 @@ export default function ViralToday() {
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder={t.search}
-                      className="w-full h-8 pl-9 pr-4 dark:bg-white/[0.04] dark:border dark:border-white/[0.08] bg-white border border-slate-300 rounded-lg text-xs dark:text-zinc-200 text-slate-900 dark:placeholder-zinc-600 placeholder-slate-500 focus:outline-none dark:focus:border-white/20 dark:focus:bg-white/[0.06] focus:border-primary/50 focus:bg-slate-50 transition-all"
+                      className="w-full h-8 pl-9 pr-4 bg-input border border-border rounded-lg text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
                     />
                     {search && (
                       <button
                         onClick={() => setSearch("")}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2"
                       >
-                        <X className="w-3 h-3 dark:text-zinc-500 text-slate-600" />
+                        <X className="w-3 h-3 text-muted-foreground" />
                       </button>
                     )}
                   </div>
@@ -1076,7 +1076,7 @@ export default function ViralToday() {
 
                 {/* Filter chips */}
                 <div className="flex items-center gap-1.5 mb-5 flex-wrap">
-                  <SlidersHorizontal className="w-3.5 h-3.5 dark:text-zinc-600 text-slate-600 flex-shrink-0" />
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
 
                   <ChannelChip
                     channels={channels}
@@ -1127,7 +1127,7 @@ export default function ViralToday() {
                   {hasActiveFilters && (
                     <button
                       onClick={clearFilters}
-                      className="h-7 px-3 rounded-full text-[11px] font-medium text-red-400 dark:border dark:border-red-500/20 dark:bg-red-500/5 dark:hover:bg-red-500/10 border border-red-300 bg-red-100 hover:bg-red-200 transition-all flex items-center gap-1"
+                      className="h-7 px-3 rounded-full text-[11px] font-medium text-destructive border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 transition-all flex items-center gap-1"
                     >
                       <X className="w-3 h-3" />
                       {t.clear}
@@ -1137,7 +1137,7 @@ export default function ViralToday() {
 
                 {/* Running indicator */}
                 {runningChannels.length > 0 && (
-                  <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg dark:bg-amber-500/5 dark:border dark:border-amber-500/20 bg-amber-100/50 border border-amber-300 text-xs dark:text-amber-400 text-amber-700 w-fit">
+                  <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 w-fit">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     {t.scraping} {runningChannels.map((c) => `@${c.username}`).join(", ")}… {t.refreshing}
                   </div>
@@ -1150,16 +1150,16 @@ export default function ViralToday() {
                   </div>
                 ) : videos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 dark:bg-white/[0.03] dark:border dark:border-white/[0.06] bg-slate-200 border border-slate-300">
-                      <TrendingUp className="w-6 h-6 dark:text-zinc-700 text-slate-600" />
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-muted border border-border">
+                      <TrendingUp className="w-6 h-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-medium dark:text-zinc-400 text-slate-700 mb-1">{t.noVideos}</p>
-                    <p className="text-xs dark:text-zinc-600 text-slate-600 max-w-xs mb-5">
+                    <p className="text-sm font-medium text-foreground mb-1">{t.noVideos}</p>
+                    <p className="text-xs text-muted-foreground max-w-xs mb-5">
                       {t.noVideosDesc}
                     </p>
                     <button
                       onClick={() => setView("channels")}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg dark:bg-white/[0.06] dark:border dark:border-white/[0.12] dark:text-zinc-300 dark:hover:text-zinc-100 dark:hover:bg-white/[0.09] bg-slate-300 border border-slate-400 text-slate-800 hover:bg-slate-400 text-xs font-medium transition-all"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-muted border border-border text-foreground hover:bg-muted/80 text-xs font-medium transition-all"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       {t.addChannels}
@@ -1167,8 +1167,8 @@ export default function ViralToday() {
                   </div>
                 ) : filteredVideos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <Filter className="w-6 h-6 dark:text-zinc-700 text-slate-600 mb-3" />
-                    <p className="text-sm font-medium dark:text-zinc-400 text-slate-700 mb-1">{t.noVideosMatch}</p>
+                    <Filter className="w-6 h-6 text-muted-foreground mb-3" />
+                    <p className="text-sm font-medium text-foreground mb-1">{t.noVideosMatch}</p>
                     <button
                       onClick={clearFilters}
                       className="mt-3 text-xs text-primary hover:text-primary/80 transition-colors"
@@ -1202,25 +1202,25 @@ export default function ViralToday() {
               >
                 {/* Add channel bar */}
                 {isAdmin && (
-                  <div className="flex items-center gap-2 mb-5 p-4 rounded-xl dark:bg-[#111115] dark:border dark:border-white/[0.07] bg-white border border-slate-200">
-                    <div className="w-8 h-8 rounded-full dark:bg-gradient-to-br dark:from-pink-500/20 dark:to-purple-500/20 dark:border dark:border-pink-500/20 bg-gradient-to-br from-pink-100 to-purple-100 border border-pink-300 flex items-center justify-center flex-shrink-0">
-                      <Instagram className="w-4 h-4 dark:text-pink-400 text-pink-700" />
+                  <div className="flex items-center gap-2 mb-5 p-4 rounded-xl bg-card border border-border">
+                    <div className="w-8 h-8 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center flex-shrink-0">
+                      <Instagram className="w-4 h-4 text-pink-400" />
                     </div>
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs dark:text-zinc-500 text-slate-600 pointer-events-none">@</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">@</span>
                       <input
                         type="text"
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
                         placeholder={t.username}
-                        className="w-full h-9 pl-7 pr-4 dark:bg-white/[0.04] dark:border dark:border-white/[0.08] bg-slate-100 border border-slate-300 rounded-lg text-sm dark:text-zinc-200 text-slate-900 dark:placeholder-zinc-600 placeholder-slate-500 focus:outline-none dark:focus:border-white/20 focus:border-primary/50 transition-all"
+                        className="w-full h-9 pl-7 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
                       />
                     </div>
                     <Button
                       onClick={handleAddChannel}
                       disabled={addingChannel || !newUsername.trim()}
-                      className="h-9 px-4 dark:bg-white/[0.08] dark:hover:bg-white/[0.14] dark:border dark:border-white/[0.12] dark:text-zinc-200 bg-slate-300 hover:bg-slate-400 border border-slate-400 text-slate-900 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all"
+                      className="h-9 px-4 bg-muted hover:bg-muted/80 border border-border text-foreground text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all"
                     >
                       {addingChannel ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1239,11 +1239,11 @@ export default function ViralToday() {
                   </div>
                 ) : channels.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 dark:bg-white/[0.03] dark:border dark:border-white/[0.06] bg-slate-200 border border-slate-300">
-                      <Radio className="w-6 h-6 dark:text-zinc-700 text-slate-600" />
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-muted border border-border">
+                      <Radio className="w-6 h-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-medium dark:text-zinc-400 text-slate-700 mb-1">{t.noChannels}</p>
-                    <p className="text-xs dark:text-zinc-600 text-slate-600 max-w-xs">
+                    <p className="text-sm font-medium text-foreground mb-1">{t.noChannels}</p>
+                    <p className="text-xs text-muted-foreground max-w-xs">
                       {isAdmin
                         ? t.noChannelsDesc
                         : t.noChannelsTeamDesc}
@@ -1262,7 +1262,7 @@ export default function ViralToday() {
                     ))}
 
                     {/* Summary */}
-                    <div className="pt-4 flex items-center gap-4 text-xs dark:text-zinc-600 text-slate-600 dark:border-t dark:border-white/[0.04] border-t border-slate-300">
+                    <div className="pt-4 flex items-center gap-4 text-xs text-muted-foreground border-t border-border">
                       <span>{channels.length} {t.channels}</span>
                       <span>·</span>
                       <span>{videos.length} {t.totalVideos}</span>
