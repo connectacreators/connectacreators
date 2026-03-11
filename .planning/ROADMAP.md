@@ -34,7 +34,10 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
   3. The left sidebar NodeToolbar is visible with draggable node types
   4. On page load, any previously saved workflow loads automatically into the canvas
   5. Clicking Save writes the current nodes/edges/viewport to the followup_workflows table
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Install @xyflow/react on VPS and rebuild to fix canvas crash
 
 ### Phase 3: Email Edge Function
 **Goal**: A single edge function call generates an AI email and delivers it to the lead via the client's SMTP credentials
@@ -74,7 +77,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. DB Setup | 1/1 | Complete | 2026-03-11 |
-| 2. Canvas Fix | 0/? | Not started | - |
+| 2. Canvas Fix | 0/1 | Not started | - |
 | 3. Email Edge Function | 0/? | Not started | - |
 | 4. Triggers + Cron | 0/? | Not started | - |
 | 5. Settings UI | 0/? | Not started | - |
