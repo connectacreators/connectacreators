@@ -8,6 +8,7 @@
     "research": false,
     "plan_check": false,
     "verifier": false,
-    "nyquist_validation": false
+    "nyquist_validation": false,
+    "_auto_chain_active": false
   }
 }
