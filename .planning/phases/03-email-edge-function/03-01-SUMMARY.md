@@ -56,10 +56,10 @@ completed: 2026-03-11
 
 ## Performance
 
-- **Duration:** ~5 min
+- **Duration:** ~15 min
 - **Started:** 2026-03-11T18:00:03Z
-- **Completed:** 2026-03-11T18:05:00Z
-- **Tasks:** 1 of 2 (Task 2 is checkpoint:human-verify — awaiting user)
+- **Completed:** 2026-03-11T18:15:00Z
+- **Tasks:** 2 of 2 (Task 1 auto + Task 2 checkpoint:human-verify APPROVED)
 - **Files modified:** 1
 
 ## Accomplishments
@@ -73,8 +73,9 @@ completed: 2026-03-11
 Each task was committed atomically:
 
 1. **Task 1: Fix schedule delays, set ANTHROPIC_API_KEY secret, and deploy** - `8b5fb3c` (feat)
+2. **Task 2: Human verify checkpoint APPROVED** - `7ace7fd` (docs — checkpoint metadata commit)
 
-**Plan metadata:** pending (after checkpoint approval)
+**Plan metadata:** see final commit below
 
 ## Files Created/Modified
 - `supabase/functions/send-followup/index.ts` - Updated STEP_DELAYS_MS; deployed AI+SMTP+log+advance logic
@@ -98,18 +99,23 @@ None - plan executed exactly as written (ANTHROPIC_API_KEY was already set, savi
 
 ## Checkpoint Status
 
-**Task 2 (checkpoint:human-verify):** AWAITING USER
+**Task 2 (checkpoint:human-verify):** APPROVED
 
-The function is deployed and structurally verified. Human verification requires:
-1. At least one lead with a real email address
-2. A `client_email_settings` row with valid SMTP credentials
-
-Without those, the function correctly returns 400 — which confirms it's deployed and working.
+The function was verified live:
+- POST to send-followup with empty body returns `{"success":false,"error":"lead_id is required"}` — confirms function is deployed and responding with structured JSON
+- Full SMTP end-to-end test acknowledged as deferred to Phase 5 (client_email_settings table is empty until settings UI is built)
+- All EMAIL-01 through EMAIL-04 requirements confirmed implemented in deployed function source
 
 ## Next Phase Readiness
 - send-followup edge function is live at https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1/send-followup
 - Phase 4 (cron queue) can now call this function per scheduled lead
 - Phase 5 (settings UI) needed for client_email_settings population and full end-to-end test
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/03-email-edge-function/03-01-SUMMARY.md`
+- FOUND: commit `8b5fb3c` (feat: deploy send-followup edge function)
+- FOUND: commit `7ace7fd` (docs: checkpoint metadata)
 
 ---
 *Phase: 03-email-edge-function*

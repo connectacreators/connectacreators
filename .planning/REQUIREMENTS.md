@@ -21,10 +21,10 @@
 
 ### Email Sending
 
-- [ ] **EMAIL-01**: send-followup edge function generates AI email via Anthropic API (server-side, not browser)
-- [ ] **EMAIL-02**: send-followup sends email via SMTP using client's credentials from client_email_settings
-- [ ] **EMAIL-03**: send-followup logs the sent message to messages table
-- [ ] **EMAIL-04**: send-followup updates lead: increments follow_up_step, sets last_contacted_at, sets next_follow_up_at per schedule
+- [x] **EMAIL-01**: send-followup edge function generates AI email via Anthropic API (server-side, not browser)
+- [x] **EMAIL-02**: send-followup sends email via SMTP using client's credentials from client_email_settings
+- [x] **EMAIL-03**: send-followup logs the sent message to messages table
+- [x] **EMAIL-04**: send-followup updates lead: increments follow_up_step, sets last_contacted_at, sets next_follow_up_at per schedule
 
 ### Triggers
 
@@ -73,10 +73,10 @@
 | CANVAS-03 | Phase 2 | Complete |
 | CANVAS-04 | Phase 2 | Complete |
 | CANVAS-05 | Phase 2 | Complete |
-| EMAIL-01 | Phase 3 | Pending |
-| EMAIL-02 | Phase 3 | Pending |
-| EMAIL-03 | Phase 3 | Pending |
-| EMAIL-04 | Phase 3 | Pending |
+| EMAIL-01 | Phase 3 | Complete |
+| EMAIL-02 | Phase 3 | Complete |
+| EMAIL-03 | Phase 3 | Complete |
+| EMAIL-04 | Phase 3 | Complete |
 | TRIG-01 | Phase 4 | Pending |
 | TRIG-02 | Phase 4 | Pending |
 | SCHED-01 | Phase 4 | Pending |

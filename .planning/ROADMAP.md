@@ -8,7 +8,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
 
 - [x] **Phase 1: DB Setup** - Create the three missing database tables
 - [x] **Phase 2: Canvas Fix** - Fix AIFollowUpBuilder so it renders without crashing (completed 2026-03-11)
-- [ ] **Phase 3: Email Edge Function** - Build send-followup: AI generation + SMTP send + state updates
+- [x] **Phase 3: Email Edge Function** - Build send-followup: AI generation + SMTP send + state updates (completed 2026-03-11)
 - [ ] **Phase 4: Triggers + Cron** - Wire new leads to send-followup, deploy queue processor with cron
 - [ ] **Phase 5: Settings UI** - SMTP settings panel, save to DB, fix stats query bug
 
@@ -48,7 +48,10 @@ Plans:
   2. The generated email is delivered to the lead's email address via the client's SMTP credentials
   3. The sent message appears as a record in the messages table
   4. After sending, the lead's follow_up_step is incremented and next_follow_up_at is set to the correct scheduled time
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [x] 03-01-PLAN.md — Fix schedule delays, set ANTHROPIC_API_KEY secret, deploy send-followup to Supabase cloud, and verify end-to-end (complete 2026-03-11)
 
 ### Phase 4: Triggers + Cron
 **Goal**: New leads automatically receive their first follow-up and the queue processor runs every 5 minutes to send subsequent follow-ups
@@ -77,7 +80,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. DB Setup | 1/1 | Complete | 2026-03-11 |
-| 2. Canvas Fix | 1/1 | Complete   | 2026-03-11 |
-| 3. Email Edge Function | 0/? | Not started | - |
+| 2. Canvas Fix | 1/1 | Complete    | 2026-03-11 |
+| 3. Email Edge Function | 1/1 | Complete | 2026-03-11 |
 | 4. Triggers + Cron | 0/? | Not started | - |
 | 5. Settings UI | 0/? | Not started | - |
