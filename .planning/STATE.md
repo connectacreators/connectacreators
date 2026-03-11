@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready
-stopped_at: "Completed 02-canvas-fix/02-01-PLAN.md — Phase 2 fully done"
-last_updated: "2026-03-11T17:40:00Z"
-last_activity: 2026-03-11 — Phase 2 complete (canvas verified rendering, @xyflow/react confirmed)
+status: completed
+stopped_at: "Paused at 03-email-edge-function/03-01-PLAN.md checkpoint:human-verify — Task 1 deployed, awaiting human verification"
+last_updated: "2026-03-11T18:02:47.653Z"
+last_activity: 2026-03-11 — Phase 2 complete (canvas verified rendering)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
   percent: 40
 ---
 
@@ -50,6 +50,7 @@ Progress: [████░░░░░░] 40%
 - Trend: baseline
 
 *Updated after each plan completion*
+| Phase 03-email-edge-function P01 | 5 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - [Phase 02-canvas-fix]: @xyflow/react was already installed at ^12.10.1 on VPS — npm install was a no-op confirming package presence
 - [Phase 02-canvas-fix]: "Failed to load workflow" toast on first visit is expected — followup_workflows is empty until user saves
 - [Phase 02-canvas-fix]: Canvas human-verified APPROVED — all 3 panels visible (NodeToolbar, ReactFlow canvas, NodeConfigPanel)
+- [Phase 03-email-edge-function]: STEP_DELAYS_MS updated from [0, 10min, 1day, 2days, 3days] to spec [0, 1day, 3days, 7days, 14days]
+- [Phase 03-email-edge-function]: ANTHROPIC_API_KEY already set in Supabase secrets — no new secret action needed for send-followup
 
 ### Pending Todos
 
@@ -78,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T17:40:00Z
-Stopped at: Completed 02-canvas-fix/02-01-PLAN.md — Phase 3 (Email Edge Function) is next
+Last session: 2026-03-11T18:02:31.080Z
+Stopped at: Paused at 03-email-edge-function/03-01-PLAN.md checkpoint:human-verify — Task 1 deployed, awaiting human verification
 Resume file: None
