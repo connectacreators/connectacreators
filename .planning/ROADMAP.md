@@ -37,7 +37,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — Install @xyflow/react on VPS and rebuild to fix canvas crash
+- [x] 02-01-PLAN.md — Install @xyflow/react on VPS and rebuild to fix canvas crash (complete 2026-03-11)
 
 ### Phase 3: Email Edge Function
 **Goal**: A single edge function call generates an AI email and delivers it to the lead via the client's SMTP credentials

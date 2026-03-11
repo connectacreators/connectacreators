@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Checkpoint: Task 2 human-verify for 02-01-PLAN.md"
-last_updated: "2026-03-11T17:14:36.805Z"
-last_activity: 2026-03-11 — Plan 01 complete (DB tables created)
+status: ready
+stopped_at: "Completed 02-canvas-fix/02-01-PLAN.md — Phase 2 fully done"
+last_updated: "2026-03-11T17:40:00Z"
+last_activity: 2026-03-11 — Phase 2 complete (canvas verified rendering, @xyflow/react confirmed)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 2
   completed_plans: 2
-  percent: 20
+  percent: 40
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** When a new lead arrives, an AI-generated email sequence fires automatically and stops the moment the lead books.
-**Current focus:** Phase 1 — DB Setup
+**Current focus:** Phase 3 — Email Edge Function (Phase 2 complete)
 
 ## Current Position
 
-Phase: 1 of 5 (DB Setup)
+Phase: 2 of 5 (Canvas Fix)
 Plan: 1 of 1 in current phase
-Status: In progress
-Last activity: 2026-03-11 — Plan 01 complete (DB tables created)
+Status: Complete — Phase 2 done, Phase 3 next
+Last activity: 2026-03-11 — Phase 2 complete (canvas verified rendering)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - (01-01) UNIQUE constraint on client_id in followup_workflows and client_email_settings (one per client)
 - (01-01) Separate API calls for each DDL statement to avoid nested dollar-quoting in JSON
 - [Phase 02-canvas-fix]: @xyflow/react was already installed at ^12.10.1 on VPS — npm install was a no-op confirming package presence
+- [Phase 02-canvas-fix]: "Failed to load workflow" toast on first visit is expected — followup_workflows is empty until user saves
+- [Phase 02-canvas-fix]: Canvas human-verified APPROVED — all 3 panels visible (NodeToolbar, ReactFlow canvas, NodeConfigPanel)
 
 ### Pending Todos
 
@@ -76,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T17:14:32.765Z
-Stopped at: Checkpoint: Task 2 human-verify for 02-01-PLAN.md
+Last session: 2026-03-11T17:40:00Z
+Stopped at: Completed 02-canvas-fix/02-01-PLAN.md — Phase 3 (Email Edge Function) is next
 Resume file: None

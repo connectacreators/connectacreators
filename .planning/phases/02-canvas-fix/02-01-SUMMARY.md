@@ -11,6 +11,7 @@ requires:
 provides:
   - "@xyflow/react@^12.10.1 installed and bundled in production build"
   - "Production dist rebuilt with ReactFlow canvas included"
+  - "AIFollowUpBuilder renders at /clients/:clientId/followup-builder — human verified"
 affects: [AIFollowUpBuilder, followup nodes, followup panels]
 
 # Tech tracking
@@ -27,6 +28,7 @@ key-files:
 key-decisions:
   - "@xyflow/react was already in VPS package.json at ^12.10.1 — npm install confirmed 'up to date'"
   - "Build succeeded in 25.08s with no blocking errors (only pre-existing duplicate key warnings in ViralToday.tsx and LandingPageBuilder.tsx)"
+  - "'Failed to load workflow' toast on first visit is expected behavior — followup_workflows table is empty until user saves"
 
 patterns-established:
   - "VPS SSH expect script pattern: set timeout 300, spawn ssh, send password on prompt, wait for sentinel string"
@@ -40,37 +42,42 @@ completed: 2026-03-11
 
 # Phase 2 Plan 01: Canvas Fix — Install @xyflow/react Summary
 
-**@xyflow/react@^12.10.1 installed on VPS, production build rebuilt in 25.08s, nginx reloaded — canvas awaiting human browser verification**
+**@xyflow/react@^12.10.1 confirmed on VPS, production build rebuilt in 25.08s, nginx live — ReactFlow canvas verified rendering at /clients/:clientId/followup-builder with all 3 panels visible**
 
 ## Performance
 
 - **Duration:** ~3 min
 - **Started:** 2026-03-11T17:11:58Z
-- **Completed:** 2026-03-11T17:14:00Z (Task 1 complete; Task 2 awaiting human verify)
-- **Tasks:** 1/2 auto complete (1 checkpoint pending)
-- **Files modified:** 1 (local .planning/config.json; VPS package.json + dist already up to date)
+- **Completed:** 2026-03-11T17:40:00Z (Task 2 human-verified approved)
+- **Tasks:** 2/2 complete
+- **Files modified:** 1 (VPS package.json + dist rebuilt)
 
 ## Accomplishments
 - Confirmed @xyflow/react@^12.10.1 is installed in VPS node_modules
 - Ran `npm run build` on VPS — succeeded in 25.08s, exit code 0
-- dist/index.html present with fresh bundle
-- nginx reloaded successfully (warnings are pre-existing, non-blocking)
+- dist/index.html present with fresh bundle including ReactFlow
+- nginx reloaded successfully
+- Human browser verification APPROVED: canvas renders correctly with all 3 panels (NodeToolbar left, ReactFlow canvas center, NodeConfigPanel right)
+- "Failed to load workflow" toast confirmed as expected behavior (followup_workflows table is empty on first visit)
 
 ## Task Commits
 
 Each task was committed atomically:
 
 1. **Task 1: Install @xyflow/react on VPS and rebuild** - `8e8bdaf` (chore)
-2. **Task 2: Verify canvas renders** - PENDING (checkpoint:human-verify)
+2. **Task 2: Verify canvas renders correctly in browser** - Human checkpoint approved (no code commit — visual verification)
+
+**Plan metadata:** `40ee956` (docs: complete canvas-fix plan)
 
 ## Files Created/Modified
-- `/var/www/connectacreators/node_modules/@xyflow/react/` - Package installed (already present)
+- `/var/www/connectacreators/node_modules/@xyflow/react/` - Package installed (already present at ^12.10.1)
 - `/var/www/connectacreators/package.json` - @xyflow/react@^12.10.1 listed as dependency
 - `/var/www/connectacreators/dist/index.html` - Fresh production build including ReactFlow
 
 ## Decisions Made
 - @xyflow/react was already installed at the correct version — no changes needed, confirmed by `npm install` reporting "up to date"
 - Build used `npm run build` (vite build) which is more permissive than TypeScript strict checks
+- "Failed to load workflow" toast on first visit is expected behavior — the followup_workflows table is empty until the user saves a workflow; this does not indicate a bug
 
 ## Deviations from Plan
 
@@ -84,20 +91,21 @@ None - plan executed exactly as written. The @xyflow/react package was already i
 None - no external service configuration required.
 
 ## Next Phase Readiness
-- Task 1 complete: @xyflow/react confirmed installed, build passes, nginx live
-- Task 2: Human must visit https://connectacreators.com/clients/{clientId}/followup-builder and verify the ReactFlow canvas renders (left toolbar, center canvas with nodes, right config panel visible; no crash screen)
-- After human approval, this plan is fully complete and Phase 03 can begin
+- Phase 2 fully complete: @xyflow/react confirmed installed, build passes, canvas human-verified rendering
+- Phase 3 (Email Edge Function) is unblocked — can begin building send-followup edge function
+- All CANVAS-01 through CANVAS-05 requirements are satisfied
 
 ## Self-Check
 
-- [x] @xyflow/react in node_modules: /var/www/connectacreators/node_modules/@xyflow/react/package.json ✓
-- [x] @xyflow/react in package.json: "@xyflow/react": "^12.10.1" ✓
-- [x] dist/index.html exists: /var/www/connectacreators/dist/index.html ✓
-- [x] nginx reloaded: exit 0 ✓
-- [x] Task 1 commit: 8e8bdaf ✓
+- [x] @xyflow/react in node_modules: /var/www/connectacreators/node_modules/@xyflow/react/package.json confirmed
+- [x] @xyflow/react in package.json: "@xyflow/react": "^12.10.1" confirmed
+- [x] dist/index.html exists: /var/www/connectacreators/dist/index.html confirmed
+- [x] nginx reloaded: exit 0 confirmed
+- [x] Task 1 commit: 8e8bdaf confirmed
+- [x] Task 2 human verification: APPROVED — canvas renders, all 3 panels visible, no crash
 
 ## Self-Check: PASSED
 
 ---
 *Phase: 02-canvas-fix*
-*Completed: 2026-03-11 (partial — awaiting Task 2 human-verify checkpoint)*
+*Completed: 2026-03-11*
