@@ -6,7 +6,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
 
 ## Phases
 
-- [ ] **Phase 1: DB Setup** - Create the three missing database tables
+- [x] **Phase 1: DB Setup** - Create the three missing database tables
 - [ ] **Phase 2: Canvas Fix** - Fix AIFollowUpBuilder so it renders without crashing
 - [ ] **Phase 3: Email Edge Function** - Build send-followup: AI generation + SMTP send + state updates
 - [ ] **Phase 4: Triggers + Cron** - Wire new leads to send-followup, deploy queue processor with cron
@@ -22,7 +22,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
   1. followup_workflows table exists with correct schema (client_id, name, nodes, edges, viewport, is_active)
   2. messages table exists and can store sent message records (lead_id, direction, channel, subject, body, sent_at)
   3. client_email_settings table exists and can store per-client SMTP credentials
-**Plans**: TBD
+**Plans**: 1/1 complete
 
 ### Phase 2: Canvas Fix
 **Goal**: Users can open the AIFollowUpBuilder page without a crash and interact with the visual canvas
@@ -73,7 +73,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. DB Setup | 0/? | Not started | - |
+| 1. DB Setup | 1/1 | Complete | 2026-03-11 |
 | 2. Canvas Fix | 0/? | Not started | - |
 | 3. Email Edge Function | 0/? | Not started | - |
 | 4. Triggers + Cron | 0/? | Not started | - |

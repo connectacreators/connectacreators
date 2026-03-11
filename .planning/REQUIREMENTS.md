@@ -7,9 +7,9 @@
 
 ### Database
 
-- [ ] **DB-01**: followup_workflows table exists (client_id, name, nodes JSONB, edges JSONB, viewport JSONB, is_active)
-- [ ] **DB-02**: messages table exists (lead_id, direction, channel, subject, body, sent_at)
-- [ ] **DB-03**: client_email_settings table exists (client_id, smtp_email, smtp_password, from_name)
+- [x] **DB-01**: followup_workflows table exists (client_id, name, nodes JSONB, edges JSONB, viewport JSONB, is_active)
+- [x] **DB-02**: messages table exists (lead_id, direction, channel, subject, body, sent_at)
+- [x] **DB-03**: client_email_settings table exists (client_id, smtp_email, smtp_password, from_name)
 
 ### Canvas (AIFollowUpBuilder)
 
@@ -65,9 +65,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | Phase 1 | Pending |
-| DB-02 | Phase 1 | Pending |
-| DB-03 | Phase 1 | Pending |
+| DB-01 | Phase 1 | Complete |
+| DB-02 | Phase 1 | Complete |
+| DB-03 | Phase 1 | Complete |
 | CANVAS-01 | Phase 2 | Pending |
 | CANVAS-02 | Phase 2 | Pending |
 | CANVAS-03 | Phase 2 | Pending |

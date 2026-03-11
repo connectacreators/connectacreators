@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 1 of 5 (DB Setup)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-10 — Roadmap created
+Plan: 1 of 1 in current phase
+Status: In progress
+Last activity: 2026-03-11 — Plan 01 complete (DB tables created)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 2 min
+- Total execution time: 0.03 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-db-setup | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (2 min)
+- Trend: baseline
 
 *Updated after each plan completion*
 
@@ -46,6 +46,8 @@ Recent decisions affecting current work:
 - Server-side AI generation: Anthropic key must never appear in browser code
 - Hardcoded 5-step sequence: Canvas is display-only; timing is not canvas-driven
 - pg_cron for worker: Matches existing auto-scrape-channels cron pattern in this app
+- (01-01) UNIQUE constraint on client_id in followup_workflows and client_email_settings (one per client)
+- (01-01) Separate API calls for each DDL statement to avoid nested dollar-quoting in JSON
 
 ### Pending Todos
 
@@ -57,6 +59,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10
-Stopped at: Roadmap written, no phases planned yet
+Last session: 2026-03-11
+Stopped at: Completed 01-01-create-db-tables-PLAN.md
 Resume file: None
