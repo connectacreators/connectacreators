@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-01-create-db-tables-PLAN.md
-last_updated: "2026-03-11T16:16:47.246Z"
+stopped_at: "Checkpoint: Task 2 human-verify for 02-01-PLAN.md"
+last_updated: "2026-03-11T17:14:36.805Z"
 last_activity: 2026-03-11 — Plan 01 complete (DB tables created)
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
   percent: 20
 ---
 
@@ -64,6 +64,7 @@ Recent decisions affecting current work:
 - pg_cron for worker: Matches existing auto-scrape-channels cron pattern in this app
 - (01-01) UNIQUE constraint on client_id in followup_workflows and client_email_settings (one per client)
 - (01-01) Separate API calls for each DDL statement to avoid nested dollar-quoting in JSON
+- [Phase 02-canvas-fix]: @xyflow/react was already installed at ^12.10.1 on VPS — npm install was a no-op confirming package presence
 
 ### Pending Todos
 
@@ -75,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11
-Stopped at: Completed 01-01-create-db-tables-PLAN.md
+Last session: 2026-03-11T17:14:32.765Z
+Stopped at: Checkpoint: Task 2 human-verify for 02-01-PLAN.md
 Resume file: None

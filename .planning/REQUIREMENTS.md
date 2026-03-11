@@ -13,11 +13,11 @@
 
 ### Canvas (AIFollowUpBuilder)
 
-- [ ] **CANVAS-01**: AIFollowUpBuilder page renders without crashing (TriggerNode, ActionNode, ConditionNode components exist)
-- [ ] **CANVAS-02**: NodeConfigPanel renders when a node is selected (right panel)
-- [ ] **CANVAS-03**: NodeToolbar renders (left sidebar with draggable node types)
-- [ ] **CANVAS-04**: Canvas loads saved workflow from followup_workflows on page open
-- [ ] **CANVAS-05**: Save button writes nodes/edges/viewport to followup_workflows
+- [x] **CANVAS-01**: AIFollowUpBuilder page renders without crashing (TriggerNode, ActionNode, ConditionNode components exist)
+- [x] **CANVAS-02**: NodeConfigPanel renders when a node is selected (right panel)
+- [x] **CANVAS-03**: NodeToolbar renders (left sidebar with draggable node types)
+- [x] **CANVAS-04**: Canvas loads saved workflow from followup_workflows on page open
+- [x] **CANVAS-05**: Save button writes nodes/edges/viewport to followup_workflows
 
 ### Email Sending
 
@@ -68,11 +68,11 @@
 | DB-01 | Phase 1 | Complete |
 | DB-02 | Phase 1 | Complete |
 | DB-03 | Phase 1 | Complete |
-| CANVAS-01 | Phase 2 | Pending |
-| CANVAS-02 | Phase 2 | Pending |
-| CANVAS-03 | Phase 2 | Pending |
-| CANVAS-04 | Phase 2 | Pending |
-| CANVAS-05 | Phase 2 | Pending |
+| CANVAS-01 | Phase 2 | Complete |
+| CANVAS-02 | Phase 2 | Complete |
+| CANVAS-03 | Phase 2 | Complete |
+| CANVAS-04 | Phase 2 | Complete |
+| CANVAS-05 | Phase 2 | Complete |
 | EMAIL-01 | Phase 3 | Pending |
 | EMAIL-02 | Phase 3 | Pending |
 | EMAIL-03 | Phase 3 | Pending |
