@@ -184,16 +184,31 @@ async function processWebhookEvent(body: any, supabase: any) {
               full_name: triggerData.full_name,
               email: triggerData.email,
               phone: triggerData.phone,
-              status: "Meta Ad (Not Booked)",
+              status: "New Lead",
               source: "Facebook Lead Ads",
               facebook_lead_id: leadgenId,
               facebook_form_id: formId,
               created_at: triggerData.created_at,
+              next_follow_up_at: new Date().toISOString(),
             },
-            { onConflict: "facebook_lead_id" }
+            { onConflict: "facebook_lead_id", ignoreDuplicates: true }
           )
           .select()
           .single();
+
+        // Trigger immediate AI follow-up (fire and forget — don't block webhook response)
+        if (insertedLead?.id && triggerData.email) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          fetch(`${supabaseUrl}/functions/v1/send-followup`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({ lead_id: insertedLead.id }),
+          }).catch((err) => console.warn("send-followup trigger failed:", err));
+        }
 
         // 6. Find active workflows for this client with trigger_type='new_lead'
         const { data: workflows } = await supabase
