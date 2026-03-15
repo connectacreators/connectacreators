@@ -20,6 +20,10 @@ import VideoNode from "@/components/canvas/VideoNode";
 import TextNoteNode from "@/components/canvas/TextNoteNode";
 import ResearchNoteNode from "@/components/canvas/ResearchNoteNode";
 import AIAssistantNode from "@/components/canvas/AIAssistantNode";
+import HookGeneratorNode from "@/components/canvas/HookGeneratorNode";
+import BrandGuideNode from "@/components/canvas/BrandGuideNode";
+import CTABuilderNode from "@/components/canvas/CTABuilderNode";
+import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
 import { useScripts } from "@/hooks/useScripts";
@@ -62,6 +66,9 @@ const nodeTypes = {
   textNoteNode: TextNoteNode,
   researchNoteNode: ResearchNoteNode,
   aiAssistantNode: AIAssistantNode,
+  hookGeneratorNode: HookGeneratorNode,
+  brandGuideNode: BrandGuideNode,
+  ctaBuilderNode: CTABuilderNode,
 };
 
 function getInitialPosition(existingCount: number) {
@@ -101,6 +108,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   const [aiModel, setAiModel] = useState("claude-haiku-4-5");
   const [loaded, setLoaded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showViralPicker, setShowViralPicker] = useState(false);
   const [draftScriptId, setDraftScriptId] = useState<string | null>(null);
   const { directSave } = useScripts();
   const { theme } = useTheme();
@@ -358,18 +366,37 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     const videoNodes = contextNodes.filter(n => n.type === "videoNode");
     const textNoteNodes = contextNodes.filter(n => n.type === "textNoteNode");
     const researchNodes = contextNodes.filter(n => n.type === "researchNoteNode");
+    const hookNodes = contextNodes.filter(n => n.type === "hookGeneratorNode");
+    const brandNodes = contextNodes.filter(n => n.type === "brandGuideNode");
+    const ctaNodes = contextNodes.filter(n => n.type === "ctaBuilderNode");
+
+    // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
+    const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription);
 
     return {
-      transcriptions: videoNodes.map(n => (n.data as any).transcription).filter(Boolean),
-      structures: videoNodes.map(n => {
+      transcriptions: videoNodesWithTranscript.map(n => (n.data as any).transcription),
+      structures: videoNodesWithTranscript.map(n => {
         const d = n.data as any;
         if (!d.structure) return null;
         const sel: string[] = d.selectedSections || ["hook", "body", "cta"];
         return { ...d.structure, sections: (d.structure.sections || []).filter((s: any) => sel.includes(s.section)) };
       }).filter(Boolean),
+      video_sources: videoNodesWithTranscript.map(n => ({
+        channel_username: (n.data as any).channel_username ?? null,
+        url: (n.data as any).url ?? null,
+      })),
       text_notes: textNoteNodes.map(n => (n.data as any).noteText || "").filter(Boolean).join("\n\n"),
       research_facts: researchNodes.flatMap(n => (n.data as any).facts || []),
       primary_topic: (researchNodes[0]?.data as any)?.topic || "",
+      selected_hook: (hookNodes[0]?.data as any)?.selectedHook ?? null,
+      selected_hook_category: (hookNodes[0]?.data as any)?.selectedCategory ?? null,
+      brand_guide: brandNodes.length > 0 ? {
+        tone: (brandNodes[0].data as any).tone ?? null,
+        brand_values: (brandNodes[0].data as any).brand_values ?? null,
+        forbidden_words: (brandNodes[0].data as any).forbidden_words ?? null,
+        tagline: (brandNodes[0].data as any).tagline ?? null,
+      } : null,
+      selected_cta: (ctaNodes[0]?.data as any)?.selectedCTA ?? null,
     };
   }, [nodes, edges]);
 
@@ -411,12 +438,18 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode") => {
     const nodeId = `${type}_${Date.now()}`;
     const nonAiCount = nodes.filter(n => n.id !== AI_NODE_ID).length;
     const position = getInitialPosition(nonAiCount);
 
-    const initialWidth = type === "videoNode" ? 240 : type === "textNoteNode" ? 288 : 320;
+    const initialWidth = type === "videoNode" ? 240
+      : type === "textNoteNode" ? 288
+      : type === "researchNoteNode" ? 320
+      : type === "hookGeneratorNode" ? 300
+      : type === "brandGuideNode" ? 280
+      : type === "ctaBuilderNode" ? 300
+      : 288;
     const newNode: Node = {
       id: nodeId,
       type,
@@ -514,7 +547,38 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
           onZoomIn={() => zoomIn()}
           onZoomOut={() => zoomOut()}
           onShowTutorial={() => setShowTutorial(true)}
+          onOpenViralPicker={() => setShowViralPicker(true)}
         />
+
+        {showViralPicker && (
+          <ViralVideoPickerModal
+            onSelect={(videoUrl, channelUsername, caption) => {
+              setShowViralPicker(false);
+              const nodeId = `videoNode_${Date.now()}`;
+              const position = getInitialPosition(nodesRef.current.filter(n => n.id !== AI_NODE_ID).length);
+              const newNode: Node = {
+                id: nodeId,
+                type: "videoNode",
+                position,
+                width: 240,
+                data: {
+                  url: videoUrl,
+                  autoTranscribe: true,
+                  channel_username: channelUsername,
+                  caption: caption ?? undefined,
+                  authToken,
+                  clientId: selectedClient.id,
+                  onUpdate: (updates: any) =>
+                    setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+                  onDelete: () =>
+                    setNodes(ns => ns.filter(n => n.id !== nodeId)),
+                },
+              };
+              setNodes(prev => [...prev, newNode]);
+            }}
+            onClose={() => setShowViralPicker(false)}
+          />
+        )}
 
         <ReactFlow
           nodes={nodes}
