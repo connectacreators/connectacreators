@@ -155,6 +155,8 @@ export default function CanvasAIPanel({ canvasContext, clientInfo, onGenerateScr
       ? `¿Qué hacemos hoy${displayName ? `, ${displayName}` : ""}?`
       : `What are we doing today${displayName ? `, ${displayName}` : ""}?`;
   }, [remixMode, remixContext, scriptLang, clientInfo, displayName]);
+  const greetingRef = useRef(greeting);
+  greetingRef.current = greeting;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -165,7 +167,7 @@ export default function CanvasAIPanel({ canvasContext, clientInfo, onGenerateScr
 
   useEffect(() => {
     if (remixMode && messages.length === 0) {
-      setMessages([{ role: "assistant", content: greeting }]);
+      setMessages([{ role: "assistant", content: greetingRef.current }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remixMode]); // only fire once on mount
@@ -247,12 +249,13 @@ export default function CanvasAIPanel({ canvasContext, clientInfo, onGenerateScr
         canvasContext.structures.length > 0
           ? `VIDEO STRUCTURE TEMPLATES (ONLY use sections shown):\n${
               canvasContext.structures.map((s, i) => {
+                if (!s) return null;
                 const src = canvasContext.video_sources?.[i];
                 const label = src?.channel_username ? `from @${src.channel_username}` : `Video ${i + 1}`;
                 return `[${label}] Format: ${s.detected_format}\n${(s.sections || [])
                   .map((sec: any) => `  [${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`)
                   .join("\n")}`;
-              }).join("\n\n")
+              }).filter(Boolean).join("\n\n")
             }`
           : null,
         canvasContext.research_facts.length > 0

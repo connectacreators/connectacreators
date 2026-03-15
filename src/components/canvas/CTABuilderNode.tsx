@@ -60,7 +60,10 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
       <div className="px-3 pt-3 pb-2 flex gap-2">
         <input
           value={topic}
-          onChange={(e) => setTopic(e.target.value)}
+          onChange={(e) => {
+            setTopic(e.target.value);
+            cd.onUpdate?.({ topic: e.target.value });
+          }}
           onKeyDown={(e) => e.key === "Enter" && generate()}
           placeholder="Topic or action"
           className="flex-1 text-xs bg-muted/40 border border-border/60 rounded-lg px-2.5 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"

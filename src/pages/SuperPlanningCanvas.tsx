@@ -380,7 +380,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
         if (!d.structure) return null;
         const sel: string[] = d.selectedSections || ["hook", "body", "cta"];
         return { ...d.structure, sections: (d.structure.sections || []).filter((s: any) => sel.includes(s.section)) };
-      }).filter(Boolean),
+      }),
       video_sources: videoNodesWithTranscript.map(n => ({
         channel_username: (n.data as any).channel_username ?? null,
         url: (n.data as any).url ?? null,
