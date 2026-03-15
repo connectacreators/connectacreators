@@ -84,6 +84,16 @@ export interface CanvasContext {
   text_notes: string;
   research_facts: { fact: string; impact_score: number }[];
   primary_topic: string;
+  video_sources?: Array<{ channel_username: string | null; url: string | null }>;
+  selected_hook?: string | null;
+  selected_hook_category?: string | null;
+  brand_guide?: {
+    tone: string | null;
+    brand_values: string | null;
+    forbidden_words: string | null;
+    tagline: string | null;
+  } | null;
+  selected_cta?: string | null;
 }
 
 interface ScriptResult {
@@ -125,7 +135,9 @@ const QUICK_CHIPS = [
 
 const hasContext = (ctx: CanvasContext) =>
   ctx.transcriptions.length > 0 || ctx.structures.length > 0 ||
-  ctx.text_notes.trim().length > 0 || ctx.research_facts.length > 0 || ctx.primary_topic.trim().length > 0;
+  ctx.text_notes.trim().length > 0 || ctx.research_facts.length > 0 ||
+  ctx.primary_topic.trim().length > 0 ||
+  !!ctx.selected_hook || !!ctx.brand_guide || !!ctx.selected_cta;
 
 export default function CanvasAIPanel({ canvasContext, clientInfo, onGenerateScript, authToken, format, language: scriptLang, aiModel, onFormatChange, onLanguageChange, onModelChange, remixMode = false, remixContext = null }: Props) {
   const { language } = useLanguage();
@@ -224,13 +236,36 @@ export default function CanvasAIPanel({ canvasContext, clientInfo, onGenerateScr
         canvasContext.primary_topic ? `Topic: ${canvasContext.primary_topic}` : null,
         canvasContext.text_notes ? `CREATOR NOTES (treat as core research & instructions — USE this content when generating scripts):\n${canvasContext.text_notes}` : null,
         canvasContext.transcriptions.length > 0
-          ? `VIDEO TRANSCRIPTION TEMPLATES (use as FORMAT reference — replicate structure, pacing, rhythm):\n${canvasContext.transcriptions.map((t, i) => `[Video ${i + 1}]: ${t}`).join("\n\n")}`
+          ? `VIDEO TRANSCRIPTION TEMPLATES (use as FORMAT reference — replicate structure, pacing, rhythm):\n${
+              canvasContext.transcriptions.map((t, i) => {
+                const src = canvasContext.video_sources?.[i];
+                const label = src?.channel_username ? `from @${src.channel_username}` : `Video ${i + 1}`;
+                return `[${label}]: ${t}`;
+              }).join("\n\n")
+            }`
           : null,
         canvasContext.structures.length > 0
-          ? `VIDEO STRUCTURE TEMPLATES (ONLY use the sections shown — these are what the user selected):\n${canvasContext.structures.map((s: any, i: number) => `[Video ${i + 1}] Format: ${s.detected_format}\n${(s.sections || []).map((sec: any) => `  [${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}`
+          ? `VIDEO STRUCTURE TEMPLATES (ONLY use sections shown):\n${
+              canvasContext.structures.map((s, i) => {
+                const src = canvasContext.video_sources?.[i];
+                const label = src?.channel_username ? `from @${src.channel_username}` : `Video ${i + 1}`;
+                return `[${label}] Format: ${s.detected_format}\n${(s.sections || [])
+                  .map((sec: any) => `  [${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`)
+                  .join("\n")}`;
+              }).join("\n\n")
+            }`
           : null,
         canvasContext.research_facts.length > 0
           ? `Research Facts:\n${canvasContext.research_facts.map(f => `- ${f.fact} (impact ${f.impact_score})`).join("\n")}`
+          : null,
+        canvasContext.selected_hook
+          ? `⚠️ SELECTED HOOK (creator chose this — use it as the script opening, preserve its pattern):\n"${canvasContext.selected_hook}" (${canvasContext.selected_hook_category ?? "general"} style)`
+          : null,
+        canvasContext.brand_guide
+          ? `⚠️ BRAND CONSTRAINTS (HARD RULES — violating these makes script unusable):\n- Tone: ${canvasContext.brand_guide.tone ?? "not set"}\n- Brand values: ${canvasContext.brand_guide.brand_values ?? "none"}\n- Forbidden words/phrases: ${canvasContext.brand_guide.forbidden_words ?? "none"}\n- Tagline (use if natural): "${canvasContext.brand_guide.tagline ?? ""}"`
+          : null,
+        canvasContext.selected_cta
+          ? `⚠️ REQUIRED CTA (script MUST end with this exact call-to-action verbatim):\n"${canvasContext.selected_cta}"`
           : null,
       ].filter(Boolean).join("\n\n");
 
