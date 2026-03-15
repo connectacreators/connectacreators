@@ -6,17 +6,19 @@ import { Switch } from "@/components/ui/switch";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock,
+  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
+  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import AIScriptWizard from "@/components/AIScriptWizard";
+import SuperPlanningCanvas from "@/pages/SuperPlanningCanvas";
 import VideoRecorder from "@/components/VideoRecorder";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { useClients, type Client } from "@/hooks/useClients";
@@ -25,12 +27,13 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import AnimatedDots from "@/components/ui/AnimatedDots";
+import BatchGenerateModal from "@/components/BatchGenerateModal";
 
 // Mic button using Web Speech API
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
@@ -107,9 +110,17 @@ const getTypeConfig = (lang: "en" | "es") => ({
     border: "border-emerald-500/40",
     dot: "bg-emerald-500",
   },
+  text_on_screen: {
+    label: tr(t.scripts.textOnScreen, lang),
+    icon: MonitorPlay,
+    color: "text-zinc-400",
+    bg: "bg-gradient-to-br from-zinc-500/25 to-zinc-900/10",
+    border: "border-zinc-500/40",
+    dot: "bg-zinc-500",
+  },
 });
 
-type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script";
+type View = "clients" | "client-detail" | "new-script" | "view-script" | "edit-script" | "super-planning";
 
 // Sortable line item for drag and drop
 function SortableLineItem({
@@ -124,6 +135,7 @@ function SortableLineItem({
   updateScriptLineType,
   updateScriptLine,
   deleteScriptLine,
+  getScriptLines,
   setParsedLines,
   pushUndo,
 }: {
@@ -138,6 +150,7 @@ function SortableLineItem({
   updateScriptLineType: (scriptId: string, lineNumber: number, newType: string) => Promise<boolean>;
   updateScriptLine: (scriptId: string, lineNumber: number, text: string) => Promise<boolean>;
   deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
+  getScriptLines: (scriptId: string) => Promise<ScriptLine[]>;
   setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
   pushUndo: () => void;
 }) {
@@ -173,18 +186,18 @@ function SortableLineItem({
         title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
         onClick={async () => {
           if (!viewingScriptId) return;
-          const types: ("filming" | "actor" | "editor")[] = ["filming", "actor", "editor"];
-          let nextType: "filming" | "actor" | "editor";
+          const types: ("filming" | "actor" | "editor" | "text_on_screen")[] = ["filming", "actor", "editor", "text_on_screen"];
+          let nextType: "filming" | "actor" | "editor" | "text_on_screen";
           if (isPlaceholder) {
             nextType = "filming";
           } else {
             const currentIdx = types.indexOf(line.line_type);
             nextType = types[(currentIdx + 1) % types.length];
           }
-          const ok = await updateScriptLineType(viewingScriptId, globalIndex + 1, nextType);
+          const ok = await updateScriptLineType(viewingScriptId, line.line_number, nextType);
           if (ok) {
             pushUndo();
-            setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, line_type: nextType } : l));
+            setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, line_type: nextType } : l));
           }
         }}
       >
@@ -201,24 +214,33 @@ function SortableLineItem({
             onKeyDown={async (e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (viewingScriptId && editLineText.trim()) {
-                  const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+                const trimmed = editLineText.trim();
+                if (viewingScriptId && trimmed && trimmed !== line.text) {
+                  const ok = await updateScriptLine(viewingScriptId, line.line_number, trimmed);
                   if (ok) {
                     pushUndo();
-                    setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                    setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, text: trimmed } : l));
                   }
+                }
+                if (!trimmed) {
+                  setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, text: line.text } : l));
                 }
                 setEditingLineKey(null);
               }
               if (e.key === "Escape") setEditingLineKey(null);
             }}
             onBlur={async () => {
-              if (viewingScriptId && editLineText.trim()) {
-                const ok = await updateScriptLine(viewingScriptId, globalIndex + 1, editLineText.trim());
+              const trimmed = editLineText.trim();
+              if (viewingScriptId && trimmed && trimmed !== line.text) {
+                const ok = await updateScriptLine(viewingScriptId, line.line_number, trimmed);
                 if (ok) {
                   pushUndo();
-                  setParsedLines((prev) => prev.map((l, idx) => idx === globalIndex ? { ...l, text: editLineText.trim() } : l));
+                  setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, text: trimmed } : l));
                 }
+              }
+              // If user cleared the text, revert to original (don't silently wipe)
+              if (!trimmed) {
+                setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, text: line.text } : l));
               }
               setEditingLineKey(null);
             }}
@@ -240,10 +262,12 @@ function SortableLineItem({
           title="Eliminar línea"
           onClick={async () => {
             if (!viewingScriptId) return;
-            const ok = await deleteScriptLine(viewingScriptId, globalIndex + 1);
+            if (!confirm(language === "en" ? "Delete this line?" : "¿Eliminar esta línea?")) return;
+            pushUndo();
+            const ok = await deleteScriptLine(viewingScriptId, line.line_number);
             if (ok) {
-              pushUndo();
-              setParsedLines((prev) => prev.filter((_, idx) => idx !== globalIndex));
+              const fresh = await getScriptLines(viewingScriptId);
+              setParsedLines(fresh);
             }
           }}
         >
@@ -254,128 +278,11 @@ function SortableLineItem({
   );
 }
 
-// Wrapper that provides DnD context for a section
-function SortableSection({
-  sectionLines,
-  section,
-  parsedLines,
-  editingLineKey,
-  editLineText,
-  setEditLineText,
-  setEditingLineKey,
-  viewingScriptId,
-  updateScriptLineType,
-  updateScriptLine,
-  deleteScriptLine,
-  setParsedLines,
-  reorderSectionLines,
-  pushUndo,
-}: {
-  sectionLines: ScriptLine[];
-  section: string;
-  parsedLines: ScriptLine[];
-  editingLineKey: string | null;
-  editLineText: string;
-  setEditLineText: (v: string) => void;
-  setEditingLineKey: (v: string | null) => void;
-  viewingScriptId: string | null;
-  updateScriptLineType: (scriptId: string, lineNumber: number, newType: string) => Promise<boolean>;
-  updateScriptLine: (scriptId: string, lineNumber: number, text: string) => Promise<boolean>;
-  deleteScriptLine: (scriptId: string, lineNumber: number) => Promise<boolean>;
-  setParsedLines: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
-  reorderSectionLines: (scriptId: string, section: string, orderedLines: ScriptLine[]) => Promise<boolean>;
-  pushUndo: () => void;
-}) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-        delay: 0,
-        tolerance: 5
-      }
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 100,
-        tolerance: 5
-      }
-    })
-  );
-
-  const itemIds = sectionLines.map((_, i) => `${section}-${i}`);
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id || !viewingScriptId) return;
-
-    const oldIndex = itemIds.indexOf(active.id as string);
-    const newIndex = itemIds.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    // Optimistic local reorder
-    const reordered = [...sectionLines];
-    const [moved] = reordered.splice(oldIndex, 1);
-    reordered.splice(newIndex, 0, moved);
-
-    // Snapshot for undo
-    pushUndo();
-
-    // Update parsedLines optimistically
-    setParsedLines((prev) => {
-      const otherLines = prev.filter((l) => l.section !== section);
-      const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
-      const targetOrder = sectionOrder[section] ?? 1;
-      const result: ScriptLine[] = [];
-      let inserted = false;
-      for (const l of otherLines) {
-        const lOrder = sectionOrder[l.section] ?? 1;
-        if (!inserted && lOrder > targetOrder) {
-          result.push(...reordered);
-          inserted = true;
-        }
-        result.push(l);
-      }
-      if (!inserted) result.push(...reordered);
-      return result;
-    });
-
-    // Persist to DB in one batch
-    await reorderSectionLines(viewingScriptId, section, reordered);
-  };
-
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3">
-          {sectionLines.map((line, i) => {
-            const globalIndex = parsedLines.indexOf(line);
-            const lineKey = `${section}-${i}`;
-            return (
-              <SortableLineItem
-                key={lineKey}
-                line={line}
-                lineKey={lineKey}
-                globalIndex={globalIndex}
-                isEditingThis={editingLineKey === lineKey}
-                editLineText={editLineText}
-                setEditLineText={setEditLineText}
-                setEditingLineKey={setEditingLineKey}
-                viewingScriptId={viewingScriptId}
-                updateScriptLineType={updateScriptLineType}
-                updateScriptLine={updateScriptLine}
-                deleteScriptLine={deleteScriptLine}
-                setParsedLines={setParsedLines}
-              />
-            );
-          })}
-        </div>
-      </SortableContext>
-    </DndContext>
-  );
-}
+// (SortableSection removed — replaced by single flat DndContext in the render below)
 
 export default function Scripts() {
   const { clientId: urlClientId } = useParams<{ clientId?: string }>();
+  const location = useLocation();
   const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -385,11 +292,15 @@ export default function Scripts() {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
     categorizeAndSave, directSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado,
-    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines,
+    updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
     bulkSyncToNotion,
+    updateReviewStatus,
   } = useScripts();
 
   const [showTrash, setShowTrash] = useState(false);
+  const [reviewingScript, setReviewingScript] = useState<Script | null>(null);
+  const [revisionNotes, setRevisionNotes] = useState("");
+  const [showRevisionInput, setShowRevisionInput] = useState(false);
 
   // Inline editing script lines
   const [editingLineKey, setEditingLineKey] = useState<string | null>(null);
@@ -425,9 +336,13 @@ export default function Scripts() {
   const [editingInspirationUrl, setEditingInspirationUrl] = useState(false);
   const [tempInspirationUrl, setTempInspirationUrl] = useState("");
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
+  const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
   const [editingDriveLink, setEditingDriveLink] = useState(false);
   const [tempDriveLink, setTempDriveLink] = useState("");
+  const [fileSubmission, setFileSubmission] = useState<string | null>(null);
+  const [editingFileSubmission, setEditingFileSubmission] = useState(false);
+  const [tempFileSubmission, setTempFileSubmission] = useState("");
 
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
@@ -436,7 +351,15 @@ export default function Scripts() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [aiMode, setAiMode] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [remixVideo, setRemixVideo] = useState<{
+    id: string; url: string | null; thumbnail_url: string | null;
+    caption: string | null; channel_username: string; platform: string;
+    formatDetection?: { format: string; confidence: number; wizard_config: { suggested_format?: string; prompt_hint?: string; use_transcript_as_template?: boolean } } | null;
+  } | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
+
+  const [savingScript, setSavingScript] = useState(false);
 
   // Script history
   const [showHistory, setShowHistory] = useState(false);
@@ -463,6 +386,19 @@ export default function Scripts() {
 
   // Undo/Redo stack
   const undoStack = useRef<ScriptLine[][]>([]);
+
+  // Script folders
+  const [folders, setFolders] = useState<{ id: string; name: string; created_at: string }[]>([]);
+  const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedScriptIds, setSelectedScriptIds] = useState<Set<string>>(new Set());
+
+  // Drag & drop sensors (must be at component level, not inside IIFE)
+  const flatPointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5, delay: 0, tolerance: 5 } });
+  const flatTouchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } });
+  const flatSensors = useSensors(flatPointerSensor, flatTouchSensor);
 
   // Listen for PASSWORD_RECOVERY event from AuthProvider
   useEffect(() => {
@@ -559,6 +495,22 @@ export default function Scripts() {
     }
   };
 
+  // Detect remix video from router state (navigated from ViralVideoDetail)
+  useEffect(() => {
+    const state = location.state as { remixVideo?: typeof remixVideo } | null;
+    if (!state?.remixVideo) return;
+    setRemixVideo(state.remixVideo);
+    // Clear router state so back navigation doesn't re-trigger
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-open AI wizard when remix video + selected client are both ready
+  useEffect(() => {
+    if (!remixVideo || !selectedClient) return;
+    // Route directly to canvas — do NOT set aiMode, canvas doesn't use it
+    setView("super-planning");
+  }, [remixVideo, selectedClient]);
+
   // Auto-select client from URL param (admin/videographer deep link)
   const [searchParams, setSearchParams] = useSearchParams();
   const [autoOpenScriptTitle, setAutoOpenScriptTitle] = useState<string | null>(null);
@@ -572,12 +524,19 @@ export default function Scripts() {
       if (target) {
         setSelectedClient(target);
         fetchScriptsByClient(target.id);
-        setView("client-detail");
+        // Check for view=canvas param to auto-open Connecta AI
+        const viewParam = searchParams.get("view");
+        if (viewParam === "canvas") {
+          setView("super-planning");
+          searchParams.delete("view");
+          setSearchParams(searchParams, { replace: true });
+        } else {
+          setView("client-detail");
+        }
         // Check for scriptTitle query param to auto-open
         const scriptTitleParam = searchParams.get("scriptTitle");
         if (scriptTitleParam) {
           setAutoOpenScriptTitle(scriptTitleParam);
-          // Clean the param from the URL
           searchParams.delete("scriptTitle");
           setSearchParams(searchParams, { replace: true });
         }
@@ -594,6 +553,16 @@ export default function Scripts() {
     setView("client-detail");
   }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user, urlClientId]);
 
+  // Handle view=canvas when navigating back with selectedClient already set
+  useEffect(() => {
+    const viewParam = searchParams.get("view");
+    if (viewParam === "canvas" && selectedClient) {
+      setView("super-planning");
+      searchParams.delete("view");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, selectedClient]);
+
   // Auto-open script by title from query param
   useEffect(() => {
     if (!autoOpenScriptTitle || scriptsLoading || scripts.length === 0) return;
@@ -605,6 +574,49 @@ export default function Scripts() {
     }
     setAutoOpenScriptTitle(null);
   }, [autoOpenScriptTitle, scriptsLoading, scripts]);
+
+  // Fetch folders when client changes
+  useEffect(() => {
+    if (!selectedClient) { setFolders([]); setViewingFolderId(null); return; }
+    supabase.from("script_folders").select("id, name, created_at").eq("client_id", selectedClient.id).order("created_at").then(({ data }) => setFolders(data || []));
+  }, [selectedClient]);
+
+  const handleCreateFolder = useCallback(async () => {
+    if (!newFolderName.trim() || !selectedClient) return;
+    const { data, error } = await supabase.from("script_folders").insert({ client_id: selectedClient.id, name: newFolderName.trim() }).select().single();
+    if (error) { toast.error("Failed to create folder"); return; }
+    setFolders((prev) => [...prev, data]);
+    setNewFolderName("");
+    setCreatingFolder(false);
+  }, [newFolderName, selectedClient]);
+
+  const handleMoveToFolder = useCallback(async (scriptId: string, folderId: string | null) => {
+    const { error } = await supabase.from("scripts").update({ folder_id: folderId }).eq("id", scriptId);
+    if (error) { toast.error("Failed to move script"); return; }
+    if (selectedClient) fetchScriptsByClient(selectedClient.id);
+    toast.success(folderId ? "Script moved to folder" : "Script removed from folder");
+  }, [selectedClient]);
+
+  const toggleScriptSelect = useCallback((id: string) => {
+    setSelectedScriptIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedScriptIds(new Set());
+  }, []);
+
+  const handleBulkMoveToFolder = useCallback(async (folderId: string | null) => {
+    const ids = Array.from(selectedScriptIds);
+    await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: folderId }).eq("id", id)));
+    if (selectedClient) fetchScriptsByClient(selectedClient.id);
+    toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} ${folderId ? "moved to folder" : "removed from folder"}`);
+    exitSelectMode();
+  }, [selectedScriptIds, selectedClient, exitSelectMode]);
 
   // Undo/Redo helper
   const pushUndo = useCallback(() => {
@@ -629,17 +641,21 @@ export default function Scripts() {
 
       setParsedLines(previousLines);
 
-      // Sync each section back to DB
-      const sections = ['hook', 'body', 'cta'] as const;
-      for (const section of sections) {
-        const sectionLines = previousLines.filter(l => l.section === section);
-        reorderSectionLines(viewingScriptId, section, sectionLines);
-      }
+      // Sync all lines back to DB in one batch
+      reorderAllLines(viewingScriptId, previousLines);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewingScriptId, reorderSectionLines]);
+  }, [viewingScriptId, reorderAllLines]);
+
+  // Warn browser when user edits a line and tries to close/refresh the tab
+  useEffect(() => {
+    if (editingLineKey === null) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [editingLineKey]);
 
   // Fetch script versions
   const fetchVersions = useCallback(async () => {
@@ -666,7 +682,7 @@ export default function Scripts() {
     try {
       const { data: version } = await supabase
         .from("script_versions")
-        .select("raw_content")
+        .select("raw_content, lines_snapshot")
         .eq("id", versionId)
         .single();
 
@@ -675,15 +691,27 @@ export default function Scripts() {
         return;
       }
 
-      // Update the current script with the restored content
-      const { error } = await supabase
+      // Update raw_content on the scripts table
+      await supabase
         .from("scripts")
         .update({ raw_content: version.raw_content })
         .eq("id", viewingScriptId);
 
-      if (error) throw error;
+      // Restore actual script_lines from the snapshot
+      if (version.lines_snapshot && Array.isArray(version.lines_snapshot) && version.lines_snapshot.length > 0) {
+        // Delete current lines and re-insert from snapshot
+        await supabase.from("script_lines").delete().eq("script_id", viewingScriptId);
+        const rows = version.lines_snapshot.map((l: any, i: number) => ({
+          script_id: viewingScriptId,
+          line_number: i + 1,
+          line_type: l.line_type,
+          section: l.section || "body",
+          text: l.text,
+        }));
+        await supabase.from("script_lines").insert(rows);
+      }
 
-      // Reload the script
+      // Reload from DB
       const result = await getScriptLines(viewingScriptId);
       if (result) {
         setParsedLines(result);
@@ -700,7 +728,7 @@ export default function Scripts() {
   // Auth loading
   if (authLoading || subscriptionChecking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center" style={{ fontFamily: "Arial, sans-serif" }}>
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -736,16 +764,23 @@ export default function Scripts() {
   const handleCategorize = async () => {
     if (!scriptInput.trim() || !selectedClient) return;
 
-    // Parse script input to extract lines
-    const scriptLines: ScriptLine[] = scriptInput
-      .trim()
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => ({
+    // Parse script input — assign sections positionally (first=hook, last=cta, middle=body)
+    const rawLines = scriptInput.trim().split('\n').filter(l => l.trim());
+    const n = rawLines.length;
+    const scriptLines: ScriptLine[] = rawLines.map((line, i) => {
+      let section: 'hook' | 'body' | 'cta' = 'body';
+      if (n >= 3) {
+        if (i === 0) section = 'hook';
+        else if (i === n - 1) section = 'cta';
+      } else if (n === 2) {
+        section = i === 0 ? 'hook' : 'body';
+      }
+      return {
         line_type: 'actor' as const,
-        section: 'body' as const,
+        section,
         text: line.trim(),
-      }));
+      };
+    });
 
     if (scriptLines.length === 0) {
       toast.error(tr({ en: "Please enter a script with at least one line", es: "Por favor ingresa un script con al menos una línea" }, language));
@@ -763,7 +798,8 @@ export default function Scripts() {
     });
 
     if (result) {
-      setParsedLines(scriptLines);
+      const fresh = await getScriptLines(result.scriptId);
+      setParsedLines(fresh);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
       setViewingScriptId(result.scriptId);
@@ -783,7 +819,8 @@ export default function Scripts() {
       googleDriveLink.trim() || undefined
     );
     if (result) {
-      setParsedLines(result.lines);
+      const fresh = await getScriptLines(editingScript.id);
+      setParsedLines(fresh);
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
       setViewingScriptId(editingScript.id);
@@ -793,9 +830,15 @@ export default function Scripts() {
   };
 
   const handleViewScript = async (script: Script) => {
+    // If draft script, open Super Planning Canvas instead
+    if ((script as any).status === "draft") {
+      setView("super-planning");
+      return;
+    }
     const lines = await getScriptLines(script.id);
     setParsedLines(lines);
     setViewingInspirationUrl(script.inspiration_url);
+    setViewingCaption(script.caption ?? "");
     setViewingMetadata({
       idea_ganadora: script.idea_ganadora,
       target: script.target,
@@ -803,6 +846,12 @@ export default function Scripts() {
       google_drive_link: script.google_drive_link,
     });
     setViewingScriptId(script.id);
+    setEditingFileSubmission(false);
+    // Load file_submission from linked video_edits record
+    try {
+      const { data: videoData } = await supabase.from("video_edits").select("file_submission").eq("script_id", script.id).maybeSingle();
+      setFileSubmission(videoData?.file_submission || null);
+    } catch { setFileSubmission(null); }
     setView("view-script");
   };
 
@@ -839,6 +888,7 @@ export default function Scripts() {
       setGoogleDriveLink("");
       setViewingInspirationUrl(null);
       setViewingMetadata(null);
+      setViewingCaption("");
       setViewingScriptId(null);
       setEditingScript(null);
       setEditingDriveLink(false);
@@ -854,17 +904,51 @@ export default function Scripts() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
+      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Super Planning Canvas — full screen override */}
+      {view === "super-planning" && selectedClient && (
+        <div className="flex-1 overflow-hidden">
+          <SuperPlanningCanvas
+            selectedClient={selectedClient}
+            remixVideo={remixVideo ?? undefined}
+            onSaved={async (scriptId) => {
+              setRemixVideo(null);
+              // Load full script + lines so view-script renders properly
+              const [lines, { data: script }] = await Promise.all([
+                getScriptLines(scriptId),
+                supabase.from("scripts").select("*").eq("id", scriptId).single(),
+              ]);
+              setParsedLines(lines || []);
+              if (script) {
+                setViewingInspirationUrl(script.inspiration_url ?? null);
+                setViewingCaption(script.caption ?? "");
+                setViewingMetadata({
+                  idea_ganadora: script.idea_ganadora,
+                  target: script.target,
+                  formato: script.formato,
+                  google_drive_link: script.google_drive_link,
+                });
+                try {
+                  const { data: videoData } = await supabase.from("video_edits").select("file_submission").eq("script_id", scriptId).maybeSingle();
+                  setFileSubmission(videoData?.file_submission || null);
+                } catch { setFileSubmission(null); }
+              }
+              setViewingScriptId(scriptId);
+              setView("view-script");
+            }}
+            onCancel={() => {
+              setRemixVideo(null);       // clear remix state
+              setView("client-detail");  // MUST NOT be "new-script" — that re-triggers remix loop
+            }}
+          />
+        </div>
+      )}
+      {view !== "super-planning" && (
+      <>
       {/* Header */}
-      <header className="border-b border-border/50 sticky top-0 z-50 bg-gradient-to-r from-background/90 to-card/90 backdrop-blur-xl">
+      <header className="border-b border-border/50 sticky top-0 z-40 bg-gradient-to-r from-background/90 to-card/90 backdrop-blur-xl hidden lg:block">
         <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <Link to="/dashboard" className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground transition-smooth text-sm flex-shrink-0">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">{tr(t.scripts.home, language)}</span>
-            </Link>
-            
           </div>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
@@ -885,7 +969,8 @@ export default function Scripts() {
         </div>
       </header>
 
-      <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
+      <main className="flex-1 overflow-y-auto">
+      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
         {/* Breadcrumb */}
         {view !== "clients" && (isAdmin || isVideographer || view !== "client-detail") && (
           <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-smooth">
@@ -1221,22 +1306,32 @@ export default function Scripts() {
               {selectedClient.email && <p className="text-muted-foreground text-sm truncate">{selectedClient.email}</p>}
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-              <Button onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }} variant="cta" className="gap-2 w-full sm:w-auto">
-                <Plus className="w-4 h-4" /> {tr(t.scripts.newScript, language)}
+            {/* ── Scripts toolbar ── */}
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              {/* Primary CTA */}
+              <Button
+                onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }}
+                variant="cta"
+                className="gap-2 flex-shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">{tr(t.scripts.newScript, language)}</span>
+                <span className="sm:hidden">New</span>
               </Button>
-              <div className="flex gap-1 bg-gradient-to-r from-card via-card to-muted/30 border border-border rounded-2xl p-1">
+
+              {/* Filter pills */}
+              <div className="flex gap-0.5 bg-muted/40 border border-border/60 rounded-xl p-0.5 flex-shrink-0">
                 {[
-                   { key: "all" as const, label: tr(t.scripts.all, language) },
-                   { key: "no-grabado" as const, label: tr(t.scripts.notRecorded, language) },
-                   { key: "grabado" as const, label: tr(t.scripts.recorded, language) },
+                  { key: "all" as const, label: tr(t.scripts.all, language) },
+                  { key: "no-grabado" as const, label: tr(t.scripts.notRecorded, language) },
+                  { key: "grabado" as const, label: tr(t.scripts.recorded, language) },
                 ].map((f) => (
                   <button
                     key={f.key}
                     onClick={() => { setGrabadoFilter(f.key); setShowTrash(false); }}
-                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-xl transition-smooth font-medium ${
+                    className={`px-2.5 py-1 text-xs rounded-lg transition-all font-medium ${
                       !showTrash && grabadoFilter === f.key
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-background shadow-sm text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -1244,25 +1339,56 @@ export default function Scripts() {
                   </button>
                 ))}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleTrash}
-                className={`gap-1.5 ${showTrash ? "text-destructive" : "text-muted-foreground"}`}
-              >
-                 <Trash2 className="w-4 h-4" /> {tr(t.scripts.trash, language)}
-              </Button>
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={bulkSyncToNotion}
-                  className="gap-1.5 text-muted-foreground ml-auto"
-                  title="Sincronizar todos los scripts con Notion"
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Icon actions */}
+              <div className="flex items-center gap-1">
+                {isAdmin && selectedClient && (
+                  <button
+                    onClick={() => setShowBatchModal(true)}
+                    title="Batch Generate"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Zap className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setCreatingFolder(true)}
+                  title="New folder"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
-                  <RotateCcw className="w-4 h-4" /> Sync Notion
-                </Button>
-              )}
+                  <FolderPlus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+                  title={selectMode ? "Cancel selection" : "Select scripts"}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                    selectMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleToggleTrash}
+                  title={showTrash ? "Hide trash" : "Trash"}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                    showTrash ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => bulkSyncToNotion(selectedClient?.id)}
+                    title="Sync Notion"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {showTrash ? (
@@ -1320,52 +1446,278 @@ export default function Scripts() {
               </>
             ) : (
             (() => {
+              // When inside a folder, show back arrow + folder scripts
+              // When at root, show folder grid + unfiled scripts
+              const currentFolderObj = folders.find(f => f.id === viewingFolderId);
               const filtered = scripts.filter((s) => {
+                if (viewingFolderId !== null) {
+                  if (s.folder_id !== viewingFolderId) return false;
+                } else {
+                  if (s.folder_id !== null && s.folder_id !== undefined) return false;
+                }
                 if (grabadoFilter === "grabado") return s.grabado;
                 if (grabadoFilter === "no-grabado") return !s.grabado;
                 return true;
               });
-              return filtered.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  {scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {filtered.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:to-primary/10 transition-smooth overflow-hidden">
-                      <button
-                        onClick={async () => {
-                          await toggleGrabado(s.id, !s.grabado);
-                        }}
-                        className="flex-shrink-0"
-                        title={s.grabado ? "Marcar como no grabado" : "Marcar como grabado"}
-                      >
-                        {s.grabado ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+
+              const ScriptCard = ({ s }: { s: typeof scripts[0] }) => (
+                <div key={s.id} className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br border rounded-2xl transition-smooth overflow-hidden ${
+                    (s as any).status === 'draft'
+                      ? 'from-orange-950/30 via-orange-900/15 to-orange-900/10 border-orange-500/40 hover:border-orange-400/60'
+                      : s.review_status === 'approved'
+                      ? 'from-green-950/40 via-green-900/20 to-green-900/10 border-green-500/40'
+                      : s.review_status === 'needs_revision'
+                      ? 'from-red-950/40 via-red-900/20 to-red-900/10 border-red-500/40'
+                      : 'from-card via-card to-muted/30 border-border hover:border-primary/50 hover:to-primary/10'
+                  }`}>
+                  {selectMode ? (
+                    <button onClick={(e) => { e.stopPropagation(); toggleScriptSelect(s.id); }} className="flex-shrink-0">
+                      {selectedScriptIds.has(s.id)
+                        ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                        : <Circle className="w-5 h-5 text-muted-foreground" />}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => { await toggleGrabado(s.id, !s.grabado); }}
+                      className="flex-shrink-0"
+                      title={s.grabado ? "Marcar como no grabado" : "Marcar como grabado"}
+                    >
+                      {s.grabado ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                      )}
+                    </button>
+                  )}
+                  <button onClick={() => selectMode ? toggleScriptSelect(s.id) : handleViewScript(s)} className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left overflow-hidden">
+                    {(s as any).status === "draft" ? (
+                      <Flame className="w-5 h-5 text-orange-400 flex-shrink-0 hidden sm:block" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0 hidden sm:block" />
+                    )}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <p className={`font-semibold truncate max-w-full ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>{s.title}</p>
+                        {(s as any).status === "draft" && (
+                          <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">In Progress</span>
                         )}
-                      </button>
-                      <button onClick={() => handleViewScript(s)} className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left overflow-hidden">
-                        <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0 hidden sm:block" />
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <p className={`font-semibold truncate max-w-full ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>{s.title}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
-                        </div>
-                      </button>
-                      <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => handleEditScript(s)} title="Editar" className="h-8 w-8 p-0">
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteScript(s.id)} title="Mover a papelera" className="text-destructive hover:text-destructive h-8 w-8 p-0">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
                     </div>
-                  ))}
+                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {s.review_status === 'needs_revision' && (
+                      <span className="text-xs text-red-400 hidden sm:inline">Needs revision</span>
+                    )}
+                    {s.review_status === 'approved' && <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />}
+                    {s.review_status === 'needs_revision' && <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-1" align="end">
+                        {isAdmin && (
+                          <button
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${
+                              s.review_status === 'approved' ? 'text-green-400'
+                              : s.review_status === 'needs_revision' ? 'text-red-400'
+                              : 'text-foreground'
+                            }`}
+                            onClick={() => setReviewingScript(s)}
+                          >
+                            {s.review_status === 'needs_revision' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                            {s.review_status === 'approved' ? 'Approved' : s.review_status === 'needs_revision' ? 'Needs Revision' : 'Review'}
+                          </button>
+                        )}
+                        <button
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                          onClick={() => handleEditScript(s)}
+                        >
+                          <Pencil className="w-4 h-4" /> Edit
+                        </button>
+                        {/* Move to folder submenu */}
+                        {folders.length > 0 && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted">
+                                <Folder className="w-4 h-4" /> Move to folder
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-44 p-1" align="end" side="left">
+                              {s.folder_id && (
+                                <button
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground transition-colors hover:bg-muted"
+                                  onClick={() => handleMoveToFolder(s.id, null)}
+                                >
+                                  Remove from folder
+                                </button>
+                              )}
+                              {folders.map((f) => (
+                                <button
+                                  key={f.id}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${s.folder_id === f.id ? 'text-primary font-medium' : 'text-foreground'}`}
+                                  onClick={() => handleMoveToFolder(s.id, f.id)}
+                                >
+                                  <Folder className="w-3.5 h-3.5" /> {f.name}
+                                </button>
+                              ))}
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                        <button
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-destructive transition-colors hover:bg-destructive/10"
+                          onClick={() => handleDeleteScript(s.id)}
+                        >
+                          <Trash2 className="w-4 h-4" /> Delete
+                        </button>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               );
+
+              return (
+                <>
+                  {/* ── Folder view: back arrow + folder name ── */}
+                  {viewingFolderId !== null && (
+                    <div className="flex items-center gap-3 mb-4">
+                      <button
+                        onClick={() => setViewingFolderId(null)}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" /> Script Vault
+                      </button>
+                      <span className="text-muted-foreground/40">/</span>
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                        <FolderOpen className="w-4 h-4 text-primary" /> {currentFolderObj?.name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ── Root view: glassmorphism folder grid ── */}
+                  {viewingFolderId === null && folders.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+                      {folders.map((f) => {
+                        const count = scripts.filter(s => s.folder_id === f.id).length;
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => setViewingFolderId(f.id)}
+                            className="relative flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-all text-left group overflow-hidden"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                            <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
+                            <div className="relative z-10 w-full min-w-0">
+                              <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
+                              <p className="text-xs text-muted-foreground">{count} script{count !== 1 ? "s" : ""}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {/* New folder card */}
+                      {creatingFolder ? (
+                        <div className="flex flex-col gap-2 p-4 rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-sm">
+                          <Input
+                            autoFocus
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            placeholder="Folder name"
+                            className="h-7 text-sm bg-transparent border-primary/40"
+                            onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
+                          />
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="cta" className="h-6 text-xs px-2" onClick={handleCreateFolder}>Save</Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setCreatingFolder(true)}
+                          className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary"
+                        >
+                          <FolderPlus className="w-7 h-7" />
+                          <span className="text-xs font-medium">New folder</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Folder name input (triggered from toolbar) ── */}
+                  {creatingFolder && folders.length === 0 && viewingFolderId === null && (
+                    <div className="flex items-center gap-2 mb-4">
+                      <Input
+                        autoFocus
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        placeholder="Folder name"
+                        className="h-8 text-sm w-48"
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
+                      />
+                      <Button size="sm" variant="cta" className="h-8 text-xs" onClick={handleCreateFolder}>Save</Button>
+                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}>Cancel</Button>
+                    </div>
+                  )}
+
+                  {/* ── Script list (filtered by folder or unfiled) ── */}
+                  {filtered.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      {viewingFolderId !== null ? "No scripts in this folder yet." : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
+                    </p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {filtered.map((s) => <ScriptCard key={s.id} s={s} />)}
+                    </div>
+                  )}
+                </>
+              );
             })()
+            )}
+
+            {/* ── Floating bulk-action bar ── */}
+            {selectMode && selectedScriptIds.size > 0 && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-card/90 backdrop-blur-md border border-border shadow-2xl">
+                <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                  {selectedScriptIds.size} selected
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="cta" className="gap-1.5 h-8">
+                      <Folder className="w-4 h-4" /> Move to folder
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="center" side="top">
+                    {folders.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">No folders yet — create one first</p>
+                    ) : (
+                      <>
+                        <button
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
+                          onClick={() => handleBulkMoveToFolder(null)}
+                        >
+                          Remove from folder
+                        </button>
+                        {folders.map((f) => (
+                          <button
+                            key={f.id}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground hover:bg-muted transition-colors"
+                            onClick={() => handleBulkMoveToFolder(f.id)}
+                          >
+                            <Folder className="w-3.5 h-3.5" /> {f.name}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                <button
+                  onClick={exitSelectMode}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+                >
+                  Deselect all
+                </button>
+              </div>
             )}
           </>
         )}
@@ -1380,7 +1732,7 @@ export default function Scripts() {
 
             {/* AI Mode Toggle — only on new-script */}
             {view === "new-script" && (
-              <div className="flex gap-2 mb-6">
+              <div className="flex flex-wrap gap-2 mb-6">
                 <Button
                   variant={!aiMode ? "cta" : "outline"}
                   size="sm"
@@ -1397,6 +1749,14 @@ export default function Scripts() {
                 >
                   <Wand2 className="w-4 h-4" /> {tr({ en: "Let AI Build It", es: "Que la IA lo construya" }, language)}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setView("super-planning")}
+                  className="gap-2 border-orange-500/40 text-orange-400 hover:text-orange-300 hover:border-orange-400"
+                >
+                  <Flame className="w-4 h-4" /> Connecta AI
+                </Button>
               </div>
             )}
 
@@ -1404,6 +1764,7 @@ export default function Scripts() {
             {view === "new-script" && aiMode && selectedClient ? (
               <AIScriptWizard
                 selectedClient={selectedClient}
+                initialTemplateVideo={remixVideo ?? undefined}
                 onComplete={async (result, inspirationUrl) => {
                   const saved = await directSave({
                     clientId: selectedClient.id,
@@ -1415,7 +1776,9 @@ export default function Scripts() {
                     inspirationUrl: inspirationUrl || undefined,
                   });
                   if (saved) {
-                    setParsedLines(result.lines);
+                    setRemixVideo(null);
+                    const fresh = await getScriptLines(saved.scriptId);
+                    setParsedLines(fresh);
                     setViewingInspirationUrl(inspirationUrl || null);
                     setViewingMetadata({
                       idea_ganadora: result.idea_ganadora || null,
@@ -1427,7 +1790,7 @@ export default function Scripts() {
                     setView("view-script");
                   }
                 }}
-                onCancel={() => setAiMode(false)}
+                onCancel={() => { setAiMode(false); setRemixVideo(null); }}
               />
             ) : (
               <>
@@ -1572,18 +1935,18 @@ export default function Scripts() {
               <div className="mb-4 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
                 {viewingMetadata.idea_ganadora && (
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold text-amber-400">Idea Ganadora:</span>{" "}
+                    <span className="font-semibold text-amber-400">{tr(t.scripts.winningIdea, language)}:</span>{" "}
                     {viewingMetadata.idea_ganadora}
                   </p>
                 )}
                 {viewingMetadata.target && (
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold text-red-400">Target:</span>{" "}
+                    <span className="font-semibold text-red-400">{tr(t.scripts.target, language)}:</span>{" "}
                     {viewingMetadata.target}
                   </p>
                 )}
                 <div className="flex items-center gap-2 text-sm text-foreground">
-                  <span className="font-semibold text-violet-400">Formato:</span>
+                  <span className="font-semibold text-violet-400">{tr(t.scripts.format, language)}:</span>
                   <Select
                     value={viewingMetadata.formato || ""}
                     onValueChange={async (val) => {
@@ -1713,8 +2076,75 @@ export default function Scripts() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 mb-4">
-              <div className="flex gap-1.5 flex-shrink-0">
+            {/* Caption */}
+            <div className="p-4 rounded-2xl border border-border/40 bg-gradient-to-br from-muted/20 to-muted/10 mb-2">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  {tr({ en: "Caption", es: "Caption" }, language)}
+                </span>
+              </div>
+              <Textarea
+                value={viewingCaption}
+                onChange={(e) => setViewingCaption(e.target.value)}
+                placeholder={tr({ en: "Write the social media caption for this video...", es: "Escribe el caption para las redes sociales..." }, language)}
+                rows={4}
+                className="text-sm resize-none bg-transparent"
+                onBlur={async () => {
+                  if (viewingScriptId) {
+                    const { error } = await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", viewingScriptId);
+                    if (error) {
+                      console.error("Caption save error:", error);
+                      toast.error(tr({ en: "Failed to save caption", es: "Error al guardar caption" }, language));
+                    } else {
+                      // Sync caption to linked video_edits record
+                      await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", viewingScriptId);
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mb-4 flex-wrap">
+              <div className="flex gap-1.5 flex-wrap">
+                {/* Save button — persists current line order & sections + caption to DB */}
+                <Button
+                  onClick={async () => {
+                    if (!viewingScriptId || savingScript) return;
+                    setSavingScript(true);
+                    try {
+                      await supabase.from("script_lines").delete().eq("script_id", viewingScriptId);
+                      const rows = parsedLines.map((l, i) => ({
+                        script_id: viewingScriptId,
+                        line_number: i + 1,
+                        line_type: l.line_type,
+                        section: l.section,
+                        text: l.text,
+                      }));
+                      if (rows.length > 0) {
+                        await supabase.from("script_lines").insert(rows);
+                      }
+                      // Save caption alongside the script lines
+                      await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", viewingScriptId);
+                      // Sync caption to linked video_edits record
+                      await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", viewingScriptId);
+                      const fresh = await getScriptLines(viewingScriptId);
+                      setParsedLines(fresh);
+                      toast.success(tr({ en: "Script saved!", es: "¡Script guardado!" }, language));
+                    } catch {
+                      toast.error(tr({ en: "Error saving script", es: "Error al guardar" }, language));
+                    } finally {
+                      setSavingScript(false);
+                    }
+                  }}
+                  variant="cta"
+                  size="sm"
+                  className="gap-1.5 text-xs sm:text-sm"
+                  disabled={savingScript}
+                >
+                  {savingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                  <span className="hidden sm:inline">{tr({ en: "Save", es: "Guardar" }, language)}</span>
+                </Button>
                 <Button
                   onClick={() => {
                     fetchVersions();
@@ -1747,86 +2177,109 @@ export default function Scripts() {
                 </Button>
               </div>
             </div>
-            {/* Render lines grouped by section */}
-            {(["hook", "body", "cta"] as const).map((section) => {
-              const sectionLines = parsedLines.filter((l) => l.section === section);
-              const sectionLabels = { hook: "Hook", body: "Body", cta: "CTA" };
+            {/* Render ALL lines in a single flat DndContext for cross-section drag & drop */}
+            <DndContext sensors={flatSensors} collisionDetection={closestCenter} onDragEnd={async (event: DragEndEvent) => {
+              const { active, over } = event;
+              if (!over || active.id === over.id || !viewingScriptId) return;
 
-              const handleAddPlaceholder = async () => {
-                if (!viewingScriptId) return;
-                const lineNumber = await addScriptLine(viewingScriptId, section, "filming", "");
-                if (lineNumber) {
-                  // Insert at correct position: after last line of this section
-                  const newLine: ScriptLine = { line_type: "filming" as any, text: "", section };
-                  setParsedLines((prev) => {
-                    const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
-                    const targetOrder = sectionOrder[section] ?? 1;
-                    // Find the index after the last line of this section
-                    let insertIdx = 0;
-                    for (let j = 0; j < prev.length; j++) {
-                      if ((sectionOrder[prev[j].section] ?? 1) <= targetOrder) {
-                        insertIdx = j + 1;
-                      }
-                    }
-                    return [...prev.slice(0, insertIdx), newLine, ...prev.slice(insertIdx)];
-                  });
-                }
-              };
+              const allItemIds = parsedLines.map((l) => `line-${l.line_number}`);
+              const oldIndex = allItemIds.indexOf(active.id as string);
+              const newIndex = allItemIds.indexOf(over.id as string);
+              if (oldIndex === -1 || newIndex === -1) return;
 
-              return (
-                <div key={section} className="space-y-3">
-                  <div className="flex items-center gap-2 mt-4 mb-2">
-                    <span className="text-sm font-bold text-foreground uppercase tracking-wider">{sectionLabels[section]}</span>
-                    <button
-                      onClick={handleAddPlaceholder}
-                      className="w-5 h-5 rounded-full border border-dashed border-muted-foreground/50 hover:border-primary/70 flex items-center justify-center transition-smooth"
-                      title={`Agregar línea a ${sectionLabels[section]}`}
-                    >
-                      <Plus className="w-3 h-3 text-muted-foreground hover:text-primary" />
-                    </button>
-                    <div className="flex-1 h-px bg-border" />
-                  </div>
-                  {sectionLines.length === 0 ? (
-                    /* Auto-placeholder when section is empty */
-                    <div
-                      className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border bg-gradient-to-br from-muted/30 to-muted/10 border-muted-foreground/20 transition-smooth cursor-pointer group"
-                      onClick={handleAddPlaceholder}
-                    >
-                      <div className="mt-0.5 p-1.5 rounded-xl bg-muted/30">
-                        <Plus className="w-4 h-4 text-muted-foreground" />
+              pushUndo();
+
+              const reordered = arrayMove([...parsedLines], oldIndex, newIndex);
+
+              // For the moved line: take the section of the line above it (or "hook" if first)
+              const withSections = reordered.map((line, idx) => {
+                if (idx !== newIndex) return line;
+                const neighborSection = idx > 0 ? reordered[idx - 1].section : "hook";
+                return { ...line, section: neighborSection };
+              });
+
+              setParsedLines(withSections);
+              await reorderAllLines(viewingScriptId, withSections);
+              const fresh = await getScriptLines(viewingScriptId);
+              if (fresh.length > 0) setParsedLines(fresh);
+            }}>
+              <SortableContext items={parsedLines.map((l) => `line-${l.line_number}`)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {(["hook", "body", "cta"] as const).map((section) => {
+                    const sectionLabels: Record<string, string> = { hook: "Hook", body: "Body", cta: "CTA" };
+                    const sectionLines = parsedLines.filter((l) => l.section === section);
+                    const handleAddPlaceholder = async () => {
+                      if (!viewingScriptId) return;
+                      await addScriptLine(viewingScriptId, section, "filming", "");
+                      const fresh = await getScriptLines(viewingScriptId);
+                      setParsedLines(fresh);
+                    };
+                    return (
+                      <div key={section}>
+                        <div className="flex items-center gap-2 mt-4 mb-2">
+                          <span className="text-sm font-bold text-foreground uppercase tracking-wider">{sectionLabels[section]}</span>
+                          <button
+                            onClick={handleAddPlaceholder}
+                            className="w-5 h-5 rounded-full border border-dashed border-muted-foreground/50 hover:border-primary/70 flex items-center justify-center transition-smooth"
+                            title={`Agregar línea a ${sectionLabels[section]}`}
+                          >
+                            <Plus className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                          </button>
+                          <div className="flex-1 h-px bg-border" />
+                        </div>
+                        {sectionLines.length === 0 ? (
+                          <div
+                            className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border bg-gradient-to-br from-muted/30 to-muted/10 border-muted-foreground/20 transition-smooth cursor-pointer group"
+                            onClick={handleAddPlaceholder}
+                          >
+                            <div className="mt-0.5 p-1.5 rounded-xl bg-muted/30">
+                              <Plus className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nueva línea</span>
+                              <p className="text-muted-foreground/60 mt-1 text-sm italic">Haz clic para agregar una línea...</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {sectionLines.map((line) => {
+                              const lineKey = `line-${line.line_number}`;
+                              const globalIndex = parsedLines.indexOf(line);
+                              return (
+                                <SortableLineItem
+                                  key={lineKey}
+                                  line={line}
+                                  lineKey={lineKey}
+                                  globalIndex={globalIndex}
+                                  isEditingThis={editingLineKey === lineKey}
+                                  editLineText={editLineText}
+                                  setEditLineText={setEditLineText}
+                                  setEditingLineKey={setEditingLineKey}
+                                  viewingScriptId={viewingScriptId}
+                                  updateScriptLineType={updateScriptLineType}
+                                  updateScriptLine={updateScriptLine}
+                                  deleteScriptLine={deleteScriptLine}
+                                  getScriptLines={getScriptLines}
+                                  setParsedLines={setParsedLines}
+                                  pushUndo={pushUndo}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nueva línea</span>
-                        <p className="text-muted-foreground/60 mt-1 text-sm italic">Haz clic para agregar una línea...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <SortableSection
-                      sectionLines={sectionLines}
-                      section={section}
-                      parsedLines={parsedLines}
-                      editingLineKey={editingLineKey}
-                      editLineText={editLineText}
-                      setEditLineText={setEditLineText}
-                      setEditingLineKey={setEditingLineKey}
-                      viewingScriptId={viewingScriptId}
-                      updateScriptLineType={updateScriptLineType}
-                      updateScriptLine={updateScriptLine}
-                      deleteScriptLine={deleteScriptLine}
-                      setParsedLines={setParsedLines}
-                      reorderSectionLines={reorderSectionLines}
-                    />
-                  )}
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </SortableContext>
+            </DndContext>
 
             {/* Google Drive link at the end */}
-            {viewingMetadata && (
+            {viewingMetadata && (<>
               <div className="mt-6 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
                 <div className="flex items-center gap-2 mb-2">
                   <Link2 className="w-4 h-4 text-green-400" />
-                  <span className="text-sm font-semibold text-green-400">Google Drive:</span>
+                  <span className="text-sm font-semibold text-green-400">Footage:</span>
                 </div>
                 {editingDriveLink ? (
                   <div className="flex gap-2">
@@ -1874,9 +2327,65 @@ export default function Scripts() {
                    <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">{tr(t.scripts.addLink, language)}</button>
                 )}
               </div>
-            )}
+
+              {/* File Submission */}
+              <div className="mt-4 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Link2 className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-400">File Submission:</span>
+                </div>
+                {editingFileSubmission ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={tempFileSubmission}
+                      onChange={(e) => setTempFileSubmission(e.target.value)}
+                      placeholder="Paste file submission URL (Google Drive)"
+                      className="text-sm h-8 flex-1 min-w-0"
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter" && viewingScriptId) {
+                          await supabase.from("video_edits").update({ file_submission: tempFileSubmission || null }).eq("script_id", viewingScriptId);
+                          setFileSubmission(tempFileSubmission || null);
+                          setEditingFileSubmission(false);
+                          toast.success("File submission saved");
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-shrink-0"
+                      onClick={async () => {
+                        if (viewingScriptId) {
+                          await supabase.from("video_edits").update({ file_submission: tempFileSubmission || null }).eq("script_id", viewingScriptId);
+                          setFileSubmission(tempFileSubmission || null);
+                          setEditingFileSubmission(false);
+                          toast.success("File submission saved");
+                        }
+                      }}
+                    >
+                      <Save className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : fileSubmission ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      onClick={() => window.open(fileSubmission!, '_blank', 'noopener,noreferrer')}
+                      className="text-sm text-blue-400 hover:underline break-all text-left min-w-0"
+                    >
+                      {fileSubmission}
+                    </button>
+                    <Button size="sm" variant="ghost" className="flex-shrink-0" onClick={() => { setTempFileSubmission(fileSubmission || ""); setEditingFileSubmission(true); }}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setTempFileSubmission(""); setEditingFileSubmission(true); }} className="text-sm text-muted-foreground hover:text-foreground">+ Add file submission</button>
+                )}
+              </div>
+            </>)}
           </div>
         )}
+      </div>
       </main>
 
       {showTeleprompter && (
@@ -1932,6 +2441,112 @@ export default function Scripts() {
         </DialogContent>
       </Dialog>
 
+      {/* Review Dialog */}
+      <Dialog open={!!reviewingScript} onOpenChange={(open) => { if (!open) { setReviewingScript(null); setRevisionNotes(""); setShowRevisionInput(false); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+              Review Script
+            </DialogTitle>
+            <DialogDescription className="truncate text-sm text-muted-foreground">
+              {reviewingScript?.idea_ganadora || reviewingScript?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Revision notes input — shown when needs revision is clicked or already set */}
+          {showRevisionInput && (
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Describe the revisions needed (e.g. change the hook, shorten the CTA...)"
+                className="min-h-[100px] text-sm resize-none border-red-500/40 focus-visible:ring-red-500/40"
+                value={revisionNotes}
+                onChange={(e) => setRevisionNotes(e.target.value)}
+                autoFocus
+              />
+              <Button
+                className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10 gap-2"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await updateReviewStatus(reviewingScript!.id, 'needs_revision', revisionNotes.trim() || null);
+                    setReviewingScript(null);
+                    setRevisionNotes("");
+                    setShowRevisionInput(false);
+                    if (selectedClient) fetchScriptsByClient(selectedClient.id);
+                    toast.warning("Script marked as needs revision");
+                  } catch (e) {
+                    toast.error("Failed to update status");
+                  }
+                }}
+              >
+                <AlertTriangle className="w-4 h-4" /> Save Revision Notes
+              </Button>
+              <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowRevisionInput(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {!showRevisionInput && (
+            <>
+              {/* Show existing revision notes if any */}
+              {reviewingScript?.revision_notes && reviewingScript.review_status === 'needs_revision' && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                  <p className="font-medium text-xs text-red-400 mb-1">Revision notes:</p>
+                  <p className="whitespace-pre-wrap">{reviewingScript.revision_notes}</p>
+                </div>
+              )}
+              <div className="flex gap-3 py-2">
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-500 text-white gap-2"
+                  onClick={async () => {
+                    try {
+                      await updateReviewStatus(reviewingScript!.id, 'approved');
+                      setReviewingScript(null);
+                      if (selectedClient) fetchScriptsByClient(selectedClient.id);
+                      toast.success("Script approved");
+                    } catch (e) {
+                      toast.error("Failed to update status");
+                    }
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10 gap-2"
+                  onClick={() => {
+                    setRevisionNotes(reviewingScript?.revision_notes || "");
+                    setShowRevisionInput(true);
+                  }}
+                >
+                  <AlertTriangle className="w-4 h-4" /> Needs Revision
+                </Button>
+              </div>
+              {reviewingScript?.review_status && (
+                <Button
+                  variant="ghost" size="sm"
+                  className="w-full text-muted-foreground text-xs"
+                  onClick={async () => {
+                    try {
+                      await updateReviewStatus(reviewingScript!.id, null);
+                      setReviewingScript(null);
+                      if (selectedClient) fetchScriptsByClient(selectedClient.id);
+                      toast.info("Review status cleared");
+                    } catch (e) {
+                      toast.error("Failed to clear status");
+                    }
+                  }}
+                >
+                  Clear review status
+                </Button>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="sm:max-w-md bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl">
           <DialogHeader>
@@ -1983,6 +2598,22 @@ export default function Scripts() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Batch Generate Modal */}
+      {showBatchModal && selectedClient && (
+        <BatchGenerateModal
+          clientId={selectedClient.id}
+          clientName={selectedClient.name || "Client"}
+          onClose={() => setShowBatchModal(false)}
+          onSaved={() => {
+            setShowBatchModal(false);
+            fetchScriptsByClient(selectedClient.id);
+          }}
+        />
+      )}
+
+      </>
+      )}
+      </div>
   );
 }
