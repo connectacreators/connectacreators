@@ -1417,9 +1417,10 @@ Return a JSON tool call only — no prose.`;
         ? `\n<reference_transcriptions>\nThis is the SPOKEN WORD reference. Match the same tempo, word count, rhythm, and delivery style:\n${(transcriptions as string[]).map((t: string, i: number) => `Reference ${i + 1}:\n"""${t.slice(0, 6000)}"""`).join("\n\n")}\n</reference_transcriptions>`
         : "";
 
-      // Count sections for enforcement
-      const refSectionCount = (structures || []).reduce((acc: number, s: any) => acc + (s.sections || []).length, 0);
-      const refSectionTypes = (structures || []).flatMap((s: any) => (s.sections || []).map((sec: any) => sec.section));
+      // Count sections for enforcement (filter nulls — frontend sends null for nodes without structure yet)
+      const validStructures = (structures || []).filter(Boolean);
+      const refSectionCount = validStructures.reduce((acc: number, s: any) => acc + (s.sections || []).length, 0);
+      const refSectionTypes = validStructures.flatMap((s: any) => (s.sections || []).map((sec: any) => sec.section));
       const hasHook = refSectionTypes.includes("hook");
       const hasBody = refSectionTypes.includes("body");
       const hasCta = refSectionTypes.includes("cta");
@@ -1427,8 +1428,8 @@ Return a JSON tool call only — no prose.`;
         ? `\nSTRICT REQUIREMENT: Your script MUST have exactly the same section breakdown as the reference: ${hasHook ? "HOOK" : ""}${hasBody ? " + BODY" : ""}${hasCta ? " + CTA" : ""} (${refSectionCount} total sections). Match the approximate word count and line count of each section from the reference.`
         : "";
 
-      const structureSection = (structures || []).length > 0
-        ? `\n<reference_structures>\n⚠️ THIS IS THE #1 PRIORITY — YOUR SCRIPT MUST MATCH THIS SKELETON EXACTLY.\nDetected format: ${(structures as any[])[0]?.detected_format || "unknown"}.\nReplicate this exact section-by-section breakdown — same number of sections, same line count per section, same visual cue style, same pacing:${sectionEnforcement}\n\n${(structures as any[]).map((s: any, i: number) => `Reference ${i + 1} (${s.detected_format}):\n${(s.sections || []).map((sec: any) => `[${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}\n</reference_structures>`
+      const structureSection = validStructures.length > 0
+        ? `\n<reference_structures>\n⚠️ THIS IS THE #1 PRIORITY — YOUR SCRIPT MUST MATCH THIS SKELETON EXACTLY.\nDetected format: ${validStructures[0]?.detected_format || "unknown"}.\nReplicate this exact section-by-section breakdown — same number of sections, same line count per section, same visual cue style, same pacing:${sectionEnforcement}\n\n${validStructures.map((s: any, i: number) => `Reference ${i + 1} (${s.detected_format}):\n${(s.sections || []).map((sec: any) => `[${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}\n</reference_structures>`
         : "";
 
       const notesSection = text_notes
