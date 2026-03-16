@@ -89,34 +89,34 @@ const getTypeConfig = (lang: "en" | "es") => ({
   filming: {
     label: tr(t.scripts.filmingInstructions, lang),
     icon: Film,
-    color: "text-red-400",
-    bg: "bg-gradient-to-br from-red-500/25 to-red-900/10",
-    border: "border-red-500/40",
-    dot: "bg-red-500",
+    color: "text-orange-400",
+    bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5",
+    border: "border-orange-500/25",
+    dot: "bg-orange-500",
   },
   actor: {
     label: tr(t.scripts.voiceoverDialogue, lang),
     icon: Mic,
-    color: "text-purple-400",
-    bg: "bg-gradient-to-br from-purple-500/25 to-purple-900/10",
-    border: "border-purple-500/40",
-    dot: "bg-purple-500",
+    color: "text-[#22d3ee]",
+    bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]",
+    border: "border-[rgba(8,145,178,0.25)]",
+    dot: "bg-[#0891B2]",
   },
   editor: {
     label: tr(t.scripts.editingInstructions, lang),
     icon: Scissors,
-    color: "text-emerald-400",
-    bg: "bg-gradient-to-br from-emerald-500/25 to-emerald-900/10",
-    border: "border-emerald-500/40",
-    dot: "bg-emerald-500",
+    color: "text-[#a3e635]",
+    bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]",
+    border: "border-[rgba(132,204,22,0.2)]",
+    dot: "bg-[#84CC16]",
   },
   text_on_screen: {
     label: tr(t.scripts.textOnScreen, lang),
     icon: MonitorPlay,
-    color: "text-zinc-400",
-    bg: "bg-gradient-to-br from-zinc-500/25 to-zinc-900/10",
-    border: "border-zinc-500/40",
-    dot: "bg-zinc-500",
+    color: "text-[#94a3b8]",
+    bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]",
+    border: "border-[rgba(148,163,184,0.15)]",
+    dot: "bg-[#64748b]",
   },
 });
 
@@ -1830,7 +1830,7 @@ export default function Scripts() {
                      }}
                    />
                    <div className="flex items-center gap-2">
-                     <Archive className="w-4 h-4 text-amber-400" />
+                     <Archive className="w-4 h-4 text-[#22d3ee]" />
                      <span className="text-sm font-medium text-foreground">
                        {tr({ en: "Use a script from the Vault", es: "Usar un guion del Vault" }, language)}
                      </span>
@@ -1838,7 +1838,7 @@ export default function Scripts() {
                  </div>
 
                  {useAsTemplate && (
-                   <div className="mb-3 p-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-amber-900/5">
+                   <div className="mb-3 p-3 rounded-xl border border-[rgba(8,145,178,0.25)] bg-gradient-to-br from-[rgba(8,145,178,0.05)] to-[rgba(8,145,178,0.02)]">
                      {templateLoading ? (
                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                          <Loader2 className="w-4 h-4 animate-spin" />
@@ -1863,7 +1863,7 @@ export default function Scripts() {
                            }
                          }}
                        >
-                         <SelectTrigger className="bg-transparent border-amber-500/30">
+                         <SelectTrigger className="bg-transparent border-[rgba(8,145,178,0.25)]">
                            <SelectValue placeholder={tr({ en: "Select a Vault template", es: "Selecciona una plantilla del Vault" }, language)} />
                          </SelectTrigger>
                          <SelectContent>
@@ -1935,18 +1935,18 @@ export default function Scripts() {
               <div className="mb-4 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
                 {viewingMetadata.idea_ganadora && (
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold text-amber-400">{tr(t.scripts.winningIdea, language)}:</span>{" "}
+                    <span className="font-semibold text-[#22d3ee]">{tr(t.scripts.winningIdea, language)}:</span>{" "}
                     {viewingMetadata.idea_ganadora}
                   </p>
                 )}
                 {viewingMetadata.target && (
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold text-red-400">{tr(t.scripts.target, language)}:</span>{" "}
+                    <span className="font-semibold text-orange-400">{tr(t.scripts.target, language)}:</span>{" "}
                     {viewingMetadata.target}
                   </p>
                 )}
                 <div className="flex items-center gap-2 text-sm text-foreground">
-                  <span className="font-semibold text-violet-400">{tr(t.scripts.format, language)}:</span>
+                  <span className="font-semibold text-[#22d3ee]">{tr(t.scripts.format, language)}:</span>
                   <Select
                     value={viewingMetadata.formato || ""}
                     onValueChange={async (val) => {
@@ -2120,6 +2120,7 @@ export default function Scripts() {
                         line_type: l.line_type,
                         section: l.section,
                         text: l.text,
+                        ...(l.rich_text !== undefined ? { rich_text: l.rich_text } : {}),
                       }));
                       if (rows.length > 0) {
                         await supabase.from("script_lines").insert(rows);
@@ -2331,8 +2332,8 @@ export default function Scripts() {
               {/* File Submission */}
               <div className="mt-4 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
                 <div className="flex items-center gap-2 mb-2">
-                  <Link2 className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-400">File Submission:</span>
+                  <Link2 className="w-4 h-4 text-[#22d3ee]" />
+                  <span className="text-sm font-semibold text-[#22d3ee]">File Submission:</span>
                 </div>
                 {editingFileSubmission ? (
                   <div className="flex gap-2">
@@ -2370,7 +2371,7 @@ export default function Scripts() {
                   <div className="flex items-center gap-2 min-w-0">
                     <button
                       onClick={() => window.open(fileSubmission!, '_blank', 'noopener,noreferrer')}
-                      className="text-sm text-blue-400 hover:underline break-all text-left min-w-0"
+                      className="text-sm text-[#22d3ee] hover:underline break-all text-left min-w-0"
                     >
                       {fileSubmission}
                     </button>
