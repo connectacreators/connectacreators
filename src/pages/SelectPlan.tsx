@@ -133,9 +133,9 @@ export default function SelectPlan() {
     setSelecting(planKey);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke("upgrade-subscription", {
+      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
         headers: { Authorization: `Bearer ${session?.access_token}` },
-        body: { new_plan_type: planKey },
+        body: { action: "change-plan", new_plan_type: planKey },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

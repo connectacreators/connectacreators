@@ -63,8 +63,10 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean }) {
           }
         } else if (
           data.subscription_status === "active" ||
+          data.subscription_status === "trialing" ||
           data.subscription_status === "pending_contact" ||
-          data.subscription_status === "canceling"
+          data.subscription_status === "canceling" ||
+          data.subscription_status === "connecta_plus"
         ) {
           setHasValidSubscription(true);
           setSubscriptionData(data);
