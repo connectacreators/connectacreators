@@ -12,7 +12,6 @@ import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
 import horseIcon from "@/assets/chess-knight-white.svg";
 import DottedGlobe from "@/components/DottedGlobe";
-import CanvasDemo from "@/components/CanvasDemo";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -305,48 +304,46 @@ export default function Home() {
         </div>
       </section>
 
-      {/* See it work — Canvas Demo */}
-      <section id="demo" className="py-32 border-t border-border/20">
-        <div className="max-w-6xl mx-auto px-6">
-          <motion.p
-            className="text-xs tracking-[0.3em] uppercase text-muted-foreground text-center mb-4"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            custom={0}
-            variants={fadeUp}
-          >
-            {tr({ en: "Live Demo", es: "Demo en vivo" }, language)}
-          </motion.p>
-          <motion.h2
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-4 tracking-tight"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            custom={1}
-            variants={fadeUp}
-          >
-            {tr({ en: "See it work", es: "Míralo en acción" }, language)}
-          </motion.h2>
-          <motion.p
-            className="text-center text-muted-foreground mb-12 max-w-xl mx-auto"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            custom={2}
-            variants={fadeUp}
-          >
-            {tr({ en: "Drop a video, connect it to AI, add a competitor — watch the script generate in real time.", es: "Agrega un video, conéctalo a la IA, añade un competidor — mira cómo se genera el script en tiempo real." }, language)}
-          </motion.p>
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            custom={3}
-            variants={fadeUp}
-          >
-            <CanvasDemo />
-          </motion.div>
+      {/* Features */}
+      <section className="max-w-6xl mx-auto px-6 py-32">
+        <motion.p
+          className="text-xs tracking-[0.3em] uppercase text-muted-foreground text-center mb-4"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          custom={0}
+          variants={fadeUp}
+        >
+          {tr({ en: "Features", es: "Funcionalidades" }, language)}
+        </motion.p>
+        <motion.h2
+          className="text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-20 tracking-tight"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          custom={1}
+          variants={fadeUp}
+        >
+          {tr(t.home.featuresHeading, language)}
+        </motion.h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {features.map((f, i) => (
+            <motion.div
+              key={i}
+              className={`p-8 group ${f.disabled ? "card-glass-17 opacity-40 pointer-events-none" : "card-glass-17"}`}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              custom={i + 2}
+              variants={fadeUp}
+            >
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mb-6 transition-all" style={{background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.14)',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.15)'}}>
+                <f.icon className={`w-5 h-5 transition-colors ${f.disabled ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-primary"}`} />
+              </div>
+              <h3 className={`font-semibold text-lg mb-3 tracking-tight ${f.disabled ? "text-foreground/40" : ""}`}>{f.title}</h3>
+              <p className={`text-sm leading-relaxed ${f.disabled ? "text-muted-foreground/40" : "text-muted-foreground"}`}>{f.desc}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
