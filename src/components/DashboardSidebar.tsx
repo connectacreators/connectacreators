@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Database, Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle,
 } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
@@ -39,7 +39,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, signOut, isAdmin, isUser, isVideographer, isEditor, isConnectaPlus, role } = useAuth();
+  const { user, signOut, isAdmin, isUser, isVideographer, isEditor, role } = useAuth();
   const { credits, percentUsed } = useCredits();
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
 

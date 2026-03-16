@@ -43,7 +43,7 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
             className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
             title={tr(t.dashboard.signOut, language)}
           >
-            <LogOut className="w-4 h-4 text-[#0891B2]" />
+            <LogOut className="w-4 h-4 text-red-400" />
           </button>
         </div>
       </div>
