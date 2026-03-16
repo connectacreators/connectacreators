@@ -8,9 +8,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles, Send, Briefcase, Film } from "lucide-react";
 
-import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
-import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
-import horseIcon from "@/assets/chess-knight-white.svg";
+import connectaLoginLogo from "@/assets/connecta-login-logo.png";
+import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
 import DottedGlobe from "@/components/DottedGlobe";
 
 const fadeUp = {
@@ -87,15 +86,11 @@ export default function Home() {
       {/* Navbar */}
       <header className="fixed top-0 w-full z-50 backdrop-blur-xl bg-background/60 border-b border-border/20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #0891B2, #84CC16)", boxShadow: "0 2px 8px rgba(8,145,178,0.4)" }}
-            >
-              <img src={horseIcon} alt="" className="w-5 h-5" />
-            </div>
-            <span className="font-bold text-base tracking-tight text-foreground">Connecta</span>
-          </div>
+          <img
+            src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
+            alt="Connecta"
+            className="h-6 object-contain"
+          />
           <div className="flex items-center gap-3">
             <LanguageToggle />
             <ThemeToggle />
