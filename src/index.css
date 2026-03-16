@@ -96,7 +96,7 @@ All colors MUST be HSL for consistency and theming.
     --input: 0 0% 100%;
     --ring: 197 91% 37%;
     --sidebar-background: 210 25% 98%;
-    --sidebar-foreground: 213 31% 91%;
+    --sidebar-foreground: 215 28% 12%;  /* dark navy — readable on light sidebar bg */
     --sidebar-primary: 197 91% 37%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 84 68% 45%;
@@ -120,43 +120,6 @@ All colors MUST be HSL for consistency and theming.
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
 }
 
 @layer base {
@@ -253,6 +216,7 @@ All colors MUST be HSL for consistency and theming.
     pointer-events: none;
     border-radius: inherit;
   }
+  /* Modifier variants — must be composed with .glass-card (which provides backdrop-filter) */
   .glass-card-cyan {
     background: rgba(8, 145, 178, 0.07);
     border-color: rgba(8, 145, 178, 0.2);
@@ -296,6 +260,8 @@ All colors MUST be HSL for consistency and theming.
     top: 0; left: 0; right: 0;
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(8,145,178,0.4), rgba(132,204,22,0.2), transparent);
+    pointer-events: none;
+    z-index: 0;
   }
 
   /* ── Ambient glow ── */
@@ -317,6 +283,10 @@ All colors MUST be HSL for consistency and theming.
   }
 
   /* ── Status badges ── */
+  .badge-cyan, .badge-lime, .badge-amber, .badge-neutral {
+    display: inline-flex; align-items: center; padding: 0.125rem 0.5rem;
+    border-radius: 9999px; font-size: 0.75rem; font-weight: 600; line-height: 1;
+  }
   .badge-cyan    { background: rgba(8,145,178,0.15);  color: #22d3ee; border: 1px solid rgba(8,145,178,0.25); }
   .badge-lime    { background: rgba(132,204,22,0.12); color: #a3e635; border: 1px solid rgba(132,204,22,0.25); }
   .badge-amber   { background: rgba(245,158,11,0.10); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
@@ -452,3 +422,11 @@ All colors MUST be HSL for consistency and theming.
 .react-flow__handle.connectionindicator {
   cursor: crosshair;
 }
+
+/* ── Backward-compat aliases (removed in rebrand, will be migrated per-component in later chunks) ── */
+.glass-ios { background: rgba(255,255,255,0.035); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.3); position: relative; }
+.glass-ios-strong { background: rgba(8,145,178,0.07); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(8,145,178,0.2); box-shadow: inset 0 1px 0 rgba(8,145,178,0.15), 0 4px 20px rgba(0,0,0,0.3), 0 0 30px rgba(8,145,178,0.06); position: relative; }
+.sidebar-glass { background: rgba(8,145,178,0.04); backdrop-filter: blur(72px) saturate(180%) brightness(1.04); -webkit-backdrop-filter: blur(72px) saturate(180%) brightness(1.04); border-right: 1px solid rgba(8,145,178,0.12); position: relative; }
+.btn-17-primary { background: linear-gradient(135deg, #0891B2, #84CC16); color: #fff; box-shadow: 0 4px 20px rgba(8,145,178,0.35), inset 0 1px 0 rgba(255,255,255,0.15); position: relative; overflow: hidden; }
+.btn-17-secondary { background: rgba(8,145,178,0.1); border: 1px solid rgba(8,145,178,0.25); color: #22d3ee; }
+.btn-17 { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; }
