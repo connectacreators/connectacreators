@@ -136,7 +136,7 @@ function ScriptLineEditor({
       {/* Left color bar */}
       <div
         className={[
-          "w-1 flex-shrink-0 rounded-l-sm cursor-pointer transition-all",
+          "line-bar w-1 flex-shrink-0 rounded-l-sm cursor-pointer transition-all",
           "group-hover:w-1.5",
           isActive ? "w-1.5" : "",
           TYPE_BAR_CLASS[line.line_type],
