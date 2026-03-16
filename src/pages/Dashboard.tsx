@@ -296,7 +296,7 @@ export default function Dashboard() {
                       variants={fadeUp}
                     >
                       <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                        <card.icon className={`w-5 h-5 ${card.color} group-hover:text-primary transition-colors`} />
+                        <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
                       </div>
                       <div>
                         <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
@@ -470,7 +470,7 @@ export default function Dashboard() {
                           variants={fadeUp}
                         >
                           <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                            <card.icon className={`w-5 h-5 ${card.color} group-hover:text-primary transition-colors`} />
+                            <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
                           </div>
                           <div>
                             <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
