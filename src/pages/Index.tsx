@@ -375,7 +375,7 @@ export default function Index() {
             { n: "442K", label: "Likes totales" },
           ].map((s, i) => (
             <motion.div key={i} variants={fadeUp} custom={i * 0.1} initial="hidden" whileInView="visible" viewport={{ once: true }}
-              className="s-card" style={{ padding: "2.25rem", textAlign: "center" }}>
+              className="s-card glass-card rounded-xl" style={{ padding: "2.25rem", textAlign: "center" }}>
               <p className="text-gradient-brand" style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "clamp(2.2rem, 4vw, 3.2rem)", fontWeight: 700, lineHeight: 1 }}>{s.n}{s.suf}</p>
               <p style={{ fontFamily: "'Syne',sans-serif", fontSize: "0.62rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#6A6254", marginTop: "0.6rem" }}>{s.label}</p>
             </motion.div>
@@ -407,7 +407,7 @@ export default function Index() {
             { n: "06", title: "Integración de Sistemas AI", desc: "Automatización inteligente para que los clientes compren o agenden una cita contigo de forma automática." },
           ].map((s, i) => (
             <motion.div key={i} variants={fadeUp} custom={i * 0.08} initial="hidden" whileInView="visible" viewport={{ once: true }}
-              className="s-card" style={{ padding: "2rem" }}>
+              className="s-card glass-card rounded-xl" style={{ padding: "2rem" }}>
               <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "3.5rem", fontWeight: 700, color: "rgba(8,145,178,0.14)", lineHeight: 1, marginBottom: "1.25rem" }}>{s.n}</p>
               <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: "0.9rem", fontWeight: 600, color: "#F0EAD8", marginBottom: "0.75rem", lineHeight: 1.45 }}>{s.title}</h3>
               <p style={{ fontFamily: "'Syne',sans-serif", fontSize: "0.82rem", color: "#6A6254", lineHeight: 1.75 }}>{s.desc}</p>
@@ -554,7 +554,7 @@ export default function Index() {
               { icon: <Rocket className="w-8 h-8 text-[#84CC16] mx-auto" />, label: "Ejecución" },
             ].map((p, i) => (
               <motion.div key={i} variants={fadeUp} custom={0.1 + i * 0.1} initial="hidden" whileInView="visible" viewport={{ once: true }}
-                className="s-card" style={{ padding: "2rem", textAlign: "center" }}>
+                className="s-card glass-card rounded-xl" style={{ padding: "2rem", textAlign: "center" }}>
                 <div style={{ marginBottom: "0.9rem" }}>{p.icon}</div>
                 <p style={{ fontFamily: "'Syne',sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "#C8C0AE", letterSpacing: "0.06em" }}>{p.label}</p>
               </motion.div>

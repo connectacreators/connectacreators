@@ -955,7 +955,7 @@ export default function LandingPageNew() {
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.15, duration: 0.6 }}
                     viewport={{ once: true }}
-                    className="text-center relative"
+                    className="glass-card rounded-xl p-6 text-center"
                   >
                     <div
                       className="flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-5 relative z-10"
