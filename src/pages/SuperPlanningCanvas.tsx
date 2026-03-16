@@ -371,10 +371,11 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     const ctaNodes = contextNodes.filter(n => n.type === "ctaBuilderNode");
 
     // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
-    const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription);
+    // Include nodes with videoAnalysis even if transcription is empty (B-roll videos)
+    const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription || !!(n.data as any).videoAnalysis);
 
     return {
-      transcriptions: videoNodesWithTranscript.map(n => (n.data as any).transcription),
+      transcriptions: videoNodesWithTranscript.map(n => (n.data as any).transcription || ""),
       structures: videoNodesWithTranscript.map(n => {
         const d = n.data as any;
         if (!d.structure) return null;
@@ -385,6 +386,16 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
         channel_username: (n.data as any).channel_username ?? null,
         url: (n.data as any).url ?? null,
       })),
+      video_analyses: videoNodesWithTranscript
+        .filter(n => !!(n.data as any).videoAnalysis)
+        .map(n => {
+          const va = (n.data as any).videoAnalysis;
+          return {
+            detected_format: (n.data as any).structure?.detected_format ?? null,
+            visual_segments: va.visual_segments || [],
+            audio: va.audio || null,
+          };
+        }),
       text_notes: textNoteNodes.map(n => (n.data as any).noteText || "").filter(Boolean).join("\n\n"),
       research_facts: researchNodes.flatMap(n => (n.data as any).facts || []),
       primary_topic: (researchNodes[0]?.data as any)?.topic || "",
@@ -539,8 +550,8 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   }, [onCancel]);
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#1a1a1a" }}>
-      <div className="flex-1 relative min-w-0" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#1a1a1a" }}>
+    <div className="flex h-full overflow-hidden" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
+      <div className="flex-1 relative min-w-0" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
         <CanvasToolbar
           onAddNode={addNode}
           onBack={handleBack}
@@ -596,12 +607,12 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
           deleteKeyCode={null}
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
-          style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#1a1a1a" }}
+          style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}
         >
           <Background
             variant={BackgroundVariant.Dots}
-            bgColor={theme === "light" ? "hsl(220 5% 96%)" : "#1a1a1a"}
-            color={theme === "light" ? "#cbd5e1" : "#2d2d2d"}
+            bgColor={theme === "light" ? "hsl(220 5% 96%)" : "#06090c"}
+            color={theme === "light" ? "#cbd5e1" : "#0d1f2a"}
             gap={24}
             size={1}
           />
