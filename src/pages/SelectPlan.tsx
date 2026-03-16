@@ -12,7 +12,7 @@ const plans = [
   {
     key: "starter",
     name: "Starter",
-    price: "$30/month",
+    price: "$45/month",
     description: "Perfect for beginners getting started with Connecta.",
     features: [
       "Access to Connecta CRM",
@@ -27,7 +27,7 @@ const plans = [
   {
     key: "growth",
     name: "Growth",
-    price: "$60/month",
+    price: "$90/month",
     description: "Best for active creators and businesses.",
     features: [
       "Access to Connecta CRM",
@@ -178,7 +178,7 @@ export default function SelectPlan() {
     : plans;
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div className="min-h-screen bg-background ambient-glow py-12 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-end mb-4">
           {!isUpgrade && (
@@ -219,12 +219,12 @@ export default function SelectPlan() {
               className="flex"
             >
               <Card
-                className={`flex flex-col w-full relative ${
-                  plan.badge ? "border-primary shadow-lg shadow-primary/10" : "border-border"
+                className={`flex flex-col w-full relative glass-card ${
+                  plan.badge ? "glass-card-cyan shadow-lg shadow-primary/10" : ""
                 }`}
               >
                 {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 badge-lime text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
                     <Crown className="w-3 h-3" />
                     {plan.badge}
                   </div>
@@ -246,8 +246,7 @@ export default function SelectPlan() {
                 </CardContent>
                 <CardFooter>
                   <Button
-                    className="w-full"
-                    variant={plan.badge ? "default" : "outline"}
+                    className="w-full btn-primary-glass"
                     disabled={selecting !== null}
                     onClick={() => handleSelect(plan)}
                   >

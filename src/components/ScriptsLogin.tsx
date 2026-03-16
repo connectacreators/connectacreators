@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import connectaLoginLogo from "@/assets/connecta-login-logo.png";
-import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
+import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
+import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
 import { AnimatePresence, motion } from "framer-motion";
 
 type Props = {
@@ -94,7 +94,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background ambient-glow flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageToggle />
         <ThemeToggle />
@@ -135,8 +135,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
                 onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
               />
-              <Button onClick={handleForgotPassword} className="w-full gap-2 bg-gradient-to-b from-primary to-primary-dark hover:from-primary/90 hover:to-primary-dark/90" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              <Button onClick={handleForgotPassword} className="w-full gap-2 btn-primary-glass" disabled={loading}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4 text-[#94a3b8]" />}
                 {tr(t.login.sendResetLink, language)}
               </Button>
               <button onClick={() => setIsForgot(false)} className="text-sm text-primary hover:underline w-full text-center">
@@ -165,8 +165,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
               />
-              <Button onClick={handleEmailAuth} className="w-full gap-2 bg-gradient-to-b from-primary to-primary-dark hover:from-primary/90 hover:to-primary-dark/90" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              <Button onClick={handleEmailAuth} className="w-full gap-2 btn-primary-glass" disabled={loading}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4 text-[#94a3b8]" />}
                 {isSignUp ? tr(t.login.signUp, language) : tr(t.login.signIn, language)}
               </Button>
               {!isSignUp && (
@@ -208,7 +208,9 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
       <div className="py-6 flex justify-center">
         <a href="/" className="cursor-pointer">
-          <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
+          <div className="gradient-brand rounded-xl px-3 py-1 flex items-center justify-center">
+            <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
+          </div>
         </a>
       </div>
     </div>

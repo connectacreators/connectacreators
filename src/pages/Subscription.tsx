@@ -1,165 +1,192 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/hooks/useTheme";
+import { useCredits } from "@/hooks/useCredits";
 import { useLanguage } from "@/hooks/useLanguage";
-import { t, tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
-import ScriptsLogin from "@/components/ScriptsLogin";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow } from
-"@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription } from
-"@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Loader2,
-  Download,
-  CreditCard,
-  CalendarDays,
-  AlertCircle,
-  ArrowUpCircle,
-  CheckCircle2 } from
-"lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Zap, TrendingDown, RefreshCw, Infinity, ExternalLink, FileText, Download, Settings, ArrowUpDown, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import AnimatedDots from "@/components/ui/AnimatedDots";
+import ScriptsLogin from "@/components/ScriptsLogin";
 
-interface SubscriptionData {
+const PLAN_OPTIONS = [
+  { key: "starter",    name: "Starter",    price: "$45/mo",  credits: "500",   scrapes: "5",  amount: 4500  },
+  { key: "growth",     name: "Growth",     price: "$90/mo",  credits: "1,500", scrapes: "12", amount: 9000  },
+  { key: "enterprise", name: "Enterprise", price: "$150/mo", credits: "3,500", scrapes: "25", amount: 15000 },
+];
+
+const PLAN_LABELS: Record<string, string> = {
+  starter: "Starter",
+  growth: "Growth",
+  enterprise: "Enterprise",
+  connecta_plan: "Connecta Plan",
+  connecta_plus: "Connecta Plus",
+  trial: "Trial",
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  add_video_to_vault: "Transcribe video",
+  research: "AI Research",
+  "refine-script": "Refine script",
+  "translate-script": "Translate script",
+  "templatize-script": "Templatize script",
+  "generate-script": "Generate script",
+  admin_recharge: "Admin recharge",
+};
+
+interface Invoice {
   id: string;
-  status: string;
-  current_period_start: number;
-  current_period_end: number;
-  cancel_at_period_end: boolean;
-  plan_name: string;
+  number: string | null;
   amount: number;
   currency: string;
-  interval: string;
-}
-
-interface InvoiceData {
-  id: string;
-  number: string;
+  status: string;
   date: number;
-  amount: number;
-  currency: string;
-  status: string;
   pdf_url: string | null;
   hosted_url: string | null;
 }
 
-const CANCEL_REASONS = [
-{ value: "too_expensive", label: "Too expensive" },
-{ value: "not_using", label: "Not using it enough" },
-{ value: "better_alternative", label: "Found a better alternative" },
-{ value: "missing_features", label: "Missing features I need" },
-{ value: "other", label: "Other" }];
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 
+function formatInvoiceDate(ts: number) {
+  return new Date(ts * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
+}
 
 export default function Subscription() {
-  const { user, loading: authLoading, isAdmin, isVideographer, signOut, signInWithEmail, signUpWithEmail } = useAuth();
-  const isStaff = isAdmin || isVideographer;
-  const navigate = useNavigate();
-  const { theme } = useTheme();
+  const { user, loading: authLoading, isAdmin, signInWithEmail, signUpWithEmail } = useAuth();
+  const { credits, transactions, loading, percentUsed, scrapePercentUsed, refetch } = useCredits();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
-  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
-  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [changePlanLoading, setChangePlanLoading] = useState<string | null>(null);
+  const [confirmPlan, setConfirmPlan] = useState<{ key: string; isUpgrade: boolean } | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [stripeStatus, setStripeStatus] = useState<{
+    status: string;
+    cancel_at_period_end: boolean;
+    current_period_end: number;
+    canceled_at: number | null;
+    plan_name: string | null;
+    amount: number | null;
+    currency: string;
+    interval: string | null;
+  } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
-  // Cancel modal state
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelStep, setCancelStep] = useState<"reason" | "confirming" | "done">("reason");
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelFeedback, setCancelFeedback] = useState("");
-  const [canceling, setCanceling] = useState(false);
-  const [clientPlanType, setClientPlanType] = useState<string | null>(null);
-
-  const isManagedPlan = clientPlanType === "connecta_plan" || clientPlanType === "connecta_plus";
-
-  const fetchData = async () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
     try {
-      // Fetch client plan type
-      const { data: clientData } = await supabase.
-      from("clients").
-      select("plan_type").
-      eq("user_id", user.id).
-      maybeSingle();
-      if (clientData) setClientPlanType(clientData.plan_type);
-
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke("get-subscription", {
-        headers: { Authorization: `Bearer ${session?.access_token}` }
+      if (!session) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
+        body: { action: "portal" },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (res.error) throw new Error(res.error.message);
-      setSubscription(res.data.subscription);
-      setInvoices(res.data.invoices || []);
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      } else {
+        throw new Error("No portal URL returned");
+      }
     } catch (err: any) {
-      setError(err.message || "Error loading subscription");
+      toast.error(err.message || "Failed to open billing portal");
     } finally {
-      setLoading(false);
+      setPortalLoading(false);
+    }
+  };
+
+  const fetchStripeStatus = async () => {
+    setStatusLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
+        body: { action: "status" },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.subscription) {
+        setStripeStatus(data.subscription);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch Stripe status:", err);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const fetchInvoices = async () => {
+    setInvoicesLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
+        body: { action: "invoices" },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error) throw error;
+      if (data?.invoices) {
+        setInvoices(data.invoices);
+      }
+    } catch (err: any) {
+      console.error("Failed to load invoices:", err);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
+
+  const handleChangePlan = async (planKey: string, isUpgrade: boolean) => {
+    setConfirmPlan(null);
+    setChangePlanLoading(planKey);
+    try {
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (!session) throw new Error("Session expired. Please sign in again.");
+
+      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
+        body: { action: "change-plan", new_plan: planKey },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error) {
+        let msg = "Failed to change plan. Please try again.";
+        try { const body = await (error as any).context?.json?.(); if (body?.error) msg = body.error; } catch {}
+        throw new Error(msg);
+      }
+
+      toast.success(data.message || (isUpgrade ? "Plan upgraded!" : "Downgrade scheduled!"));
+      await fetchStripeStatus();
+      await refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change plan.");
+    } finally {
+      setChangePlanLoading(null);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [user]);
-
-  const handleCancel = async () => {
-    setCanceling(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { error } = await supabase.functions.invoke("cancel-subscription", {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-        body: { reason: cancelReason, feedback: cancelFeedback }
-      });
-      if (error) throw error;
-      setCancelStep("done");
-      toast.success("Subscription canceled");
-      // Refresh data
-      await fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to cancel subscription");
-    } finally {
-      setCanceling(false);
+    if (user && !isAdmin) {
+      fetchStripeStatus();
+      fetchInvoices();
     }
-  };
-
-  const closeCancelModal = () => {
-    setCancelOpen(false);
-    setCancelStep("reason");
-    setCancelReason("");
-    setCancelFeedback("");
-  };
+  }, [user, isAdmin]);
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>);
-
+      </div>
+    );
   }
 
   if (!user) {
@@ -167,304 +194,546 @@ export default function Subscription() {
       <ScriptsLogin
         onSignIn={() => {}}
         signInWithEmail={signInWithEmail}
-        signUpWithEmail={signUpWithEmail} />);
-
-
+        signUpWithEmail={signUpWithEmail}
+      />
+    );
   }
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat(language === "es" ? "es-MX" : "en-US", {
-      style: "currency",
-      currency: currency.toUpperCase()
-    }).format(amount / 100);
-  };
+  // Admin view — unlimited credits
+  if (isAdmin) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {language === "en" ? "Credits & Usage" : "Créditos y Uso"}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {language === "en" ? "Admin account — unlimited credits" : "Cuenta admin — créditos ilimitados"}
+          </p>
+        </div>
 
-  const formatDate = (ts: number) => {
-    return new Date(ts * 1000).toLocaleDateString(
-      language === "es" ? "es-MX" : "en-US",
-      { year: "numeric", month: "short", day: "numeric" }
+        <Card className="glass-card border-border/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-[#0891B2]/20 flex items-center justify-center">
+                <Infinity className="w-6 h-6 text-[#0891B2]" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-[#0891B2]">
+                  {language === "en" ? "Unlimited" : "Ilimitado"}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {language === "en"
+                    ? "Admin accounts have no credit limits"
+                    : "Las cuentas admin no tienen límite de créditos"}
+                </div>
+              </div>
+              <Badge className="ml-auto bg-[#0891B2]/20 text-[#0891B2] border-[#0891B2]/30">Admin</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
-  };
+  }
 
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "active":return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-      case "past_due":return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-      case "canceled":case "unpaid":return "bg-red-500/20 text-red-400 border-red-500/30";
-      default:return "bg-muted text-muted-foreground";
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-  const invoiceStatusColor = (status: string) => {
-    switch (status) {
-      case "paid":return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-      case "open":return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-      default:return "bg-muted text-muted-foreground";
-    }
-  };
+  if (!credits) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <Card className="glass-card border-border/30">
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            {language === "en"
+              ? "No credit account found. Contact your admin to set up your subscription."
+              : "No se encontró cuenta de créditos. Contacta a tu admin para configurar tu suscripción."}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const balanceColor =
+    percentUsed >= 90 ? "text-red-400" : percentUsed >= 75 ? "text-amber-400" : "text-foreground";
+  const barColor =
+    percentUsed >= 90 ? "bg-red-400" : percentUsed >= 75 ? "bg-amber-400" : "bg-primary";
 
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen &&
-      <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      }
-
-      <DashboardSidebar
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        currentPath="/subscription" />
-
-
-      <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen} />
-
-
-        <div className="flex-1 px-4 sm:px-8 py-8 max-w-4xl mx-auto w-full">
-          <h1 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-primary" />
-            {tr(t.subscription.title, language)}
+    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {language === "en" ? "Credits & Usage" : "Créditos y Uso"}
           </h1>
-
-          {isStaff ?
-          <Card>
-              <CardContent className="py-16 text-center">
-                <p className="text-4xl mb-4">😎</p>
-                <p className="text-lg font-medium text-foreground">no tienes suscripción crack, más bien te tenemos que pagar jeje
-
-              </p>
-              </CardContent>
-            </Card> :
-          loading ?
-          <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div> :
-          error ?
-          <Card className="border-destructive/50">
-              <CardContent className="flex items-center gap-3 py-6">
-                <AlertCircle className="w-5 h-5 text-destructive" />
-                <p className="text-destructive">{error}</p>
-              </CardContent>
-            </Card> :
-          !subscription ?
-          <Card>
-              <CardContent className="py-12 text-center">
-                <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">{tr(t.subscription.noSubscription, language)}</p>
-                <Button onClick={() => navigate("/select-plan")} className="gap-2">
-                  <ArrowUpCircle className="w-4 h-4" />
-                  Choose a Plan
-                </Button>
-              </CardContent>
-            </Card> :
-
-          <>
-              {/* Current Plan Card */}
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="text-lg">{tr(t.subscription.currentPlan, language)}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Badge className={`${statusColor(subscription.status)} border`}>
-                      {subscription.status}
-                    </Badge>
-                    {subscription.cancel_at_period_end &&
-                  <>
-                        <Badge variant="outline" className="text-amber-400 border-amber-500/30">
-                          {tr(t.subscription.cancelsAtEnd, language)}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          Available until {formatDate(subscription.current_period_end)}
-                        </span>
-                      </>
-                  }
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">{tr(t.subscription.amount, language)}</p>
-                      <p className="text-foreground font-semibold text-lg">
-                        {formatCurrency(subscription.amount, subscription.currency)}
-                        <span className="text-muted-foreground text-sm font-normal"> / {subscription.interval}</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">
-                        {subscription.cancel_at_period_end ? "Access ends" : tr(t.subscription.nextPayment, language)}
-                      </p>
-                      <p className="text-foreground font-medium flex items-center gap-1">
-                        <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                        {formatDate(subscription.current_period_end)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">{tr(t.subscription.billingPeriod, language)}</p>
-                      <p className="text-foreground font-medium">
-                        {formatDate(subscription.current_period_start)} – {formatDate(subscription.current_period_end)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Upgrade & Cancel actions — hidden for managed plans */}
-                  {!isManagedPlan &&
-                <div className="flex items-center justify-between pt-4 border-t border-border">
-                      {!subscription.cancel_at_period_end &&
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/select-plan?upgrade=true")}
-                    className="gap-2">
-
-                          <ArrowUpCircle className="w-4 h-4" />
-                          Upgrade Plan
-                        </Button>
-                  }
-                      {!subscription.cancel_at_period_end &&
-                  <button
-                    onClick={() => setCancelOpen(true)}
-                    className="text-xs text-muted-foreground hover:text-destructive transition-colors underline">
-
-                          Cancel subscription
-                        </button>
-                  }
-                    </div>
-                }
-                </CardContent>
-              </Card>
-
-              {/* Payment History */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{tr(t.subscription.paymentHistory, language)}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {invoices.length === 0 ?
-                <p className="text-muted-foreground text-sm py-4 text-center">
-                      {tr(t.subscription.noInvoices, language)}
-                    </p> :
-
-                <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{tr(t.subscription.date, language)}</TableHead>
-                            <TableHead>{tr(t.subscription.invoiceNumber, language)}</TableHead>
-                            <TableHead>{tr(t.subscription.amount, language)}</TableHead>
-                            <TableHead>{tr(t.subscription.status, language)}</TableHead>
-                            <TableHead className="text-right">{tr(t.subscription.invoice, language)}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {invoices.map((inv) =>
-                      <TableRow key={inv.id}>
-                              <TableCell className="text-sm">{formatDate(inv.date)}</TableCell>
-                              <TableCell className="text-sm font-mono">{inv.number || "—"}</TableCell>
-                              <TableCell className="text-sm font-medium">
-                                {formatCurrency(inv.amount, inv.currency)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={`${invoiceStatusColor(inv.status || "")} border text-xs`}>
-                                  {inv.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right flex items-center justify-end gap-1">
-                                {inv.status === "open" && inv.hosted_url &&
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => window.open(inv.hosted_url!, "_blank")}
-                            className="gap-1">
-
-                                    <CreditCard className="w-3.5 h-3.5" />
-                                    {language === "es" ? "Pagar" : "Pay"}
-                                  </Button>
-                          }
-                                {inv.pdf_url &&
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(inv.pdf_url!, "_blank")}>
-
-                                    <Download className="w-4 h-4" />
-                                  </Button>
-                          }
-                              </TableCell>
-                            </TableRow>
-                      )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                }
-                </CardContent>
-              </Card>
-            </>
-          }
+          {credits.plan_type && (
+            <p className="text-muted-foreground text-sm mt-1">
+              {PLAN_LABELS[credits.plan_type] ?? credits.plan_type}
+              {credits.subscription_status && (
+                <Badge className="ml-2 text-xs" variant="outline">
+                  {credits.subscription_status}
+                </Badge>
+              )}
+            </p>
+          )}
         </div>
-      </main>
+        <Button variant="ghost" size="sm" onClick={refetch} className="gap-2">
+          <RefreshCw className="w-4 h-4" />
+          {language === "en" ? "Refresh" : "Actualizar"}
+        </Button>
+      </div>
 
-      {/* Cancel Subscription Modal */}
-      <Dialog open={cancelOpen} onOpenChange={(open) => {if (!open) closeCancelModal();}}>
-        <DialogContent className="sm:max-w-md">
-          {cancelStep === "reason" &&
-          <>
-              <DialogHeader>
-                <DialogTitle>We're sad to see you go 😢</DialogTitle>
-                <DialogDescription>
-                  Please let us know why you're canceling so we can improve.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <RadioGroup value={cancelReason} onValueChange={setCancelReason}>
-                  {CANCEL_REASONS.map((r) =>
-                <div key={r.value} className="flex items-center space-x-3">
-                      <RadioGroupItem value={r.value} id={r.value} />
-                      <Label htmlFor={r.value} className="cursor-pointer">{r.label}</Label>
-                    </div>
+      {/* Stripe Subscription Status Card */}
+      {statusLoading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground ml-2">
+            {language === "en" ? "Fetching subscription status..." : "Obteniendo estado de suscripción..."}
+          </span>
+        </div>
+      )}
+      {stripeStatus && (
+        <Card className={`glass-card ${
+          stripeStatus.status === "active" && !stripeStatus.cancel_at_period_end
+            ? "glass-card-cyan border-green-500/30"
+            : stripeStatus.status === "active" && stripeStatus.cancel_at_period_end
+            ? "border-amber-500/30"
+            : stripeStatus.status === "canceled"
+            ? "border-red-500/30"
+            : "border-border/30"
+        }`}>
+          <CardContent className="pt-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  stripeStatus.status === "active" && !stripeStatus.cancel_at_period_end
+                    ? "bg-green-500/10"
+                    : stripeStatus.cancel_at_period_end
+                    ? "bg-amber-500/10"
+                    : "bg-red-500/10"
+                }`}>
+                  <Settings className={`w-5 h-5 ${
+                    stripeStatus.status === "active" && !stripeStatus.cancel_at_period_end
+                      ? "text-green-400"
+                      : stripeStatus.cancel_at_period_end
+                      ? "text-amber-400"
+                      : "text-red-400"
+                  }`} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm">
+                      {language === "en" ? "Subscription" : "Suscripción"}
+                    </p>
+                    <Badge className={`text-xs ${
+                      stripeStatus.status === "active" && !stripeStatus.cancel_at_period_end
+                        ? "bg-green-500/15 text-green-400 border-green-500/30"
+                        : stripeStatus.status === "active" && stripeStatus.cancel_at_period_end
+                        ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                        : stripeStatus.status === "canceled"
+                        ? "bg-red-500/15 text-red-400 border-red-500/30"
+                        : "bg-muted/50 text-muted-foreground"
+                    }`}>
+                      {stripeStatus.cancel_at_period_end
+                        ? (language === "en" ? "Cancels at period end" : "Se cancela al final del período")
+                        : stripeStatus.status.charAt(0).toUpperCase() + stripeStatus.status.slice(1)}
+                    </Badge>
+                  </div>
+                  {stripeStatus.cancel_at_period_end && stripeStatus.current_period_end && (
+                    <p className="text-xs text-amber-400 mt-0.5">
+                      {language === "en" ? "Active until" : "Activa hasta"}{" "}
+                      {new Date(stripeStatus.current_period_end * 1000).toLocaleDateString(undefined, {
+                        month: "long", day: "numeric", year: "numeric",
+                      })}
+                    </p>
+                  )}
+                  {stripeStatus.status === "active" && !stripeStatus.cancel_at_period_end && stripeStatus.current_period_end && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {language === "en" ? "Renews" : "Renueva"}{" "}
+                      {new Date(stripeStatus.current_period_end * 1000).toLocaleDateString(undefined, {
+                        month: "long", day: "numeric", year: "numeric",
+                      })}
+                    </p>
+                  )}
+                  {stripeStatus.status === "canceled" && (
+                    <p className="text-xs text-red-400 mt-0.5">
+                      {language === "en" ? "Subscription ended" : "Suscripción terminada"}
+                      {stripeStatus.canceled_at && (
+                        <> · {language === "en" ? "Canceled" : "Cancelada"}{" "}
+                        {new Date(stripeStatus.canceled_at * 1000).toLocaleDateString(undefined, {
+                          month: "long", day: "numeric", year: "numeric",
+                        })}</>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+                size="sm"
+                className="gap-2 btn-primary-glass"
+              >
+                {portalLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ExternalLink className="w-4 h-4" />
                 )}
-                </RadioGroup>
-                <Textarea
-                placeholder="Additional feedback (optional)"
-                value={cancelFeedback}
-                onChange={(e) => setCancelFeedback(e.target.value)}
-                className="mt-2" />
+                {language === "en" ? "Manage" : "Gestionar"}
+              </Button>
+            </div>
+            {stripeStatus.amount != null && (
+              <p className="text-xs text-muted-foreground">
+                {new Intl.NumberFormat("en-US", { style: "currency", currency: stripeStatus.currency.toUpperCase() }).format(stripeStatus.amount / 100)}
+                /{stripeStatus.interval === "month" ? (language === "en" ? "month" : "mes") : stripeStatus.interval}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={closeCancelModal}>
-                  Never mind
-                </Button>
-                <Button
-                variant="destructive"
-                disabled={!cancelReason || canceling}
-                onClick={handleCancel}>
+      {/* ── Change Plan ──────────────────────────────────────────────────── */}
+      {stripeStatus?.status === "active" && !stripeStatus.cancel_at_period_end && credits?.plan_type && (
+        <Card className="glass-card border-border/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ArrowUpDown className="w-4 h-4 text-primary" />
+              {language === "en" ? "Change Plan" : "Cambiar Plan"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {PLAN_OPTIONS.map((plan) => {
+              const isCurrent = credits.plan_type === plan.key;
+              const currentOpt = PLAN_OPTIONS.find(p => p.key === credits.plan_type);
+              const currentAmount = currentOpt?.amount ?? 0;
+              const isUpgrade = plan.amount > currentAmount;
 
-                  {canceling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Cancel Subscription
-                </Button>
-              </div>
-            </>
-          }
-          {cancelStep === "done" &&
-          <>
-              <DialogHeader>
-                <DialogTitle>Subscription Canceled</DialogTitle>
-              </DialogHeader>
-              <div className="py-6 text-center">
-                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-                <p className="text-muted-foreground">
-                  Your subscription will remain active until the end of your current billing period
-                  {subscription ? ` (${formatDate(subscription.current_period_end)})` : ""}.
-                </p>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={closeCancelModal}>Close</Button>
-              </div>
-            </>
-          }
-        </DialogContent>
-      </Dialog>
-    </div>);
+              return (
+                <div
+                  key={plan.key}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+                    isCurrent
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border/30 hover:border-border/60"
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-foreground">{plan.name}</span>
+                      {isCurrent && (
+                        <Badge className="text-xs bg-primary/20 text-primary border-primary/30">
+                          {language === "en" ? "Current" : "Actual"}
+                        </Badge>
+                      )}
+                      {!isCurrent && isUpgrade && (
+                        <Badge className="text-xs bg-blue-500/15 text-blue-400 border-blue-500/30">↑ {language === "en" ? "Upgrade" : "Mejora"}</Badge>
+                      )}
+                      {!isCurrent && !isUpgrade && (
+                        <Badge className="text-xs bg-muted/50 text-muted-foreground border-border/40">↓ {language === "en" ? "Downgrade" : "Degradar"}</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {plan.price} · {plan.credits} {language === "en" ? "credits" : "créditos"} · {plan.scrapes} {language === "en" ? "scrapes" : "scrapes"}
+                    </p>
+                  </div>
 
+                  {!isCurrent && (
+                    confirmPlan?.key === plan.key ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground max-w-[160px] text-right leading-tight">
+                          {isUpgrade
+                            ? (language === "en" ? "Charged now (prorated)" : "Se cobra ahora (prorateado)")
+                            : (language === "en" ? "No refund — next cycle" : "Sin reembolso — próximo ciclo")}
+                        </span>
+                        <Button
+                          size="sm"
+                          disabled={!!changePlanLoading}
+                          onClick={() => handleChangePlan(plan.key, isUpgrade)}
+                          className="shrink-0 btn-primary-glass"
+                        >
+                          {changePlanLoading === plan.key ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (language === "en" ? "Confirm" : "Confirmar")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmPlan(null)}
+                          className="shrink-0 text-muted-foreground"
+                        >
+                          {language === "en" ? "Cancel" : "Cancelar"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={!!changePlanLoading}
+                        onClick={() => setConfirmPlan({ key: plan.key, isUpgrade })}
+                        className="shrink-0 btn-primary-glass"
+                      >
+                        {changePlanLoading === plan.key ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : isUpgrade ? (
+                          language === "en" ? "Upgrade" : "Mejorar"
+                        ) : (
+                          language === "en" ? "Downgrade" : "Degradar"
+                        )}
+                      </Button>
+                    )
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="flex items-start gap-2 pt-1 text-xs text-muted-foreground">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400/70" />
+              <span>
+                {language === "en"
+                  ? "Upgrades are charged immediately (prorated). Downgrades take effect at the next billing cycle — no refunds."
+                  : "Las mejoras se cobran de inmediato (prorateado). Las degradaciones aplican en el próximo ciclo — sin reembolso."}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main credits card */}
+      <Card className="glass-card border-border/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="w-4 h-4 text-[#0891B2]" />
+            {language === "en" ? "AI Credits" : "Créditos AI"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-end justify-between">
+            <div>
+              <span className={`text-4xl font-bold tabular-nums ${balanceColor}`}>
+                {credits.credits_balance}
+              </span>
+              <span className="text-muted-foreground text-lg"> / {credits.credits_monthly_cap}</span>
+            </div>
+            <span className="text-sm text-muted-foreground">
+              {credits.credits_used} {language === "en" ? "used" : "usados"}
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${barColor}`}
+              style={{ width: `${Math.max(2, 100 - percentUsed)}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {100 - percentUsed}% {language === "en" ? "remaining" : "restante"}
+            {credits.credits_reset_at && (
+              <> · {language === "en" ? "Resets" : "Reinicia"} {formatDate(credits.credits_reset_at)}</>
+            )}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Channel scrapes if applicable */}
+      {credits.channel_scrapes_limit > 0 && (
+        <Card className="glass-card border-border/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingDown className="w-4 h-4 text-blue-400" />
+              {language === "en" ? "Channel Scrapes" : "Scrapes de Canales"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-end justify-between">
+              <div>
+                <span className="text-3xl font-bold tabular-nums">
+                  {credits.channel_scrapes_used}
+                </span>
+                <span className="text-muted-foreground"> / {credits.channel_scrapes_limit}</span>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {language === "en" ? "used" : "usados"}
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  scrapePercentUsed >= 90
+                    ? "bg-red-400"
+                    : scrapePercentUsed >= 75
+                    ? "bg-amber-400"
+                    : "bg-blue-400"
+                }`}
+                style={{ width: `${Math.max(2, scrapePercentUsed)}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Invoices */}
+      {invoices.length > 0 && (
+        <Card className="glass-card border-border/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="w-4 h-4 text-green-400" />
+              {language === "en" ? "Invoices" : "Facturas"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {invoices.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0"
+                >
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <span className="font-medium">{inv.number || inv.id.slice(0, 12)}</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        {formatInvoiceDate(inv.date)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold">{formatCurrency(inv.amount, inv.currency)}</span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        inv.status === "paid"
+                          ? "text-green-400 border-green-400/30"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {inv.status}
+                    </Badge>
+                    {inv.pdf_url && (
+                      <a
+                        href={inv.pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={language === "en" ? "Download PDF" : "Descargar PDF"}
+                      >
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <Download className="w-3.5 h-3.5" />
+                        </Button>
+                      </a>
+                    )}
+                    {inv.hosted_url && (
+                      <a
+                        href={inv.hosted_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={language === "en" ? "View invoice" : "Ver factura"}
+                      >
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {invoicesLoading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground ml-2">
+            {language === "en" ? "Loading invoices..." : "Cargando facturas..."}
+          </span>
+        </div>
+      )}
+
+      {/* Credit costs reference */}
+      <Card className="glass-card border-border/30">
+        <CardHeader>
+          <CardTitle className="text-base">
+            {language === "en" ? "Credit Costs" : "Costo de Créditos"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm">
+            {[
+              {
+                action:
+                  language === "en"
+                    ? "Transcribe video (Vault)"
+                    : "Transcribir video (Vault)",
+                cost: 15,
+              },
+              {
+                action:
+                  language === "en"
+                    ? "AI Research (Script Wizard)"
+                    : "Investigación AI (Wizard)",
+                cost: 5,
+              },
+              {
+                action:
+                  language === "en"
+                    ? "Refine / Translate script"
+                    : "Refinar / Traducir guión",
+                cost: 2,
+              },
+              {
+                action:
+                  language === "en" ? "Templatize script" : "Convertir en plantilla",
+                cost: 5,
+              },
+            ].map(({ action, cost }) => (
+              <div key={action} className="flex justify-between text-muted-foreground">
+                <span>{action}</span>
+                <span className="font-medium text-foreground">{cost} cr</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Transaction history */}
+      {transactions.length > 0 && (
+        <Card className="glass-card border-border/30">
+          <CardHeader>
+            <CardTitle className="text-base">
+              {language === "en" ? "Recent Activity" : "Actividad Reciente"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between text-sm py-1.5 border-b border-border/20 last:border-0"
+                >
+                  <div>
+                    <span className="font-medium">
+                      {ACTION_LABELS[tx.action] ?? tx.action}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {formatDate(tx.created_at)}
+                    </span>
+                  </div>
+                  <span
+                    className={
+                      tx.cost < 0
+                        ? "text-green-400 font-semibold"
+                        : "text-red-400 font-semibold"
+                    }
+                  >
+                    {tx.cost < 0 ? `+${Math.abs(tx.cost)}` : `-${tx.cost}`} cr
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 }

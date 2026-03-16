@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Save, Eye, EyeOff } from "lucide-react";
-import ThemeToggle from "@/components/ThemeToggle";
-import LanguageToggle from "@/components/LanguageToggle";
-import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { Button } from "@/components/ui/button";
@@ -11,12 +8,8 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import connectaLogo from "@/assets/connecta-logo.png";
-import connectaLogoDark from "@/assets/connecta-logo-dark.png";
-import AnimatedDots from "@/components/ui/AnimatedDots";
 
 export default function Settings() {
-  const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, role, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -25,7 +18,6 @@ export default function Settings() {
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
@@ -34,7 +26,6 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       setEmail(user.email || "");
-      // Fetch display name from profiles
       supabase
         .from("profiles")
         .select("display_name")
@@ -48,7 +39,7 @@ export default function Settings() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -64,14 +55,12 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      // Update display name in profiles
       const { error: profileErr } = await supabase
         .from("profiles")
         .update({ display_name: displayName.trim() })
         .eq("user_id", user.id);
       if (profileErr) throw profileErr;
 
-      // Update email if changed
       if (email.trim() !== user.email) {
         const { error: emailErr } = await supabase.auth.updateUser({ email: email.trim() });
         if (emailErr) throw emailErr;
@@ -100,7 +89,6 @@ export default function Settings() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast.success(tr(t.settings.passwordUpdated, language));
-      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (e: any) {
@@ -111,26 +99,12 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <img src={theme === "light" ? connectaLogoDark : connectaLogo} alt="Connecta" className="h-7 sm:h-8" />
-          </div>
-          <ThemeToggle />
-          <LanguageToggle />
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 max-w-lg">
+    <main className="flex-1 overflow-y-auto">
+      <div className="container mx-auto px-4 py-8 max-w-lg">
         <h1 className="text-2xl font-bold text-foreground mb-8">{tr(t.settings.title, language)}</h1>
 
         {/* Profile info */}
-        <div className="space-y-5 mb-8">
+        <div className="glass-card rounded-xl p-6 space-y-5 mb-8">
           <div>
             <label className="text-sm font-medium text-muted-foreground mb-1.5 block">{tr(t.settings.name, language)}</label>
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr(t.settings.namePlaceholder, language)} />
@@ -145,14 +119,14 @@ export default function Settings() {
               {roleLabel}
             </div>
           </div>
-          <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          <Button onClick={handleSaveProfile} disabled={saving} className="gap-2 btn-primary-glass">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#0891B2]" />}
             {tr(t.settings.saveChanges, language)}
           </Button>
         </div>
 
         {/* Change password */}
-        <div className="border-t border-border pt-6 space-y-4">
+        <div className="glass-card rounded-xl p-6 space-y-4">
           <h2 className="text-lg font-semibold text-foreground">{tr(t.settings.changePassword, language)}</h2>
           <div className="relative">
             <Input
@@ -181,14 +155,13 @@ export default function Settings() {
           <Button
             onClick={handleChangePassword}
             disabled={changingPassword || !newPassword || !confirmPassword}
-            variant="outline"
-            className="gap-2"
+            className="gap-2 btn-primary-glass"
           >
             {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {tr(t.settings.changePassword, language)}
           </Button>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
