@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock,
 } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
@@ -192,7 +192,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       } fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50 relative z-10">
-        <button onClick={() => navigate("/")} className="focus:outline-none gradient-brand p-0.5 rounded-lg shadow-[0_4px_12px_rgba(8,145,178,0.4)]">
+        <button onClick={() => navigate("/")} className="focus:outline-none">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
@@ -282,6 +282,17 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             </div>
           </button>
         )}
+        {credits?.subscription_status === "trialing" && credits?.trial_ends_at && (() => {
+          const daysLeft = Math.max(0, Math.ceil(
+            (new Date(credits.trial_ends_at!).getTime() - Date.now()) / 86_400_000
+          ));
+          return (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-semibold text-amber-400 mt-1">
+              <Clock className="w-3 h-3" />
+              Trial — {daysLeft}d left
+            </div>
+          );
+        })()}
         <div className="flex items-center gap-2 px-2">
           <ThemeToggle />
           <LanguageToggle />

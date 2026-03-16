@@ -232,6 +232,9 @@ export default function SelectPlan() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <p className="text-2xl font-bold text-foreground mt-1">{plan.price}</p>
+                  {plan.key === "starter" && !isUpgrade && (
+                    <p className="text-xs text-cyan-400 font-medium mt-1">7-day free trial included</p>
+                  )}
                   <CardDescription className="mt-2">{plan.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1">
