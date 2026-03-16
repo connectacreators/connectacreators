@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Film, Mic, Scissors, Loader2, FileText } from "lucide-react";
+import { Film, Mic, Scissors, Loader2, FileText, MonitorPlay } from "lucide-react";
 
 type ScriptLine = {
-  line_type: "filming" | "actor" | "editor";
+  line_type: "filming" | "actor" | "editor" | "text_on_screen";
   section: "hook" | "body" | "cta";
   text: string;
 };
@@ -21,6 +21,7 @@ const typeConfig = {
   filming: { label: "Instrucciones de Filmación", icon: Film, color: "text-red-400", bg: "bg-gradient-to-br from-red-500/25 to-red-900/10", border: "border-red-500/40" },
   actor: { label: "Voiceover / Diálogo", icon: Mic, color: "text-purple-400", bg: "bg-gradient-to-br from-purple-500/25 to-purple-900/10", border: "border-purple-500/40" },
   editor: { label: "Instrucciones de Edición", icon: Scissors, color: "text-emerald-400", bg: "bg-gradient-to-br from-emerald-500/25 to-emerald-900/10", border: "border-emerald-500/40" },
+  text_on_screen: { label: "Texto en Pantalla", icon: MonitorPlay, color: "text-zinc-400", bg: "bg-gradient-to-br from-zinc-500/25 to-zinc-900/10", border: "border-zinc-500/40" },
 };
 
 export default function PublicScript() {
@@ -91,7 +92,7 @@ export default function PublicScript() {
         <div className="mb-6 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
           {script.idea_ganadora && (
             <p className="text-sm text-foreground">
-              <span className="font-semibold text-amber-400">Idea Ganadora:</span> {script.idea_ganadora}
+              <span className="font-semibold text-[#22d3ee]">Idea Ganadora:</span> {script.idea_ganadora}
             </p>
           )}
           {script.target && (
