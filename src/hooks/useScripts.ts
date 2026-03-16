@@ -613,12 +613,37 @@ export function useScripts() {
     return true;
   };
 
-  // Legacy: kept for compatibility but now delegates to reorderAllLines
-  const reorderSectionLines = async (scriptId: string, _section: string, orderedLines: ScriptLine[]) => {
-    // Fetch all lines, rebuild with reordered section
-    const fresh = await getScriptLines(scriptId);
-    if (!fresh.length) return reorderAllLines(scriptId, orderedLines);
-    return reorderAllLines(scriptId, fresh);
+  // Batch reorder lines within a section after drag-and-drop
+  const reorderSectionLines = async (scriptId: string, section: string, orderedLines: ScriptLine[]) => {
+    // Get ALL lines to rebuild line_numbers
+    const { data: allLines } = await supabase
+      .from("script_lines")
+      .select("line_number, section, line_type, text, rich_text")
+      .eq("script_id", scriptId)
+      .order("line_number", { ascending: true });
+    if (!allLines) return false;
+
+    // Rebuild: keep non-target sections in place, replace target section with new order
+    const otherLines = allLines.filter((l) => l.section !== section);
+    const sectionOrder = { hook: 0, body: 1, cta: 2 } as Record<string, number>;
+    const targetOrder = sectionOrder[section] ?? 1;
+
+    // Find insertion point for the reordered section
+    const rebuilt: { line_type: string; section: string; text: string; rich_text?: string }[] = [];
+    let sectionInserted = false;
+    for (const l of otherLines) {
+      const lOrder = sectionOrder[l.section] ?? 1;
+      if (!sectionInserted && lOrder > targetOrder) {
+        rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text, rich_text: ol.rich_text })));
+        sectionInserted = true;
+      }
+      rebuilt.push({ line_type: l.line_type, section: l.section, text: l.text, rich_text: l.rich_text ?? undefined });
+    }
+    if (!sectionInserted) {
+      rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text, rich_text: ol.rich_text })));
+    }
+
+    return replaceAllLines(scriptId, rebuilt);
   };
 
   const moveScriptLine = async (scriptId: string, lineNumber: number, direction: "up" | "down") => {
