@@ -34,6 +34,7 @@ import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSe
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
+import ScriptDocEditor from "@/components/ScriptDocEditor";
 
 // Mic button using Web Speech API
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
@@ -315,6 +316,8 @@ export default function Scripts() {
   const [view, setView] = useState<View>(urlClientId ? "client-detail" : "clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [parsedLines, setParsedLines] = useState<ScriptLine[]>([]);
+  const [scriptEditorTab, setScriptEditorTab] = useState<"cards" | "doc">("cards");
+  const [savingDocEditor, setSavingDocEditor] = useState(false);
 
   // New client form
   const [newName, setNewName] = useState("");
@@ -800,6 +803,7 @@ export default function Scripts() {
     if (result) {
       const fresh = await getScriptLines(result.scriptId);
       setParsedLines(fresh);
+      setScriptEditorTab("cards");
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
       setViewingScriptId(result.scriptId);
@@ -821,6 +825,7 @@ export default function Scripts() {
     if (result) {
       const fresh = await getScriptLines(editingScript.id);
       setParsedLines(fresh);
+      setScriptEditorTab("cards");
       setViewingInspirationUrl(inspirationUrl.trim() || null);
       setViewingMetadata(result.metadata);
       setViewingScriptId(editingScript.id);
@@ -837,6 +842,7 @@ export default function Scripts() {
     }
     const lines = await getScriptLines(script.id);
     setParsedLines(lines);
+    setScriptEditorTab("cards");
     setViewingInspirationUrl(script.inspiration_url);
     setViewingCaption(script.caption ?? "");
     setViewingMetadata({
@@ -919,6 +925,7 @@ export default function Scripts() {
                 supabase.from("scripts").select("*").eq("id", scriptId).single(),
               ]);
               setParsedLines(lines || []);
+              setScriptEditorTab("cards");
               if (script) {
                 setViewingInspirationUrl(script.inspiration_url ?? null);
                 setViewingCaption(script.caption ?? "");
@@ -1779,6 +1786,7 @@ export default function Scripts() {
                     setRemixVideo(null);
                     const fresh = await getScriptLines(saved.scriptId);
                     setParsedLines(fresh);
+                    setScriptEditorTab("cards");
                     setViewingInspirationUrl(inspirationUrl || null);
                     setViewingMetadata({
                       idea_ganadora: result.idea_ganadora || null,
@@ -1930,6 +1938,35 @@ export default function Scripts() {
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-3 animate-fade-in">
+            {/* Tab switcher: Card View | Doc Editor */}
+            <div className="flex items-center border-b border-border">
+              <button
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                  scriptEditorTab === "cards"
+                    ? "text-[#22d3ee] border-[#0891b2]"
+                    : "text-muted-foreground border-transparent hover:text-foreground"
+                }`}
+                onClick={() => setScriptEditorTab("cards")}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Card View
+              </button>
+              <button
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                  scriptEditorTab === "doc"
+                    ? "text-[#22d3ee] border-[#0891b2]"
+                    : "text-muted-foreground border-transparent hover:text-foreground"
+                }`}
+                onClick={() => setScriptEditorTab("doc")}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Doc Editor
+              </button>
+            </div>
+
+            {/* Card View content */}
+            {scriptEditorTab === "cards" && (
+            <>
             {/* Metadata inline */}
             {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
               <div className="mb-4 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
@@ -2384,6 +2421,48 @@ export default function Scripts() {
                 )}
               </div>
             </>)}
+            </>
+            )}
+
+            {/* Doc Editor */}
+            {scriptEditorTab === "doc" && (
+              <ScriptDocEditor
+                lines={parsedLines}
+                onLinesChange={setParsedLines}
+                scriptTitle={viewingMetadata?.idea_ganadora ?? ""}
+                scriptMeta={
+                  [viewingMetadata?.target, viewingMetadata?.formato]
+                    .filter(Boolean)
+                    .join(" · ")
+                }
+                onSave={async () => {
+                  const sid = viewingScriptId;
+                  if (!sid || savingDocEditor) return;
+                  setSavingDocEditor(true);
+                  try {
+                    await supabase.from("script_lines").delete().eq("script_id", sid);
+                    const rows = parsedLines.map((l, i) => ({
+                      script_id: sid,
+                      line_number: i + 1,
+                      line_type: l.line_type,
+                      section: l.section,
+                      text: l.text,
+                      ...(l.rich_text !== undefined ? { rich_text: l.rich_text } : {}),
+                    }));
+                    if (rows.length > 0) await supabase.from("script_lines").insert(rows);
+                    const fresh = await getScriptLines(sid);
+                    setParsedLines(fresh);
+                    toast.success(tr({ en: "Script saved!", es: "¡Script guardado!" }, language));
+                  } catch {
+                    toast.error(tr({ en: "Error saving script", es: "Error al guardar" }, language));
+                  } finally {
+                    setSavingDocEditor(false);
+                  }
+                }}
+                onExportPDF={() => window.print()}
+                saving={savingDocEditor}
+              />
+            )}
           </div>
         )}
       </div>
