@@ -100,7 +100,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
         <ThemeToggle />
       </div>
       <div className="flex-1 flex items-center justify-center pt-16">
-      <div className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-6">
+      <div className="w-full max-w-xs sm:max-w-sm glass-card rounded-2xl p-6 sm:p-8 space-y-4 sm:space-y-6">
         <div className="text-center">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             {(words[wordIndex] as any).pre}{" "}
