@@ -62,6 +62,13 @@ function ScriptLineEditor({
   onFocus, onBlur, onEnter, onBackspaceEmpty,
   onBarClick, onTypeChange, registerEditor,
 }: LineEditorProps) {
+  // Stable refs so TipTap's handleKeyDown (captured at mount) always calls the latest callbacks.
+  // Without this, rapid Enter/Backspace presses would operate on a stale `lines` snapshot.
+  const onEnterRef = useRef(onEnter);
+  useEffect(() => { onEnterRef.current = onEnter; }, [onEnter]);
+  const onBackspaceEmptyRef = useRef(onBackspaceEmpty);
+  useEffect(() => { onBackspaceEmptyRef.current = onBackspaceEmpty; }, [onBackspaceEmpty]);
+
   const initialContent = line.rich_text
     ? DOMPurify.sanitize(line.rich_text)
     : (line.text || "");
@@ -83,23 +90,21 @@ function ScriptLineEditor({
     content: initialContent,
     editorProps: {
       attributes: {
-        class: [
-          "outline-none min-h-[1.6em] w-full text-[13px] leading-relaxed",
-          "px-3 py-1.5 cursor-text",
-          TYPE_TEXT_CLASS[line.line_type],
-        ].join(" "),
+        // Note: text color is NOT set here — it's set on the React wrapper div below so it
+        // updates reactively when line_type changes without needing a TipTap remount.
+        class: "outline-none min-h-[1.6em] w-full text-[13px] leading-relaxed px-3 py-1.5 cursor-text",
       },
       handleKeyDown: (_view, event) => {
         if (event.key === "Enter") {
           event.preventDefault();
-          onEnter(idx);
+          onEnterRef.current(idx);
           return true;
         }
         if (event.key === "Backspace") {
           const { empty, from } = _view.state.selection;
           if (empty && from <= 1 && !_view.state.doc.textContent) {
             event.preventDefault();
-            onBackspaceEmpty(idx);
+            onBackspaceEmptyRef.current(idx);
             return true;
           }
         }
@@ -140,8 +145,10 @@ function ScriptLineEditor({
         title="Click to change line type"
       />
 
-      {/* Editor */}
-      <EditorContent editor={editor} className="flex-1 min-w-0" />
+      {/* Editor — wrapper provides reactive text color; color is inherited by .ProseMirror content */}
+      <div className={`flex-1 min-w-0 ${TYPE_TEXT_CLASS[line.line_type]}`}>
+        <EditorContent editor={editor} />
+      </div>
 
       {/* Floating type picker */}
       {isActive && pickerOpen && (
