@@ -12,22 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot,
 } from "lucide-react";
 
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
-import connectaKnightDark from "@/assets/connecta-logo-dark.svg";
-import connectaKnightLight from "@/assets/connecta-logo-light.svg";
-
-function ConnectaAIIcon({ className }: { className?: string }) {
-  return (
-    <>
-      <img src={connectaKnightDark} className={`${className ?? ""} hidden dark:block`} alt="Connecta AI" style={{ objectFit: "contain" }} />
-      <img src={connectaKnightLight} className={`${className ?? ""} block dark:hidden`} alt="Connecta AI" style={{ objectFit: "contain" }} />
-    </>
-  );
-}
 
 interface Props {
   sidebarOpen: boolean;
@@ -133,7 +122,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isAdmin) {
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
-        { label: "Connecta AI", icon: ConnectaAIIcon, path: connectaAIPath },
+        { label: "Connecta AI", icon: Bot, path: connectaAIPath },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Vault", icon: Archive, path: "/vault" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
@@ -169,7 +158,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isUser) {
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
-        { label: "Connecta AI", icon: ConnectaAIIcon, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+        { label: "Connecta AI", icon: Bot, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
         { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
@@ -181,7 +170,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     // Client role + Connecta Plus (same nav)
     return [
       { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
-      { label: "Connecta AI", icon: ConnectaAIIcon, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Connecta AI", icon: Bot, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
       { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
       { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
