@@ -9,10 +9,17 @@ const corsHeaders = {
 };
 
 // Map Stripe product IDs to plan config
-const PRODUCT_PLAN_MAP: Record<string, { plan_type: string; script_limit: number; lead_tracker_enabled: boolean; facebook_integration_enabled: boolean }> = {
-  "prod_Tzx3VOK8V8gI11": { plan_type: "starter", script_limit: 75, lead_tracker_enabled: false, facebook_integration_enabled: false },
-  "prod_Tzx4et0Y0iv6LI": { plan_type: "growth", script_limit: 200, lead_tracker_enabled: false, facebook_integration_enabled: false },
-  "prod_Tzx4OBg3PpYuES": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true },
+const PRODUCT_PLAN_MAP: Record<string, {
+  plan_type: string;
+  script_limit: number;
+  lead_tracker_enabled: boolean;
+  facebook_integration_enabled: boolean;
+  credits_monthly_cap: number;
+  channel_scrapes_limit: number;
+}> = {
+  "prod_Tzx3VOK8V8gI11": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: false, facebook_integration_enabled: false, credits_monthly_cap: 500,  channel_scrapes_limit: 5  },
+  "prod_Tzx4et0Y0iv6LI": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: false, facebook_integration_enabled: false, credits_monthly_cap: 1500, channel_scrapes_limit: 12 },
+  "prod_Tzx4OBg3PpYuES": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true,  facebook_integration_enabled: true,  credits_monthly_cap: 3500, channel_scrapes_limit: 25 },
 };
 
 const logStep = (step: string, details?: any) => {
@@ -61,29 +68,29 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const subscriptions = await stripe.subscriptions.list({
+    const allSubs = await stripe.subscriptions.list({
       customer: customerId,
-      status: "active",
-      limit: 1,
+      status: "all",
+      limit: 10,
     });
+    const subscription = allSubs.data.find(s => s.status === "active" || s.status === "trialing") ?? null;
+    const hasActiveSub = subscription !== null;
 
-    const hasActiveSub = subscriptions.data.length > 0;
     let planData = null;
     let subscriptionEnd = null;
+    let trialEndsAt = null;
 
     if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      
       // Log the full subscription keys to understand the shape
       logStep("Subscription keys", { keys: Object.keys(subscription) });
-      logStep("Subscription raw data", { 
+      logStep("Subscription raw data", {
         id: subscription.id,
         status: subscription.status,
         current_period_end: subscription.current_period_end,
         current_period_end_type: typeof subscription.current_period_end,
         current_period_end_str: String(subscription.current_period_end),
       });
-      
+
       // Extremely defensive date handling
       try {
         const rawEnd = subscription.current_period_end;
@@ -126,14 +133,21 @@ serve(async (req) => {
         subscriptionEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         logStep("WARNING: Exception parsing date, defaulting to +30 days", { error: String(dateErr) });
       }
-      
+
       logStep("Resolved subscriptionEnd", { subscriptionEnd });
-      
+
+      // Parse trial_end if subscription is trialing
+      if (subscription.status === "trialing" && subscription.trial_end) {
+        trialEndsAt = new Date(subscription.trial_end * 1000).toISOString();
+      }
+
       const productId = subscription.items.data[0].price.product as string;
-      logStep("Active subscription found", { subscriptionId: subscription.id, productId, subscriptionEnd });
+      logStep("Active subscription found", { subscriptionId: subscription.id, status: subscription.status, productId, subscriptionEnd });
 
       planData = PRODUCT_PLAN_MAP[productId];
       if (planData) {
+        const subscriptionStatus = subscription.status === "trialing" ? "trialing" : "active";
+
         // Update clients table with subscription data
         await supabaseClient
           .from("clients")
@@ -142,22 +156,75 @@ serve(async (req) => {
             script_limit: planData.script_limit,
             lead_tracker_enabled: planData.lead_tracker_enabled,
             facebook_integration_enabled: planData.facebook_integration_enabled,
-            subscription_status: "active",
+            credits_monthly_cap: planData.credits_monthly_cap,
+            channel_scrapes_limit: planData.channel_scrapes_limit,
+            subscription_status: subscriptionStatus,
+            trial_ends_at: trialEndsAt,
             stripe_customer_id: customerId,
           })
           .eq("user_id", user.id);
-        logStep("Updated client record", planData);
+        logStep("Updated client record", { ...planData, subscriptionStatus, trialEndsAt });
+
+        // Initialize credits for new subscribers (only if credits_monthly_cap is not yet set)
+        const { data: clientRow } = await supabaseClient
+          .from("clients")
+          .select("id, credits_monthly_cap")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (clientRow && (clientRow.credits_monthly_cap ?? 0) === 0) {
+          const TRIAL_CREDITS = 100;
+          const grantAmount = subscription.status === "trialing" ? TRIAL_CREDITS : planData.credits_monthly_cap;
+          await supabaseClient.from("clients").update({
+            credits_monthly_cap: planData.credits_monthly_cap,
+            channel_scrapes_limit: planData.channel_scrapes_limit,
+            credits_balance: grantAmount,
+            credits_used: 0,
+            channel_scrapes_used: 0,
+            credits_reset_at: new Date(subscription.current_period_end * 1000).toISOString(),
+          }).eq("user_id", user.id);
+
+          await supabaseClient.from("credit_transactions").insert({
+            client_id: clientRow.id,
+            action: "initial_grant",
+            credits: grantAmount,
+            metadata: { plan_type: planData.plan_type, is_trial: subscription.status === "trialing" },
+          });
+          logStep("Initialized credits for new subscriber", { grantAmount, planType: planData.plan_type });
+        }
+
+        // Sync to subscriptions table for admin Subscribers page visibility
+        try {
+          await supabaseClient
+            .from("subscriptions")
+            .upsert({
+              user_id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name ?? null,
+              plan_type: planData.plan_type,
+              status: subscription.status === "trialing" ? "trialing" : "active",
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscription.id,
+              subscribed_at: new Date(subscription.created * 1000).toISOString(),
+              is_manually_assigned: false,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "email" });
+          logStep("Synced to subscriptions table");
+        } catch (syncErr) {
+          // Non-fatal: don't block subscription confirmation if sync fails
+          logStep("WARNING: Failed to sync subscriptions table", { error: String(syncErr) });
+        }
 
         // Assign 'user' role if not already admin or videographer
         const { data: existingRoles } = await supabaseClient
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id);
-        
+
         const hasAdminOrVideographer = existingRoles?.some(
           (r: any) => r.role === "admin" || r.role === "videographer"
         );
-        
+
         if (!hasAdminOrVideographer) {
           const hasUserRole = existingRoles?.some((r: any) => r.role === "user");
           if (!hasUserRole) {
@@ -182,6 +249,7 @@ serve(async (req) => {
         subscribed: hasActiveSub,
         plan_type: planData?.plan_type || null,
         subscription_end: subscriptionEnd,
+        trial_ends_at: trialEndsAt,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
