@@ -111,7 +111,7 @@ export const t = {
     selectFormat: { en: "Select a format", es: "Selecciona un formato" },
     interview: { en: "Interview", es: "Entrevista" },
     mixed: { en: "Mixed", es: "Variado" },
-    googleDriveLink: { en: "Footage link (optional)", es: "Link de footage (opcional)" },
+    googleDriveLink: { en: "Google Drive link (optional)", es: "Google Drive link (opcional)" },
     pasteDictate: { en: "Paste, type or dictate the full script here...", es: "Pega, escribe o dicta el guión completo aquí..." },
     analyzing: { en: "Analyzing...", es: "Analizando..." },
     updateRecategorize: { en: "Update & Recategorize", es: "Actualizar y Recategorizar" },
@@ -126,12 +126,11 @@ export const t = {
     publicLinkCopied: { en: "Public link copied to clipboard", es: "Link público copiado al portapapeles" },
     inspiration: { en: "Inspiration", es: "Inspiración" },
     addLink: { en: "+ Add link", es: "+ Agregar link" },
-    pasteDriveLink: { en: "Paste footage link", es: "Pega el link de footage" },
+    pasteDriveLink: { en: "Paste Google Drive link", es: "Pega el link de Google Drive" },
     // Line editing
     filmingInstructions: { en: "Filming Instructions", es: "Instrucciones de Filmación" },
     voiceoverDialogue: { en: "Voiceover / Dialogue", es: "Voiceover / Diálogo" },
     editingInstructions: { en: "Editing Instructions", es: "Instrucciones de Edición" },
-    textOnScreen: { en: "Text On Screen", es: "Texto en Pantalla" },
     selectType: { en: "Select type", es: "Selecciona tipo" },
     doubleClickToWrite: { en: "Double click to write...", es: "Doble clic para escribir..." },
     deleteLine: { en: "Delete line", es: "Eliminar línea" },
@@ -295,10 +294,10 @@ export const t = {
   },
   // Home
   home: {
-    heroTitle: { en: "Replicate Viral Videos. Generate Scripts in Seconds.", es: "Replica Videos Virales. Genera Scripts en Segundos." },
+    heroTitle: { en: "Connect with your clients faster", es: "Connecta con tus clientes más rápido" },
     heroSubtitle: {
-      en: "The AI canvas that turns competitor research into content your clients love.",
-      es: "El canvas con IA que convierte investigación de competidores en contenido que tus clientes aman.",
+      en: "The all-in-one CRM for content creators. Build scripts with AI, manage your leads, and organize your calendar — all in one place.",
+      es: "El CRM todo-en-uno para creadores de contenido. Crea scripts con IA, gestiona tus leads y organiza tu calendario — todo en un solo lugar.",
     },
     cta: { en: "Sign Up", es: "Regístrate" },
     featuresHeading: { en: "Everything you need to grow", es: "Todo lo que necesitas para crecer" },
