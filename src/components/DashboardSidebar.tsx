@@ -203,11 +203,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       } fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50 relative z-10">
-        <button onClick={() => navigate("/")} className="focus:outline-none">
+        <button onClick={() => navigate("/")} className="focus:outline-none gradient-brand p-0.5 rounded-lg shadow-[0_4px_12px_rgba(8,145,178,0.4)]">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
-            className="h-6 object-contain hover:opacity-80 transition-opacity"
+            className="h-5 object-contain hover:opacity-80 transition-opacity rounded-md"
           />
         </button>
         <button
