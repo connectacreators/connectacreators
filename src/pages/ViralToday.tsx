@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -15,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useCredits } from "@/hooks/useCredits";
 
 // ── Language support ──────────────────────────────────────────────────────
 
@@ -201,14 +200,17 @@ function proxyImg(url: string | null): string | null {
   return url;
 }
 
-// Extract clean username from full URL or @handle
-function parseUsername(raw: string): string {
+// Detect platform and extract clean username from full URL or @handle
+function detectPlatformAndUsername(raw: string): { username: string; platform: "instagram" | "tiktok" } {
   const s = raw.trim();
-  // Handle full URLs: https://www.instagram.com/username/ or instagram.com/username
-  const urlMatch = s.match(/instagram\.com\/([^/?#\s]+)/i);
-  if (urlMatch) return urlMatch[1].replace(/\/$/, "").toLowerCase();
-  // Strip leading @
-  return s.replace(/^@/, "").toLowerCase();
+  // TikTok URL: tiktok.com/@username
+  const tiktokMatch = s.match(/tiktok\.com\/@?([^/?#\s]+)/i);
+  if (tiktokMatch) return { username: tiktokMatch[1].replace(/\/$/, "").toLowerCase(), platform: "tiktok" };
+  // Instagram URL: instagram.com/username
+  const instaMatch = s.match(/instagram\.com\/([^/?#\s]+)/i);
+  if (instaMatch) return { username: instaMatch[1].replace(/\/$/, "").toLowerCase(), platform: "instagram" };
+  // Plain handle — default to instagram
+  return { username: s.replace(/^@/, "").toLowerCase(), platform: "instagram" };
 }
 
 function getOutlierColor(score: number): string {
@@ -216,6 +218,26 @@ function getOutlierColor(score: number): string {
   if (score >= 3) return "text-green-400";
   if (score >= 1.5) return "text-lime-400";
   return "text-zinc-500";
+}
+
+function viralBadgeClass(score: number): string {
+  if (score >= 8) return 'badge-lime';
+  if (score >= 4) return 'badge-cyan';
+  return 'badge-neutral';
+}
+
+function getViewsColor(views: number): string {
+  if (views >= 1_000_000) return "text-orange-400";
+  if (views >= 500_000) return "text-green-400";
+  if (views >= 100_000) return "text-lime-400";
+  return "text-muted-foreground";
+}
+
+function getEngagementColor(rate: number): string {
+  if (rate >= 15) return "text-orange-400";
+  if (rate >= 9) return "text-green-400";
+  if (rate >= 5.5) return "text-lime-400";
+  return "text-muted-foreground";
 }
 
 const PLATFORM_ICON: Record<string, React.ElementType> = {
@@ -461,25 +483,25 @@ function VideoCard({ video }: { video: ViralVideo }) {
           {/* Outlier */}
           <div className="flex items-center gap-1" title="Outlier score">
             {video.outlier_score >= 10 ? (
-              <Flame className="w-3 h-3 text-orange-400" />
+              <Flame className="text-[#84CC16] w-3.5 h-3.5" />
             ) : (
               <TrendingUp className={cn("w-3 h-3", outlierColor)} />
             )}
-            <span className={cn("text-[10px] font-bold tabular-nums", video.outlier_score >= 10 ? "text-orange-400" : outlierColor)}>
+            <span className={viralBadgeClass(video.outlier_score)}>
               {fmtOutlier(video.outlier_score)}
             </span>
           </div>
           {/* Views */}
           <div className="flex items-center gap-1" title="Views">
-            <Eye className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground font-medium tabular-nums">
+            <Eye className={cn("w-3 h-3", getViewsColor(video.views_count))} />
+            <span className={cn("text-[10px] font-medium tabular-nums", getViewsColor(video.views_count))}>
               {fmtViews(video.views_count)}
             </span>
           </div>
           {/* Engagement */}
           <div className="flex items-center gap-1" title="Engagement rate">
-            <Zap className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground font-medium tabular-nums">
+            <Zap className={cn("w-3 h-3", getEngagementColor(video.engagement_rate))} />
+            <span className={cn("text-[10px] font-medium tabular-nums", getEngagementColor(video.engagement_rate))}>
               {video.engagement_rate.toFixed(1)}%
             </span>
           </div>
@@ -495,8 +517,10 @@ interface ChannelRowProps {
   onScrape: (ch: ViralChannel) => void;
   onDelete: (id: string) => void;
   isAdmin: boolean;
+  canScrape: boolean;
+  scrapeDisabledReason?: string;
 }
-function ChannelRow({ channel, onScrape, onDelete, isAdmin }: ChannelRowProps) {
+function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason }: ChannelRowProps) {
   const PlatformIcon = PLATFORM_ICON[channel.platform] ?? Instagram;
   const status = channel.scrape_status;
 
@@ -560,23 +584,25 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin }: ChannelRowProps) {
       </div>
 
       {/* Actions */}
-      {isAdmin && (
+      {(isAdmin || canScrape) && (
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             onClick={() => onScrape(channel)}
-            disabled={status === "running"}
-            title="Scrape now"
+            disabled={status === "running" || !canScrape}
+            title={!canScrape ? (scrapeDisabledReason || "Scrape limit reached") : "Scrape now"}
             className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted border border-border hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <RefreshCw className={cn("w-3.5 h-3.5 text-muted-foreground", status === "running" && "animate-spin")} />
           </button>
-          <button
-            onClick={() => onDelete(channel.id)}
-            title="Remove channel"
-            className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 bg-muted border border-border hover:bg-red-500/10 hover:border-red-500/30 transition-all"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => onDelete(channel.id)}
+              title="Remove channel"
+              className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 bg-muted border border-border hover:bg-red-500/10 hover:border-red-500/30 transition-all"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -639,10 +665,24 @@ const getSortOpts = (t: any): DropdownOption[] => [
 
 export default function ViralToday() {
   const { user, loading: authLoading, isAdmin } = useAuth();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const { credits, refetch: refetchCredits } = useCredits();
   const [lang, setLang] = useState<Language>("en");
   const t = TRANSLATIONS[lang];
+
+  // Subscribers can scrape if they have remaining scrapes
+  const hasSubscription = credits && (
+    credits.subscription_status === "active" ||
+    credits.subscription_status === "pending_contact" ||
+    credits.subscription_status === "canceling" ||
+    credits.subscription_status === "connecta_plus"
+  );
+  const scrapesRemaining = credits ? Math.max(0, credits.channel_scrapes_limit - credits.channel_scrapes_used) : 0;
+  const canScrape = isAdmin || (!!hasSubscription && scrapesRemaining > 0);
+  const scrapeDisabledReason = !hasSubscription
+    ? "Active subscription required"
+    : scrapesRemaining <= 0
+    ? `Scrape limit reached (${credits?.channel_scrapes_limit ?? 0}/${credits?.channel_scrapes_limit ?? 0})`
+    : undefined;
 
   // View: videos | channels
   const [view, setView] = useState<"videos" | "channels">("videos");
@@ -671,6 +711,7 @@ export default function ViralToday() {
 
   // Polling ref for running channels
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelsRef = useRef<ViralChannel[]>([]);
 
   // ── Data fetching ────────────────────────────────────────────────────────────
 
@@ -693,15 +734,28 @@ export default function ViralToday() {
   const fetchVideos = useCallback(async () => {
     setLoadingVideos(true);
     try {
-      // Fetch all videos without cap - use high limit to bypass Supabase default 1000
-      const { data, error, count } = await supabase
-        .from("viral_videos")
-        .select("*", { count: "exact" })
-        .order("posted_at", { ascending: false })
-        .limit(50000); // Fetch up to 50,000 videos
-      if (error) throw error;
-      setVideos((data ?? []) as ViralVideo[]);
-      setCurrentPage(0); // Reset to first page when fetching new data
+      // Supabase caps at 1000 rows per request — fetch all pages and merge
+      const PAGE_SIZE = 1000;
+      let allVideos: ViralVideo[] = [];
+      let page = 0;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("viral_videos")
+          .select("*")
+          .order("posted_at", { ascending: false })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (error) throw error;
+        const batch = (data ?? []) as ViralVideo[];
+        allVideos = [...allVideos, ...batch];
+
+        if (batch.length < PAGE_SIZE) break; // no more pages
+        page++;
+      }
+
+      setVideos(allVideos);
+      setCurrentPage(0);
     } catch {
       toast.error("Error loading videos");
     } finally {
@@ -715,6 +769,11 @@ export default function ViralToday() {
     fetchVideos();
   }, [user, fetchChannels, fetchVideos]);
 
+  // Keep channelsRef in sync so the poll interval always reads the latest channels
+  useEffect(() => {
+    channelsRef.current = channels;
+  }, [channels]);
+
   // Poll running channels every 8 seconds
   useEffect(() => {
     const running = channels.filter((c) => c.scrape_status === "running");
@@ -727,7 +786,7 @@ export default function ViralToday() {
     if (pollRef.current) return; // already polling
 
     pollRef.current = setInterval(async () => {
-      const stillRunning = channels.filter((c) => c.scrape_status === "running");
+      const stillRunning = channelsRef.current.filter((c) => c.scrape_status === "running");
       if (stillRunning.length === 0) {
         clearInterval(pollRef.current!);
         pollRef.current = null;
@@ -764,9 +823,15 @@ export default function ViralToday() {
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   const handleAddChannel = async () => {
-    const username = parseUsername(newUsername);
+    const { username, platform } = detectPlatformAndUsername(newUsername);
     if (!username) {
-      toast.error("Enter a username");
+      toast.error("Enter a username or URL");
+      return;
+    }
+
+    // Enforce scrape limits for non-admin users
+    if (!isAdmin && !canScrape) {
+      toast.error(scrapeDisabledReason || "Scrape limit reached");
       return;
     }
 
@@ -776,7 +841,7 @@ export default function ViralToday() {
       const { data: existing } = await supabase
         .from("viral_channels")
         .select("id")
-        .eq("platform", "instagram")
+        .eq("platform", platform)
         .eq("username", username)
         .maybeSingle();
 
@@ -788,7 +853,7 @@ export default function ViralToday() {
       } else {
         const { data: created, error } = await supabase
           .from("viral_channels")
-          .insert({ username, platform: "instagram", created_by: user?.id })
+          .insert({ username, platform, created_by: user?.id })
           .select("id")
           .single();
         if (error) throw error;
@@ -801,7 +866,7 @@ export default function ViralToday() {
       // Trigger scrape
       const { data: scrapeResult, error: scrapeError } = await supabase.functions.invoke(
         "scrape-channel",
-        { body: { channelId, username, platform: "instagram" } }
+        { body: { channelId, username, platform } }
       );
 
       if (scrapeError) throw scrapeError;
@@ -810,9 +875,18 @@ export default function ViralToday() {
         toast.success(`@${username} scraped — ${scrapeResult.videosStored ?? 0} videos added`);
         fetchVideos();
         fetchChannels();
+        // Increment scrape usage for non-admin
+        if (!isAdmin && credits?.id) {
+          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
+          refetchCredits();
+        }
       } else {
         toast.info(`Scraping @${username}… check back in a moment`);
         fetchChannels();
+        if (!isAdmin && credits?.id) {
+          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
+          refetchCredits();
+        }
       }
     } catch (e: any) {
       toast.error(e.message || "Error adding channel");
@@ -822,6 +896,10 @@ export default function ViralToday() {
   };
 
   const handleScrape = async (ch: ViralChannel) => {
+    if (!isAdmin && !canScrape) {
+      toast.error(scrapeDisabledReason || "Scrape limit reached");
+      return;
+    }
     try {
       await supabase
         .from("viral_channels")
@@ -841,9 +919,17 @@ export default function ViralToday() {
         toast.success(`@${ch.username} scraped — ${data.videosStored ?? 0} videos`);
         fetchVideos();
         fetchChannels();
+        if (!isAdmin && credits?.id) {
+          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
+          refetchCredits();
+        }
       } else {
         toast.info(`Scraping @${ch.username}…`);
         fetchChannels();
+        if (!isAdmin && credits?.id) {
+          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
+          refetchCredits();
+        }
       }
     } catch (e: any) {
       toast.error(e.message || "Error scraping channel");
@@ -973,7 +1059,7 @@ export default function ViralToday() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -982,14 +1068,7 @@ export default function ViralToday() {
   const runningChannels = channels.filter((c) => c.scrape_status === "running");
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/viral-today" />
-
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
 
         <div className="flex-1 px-5 sm:px-8 pt-6 pb-12 overflow-auto">
 
@@ -1098,7 +1177,7 @@ export default function ViralToday() {
 
                 {/* Filter chips */}
                 <div className="flex items-center gap-1.5 mb-5 flex-wrap">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#94a3b8] flex-shrink-0" />
 
                   <ChannelChip
                     channels={channels}
@@ -1164,7 +1243,6 @@ export default function ViralToday() {
                     {t.scraping} {runningChannels.map((c) => `@${c.username}`).join(", ")}… {t.refreshing}
                   </div>
                 )}
-
 
                 {/* Video grid */}
                 {loadingVideos ? (
@@ -1264,34 +1342,50 @@ export default function ViralToday() {
                 transition={{ duration: 0.15 }}
               >
                 {/* Add channel bar */}
-                {isAdmin && (
-                  <div className="flex items-center gap-2 mb-5 p-4 rounded-xl bg-card border border-border">
-                    <div className="w-8 h-8 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center flex-shrink-0">
-                      <Instagram className="w-4 h-4 text-pink-400" />
+                {(isAdmin || hasSubscription) && (
+                  <div className="flex flex-col gap-2 mb-5">
+                    <div className="flex items-center gap-2 p-4 rounded-xl bg-card border border-border">
+                      <div className="w-8 h-8 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center flex-shrink-0">
+                        {newUsername.toLowerCase().includes("tiktok")
+                          ? <Flame className="w-4 h-4 text-orange-400" />
+                          : <Instagram className="w-4 h-4 text-pink-400" />}
+                      </div>
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={newUsername}
+                          onChange={(e) => setNewUsername(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
+                          placeholder="instagram.com/user or tiktok.com/@user"
+                          disabled={!canScrape && !isAdmin}
+                          className="w-full h-9 px-3 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all disabled:opacity-50"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleAddChannel}
+                        disabled={addingChannel || !newUsername.trim() || (!canScrape && !isAdmin)}
+                        className="h-9 px-4 bg-muted hover:bg-muted/80 border border-border text-foreground text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all"
+                      >
+                        {addingChannel ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5" />
+                        )}
+                        {t.addScrape}
+                      </Button>
                     </div>
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">@</span>
-                      <input
-                        type="text"
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
-                        placeholder={t.username}
-                        className="w-full h-9 pl-7 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
-                      />
-                    </div>
-                    <Button
-                      onClick={handleAddChannel}
-                      disabled={addingChannel || !newUsername.trim()}
-                      className="h-9 px-4 bg-muted hover:bg-muted/80 border border-border text-foreground text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all"
-                    >
-                      {addingChannel ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Plus className="w-3.5 h-3.5" />
-                      )}
-                      {t.addScrape}
-                    </Button>
+                    {/* Scrape usage for subscribers */}
+                    {!isAdmin && credits && credits.channel_scrapes_limit > 0 && (
+                      <div className="flex items-center gap-2 px-4 text-xs text-muted-foreground">
+                        <span>{credits.channel_scrapes_used} / {credits.channel_scrapes_limit} scrapes used</span>
+                        {scrapesRemaining <= 3 && scrapesRemaining > 0 && (
+                          <span className="text-yellow-500 font-medium">{scrapesRemaining} remaining</span>
+                        )}
+                        {scrapesRemaining <= 0 && (
+                          <span className="text-red-400 font-medium">Limit reached</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1307,7 +1401,7 @@ export default function ViralToday() {
                     </div>
                     <p className="text-sm font-medium text-foreground mb-1">{t.noChannels}</p>
                     <p className="text-xs text-muted-foreground max-w-xs">
-                      {isAdmin
+                      {(isAdmin || hasSubscription)
                         ? t.noChannelsDesc
                         : t.noChannelsTeamDesc}
                     </p>
@@ -1321,6 +1415,8 @@ export default function ViralToday() {
                         onScrape={handleScrape}
                         onDelete={handleDeleteChannel}
                         isAdmin={isAdmin}
+                        canScrape={canScrape}
+                        scrapeDisabledReason={scrapeDisabledReason}
                       />
                     ))}
 
@@ -1346,6 +1442,5 @@ export default function ViralToday() {
           </AnimatePresence>
         </div>
       </main>
-    </div>
   );
 }

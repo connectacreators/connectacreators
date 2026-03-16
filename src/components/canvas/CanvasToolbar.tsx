@@ -14,20 +14,23 @@ function IconBtn({
   icon: Icon,
   label,
   accent = false,
+  tutorialTarget,
 }: {
   onClick: () => void;
   icon: React.ElementType;
   label: string;
   accent?: boolean;
+  tutorialTarget?: string;
 }) {
   return (
     <div className="relative group">
       <button
         onClick={onClick}
+        data-tutorial-target={tutorialTarget}
         className={`p-2 rounded-xl transition-colors ${
           accent
-            ? "text-primary/70 hover:text-primary hover:bg-primary/15"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            ? "text-[#22d3ee] hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.15)]"
+            : "text-[#94a3b8] hover:text-foreground hover:bg-muted/40"
         }`}
       >
         <Icon className="w-4 h-4" />
@@ -53,8 +56,8 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
       {/* Center pill */}
       <div className="pointer-events-auto flex items-center gap-0.5 px-2 py-1.5 rounded-2xl bg-card/80 backdrop-blur-sm border border-border shadow-lg">
-        <IconBtn onClick={() => onAddNode("videoNode")}        icon={Instagram}  label="Add Video"    accent />
-        <IconBtn onClick={() => onAddNode("textNoteNode")}     icon={StickyNote} label="Add Note"     accent />
+        <IconBtn onClick={() => onAddNode("videoNode")}        icon={Instagram}  label="Add Video"    accent tutorialTarget="video-btn" />
+        <IconBtn onClick={() => onAddNode("textNoteNode")}     icon={StickyNote} label="Add Note"     accent tutorialTarget="note-btn" />
         <IconBtn onClick={() => onAddNode("researchNoteNode")} icon={Search}     label="Add Research" accent />
 
         {/* Divider */}
@@ -64,7 +67,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
         <button
           onClick={() => onAddNode("hookGeneratorNode")}
           title="Add Hook Generator"
-          className="p-2 rounded-lg text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+          className="p-2 rounded-lg text-[#94a3b8] hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.1)] transition-colors"
         >
           <Anchor className="w-4 h-4" />
         </button>
@@ -73,7 +76,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
         <button
           onClick={() => onAddNode("brandGuideNode")}
           title="Add Brand Guide"
-          className="p-2 rounded-lg text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+          className="p-2 rounded-lg text-[#94a3b8] hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.1)] transition-colors"
         >
           <BookOpen className="w-4 h-4" />
         </button>
@@ -82,7 +85,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
         <button
           onClick={() => onAddNode("ctaBuilderNode")}
           title="Add CTA Builder"
-          className="p-2 rounded-lg text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+          className="p-2 rounded-lg text-[#94a3b8] hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.1)] transition-colors"
         >
           <Target className="w-4 h-4" />
         </button>
@@ -91,7 +94,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
         <button
           onClick={() => onOpenViralPicker()}
           title="Browse Viral Videos"
-          className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+          className="p-2 rounded-lg text-[#94a3b8] hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.1)] transition-colors"
         >
           <TrendingUp className="w-4 h-4" />
         </button>

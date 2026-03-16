@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
-import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play } from "lucide-react";
+import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play, Eye, Type, Music2, Zap, MicOff, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -19,10 +19,24 @@ interface VideoStructure {
   sections: Section[];
 }
 
+interface VisualSegmentNode {
+  start: number;
+  end: number;
+  description: string;
+  text_on_screen?: string[];
+}
+
+interface VideoAnalysisData {
+  visual_segments: VisualSegmentNode[];
+  audio: { energy: string; has_music: boolean; speech_density: string; bpm_estimate: number };
+  duration_seconds: number;
+}
+
 interface VideoData {
   url?: string;
   transcription?: string;
   structure?: VideoStructure;
+  videoAnalysis?: VideoAnalysisData;
   caption?: string;
   channel_username?: string;
   thumbnailUrl?: string | null;
@@ -33,6 +47,12 @@ interface VideoData {
   onDelete?: () => void;
   authToken?: string | null;
 }
+
+const viralBadgeClass = (score: number): string => {
+  if (score >= 8) return 'badge-lime';
+  if (score >= 4) return 'badge-cyan';
+  return 'badge-neutral';
+};
 
 const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string; border: string }> = {
   hook: { label: "Hook", accent: "text-amber-400", bg: "bg-amber-500/8", border: "border-amber-500/25" },
@@ -69,6 +89,10 @@ const VideoNode = memo(({ data }: NodeProps) => {
   // Dropdown states
   const [showTranscript, setShowTranscript] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Dual progress for parallel analysis
+  const [structureProgress, setStructureProgress] = useState<"idle"|"running"|"done"|"error">("idle");
+  const [visualProgress, setVisualProgress] = useState<"idle"|"running"|"done"|"error">("idle");
 
   // ─── Step 1: Transcribe (fires thumbnail fetch in parallel) ───
   const transcribe = async () => {
@@ -149,25 +173,87 @@ const VideoNode = memo(({ data }: NodeProps) => {
     }
   };
 
-  // ─── Step 2: Analyze structure (manual button click) ───
+  // ─── Step 2: Analyze structure + visual scenes in parallel ───
   const analyzeStructure = async () => {
     if (!d.transcription) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       setStage("analyzing");
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ step: "analyze-structure", transcription: d.transcription, caption: d.caption }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Analysis failed");
+      setStructureProgress("running");
+      setVisualProgress("running");
 
-      d.onUpdate?.({ structure: json });
-      setStage("done");
-      setShowBreakdown(true);
+      const [structureRes, visualRes] = await Promise.allSettled([
+        fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
+          method: "POST", headers,
+          body: JSON.stringify({ step: "analyze-structure", transcription: d.transcription, caption: d.caption }),
+        }).then(r => r.json()),
+        fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
+          method: "POST", headers,
+          body: JSON.stringify({ url: d.url || urlInput, transcript: d.transcription }),
+        }).then(r => r.json()),
+      ]);
+
+      let structureOk = false;
+      let visualOk = false;
+      const updates: Partial<VideoData> = {};
+
+      if (structureRes.status === "fulfilled" && !structureRes.value.error) {
+        let structure = structureRes.value;
+        // B-roll fallback: if detected format is caption-style and transcription is sparse,
+        // synthesize structure from visual segments for a more meaningful breakdown
+        if (
+          visualRes.status === "fulfilled" &&
+          !visualRes.value.error &&
+          structure.detected_format === "CAPTION_VIDEO_MUSIC" &&
+          (d.transcription?.trim().split(/\s+/).filter(Boolean).length ?? 0) < 20 &&
+          visualRes.value.visual_segments?.length > 0
+        ) {
+          const segs: VisualSegmentNode[] = visualRes.value.visual_segments;
+          const hookSeg = segs[0];
+          const ctaSeg = segs[segs.length - 1];
+          const bodySeg = segs.slice(1, -1);
+          const buildSection = (seg: VisualSegmentNode, label: "hook" | "body" | "cta") => ({
+            section: label,
+            actor_text: seg.text_on_screen?.join(" ") || seg.description,
+            visual_cue: seg.description,
+          });
+          structure = {
+            detected_format: "CAPTION_VIDEO_MUSIC",
+            sections: [
+              buildSection(hookSeg, "hook"),
+              ...(bodySeg.length > 0
+                ? [{ section: "body" as const, actor_text: bodySeg.map(s => s.text_on_screen?.join(" ") || s.description).join(" "), visual_cue: bodySeg.map(s => s.description).join("; ") }]
+                : []),
+              ...(segs.length > 1 ? [buildSection(ctaSeg, "cta")] : []),
+            ],
+          };
+        }
+        updates.structure = structure;
+        setStructureProgress("done");
+        structureOk = true;
+      } else {
+        setStructureProgress("error");
+      }
+
+      if (visualRes.status === "fulfilled" && !visualRes.value.error) {
+        updates.videoAnalysis = visualRes.value;
+        setVisualProgress("done");
+        visualOk = true;
+      } else {
+        setVisualProgress("error");
+      }
+
+      if (structureOk || visualOk) {
+        d.onUpdate?.(updates);
+        setStage("done");
+        setShowBreakdown(true);
+      } else {
+        toast.error("Analysis failed — please try again");
+        setStage("transcribed");
+      }
     } catch (e: any) {
       toast.error(e.message || "Analysis failed");
       setStage("transcribed");
@@ -183,7 +269,9 @@ const VideoNode = memo(({ data }: NodeProps) => {
     setShowTranscript(false);
     setShowBreakdown(false);
     setSelectedSections(["hook", "body", "cta"]);
-    d.onUpdate?.({ url: undefined, transcription: undefined, structure: undefined, thumbnailUrl: undefined, videoFileUrl: undefined, selectedSections: undefined });
+    setStructureProgress("idle");
+    setVisualProgress("idle");
+    d.onUpdate?.({ url: undefined, transcription: undefined, structure: undefined, videoAnalysis: undefined, thumbnailUrl: undefined, videoFileUrl: undefined, selectedSections: undefined });
   };
 
   // ─── Toggle section context ───
@@ -440,21 +528,46 @@ const VideoNode = memo(({ data }: NodeProps) => {
 
             {/* ── "Generate Visual Breakdown" button ── */}
             {hasTranscript && !hasStructure && (
-              <div className="px-3 py-3">
-                <button
-                  onClick={analyzeStructure}
-                  disabled={stage === "analyzing"}
-                  className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors disabled:opacity-50 text-xs font-semibold"
-                >
-                  {stage === "analyzing"
-                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing...</>
-                    : <><Sparkles className="w-3.5 h-3.5" /> Generate Visual Breakdown</>}
-                </button>
+              <div className="px-3 py-3 space-y-2">
+                {stage !== "analyzing" ? (
+                  <>
+                    <button
+                      onClick={analyzeStructure}
+                      className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-xs font-semibold"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" /> Generate Visual Breakdown
+                    </button>
+                    <p className="text-[10px] text-muted-foreground/60 text-center px-1">
+                      Includes AI visual scene analysis — reads frames to detect scenes &amp; on-screen text
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-1.5">
+                    {/* Structure progress */}
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-green-500/8 border border-green-500/15" : "bg-primary/6 border border-primary/15"}`}>
+                      {structureProgress === "done"
+                        ? <span className="text-green-400 text-[11px]">✓</span>
+                        : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
+                      <span className={structureProgress === "done" ? "text-green-400/80" : "text-primary/70"}>
+                        Structure analysis{structureProgress === "done" ? " complete" : "…"}
+                      </span>
+                    </div>
+                    {/* Visual progress */}
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-green-500/8 border border-green-500/15" : "bg-primary/6 border border-primary/15"}`}>
+                      {visualProgress === "done"
+                        ? <span className="text-green-400 text-[11px]">✓</span>
+                        : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
+                      <span className={visualProgress === "done" ? "text-green-400/80" : "text-primary/70"}>
+                        Visual scene analysis{visualProgress === "done" ? " complete" : "…"}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ── Dropdown 2: Visual Breakdown ── */}
-            {hasStructure && d.structure && (
+            {/* ── Dropdown 2: Visual Breakdown (merged) ── */}
+            {(hasStructure || (d as any).videoAnalysis) && (
               <div>
                 <button
                   onClick={() => setShowBreakdown(v => !v)}
@@ -462,22 +575,23 @@ const VideoNode = memo(({ data }: NodeProps) => {
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-foreground/80">Visual Breakdown</span>
-                    {/* Section toggle chips inline */}
-                    <div className="flex gap-1">
-                      {(["hook", "body", "cta"] as const).map(s => {
-                        const active = selectedSections.includes(s);
-                        return (
-                          <span
-                            key={s}
-                            onClick={(e) => { e.stopPropagation(); toggleSection(s); }}
-                            className={`nodrag cursor-pointer px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-colors border
-                              ${active ? `${SECTION_COLORS[s].accent} ${SECTION_COLORS[s].bg} ${SECTION_COLORS[s].border}` : "text-muted-foreground/40 bg-transparent border-border/30"}`}
-                          >
-                            {s}
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {hasStructure && (
+                      <div className="flex gap-1">
+                        {(["hook", "body", "cta"] as const).map(s => {
+                          const active = selectedSections.includes(s);
+                          return (
+                            <span
+                              key={s}
+                              onClick={(e) => { e.stopPropagation(); toggleSection(s); }}
+                              className={`nodrag cursor-pointer px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-colors border
+                                ${active ? `${SECTION_COLORS[s].accent} ${SECTION_COLORS[s].bg} ${SECTION_COLORS[s].border}` : "text-muted-foreground/40 bg-transparent border-border/30"}`}
+                            >
+                              {s}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   {showBreakdown
                     ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
@@ -485,32 +599,81 @@ const VideoNode = memo(({ data }: NodeProps) => {
                 </button>
 
                 {showBreakdown && (
-                  <div className="px-3 py-2.5 space-y-3 border-b border-border/40 nowheel" style={{ maxHeight: "360px", overflowY: "auto" }}>
-                    {d.structure.sections.map((sec, i) => {
+                  <div className="px-3 py-2.5 space-y-3 border-b border-border/40 nowheel" style={{ maxHeight: "400px", overflowY: "auto" }}>
+
+                    {/* ── Script Structure sections ── */}
+                    {hasStructure && d.structure && d.structure.sections.map((sec, i) => {
                       const c = SECTION_COLORS[sec.section] || SECTION_COLORS.body;
                       return (
                         <div key={i} className={`rounded-xl border ${c.border} ${c.bg} overflow-hidden`}>
-                          {/* Section label */}
                           <div className="px-3 py-1.5 border-b border-white/5">
                             <span className={`text-[10px] font-bold uppercase ${c.accent}`}>{c.label}</span>
                           </div>
-
-                          {/* What is said */}
                           <div className="px-3 py-2">
-                            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">What is said</p>
                             <p className="text-[11px] text-foreground/90 leading-relaxed">{sec.actor_text}</p>
                           </div>
-
-                          {/* Visual — what is shown */}
                           {sec.visual_cue && (
-                            <div className="px-3 py-2 border-t border-white/5 bg-black/5">
-                              <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Visual</p>
-                              <p className="text-[11px] text-foreground/70 leading-relaxed italic">{sec.visual_cue}</p>
+                            <div className="px-3 py-1.5 border-t border-white/5 bg-black/5 flex items-start gap-1.5">
+                              <Eye className="w-3 h-3 text-muted-foreground/50 mt-0.5 flex-shrink-0" />
+                              <p className="text-[10px] text-foreground/60 leading-relaxed italic">{sec.visual_cue}</p>
                             </div>
                           )}
                         </div>
                       );
                     })}
+
+                    {/* ── Visual Scenes (from multimodal analysis) ── */}
+                    {(d as any).videoAnalysis?.visual_segments?.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <div className="flex-1 h-px bg-border/30" />
+                          <span className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Visual Scenes</span>
+                          <div className="flex-1 h-px bg-border/30" />
+                        </div>
+                        {((d as any).videoAnalysis.visual_segments as VisualSegmentNode[]).map((seg, i) => (
+                          <div key={i} className="rounded-lg border border-border/20 bg-muted/8 px-2.5 py-2 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
+                              <span className="text-[9px] font-semibold text-muted-foreground/60">
+                                {seg.start}s – {seg.end}s
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-foreground/70 leading-relaxed">{seg.description}</p>
+                            {seg.text_on_screen && seg.text_on_screen.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {seg.text_on_screen.map((txt, j) => (
+                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400/80">
+                                    <Type className="w-2.5 h-2.5 flex-shrink-0" />
+                                    {txt}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Audio summary chips */}
+                        {(d as any).videoAnalysis?.audio && (
+                          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/20">
+                            {(d as any).videoAnalysis.audio.has_music && (
+                              <span className="inline-flex items-center gap-1 text-[9px] px-2 py-1 rounded-lg bg-muted/20 border border-border/20 text-muted-foreground/70">
+                                <Music2 className="w-2.5 h-2.5" /> Music
+                              </span>
+                            )}
+                            {(d as any).videoAnalysis.audio.energy === "high" && (
+                              <span className="inline-flex items-center gap-1 text-[9px] px-2 py-1 rounded-lg bg-muted/20 border border-border/20 text-muted-foreground/70">
+                                <Zap className="w-2.5 h-2.5" /> High energy
+                              </span>
+                            )}
+                            {(d as any).videoAnalysis.audio.speech_density === "low" && (
+                              <span className="inline-flex items-center gap-1 text-[9px] px-2 py-1 rounded-lg bg-muted/20 border border-border/20 text-muted-foreground/70">
+                                <MicOff className="w-2.5 h-2.5" /> No speech
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
