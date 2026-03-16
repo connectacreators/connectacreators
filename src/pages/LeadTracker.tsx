@@ -400,7 +400,7 @@ export default function LeadTracker() {
   // Stats — reflect active filters (date + search + status + source)
   const totalLeads = filtered.length;
   const bookedCount = filtered.filter((l) => l.leadStatus === "Booked").length;
-  const pendingCount = filtered.filter((l) => l.leadStatus !== "Appointment Booked" && l.leadStatus !== "Canceled").length;
+  const pendingCount = filtered.filter((l) => l.leadStatus !== "Booked" && l.leadStatus !== "Canceled").length;
   const conversionRate = totalLeads > 0 ? ((bookedCount / totalLeads) * 100).toFixed(1) : "0.0";
 
   // Month-over-month deltas
@@ -419,12 +419,12 @@ export default function LeadTracker() {
   const totalDelta = lastMonthLeads > 0 ? Math.round(((thisMonthLeads - lastMonthLeads) / lastMonthLeads) * 100) : (thisMonthLeads > 0 ? 100 : 0);
 
   const thisMonthBooked = leads.filter((l) => {
-    if (!l.createdDate || l.leadStatus !== "Appointment Booked") return false;
+    if (!l.createdDate || l.leadStatus !== "Booked") return false;
     const d = new Date(l.createdDate);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
   const lastMonthBooked = leads.filter((l) => {
-    if (!l.createdDate || l.leadStatus !== "Appointment Booked") return false;
+    if (!l.createdDate || l.leadStatus !== "Booked") return false;
     const d = new Date(l.createdDate);
     const prev = new Date(now.getFullYear(), now.getMonth() - 1);
     return d.getMonth() === prev.getMonth() && d.getFullYear() === prev.getFullYear();
