@@ -1,64 +1,90 @@
 project_id = "hxojqrilwhhrvloiwmfo"
 
-# User-authenticated functions (require JWT token)
+# All functions use verify_jwt = false — internal auth via supabase.auth.getUser()
+# This is required for this project; gateway-level JWT check causes 401 errors.
 [functions.categorize-script]
-verify_jwt = true
+verify_jwt = false
+
+[functions.create-subscriber-user]
+verify_jwt = false
 
 [functions.create-videographer]
-verify_jwt = true
-# Note: Add role check inside function — only admin can call
+verify_jwt = false
 
 [functions.fetch-leads]
-verify_jwt = true
+verify_jwt = false
 
 [functions.update-lead-status]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sync-notion-script]
-verify_jwt = true
+verify_jwt = false
 
 [functions.bulk-sync-notion-scripts]
-verify_jwt = true
-# Note: Add role check inside function — only admin can call
+verify_jwt = false
 
 [functions.get-subscription]
-verify_jwt = true
+verify_jwt = false
 
 [functions.ai-build-script]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.check-subscription]
-verify_jwt = true
+verify_jwt = false
+
+[functions.stripe-billing-portal]
+verify_jwt = false
 
 [functions.cancel-subscription]
-verify_jwt = true
+verify_jwt = false
 
 [functions.upgrade-subscription]
-verify_jwt = true
+verify_jwt = false
 
 [functions.transcribe-video]
-verify_jwt = true
+verify_jwt = false
+
+[functions.fetch-thumbnail]
+verify_jwt = false
 
 [functions.execute-workflow]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-notion-db-schema]
-verify_jwt = true
+verify_jwt = false
 
 [functions.facebook-oauth]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-facebook-leads]
-verify_jwt = true
+verify_jwt = false
 
 [functions.test-workflow-step]
-verify_jwt = true
+verify_jwt = false
+
+[functions.ai-followup-executor]
+verify_jwt = false
 
 [functions.google-sheets]
-verify_jwt = true
+verify_jwt = false
+
+[functions.schedule-post]
+verify_jwt = false
+
+[functions.update-post-status]
+verify_jwt = false
+
+[functions.sync-calendar-status]
+verify_jwt = false
+
+[functions.fetch-editing-queue]
+verify_jwt = false
+
+[functions.update-editing-status]
+verify_jwt = false
 
 # Publicly accessible endpoints (no JWT required)
 [functions.public-booking]
@@ -81,3 +107,44 @@ verify_jwt = false
 [functions.process-workflow-queue]
 verify_jwt = false
 # Note: Protect with X-Internal-Secret header check
+
+[functions.scrape-channel]
+verify_jwt = false
+
+# Daily auto-scrape function (triggered via cron, secret-protected)
+[functions.auto-scrape-channels]
+verify_jwt = false
+# Note: Protect with X-Cron-Secret header check
+
+# AI Follow-Up Automation functions
+[functions.send-followup]
+verify_jwt = false
+
+[functions.process-followup-queue]
+verify_jwt = false
+# Note: Triggered by pg_cron every 5 minutes
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.delete-lead]
+verify_jwt = false
+
+[functions.detect-video-format]
+verify_jwt = false
+
+[functions.update-lead-notes]
+verify_jwt = false
+
+[functions.analyze-video-multimodal]
+verify_jwt = false
+
+[functions.batch-generate-scripts]
+verify_jwt = false
+
+[functions.batch-poll-scripts]
+verify_jwt = false
+
+# Stripe subscription lifecycle webhook (signature verification via STRIPE_WEBHOOK_SECRET)
+[functions.stripe-webhook]
+verify_jwt = false
