@@ -19,9 +19,9 @@ export default {
 		},
     extend: {
       fontFamily: {
-        'sans': ['Arial', 'Helvetica', 'sans-serif'],
-        'playfair': ['Arial', 'Helvetica', 'sans-serif'],
-        'inter': ['Arial', 'Helvetica', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'sans-serif'],
+        'playfair': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'sans-serif'],
+        'inter': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'sans-serif'],
       },
 			colors: {
 				border: 'hsl(var(--border))',
