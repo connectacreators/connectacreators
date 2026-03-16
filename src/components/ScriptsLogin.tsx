@@ -183,7 +183,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
             <span className="w-full border-t border-border/50" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">{tr(t.login.or, language)}</span>
+            <span className="bg-card px-2 text-muted-foreground">{tr(t.login.or, language)}</span>
           </div>
         </div>
 
