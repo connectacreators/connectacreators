@@ -7,8 +7,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LogOut } from "lucide-react";
 
-import connectaLoginLogo from "@/assets/connecta-login-logo.png";
-import connectaLoginLogoDark from "@/assets/connecta-logo-dark.png";
+import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
+import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
 
 interface Props {
   sidebarOpen: boolean;
@@ -24,7 +24,7 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
   return (
     <>
       {/* Mobile top bar */}
-      <div className="border-b border-border/50 px-4 py-3 flex items-center gap-3 lg:hidden">
+      <div className="glass-topbar rounded-xl px-4 py-3 flex items-center gap-3 lg:hidden">
         <button
           onClick={() => setSidebarOpen(true)}
           className="hover:opacity-80 transition-opacity focus:outline-none"
@@ -43,13 +43,13 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
             className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
             title={tr(t.dashboard.signOut, language)}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 text-[#0891B2]" />
           </button>
         </div>
       </div>
       {/* Desktop collapsed top bar */}
       {!sidebarOpen && (
-        <div className="border-b border-border/50 px-4 py-3 hidden lg:flex items-center gap-3">
+        <div className="glass-topbar rounded-xl px-4 py-3 hidden lg:flex items-center gap-3">
           <button
             onClick={() => navigate("/")}
             className="hover:opacity-80 transition-opacity focus:outline-none"
