@@ -76,7 +76,9 @@ const STATUS_COLORS: Record<string, string> = {
   "Follow-up 1": "bg-[rgba(132,204,22,0.15)] text-[#84CC16] border-[rgba(132,204,22,0.30)]",
   "Follow-up 2": "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
   "Follow-up 3": "bg-pink-500/15 text-pink-400 border-pink-500/30",
-  "Booked":      "bg-[rgba(132,204,22,0.15)] text-[#84CC16] border-[rgba(132,204,22,0.30)]",
+  "Booked":      "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
+  "Closed":      "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
+  "Won":         "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
   "Canceled":    "bg-red-500/15 text-red-400 border-red-500/30",
 };
 

@@ -1268,7 +1268,7 @@ export default function ViralToday() {
                   </div>
                 ) : filteredVideos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <Filter className="w-6 h-6 text-muted-foreground mb-3" />
+                    <Filter className="w-6 h-6 text-[#94a3b8] mb-3" />
                     <p className="text-sm font-medium text-foreground mb-1">{t.noVideosMatch}</p>
                     <button
                       onClick={clearFilters}
