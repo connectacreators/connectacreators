@@ -57,7 +57,6 @@ const TRANSLATIONS = {
     clearAllFilters: "Clear all filters",
     username: "username",
     addScrape: "Add & Scrape",
-    videos: "videos",
     avgViews: "avg views",
     lastScraped: "last scraped",
     never: "never",
@@ -70,9 +69,7 @@ const TRANSLATIONS = {
     noChannels: "No channels yet",
     noChannelsDesc: "Add an Instagram handle above to start scraping viral reels.",
     noChannelsTeamDesc: "Channels will appear here once added by your team.",
-    channels: "channels",
     totalVideos: "total videos",
-    scraping: "scraping",
   },
   es: {
     videos: "Videos",
@@ -111,7 +108,6 @@ const TRANSLATIONS = {
     clearAllFilters: "Limpiar todos los filtros",
     username: "usuario",
     addScrape: "Añadir y Scrapear",
-    videos: "videos",
     avgViews: "vistas promedio",
     lastScraped: "último scrapeado",
     never: "nunca",
@@ -124,9 +120,7 @@ const TRANSLATIONS = {
     noChannels: "Sin canales aún",
     noChannelsDesc: "Añade un usuario de Instagram arriba para comenzar a scrapear reels virales.",
     noChannelsTeamDesc: "Los canales aparecerán aquí una vez añadidos por tu equipo.",
-    channels: "canales",
     totalVideos: "videos totales",
-    scraping: "scrapeando",
   },
 };
 
