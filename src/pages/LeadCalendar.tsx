@@ -242,13 +242,12 @@ function LeadPopoverCard({ lead, isAdmin }: { lead: Lead; isAdmin: boolean }) {
 
 // ---- Event Block (used in week/day views) ----
 function EventBlock({
-  lead, hourHeight, startHour, isAdmin, isDayView, columnIndex, columnCount,
+  lead, hourHeight, startHour, isAdmin, columnIndex, columnCount,
 }: {
   lead: Lead;
   hourHeight: number;
   startHour: number;
   isAdmin: boolean;
-  isDayView?: boolean;
   columnIndex?: number;
   columnCount?: number;
 }) {
@@ -715,7 +714,6 @@ export default function LeadCalendar() {
                                   hourHeight={HOUR_HEIGHT}
                                   startHour={HOURS[0]}
                                   isAdmin={isAdmin}
-                                  isDayView
                                   columnIndex={layout.columnIndex}
                                   columnCount={layout.columnCount}
                                 />
