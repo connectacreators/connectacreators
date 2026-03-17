@@ -55,8 +55,14 @@ CREATE TABLE revision_comments (
 CREATE INDEX idx_revision_comments_video ON revision_comments(video_edit_id);
 
 ALTER TABLE revision_comments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public access" ON revision_comments
-  USING (true) WITH CHECK (true);
+-- Anyone can read and insert comments (needed for public review page)
+CREATE POLICY "Public read" ON revision_comments FOR SELECT USING (true);
+CREATE POLICY "Public insert" ON revision_comments FOR INSERT WITH CHECK (true);
+-- Only authenticated admin users can update (resolve) or delete comments
+CREATE POLICY "Admin update" ON revision_comments FOR UPDATE
+  USING (auth.role() = 'authenticated');
+CREATE POLICY "Admin delete" ON revision_comments FOR DELETE
+  USING (auth.role() = 'authenticated');
 ```
 
 ### Supabase Storage bucket
@@ -82,7 +88,7 @@ Role-gated dual button component placed in the editing queue row where footage/f
 
 **Subscriber view (Starter / Growth / Enterprise):**
 - "Google Drive" button only — no direct upload option
-- Role check via existing `useSubscriptionGuard` hook or `user_roles` table
+- Role check via `useAuth().isAdmin` (from AuthContext) — not `useSubscriptionGuard` which is for paywall enforcement
 
 ### Video Review Modal (`VideoReviewModal.tsx`)
 
