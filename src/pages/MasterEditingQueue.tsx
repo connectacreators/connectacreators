@@ -2,13 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
-import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Clapperboard, CalendarClock, Trash2 } from "lucide-react";
+import { Loader2, Play, ExternalLink, Download, ChevronDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -21,6 +19,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 interface EditingQueueItem {
@@ -29,6 +29,7 @@ interface EditingQueueItem {
   status: string;
   statusColor: string;
   fileSubmissionUrl: string | null;
+  footageUrl: string | null;
   scriptUrl: string | null;
   assignee: string | null;
   assigneeId: string | null;
@@ -36,16 +37,17 @@ interface EditingQueueItem {
   revisions: string | null;
   revisionPropName: string | null;
   lastEdited: string;
+  scheduledDate: string | null;
   clientId: string;
   clientName: string;
+  source?: 'notion' | 'db' | 'script';
+  caption?: string | null;
+  script_id?: string | null;
+  postStatus?: string | null;
 }
 
-interface NotionUser {
-  id: string;
-  name: string;
-}
-
-const STATUS_OPTIONS = ["Not started", "In progress", "Done", "Needs revision"];
+const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
+const POST_STATUS_OPTIONS = ["Scheduled", "Needs Revision", "Approved", "Done"];
 
 function extractGoogleDriveFileId(url: string): string | null {
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -82,13 +84,8 @@ export default function MasterEditingQueue() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const [items, setItems] = useState<EditingQueueItem[]>([]);
-  const [notionUsers, setNotionUsers] = useState<NotionUser[]>([]);
-  const [assigneeProperty, setAssigneeProperty] = useState("Assignee");
-  const [revisionProperty, setRevisionProperty] = useState("Revisions");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,6 +100,15 @@ export default function MasterEditingQueue() {
   const [savingRevision, setSavingRevision] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<EditingQueueItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [updatingPostStatus, setUpdatingPostStatus] = useState<string | null>(null);
+
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchQueue = async () => {
     if (!user) return;
@@ -150,21 +156,40 @@ export default function MasterEditingQueue() {
         return;
       }
 
-      const res = await supabase.functions.invoke("fetch-editing-queue", {
-        body: { client_ids: clientIds },
-      });
+      const { data: dbVideos, error: dbErr } = await supabase
+        .from("video_edits")
+        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, revisions, created_at, footage, schedule_date, client_id, caption, clients(name)")
+        .in("client_id", clientIds)
+        .order("created_at", { ascending: false });
 
-      if (res.error) throw res.error;
+      if (dbErr) throw dbErr;
 
-      const fetchedItems: EditingQueueItem[] = res.data?.items || [];
-      setItems(fetchedItems);
-      setNotionUsers(res.data?.notionUsers || []);
-      setAssigneeProperty(res.data?.assigneeProperty || "Assignee");
-      setRevisionProperty(res.data?.revisionProperty || "Revisions");
+      const allItems: EditingQueueItem[] = (dbVideos || []).map((v: any) => ({
+        id: v.id,
+        title: v.reel_title || "Untitled",
+        status: v.status || "Not started",
+        statusColor: "",
+        fileSubmissionUrl: v.file_submission,
+        footageUrl: v.footage || null,
+        scriptUrl: v.script_url || null,
+        assignee: v.assignee || null,
+        assigneeId: null,
+        assigneePropName: null,
+        revisions: v.revisions || null,
+        revisionPropName: null,
+        lastEdited: v.created_at,
+        scheduledDate: v.schedule_date || null,
+        clientId: v.client_id,
+        clientName: v.clients?.name || v.client_id,
+        caption: v.caption ?? null,
+        postStatus: v.post_status ?? null,
+        source: 'db' as const,
+      }));
 
-      // Build unique client options from returned items
+      setItems(allItems);
+
       const clientMap = new Map<string, string>();
-      fetchedItems.forEach((item) => {
+      allItems.forEach((item) => {
         if (!clientMap.has(item.clientId)) {
           clientMap.set(item.clientId, item.clientName);
         }
@@ -192,7 +217,7 @@ export default function MasterEditingQueue() {
     setUpdatingStatus(pageId);
     try {
       const res = await supabase.functions.invoke("update-editing-status", {
-        body: { page_id: pageId, status: newStatus },
+        body: { id: pageId, status: newStatus },
       });
       if (res.error) throw res.error;
       setItems((prev) =>
@@ -210,18 +235,18 @@ export default function MasterEditingQueue() {
     }
   };
 
-  const handleAssigneeChange = async (pageId: string, userId: string | null, userName: string | null, propName: string) => {
+  const handleAssigneeChange = async (pageId: string, userName: string | null) => {
     setUpdatingAssignee(pageId);
     try {
       const res = await supabase.functions.invoke("update-editing-status", {
-        body: { page_id: pageId, assignee_id: userId, assignee_property: propName },
+        body: { id: pageId, assignee: userName ?? "" },
       });
       if (res.error) throw res.error;
       setItems((prev) =>
-        prev.map((item) => (item.id === pageId ? { ...item, assignee: userName, assigneeId: userId } : item))
+        prev.map((item) => (item.id === pageId ? { ...item, assignee: userName } : item))
       );
       setSelectedItem((prev) =>
-        prev && prev.id === pageId ? { ...prev, assignee: userName, assigneeId: userId } : prev
+        prev && prev.id === pageId ? { ...prev, assignee: userName } : prev
       );
       toast.success(language === "en" ? "Assignee updated" : "Asignado actualizado");
     } catch (e: any) {
@@ -241,9 +266,8 @@ export default function MasterEditingQueue() {
     if (!revisionDialogItem) return;
     setSavingRevision(true);
     try {
-      const propName = revisionDialogItem.revisionPropName || revisionProperty;
       const res = await supabase.functions.invoke("update-editing-status", {
-        body: { page_id: revisionDialogItem.id, revisions: revisionText, revision_property: propName },
+        body: { id: revisionDialogItem.id, revisions: revisionText },
       });
       if (res.error) throw res.error;
       setItems((prev) =>
@@ -262,14 +286,30 @@ export default function MasterEditingQueue() {
     }
   };
 
+  const handlePostStatusChange = async (itemId: string, newStatus: string) => {
+    setUpdatingPostStatus(itemId);
+    try {
+      const { error } = await supabase.from("video_edits").update({ post_status: newStatus }).eq("id", itemId);
+      if (error) throw error;
+      setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, postStatus: newStatus } : i));
+      toast.success(language === "en" ? "Post status updated" : "Estado de post actualizado");
+    } catch (e: any) {
+      console.error("Error updating post status:", e);
+      toast.error(language === "en" ? "Failed to update post status" : "Error al actualizar estado");
+    } finally {
+      setUpdatingPostStatus(null);
+    }
+  };
+
   const handleDeleteItem = async () => {
     if (!deleteConfirmItem) return;
     setDeleting(true);
     try {
-      const res = await supabase.functions.invoke("delete-editing-item", {
-        body: { page_id: deleteConfirmItem.id },
-      });
-      if (res.error) throw res.error;
+      const { error } = await supabase
+        .from("video_edits")
+        .delete()
+        .eq("id", deleteConfirmItem.id);
+      if (error) throw error;
       setItems((prev) => prev.filter((item) => item.id !== deleteConfirmItem.id));
       toast.success(language === "en" ? "Item deleted" : "Elemento eliminado");
       setDeleteConfirmItem(null);
@@ -281,11 +321,56 @@ export default function MasterEditingQueue() {
     }
   };
 
+  const handleSchedulePost = async () => {
+    if (!scheduleItem || !scheduleDate) return;
+    setScheduling(true);
+    try {
+      const { error } = await supabase
+        .from("video_edits")
+        .update({ schedule_date: scheduleDate })
+        .eq("id", scheduleItem.id);
+      if (error) throw error;
+      toast.success(
+        language === "en"
+          ? `"${scheduleItem.title}" scheduled for ${scheduleDate}`
+          : `"${scheduleItem.title}" programado para ${scheduleDate}`
+      );
+      setItems((prev) =>
+        prev.map((item) => item.id === scheduleItem.id ? { ...item, scheduledDate: scheduleDate } : item)
+      );
+      setScheduleItem(null);
+      setScheduleDate("");
+    } catch (e: any) {
+      console.error("Error scheduling post:", e);
+      toast.error(language === "en" ? "Failed to schedule post" : "Error al programar post");
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase.from("video_edits").delete().in("id", ids);
+      if (error) throw error;
+      const count = ids.length;
+      setItems(prev => prev.filter(i => !selectedIds.has(i.id)));
+      setSelectedIds(new Set());
+      toast.success(language === "en" ? `${count} items deleted` : `${count} elementos eliminados`);
+    } catch (e: any) {
+      toast.error(language === "en" ? "Failed to delete items" : "Error al eliminar elementos");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
     );
   }
 
@@ -293,72 +378,33 @@ export default function MasterEditingQueue() {
     ? extractGoogleDriveFileId(selectedItem.fileSubmissionUrl)
     : null;
 
-  const renderAssigneeDropdown = (item: EditingQueueItem) => {
-    const propName = item.assigneePropName || assigneeProperty;
+  const renderAssigneeInput = (item: EditingQueueItem) => {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="inline-flex items-center gap-1 focus:outline-none text-xs" disabled={updatingAssignee === item.id}>
-            {updatingAssignee === item.id ? (
-              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-            ) : item.assignee ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-foreground text-xs cursor-pointer hover:bg-primary/20 transition-colors">
-                <UserCircle className="w-3 h-3" />
-                {item.assignee}
-                <ChevronDown className="w-3 h-3 opacity-60" />
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground text-xs cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
-                <UserCircle className="w-3 h-3" />
-                {language === "en" ? "Assign" : "Asignar"}
-                <ChevronDown className="w-3 h-3 opacity-60" />
-              </span>
-            )}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-popover border border-border z-50 min-w-[160px]">
-          {notionUsers.length === 0 ? (
-            <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-              {language === "en" ? "No users found" : "No se encontraron usuarios"}
-            </DropdownMenuItem>
-          ) : (
-            <>
-              {item.assignee && (
-                <DropdownMenuItem
-                  onClick={() => handleAssigneeChange(item.id, null, null, propName)}
-                  className="text-xs text-muted-foreground"
-                >
-                  {language === "en" ? "Unassign" : "Desasignar"}
-                </DropdownMenuItem>
-              )}
-              {notionUsers.map((nu) => (
-                <DropdownMenuItem
-                  key={nu.id}
-                  onClick={() => handleAssigneeChange(item.id, nu.id, nu.name, propName)}
-                  className={`text-xs ${item.assigneeId === nu.id ? "font-bold" : ""}`}
-                >
-                  <UserCircle className="w-3.5 h-3.5 mr-2" />
-                  {nu.name}
-                </DropdownMenuItem>
-              ))}
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="inline-flex items-center gap-1 min-w-[80px]">
+        {updatingAssignee === item.id ? (
+          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+        ) : (
+          <input
+            type="text"
+            defaultValue={item.assignee || ""}
+            placeholder={language === "en" ? "Unassigned" : "Sin asignar"}
+            className="text-xs bg-transparent border-none outline-none text-foreground w-full"
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val !== (item.assignee || "")) {
+                handleAssigneeChange(item.id, val || null);
+              }
+            }}
+          />
+        )}
+      </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
 
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/editing-queue" />
-
+    <>
       <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <div className="flex-1 px-4 sm:px-8 py-8 max-w-6xl mx-auto w-full">
           <motion.div
@@ -374,19 +420,61 @@ export default function MasterEditingQueue() {
               </h1>
             </div>
 
-            {clientOptions.length > 1 && (
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
-                <SelectTrigger className="w-[200px] h-9 text-xs">
-                  <SelectValue placeholder={language === "en" ? "All Clients" : "Todos los clientes"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{language === "en" ? "All Clients" : "Todos los clientes"}</SelectItem>
-                  {clientOptions.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <div className="flex items-center gap-2">
+              {clientOptions.length > 1 && (
+                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                  <SelectTrigger className="w-[200px] h-9 text-xs">
+                    <SelectValue placeholder={language === "en" ? "All Clients" : "Todos los clientes"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{language === "en" ? "All Clients" : "Todos los clientes"}</SelectItem>
+                    {clientOptions.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Share button */}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText("https://connectacreators.com/public/edit-queue/all");
+                  toast.success("Link copied to clipboard");
+                }}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm bg-white/10 border border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20 transition-all"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Share
+              </button>
+
+              {/* Help button */}
+              <div className="relative">
+                <button
+                  onClick={() => setHelpOpen((v) => !v)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-sm bg-white/10 border border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20 transition-all"
+                  aria-label="Help"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
+
+                {helpOpen && (
+                  <div className="absolute right-0 top-9 z-50 w-72 rounded-xl border border-white/20 bg-background/70 backdrop-blur-md shadow-xl p-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <HelpCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                      <p className="text-xs text-foreground/90 leading-relaxed flex-1">
+                        All scripts will appear in the edit queue. If you want to add a line, create a script and make sure all the columns are filled out first.
+                      </p>
+                      <button
+                        onClick={() => setHelpOpen(false)}
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </motion.div>
 
           {fetching ? (
@@ -401,7 +489,7 @@ export default function MasterEditingQueue() {
             </div>
           ) : (
             <motion.div
-              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden"
+              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 }}
@@ -409,14 +497,25 @@ export default function MasterEditingQueue() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px] pr-0">
+                      <input
+                        type="checkbox"
+                        className="checkbox-clean"
+                        checked={filteredItems.length > 0 && filteredItems.every(i => selectedIds.has(i.id))}
+                        onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredItems.map(i => i.id)) : new Set())}
+                      />
+                    </TableHead>
                     <TableHead>{language === "en" ? "Client" : "Cliente"}</TableHead>
                     <TableHead>{language === "en" ? "Title" : "Título"}</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Post Status</TableHead>
                     <TableHead>{language === "en" ? "Assignee" : "Asignado"}</TableHead>
                     <TableHead>{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
-                    <TableHead>Video</TableHead>
+                    <TableHead>Footage</TableHead>
+                    <TableHead className="text-center">File Submission</TableHead>
                     <TableHead>Script</TableHead>
                     <TableHead>Schedule</TableHead>
+                    <TableHead>Caption</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -427,7 +526,21 @@ export default function MasterEditingQueue() {
                       : false;
 
                     return (
-                      <TableRow key={item.id}>
+                      <TableRow key={item.id} className="group">
+                        <TableCell className="w-[40px] pr-0" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className={`checkbox-clean transition-opacity ${selectedIds.has(item.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                            checked={selectedIds.has(item.id)}
+                            onChange={(e) => {
+                              setSelectedIds(prev => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(item.id); else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        </TableCell>
                         <TableCell>
                           <button
                             onClick={() => navigate(`/clients/${item.clientId}`)}
@@ -441,16 +554,16 @@ export default function MasterEditingQueue() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === item.id}>
-                                <Badge variant="outline" className={`${getStatusClassName(item.status)} cursor-pointer`}>
-                                  {updatingStatus === item.id ? (
+                                {updatingStatus === item.id ? (
+                                  <span className="badge-neutral cursor-pointer inline-flex items-center gap-1">
                                     <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      {item.status}
-                                      <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                                    </>
-                                  )}
-                                </Badge>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 cursor-pointer">
+                                    <StatusBadge status={item.status} />
+                                    <ChevronDown className="w-3 h-3 opacity-60" />
+                                  </span>
+                                )}
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
@@ -467,7 +580,40 @@ export default function MasterEditingQueue() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
-                        <TableCell>{renderAssigneeDropdown(item)}</TableCell>
+                        <TableCell>
+                          {item.source !== 'script' ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingPostStatus === item.id}>
+                                  <Badge variant="outline" className="cursor-pointer text-xs">
+                                    {updatingPostStatus === item.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <>
+                                        {item.postStatus || "—"}
+                                        <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+                                      </>
+                                    )}
+                                  </Badge>
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
+                                {POST_STATUS_OPTIONS.map((s) => (
+                                  <DropdownMenuItem
+                                    key={s}
+                                    onClick={() => handlePostStatusChange(item.id, s)}
+                                    className={item.postStatus === s ? "font-bold" : ""}
+                                  >
+                                    {s}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{renderAssigneeInput(item)}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => handleOpenRevisions(item)}>
                             <MessageSquare className="w-3.5 h-3.5" />
@@ -478,7 +624,19 @@ export default function MasterEditingQueue() {
                             )}
                           </Button>
                         </TableCell>
+                        {/* Footage column */}
                         <TableCell>
+                          {item.footageUrl ? (
+                            <a href={item.footageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                              <ExternalLink className="w-3 h-3" />
+                              {language === "en" ? "Footage" : "Footage"}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        {/* File Submission column */}
+                        <TableCell className="text-center">
                           {hasDriveVideo ? (
                             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setSelectedItem(item)}>
                               <Play className="w-3.5 h-3.5" />
@@ -509,16 +667,25 @@ export default function MasterEditingQueue() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <a
-                            href="https://metricool.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`gap-1.5 text-xs ${item.scheduledDate ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-primary"}`}
+                            onClick={() => { setScheduleItem(item); setScheduleDate(item.scheduledDate || ""); }}
                           >
-                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
-                              <CalendarClock className="w-3.5 h-3.5" />
-                              Schedule
-                            </Button>
-                          </a>
+                            {item.scheduledDate ? (
+                              <><Calendar className="w-3 h-3" />{item.scheduledDate}</>
+                            ) : (
+                              <><CalendarPlus className="w-3.5 h-3.5" />{language === "en" ? "Schedule" : "Programar"}</>
+                            )}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          {item.caption ? (
+                            <span className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.caption}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/40">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -540,6 +707,31 @@ export default function MasterEditingQueue() {
         </div>
       </main>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <span className="text-sm font-medium text-foreground">{selectedIds.size} {language === "en" ? "selected" : "seleccionados"}</span>
+          <div className="w-px h-4 bg-border" />
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedIds(new Set(filteredItems.map(i => i.id)))}>
+            {language === "en" ? "Select All" : "Seleccionar Todo"}
+          </Button>
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedIds(new Set())}>
+            {language === "en" ? "Deselect All" : "Deseleccionar"}
+          </Button>
+          <div className="w-px h-4 bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+          >
+            {bulkDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            {language === "en" ? "Delete" : "Eliminar"}
+          </Button>
+        </div>
+      )}
+
       {/* Video Preview Modal */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
         <DialogContent className="sm:max-w-3xl">
@@ -547,9 +739,7 @@ export default function MasterEditingQueue() {
             <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span>{selectedItem?.title}</span>
               {selectedItem && (
-                <Badge variant="outline" className={getStatusClassName(selectedItem.status)}>
-                  {selectedItem.status}
-                </Badge>
+                <StatusBadge status={selectedItem.status} />
               )}
             </DialogTitle>
           </DialogHeader>
@@ -592,16 +782,16 @@ export default function MasterEditingQueue() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === selectedItem.id}>
-                        <Badge variant="outline" className={`${getStatusClassName(selectedItem.status)} cursor-pointer`}>
-                          {updatingStatus === selectedItem.id ? (
+                        {updatingStatus === selectedItem.id ? (
+                          <span className="badge-neutral cursor-pointer inline-flex items-center gap-1">
                             <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <>
-                              {selectedItem.status}
-                              <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                            </>
-                          )}
-                        </Badge>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 cursor-pointer">
+                            <StatusBadge status={selectedItem.status} />
+                            <ChevronDown className="w-3 h-3 opacity-60" />
+                          </span>
+                        )}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
@@ -616,12 +806,18 @@ export default function MasterEditingQueue() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">{language === "en" ? "Assignee:" : "Asignado:"}</span>
-                  {renderAssigneeDropdown(selectedItem)}
+                  {renderAssigneeInput(selectedItem)}
                 </div>
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleOpenRevisions(selectedItem)}>
                   <MessageSquare className="w-3.5 h-3.5" />
                   {language === "en" ? "Revisions" : "Revisiones"}
                 </Button>
+              </div>
+            )}
+            {selectedItem?.caption && (
+              <div className="mt-4 pt-3 border-t border-border/40">
+                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1.5 tracking-wide">Caption</p>
+                <p className="text-sm whitespace-pre-wrap text-foreground leading-relaxed">{selectedItem.caption}</p>
               </div>
             )}
           </div>
@@ -657,6 +853,56 @@ export default function MasterEditingQueue() {
         </DialogContent>
       </Dialog>
 
+      {/* Schedule Post Dialog */}
+      <Dialog open={!!scheduleItem} onOpenChange={() => setScheduleItem(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <CalendarPlus className="w-4 h-4 text-primary" />
+              {scheduleItem?.scheduledDate
+                ? (language === "en" ? "Reschedule Post" : "Reprogramar Post")
+                : (language === "en" ? "Schedule Post" : "Programar Post")}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {scheduleItem?.title} — {scheduleItem?.clientName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">
+                {language === "en" ? "Select publish date" : "Selecciona la fecha de publicación"}
+              </Label>
+              <Input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="text-sm"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {language === "en"
+                ? "This will add the post to the Content Calendar."
+                : "Esto añadirá el post al Calendario de Contenido."}
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setScheduleItem(null)} disabled={scheduling}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSchedulePost}
+              disabled={scheduling || !scheduleDate}
+              className="gap-1.5"
+            >
+              {scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarPlus className="w-3.5 h-3.5" />}
+              {language === "en" ? "Schedule" : "Programar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteConfirmItem} onOpenChange={() => setDeleteConfirmItem(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -666,8 +912,8 @@ export default function MasterEditingQueue() {
             </DialogTitle>
             <DialogDescription className="text-xs">
               {language === "en"
-                ? `Are you sure you want to delete "${deleteConfirmItem?.title}"? This will archive it in Notion and remove the sync record.`
-                : `¿Estás seguro de que quieres eliminar "${deleteConfirmItem?.title}"? Se archivará en Notion y se eliminará el registro de sincronización.`}
+                ? `Are you sure you want to delete "${deleteConfirmItem?.title}"? This action cannot be undone.`
+                : `¿Estás seguro de que quieres eliminar "${deleteConfirmItem?.title}"? Esta acción no se puede deshacer.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -681,6 +927,6 @@ export default function MasterEditingQueue() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
