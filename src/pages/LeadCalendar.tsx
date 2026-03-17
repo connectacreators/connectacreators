@@ -5,6 +5,7 @@ import { useClients } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Select,
   SelectContent,
@@ -31,7 +32,6 @@ import {
   ExternalLink,
   StickyNote,
 } from "lucide-react";
-import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -56,14 +56,22 @@ type Lead = {
   notionUrl: string;
 };
 
-type ViewMode = "day" | "week" | "month" | "year";
+type ViewMode = "day" | "week" | "month";
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-  "Appointment Booked": { bg: "bg-green-500/15", border: "border-l-green-500", text: "text-green-600 dark:text-green-400", badge: "bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30" },
+  // Standardized status names (DB + new Notion configs)
+  "New Lead":    { bg: "bg-yellow-500/15", border: "border-l-yellow-500", text: "text-yellow-600 dark:text-yellow-400", badge: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30" },
+  "Follow-up 1": { bg: "bg-orange-500/15", border: "border-l-orange-500", text: "text-orange-600 dark:text-orange-400", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30" },
+  "Follow-up 2": { bg: "bg-blue-500/15",   border: "border-l-blue-500",   text: "text-blue-600 dark:text-blue-400",   badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30" },
+  "Follow-up 3": { bg: "bg-pink-500/15",   border: "border-l-pink-500",   text: "text-pink-600 dark:text-pink-400",   badge: "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30" },
+  "Booked":      { bg: "bg-green-500/15",  border: "border-l-green-500",  text: "text-green-600 dark:text-green-400", badge: "bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30" },
+  "Canceled":    { bg: "bg-red-500/15",    border: "border-l-red-500",    text: "text-red-600 dark:text-red-400",     badge: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30" },
+  // Legacy Notion status names (backward compat)
+  "Appointment Booked":        { bg: "bg-green-500/15",  border: "border-l-green-500",  text: "text-green-600 dark:text-green-400",  badge: "bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30" },
   "Follow up #1 (Not Booked)": { bg: "bg-orange-500/15", border: "border-l-orange-500", text: "text-orange-600 dark:text-orange-400", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30" },
-  "Follow up #2 (Not Booked)": { bg: "bg-blue-500/15", border: "border-l-blue-500", text: "text-blue-600 dark:text-blue-400", badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30" },
-  "Follow up #3 (Not Booked)": { bg: "bg-pink-500/15", border: "border-l-pink-500", text: "text-pink-600 dark:text-pink-400", badge: "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30" },
-  "Meta Ad (Not Booked)": { bg: "bg-yellow-500/15", border: "border-l-yellow-500", text: "text-yellow-600 dark:text-yellow-400", badge: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30" },
+  "Follow up #2 (Not Booked)": { bg: "bg-blue-500/15",   border: "border-l-blue-500",   text: "text-blue-600 dark:text-blue-400",   badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30" },
+  "Follow up #3 (Not Booked)": { bg: "bg-pink-500/15",   border: "border-l-pink-500",   text: "text-pink-600 dark:text-pink-400",   badge: "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30" },
+  "Meta Ad (Not Booked)":      { bg: "bg-yellow-500/15", border: "border-l-yellow-500", text: "text-yellow-600 dark:text-yellow-400", badge: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30" },
 };
 
 const DEFAULT_STATUS_COLOR = { bg: "bg-muted/50", border: "border-l-muted-foreground", text: "text-muted-foreground", badge: "bg-muted text-muted-foreground" };
@@ -126,7 +134,6 @@ function formatHourLabel(h: number) {
 // ---- Lead Popover Card ----
 function LeadPopoverCard({ lead, isAdmin }: { lead: Lead; isAdmin: boolean }) {
   const time = formatTime(lead.appointmentDate);
-  const sc = getStatusColor(lead.leadStatus);
   return (
     <div className="space-y-2.5 min-w-[240px]">
       <div className="flex items-start justify-between gap-2">
@@ -138,7 +145,7 @@ function LeadPopoverCard({ lead, isAdmin }: { lead: Lead; isAdmin: boolean }) {
         )}
       </div>
       {lead.leadStatus && (
-        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${sc.badge}`}>{lead.leadStatus}</Badge>
+        <StatusBadge status={lead.leadStatus} />
       )}
       <div className="space-y-1.5 text-xs text-muted-foreground">
         {time && (
@@ -343,7 +350,7 @@ export default function LeadCalendar() {
       setLeads((result.leads || []).filter((l: Lead) => l.appointmentDate));
     } catch (e: any) {
       console.error("Error fetching leads:", e);
-      setError(e.message || "Error al cargar leads");
+      setError(e.message || (language === "en" ? "Error loading leads" : "Error al cargar leads"));
     } finally {
       setLoading(false);
     }
@@ -392,7 +399,7 @@ export default function LeadCalendar() {
       if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); } else setViewMonth(viewMonth - 1);
     } else if (viewMode === "week") {
       const d = new Date(viewWeekStart); d.setDate(d.getDate() - 7); setViewWeekStart(d);
-    } else { setViewYear(viewYear - 1); }
+    }
   };
   const goNext = () => {
     if (viewMode === "day") {
@@ -405,7 +412,7 @@ export default function LeadCalendar() {
       if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); } else setViewMonth(viewMonth + 1);
     } else if (viewMode === "week") {
       const d = new Date(viewWeekStart); d.setDate(d.getDate() + 7); setViewWeekStart(d);
-    } else { setViewYear(viewYear + 1); }
+    }
   };
   const goToday = () => {
     const n = new Date();
@@ -415,17 +422,15 @@ export default function LeadCalendar() {
   };
 
   const headerLabel = viewMode === "day"
-    ? viewDate.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    ? viewDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
     : viewMode === "month"
       ? `${MONTH_NAMES[viewMonth]} ${viewYear}`
-      : viewMode === "year"
-        ? `${viewYear}`
-        : (() => {
-            const dates = getWeekDates(viewWeekStart);
-            const s = dates[0]; const e = dates[6];
-            if (s.getMonth() === e.getMonth()) return `${s.getDate()} – ${e.getDate()} ${MONTH_NAMES[s.getMonth()]} ${s.getFullYear()}`;
-            return `${s.getDate()} ${MONTH_SHORT[s.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]} ${e.getFullYear()}`;
-          })();
+      : (() => {
+          const dates = getWeekDates(viewWeekStart);
+          const s = dates[0]; const e = dates[6];
+          if (s.getMonth() === e.getMonth()) return `${s.getDate()} – ${e.getDate()} ${MONTH_NAMES[s.getMonth()]} ${s.getFullYear()}`;
+          return `${s.getDate()} ${MONTH_SHORT[s.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]} ${e.getFullYear()}`;
+        })();
 
   if (authLoading || subscriptionChecking) {
     return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -449,7 +454,7 @@ export default function LeadCalendar() {
     <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "Arial, sans-serif" }}>
       <AnimatedDots />
       {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-10">
+      <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-10 hidden lg:block">
         <div className="mx-auto px-3 py-2.5 flex items-center gap-2 max-w-[1600px]">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4" />
@@ -457,7 +462,6 @@ export default function LeadCalendar() {
           <h1 className="font-bold text-base sm:text-lg">{tr(t.leadCalendar.title, language)}</h1>
           <div className="ml-auto flex items-center gap-1.5">
             <LanguageToggle />
-            <ThemeToggle />
             <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>{tr(t.leadCalendar.today, language)}</Button>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => fetchLeads(isStaff && selectedClient !== "all" ? selectedClient : undefined)} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -489,7 +493,7 @@ export default function LeadCalendar() {
             {isStaff && (
               <Select value={selectedClient} onValueChange={setSelectedClient}>
                 <SelectTrigger className="w-full h-7 text-xs mt-2">
-                  <SelectValue placeholder="Cliente" />
+                  <SelectValue placeholder={tr(t.leadCalendar.client, language)} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{tr(t.leadCalendar.allClients, language)}</SelectItem>
@@ -528,7 +532,7 @@ export default function LeadCalendar() {
                       )}
                     </div>
                     {lead.leadStatus && (
-                      <Badge variant="outline" className={`text-[8px] px-1 py-0 mt-0.5 ${sc.badge}`}>{lead.leadStatus}</Badge>
+                      <StatusBadge status={lead.leadStatus} className="mt-0.5" />
                     )}
                   </button>
                 );
@@ -547,13 +551,13 @@ export default function LeadCalendar() {
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goNext}><ChevronRight className="w-4 h-4" /></Button>
             </div>
             <div className="flex bg-muted rounded-md p-0.5">
-              {(["day", "week", "month", "year"] as ViewMode[]).map((mode) => (
+              {(["day", "week", "month"] as ViewMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`px-2 py-1 text-[11px] font-medium rounded transition-colors ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  {mode === "day" ? "Día" : mode === "week" ? tr(t.leadCalendar.week, language) : mode === "month" ? tr(t.leadCalendar.month, language) : tr(t.leadCalendar.year, language)}
+                  {mode === "day" ? "Día" : mode === "week" ? tr(t.leadCalendar.week, language) : tr(t.leadCalendar.month, language)}
                 </button>
               ))}
             </div>
@@ -701,55 +705,9 @@ export default function LeadCalendar() {
                 </div>
               )}
 
-              {/* ===== YEAR VIEW ===== */}
-              {viewMode === "year" && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-                  {MONTH_NAMES.map((_mName, mIdx) => {
-                    const monthDays = getDaysInMonth(viewYear, mIdx);
-                    const firstDow = getFirstDayOfWeek(viewYear, mIdx);
-                    let monthLeadCount = 0;
-                    for (let d = 1; d <= monthDays; d++) {
-                      const ds = `${viewYear}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                      if (leadsByDate[ds]) monthLeadCount += leadsByDate[ds].length;
-                    }
-                    const isCurrentMonth = viewYear === now.getFullYear() && mIdx === now.getMonth();
-                    return (
-                      <button
-                        key={mIdx}
-                        onClick={() => { setViewMonth(mIdx); setViewMode("month"); }}
-                        className={`bg-card border rounded-lg p-2 sm:p-3 hover:border-primary/50 transition-colors text-left ${isCurrentMonth ? "border-primary/40" : "border-border"}`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-bold text-foreground">{MONTH_SHORT[mIdx]}</span>
-                          {monthLeadCount > 0 && (
-                            <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-green-500/15 text-green-400">{monthLeadCount}</Badge>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-7 gap-px">
-                          {DAY_NAMES_SHORT.map((dn, i) => (
-                            <span key={i} className="text-[7px] text-muted-foreground text-center">{dn}</span>
-                          ))}
-                          {Array.from({ length: firstDow }).map((_, i) => <span key={`e-${i}`} />)}
-                          {Array.from({ length: monthDays }).map((_, i) => {
-                            const d = i + 1;
-                            const ds = `${viewYear}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                            const has = !!leadsByDate[ds];
-                            const isTd = ds === todayStr;
-                            return (
-                              <span key={d} className={`text-[7px] sm:text-[8px] text-center leading-tight rounded-sm ${isTd ? "bg-primary text-primary-foreground font-bold" : has ? "bg-green-500/20 text-green-400 font-semibold" : "text-muted-foreground"}`}>
-                                {d}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
 
               {leads.length === 0 && !loading && (
-                <p className="text-center text-muted-foreground py-8 text-sm">No hay leads con citas programadas.</p>
+                <p className="text-center text-muted-foreground py-8 text-sm">{tr(t.leadCalendar.noAppointments, language)}</p>
               )}
             </div>
           )}
