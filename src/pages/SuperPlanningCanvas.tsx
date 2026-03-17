@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -7,6 +7,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useViewport,
   addEdge,
   type Node,
   type Edge,
@@ -23,6 +24,7 @@ import AIAssistantNode from "@/components/canvas/AIAssistantNode";
 import HookGeneratorNode from "@/components/canvas/HookGeneratorNode";
 import BrandGuideNode from "@/components/canvas/BrandGuideNode";
 import CTABuilderNode from "@/components/canvas/CTABuilderNode";
+import InstagramProfileNode from "@/components/canvas/InstagramProfileNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
@@ -69,6 +71,7 @@ const nodeTypes = {
   hookGeneratorNode: HookGeneratorNode,
   brandGuideNode: BrandGuideNode,
   ctaBuilderNode: CTABuilderNode,
+  instagramProfileNode: InstagramProfileNode,
 };
 
 function getInitialPosition(existingCount: number) {
@@ -99,6 +102,14 @@ export default function SuperPlanningCanvas(props: Props) {
   );
 }
 
+// ─── Drawing path type ───
+interface DrawPath {
+  id: string;
+  points: [number, number][];
+  color: string;
+  width: number;
+}
+
 function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -110,6 +121,14 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showViralPicker, setShowViralPicker] = useState(false);
   const [draftScriptId, setDraftScriptId] = useState<string | null>(null);
+
+  // ─── Drawing state ───
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [drawPaths, setDrawPaths] = useState<DrawPath[]>([]);
+  const [currentPath, setCurrentPath] = useState<[number, number][] | null>(null);
+  const [drawColor, setDrawColor] = useState("#22d3ee");
+  const [drawWidth, setDrawWidth] = useState(3);
+  const drawPathsRef = useRef<DrawPath[]>([]);
   const { directSave } = useScripts();
   const { theme } = useTheme();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,7 +250,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
       try {
         const { data } = await supabase
           .from("canvas_states")
-          .select("nodes, edges")
+          .select("nodes, edges, draw_paths")
           .eq("client_id", selectedClient.id)
           .eq("user_id", userId)
           .maybeSingle();
@@ -244,6 +263,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
           }
           setNodes(restoredNodes);
           setEdges((data.edges as Edge[]) || []);
+          if (Array.isArray((data as any).draw_paths)) setDrawPaths((data as any).draw_paths);
         } else {
           setNodes([makeAiNode()]);
         }
@@ -287,9 +307,9 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     return {
       id: AI_NODE_ID,
       type: "aiAssistantNode",
-      position: { x: 900, y: 100 },
-      width: 420,
-      height: 560,
+      position: { x: 860, y: 60 },
+      width: 520,
+      height: 700,
       deletable: false,
       data: {
         canvasContext: { transcriptions: [], structures: [], text_notes: "", research_facts: [], primary_topic: "" },
@@ -309,50 +329,109 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   // ─── Keep refs in sync for unmount save ───
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
+  useEffect(() => { drawPathsRef.current = drawPaths; }, [drawPaths]);
 
-  // ─── Save immediately on unmount (prevents debounce cancellation) ───
-  useEffect(() => {
-    return () => {
-      if (!userIdRef.current || nodesRef.current.length === 0) return;
-      const serializedNodes = serializeNodes(nodesRef.current);
-      // fire-and-forget — no await in cleanup
-      supabase.from("canvas_states").upsert({
+  // ─── Robust save system ───
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const pendingSaveRef = useRef(false);
+  const lastSavedJsonRef = useRef<string>("");
+
+  /** Core save function — deduplicates via JSON snapshot comparison */
+  const saveCanvas = useCallback(async (force = false) => {
+    if (!userIdRef.current || nodesRef.current.length === 0) return;
+    const serializedNodes = serializeNodes(nodesRef.current);
+    const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
+    if (!force && snapshot === lastSavedJsonRef.current) return; // no changes
+    pendingSaveRef.current = true;
+    setSaveStatus("saving");
+    try {
+      await supabase.from("canvas_states").upsert({
         client_id: clientIdRef.current,
         user_id: userIdRef.current,
         nodes: serializedNodes,
         edges: edgesRef.current,
+        draw_paths: drawPathsRef.current,
         updated_at: new Date().toISOString(),
       }, { onConflict: "client_id,user_id" });
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      lastSavedJsonRef.current = snapshot;
+      pendingSaveRef.current = false;
+      setSaveStatus("saved");
+    } catch (e) {
+      console.error("[Canvas] Save failed:", e);
+      setSaveStatus("error");
+    }
   }, []);
 
-  // ─── Auto-save canvas state (debounced 2s) ───
+  /** Sync save using sendBeacon for tab close — last resort, no await */
+  const beaconSave = useCallback(() => {
+    if (!userIdRef.current || nodesRef.current.length === 0) return;
+    const serializedNodes = serializeNodes(nodesRef.current);
+    const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
+    if (snapshot === lastSavedJsonRef.current) return;
+    // Use sendBeacon with Supabase REST API directly for reliability on tab close
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/canvas_states?on_conflict=client_id,user_id`;
+    const body = JSON.stringify({
+      client_id: clientIdRef.current,
+      user_id: userIdRef.current,
+      nodes: serializedNodes,
+      edges: edgesRef.current,
+      draw_paths: drawPathsRef.current,
+      updated_at: new Date().toISOString(),
+    });
+    const blob = new Blob([body], { type: "application/json" });
+    const headers = {
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates",
+    };
+    // sendBeacon doesn't support custom headers — use fetch with keepalive instead
+    try {
+      fetch(url, { method: "POST", headers, body, keepalive: true });
+    } catch {
+      // last resort — nothing more we can do
+    }
+  }, []);
+
+  // ─── Auto-save (debounced 800ms — fast enough to not lose work) ───
   useEffect(() => {
     if (!loaded || !userIdRef.current) return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      try {
-        const serializedNodes = serializeNodes(nodes);
-        await supabase
-          .from("canvas_states")
-          .upsert({
-            client_id: selectedClient.id,
-            user_id: userIdRef.current!,
-            nodes: serializedNodes,
-            edges: edges,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "client_id,user_id" });
-      } catch (e) {
-        console.error("[Canvas] Auto-save failed:", e);
-      }
-    }, 2000);
+    saveTimerRef.current = setTimeout(() => saveCanvas(), 800);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [nodes, edges, loaded, selectedClient.id]);
+  }, [nodes, edges, drawPaths, loaded, selectedClient.id, saveCanvas]);
+
+  // ─── Save on tab close / navigate away ───
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      beaconSave();
+      // Only show prompt if there are unsaved changes
+      if (pendingSaveRef.current) {
+        e.preventDefault();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        beaconSave();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [beaconSave]);
+
+  // ─── Save on unmount (component teardown on route change) ───
+  useEffect(() => {
+    return () => { beaconSave(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Edge-aware context: only nodes connected (via edges) to AI node feed context (either direction)
   const canvasContext = useMemo(() => {
@@ -369,12 +448,37 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     const hookNodes = contextNodes.filter(n => n.type === "hookGeneratorNode");
     const brandNodes = contextNodes.filter(n => n.type === "brandGuideNode");
     const ctaNodes = contextNodes.filter(n => n.type === "ctaBuilderNode");
+    const instagramProfileNodes = contextNodes.filter(
+      n => n.type === "instagramProfileNode" &&
+      (n.data as any).status === "done" &&
+      ((n.data as any).posts?.length ?? 0) > 0
+    );
 
     // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
     // Include nodes with videoAnalysis even if transcription is empty (B-roll videos)
     const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription || !!(n.data as any).videoAnalysis);
 
+    // Build a node inventory so the AI always knows what's connected even before data loads
+    const nodeInventory = [
+      ...videoNodes.map(n => {
+        const d = n.data as any;
+        const hasTranscript = !!d.transcription;
+        const hasAnalysis = !!d.videoAnalysis;
+        const username = d.channel_username ? `@${d.channel_username}` : null;
+        const label = username || (d.url ? "video" : "video node");
+        if (hasTranscript || hasAnalysis) return `VideoNode(${label}, transcription=${hasTranscript}, visual_analysis=${hasAnalysis})`;
+        return `VideoNode(${label}, status=loading_or_empty)`;
+      }),
+      ...textNoteNodes.map(n => `TextNote(${(n.data as any).noteText ? "has_content" : "empty"})`),
+      ...researchNodes.map(n => `ResearchNode(topic="${(n.data as any).topic || "none"}", facts=${((n.data as any).facts || []).length})`),
+      ...hookNodes.map(() => "HookGeneratorNode"),
+      ...brandNodes.map(() => "BrandGuideNode"),
+      ...ctaNodes.map(() => "CTABuilderNode"),
+      ...instagramProfileNodes.map(n => `CompetitorNode(@${(n.data as any).username || "unknown"}, posts=${((n.data as any).posts || []).length})`),
+    ];
+
     return {
+      connected_nodes: nodeInventory,
       transcriptions: videoNodesWithTranscript.map(n => (n.data as any).transcription || ""),
       structures: videoNodesWithTranscript.map(n => {
         const d = n.data as any;
@@ -408,6 +512,15 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
         tagline: (brandNodes[0].data as any).tagline ?? null,
       } : null,
       selected_cta: (ctaNodes[0]?.data as any)?.selectedCTA ?? null,
+      competitor_profiles: instagramProfileNodes.length > 0
+        ? instagramProfileNodes.map(n => {
+            const d = n.data as any;
+            const posts: any[] = d.posts || [];
+            const hookPatterns = [...new Set(posts.map((p: any) => p.hookType).filter(Boolean))] as string[];
+            const contentThemes = [...new Set(posts.map((p: any) => p.contentTheme).filter(Boolean))] as string[];
+            return { username: d.username || "unknown", top_posts: posts, hook_patterns: hookPatterns, content_themes: contentThemes };
+          })
+        : null,
     };
   }, [nodes, edges]);
 
@@ -449,7 +562,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode") => {
     const nodeId = `${type}_${Date.now()}`;
     const nonAiCount = nodes.filter(n => n.id !== AI_NODE_ID).length;
     const position = getInitialPosition(nonAiCount);
@@ -460,6 +573,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
       : type === "hookGeneratorNode" ? 300
       : type === "brandGuideNode" ? 280
       : type === "ctaBuilderNode" ? 300
+      : type === "instagramProfileNode" ? 480
       : 288;
     const newNode: Node = {
       id: nodeId,
@@ -478,7 +592,8 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     setNodes(prev => [...prev, newNode]);
   }, [nodes, authToken, selectedClient.id, setNodes]);
 
-  const { zoomIn, zoomOut } = useReactFlow();
+  const { zoomIn, zoomOut, screenToFlowPosition } = useReactFlow();
+  const viewport = useViewport();
 
   // ─── Paste URL → auto-create VideoNode ───
   useEffect(() => {
@@ -532,22 +647,49 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
 
   // ─── Await save before leaving (fixes fire-and-forget race) ───
   const handleBack = useCallback(async () => {
-    if (userIdRef.current) {
-      const serializedNodes = serializeNodes(nodesRef.current);
-      try {
-        await supabase.from("canvas_states").upsert({
-          client_id: clientIdRef.current,
-          user_id: userIdRef.current,
-          nodes: serializedNodes,
-          edges: edgesRef.current,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "client_id,user_id" });
-      } catch (e) {
-        console.error("[Canvas] Save-on-back failed:", e);
-      }
-    }
+    await saveCanvas(true);
     onCancel();
-  }, [onCancel]);
+  }, [onCancel, saveCanvas]);
+
+  // ─── Drawing handlers ───
+  const handleDrawPointerDown = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
+    if (!drawingMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as SVGSVGElement).setPointerCapture(e.pointerId);
+    const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    setCurrentPath([[pt.x, pt.y]]);
+  }, [drawingMode, screenToFlowPosition]);
+
+  const handleDrawPointerMove = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
+    if (!currentPath) return;
+    const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    setCurrentPath(prev => prev ? [...prev, [pt.x, pt.y]] : null);
+  }, [currentPath, screenToFlowPosition]);
+
+  const handleDrawPointerUp = useCallback(() => {
+    if (!currentPath || currentPath.length < 2) { setCurrentPath(null); return; }
+    const newPath: DrawPath = {
+      id: `draw_${Date.now()}`,
+      points: currentPath,
+      color: drawColor,
+      width: drawWidth,
+    };
+    setDrawPaths(prev => [...prev, newPath]);
+    setCurrentPath(null);
+  }, [currentPath, drawColor, drawWidth]);
+
+  const pathToSvgD = (points: [number, number][]) => {
+    if (points.length < 2) return "";
+    return points.reduce((d, [x, y], i) => {
+      if (i === 0) return `M ${x} ${y}`;
+      // Smooth with quadratic bezier using midpoints
+      const [px, py] = points[i - 1];
+      const mx = (px + x) / 2;
+      const my = (py + y) / 2;
+      return `${d} Q ${px} ${py} ${mx} ${my}`;
+    }, "") + ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
+  };
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
@@ -559,6 +701,12 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
           onZoomOut={() => zoomOut()}
           onShowTutorial={() => setShowTutorial(true)}
           onOpenViralPicker={() => setShowViralPicker(true)}
+          drawingMode={drawingMode}
+          onToggleDrawing={() => setDrawingMode(m => !m)}
+          onClearDrawing={() => setDrawPaths([])}
+          drawColor={drawColor}
+          onDrawColorChange={setDrawColor}
+          saveStatus={saveStatus}
         />
 
         {showViralPicker && (
@@ -617,6 +765,52 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
             size={1}
           />
         </ReactFlow>
+
+        {/* Drawing SVG layer — rendered paths (always visible, follows viewport) */}
+        {(drawPaths.length > 0 || currentPath) && (
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ zIndex: 4 }}
+          >
+            <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+              {drawPaths.map(p => (
+                <path
+                  key={p.id}
+                  d={pathToSvgD(p.points)}
+                  stroke={p.color}
+                  strokeWidth={p.width / viewport.zoom}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={0.85}
+                />
+              ))}
+              {currentPath && currentPath.length > 1 && (
+                <path
+                  d={pathToSvgD(currentPath)}
+                  stroke={drawColor}
+                  strokeWidth={drawWidth / viewport.zoom}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={0.85}
+                />
+              )}
+            </g>
+          </svg>
+        )}
+
+        {/* Drawing interaction layer — captures pointer when drawing mode active */}
+        {drawingMode && (
+          <svg
+            className="absolute inset-0 w-full h-full"
+            style={{ zIndex: 5, cursor: "crosshair" }}
+            onPointerDown={handleDrawPointerDown}
+            onPointerMove={handleDrawPointerMove}
+            onPointerUp={handleDrawPointerUp}
+            onPointerCancel={handleDrawPointerUp}
+          />
+        )}
       </div>
 
       <CanvasTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
