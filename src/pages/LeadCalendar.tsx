@@ -343,7 +343,7 @@ function MiniCalendar({ currentDate, onSelectDate, leadsByDate, monthShort, dayN
       </div>
       <div className="grid grid-cols-7 gap-px">
         {dayNamesShort.map((dn, i) => (
-          <span key={i} className="text-[8px] text-muted-foreground text-center font-medium">{dn}</span>
+          <span key={i} className="text-[8px] text-muted-foreground font-medium w-5 h-5 flex items-center justify-center">{dn}</span>
         ))}
         {Array.from({ length: firstDow }).map((_, i) => <span key={`e-${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
