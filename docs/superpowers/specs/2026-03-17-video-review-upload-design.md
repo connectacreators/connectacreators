@@ -11,7 +11,7 @@ Add direct video upload (Supabase Storage + Google Drive Picker) to the editing 
 
 | Decision | Choice |
 |----------|--------|
-| Upload method | Both — Google Drive Picker + Direct Upload to Supabase Storage |
+| Upload method | Direct Upload to Supabase Storage (admin only) + existing manual Google Drive link pasting |
 | Drive video timestamps | Two-tier — Drive gets iframe + manual timestamps; uploads get native player + click-to-timestamp |
 | Who reviews | Internal team + Clients via public review link |
 | Auto-deletion | Two-stage — file at 90 days, record at 180 days |
@@ -81,13 +81,13 @@ CREATE POLICY "Admin delete" ON revision_comments FOR DELETE
 Role-gated dual button component placed in the editing queue row where footage/file submission fields currently are.
 
 **Admin / Internal team view:**
-- "Upload File" button — opens native file picker, uploads to Supabase Storage
-- "Google Drive" button — opens Google Picker, stores Drive link
-- Upload progress bar replaces buttons during upload
+- "Upload Video" button — opens native file picker, uploads to Supabase Storage
+- Upload progress bar replaces button during upload
 - For files > 5GB, shows "Resumable upload — X% (safe to close browser)"
+- Google Drive links continue to be pasted manually in the existing inline footage/file_submission fields
 
 **Subscriber view (Starter / Growth / Enterprise):**
-- "Google Drive" button only — no direct upload option
+- No upload button shown — subscribers paste Google Drive links in the existing inline fields
 - Role check via `useAuth().isAdmin` (from AuthContext) — not `useSubscriptionGuard` which is for paywall enforcement
 
 ### Video Review Modal (`VideoReviewModal.tsx`)
@@ -175,13 +175,9 @@ uploadVideoFile(
 
 getSignedVideoUrl(storagePath: string): Promise<string>
   // Returns signed URL with 1hr expiry
-
-handleDrivePick(
-  fileData: { id: string, name: string, url: string },
-  videoEditId: string
-): Promise<void>
-  // Updates video_edits: file_submission = driveUrl, upload_source = 'gdrive'
 ```
+
+Google Drive links are pasted manually by users in the existing inline-editable fields — no `handleDrivePick` function needed.
 
 ### Extended `videoService.ts`
 
@@ -237,23 +233,6 @@ Returns: `{ files_deleted: N, records_deleted: M }`
 
 **Google Drive links are never expired or deleted** — they remain until the user removes them manually.
 
-### Google Drive Picker API Setup
-
-Requires one-time Google Cloud Console configuration:
-
-1. Create or use existing Google Cloud project
-2. Enable **Google Picker API** + **Google Drive API**
-3. Create **OAuth 2.0 Client ID** (Web application type)
-   - Authorized JavaScript origins: `https://connectacreators.com`
-4. Create **API Key** (restrict to Picker API)
-5. Store in environment variables:
-   ```
-   VITE_GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-   VITE_GOOGLE_API_KEY=AIzaXxx...
-   ```
-
-**Flow:** User clicks "Google Drive" → Google Picker UI opens → user browses/selects file → app receives file metadata (id, name, url, mimeType) → stored in `video_edits.file_submission`.
-
 ## Files to Create
 
 | File | Purpose |
@@ -261,7 +240,7 @@ Requires one-time Google Cloud Console configuration:
 | `supabase/migrations/YYYYMMDD_video_upload_storage.sql` | Add storage columns to video_edits |
 | `supabase/migrations/YYYYMMDD_revision_comments.sql` | Create revision_comments table |
 | `src/services/revisionCommentService.ts` | CRUD for timestamped comments |
-| `src/services/videoUploadService.ts` | Upload routing (standard/TUS) + Drive picker handler |
+| `src/services/videoUploadService.ts` | Upload routing (standard/TUS) + signed URL generation |
 | `src/components/VideoReviewModal.tsx` | Review modal with player + comments |
 | `src/components/UploadButton.tsx` | Role-gated dual upload button |
 | `src/pages/PublicVideoReview.tsx` | Public client review page |

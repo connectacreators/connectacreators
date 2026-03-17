@@ -21,9 +21,9 @@
 | `supabase/migrations/20260317_video_upload_storage.sql` | Add storage columns to `video_edits` |
 | `supabase/migrations/20260317_revision_comments.sql` | Create `revision_comments` table with RLS |
 | `src/services/revisionCommentService.ts` | CRUD for timestamped revision comments |
-| `src/services/videoUploadService.ts` | Upload routing (standard/TUS), signed URLs, Drive pick handler |
+| `src/services/videoUploadService.ts` | Upload routing (standard/TUS), signed URL generation |
 | `src/components/VideoReviewModal.tsx` | Full-screen review modal — video player + comment thread |
-| `src/components/UploadButton.tsx` | Role-gated dual upload button (Upload File + Google Drive) |
+| `src/components/UploadButton.tsx` | Role-gated upload button (admin/internal only) |
 | `src/pages/PublicVideoReview.tsx` | Public client review page at `/public/review/:videoEditId` |
 | `supabase/functions/cleanup-expired-videos/index.ts` | Daily cron — two-stage cleanup (90d file, 180d record) |
 
@@ -422,17 +422,6 @@ export const videoUploadService = {
     if (error) throw error;
     return data.signedUrl;
   },
-
-  async handleDrivePick(
-    fileData: { id: string; name: string; url: string },
-    videoEditId: string
-  ): Promise<void> {
-    const driveUrl = `https://drive.google.com/file/d/${fileData.id}/view`;
-    await videoService.updateVideo(videoEditId, {
-      file_submission: driveUrl,
-      upload_source: 'gdrive',
-    });
-  },
 };
 ```
 
@@ -468,7 +457,7 @@ Create `src/components/UploadButton.tsx`:
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FolderOpen } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { videoUploadService } from '@/services/videoUploadService';
 import { toast } from 'sonner';
@@ -477,25 +466,15 @@ interface UploadButtonProps {
   videoEditId: string;
   clientId: string;
   onUploadComplete: () => void;
-  currentSource?: string | null;
-  currentFileSize?: number | null;
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024; // 50GB
 const FIVE_GB = 5 * 1024 * 1024 * 1024;
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
 export default function UploadButton({
   videoEditId,
   clientId,
   onUploadComplete,
-  currentSource,
-  currentFileSize,
 }: UploadButtonProps) {
   const { isAdmin, isEditor, isVideographer } = useAuth();
   const [uploading, setUploading] = useState(false);
@@ -504,6 +483,10 @@ export default function UploadButton({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isInternalUser = isAdmin || isEditor || isVideographer;
+
+  // Subscribers don't get direct upload — they paste Google Drive links
+  // in the existing footage/file_submission inline fields
+  if (!isInternalUser) return null;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -538,70 +521,6 @@ export default function UploadButton({
     }
   };
 
-  const handleDrivePick = () => {
-    // Google Picker API integration
-    // Requires VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_API_KEY env vars
-    const clientIdGoogle = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
-
-    if (!clientIdGoogle || !apiKey) {
-      toast.error('Google Drive integration not configured');
-      return;
-    }
-
-    // Guard: only load the script once
-    const loadAndOpenPicker = () => {
-      window.gapi.load('picker', () => {
-        window.gapi.load('client:auth2', () => {
-          window.gapi.auth2
-            .init({ client_id: clientIdGoogle, scope: 'https://www.googleapis.com/auth/drive.readonly' })
-            .then((authInstance: any) => {
-              if (!authInstance.isSignedIn.get()) {
-                authInstance.signIn().then(() => openPicker(apiKey));
-              } else {
-                openPicker(apiKey);
-              }
-            });
-        });
-      });
-    };
-
-    if (window.gapi) {
-      // Script already loaded — open picker directly
-      loadAndOpenPicker();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = loadAndOpenPicker;
-      document.head.appendChild(script);
-    }
-  };
-
-  const openPicker = (apiKey: string) => {
-    const token = window.gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
-    const picker = new window.google.picker.PickerBuilder()
-      .addView(new window.google.picker.DocsView().setMimeTypes('video/*'))
-      .setOAuthToken(token)
-      .setDeveloperKey(apiKey)
-      .setCallback(async (data: any) => {
-        if (data.action === 'picked' && data.docs?.[0]) {
-          const doc = data.docs[0];
-          try {
-            await videoUploadService.handleDrivePick(
-              { id: doc.id, name: doc.name, url: doc.url },
-              videoEditId
-            );
-            toast.success('Google Drive video linked');
-            onUploadComplete();
-          } catch (err: any) {
-            toast.error(`Failed to link: ${err.message}`);
-          }
-        }
-      })
-      .build();
-    picker.setVisible(true);
-  };
-
   if (uploading) {
     return (
       <div className="flex flex-col gap-1 min-w-[150px]">
@@ -614,40 +533,29 @@ export default function UploadButton({
   }
 
   return (
-    <div className="flex gap-1.5 items-center">
-      {isInternalUser && (
-        <>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs gap-1"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-3 w-3" />
-            Upload
-          </Button>
-        </>
-      )}
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
       <Button
         size="sm"
         variant="outline"
         className="h-7 text-xs gap-1"
-        onClick={handleDrivePick}
+        onClick={() => fileInputRef.current?.click()}
       >
-        <FolderOpen className="h-3 w-3" />
-        Drive
+        <Upload className="h-3 w-3" />
+        Upload Video
       </Button>
-    </div>
+    </>
   );
 }
 ```
+
+Google Drive links continue to be pasted manually in the existing inline-editable footage/file_submission fields — no Picker API needed.
 
 - [ ] **Step 2: Verify build compiles**
 
@@ -655,13 +563,13 @@ export default function UploadButton({
 npm run build
 ```
 
-Expected: Build succeeds. Note: `window.gapi` and `window.google.picker` will show TS warnings — this is expected since Google Picker types aren't installed. These work at runtime when the Google API script loads.
+Expected: Build succeeds.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add src/components/UploadButton.tsx
-git commit -m "feat: add role-gated UploadButton with direct upload + Google Drive Picker"
+git commit -m "feat: add role-gated UploadButton for direct video upload (admin only)"
 ```
 
 ---
@@ -2158,19 +2066,7 @@ git commit -m "feat: complete video upload & timestamped review system integrati
 
 ---
 
-## Google Drive Picker Setup (Prerequisite — Manual)
+## Notes
 
-Before the Google Drive button works, these one-time steps must be done in Google Cloud Console:
-
-1. Go to https://console.cloud.google.com/
-2. Create or select a project
-3. Enable **Google Picker API** and **Google Drive API**
-4. Create **OAuth 2.0 Client ID** (Web application type)
-   - Authorized JavaScript origins: `https://connectacreators.com` and `http://localhost:5173`
-5. Create **API Key** (restrict to Picker API)
-6. Add to `.env` on VPS:
-   ```
-   VITE_GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-   VITE_GOOGLE_API_KEY=AIzaXxx...
-   ```
-7. Rebuild the app so Vite injects the env vars
+- **Google Drive links** continue to work as-is — users paste Drive URLs manually in the existing inline-editable footage/file_submission fields. No Google Picker API or Google Cloud Console setup needed.
+- **Direct upload** (Supabase Storage) is only available to admin/internal team via the new `UploadButton` component. Subscribers only see the existing inline fields for pasting Drive links.
