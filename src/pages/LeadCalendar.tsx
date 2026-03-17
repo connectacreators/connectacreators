@@ -704,9 +704,24 @@ export default function LeadCalendar() {
                       <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
                         <TimeGridLines hours={HOURS} hourHeight={HOUR_HEIGHT} />
                         <div className="absolute top-0 bottom-0 left-14 right-0">
-                          {dayLeads.map((lead) => (
-                            <EventBlock key={lead.id} lead={lead} hourHeight={HOUR_HEIGHT} startHour={HOURS[0]} isAdmin={isAdmin} isDayView />
-                          ))}
+                          {(() => {
+                            const layoutMap = computeLayoutForDay(dayLeads);
+                            return dayLeads.map((lead) => {
+                              const layout = layoutMap[lead.id] ?? { columnIndex: 0, columnCount: 1 };
+                              return (
+                                <EventBlock
+                                  key={lead.id}
+                                  lead={lead}
+                                  hourHeight={HOUR_HEIGHT}
+                                  startHour={HOURS[0]}
+                                  isAdmin={isAdmin}
+                                  isDayView
+                                  columnIndex={layout.columnIndex}
+                                  columnCount={layout.columnCount}
+                                />
+                              );
+                            });
+                          })()}
                           {isToday && <NowIndicator hourHeight={HOUR_HEIGHT} startHour={HOURS[0]} />}
                         </div>
                       </div>
@@ -753,9 +768,23 @@ export default function LeadCalendar() {
                             const isToday = dateStr === todayStr;
                             return (
                               <div key={colIdx} className={`relative ${colIdx > 0 ? "border-l border-border/30" : ""} ${isToday ? "bg-primary/5" : ""}`}>
-                                {dayLeads.map((lead) => (
-                                  <EventBlock key={lead.id} lead={lead} hourHeight={HOUR_HEIGHT} startHour={HOURS[0]} isAdmin={isAdmin} />
-                                ))}
+                                {(() => {
+                                  const layoutMap = computeLayoutForDay(dayLeads);
+                                  return dayLeads.map((lead) => {
+                                    const layout = layoutMap[lead.id] ?? { columnIndex: 0, columnCount: 1 };
+                                    return (
+                                      <EventBlock
+                                        key={lead.id}
+                                        lead={lead}
+                                        hourHeight={HOUR_HEIGHT}
+                                        startHour={HOURS[0]}
+                                        isAdmin={isAdmin}
+                                        columnIndex={layout.columnIndex}
+                                        columnCount={layout.columnCount}
+                                      />
+                                    );
+                                  });
+                                })()}
                                 {isToday && <NowIndicator hourHeight={HOUR_HEIGHT} startHour={HOURS[0]} />}
                               </div>
                             );
