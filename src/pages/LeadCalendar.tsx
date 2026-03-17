@@ -131,6 +131,78 @@ function formatHourLabel(h: number) {
   return `${h - 12} PM`;
 }
 
+// ---- Overlap layout algorithm ----
+// Returns a Record<leadId, { columnIndex, columnCount }> for all leads in a single day.
+// Events within 45 minutes of each other are grouped into clusters and rendered side-by-side.
+function computeLayoutForDay(leads: Lead[]): Record<string, { columnIndex: number; columnCount: number }> {
+  // Filter to leads with valid time, sort by time ascending
+  const items = leads
+    .filter((l) => getHourDecimal(l.appointmentDate) !== null)
+    .sort((a, b) => (getHourDecimal(a.appointmentDate) ?? 0) - (getHourDecimal(b.appointmentDate) ?? 0));
+
+  if (items.length === 0) return {};
+
+  // Build adjacency list: overlaps[i] = set of indices j where items[i] and items[j] overlap
+  const overlaps: Set<number>[] = items.map(() => new Set<number>());
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const hi = getHourDecimal(items[i].appointmentDate) ?? 0;
+      const hj = getHourDecimal(items[j].appointmentDate) ?? 0;
+      if (Math.abs(hi - hj) < 0.75) {
+        overlaps[i].add(j);
+        overlaps[j].add(i);
+      }
+    }
+  }
+
+  // BFS to find clusters (connected components in the overlap graph)
+  const visited = new Set<number>();
+  const clusters: number[][] = [];
+  for (let i = 0; i < items.length; i++) {
+    if (visited.has(i)) continue;
+    const cluster: number[] = [];
+    const queue = [i];
+    while (queue.length > 0) {
+      const idx = queue.shift()!;
+      if (visited.has(idx)) continue;
+      visited.add(idx);
+      cluster.push(idx);
+      overlaps[idx].forEach((neighbor) => {
+        if (!visited.has(neighbor)) queue.push(neighbor);
+      });
+    }
+    clusters.push(cluster);
+  }
+
+  // Assign column indices within each cluster (greedy, sorted by time)
+  const result: Record<string, { columnIndex: number; columnCount: number }> = {};
+  for (const cluster of clusters) {
+    // Sort cluster members by their time
+    const sorted = [...cluster].sort(
+      (a, b) => (getHourDecimal(items[a].appointmentDate) ?? 0) - (getHourDecimal(items[b].appointmentDate) ?? 0)
+    );
+    const colAssigned: Record<number, number> = {};
+    for (const idx of sorted) {
+      const usedCols = new Set<number>();
+      overlaps[idx].forEach((j) => {
+        if (j in colAssigned) usedCols.add(colAssigned[j]);
+      });
+      let col = 0;
+      while (usedCols.has(col)) col++;
+      colAssigned[idx] = col;
+    }
+    const colValues = Object.values(colAssigned);
+    const clusterSize = colValues.length > 0 ? Math.max(...colValues) + 1 : 1;
+    for (const idx of cluster) {
+      result[items[idx].id] = {
+        columnIndex: colAssigned[idx],
+        columnCount: clusterSize,
+      };
+    }
+  }
+  return result;
+}
+
 // ---- Lead Popover Card ----
 function LeadPopoverCard({ lead, isAdmin }: { lead: Lead; isAdmin: boolean }) {
   const time = formatTime(lead.appointmentDate);
@@ -169,7 +241,17 @@ function LeadPopoverCard({ lead, isAdmin }: { lead: Lead; isAdmin: boolean }) {
 }
 
 // ---- Event Block (used in week/day views) ----
-function EventBlock({ lead, hourHeight, startHour, isAdmin, isDayView }: { lead: Lead; hourHeight: number; startHour: number; isAdmin: boolean; isDayView?: boolean }) {
+function EventBlock({
+  lead, hourHeight, startHour, isAdmin, isDayView, columnIndex, columnCount,
+}: {
+  lead: Lead;
+  hourHeight: number;
+  startHour: number;
+  isAdmin: boolean;
+  isDayView?: boolean;
+  columnIndex?: number;
+  columnCount?: number;
+}) {
   const hourDec = getHourDecimal(lead.appointmentDate);
   const time = formatTime(lead.appointmentDate);
   if (hourDec === null) return null;
@@ -177,15 +259,44 @@ function EventBlock({ lead, hourHeight, startHour, isAdmin, isDayView }: { lead:
   if (top < 0) return null;
   const sc = getStatusColor(lead.leadStatus);
 
+  const colIdx = columnIndex ?? 0;
+  const colCnt = columnCount ?? 1;
+  const widthPct = 100 / colCnt;
+  const leftPct = colIdx * widthPct;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <div
-          className={`absolute left-0.5 right-0.5 ${sc.bg} border-l-[3px] ${sc.border} rounded-r-md px-1.5 py-0.5 cursor-pointer hover:brightness-110 hover:shadow-sm transition-all z-10 overflow-hidden`}
-          style={{ top, minHeight: 26, maxHeight: hourHeight - 2 }}
+          className={`${sc.bg} border-l-[3px] ${sc.border} rounded-r-md px-1.5 py-1 cursor-pointer hover:brightness-110 hover:shadow-sm transition-all z-10 overflow-hidden`}
+          style={{
+            position: "absolute",
+            top,
+            minHeight: 40,
+            maxHeight: hourHeight - 2,
+            width: `calc(${widthPct}% - 2px)`,
+            left: `calc(${leftPct}% + 1px)`,
+          }}
         >
-          <p className={`text-[9px] ${isDayView ? "sm:text-xs" : "sm:text-[10px]"} font-bold ${sc.text} truncate`}>{time}</p>
-          <p className={`text-[8px] ${isDayView ? "sm:text-[11px]" : "sm:text-[9px]"} text-foreground truncate`}>{lead.fullName || "No name"}</p>
+          {/* Row 1: name + time */}
+          <div className="flex items-baseline gap-1 min-w-0">
+            <p className={`text-[10px] font-bold ${sc.text} truncate flex-1`}>
+              {lead.fullName || "No name"}
+            </p>
+            {time && (
+              <span className="text-[9px] text-muted-foreground whitespace-nowrap flex-shrink-0">
+                {time}
+              </span>
+            )}
+          </div>
+          {/* Row 2: status badge */}
+          {lead.leadStatus && (
+            <div className="mt-0.5">
+              <span className={`text-[8px] px-1 py-px rounded-full border ${sc.badge} inline-block leading-none`}>
+                {lead.leadStatus}
+              </span>
+            </div>
+          )}
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-3" side="right" align="start">
