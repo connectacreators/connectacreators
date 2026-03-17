@@ -111,6 +111,9 @@ verify_jwt = false
 [functions.scrape-channel]
 verify_jwt = false
 
+[functions.fetch-instagram-top-posts]
+verify_jwt = false
+
 # Daily auto-scrape function (triggered via cron, secret-protected)
 [functions.auto-scrape-channels]
 verify_jwt = false
@@ -148,3 +151,8 @@ verify_jwt = false
 # Stripe subscription lifecycle webhook (signature verification via STRIPE_WEBHOOK_SECRET)
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Cleanup expired videos (triggered via cron, secret-protected)
+[functions.cleanup-expired-videos]
+verify_jwt = false
+# Note: Protect with x-cron-secret header check
