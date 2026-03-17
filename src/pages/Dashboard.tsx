@@ -93,7 +93,10 @@ export default function Dashboard() {
 
   // Subscription check (for non-admin/videographer/editor/connectaPlus client roles)
   useEffect(() => {
-    if (justPaidRef.current) return;
+    if (justPaidRef.current) {
+      justPaidRef.current = false;
+      return;
+    }
     if (loading || !user) return;
     if (isAdmin || isVideographer || isEditor || isConnectaPlus) return;
     supabase
