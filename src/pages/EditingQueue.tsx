@@ -1,24 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
-import AnimatedDots from "@/components/ui/AnimatedDots";
-import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Trash2 } from "lucide-react";
+import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import TableHeaderComponent from "@/components/tables/TableHeader";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { exportToCSV } from "@/utils/csvExport";
 
 interface EditingQueueItem {
   id: string;
@@ -26,21 +27,24 @@ interface EditingQueueItem {
   status: string;
   statusColor: string;
   fileSubmissionUrl: string | null;
+  footageUrl: string | null;
   scriptUrl: string | null;
   assignee: string | null;
   assigneeId: string | null;
   assigneePropName: string | null;
   revisions: string | null;
   revisionPropName: string | null;
+  postStatus: string | null;
+  scheduledDate: string | null;
   lastEdited: string;
+  source?: 'notion' | 'db' | 'script';
+  caption?: string | null;
+  script_id?: string | null;
 }
 
-interface NotionUser {
-  id: string;
-  name: string;
-}
 
-const STATUS_OPTIONS = ["Not started", "In progress", "Done", "Needs revision"];
+const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
+const POST_STATUS_OPTIONS = ["Scheduled", "Needs Revision", "Approved", "Done"];
 
 // ... keep existing code (extractGoogleDriveFileId, getGoogleDriveDownloadUrl, getStatusClassName, getStatusDotColor)
 function extractGoogleDriveFileId(url: string): string | null {
@@ -79,23 +83,42 @@ export default function EditingQueue() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [clientName, setClientName] = useState("");
   const [items, setItems] = useState<EditingQueueItem[]>([]);
-  const [notionUsers, setNotionUsers] = useState<NotionUser[]>([]);
-  const [assigneeProperty, setAssigneeProperty] = useState("Assignee");
-  const [revisionProperty, setRevisionProperty] = useState("Revisions");
+  const [editingAssigneeId, setEditingAssigneeId] = useState<string | null>(null);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [updatingAssignee, setUpdatingAssignee] = useState<string | null>(null);
+
   const [revisionDialogItem, setRevisionDialogItem] = useState<EditingQueueItem | null>(null);
   const [revisionText, setRevisionText] = useState("");
   const [savingRevision, setSavingRevision] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<EditingQueueItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [updatingPostStatus, setUpdatingPostStatus] = useState<string | null>(null);
+
+  // Schedule post modal
+  const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Filtered items based on search
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return items;
+    const query = searchQuery.toLowerCase();
+    return items.filter((item) =>
+      item.title.toLowerCase().includes(query) ||
+      item.assignee?.toLowerCase().includes(query) ||
+      item.status.toLowerCase().includes(query)
+    );
+  }, [items, searchQuery]);
 
   useEffect(() => {
     if (!clientId || !user) return;
@@ -114,14 +137,36 @@ export default function EditingQueue() {
     setFetching(true);
     setError(null);
     try {
-      const res = await supabase.functions.invoke("fetch-editing-queue", {
-        body: { client_id: clientId },
-      });
-      if (res.error) throw res.error;
-      setItems(res.data?.items || []);
-      setNotionUsers(res.data?.notionUsers || []);
-      setAssigneeProperty(res.data?.assigneeProperty || "Assignee");
-      setRevisionProperty(res.data?.revisionProperty || "Revisions");
+      const { data, error: videoErr } = await supabase
+        .from("video_edits")
+        .select("id, reel_title, status, file_submission, script_url, assignee, revisions, post_status, schedule_date, created_at, footage, caption, script_id")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+
+      if (videoErr) throw videoErr;
+
+      const mappedVideos: EditingQueueItem[] = (data || []).map((v: any) => ({
+        id: v.id,
+        title: v.reel_title || "Untitled",
+        status: v.status || "Not started",
+        statusColor: "",
+        fileSubmissionUrl: v.file_submission,
+        footageUrl: v.footage || null,
+        scriptUrl: v.script_url || null,
+        assignee: v.assignee || null,
+        assigneeId: null,
+        assigneePropName: null,
+        revisions: v.revisions || null,
+        revisionPropName: null,
+        postStatus: v.post_status || null,
+        scheduledDate: v.schedule_date || null,
+        lastEdited: v.created_at,
+        caption: v.caption ?? null,
+        source: 'db' as const,
+        script_id: v.script_id || null,
+      }));
+
+      setItems(mappedVideos);
     } catch (e: any) {
       console.error("Error fetching editing queue:", e);
       setError(e.message || "Failed to fetch editing queue");
@@ -137,18 +182,10 @@ export default function EditingQueue() {
   const handleStatusChange = async (pageId: string, newStatus: string) => {
     setUpdatingStatus(pageId);
     try {
-      const res = await supabase.functions.invoke("update-editing-status", {
-        body: { page_id: pageId, status: newStatus },
-      });
-      if (res.error) throw res.error;
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === pageId ? { ...item, status: newStatus } : item
-        )
-      );
-      setSelectedItem((prev) =>
-        prev && prev.id === pageId ? { ...prev, status: newStatus } : prev
-      );
+      const { error } = await supabase.from("video_edits").update({ status: newStatus }).eq("id", pageId);
+      if (error) throw error;
+      setItems((prev) => prev.map((i) => i.id === pageId ? { ...i, status: newStatus } : i));
+      setSelectedItem((prev) => prev && prev.id === pageId ? { ...prev, status: newStatus } : prev);
       toast.success(language === "en" ? "Status updated" : "Estado actualizado");
     } catch (e: any) {
       console.error("Error updating status:", e);
@@ -158,31 +195,15 @@ export default function EditingQueue() {
     }
   };
 
-  const handleAssigneeChange = async (pageId: string, userId: string | null, userName: string | null, propName: string) => {
-    setUpdatingAssignee(pageId);
+  const handleAssigneeUpdate = async (pageId: string, newAssignee: string) => {
     try {
-      const res = await supabase.functions.invoke("update-editing-status", {
-        body: {
-          page_id: pageId,
-          assignee_id: userId,
-          assignee_property: propName,
-        },
-      });
-      if (res.error) throw res.error;
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === pageId ? { ...item, assignee: userName, assigneeId: userId } : item
-        )
-      );
-      setSelectedItem((prev) =>
-        prev && prev.id === pageId ? { ...prev, assignee: userName, assigneeId: userId } : prev
-      );
-      toast.success(language === "en" ? "Assignee updated" : "Asignado actualizado");
+      const { error } = await supabase.from("video_edits").update({ assignee: newAssignee || null }).eq("id", pageId);
+      if (error) throw error;
+      setItems((prev) => prev.map((i) => i.id === pageId ? { ...i, assignee: newAssignee || null } : i));
+      setSelectedItem((prev) => prev && prev.id === pageId ? { ...prev, assignee: newAssignee || null } : prev);
     } catch (e: any) {
       console.error("Error updating assignee:", e);
       toast.error(language === "en" ? "Failed to update assignee" : "Error al actualizar asignado");
-    } finally {
-      setUpdatingAssignee(null);
     }
   };
 
@@ -195,15 +216,8 @@ export default function EditingQueue() {
     if (!revisionDialogItem) return;
     setSavingRevision(true);
     try {
-      const propName = revisionDialogItem.revisionPropName || revisionProperty;
-      const res = await supabase.functions.invoke("update-editing-status", {
-        body: {
-          page_id: revisionDialogItem.id,
-          revisions: revisionText,
-          revision_property: propName,
-        },
-      });
-      if (res.error) throw res.error;
+      const { error } = await supabase.from("video_edits").update({ revisions: revisionText }).eq("id", revisionDialogItem.id);
+      if (error) throw error;
       setItems((prev) =>
         prev.map((item) =>
           item.id === revisionDialogItem.id ? { ...item, revisions: revisionText } : item
@@ -226,10 +240,8 @@ export default function EditingQueue() {
     if (!deleteConfirmItem) return;
     setDeleting(true);
     try {
-      const res = await supabase.functions.invoke("delete-editing-item", {
-        body: { page_id: deleteConfirmItem.id },
-      });
-      if (res.error) throw res.error;
+      const { error } = await supabase.from("video_edits").delete().eq("id", deleteConfirmItem.id);
+      if (error) throw error;
       setItems((prev) => prev.filter((item) => item.id !== deleteConfirmItem.id));
       toast.success(language === "en" ? "Item deleted" : "Elemento eliminado");
       setDeleteConfirmItem(null);
@@ -241,11 +253,66 @@ export default function EditingQueue() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await supabase.from("video_edits").delete().in("id", ids);
+      const count = selectedIds.size;
+      setItems(prev => prev.filter(i => !selectedIds.has(i.id)));
+      setSelectedIds(new Set());
+      toast.success(language === "en" ? `${count} items deleted` : `${count} elementos eliminados`);
+    } catch (e: any) {
+      toast.error(language === "en" ? "Failed to delete items" : "Error al eliminar elementos");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleSchedulePost = async () => {
+    if (!scheduleItem || !scheduleDate) return;
+    setScheduling(true);
+    try {
+      const { error } = await supabase.from("video_edits").update({ schedule_date: scheduleDate }).eq("id", scheduleItem.id);
+      if (error) throw error;
+      setItems((prev) => prev.map((i) => i.id === scheduleItem.id ? { ...i, scheduledDate: scheduleDate } : i));
+      toast.success(
+        language === "en"
+          ? `"${scheduleItem.title}" scheduled for ${scheduleDate}`
+          : `"${scheduleItem.title}" programado para ${scheduleDate}`
+      );
+      setScheduleItem(null);
+      setScheduleDate("");
+    } catch (e: any) {
+      console.error("Error scheduling post:", e);
+      toast.error(language === "en" ? "Failed to schedule post" : "Error al programar post");
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handlePostStatusChange = async (pageId: string, newPostStatus: string) => {
+    setUpdatingPostStatus(pageId);
+    try {
+      const { error } = await supabase.from("video_edits").update({ post_status: newPostStatus }).eq("id", pageId);
+      if (error) throw error;
+      setItems((prev) => prev.map((item) => item.id === pageId ? { ...item, postStatus: newPostStatus } : item));
+      setSelectedItem((prev) => prev && prev.id === pageId ? { ...prev, postStatus: newPostStatus } : prev);
+      toast.success(language === "en" ? "Post status updated" : "Estado de post actualizado");
+    } catch (e: any) {
+      console.error("Error updating post status:", e);
+      toast.error(language === "en" ? "Failed to update post status" : "Error al actualizar estado");
+    } finally {
+      setUpdatingPostStatus(null);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
     );
   }
 
@@ -253,96 +320,90 @@ export default function EditingQueue() {
     ? extractGoogleDriveFileId(selectedItem.fileSubmissionUrl)
     : null;
 
-  const renderAssigneeDropdown = (item: EditingQueueItem) => {
-    const propName = item.assigneePropName || assigneeProperty;
+  const handleExportCSV = () => {
+    const exportData = filteredItems.map((item) => ({
+      Title: item.title,
+      Status: item.status,
+      "Post Status": item.postStatus || "—",
+      Assignee: item.assignee || "—",
+      Revisions: item.revisions || "—",
+      "Scheduled Date": item.scheduledDate || "—",
+      "Last Edited": item.lastEdited,
+    }));
+    exportToCSV(exportData, {
+      filename: `editing-queue-${clientName}-${new Date().toISOString().split("T")[0]}.csv`,
+    });
+  };
+
+  const renderAssigneeCell = (item: EditingQueueItem) => {
+    const isEditing = editingAssigneeId === item.id;
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <div className="flex items-center gap-1 min-w-[100px]">
+        {isEditing ? (
+          <input
+            autoFocus
+            type="text"
+            defaultValue={item.assignee || ""}
+            onBlur={(e) => {
+              handleAssigneeUpdate(item.id, e.target.value);
+              setEditingAssigneeId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") setEditingAssigneeId(null);
+            }}
+            className="w-full px-2 py-0.5 text-xs rounded bg-background border border-primary focus:outline-none"
+          />
+        ) : (
           <button
-            className="inline-flex items-center gap-1 focus:outline-none text-xs"
-            disabled={updatingAssignee === item.id}
+            onClick={() => setEditingAssigneeId(item.id)}
+            className="inline-flex items-center gap-1 text-xs hover:text-foreground transition-colors"
           >
-            {updatingAssignee === item.id ? (
-              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-            ) : item.assignee ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-foreground text-xs cursor-pointer hover:bg-primary/20 transition-colors">
-                <UserCircle className="w-3 h-3" />
-                {item.assignee}
-                <ChevronDown className="w-3 h-3 opacity-60" />
+            {item.assignee ? (
+              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-foreground">
+                <UserCircle className="w-3 h-3 inline mr-1" />{item.assignee}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground text-xs cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
-                <UserCircle className="w-3 h-3" />
-                {language === "en" ? "Assign" : "Asignar"}
-                <ChevronDown className="w-3 h-3 opacity-60" />
+              <span className="px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/50">
+                <UserCircle className="w-3 h-3 inline mr-1" />{language === "en" ? "Assign" : "Asignar"}
               </span>
             )}
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-popover border border-border z-50 min-w-[160px]">
-          {notionUsers.length === 0 ? (
-            <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-              {language === "en" ? "No users found" : "No se encontraron usuarios"}
-            </DropdownMenuItem>
-          ) : (
-            <>
-              {item.assignee && (
-                <DropdownMenuItem
-                  onClick={() => handleAssigneeChange(item.id, null, null, propName)}
-                  className="text-xs text-muted-foreground"
-                >
-                  {language === "en" ? "Unassign" : "Desasignar"}
-                </DropdownMenuItem>
-              )}
-              {notionUsers.map((nu) => (
-                <DropdownMenuItem
-                  key={nu.id}
-                  onClick={() => handleAssigneeChange(item.id, nu.id, nu.name, propName)}
-                  className={`text-xs ${item.assigneeId === nu.id ? "font-bold" : ""}`}
-                >
-                  <UserCircle className="w-3.5 h-3.5 mr-2" />
-                  {nu.name}
-                </DropdownMenuItem>
-              ))}
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
+      </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
 
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/clients" />
-
+    <>
       <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        <div className="flex-1 px-4 sm:px-8 py-8 max-w-6xl mx-auto w-full">
-          <motion.button
-            onClick={() => navigate(`/clients/${clientId}`)}
-            className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+        <div className="flex-1 px-4 sm:px-8 py-8 max-w-7xl mx-auto w-full">
+          <motion.div
+            className="flex items-center justify-between mb-6"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            {clientName || (language === "en" ? "Back" : "Volver")}
-          </motion.button>
-
-          <motion.h1
-            className="text-xl sm:text-2xl font-bold text-foreground mb-6 tracking-tight"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.05 }}
-          >
-            Editing Queue
-          </motion.h1>
+            <button
+              onClick={() => navigate(`/clients/${clientId}`)}
+              className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              {clientName || (language === "en" ? "Back" : "Volver")}
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`https://connectacreators.com/public/edit-queue/${clientId}`);
+                toast.success(language === "en" ? "Link copied to clipboard" : "Enlace copiado al portapapeles");
+              }}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm bg-white/10 border border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20 transition-all"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Share
+            </button>
+          </motion.div>
 
           {fetching ? (
             <div className="flex items-center justify-center py-20">
@@ -350,148 +411,269 @@ export default function EditingQueue() {
             </div>
           ) : error ? (
             <div className="text-center py-20 text-muted-foreground text-sm">{error}</div>
-          ) : items.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground text-sm">
-              {language === "en" ? "No items in the editing queue" : "No hay elementos en la cola de edición"}
-            </div>
           ) : (
             <motion.div
-              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 }}
             >
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{language === "en" ? "Title" : "Título"}</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>{language === "en" ? "Assignee" : "Asignado"}</TableHead>
-                    <TableHead>{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
-                    <TableHead>Video</TableHead>
-                    <TableHead>Script</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => {
+              <TableHeaderComponent
+                title={language === "en" ? "Editing Queue" : "Cola de Edición"}
+                count={filteredItems.length}
+                description={items.length === 0 ? (language === "en" ? "No items yet" : "Sin elementos aún") : undefined}
+                searchPlaceholder={language === "en" ? "Search by title or assignee..." : "Buscar por título o asignado..."}
+                onSearchChange={setSearchQuery}
+                onExport={handleExportCSV}
+                showColumnToggle={false}
+              />
+
+              {items.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground text-sm">
+                  {language === "en" ? "No items in the editing queue" : "No hay elementos en la cola de edición"}
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground text-sm">
+                  {language === "en" ? "No items match your search" : "No hay elementos que coincidan con tu búsqueda"}
+                </div>
+              ) : (
+                <div className="glass-card rounded-xl overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border/40 hover:bg-transparent">
+                        <TableHead className="w-[40px] pr-0">
+                          <input
+                            type="checkbox"
+                            className="checkbox-clean"
+                            checked={filteredItems.length > 0 && filteredItems.every(i => selectedIds.has(i.id))}
+                            onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredItems.map(i => i.id)) : new Set())}
+                          />
+                        </TableHead>
+                        <TableHead className="font-semibold">{language === "en" ? "Title" : "Título"}</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold">{language === "en" ? "Post Status" : "Estado Post"}</TableHead>
+                        <TableHead className="font-semibold">{language === "en" ? "Assignee" : "Asignado"}</TableHead>
+                        <TableHead className="font-semibold">{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
+                        <TableHead className="font-semibold">Footage</TableHead>
+                        <TableHead className="font-semibold text-center">File Submission</TableHead>
+                        <TableHead className="font-semibold">Script</TableHead>
+                        <TableHead className="font-semibold">{language === "en" ? "Schedule" : "Fecha"}</TableHead>
+                        <TableHead className="font-semibold">Caption</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredItems.map((item) => {
                     const hasDriveVideo = item.fileSubmissionUrl
                       ? !!extractGoogleDriveFileId(item.fileSubmissionUrl)
                       : false;
 
                     return (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium text-foreground">{item.title}</TableCell>
+                      <TableRow key={item.id} className="group">
+                        <TableCell className="w-[40px] pr-0" onClick={(e) => e.stopPropagation()}>
+                          {item.source !== 'script' && (
+                            <input
+                              type="checkbox"
+                              className={`checkbox-clean transition-opacity ${selectedIds.has(item.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                              checked={selectedIds.has(item.id)}
+                              onChange={(e) => {
+                                setSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(item.id); else next.delete(item.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground max-w-xs truncate">{item.title}</TableCell>
+                        {/* Status */}
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                className="inline-flex items-center gap-1 focus:outline-none"
-                                disabled={updatingStatus === item.id}
-                              >
-                                <Badge variant="outline" className={`${getStatusClassName(item.status)} cursor-pointer`}>
-                                  {updatingStatus === item.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      {item.status}
-                                      <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                                    </>
-                                  )}
-                                </Badge>
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                              {STATUS_OPTIONS.map((s) => (
-                                <DropdownMenuItem
-                                  key={s}
-                                  onClick={() => handleStatusChange(item.id, s)}
-                                  className={item.status === s ? "font-bold" : ""}
+                          {item.source === 'script' ? (
+                            <StatusBadge status={item.status} />
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="inline-flex items-center gap-1 focus:outline-none"
+                                  disabled={updatingStatus === item.id}
                                 >
-                                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
-                                  {s}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                  <StatusBadge status={item.status} />
+                                  {updatingStatus !== item.id && <ChevronDown className="w-3 h-3 opacity-60" />}
+                                  {updatingStatus === item.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
+                                {STATUS_OPTIONS.map((s) => (
+                                  <DropdownMenuItem
+                                    key={s}
+                                    onClick={() => handleStatusChange(item.id, s)}
+                                    className={item.status === s ? "font-bold" : ""}
+                                  >
+                                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
+                                    {s}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </TableCell>
+                        {/* Post Status */}
                         <TableCell>
-                          {renderAssigneeDropdown(item)}
+                          {item.source === 'script' ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingPostStatus === item.id}>
+                                  {updatingPostStatus === item.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                                  ) : item.postStatus ? (
+                                    <div className="flex items-center gap-1">
+                                      <StatusBadge status={item.postStatus} />
+                                      <ChevronDown className="w-3 h-3 opacity-60" />
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
+                                      {language === "en" ? "Set status" : "Establecer estado"}
+                                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                                    </span>
+                                  )}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
+                                {POST_STATUS_OPTIONS.map((s) => (
+                                  <DropdownMenuItem key={s} onClick={() => handlePostStatusChange(item.id, s)} className={`text-xs ${item.postStatus === s ? "font-bold" : ""}`}>
+                                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s === "Approved" || s === "Done" ? "bg-emerald-400" : s === "Needs Revision" ? "bg-destructive" : s === "Scheduled" ? "bg-primary" : "bg-muted-foreground"}`} />
+                                    {s}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </TableCell>
+                        {/* Assignee */}
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1.5 text-xs"
-                            onClick={() => handleOpenRevisions(item)}
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            {item.revisions ? (
-                              <span className="max-w-[120px] truncate">{item.revisions}</span>
-                            ) : (
-                              <span className="text-muted-foreground">{language === "en" ? "Add" : "Agregar"}</span>
-                            )}
-                          </Button>
+                          {item.source === 'script' ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : renderAssigneeCell(item)}
                         </TableCell>
+                        {/* Revisions */}
                         <TableCell>
-                          {hasDriveVideo ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1.5 text-xs"
-                              onClick={() => setSelectedItem(item)}
-                            >
-                              <Play className="w-3.5 h-3.5" />
-                              {language === "en" ? "Play" : "Ver"}
+                          {item.source === 'script' ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => handleOpenRevisions(item)}>
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              {item.revisions ? (
+                                <span className="max-w-[120px] truncate">{item.revisions}</span>
+                              ) : (
+                                <span className="text-muted-foreground">{language === "en" ? "Add" : "Agregar"}</span>
+                              )}
                             </Button>
-                          ) : item.fileSubmissionUrl ? (
-                            <a
-                              href={item.fileSubmissionUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              Link
+                          )}
+                        </TableCell>
+                        {/* Footage */}
+                        <TableCell>
+                          {item.footageUrl ? (
+                            <a href={item.footageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                              <ExternalLink className="w-3 h-3" />Link
                             </a>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {item.scriptUrl ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1.5 text-xs text-primary hover:underline"
-                              onClick={() => navigate(`/clients/${clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              {language === "en" ? "View" : "Ver"}
+                        {/* File Submission */}
+                        <TableCell className="text-center">
+                          {hasDriveVideo ? (
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setSelectedItem(item)}>
+                              <Play className="w-3.5 h-3.5" />{language === "en" ? "Play" : "Ver"}
                             </Button>
+                          ) : item.fileSubmissionUrl ? (
+                            <a href={item.fileSubmissionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                              <ExternalLink className="w-3 h-3" />Link
+                            </a>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
+                        {/* Script */}
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 p-1.5"
-                            onClick={() => setDeleteConfirmItem(item)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {item.scriptUrl ? (
+                            <a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                              <ExternalLink className="w-3 h-3" />
+                              {language === "en" ? "View" : "Ver"}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        {/* Schedule */}
+                        <TableCell>
+                          {item.source === 'script' ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <Button
+                              variant="ghost" size="sm"
+                              className={`gap-1.5 text-xs ${item.scheduledDate ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-primary"}`}
+                              onClick={() => { setScheduleItem(item); setScheduleDate(item.scheduledDate || ""); }}
+                            >
+                              {item.scheduledDate ? (
+                                <><Calendar className="w-3 h-3" />{item.scheduledDate}</>
+                              ) : (
+                                <><CalendarPlus className="w-3.5 h-3.5" />{language === "en" ? "Schedule" : "Programar"}</>
+                              )}
+                            </Button>
+                          )}
+                        </TableCell>
+                        {/* Caption */}
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground max-w-[140px] truncate block">
+                            {item.caption || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {item.source !== 'script' && (
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 p-1.5" onClick={() => setDeleteConfirmItem(item)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </motion.div>
           )}
         </div>
       </main>
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <span className="text-sm font-medium text-foreground">{selectedIds.size} {language === "en" ? "selected" : "seleccionados"}</span>
+          <div className="w-px h-4 bg-border" />
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedIds(new Set(filteredItems.map(i => i.id)))}>
+            {language === "en" ? "Select All" : "Seleccionar Todo"}
+          </Button>
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedIds(new Set())}>
+            {language === "en" ? "Deselect All" : "Deseleccionar"}
+          </Button>
+          <div className="w-px h-4 bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+          >
+            {bulkDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            {language === "en" ? "Delete" : "Eliminar"}
+          </Button>
+        </div>
+      )}
 
       {/* Video Preview Modal */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
@@ -499,11 +681,7 @@ export default function EditingQueue() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span>{selectedItem?.title}</span>
-              {selectedItem && (
-                <Badge variant="outline" className={getStatusClassName(selectedItem.status)}>
-                  {selectedItem.status}
-                </Badge>
-              )}
+              {selectedItem && <StatusBadge status={selectedItem.status} />}
             </DialogTitle>
           </DialogHeader>
           <div className="mt-2">
@@ -563,16 +741,14 @@ export default function EditingQueue() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === selectedItem.id}>
-                        <Badge variant="outline" className={`${getStatusClassName(selectedItem.status)} cursor-pointer`}>
-                          {updatingStatus === selectedItem.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <>
-                              {selectedItem.status}
-                              <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                            </>
-                          )}
-                        </Badge>
+                        {updatingStatus === selectedItem.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <StatusBadge status={selectedItem.status} />
+                            <ChevronDown className="w-3 h-3 opacity-60" />
+                          </>
+                        )}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
@@ -593,7 +769,7 @@ export default function EditingQueue() {
                   <span className="text-xs text-muted-foreground">
                     {language === "en" ? "Assignee:" : "Asignado:"}
                   </span>
-                  {renderAssigneeDropdown(selectedItem)}
+                  {renderAssigneeCell(selectedItem)}
                 </div>
                 <Button
                   variant="outline"
@@ -604,6 +780,12 @@ export default function EditingQueue() {
                   <MessageSquare className="w-3.5 h-3.5" />
                   {language === "en" ? "Revisions" : "Revisiones"}
                 </Button>
+              </div>
+            )}
+            {selectedItem?.caption && (
+              <div className="mt-4 pt-3 border-t border-border/40">
+                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1.5 tracking-wide">Caption</p>
+                <p className="text-sm whitespace-pre-wrap text-foreground leading-relaxed">{selectedItem.caption}</p>
               </div>
             )}
           </div>
@@ -663,6 +845,56 @@ export default function EditingQueue() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Schedule Post Modal */}
+      <Dialog open={!!scheduleItem} onOpenChange={() => setScheduleItem(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <CalendarPlus className="w-4 h-4 text-primary" />
+              {scheduleItem?.scheduledDate
+                ? (language === "en" ? "Reschedule Post" : "Reprogramar Post")
+                : (language === "en" ? "Schedule Post" : "Programar Post")}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {scheduleItem?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">
+                {language === "en" ? "Select publish date" : "Selecciona la fecha de publicación"}
+              </Label>
+              <Input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="text-sm"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {language === "en"
+                ? "This will add the post to the Content Calendar and update the Post Status in Notion to Scheduled."
+                : "Esto añadirá el post al Calendario de Contenido y actualizará el Estado del Post en Notion a Programado."}
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setScheduleItem(null)} disabled={scheduling}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSchedulePost}
+              disabled={scheduling || !scheduleDate}
+              className="gap-1.5 btn-17-primary"
+            >
+              {scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarPlus className="w-3.5 h-3.5" />}
+              {language === "en" ? "Schedule" : "Programar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
