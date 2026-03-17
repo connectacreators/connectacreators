@@ -45,7 +45,7 @@ serve(async (req: Request) => {
       try {
         // Delete file from storage
         const { error: storageErr } = await supabase.storage
-          .from("video-uploads")
+          .from("footage")
           .remove([row.storage_path]);
 
         if (storageErr) {

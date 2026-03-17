@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import * as tus from 'tus-js-client';
 import { videoService } from './videoService';
 
-const BUCKET = 'video-uploads';
+const BUCKET = 'footage';
 const FIVE_GB = 5 * 1024 * 1024 * 1024;
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;
