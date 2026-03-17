@@ -20,6 +20,9 @@ import { toast } from "sonner";
 import TableHeaderComponent from "@/components/tables/TableHeader";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exportToCSV } from "@/utils/csvExport";
+import UploadButton from '@/components/UploadButton';
+import VideoReviewModal from '@/components/VideoReviewModal';
+import { revisionCommentService } from '@/services/revisionCommentService';
 
 interface EditingQueueItem {
   id: string;
@@ -40,6 +43,9 @@ interface EditingQueueItem {
   source?: 'notion' | 'db' | 'script';
   caption?: string | null;
   script_id?: string | null;
+  uploadSource?: string | null;
+  storagePath?: string | null;
+  storageUrl?: string | null;
 }
 
 
@@ -105,6 +111,14 @@ export default function EditingQueue() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduling, setScheduling] = useState(false);
 
+  // Inline editing for footage, file_submission, caption
+  const [inlineEdit, setInlineEdit] = useState<{ itemId: string; field: 'footage' | 'fileSubmission' | 'caption'; value: string } | null>(null);
+  const [savingInline, setSavingInline] = useState(false);
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewItem, setReviewItem] = useState<EditingQueueItem | null>(null);
+  const [unresolvedCounts, setUnresolvedCounts] = useState<Record<string, number>>({});
+
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -164,6 +178,9 @@ export default function EditingQueue() {
         caption: v.caption ?? null,
         source: 'db' as const,
         script_id: v.script_id || null,
+        uploadSource: v.upload_source || null,
+        storagePath: v.storage_path || null,
+        storageUrl: v.storage_url || null,
       }));
 
       setItems(mappedVideos);
@@ -178,6 +195,22 @@ export default function EditingQueue() {
   useEffect(() => {
     fetchQueue();
   }, [clientId, user]);
+
+  useEffect(() => {
+    if (!items.length) return;
+    const loadCounts = async () => {
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        items.map(async (item) => {
+          try {
+            counts[item.id] = await revisionCommentService.getUnresolvedCount(item.id);
+          } catch { counts[item.id] = 0; }
+        })
+      );
+      setUnresolvedCounts(counts);
+    };
+    loadCounts();
+  }, [items]);
 
   const handleStatusChange = async (pageId: string, newStatus: string) => {
     setUpdatingStatus(pageId);
@@ -305,6 +338,25 @@ export default function EditingQueue() {
       toast.error(language === "en" ? "Failed to update post status" : "Error al actualizar estado");
     } finally {
       setUpdatingPostStatus(null);
+    }
+  };
+
+  const handleSaveInline = async () => {
+    if (!inlineEdit) return;
+    setSavingInline(true);
+    const dbField = inlineEdit.field === 'footage' ? 'footage' : inlineEdit.field === 'fileSubmission' ? 'file_submission' : 'caption';
+    const stateField = inlineEdit.field === 'footage' ? 'footageUrl' : inlineEdit.field === 'fileSubmission' ? 'fileSubmissionUrl' : 'caption';
+    try {
+      const { error } = await supabase.from("video_edits").update({
+        [dbField]: inlineEdit.value || null,
+      }).eq("id", inlineEdit.itemId);
+      if (error) throw error;
+      setItems((prev) => prev.map((i) => i.id === inlineEdit.itemId ? { ...i, [stateField]: inlineEdit.value || null } : i));
+      setInlineEdit(null);
+    } catch {
+      toast.error("Failed to save");
+    } finally {
+      setSavingInline(false);
     }
   };
 
@@ -453,6 +505,7 @@ export default function EditingQueue() {
                         <TableHead className="font-semibold">{language === "en" ? "Post Status" : "Estado Post"}</TableHead>
                         <TableHead className="font-semibold">{language === "en" ? "Assignee" : "Asignado"}</TableHead>
                         <TableHead className="font-semibold">{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
+                        <TableHead className="font-semibold">Reviews</TableHead>
                         <TableHead className="font-semibold">Footage</TableHead>
                         <TableHead className="font-semibold text-center">File Submission</TableHead>
                         <TableHead className="font-semibold">Script</TableHead>
@@ -572,19 +625,70 @@ export default function EditingQueue() {
                             </Button>
                           )}
                         </TableCell>
+                        {/* Reviews */}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {unresolvedCounts[item.id] > 0 ? (
+                              <span className="text-xs bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
+                                {unresolvedCounts[item.id]} open
+                              </span>
+                            ) : unresolvedCounts[item.id] === 0 && Object.keys(unresolvedCounts).length > 0 ? (
+                              <span className="text-xs bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded-full">
+                                All resolved
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-xs px-2"
+                              onClick={() => { setReviewItem(item); setReviewModalOpen(true); }}
+                            >
+                              Review ▶
+                            </Button>
+                          </div>
+                        </TableCell>
                         {/* Footage */}
                         <TableCell>
-                          {item.footageUrl ? (
+                          {inlineEdit?.itemId === item.id && inlineEdit.field === 'footage' ? (
+                            <input
+                              autoFocus
+                              className="text-xs border rounded px-1.5 py-0.5 w-full max-w-[140px] bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                              value={inlineEdit.value}
+                              placeholder="https://..."
+                              onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                              onBlur={handleSaveInline}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveInline(); if (e.key === 'Escape') setInlineEdit(null); }}
+                            />
+                          ) : item.footageUrl ? (
                             <a href={item.footageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                               <ExternalLink className="w-3 h-3" />Link
                             </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                          ) : item.source !== 'script' ? (
+                            <div className="flex items-center gap-1">
+                              <UploadButton
+                                videoEditId={item.id}
+                                clientId={clientId || ''}
+                                onUploadComplete={() => fetchQueue()}
+                              />
+                              <button onClick={() => setInlineEdit({ itemId: item.id, field: 'footage', value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add link</button>
+                            </div>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         {/* File Submission */}
                         <TableCell className="text-center">
-                          {hasDriveVideo ? (
+                          {inlineEdit?.itemId === item.id && inlineEdit.field === 'fileSubmission' ? (
+                            <input
+                              autoFocus
+                              className="text-xs border rounded px-1.5 py-0.5 w-full max-w-[140px] bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                              value={inlineEdit.value}
+                              placeholder="https://drive.google.com/..."
+                              onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                              onBlur={handleSaveInline}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveInline(); if (e.key === 'Escape') setInlineEdit(null); }}
+                            />
+                          ) : hasDriveVideo ? (
                             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setSelectedItem(item)}>
                               <Play className="w-3.5 h-3.5" />{language === "en" ? "Play" : "Ver"}
                             </Button>
@@ -592,9 +696,9 @@ export default function EditingQueue() {
                             <a href={item.fileSubmissionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                               <ExternalLink className="w-3 h-3" />Link
                             </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                          ) : item.source !== 'script' ? (
+                            <button onClick={() => setInlineEdit({ itemId: item.id, field: 'fileSubmission', value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add link</button>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         {/* Script */}
                         <TableCell>
@@ -627,9 +731,24 @@ export default function EditingQueue() {
                         </TableCell>
                         {/* Caption */}
                         <TableCell>
-                          <span className="text-xs text-muted-foreground max-w-[140px] truncate block">
-                            {item.caption || "—"}
-                          </span>
+                          {inlineEdit?.itemId === item.id && inlineEdit.field === 'caption' ? (
+                            <textarea
+                              autoFocus
+                              className="text-xs border rounded px-1.5 py-0.5 w-full max-w-[160px] bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                              value={inlineEdit.value}
+                              placeholder="Post caption..."
+                              rows={2}
+                              onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                              onBlur={handleSaveInline}
+                              onKeyDown={(e) => { if (e.key === 'Escape') setInlineEdit(null); }}
+                            />
+                          ) : item.caption ? (
+                            <button onClick={() => setInlineEdit({ itemId: item.id, field: 'caption', value: item.caption || '' })} className="text-xs text-muted-foreground max-w-[120px] truncate block text-left hover:text-foreground transition-colors">
+                              {item.caption}
+                            </button>
+                          ) : item.source !== 'script' ? (
+                            <button onClick={() => setInlineEdit({ itemId: item.id, field: 'caption', value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add caption</button>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>
                           {item.source !== 'script' && (
@@ -895,6 +1014,22 @@ export default function EditingQueue() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {reviewItem && (
+        <VideoReviewModal
+          open={reviewModalOpen}
+          onClose={() => { setReviewModalOpen(false); setReviewItem(null); }}
+          videoEditId={reviewItem.id}
+          title={reviewItem.title}
+          uploadSource={reviewItem.uploadSource || null}
+          storagePath={reviewItem.storagePath || null}
+          fileSubmissionUrl={reviewItem.fileSubmissionUrl}
+          onCommentsChanged={() => {
+            revisionCommentService.getUnresolvedCount(reviewItem.id)
+              .then(count => setUnresolvedCounts(prev => ({ ...prev, [reviewItem.id]: count })));
+          }}
+        />
+      )}
     </>
   );
 }
