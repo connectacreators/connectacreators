@@ -36,36 +36,6 @@ export type ScriptMetadata = {
   google_drive_link: string | null;
 };
 
-// Fire-and-forget Notion sync helper
-const syncToNotion = async (params: {
-  script_id: string;
-  client_id: string;
-  title: string;
-  google_drive_link?: string | null;
-  action: "create" | "update";
-}) => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-notion-script`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify(params),
-      }
-    );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("Notion sync error:", err);
-    }
-  } catch (e) {
-    console.error("Notion sync failed:", e);
-  }
-};
-
 // Mutex to prevent concurrent replaceAllLines from racing (delete-all + re-insert pattern)
 const _locks = new Map<string, Promise<boolean>>();
 
@@ -266,14 +236,6 @@ export function useScripts() {
         console.error("Auto-create video_edits failed (non-fatal):", videoErr);
       }
 
-      syncToNotion({
-        script_id: script.id,
-        client_id: params.clientId,
-        title: params.ideaGanadora,
-        google_drive_link: params.googleDriveLink || null,
-        action: "create",
-      });
-
       return {
         scriptId: script.id,
         metadata: {
@@ -352,14 +314,6 @@ export function useScripts() {
 
       toast.success("Script guardado y categorizado");
       setScripts((prev) => [script, ...prev]);
-
-      syncToNotion({
-        script_id: script.id,
-        client_id: clientId,
-        title: result.idea_ganadora || title,
-        google_drive_link: googleDriveLink || null,
-        action: "create",
-      });
 
       return {
         lines: result.lines,
@@ -483,8 +437,6 @@ export function useScripts() {
 
       toast.success("Script actualizado");
 
-      const currentScript = scripts.find(s => s.id === scriptId);
-
       setScripts((prev) =>
         prev.map((s) =>
           s.id === scriptId
@@ -492,10 +444,6 @@ export function useScripts() {
             : s
         )
       );
-
-      if (currentScript) {
-        syncToNotion({ script_id: scriptId, client_id: currentScript.client_id, title, google_drive_link: googleDriveLink || null, action: "update" });
-      }
 
       return {
         lines,
@@ -513,16 +461,12 @@ export function useScripts() {
   const updateGoogleDriveLink = async (scriptId: string, link: string) => {
     const { error } = await supabase.from("scripts").update({ google_drive_link: link || null }).eq("id", scriptId);
     if (error) { toast.error("Error al guardar link"); return false; }
-    const currentScript = scripts.find(s => s.id === scriptId);
     setScripts((prev) => prev.map((s) => (s.id === scriptId ? { ...s, google_drive_link: link || null } : s)));
     toast.success("Link guardado");
     // Sync footage to linked video_edits record
     try {
       await supabase.from("video_edits").update({ footage: link || null }).eq("script_id", scriptId);
     } catch (e) { console.error("Sync footage to video failed:", e); }
-    if (currentScript) {
-      syncToNotion({ script_id: scriptId, client_id: currentScript.client_id, title: currentScript.idea_ganadora || currentScript.title, google_drive_link: link || null, action: "update" });
-    }
     return true;
   };
 
@@ -668,42 +612,6 @@ export function useScripts() {
     return ok;
   };
 
-  const bulkSyncToNotion = async (clientId?: string) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bulk-sync-notion-scripts`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ client_id: clientId }),
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("Bulk sync error:", err);
-        toast.error("Error al sincronizar scripts");
-        return false;
-      }
-      const result = await res.json();
-      const total = (result.created || 0) + (result.updated || 0) + (result.restored || 0);
-      if (result.errors?.length > 0) {
-        const firstErr = result.errors[0]?.error || "Unknown error";
-        toast.error(`Notion error: ${firstErr}`);
-      } else {
-        toast.success(`${total} scripts sincronizados con Notion (${result.created || 0} nuevos, ${result.updated || 0} actualizados)`);
-      }
-      return true;
-    } catch (e) {
-      console.error("Bulk sync failed:", e);
-      toast.error("Error al sincronizar");
-      return false;
-    }
-  };
-
   return {
     scripts,
     trashedScripts,
@@ -726,7 +634,6 @@ export function useScripts() {
     moveScriptLine,
     reorderSectionLines,
     reorderAllLines,
-    bulkSyncToNotion,
     updateReviewStatus,
   };
 

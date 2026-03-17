@@ -294,7 +294,6 @@ export default function Scripts() {
     categorizeAndSave, directSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
-    bulkSyncToNotion,
     updateReviewStatus,
   } = useScripts();
 
@@ -1386,15 +1385,6 @@ export default function Scripts() {
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-                {isAdmin && (
-                  <button
-                    onClick={() => bulkSyncToNotion(selectedClient?.id)}
-                    title="Sync Notion"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                )}
               </div>
             </div>
 
