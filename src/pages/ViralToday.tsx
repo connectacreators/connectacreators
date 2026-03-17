@@ -188,8 +188,8 @@ function timeAgo(dateStr: string | null): string {
 // Proxy Instagram CDN URLs through wsrv.nl to bypass hotlink/CORS restrictions
 function proxyImg(url: string | null): string | null {
   if (!url) return null;
-  if (url.includes("cdninstagram.com") || url.includes("fbcdn.net")) {
-    return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=400&output=webp&q=80`;
+  if (url.includes("cdninstagram.com") || url.includes("fbcdn.net") || url.includes("instagram.f")) {
+    return `https://connectacreators.com/img-proxy?url=${encodeURIComponent(url)}`;
   }
   return url;
 }
