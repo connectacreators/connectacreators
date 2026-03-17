@@ -1310,20 +1310,36 @@ export default function ViralToday() {
                             Previous
                           </button>
                           <div className="flex items-center gap-1 flex-wrap justify-center">
-                            {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i).map((page) => (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={cn(
-                                  "px-2 py-1 rounded-md text-xs font-semibold transition-all border",
-                                  currentPage === page
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-muted text-foreground border-border hover:bg-muted/80"
-                                )}
-                              >
-                                {page + 1}
-                              </button>
-                            ))}
+                            {(() => {
+                              const pages: (number | "...")[] = [];
+                              if (totalPages <= 7) {
+                                for (let i = 0; i < totalPages; i++) pages.push(i);
+                              } else {
+                                pages.push(0);
+                                if (currentPage > 3) pages.push("...");
+                                for (let i = Math.max(1, currentPage - 1); i <= Math.min(totalPages - 2, currentPage + 1); i++) pages.push(i);
+                                if (currentPage < totalPages - 4) pages.push("...");
+                                pages.push(totalPages - 1);
+                              }
+                              return pages.map((page, idx) =>
+                                page === "..." ? (
+                                  <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                                ) : (
+                                  <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={cn(
+                                      "px-2 py-1 rounded-md text-xs font-semibold transition-all border",
+                                      currentPage === page
+                                        ? "bg-primary text-primary-foreground border-primary"
+                                        : "bg-muted text-foreground border-border hover:bg-muted/80"
+                                    )}
+                                  >
+                                    {page + 1}
+                                  </button>
+                                )
+                              );
+                            })()}
                           </div>
                           <button
                             onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
