@@ -728,12 +728,13 @@ export default function ViralToday() {
   const fetchVideos = useCallback(async () => {
     setLoadingVideos(true);
     try {
-      // Supabase caps at 1000 rows per request — fetch all pages and merge
+      // Fetch up to 5000 most recent videos — covers all real usage without unbounded egress
       const PAGE_SIZE = 1000;
+      const MAX_VIDEOS = 5000;
       let allVideos: ViralVideo[] = [];
       let page = 0;
 
-      while (true) {
+      while (allVideos.length < MAX_VIDEOS) {
         const { data, error } = await supabase
           .from("viral_videos")
           .select("*")
@@ -797,7 +798,20 @@ export default function ViralToday() {
           if (result?.status === "done") {
             toast.success(`@${ch.username} scraped — ${result.videosStored ?? 0} videos added`);
             fetchChannels();
-            fetchVideos();
+            // Only fetch the new videos for this channel instead of reloading everything
+            const { data: newVideos } = await supabase
+              .from("viral_videos")
+              .select("*")
+              .eq("channel_id", ch.id)
+              .order("posted_at", { ascending: false })
+              .limit(50);
+            if (newVideos && newVideos.length > 0) {
+              setVideos((prev) => {
+                const existingIds = new Set(prev.map((v) => v.id));
+                const fresh = (newVideos as ViralVideo[]).filter((v) => !existingIds.has(v.id));
+                return fresh.length > 0 ? [...fresh, ...prev] : prev;
+              });
+            }
           } else if (result?.status === "error") {
             toast.error(`@${ch.username} scrape failed`);
             fetchChannels();
