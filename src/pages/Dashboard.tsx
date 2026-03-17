@@ -4,16 +4,11 @@ import ScriptsLogin from "@/components/ScriptsLogin";
 import {
   Loader2, FileText, Target, CalendarDays, Users,
   Clapperboard, Database, Archive, Zap, UserPlus, Globe,
-  BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame,
+  BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame, Bot,
 } from "lucide-react";
-import chessKnightIcon from "@/assets/chess-knight-white.svg";
-
-function ConnectaAIIcon({ className }: { className?: string }) {
-  return <img src={chessKnightIcon} className={`${className ?? ""}`} alt="Connecta AI" style={{ objectFit: "contain" }} />;
-}
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WelcomeSubscriptionModal from "@/components/WelcomeSubscriptionModal";
@@ -44,11 +39,13 @@ export default function Dashboard() {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomePlan, setWelcomePlan] = useState("starter");
+  const justPaidRef = useRef(false);
 
   // Show one-time welcome modal after successful payment
   useEffect(() => {
     const paid = localStorage.getItem("connecta_just_paid");
     if (paid) {
+      justPaidRef.current = true;
       setWelcomePlan(paid);
       setShowWelcome(true);
       localStorage.removeItem("connecta_just_paid");
@@ -96,6 +93,7 @@ export default function Dashboard() {
 
   // Subscription check (for non-admin/videographer/editor/connectaPlus client roles)
   useEffect(() => {
+    if (justPaidRef.current) return;
     if (loading || !user) return;
     if (isAdmin || isVideographer || isEditor || isConnectaPlus) return;
     supabase
@@ -108,6 +106,8 @@ export default function Dashboard() {
           navigate("/select-plan");
         } else if (
           data.subscription_status !== "active" &&
+          data.subscription_status !== "trialing" &&
+          data.subscription_status !== "trial" &&
           data.subscription_status !== "pending_contact" &&
           data.subscription_status !== "canceling" &&
           data.subscription_status !== "connecta_plus"
@@ -160,7 +160,7 @@ export default function Dashboard() {
   // Sub-cards with optional clientId for context-specific routes
   const getClientSubCards = (clientId: string | null) => ({
     content: [
-      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: ConnectaAIIcon, color: "text-orange-400", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "text-orange-400", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
       { label: "Scripts", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "text-primary", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
       { label: "Vault", description: language === "en" ? "Save and reuse video templates" : "Guarda y reutiliza plantillas de video", icon: Archive, color: "#0891B2", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
       { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "text-rose-400", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
@@ -281,7 +281,7 @@ export default function Dashboard() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-3xl mx-auto">
                   {[
-                    { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: ConnectaAIIcon, color: "text-orange-400", path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+                    { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "text-orange-400", path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
                     { label: language === "en" ? "Scripts" : "Guiones", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "text-primary", path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
                     { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "text-rose-400", path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
                     { label: "Content Calendar", description: language === "en" ? "Plan and schedule your content" : "Planifica y programa tu contenido", icon: Calendar, color: "text-cyan-400", path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
