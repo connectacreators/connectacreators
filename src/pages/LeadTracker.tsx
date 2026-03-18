@@ -46,12 +46,14 @@ import {
   TrendingUp,
   Clock,
   Trash2,
+  Plus,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { toast } from "sonner";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { leadService } from "@/services/leadService";
 
 type Lead = {
   id: string;
@@ -98,8 +100,22 @@ export default function LeadTracker() {
   const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
+  const { user, loading: authLoading, isAdmin, isUser, isVideographer } = useAuth();
   const isStaff = isAdmin || isVideographer;
+
+  const [ownClientId, setOwnClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user || !isUser) return;
+    supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setOwnClientId(data.id);
+      });
+  }, [user, isUser]);
   const { clients } = useClients(isStaff);
   const navigate = useNavigate();
 
@@ -146,6 +162,20 @@ export default function LeadTracker() {
     setViewMode(mode);
     localStorage.setItem("leadTrackerViewMode", mode);
   };
+
+  // Add Lead dialog state
+  const [showAddLead, setShowAddLead] = useState(false);
+  const [addLeadForm, setAddLeadForm] = useState({
+    name: "", email: "", phone: "", source: "", status: "New Lead",
+    follow_up_step: 0, last_contacted_at: "", next_follow_up_at: "",
+    booked: false, stopped: false, replied: false,
+  });
+
+  const resetAddLeadForm = () => setAddLeadForm({
+    name: "", email: "", phone: "", source: "", status: "New Lead",
+    follow_up_step: 0, last_contacted_at: "", next_follow_up_at: "",
+    booked: false, stopped: false, replied: false,
+  });
 
   // (Lead notifications are now handled globally by LeadNotificationProvider)
 
@@ -194,29 +224,72 @@ export default function LeadTracker() {
     }
   }, []);
 
+  const fetchSubscriberLeads = useCallback(async (silent = false) => {
+    if (!ownClientId) return;
+    if (!silent) setLoading(true);
+    setError(null);
+    try {
+      const supaLeads = await leadService.getLeadsByClient(ownClientId);
+      const normalized: Lead[] = supaLeads.map((sl) => ({
+        id: sl.id,
+        fullName: sl.name,
+        email: sl.email || "",
+        phone: sl.phone || "",
+        leadStatus: sl.status,
+        leadSource: sl.source || "",
+        client: "",
+        campaignName: "",
+        notes: sl.notes || "",
+        createdDate: sl.created_at,
+        lastContacted: sl.last_contacted_at || "",
+        appointmentDate: sl.booking_date || "",
+        bookingTime: sl.booking_time || undefined,
+        booked: sl.booked,
+        notionUrl: "",
+      }));
+      setLeads(normalized.sort((a, b) => {
+        const dateA = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+        const dateB = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+        return dateB - dateA;
+      }));
+      const statuses = [...new Set(normalized.map(l => l.leadStatus).filter(Boolean))];
+      const sources = [...new Set(normalized.map(l => l.leadSource).filter(Boolean))];
+      if (statuses.length) setStatusOptions(statuses);
+      if (sources.length) setSourceOptions(sources);
+    } catch (e: any) {
+      console.error("Error fetching subscriber leads:", e);
+      if (!silent) setError(e.message || "Error loading leads");
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [ownClientId]);
+
   useEffect(() => {
     if (!authLoading && user) {
-      if (isStaff) {
-        // When viewing a specific client's leads (from /clients/:id/leads), pass client_id directly
+      if (isUser) {
+        fetchSubscriberLeads();
+      } else if (isStaff) {
         fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined);
       } else {
         fetchLeads();
       }
     }
-  }, [authLoading, user, isStaff, selectedClient, urlClientId, fetchLeads]);
+  }, [authLoading, user, isUser, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
 
   // Auto-refresh every 2 minutes
   useEffect(() => {
     if (!user || authLoading) return;
     const interval = setInterval(() => {
-      if (isStaff) {
+      if (isUser) {
+        fetchSubscriberLeads(true);
+      } else if (isStaff) {
         fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined, true);
       } else {
         fetchLeads(undefined, undefined, true);
       }
     }, 120_000);
     return () => clearInterval(interval);
-  }, [user, authLoading, isStaff, selectedClient, urlClientId, fetchLeads]);
+  }, [user, authLoading, isUser, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
 
   const openLeadDetail = (lead: Lead) => {
     setSelectedLead(lead);
@@ -231,31 +304,38 @@ export default function LeadTracker() {
     if (trimmed === (selectedLead.notes || "")) return; // no change
     setSavingNotes(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      if (isUser) {
+        await leadService.updateLead(selectedLead.id, { notes: trimmed });
+        setLeads((prev) => prev.map((l) => l.id === selectedLead.id ? { ...l, notes: trimmed } : l));
+        setSelectedLead((prev) => prev ? { ...prev, notes: trimmed } : prev);
+        toast.success(tr({ en: "Notes saved", es: "Notas guardadas" }, language));
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
 
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-lead-notes`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ leadId: selectedLead.id, notes: trimmed, clientId: urlClientId }),
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-lead-notes`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ leadId: selectedLead.id, notes: trimmed, clientId: urlClientId }),
+          }
+        );
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Error ${res.status}`);
         }
-      );
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Error ${res.status}`);
+        // Update local state so the card view reflects the new notes immediately
+        setLeads((prev) => prev.map((l) => l.id === selectedLead.id ? { ...l, notes: trimmed } : l));
+        setSelectedLead((prev) => prev ? { ...prev, notes: trimmed } : prev);
+        toast.success(tr({ en: "Notes saved", es: "Notas guardadas" }, language));
       }
-
-      // Update local state so the card view reflects the new notes immediately
-      setLeads((prev) => prev.map((l) => l.id === selectedLead.id ? { ...l, notes: trimmed } : l));
-      setSelectedLead((prev) => prev ? { ...prev, notes: trimmed } : prev);
-      toast.success(tr({ en: "Notes saved", es: "Notas guardadas" }, language));
     } catch (e: any) {
       console.error("Error saving notes:", e);
       toast.error(tr({ en: "Failed to save notes", es: "Error al guardar las notas" }, language));
@@ -271,32 +351,39 @@ export default function LeadTracker() {
     }
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      if (isUser) {
+        await leadService.updateLead(selectedLead.id, { status: newStatus });
+        toast.success(tr(t.leadDetail.statusUpdated, language));
+        setModalOpen(false);
+        fetchSubscriberLeads();
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
 
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-lead-status`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ leadId: selectedLead.id, newStatus, clientId: urlClientId }),
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-lead-status`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ leadId: selectedLead.id, newStatus, clientId: urlClientId }),
+          }
+        );
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Error ${res.status}`);
         }
-      );
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Error ${res.status}`);
+        toast.success(tr(t.leadDetail.statusUpdated, language));
+        setModalOpen(false);
+        isStaff
+          ? fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined)
+          : fetchLeads();
       }
-
-      toast.success(tr(t.leadDetail.statusUpdated, language));
-      setModalOpen(false);
-      isStaff
-        ? fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined)
-        : fetchLeads();
     } catch (e: any) {
       console.error("Error updating status:", e);
       toast.error(tr(t.leadDetail.statusError, language));
@@ -315,30 +402,71 @@ export default function LeadTracker() {
     }
     setDeleting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-lead`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ leadId: lead.id }),
+      if (isUser) {
+        await leadService.deleteLead(lead.id);
+        setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+        toast.success(language === "en" ? "Lead deleted" : "Lead eliminado");
+        setConfirmDeleteId(null);
+        if (modalOpen && selectedLead?.id === lead.id) setModalOpen(false);
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-lead`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session?.access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ leadId: lead.id }),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Delete failed");
         }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Delete failed");
+        setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+        toast.success(language === "en" ? "Lead deleted" : "Lead eliminado");
+        setConfirmDeleteId(null);
+        if (modalOpen && selectedLead?.id === lead.id) setModalOpen(false);
       }
-      setLeads((prev) => prev.filter((l) => l.id !== lead.id));
-      toast.success(language === "en" ? "Lead deleted" : "Lead eliminado");
-      setConfirmDeleteId(null);
-      if (modalOpen && selectedLead?.id === lead.id) setModalOpen(false);
     } catch (e: any) {
       toast.error(e.message || "Error deleting lead");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleAddLead = async () => {
+    if (!addLeadForm.name.trim()) {
+      toast.error(language === "en" ? "Lead name is required" : "El nombre del lead es requerido");
+      return;
+    }
+    const clientId = isUser ? ownClientId : urlClientId;
+    if (!clientId) {
+      toast.error(language === "en" ? "No client associated" : "Sin cliente asociado");
+      return;
+    }
+    try {
+      await leadService.createLead({
+        client_id: clientId,
+        name: addLeadForm.name.trim(),
+        phone: addLeadForm.phone || null,
+        email: addLeadForm.email || null,
+        source: addLeadForm.source || null,
+        status: addLeadForm.status,
+      });
+      toast.success(language === "en" ? "Lead created" : "Lead creado");
+      setShowAddLead(false);
+      resetAddLeadForm();
+      if (isUser) {
+        fetchSubscriberLeads();
+      } else {
+        fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined);
+      }
+    } catch (e: any) {
+      console.error("Error creating lead:", e);
+      toast.error(e.message || "Error creating lead");
     }
   };
 
@@ -539,7 +667,7 @@ export default function LeadTracker() {
               <Select value={selectedClient} onValueChange={setSelectedClient}>
                 <SelectTrigger className="w-full sm:w-[150px] sm:flex-shrink-0 bg-background/50 border-border/50">
                   <Users className="w-4 h-4 mr-1.5" />
-                  <SelectValue placeholder="Cliente" />
+                  <SelectValue placeholder={tr(t.leadCalendar.client, language)} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{tr(t.leadTracker.allClients, language)}</SelectItem>
@@ -578,7 +706,7 @@ export default function LeadTracker() {
 
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
               <SelectTrigger className="w-full sm:w-[130px] sm:flex-shrink-0 bg-background/50 border-border/50">
-                <SelectValue placeholder="Fuente" />
+                <SelectValue placeholder={tr(t.leadDetail.source, language)} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{tr(t.leadTracker.allSources, language)}</SelectItem>
@@ -622,6 +750,17 @@ export default function LeadTracker() {
                   placeholder="To"
                 />
               </>
+            )}
+
+            {(isUser || isAdmin) && (
+              <Button
+                size="sm"
+                onClick={() => setShowAddLead(true)}
+                className="flex-shrink-0 gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                {language === "en" ? "Add Lead" : "Agregar Lead"}
+              </Button>
             )}
 
             {/* View toggle: Cards / Table / Chart */}
@@ -1086,6 +1225,77 @@ export default function LeadTracker() {
                   {tr(t.leadDetail.save, language)}
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddLead} onOpenChange={setShowAddLead}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Add New Lead" : "Agregar Nuevo Lead"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Name" : "Nombre"} *</label>
+              <Input placeholder={language === "en" ? "Lead name" : "Nombre del lead"} value={addLeadForm.name} onChange={(e) => setAddLeadForm({ ...addLeadForm, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" placeholder="email@example.com" value={addLeadForm.email} onChange={(e) => setAddLeadForm({ ...addLeadForm, email: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Phone" : "Teléfono"}</label>
+              <Input placeholder="+1 (555) 000-0000" value={addLeadForm.phone} onChange={(e) => setAddLeadForm({ ...addLeadForm, phone: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Source" : "Fuente"}</label>
+              <Input placeholder="Facebook, Referral, etc." value={addLeadForm.source} onChange={(e) => setAddLeadForm({ ...addLeadForm, source: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={addLeadForm.status} onValueChange={(value) => setAddLeadForm({ ...addLeadForm, status: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALLOWED_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Follow Up Step" : "Paso de Seguimiento"}</label>
+              <Input type="number" min="0" max="10" value={addLeadForm.follow_up_step} onChange={(e) => setAddLeadForm({ ...addLeadForm, follow_up_step: parseInt(e.target.value) || 0 })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Last Contacted" : "Último Contacto"}</label>
+              <Input type="date" value={addLeadForm.last_contacted_at} onChange={(e) => setAddLeadForm({ ...addLeadForm, last_contacted_at: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Next Follow Up" : "Próximo Seguimiento"}</label>
+              <Input type="date" value={addLeadForm.next_follow_up_at} onChange={(e) => setAddLeadForm({ ...addLeadForm, next_follow_up_at: e.target.value })} />
+            </div>
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="addLead-booked" checked={addLeadForm.booked} onChange={(e) => setAddLeadForm({ ...addLeadForm, booked: e.target.checked })} className="rounded" />
+                <label htmlFor="addLead-booked" className="text-sm cursor-pointer">Booked</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="addLead-replied" checked={addLeadForm.replied} onChange={(e) => setAddLeadForm({ ...addLeadForm, replied: e.target.checked })} className="rounded" />
+                <label htmlFor="addLead-replied" className="text-sm cursor-pointer">{language === "en" ? "Replied" : "Respondió"}</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="addLead-stopped" checked={addLeadForm.stopped} onChange={(e) => setAddLeadForm({ ...addLeadForm, stopped: e.target.checked })} className="rounded" />
+                <label htmlFor="addLead-stopped" className="text-sm cursor-pointer">{language === "en" ? "Stopped/Archived" : "Detenido/Archivado"}</label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAddLead(false); resetAddLeadForm(); }}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button onClick={handleAddLead}>
+              {language === "en" ? "Create Lead" : "Crear Lead"}
             </Button>
           </DialogFooter>
         </DialogContent>
