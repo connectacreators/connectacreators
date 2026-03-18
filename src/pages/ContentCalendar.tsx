@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -130,7 +131,7 @@ function formatAgendaDate(dateStr: string, language: string): string {
 
 export default function ContentCalendar() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isEditor } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -155,6 +156,10 @@ export default function ContentCalendar() {
   // Admin client filter (when no clientId param)
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
   const [filterClientId, setFilterClientId] = useState<string>("all");
+
+  // Editor state
+  const [editorClients, setEditorClients] = useState<{ id: string; name: string }[]>([]);
+  const [editorSelectedClientId, setEditorSelectedClientId] = useState<string | null>(null);
 
   const agendaRef = useRef<HTMLDivElement>(null);
 
@@ -225,6 +230,31 @@ export default function ContentCalendar() {
       .then(({ data }) => { if (data) setAllClients(data); });
   }, [clientId, isAdmin, user]);
 
+  // Fetch assigned clients for editor
+  useEffect(() => {
+    if (!isEditor || !user) return;
+    supabase
+      .from("videographer_clients")
+      .select("client_id, clients(id, name)")
+      .eq("videographer_user_id", user.id)
+      .then(({ data }) => {
+        const clients = (data || [])
+          .filter((a: any) => a.clients)
+          .map((a: any) => ({ id: a.clients.id, name: a.clients.name }));
+        setEditorClients(clients);
+        if (clients.length > 0 && !editorSelectedClientId) {
+          setEditorSelectedClientId(clients[0].id);
+        }
+      });
+  }, [isEditor, user]);
+
+  // Update client name when editor switches client
+  useEffect(() => {
+    if (!isEditor || !editorSelectedClientId) return;
+    const client = editorClients.find((c) => c.id === editorSelectedClientId);
+    if (client) setClientName(client.name);
+  }, [isEditor, editorSelectedClientId, editorClients]);
+
   // Fetch posts
   const fetchPosts = useCallback(async () => {
     if (!user) return;
@@ -236,7 +266,17 @@ export default function ContentCalendar() {
         .select("id, reel_title, schedule_date, post_status, assignee, script_id, file_submission, caption, script_url, revisions, client_id")
         .not("schedule_date", "is", null)
         .order("schedule_date", { ascending: true });
-      if (clientId) query = query.eq("client_id", clientId);
+      if (clientId) {
+        query = query.eq("client_id", clientId);
+      } else if (isEditor) {
+        const targetId = editorSelectedClientId;
+        if (!targetId) {
+          setPosts([]);
+          setFetching(false);
+          return;
+        }
+        query = query.eq("client_id", targetId);
+      }
 
       const { data, error: fetchErr } = await query;
       if (fetchErr) throw fetchErr;
@@ -270,7 +310,7 @@ export default function ContentCalendar() {
     } finally {
       setFetching(false);
     }
-  }, [clientId, user, isAdmin]);
+  }, [clientId, user, isAdmin, isEditor, editorSelectedClientId]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -433,6 +473,33 @@ export default function ContentCalendar() {
               {language === "en" ? "Needs Revision" : "Necesita Revisión"}
             </span>
           </div>
+
+          {/* Editor: client picker */}
+          {isEditor && !clientId && (
+            <div className="mb-4 flex items-center gap-3">
+              <Select
+                value={editorSelectedClientId || ""}
+                onValueChange={setEditorSelectedClientId}
+              >
+                <SelectTrigger className="w-[220px] h-9 text-sm">
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {editorClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Editor: no assigned clients */}
+          {isEditor && editorClients.length === 0 && !fetching && (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
+              <Calendar className="w-10 h-10 opacity-30" />
+              <p className="text-sm">You have no assigned clients. Contact your admin.</p>
+            </div>
+          )}
 
           {fetching ? (
             <div className="flex-1 flex items-center justify-center">
@@ -690,13 +757,14 @@ export default function ContentCalendar() {
               revisionNotes={selectedPost.revision_notes}
               onApprove={handleApprove}
               onRevision={handleRevisionClick}
+              isEditor={isEditor}
             />
           )}
         </DialogContent>
       </Dialog>
 
-      {/* ─── Revision Notes Modal ──────────────────────────────────────────────── */}
-      <Dialog open={showRevisionModal} onOpenChange={(open) => { if (!open) setShowRevisionModal(false); }}>
+      {/* ─── Revision Notes Modal (admin/user only, hidden for editors) ───────── */}
+      <Dialog open={!isEditor && showRevisionModal} onOpenChange={(open) => { if (!open) setShowRevisionModal(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -750,9 +818,10 @@ interface PostDetailProps {
   revisionNotes?: string | null;
   onApprove: () => void;
   onRevision: () => void;  // opens the revision notes modal
+  isEditor?: boolean;
 }
 
-function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision }: PostDetailProps) {
+function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision, isEditor }: PostDetailProps) {
   // These are now only computed when the modal is actually open with a post
   const driveId = post.file_submission_url ? extractGoogleDriveFileId(post.file_submission_url) : null;
   const cfg = getStatusConfig(post.post_status);
@@ -862,30 +931,32 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
             )}
           </div>
 
-          {/* Right: Approve + Revisions */}
-          <div className="flex items-center gap-2">
-            {!isApproved && (
+          {/* Right: Approve + Revisions (hidden for editors) */}
+          {!isEditor && (
+            <div className="flex items-center gap-2">
+              {!isApproved && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"
+                  onClick={onApprove}
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                  {language === "en" ? "Approve" : "Aprobar"}
+                </Button>
+              )}
               <Button
                 size="sm"
-                className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"
-                onClick={onApprove}
+                variant="outline"
+                className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 text-xs h-8"
+                onClick={onRevision}
                 disabled={updatingStatus}
               >
-                {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                {language === "en" ? "Approve" : "Aprobar"}
+                {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                {language === "en" ? "Revisions" : "Revisiones"}
               </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 text-xs h-8"
-              onClick={onRevision}
-              disabled={updatingStatus}
-            >
-              {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
-              {language === "en" ? "Revisions" : "Revisiones"}
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Status message below */}
