@@ -649,6 +649,18 @@ export default function MasterDatabase() {
     );
   }
 
+  if (isUser && !ownClientId && !loading) {
+    return (
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-16 max-w-6xl text-center">
+          <p className="text-muted-foreground text-lg">
+            No account found. Please complete onboarding first.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <>
 

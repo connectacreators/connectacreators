@@ -483,6 +483,18 @@ export default function LeadTracker() {
     return null;
   }
 
+  if (isUser && !ownClientId && !authLoading) {
+    return (
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-16 max-w-6xl text-center">
+          <p className="text-muted-foreground text-lg">
+            {language === "en" ? "No account found. Please complete onboarding first." : "No se encontró cuenta. Por favor completa la incorporación primero."}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   // Date filter helper.
   // Notion returns date-only strings like "2026-03-11" which JS parses as UTC midnight.
   // In negative-offset timezones (e.g. Mexico UTC-6) that shifts to the previous day locally,
