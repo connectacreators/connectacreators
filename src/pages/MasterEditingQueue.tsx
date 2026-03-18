@@ -22,7 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import UploadButton from '@/components/UploadButton';
+import FootageUploadDialog from '@/components/FootageUploadDialog';
+import FootageViewerModal from '@/components/FootageViewerModal';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
 
@@ -35,6 +36,7 @@ interface EditingQueueItem {
   footageUrl: string | null;
   scriptUrl: string | null;
   assignee: string | null;
+  assignee_user_id: string | null;
   assigneeId: string | null;
   assigneePropName: string | null;
   revisions: string | null;
@@ -112,18 +114,21 @@ export default function MasterEditingQueue() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [updatingPostStatus, setUpdatingPostStatus] = useState<string | null>(null);
 
-  const [inlineEdit, setInlineEdit] = useState<{ itemId: string; field: 'footage' | 'fileSubmission' | 'caption'; value: string } | null>(null);
+  const [inlineEdit, setInlineEdit] = useState<{ itemId: string; value: string } | null>(null);
   const [savingInline, setSavingInline] = useState(false);
+  const [footageViewerItem, setFootageViewerItem] = useState<EditingQueueItem | null>(null);
+  const [viewerSubfolder, setViewerSubfolder] = useState<string | undefined>(undefined);
 
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState<EditingQueueItem | null>(null);
   const [unresolvedCounts, setUnresolvedCounts] = useState<Record<string, number>>({});
+  const [teamMembers, setTeamMembers] = useState<{ user_id: string; display_name: string }[]>([]);
 
   const handleSaveInline = async () => {
     if (!inlineEdit) return;
     setSavingInline(true);
-    const dbField = inlineEdit.field === 'footage' ? 'footage' : inlineEdit.field === 'fileSubmission' ? 'file_submission' : 'caption';
-    const stateField = inlineEdit.field === 'footage' ? 'footageUrl' : inlineEdit.field === 'fileSubmission' ? 'fileSubmissionUrl' : 'caption';
+    const dbField = 'caption';
+    const stateField = 'caption';
     try {
       const { error } = await supabase.from("video_edits").update({
         [dbField]: inlineEdit.value || null,
@@ -187,7 +192,7 @@ export default function MasterEditingQueue() {
 
       const { data: dbVideos, error: dbErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, revisions, created_at, footage, schedule_date, client_id, caption, clients(name)")
+        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, client_id, caption, upload_source, storage_path, storage_url, clients(name)")
         .in("client_id", clientIds)
         .order("created_at", { ascending: false });
 
@@ -202,6 +207,7 @@ export default function MasterEditingQueue() {
         footageUrl: v.footage || null,
         scriptUrl: v.script_url || null,
         assignee: v.assignee || null,
+        assignee_user_id: v.assignee_user_id || null,
         assigneeId: null,
         assigneePropName: null,
         revisions: v.revisions || null,
@@ -239,6 +245,16 @@ export default function MasterEditingQueue() {
 
   useEffect(() => {
     fetchQueue();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("user_id, display_name")
+      .then(({ data }) => {
+        setTeamMembers((data || []).filter((p: any) => p.display_name));
+      });
   }, [user]);
 
   useEffect(() => {
@@ -283,18 +299,30 @@ export default function MasterEditingQueue() {
     }
   };
 
-  const handleAssigneeChange = async (pageId: string, userName: string | null) => {
+  const handleAssigneeChange = async (pageId: string, userId: string | null) => {
     setUpdatingAssignee(pageId);
     try {
+      const member = teamMembers.find((m) => m.user_id === userId);
+      const displayName = userId ? (member?.display_name ?? "") : "";
       const res = await supabase.functions.invoke("update-editing-status", {
-        body: { id: pageId, assignee: userName ?? "" },
+        body: {
+          id: pageId,
+          assignee: displayName || null,
+          assignee_user_id: userId || null,
+        },
       });
       if (res.error) throw res.error;
       setItems((prev) =>
-        prev.map((item) => (item.id === pageId ? { ...item, assignee: userName } : item))
+        prev.map((item) =>
+          item.id === pageId
+            ? { ...item, assignee: displayName || null, assignee_user_id: userId }
+            : item
+        )
       );
       setSelectedItem((prev) =>
-        prev && prev.id === pageId ? { ...prev, assignee: userName } : prev
+        prev && prev.id === pageId
+          ? { ...prev, assignee: displayName || null, assignee_user_id: userId }
+          : prev
       );
       toast.success(language === "en" ? "Assignee updated" : "Asignado actualizado");
     } catch (e: any) {
@@ -427,25 +455,28 @@ export default function MasterEditingQueue() {
     : null;
 
   const renderAssigneeInput = (item: EditingQueueItem) => {
+    if (updatingAssignee === item.id) {
+      return <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />;
+    }
+    // Fallback: if item has a legacy text assignee but no UUID yet, show it as placeholder
+    const hasLegacyAssignee = !item.assignee_user_id && item.assignee;
     return (
-      <div className="inline-flex items-center gap-1 min-w-[80px]">
-        {updatingAssignee === item.id ? (
-          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-        ) : (
-          <input
-            type="text"
-            defaultValue={item.assignee || ""}
-            placeholder={language === "en" ? "Unassigned" : "Sin asignar"}
-            className="text-xs bg-transparent border-none outline-none text-foreground w-full"
-            onBlur={(e) => {
-              const val = e.target.value.trim();
-              if (val !== (item.assignee || "")) {
-                handleAssigneeChange(item.id, val || null);
-              }
-            }}
-          />
-        )}
-      </div>
+      <Select
+        value={item.assignee_user_id || ""}
+        onValueChange={(val) => handleAssigneeChange(item.id, val || null)}
+      >
+        <SelectTrigger className="h-7 text-xs min-w-[120px] bg-transparent border-none shadow-none px-1">
+          <SelectValue placeholder={hasLegacyAssignee ? item.assignee! : (language === "en" ? "Unassigned" : "Sin asignar")} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
+          {teamMembers.map((m) => (
+            <SelectItem key={m.user_id} value={m.user_id}>
+              {m.display_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     );
   };
 
@@ -559,9 +590,8 @@ export default function MasterEditingQueue() {
                     <TableHead>Post Status</TableHead>
                     <TableHead>{language === "en" ? "Assignee" : "Asignado"}</TableHead>
                     <TableHead>{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
-                    <TableHead>Reviews</TableHead>
                     <TableHead>Footage</TableHead>
-                    <TableHead className="text-center">File Submission</TableHead>
+                    <TableHead>File Submission</TableHead>
                     <TableHead>Script</TableHead>
                     <TableHead>Schedule</TableHead>
                     <TableHead>Caption</TableHead>
@@ -570,10 +600,6 @@ export default function MasterEditingQueue() {
                 </TableHeader>
                 <TableBody>
                   {filteredItems.map((item) => {
-                    const hasDriveVideo = item.fileSubmissionUrl
-                      ? !!extractGoogleDriveFileId(item.fileSubmissionUrl)
-                      : false;
-
                     return (
                       <TableRow key={item.id} className="group">
                         <TableCell className="w-[40px] pr-0" onClick={(e) => e.stopPropagation()}>
@@ -663,85 +689,63 @@ export default function MasterEditingQueue() {
                           )}
                         </TableCell>
                         <TableCell>{renderAssigneeInput(item)}</TableCell>
+                        {/* Revisions */}
                         <TableCell>
-                          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => handleOpenRevisions(item)}>
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            {item.revisions ? (
-                              <span className="max-w-[120px] truncate">{item.revisions}</span>
-                            ) : (
-                              <span className="text-muted-foreground">{language === "en" ? "Add" : "Agregar"}</span>
-                            )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-6 text-xs px-2.5 gap-1 ${
+                              unresolvedCounts[item.id] > 0
+                                ? "border-destructive text-destructive hover:bg-destructive/10"
+                                : "border-green-500 text-green-500 hover:bg-green-500/10"
+                            }`}
+                            onClick={() => { setReviewItem(item); setReviewModalOpen(true); }}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            {language === "en" ? "Revisions" : "Revisiones"}
                           </Button>
                         </TableCell>
-                        {/* Reviews */}
+                        {/* Footage */}
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            {unresolvedCounts[item.id] > 0 ? (
-                              <span className="text-xs bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
-                                {unresolvedCounts[item.id]} open
-                              </span>
-                            ) : unresolvedCounts[item.id] === 0 && Object.keys(unresolvedCounts).length > 0 ? (
-                              <span className="text-xs bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded-full">
-                                All resolved
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs px-2"
-                              onClick={() => { setReviewItem(item); setReviewModalOpen(true); }}
+                          {(item.footageUrl || item.storageUrl) ? (
+                            <button
+                              onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
+                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
                             >
-                              Review ▶
-                            </Button>
-                          </div>
-                        </TableCell>
-                        {/* Footage column */}
-                        <TableCell>
-                          {inlineEdit?.itemId === item.id && inlineEdit.field === 'footage' ? (
-                            <input
-                              autoFocus
-                              className="text-xs border rounded px-1.5 py-0.5 w-full max-w-[140px] bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                              value={inlineEdit.value}
-                              placeholder="https://..."
-                              onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                              onBlur={handleSaveInline}
-                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveInline(); if (e.key === 'Escape') setInlineEdit(null); }}
-                            />
-                          ) : item.footageUrl ? (
-                            <a href={item.footageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                              <ExternalLink className="w-3 h-3" />Footage
-                            </a>
+                              <Play className="w-3 h-3" />
+                              View
+                            </button>
                           ) : (
-                            <div className="flex items-center gap-1">
-                              <UploadButton
-                                videoEditId={item.id}
-                                clientId={item.clientId}
-                                onUploadComplete={() => fetchQueue()}
-                              />
-                              <button onClick={() => setInlineEdit({ itemId: item.id, field: 'footage', value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add link</button>
-                            </div>
+                            <FootageUploadDialog
+                              videoEditId={item.id}
+                              clientId={item.clientId}
+                              onComplete={() => fetchQueue()}
+                              currentFootageUrl={item.footageUrl}
+                              currentFileSubmissionUrl={item.fileSubmissionUrl}
+                              uploadSource={item.uploadSource}
+                            />
                           )}
                         </TableCell>
-                        {/* File Submission column */}
-                        <TableCell className="text-center">
-                          {inlineEdit?.itemId === item.id && inlineEdit.field === 'fileSubmission' ? (
-                            <input
-                              autoFocus
-                              className="text-xs border rounded px-1.5 py-0.5 w-full max-w-[140px] bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                              value={inlineEdit.value}
-                              placeholder="https://drive.google.com/..."
-                              onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                              onBlur={handleSaveInline}
-                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveInline(); if (e.key === 'Escape') setInlineEdit(null); }}
-                            />
-                          ) : hasDriveVideo ? (
-                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setSelectedItem(item)}><Play className="w-3.5 h-3.5" />{language === "en" ? "Play" : "Ver"}</Button>
-                          ) : item.fileSubmissionUrl ? (
-                            <a href={item.fileSubmissionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline"><ExternalLink className="w-3 h-3" />Link</a>
+                        {/* File Submission */}
+                        <TableCell>
+                          {item.fileSubmissionUrl ? (
+                            <button
+                              onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
+                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
+                            >
+                              <Play className="w-3 h-3" />
+                              View
+                            </button>
                           ) : (
-                            <button onClick={() => setInlineEdit({ itemId: item.id, field: 'fileSubmission', value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add link</button>
+                            <FootageUploadDialog
+                              videoEditId={item.id}
+                              clientId={item.clientId}
+                              onComplete={() => fetchQueue()}
+                              currentFootageUrl={item.footageUrl}
+                              currentFileSubmissionUrl={item.fileSubmissionUrl}
+                              uploadSource={item.uploadSource}
+                              subfolder="submission"
+                            />
                           )}
                         </TableCell>
                         <TableCell>
@@ -774,7 +778,7 @@ export default function MasterEditingQueue() {
                           </Button>
                         </TableCell>
                         <TableCell className="max-w-[180px]">
-                          {inlineEdit?.itemId === item.id && inlineEdit.field === 'caption' ? (
+                          {inlineEdit?.itemId === item.id ? (
                             <textarea
                               autoFocus
                               className="text-xs border rounded px-1.5 py-0.5 w-full bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
@@ -786,11 +790,11 @@ export default function MasterEditingQueue() {
                               onKeyDown={(e) => { if (e.key === 'Escape') setInlineEdit(null); }}
                             />
                           ) : item.caption ? (
-                            <button onClick={() => setInlineEdit({ itemId: item.id, field: 'caption', value: item.caption || '' })} className="text-xs text-muted-foreground line-clamp-2 leading-relaxed text-left hover:text-foreground transition-colors w-full">
+                            <button onClick={() => setInlineEdit({ itemId: item.id, value: item.caption || '' })} className="text-xs text-muted-foreground line-clamp-2 leading-relaxed text-left hover:text-foreground transition-colors w-full">
                               {item.caption}
                             </button>
                           ) : (
-                            <button onClick={() => setInlineEdit({ itemId: item.id, field: 'caption', value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add caption</button>
+                            <button onClick={() => setInlineEdit({ itemId: item.id, value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add caption</button>
                           )}
                         </TableCell>
                         <TableCell>
@@ -907,7 +911,16 @@ export default function MasterEditingQueue() {
                   <span className="text-xs text-muted-foreground">{language === "en" ? "Assignee:" : "Asignado:"}</span>
                   {renderAssigneeInput(selectedItem)}
                 </div>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleOpenRevisions(selectedItem)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`gap-1.5 text-xs ${
+                    unresolvedCounts[selectedItem.id] > 0
+                      ? "border-destructive text-destructive hover:bg-destructive/10"
+                      : "border-green-500 text-green-500 hover:bg-green-500/10"
+                  }`}
+                  onClick={() => { setReviewItem(selectedItem); setReviewModalOpen(true); }}
+                >
                   <MessageSquare className="w-3.5 h-3.5" />
                   {language === "en" ? "Revisions" : "Revisiones"}
                 </Button>
@@ -1030,7 +1043,12 @@ export default function MasterEditingQueue() {
       {reviewItem && (
         <VideoReviewModal
           open={reviewModalOpen}
-          onClose={() => { setReviewModalOpen(false); setReviewItem(null); }}
+          onClose={() => {
+            revisionCommentService.getUnresolvedCount(reviewItem.id)
+              .then(count => setUnresolvedCounts(prev => ({ ...prev, [reviewItem.id]: count })));
+            setReviewModalOpen(false);
+            setReviewItem(null);
+          }}
           videoEditId={reviewItem.id}
           title={reviewItem.title}
           uploadSource={reviewItem.uploadSource || null}
@@ -1040,6 +1058,23 @@ export default function MasterEditingQueue() {
             revisionCommentService.getUnresolvedCount(reviewItem.id)
               .then(count => setUnresolvedCounts(prev => ({ ...prev, [reviewItem.id]: count })));
           }}
+        />
+      )}
+
+      {footageViewerItem && (
+        <FootageViewerModal
+          open={!!footageViewerItem}
+          onClose={() => setFootageViewerItem(null)}
+          title={footageViewerItem.title}
+          videoEditId={footageViewerItem.id}
+          clientId={footageViewerItem.clientId}
+          footageUrl={footageViewerItem.footageUrl}
+          fileSubmissionUrl={footageViewerItem.fileSubmissionUrl}
+          uploadSource={footageViewerItem.uploadSource}
+          storagePath={footageViewerItem.storagePath}
+          storageUrl={footageViewerItem.storageUrl}
+          subfolder={viewerSubfolder}
+          onComplete={() => { fetchQueue(); setFootageViewerItem(null); }}
         />
       )}
     </>
