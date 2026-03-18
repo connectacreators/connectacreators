@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowLeft, Target, Clapperboard, Database, Pencil, Trash2, Plus, CalendarDays, ExternalLink, Filter } from "lucide-react";
+import { Loader2, ArrowLeft, Target, Clapperboard, Database, Pencil, Trash2, Plus, CalendarDays, ExternalLink, Filter, MessageSquare, Play } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { clientService, type Client } from "@/services/clientService";
 import TableHeaderComponent from "@/components/tables/TableHeader";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exportToCSV } from "@/utils/csvExport";
-import UploadButton from '@/components/UploadButton';
+import FootageUploadDialog from '@/components/FootageUploadDialog';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
 
@@ -49,7 +49,7 @@ const formatPhoneNumber = (phone: string): string => {
 };
 
 export default function MasterDatabase() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isUser } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -133,31 +133,58 @@ export default function MasterDatabase() {
   const [savingNewLead, setSavingNewLead] = useState(false);
   const [savingNewVideo, setSavingNewVideo] = useState(false);
 
+  const [ownClientId, setOwnClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user || !isUser) return;
+    supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setOwnClientId(data.id);
+      });
+  }, [user, isUser]);
+
   // Check admin access
   useEffect(() => {
-    if (!loading && user && !isAdmin) {
+    if (!loading && user && !isAdmin && !isUser) {
       navigate("/dashboard");
     }
-  }, [loading, user, isAdmin, navigate]);
+  }, [loading, user, isAdmin, isUser, navigate]);
 
   // Load all data on mount
   useEffect(() => {
-    if (!isAdmin || !user) return;
+    if ((!isAdmin && !isUser) || !user) return;
+    if (isUser && !ownClientId) return; // wait for ownClientId to load
     loadAllData();
-  }, [isAdmin, user]);
+  }, [isAdmin, isUser, user, ownClientId]);
 
   const loadAllData = async () => {
     setLoadingData(true);
     try {
-      // Load all clients
-      const clientsData = await clientService.getAllClients();
+      // Load clients — scoped to own client for subscribers
+      let clientsData: Client[];
+      if (isUser && ownClientId) {
+        const { data } = await supabase.from("clients").select("*").eq("id", ownClientId);
+        clientsData = (data || []) as Client[];
+      } else {
+        clientsData = await clientService.getAllClients();
+      }
       setClients(clientsData);
 
-      // Load all leads with client info
-      const leadsData = await supabase
+      // Load leads — scoped to own client for subscribers
+      const leadsQuery = supabase
         .from("leads")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (isUser && ownClientId) {
+        leadsQuery.eq("client_id", ownClientId);
+      }
+
+      const leadsData = await leadsQuery;
 
       if (leadsData.error) throw leadsData.error;
 
@@ -168,10 +195,16 @@ export default function MasterDatabase() {
       setAllLeads(leadsWithClientNames);
 
       // Load all videos with client and script info
-      const videosData = await supabase
+      const videosQuery = supabase
         .from("video_edits")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (isUser && ownClientId) {
+        videosQuery.eq("client_id", ownClientId);
+      }
+
+      const videosData = await videosQuery;
 
       if (videosData.error) throw videosData.error;
 
@@ -341,7 +374,8 @@ export default function MasterDatabase() {
   };
 
   const handleSaveLead = async () => {
-    if (!leadForm.client_id || !leadForm.name.trim()) {
+    const clientId = isUser ? (ownClientId || "") : leadForm.client_id;
+    if (!clientId || !leadForm.name.trim()) {
       toast.error("Client and lead name are required");
       return;
     }
@@ -364,7 +398,7 @@ export default function MasterDatabase() {
         toast.success("Lead updated");
       } else {
         await leadService.createLead({
-          client_id: leadForm.client_id,
+          client_id: clientId,
           name: leadForm.name.trim(),
           phone: leadForm.phone || null,
           email: leadForm.email || null,
@@ -416,7 +450,7 @@ export default function MasterDatabase() {
 
   const resetLeadForm = () => {
     setLeadForm({
-      client_id: "",
+      client_id: isUser ? (ownClientId || "") : "",
       name: "",
       phone: "",
       email: "",
@@ -432,7 +466,8 @@ export default function MasterDatabase() {
   };
 
   const handleSaveVideo = async () => {
-    if (!videoForm.client_id || !videoForm.reel_title.trim()) {
+    const clientId = isUser ? (ownClientId || "") : videoForm.client_id;
+    if (!clientId || !videoForm.reel_title.trim()) {
       toast.error("Client and reel title are required");
       return;
     }
@@ -455,7 +490,7 @@ export default function MasterDatabase() {
         await videoService.updateVideo(editingVideoId, payload);
         toast.success("Video updated");
       } else {
-        await videoService.createVideoEdit({ client_id: videoForm.client_id, ...payload });
+        await videoService.createVideoEdit({ client_id: clientId, ...payload });
         toast.success("Video created");
       }
       setShowAddVideoDialog(false);
@@ -501,7 +536,7 @@ export default function MasterDatabase() {
 
   const resetVideoForm = () => {
     setVideoForm({
-      client_id: "",
+      client_id: isUser ? (ownClientId || "") : "",
       script_id: "",
       file_url: "",
       status: "Not started",
@@ -658,6 +693,7 @@ export default function MasterDatabase() {
               variants={fadeUp}
             >
               <div className="flex flex-wrap gap-3 items-end">
+                {!isUser && (
                 <div>
                   <Label className="text-sm mb-2 block">Filter by Client</Label>
                   <Select value={selectedClientFilter} onValueChange={(value) => setSelectedClientFilter(value === "__all__" ? "" : value)}>
@@ -674,6 +710,7 @@ export default function MasterDatabase() {
                     </SelectContent>
                   </Select>
                 </div>
+                )}
 
                 <div>
                   <Label className="text-sm mb-2 block">Date Range (Leads)</Label>
@@ -951,7 +988,6 @@ export default function MasterDatabase() {
                             <th className="text-left p-3 font-semibold">Revisions</th>
                             <th className="text-left p-3 font-semibold">Reviews</th>
                             <th className="text-left p-3 font-semibold">Footage</th>
-                            <th className="text-left p-3 font-semibold">File Submission</th>
                             <th className="text-left p-3 font-semibold">Post Status</th>
                             <th className="text-left p-3 font-semibold">Schedule</th>
                             <th className="text-left p-3 font-semibold">Caption</th>
@@ -961,7 +997,7 @@ export default function MasterDatabase() {
                         <tbody>
                           {filteredVideos.length === 0 && (
                             <tr className="border-b border-border/20 bg-background/30">
-                              <td colSpan={13} className="p-6 text-center text-muted-foreground">
+                              <td colSpan={12} className="p-6 text-center text-muted-foreground">
                                 <Clapperboard className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
                                 <p>{searchVideos.trim() ? "No videos match your search" : "No videos found. Add your first video below."}</p>
                               </td>
@@ -1021,57 +1057,37 @@ export default function MasterDatabase() {
                               </td>
                               {/* Reviews */}
                               <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  {unresolvedCounts[video.id] > 0 ? (
-                                    <span className="text-xs bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
-                                      {unresolvedCounts[video.id]} open
-                                    </span>
-                                  ) : unresolvedCounts[video.id] === 0 && Object.keys(unresolvedCounts).length > 0 ? (
-                                    <span className="text-xs bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded-full">
-                                      All resolved
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 text-xs px-2"
-                                    onClick={() => { setReviewVideo(video); setReviewModalOpen(true); }}
-                                  >
-                                    Review ▶
-                                  </Button>
-                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`h-6 text-xs px-2.5 gap-1 ${
+                                    unresolvedCounts[video.id] > 0
+                                      ? "border-destructive text-destructive hover:bg-destructive/10"
+                                      : "border-green-500 text-green-500 hover:bg-green-500/10"
+                                  }`}
+                                  onClick={() => { setReviewVideo(video); setReviewModalOpen(true); }}
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  Review
+                                </Button>
                               </td>
                               <td className="p-3">
                                 {isScript ? <span className="text-muted-foreground">-</span> : (
-                                  <>
-                                    {!video.footage && !video.file_submission && video.source !== 'script' && (
-                                      <UploadButton
-                                        videoEditId={video.id}
-                                        clientId={video.client_id}
-                                        onUploadComplete={() => loadAllData()}
-                                      />
+                                  <div className="flex items-center gap-1">
+                                    {(video.footage || video.file_submission) && (
+                                      <a href={video.footage || video.file_submission || ''} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                        <ExternalLink className="w-3 h-3" />Link
+                                      </a>
                                     )}
-                                    <input
-                                      type="text"
-                                      defaultValue={video.footage || ""}
-                                      onBlur={(e) => { if (e.target.value !== (video.footage || "")) handleInlineVideoUpdate(video.id, "footage", e.target.value); }}
-                                      className="w-full px-2 py-1 text-xs rounded bg-transparent border border-transparent hover:border-border/40 focus:border-primary focus:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                      placeholder="Google Drive URL"
+                                    <FootageUploadDialog
+                                      videoEditId={video.id}
+                                      clientId={video.client_id}
+                                      onComplete={() => loadAllData()}
+                                      currentFootageUrl={video.footage}
+                                      currentFileSubmissionUrl={video.file_submission}
+                                      uploadSource={video.upload_source}
                                     />
-                                  </>
-                                )}
-                              </td>
-                              <td className="p-3">
-                                {isScript ? <span className="text-muted-foreground">-</span> : (
-                                  <input
-                                    type="text"
-                                    defaultValue={video.file_submission || ""}
-                                    onBlur={(e) => { if (e.target.value !== (video.file_submission || "")) handleInlineVideoUpdate(video.id, "file_submission", e.target.value); }}
-                                    className="w-full px-2 py-1 text-xs rounded bg-transparent border border-transparent hover:border-border/40 focus:border-primary focus:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                    placeholder="Google Drive URL"
-                                  />
+                                  </div>
                                 )}
                               </td>
                               <td className="p-3">
@@ -1160,9 +1176,6 @@ export default function MasterDatabase() {
                               <input type="text" placeholder="Footage URL" value={newVideoRow.footage} onChange={(e) => setNewVideoRow({ ...newVideoRow, footage: e.target.value })} className="w-full px-2 py-1 text-xs rounded bg-background border border-border/40 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
                             </td>
                             <td className="p-3">
-                              <input type="text" placeholder="File submission URL" value={newVideoRow.file_submission} onChange={(e) => setNewVideoRow({ ...newVideoRow, file_submission: e.target.value })} className="w-full px-2 py-1 text-xs rounded bg-background border border-border/40 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                            </td>
-                            <td className="p-3">
                               <Select value={newVideoRow.post_status} onValueChange={(value) => setNewVideoRow({ ...newVideoRow, post_status: value })}>
                                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent className="text-xs">
@@ -1231,6 +1244,7 @@ export default function MasterDatabase() {
             <DialogTitle>{editingLeadId ? "Edit Lead" : "Add New Lead"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {!isUser && (
             <div className="space-y-2">
               <Label>Client *</Label>
               <Select value={leadForm.client_id} onValueChange={(value) => setLeadForm({ ...leadForm, client_id: value })}>
@@ -1246,6 +1260,7 @@ export default function MasterDatabase() {
                 </SelectContent>
               </Select>
             </div>
+            )}
             <div className="space-y-2">
               <Label>Name *</Label>
               <Input placeholder="Lead name" value={leadForm.name} onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })} />
@@ -1320,6 +1335,7 @@ export default function MasterDatabase() {
             <DialogTitle>{editingVideoId ? "Edit Video" : "Add New Video"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {!isUser && (
             <div className="space-y-2">
               <Label>Client *</Label>
               <Select value={videoForm.client_id} onValueChange={(value) => setVideoForm({ ...videoForm, client_id: value })}>
@@ -1329,6 +1345,7 @@ export default function MasterDatabase() {
                 </SelectContent>
               </Select>
             </div>
+            )}
             <div className="space-y-2">
               <Label>Reel Title *</Label>
               <Input placeholder="Video title" value={videoForm.reel_title} onChange={(e) => setVideoForm({ ...videoForm, reel_title: e.target.value })} />
