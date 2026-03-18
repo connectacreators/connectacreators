@@ -251,11 +251,14 @@ export default function EditingQueue() {
     try {
       const member = teamMembers.find((m) => m.user_id === userId);
       const displayName = userId ? (member?.display_name ?? "") : "";
-      const { error } = await supabase.from("video_edits").update({
-        assignee: displayName || null,
-        assignee_user_id: userId || null,
-      }).eq("id", pageId);
-      if (error) throw error;
+      const res = await supabase.functions.invoke("update-editing-status", {
+        body: {
+          id: pageId,
+          assignee: displayName || null,
+          assignee_user_id: userId || null,
+        },
+      });
+      if (res.error) throw res.error;
       setItems((prev) => prev.map((i) =>
         i.id === pageId ? { ...i, assignee: displayName || null, assignee_user_id: userId } : i
       ));
