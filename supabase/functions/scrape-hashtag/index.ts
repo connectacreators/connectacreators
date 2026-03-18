@@ -134,7 +134,6 @@ serve(async (req) => {
         const thumbnail = typeof item.displayUrl === "string"
           ? item.displayUrl
           : (item.displayUrl?.url ?? item.thumbnailUrl ?? item.coverUrl ?? null);
-        const videoUrl = item.videoUrl ?? `https://www.instagram.com/reel/${videoId}/`;
         const postUrl = item.url ?? `https://www.instagram.com/reel/${videoId}/`;
 
         let postedAt: string | null = null;
@@ -192,7 +191,7 @@ serve(async (req) => {
 
     // ── 5. Outlier score (relative to kept batch avg) ─────────────────────────
     const viewsList = ranked.map(p => p.views);
-    const avgViews  = viewsList.reduce((a, b) => a + b, 0) / viewsList.length;
+    const avgViews  = viewsList.reduce((a, b) => a + b, 0) / (viewsList.length || 1);
 
     const rows: any[] = ranked.map(p => ({
       channel_id: null,
