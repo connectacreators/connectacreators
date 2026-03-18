@@ -4,7 +4,6 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { t, tr } from "@/i18n/translations";
-import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -29,7 +28,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, signOut, isAdmin, isUser, isVideographer, isEditor, role } = useAuth();
-  const { credits, percentUsed } = useCredits();
+  const { credits } = useCredits();
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
 
   // Client selector state
@@ -150,6 +149,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
+        { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
@@ -252,6 +252,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                   : "text-[#94a3b8] hover:text-[#cbd5e1] hover:bg-[rgba(8,145,178,0.1)] border border-transparent"
               }`}
             >
+              {isActive && <span className="w-1.5 h-1.5 rounded-full bg-lime-400 shrink-0" />}
               <item.icon className="w-4 h-4" />
               {item.label}
             </button>
@@ -260,28 +261,6 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       </nav>
 
       <div className="border-t border-border/50 p-3 space-y-1 relative z-10">
-        {!isAdmin && credits && credits.credits_monthly_cap > 0 && (
-          <button
-            onClick={() => navigate("/subscription")}
-            className="w-full px-2 py-2 rounded-lg hover:bg-white/5 hover:backdrop-blur-sm border border-transparent hover:border-white/10 transition-all text-left group"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                <Zap className="w-3.5 h-3.5 text-[#0891B2]" />
-                {language === "en" ? "Credits" : "Créditos"}
-              </span>
-              <span className={`text-xs font-semibold tabular-nums ${percentUsed >= 90 ? "text-red-400" : percentUsed >= 75 ? "text-[#22d3ee]" : "text-foreground"}`}>
-                {credits.credits_balance}/{credits.credits_monthly_cap}
-              </span>
-            </div>
-            <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${percentUsed >= 90 ? "bg-red-400" : percentUsed >= 75 ? "bg-[#22d3ee]" : "bg-primary"}`}
-                style={{ width: `${Math.max(2, 100 - percentUsed)}%` }}
-              />
-            </div>
-          </button>
-        )}
         {credits?.subscription_status === "trialing" && credits?.trial_ends_at && (() => {
           const daysLeft = Math.max(0, Math.ceil(
             (new Date(credits.trial_ends_at!).getTime() - Date.now()) / 86_400_000
@@ -294,7 +273,6 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           );
         })()}
         <div className="flex items-center gap-2 px-2">
-          <ThemeToggle />
           <LanguageToggle />
         </div>
         <button
