@@ -1058,6 +1058,11 @@ export default function MasterEditingQueue() {
             revisionCommentService.getUnresolvedCount(reviewItem.id)
               .then(count => setUnresolvedCounts(prev => ({ ...prev, [reviewItem.id]: count })));
           }}
+          onStatusChanged={(newStatus) => {
+            const id = reviewItem.id;
+            setItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
+            setSelectedItem(prev => prev && prev.id === id ? { ...prev, status: newStatus } : prev);
+          }}
         />
       )}
 

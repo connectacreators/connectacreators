@@ -3,10 +3,11 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
 import { videoUploadService } from '@/services/videoUploadService';
 import { toast } from 'sonner';
-import { Check, Play, Pause, Send, X } from 'lucide-react';
+import { Check, CheckCheck, Play, Pause, Send, X } from 'lucide-react';
 
 interface VideoReviewModalProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface VideoReviewModalProps {
   storagePath: string | null;
   fileSubmissionUrl: string | null;
   onCommentsChanged?: () => void;
+  onStatusChanged?: (newStatus: string) => void;
 }
 
 function formatTimestamp(seconds: number): string {
@@ -62,6 +64,7 @@ export default function VideoReviewModal({
   storagePath,
   fileSubmissionUrl,
   onCommentsChanged,
+  onStatusChanged,
 }: VideoReviewModalProps) {
   const { user, isAdmin } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -173,6 +176,9 @@ export default function VideoReviewModal({
       setComments(prev => [...prev, created]);
       setNewComment('');
       setManualTimestamp('');
+      // Auto-set status to Needs Revision when a comment is added
+      await supabase.from('video_edits').update({ status: 'Needs Revision' }).eq('id', videoEditId);
+      onStatusChanged?.('Needs Revision');
       onCommentsChanged?.();
     } catch {
       toast.error('Failed to add comment');
@@ -182,10 +188,32 @@ export default function VideoReviewModal({
   const handleResolve = async (commentId: string, resolved: boolean) => {
     try {
       await revisionCommentService.resolveComment(commentId, resolved);
-      setComments(prev => prev.map(c => c.id === commentId ? { ...c, resolved } : c));
+      const updatedComments = comments.map(c => c.id === commentId ? { ...c, resolved } : c);
+      setComments(updatedComments);
+      // Auto-update status based on unresolved count
+      const allResolved = updatedComments.length > 0 && updatedComments.every(c => c.resolved);
+      const newStatus = allResolved ? 'Done' : 'Needs Revision';
+      await supabase.from('video_edits').update({ status: newStatus }).eq('id', videoEditId);
+      onStatusChanged?.(newStatus);
       onCommentsChanged?.();
     } catch {
       toast.error('Failed to update comment');
+    }
+  };
+
+  const handleResolveAll = async () => {
+    const unresolved = comments.filter(c => !c.resolved);
+    if (!unresolved.length) return;
+    try {
+      await Promise.all(unresolved.map(c => revisionCommentService.resolveComment(c.id, true)));
+      setComments(prev => prev.map(c => ({ ...c, resolved: true })));
+      // All resolved → set status to Done
+      await supabase.from('video_edits').update({ status: 'Done' }).eq('id', videoEditId);
+      onStatusChanged?.('Done');
+      onCommentsChanged?.();
+      toast.success('All revisions marked as complete');
+    } catch {
+      toast.error('Failed to resolve all comments');
     }
   };
 
@@ -321,9 +349,21 @@ export default function VideoReviewModal({
               <span className="text-sm font-semibold text-muted-foreground">
                 REVISION NOTES ({comments.length})
               </span>
-              {resolvedCount > 0 && (
-                <span className="text-xs text-green-500">{resolvedCount} resolved</span>
-              )}
+              <div className="flex items-center gap-2">
+                {resolvedCount > 0 && (
+                  <span className="text-xs text-green-500">{resolvedCount} resolved</span>
+                )}
+                {isAdmin && unresolvedCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 gap-1 border-green-500 text-green-500 hover:bg-green-500/10"
+                    onClick={handleResolveAll}
+                  >
+                    <CheckCheck className="h-3 w-3" /> Mark All Complete
+                  </Button>
+                )}
+              </div>
             </div>
 
             {loading ? (
@@ -337,8 +377,8 @@ export default function VideoReviewModal({
                     key={c.id}
                     className={`rounded-lg p-3 border-l-[3px] ${
                       c.resolved
-                        ? 'opacity-50 border-l-green-500 bg-muted/30'
-                        : 'bg-muted/50'
+                        ? 'opacity-40 bg-muted/20'
+                        : 'bg-card border border-border/60 shadow-sm'
                     }`}
                     style={{
                       borderLeftColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
@@ -357,9 +397,19 @@ export default function VideoReviewModal({
                         <span className="text-xs font-semibold text-muted-foreground">General note</span>
                       )}
                       {c.resolved ? (
-                        <span className="text-xs text-green-500 flex items-center gap-1">
-                          <Check className="h-3 w-3" /> Resolved
-                        </span>
+                        isAdmin ? (
+                          <button
+                            className="text-xs text-green-500 flex items-center gap-1 hover:text-amber-500 hover:line-through transition-colors"
+                            title="Click to unresolve"
+                            onClick={() => handleResolve(c.id, false)}
+                          >
+                            <Check className="h-3 w-3" /> Resolved
+                          </button>
+                        ) : (
+                          <span className="text-xs text-green-500 flex items-center gap-1">
+                            <Check className="h-3 w-3" /> Resolved
+                          </span>
+                        )
                       ) : isAdmin ? (
                         <Button
                           variant="ghost"
