@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomePlan, setWelcomePlan] = useState("starter");
+  const [userPlanType, setUserPlanType] = useState<string | null>(null);
   const justPaidRef = useRef(false);
 
   // Show one-time welcome modal after successful payment
@@ -99,25 +100,45 @@ export default function Dashboard() {
     }
     if (loading || !user) return;
     if (isAdmin || isVideographer || isEditor || isConnectaPlus) return;
-    supabase
-      .from("clients")
-      .select("plan_type, subscription_status")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data || !data.plan_type) {
-          navigate("/select-plan");
-        } else if (
-          data.subscription_status !== "active" &&
-          data.subscription_status !== "trialing" &&
-          data.subscription_status !== "trial" &&
-          data.subscription_status !== "pending_contact" &&
-          data.subscription_status !== "canceling" &&
-          data.subscription_status !== "connecta_plus"
-        ) {
-          navigate("/select-plan");
+
+    const VALID = ["active", "trialing", "trial", "pending_contact", "canceling", "connecta_plus"];
+
+    const checkSubscription = async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("plan_type, subscription_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const valid = data?.plan_type && data?.subscription_status && VALID.includes(data.subscription_status);
+      setUserPlanType(data?.plan_type ?? null);
+      if (valid) return; // All good
+
+      // DB shows no valid subscription — reconcile with Stripe before redirecting
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          await supabase.functions.invoke("check-subscription", {
+            headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+          });
+          const { data: refreshed } = await supabase
+            .from("clients")
+            .select("plan_type, subscription_status")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (refreshed?.plan_type && refreshed?.subscription_status && VALID.includes(refreshed.subscription_status)) {
+            setUserPlanType(refreshed?.plan_type ?? null);
+            return;
+          }
         }
-      });
+      } catch {
+        // Non-fatal — fall through to redirect
+      }
+
+      navigate("/select-plan");
+    };
+
+    checkSubscription();
   }, [user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, role, navigate]);
 
   // Reset folder when switching view mode
@@ -177,7 +198,7 @@ export default function Dashboard() {
     setup: [
       { label: "Onboarding", description: language === "en" ? "Complete your account setup" : "Completa la configuración de tu cuenta", icon: UserPlus, color: "text-primary", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
       { label: "Public Booking", description: language === "en" ? "Configure your booking page" : "Configura tu página de reservas", icon: Globe, color: "text-emerald-400", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
-      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: clientId ? `/clients/${clientId}/landing-page` : "/" },
+      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isUser && userPlanType !== "enterprise" },
       { label: "Master Database", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "text-cyan-400", path: clientId ? `/clients/${clientId}/database` : "/dashboard" },
     ],
   });
@@ -282,31 +303,40 @@ export default function Dashboard() {
                   {tr(t.dashboard.question, language)}
                 </motion.h1>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-3xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
                   {[
                     { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "text-orange-400", path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
                     { label: language === "en" ? "Scripts" : "Guiones", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "text-primary", path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
                     { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "text-rose-400", path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
                     { label: "Content Calendar", description: language === "en" ? "Plan and schedule your content" : "Planifica y programa tu contenido", icon: Calendar, color: "text-cyan-400", path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
-                  ].map((card, i) => (
-                    <motion.button
-                      key={card.path}
-                      onClick={() => navigate(card.path)}
-                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
-                      initial="hidden"
-                      animate="visible"
-                      custom={i + 2}
-                      variants={fadeUp}
-                    >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                        <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
-                      </div>
-                      <div>
-                        <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
-                      </div>
-                    </motion.button>
-                  ))}
+                    { label: language === "en" ? "Lead Tracker" : "Rastreador de Leads", description: language === "en" ? "Track and manage your leads" : "Rastrea y gestiona tus leads", icon: Target, color: "text-emerald-400", path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
+                    { label: language === "en" ? "Master Database" : "Base de Datos", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "text-cyan-400", path: "/master-database" },
+                    { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: ownClientId ? `/clients/${ownClientId}/landing-page` : "/", disabled: userPlanType !== "enterprise" },
+                  ].map((card, i) => {
+                    const isDisabled = (card as any).disabled;
+                    return (
+                      <motion.button
+                        key={card.path}
+                        onClick={() => !isDisabled && navigate(card.path)}
+                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        initial="hidden"
+                        animate="visible"
+                        custom={i + 2}
+                        variants={fadeUp}
+                      >
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                          <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
+                        </div>
+                        <div>
+                          <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
+                          {isDisabled && (
+                            <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
+                          )}
+                        </div>
+                      </motion.button>
+                    );
+                  })}
                 </div>
               </>
             ) : isClientRole ? (
@@ -344,8 +374,8 @@ export default function Dashboard() {
                     {activeSubCards.map((card, i) => (
                       <motion.button
                         key={card.path}
-                        onClick={() => navigate(card.path)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
+                        onClick={() => !(card as any).disabled && navigate(card.path)}
+                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                         initial="hidden"
                         animate="visible"
                         custom={i + 1}
@@ -357,6 +387,9 @@ export default function Dashboard() {
                         <div>
                           <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
                           <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
+                          {(card as any).disabled && (
+                            <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
+                          )}
                         </div>
                       </motion.button>
                     ))}
@@ -465,8 +498,8 @@ export default function Dashboard() {
                       {activeSubCards.map((card, i) => (
                         <motion.button
                           key={card.path}
-                          onClick={() => navigate(card.path)}
-                          className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
+                          onClick={() => !(card as any).disabled && navigate(card.path)}
+                          className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                           initial="hidden"
                           animate="visible"
                           custom={i + 1}
@@ -478,6 +511,9 @@ export default function Dashboard() {
                           <div>
                             <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
                             <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
+                            {(card as any).disabled && (
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
+                            )}
                           </div>
                         </motion.button>
                       ))}
