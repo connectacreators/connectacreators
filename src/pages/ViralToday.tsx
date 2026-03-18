@@ -157,6 +157,7 @@ interface ViralVideo {
   posted_at: string | null;
   scraped_at: string;
   apify_video_id: string | null;
+  hashtag_source?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -702,6 +703,8 @@ export default function ViralToday() {
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
   const [addingChannel, setAddingChannel] = useState(false);
+  const [hashtagInput, setHashtagInput] = useState("");
+  const [scrapingHashtag, setScrapingHashtag] = useState(false);
 
   // Polling ref for running channels
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -738,7 +741,7 @@ export default function ViralToday() {
         const { data, error } = await supabase
           .from("viral_videos")
           .select("*")
-          .order("posted_at", { ascending: false })
+          .order("scraped_at", { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
         if (error) throw error;
@@ -796,20 +799,20 @@ export default function ViralToday() {
           });
           if (error) continue;
           if (result?.status === "done") {
-            toast.success(`@${ch.username} scraped — ${result.videosStored ?? 0} videos added`);
+            toast.success(`@${ch.username} scraped — ${result.videosStored ?? 0} videos updated`);
             fetchChannels();
-            // Only fetch the new videos for this channel instead of reloading everything
+            // Refresh videos for this channel (replace existing rows with updated stats)
             const { data: newVideos } = await supabase
               .from("viral_videos")
               .select("*")
               .eq("channel_id", ch.id)
               .order("posted_at", { ascending: false })
-              .limit(50);
+              .limit(200);
             if (newVideos && newVideos.length > 0) {
               setVideos((prev) => {
-                const existingIds = new Set(prev.map((v) => v.id));
-                const fresh = (newVideos as ViralVideo[]).filter((v) => !existingIds.has(v.id));
-                return fresh.length > 0 ? [...fresh, ...prev] : prev;
+                // Replace all videos from this channel with the freshly fetched ones
+                const others = prev.filter((v) => v.channel_id !== ch.id);
+                return [...(newVideos as ViralVideo[]), ...others];
               });
             }
           } else if (result?.status === "error") {
@@ -829,6 +832,28 @@ export default function ViralToday() {
   }, [channels, fetchChannels, fetchVideos]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
+
+  const handleScrapeHashtag = async () => {
+    if (!hashtagInput.trim()) { toast.error("Enter at least one hashtag"); return; }
+    const tags = hashtagInput.split(/[,\s]+/).map(t => t.replace(/^#/, "").trim()).filter(Boolean);
+    if (!tags.length) { toast.error("No valid hashtags found"); return; }
+    setScrapingHashtag(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-hashtag", { body: { hashtags: tags } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Scraped ${data.inserted ?? 0} videos for #${tags.join(", #")}`);
+      setHashtagInput("");
+      // Refresh the video feed
+      setCurrentPage(0);
+      setVideos([]);
+      fetchVideos();
+    } catch (err: any) {
+      toast.error(`Hashtag scrape failed: ${err.message}`);
+    } finally {
+      setScrapingHashtag(false);
+    }
+  };
 
   const handleAddChannel = async () => {
     const { username, platform } = detectPlatformAndUsername(newUsername);
@@ -1398,6 +1423,30 @@ export default function ViralToday() {
                         {t.addScrape}
                       </Button>
                     </div>
+                    {/* Admin-only hashtag scraper */}
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 p-4 rounded-xl bg-card border border-border border-dashed">
+                        <div className="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+                          <span className="text-purple-400 text-xs font-bold">#</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={hashtagInput}
+                          onChange={(e) => setHashtagInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleScrapeHashtag()}
+                          placeholder="fitness, motivation, entrepreneur (max 200 posts)"
+                          className="flex-1 h-9 px-3 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
+                        />
+                        <Button
+                          onClick={handleScrapeHashtag}
+                          disabled={scrapingHashtag || !hashtagInput.trim()}
+                          className="h-9 px-4 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all"
+                        >
+                          {scrapingHashtag ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                          Scrape Hashtag
+                        </Button>
+                      </div>
+                    )}
                     {/* Scrape usage for subscribers */}
                     {!isAdmin && credits && credits.channel_scrapes_limit > 0 && (
                       <div className="flex items-center gap-2 px-4 text-xs text-muted-foreground">
