@@ -39,7 +39,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { id, status, assignee, revisions, post_status } = body;
+    const { id, status, assignee, assignee_user_id, revisions, post_status } = body;
 
     if (!id) {
       return new Response(JSON.stringify({ error: "id is required" }), {
@@ -48,7 +48,7 @@ serve(async (req) => {
       });
     }
 
-    if (status === undefined && assignee === undefined && revisions === undefined && post_status === undefined) {
+    if (status === undefined && assignee === undefined && assignee_user_id === undefined && revisions === undefined && post_status === undefined) {
       return new Response(JSON.stringify({ error: "At least one field (status, assignee, revisions, post_status) is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -65,6 +65,7 @@ serve(async (req) => {
     if (assignee !== undefined) update.assignee = assignee;
     if (revisions !== undefined) update.revisions = revisions;
     if (post_status !== undefined) update.post_status = post_status;
+    if (assignee_user_id !== undefined) update.assignee_user_id = assignee_user_id ?? null;
 
     const { error } = await serviceSupabase
       .from("video_edits")
