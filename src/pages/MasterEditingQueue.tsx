@@ -462,14 +462,14 @@ export default function MasterEditingQueue() {
     const hasLegacyAssignee = !item.assignee_user_id && item.assignee;
     return (
       <Select
-        value={item.assignee_user_id || ""}
-        onValueChange={(val) => handleAssigneeChange(item.id, val || null)}
+        value={item.assignee_user_id || "__none__"}
+        onValueChange={(val) => handleAssigneeChange(item.id, val === "__none__" ? null : val)}
       >
         <SelectTrigger className="h-7 text-xs min-w-[120px] bg-transparent border-none shadow-none px-1">
           <SelectValue placeholder={hasLegacyAssignee ? item.assignee! : (language === "en" ? "Unassigned" : "Sin asignar")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
+          <SelectItem value="__none__">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
           {teamMembers.map((m) => (
             <SelectItem key={m.user_id} value={m.user_id}>
               {m.display_name}
