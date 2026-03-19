@@ -137,7 +137,12 @@ async function syncSubscription(
 
   // On subscription.created only: initialize credits
   if (isNew) {
-    const grantAmount = planCfg.credits_monthly_cap;
+    // Trial: grant 250 credits only. Full credits granted on first payment.
+    const isTrial = sub.status === "trialing";
+    const grantAmount = isTrial ? 250 : planCfg.credits_monthly_cap;
+    if (isTrial) {
+      clientUpdate.credits_monthly_cap = 250;
+    }
     clientUpdate.credits_balance = grantAmount;
     clientUpdate.credits_used = 0;
     clientUpdate.channel_scrapes_used = 0;
@@ -145,11 +150,28 @@ async function syncSubscription(
 
     await adminClient.from("credit_transactions").insert({
       client_id: clientId,
-      action: "initial_grant",
+      action: isTrial ? "trial_grant" : "initial_grant",
       credits: grantAmount,
-      metadata: { plan_type: planType },
+      metadata: { plan_type: planType, is_trial: isTrial },
     });
-    logStep("Initialized credits", { grantAmount });
+    logStep("Initialized credits", { grantAmount, isTrial });
+  }
+
+  // When transitioning from trialing → active, don't touch credits here.
+  // Let invoice.payment_succeeded handle the full credit grant to avoid race conditions.
+  if (!isNew) {
+    const { data: currentClient } = await adminClient
+      .from("clients")
+      .select("subscription_status")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (currentClient?.subscription_status === "trialing" && dbStatus === "active") {
+      delete clientUpdate.credits_monthly_cap;
+      delete clientUpdate.credits_balance;
+      delete clientUpdate.credits_used;
+      delete clientUpdate.channel_scrapes_used;
+      logStep("Trial→active transition: skipping credit update (handled by invoice.payment_succeeded)");
+    }
   }
 
   await adminClient.from("clients").update(clientUpdate).eq("id", clientId);
@@ -266,9 +288,9 @@ serve(async (req) => {
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        // Only process subscription renewals, not initial setup or one-off invoices
-        if (invoice.billing_reason !== "subscription_cycle") {
-          logStep("Skipping non-cycle invoice", { billing_reason: invoice.billing_reason });
+        // Only process subscription renewals and first charges, not one-off invoices
+        if (invoice.billing_reason !== "subscription_cycle" && invoice.billing_reason !== "subscription_create") {
+          logStep("Skipping non-cycle/non-first-charge invoice", { billing_reason: invoice.billing_reason });
           break;
         }
 
@@ -295,24 +317,53 @@ serve(async (req) => {
           break;
         }
 
-        // Reset credits for new billing cycle
-        await adminClient.from("clients").update({
-          credits_balance: planCfg.credits_monthly_cap,
-          credits_used: 0,
-          channel_scrapes_used: 0,
-          subscription_status: "active",
-          trial_ends_at: null,
-          credits_reset_at: new Date(invoice.period_end * 1000).toISOString(),
-        }).eq("id", clientId);
+        // Check if this is the first charge after trial
+        const { data: currentClient } = await adminClient
+          .from("clients")
+          .select("subscription_status, credits_monthly_cap")
+          .eq("id", clientId)
+          .maybeSingle();
 
-        await adminClient.from("credit_transactions").insert({
-          client_id: clientId,
-          action: "monthly_reset",
-          credits: planCfg.credits_monthly_cap,
-          metadata: { billing_period_end: invoice.period_end, plan_type: planType },
-        });
+        const isPostTrial = currentClient?.subscription_status === "trialing" || currentClient?.credits_monthly_cap === 250;
 
-        logStep("Credits reset for billing cycle", { clientId, planType, credits: planCfg.credits_monthly_cap });
+        if (isPostTrial) {
+          // First charge after trial — grant full plan credits
+          await adminClient.from("clients").update({
+            credits_balance: planCfg.credits_monthly_cap,
+            credits_monthly_cap: planCfg.credits_monthly_cap,
+            credits_used: 0,
+            channel_scrapes_used: 0,
+            subscription_status: "active",
+            trial_ends_at: null,
+            credits_reset_at: new Date(invoice.period_end * 1000).toISOString(),
+          }).eq("id", clientId);
+
+          await adminClient.from("credit_transactions").insert({
+            client_id: clientId,
+            action: "initial_grant",
+            credits: planCfg.credits_monthly_cap,
+            metadata: { billing_period_end: invoice.period_end, plan_type: planType, post_trial: true },
+          });
+          logStep("Post-trial: granted full credits", { clientId, planType, credits: planCfg.credits_monthly_cap });
+        } else {
+          // Regular monthly renewal
+          await adminClient.from("clients").update({
+            credits_balance: planCfg.credits_monthly_cap,
+            credits_used: 0,
+            channel_scrapes_used: 0,
+            subscription_status: "active",
+            trial_ends_at: null,
+            credits_reset_at: new Date(invoice.period_end * 1000).toISOString(),
+          }).eq("id", clientId);
+
+          await adminClient.from("credit_transactions").insert({
+            client_id: clientId,
+            action: "monthly_reset",
+            credits: planCfg.credits_monthly_cap,
+            metadata: { billing_period_end: invoice.period_end, plan_type: planType },
+          });
+          logStep("Credits reset for billing cycle", { clientId, planType, credits: planCfg.credits_monthly_cap });
+        }
         break;
       }
 
