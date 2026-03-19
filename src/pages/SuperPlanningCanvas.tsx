@@ -121,6 +121,19 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [showViralPicker, setShowViralPicker] = useState(false);
   const [draftScriptId, setDraftScriptId] = useState<string | null>(null);
 
+  // NOTE: SessionItem is defined here temporarily. Task 6 (Step 1) will remove this local
+  // definition and import the exported type from SessionSidebar.tsx instead.
+  interface SessionItem {
+    id: string;
+    name: string;
+    is_active: boolean;
+    updated_at: string;
+  }
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  // activeSessionId React state mirrors activeSessionIdRef so the sidebar re-renders on switch
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
   // ─── Drawing state ───
   const [drawingMode, setDrawingMode] = useState(false);
   const [drawPaths, setDrawPaths] = useState<DrawPath[]>([]);
@@ -186,6 +199,17 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     };
     ensureDraft();
   }, [authToken, selectedClient.id]);
+
+  const loadSessions = useCallback(async () => {
+    if (!userIdRef.current) return;
+    const { data } = await supabase
+      .from("canvas_states")
+      .select("id, name, is_active, updated_at")
+      .eq("client_id", selectedClient.id)
+      .eq("user_id", userIdRef.current)
+      .order("updated_at", { ascending: false });
+    if (data) setSessions(data as SessionItem[]);
+  }, [selectedClient.id]);
 
   const handleFormatChange = useCallback((f: string) => setFormat(f), []);
   const handleLanguageChange = useCallback((l: "en" | "es") => setLanguage(l), []);
@@ -254,33 +278,63 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         return;
       }
       try {
-        const { data } = await supabase
+        // Fetch all sessions for this client+user, newest first
+        const { data: allSessions } = await supabase
           .from("canvas_states")
-          .select("nodes, edges, draw_paths")
+          .select("id, name, is_active, updated_at, nodes, edges, draw_paths")
           .eq("client_id", selectedClient.id)
           .eq("user_id", userId)
-          .maybeSingle();
+          .order("updated_at", { ascending: false });
 
-        if (data && Array.isArray(data.nodes) && data.nodes.length > 0) {
-          const restoredNodes = attachCallbacks(data.nodes as Node[]);
-          const hasAiNode = restoredNodes.some(n => n.id === AI_NODE_ID);
-          if (!hasAiNode) {
-            restoredNodes.push(makeAiNode());
+        // Only consider explicitly active sessions. If none is active, create a new blank one.
+        const active = allSessions?.find(s => s.is_active) ?? null;
+
+        if (active) {
+          // Store session id for all future saves
+          activeSessionIdRef.current = active.id;
+          setActiveSessionId(active.id);
+
+          if (Array.isArray(active.nodes) && active.nodes.length > 0) {
+            const restoredNodes = attachCallbacks(active.nodes as Node[]);
+            if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
+            setNodes(restoredNodes);
+            setEdges((active.edges as Edge[]) || []);
+            if (Array.isArray(active.draw_paths)) setDrawPaths(active.draw_paths as DrawPath[]);
+          } else {
+            setNodes([makeAiNode()]);
           }
-          setNodes(restoredNodes);
-          setEdges((data.edges as Edge[]) || []);
-          if (Array.isArray((data as any).draw_paths)) setDrawPaths((data as any).draw_paths);
         } else {
+          // No active session — create a fresh blank one (is_active: true required by partial unique index)
+          const { data: newSession } = await supabase
+            .from("canvas_states")
+            .insert({
+              client_id: selectedClient.id,
+              user_id: userId,
+              nodes: [],
+              edges: [],
+              draw_paths: [],
+              name: "New chat",
+              is_active: true,
+            })
+            .select("id")
+            .single();
+          if (newSession) {
+            activeSessionIdRef.current = newSession.id;
+            setActiveSessionId(newSession.id);
+          }
           setNodes([makeAiNode()]);
         }
+
+        // Single source of truth for the sessions sidebar list
+        await loadSessions();
       } catch {
         setNodes([makeAiNode()]);
       }
       setLoaded(true);
 
-      // Remix injection — after canvas is loaded
+      // Remix injection (unchanged logic)
       if (remixVideo?.url && !remixInjectedRef.current) {
-        remixInjectedRef.current = true; // set BEFORE any async operation to be race-safe
+        remixInjectedRef.current = true;
         const nodeId = `videoNode_remix_${Date.now()}`;
         const position = getInitialPosition(0);
         const remixNode: Node = {
@@ -307,7 +361,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
     loadCanvas();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClient.id, authToken]);
+  }, [selectedClient.id, authToken, loadSessions]);
 
   function makeAiNode(): Node {
     return {
