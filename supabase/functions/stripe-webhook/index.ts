@@ -13,7 +13,7 @@ const logStep = (step: string, details?: any) => {
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
-// Credit limits per plan (based on audit: 500/1500/3500 — excellent margin vs actual usage)
+// Credit limits per plan (updated 2026-03-18: expanded caps, all plans get lead tracker + FB integration)
 const PLAN_CONFIG: Record<string, {
   credits_monthly_cap: number;
   channel_scrapes_limit: number;
@@ -21,18 +21,24 @@ const PLAN_CONFIG: Record<string, {
   lead_tracker_enabled: boolean;
   facebook_integration_enabled: boolean;
 }> = {
-  starter:    { credits_monthly_cap: 500,  channel_scrapes_limit: 5,  script_limit: 75,  lead_tracker_enabled: false, facebook_integration_enabled: false },
-  growth:     { credits_monthly_cap: 1500, channel_scrapes_limit: 12, script_limit: 200, lead_tracker_enabled: false, facebook_integration_enabled: false },
-  enterprise: { credits_monthly_cap: 3500, channel_scrapes_limit: 25, script_limit: 500, lead_tracker_enabled: true,  facebook_integration_enabled: true  },
+  free:       { credits_monthly_cap: 250,   channel_scrapes_limit: 1,  script_limit: 10,   lead_tracker_enabled: true, facebook_integration_enabled: true },
+  starter:    { credits_monthly_cap: 10000, channel_scrapes_limit: 5,  script_limit: 75,   lead_tracker_enabled: true, facebook_integration_enabled: true },
+  growth:     { credits_monthly_cap: 30000, channel_scrapes_limit: 10, script_limit: 200,  lead_tracker_enabled: true, facebook_integration_enabled: true },
+  enterprise: { credits_monthly_cap: 75000, channel_scrapes_limit: 15, script_limit: 500,  lead_tracker_enabled: true, facebook_integration_enabled: true },
 };
 
 const PRODUCT_PLAN_MAP: Record<string, string> = {
+  // Current products (new pricing: $39/$79/$139)
+  "prod_U8CMY29gkbO85Y": "starter",
+  "prod_U8CMTfvyn4lvgv": "growth",
+  "prod_U8CMxSv9ZoV1PF": "enterprise",
+  // Legacy products (grandfathered subscribers)
   "prod_Tzx3VOK8V8gI11": "starter",
   "prod_Tzx4et0Y0iv6LI": "growth",
   "prod_Tzx4OBg3PpYuES": "enterprise",
 };
 
-const TRIAL_CREDITS = 100;
+const TRIAL_CREDITS = 250;
 
 function getDbStatus(sub: Stripe.Subscription): string {
   if (sub.cancel_at_period_end && sub.status === "active") return "canceling";
@@ -131,7 +137,7 @@ async function syncSubscription(
 
   // On subscription.created only: initialize credits
   if (isNew) {
-    const grantAmount = sub.status === "trialing" ? TRIAL_CREDITS : planCfg.credits_monthly_cap;
+    const grantAmount = planCfg.credits_monthly_cap;
     clientUpdate.credits_balance = grantAmount;
     clientUpdate.credits_used = 0;
     clientUpdate.channel_scrapes_used = 0;
@@ -141,9 +147,9 @@ async function syncSubscription(
       client_id: clientId,
       action: "initial_grant",
       credits: grantAmount,
-      metadata: { plan_type: planType, is_trial: sub.status === "trialing" },
+      metadata: { plan_type: planType },
     });
-    logStep("Initialized credits", { grantAmount, isTrial: sub.status === "trialing" });
+    logStep("Initialized credits", { grantAmount });
   }
 
   await adminClient.from("clients").update(clientUpdate).eq("id", clientId);

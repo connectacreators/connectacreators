@@ -11,9 +11,9 @@ const corsHeaders = {
 // Price IDs read from env vars (set in Supabase Dashboard → Edge Functions → Secrets)
 // Fallback to hardcoded values if env vars not set
 const PLAN_PRICE_MAP: Record<string, string> = {
-  starter: Deno.env.get("STRIPE_PRICE_STARTER") || "price_1T9vxZCp1qPE081LhXD0bRjw",
-  growth: Deno.env.get("STRIPE_PRICE_GROWTH") || "price_1T9vxZCp1qPE081LbxVH4Yke",
-  enterprise: Deno.env.get("STRIPE_PRICE_ENTERPRISE") || "price_1T1xADCp1qPE081LU9NP8EE3",
+  starter: Deno.env.get("STRIPE_PRICE_STARTER") || "price_1TCX3SCp1qPE081LCBJc8avw",
+  growth: Deno.env.get("STRIPE_PRICE_GROWTH") || "price_1TCX3SCp1qPE081LSkPmF8FN",
+  enterprise: Deno.env.get("STRIPE_PRICE_ENTERPRISE") || "price_1TCX3SCp1qPE081LODOQradO",
 };
 
 const logStep = (step: string, details?: any) => {
@@ -93,10 +93,6 @@ serve(async (req) => {
       metadata: { plan_type, supabase_user_id: user.id },
       subscription_data: {
         metadata: { plan_type, supabase_user_id: user.id },
-        ...(plan_type === "starter" ? {
-          trial_period_days: 7,
-          trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
-        } : {}),
       },
     });
 
