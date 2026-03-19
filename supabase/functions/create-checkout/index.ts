@@ -89,9 +89,11 @@ serve(async (req) => {
       line_items: [{ price: PLAN_PRICE_MAP[plan_type], quantity: 1 }],
       mode: "subscription",
       ui_mode: "embedded",
+      payment_method_collection: "always",
       return_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { plan_type, supabase_user_id: user.id },
       subscription_data: {
+        trial_period_days: 7,
         metadata: { plan_type, supabase_user_id: user.id },
       },
     });
