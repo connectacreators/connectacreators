@@ -17,9 +17,14 @@ const PRODUCT_PLAN_MAP: Record<string, {
   credits_monthly_cap: number;
   channel_scrapes_limit: number;
 }> = {
-  "prod_Tzx3VOK8V8gI11": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: false, facebook_integration_enabled: false, credits_monthly_cap: 500,  channel_scrapes_limit: 5  },
-  "prod_Tzx4et0Y0iv6LI": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: false, facebook_integration_enabled: false, credits_monthly_cap: 1500, channel_scrapes_limit: 12 },
-  "prod_Tzx4OBg3PpYuES": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true,  facebook_integration_enabled: true,  credits_monthly_cap: 3500, channel_scrapes_limit: 25 },
+  // Current products (new pricing: $39/$79/$139)
+  "prod_U8CMY29gkbO85Y": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 10000, channel_scrapes_limit: 5  },
+  "prod_U8CMTfvyn4lvgv": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 30000, channel_scrapes_limit: 10 },
+  "prod_U8CMxSv9ZoV1PF": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 75000, channel_scrapes_limit: 15 },
+  // Legacy products (grandfathered subscribers)
+  "prod_Tzx3VOK8V8gI11": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 10000, channel_scrapes_limit: 5  },
+  "prod_Tzx4et0Y0iv6LI": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 30000, channel_scrapes_limit: 10 },
+  "prod_Tzx4OBg3PpYuES": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 75000, channel_scrapes_limit: 15 },
 };
 
 const logStep = (step: string, details?: any) => {
@@ -145,52 +150,83 @@ serve(async (req) => {
       logStep("Active subscription found", { subscriptionId: subscription.id, status: subscription.status, productId, subscriptionEnd });
 
       planData = PRODUCT_PLAN_MAP[productId];
+
+      // Fallback: if product ID not in map, use plan_type from subscription metadata
+      if (!planData) {
+        const metaPlanType = (subscription.metadata?.plan_type as string) || "starter";
+        planData = Object.values(PRODUCT_PLAN_MAP).find(p => p.plan_type === metaPlanType) || {
+          plan_type: metaPlanType,
+          script_limit: 75,
+          lead_tracker_enabled: true,
+          facebook_integration_enabled: true,
+          credits_monthly_cap: 10000,
+          channel_scrapes_limit: 5,
+        };
+        logStep("Product not in PRODUCT_PLAN_MAP — using metadata/fallback plan", { productId, metaPlanType, planData });
+      }
+
       if (planData) {
         const subscriptionStatus = subscription.status === "trialing" ? "trialing" : "active";
+        const TRIAL_CREDITS = 250;
 
-        // Update clients table with subscription data
-        await supabaseClient
-          .from("clients")
-          .update({
-            plan_type: planData.plan_type,
-            script_limit: planData.script_limit,
-            lead_tracker_enabled: planData.lead_tracker_enabled,
-            facebook_integration_enabled: planData.facebook_integration_enabled,
-            credits_monthly_cap: planData.credits_monthly_cap,
-            channel_scrapes_limit: planData.channel_scrapes_limit,
-            subscription_status: subscriptionStatus,
-            trial_ends_at: trialEndsAt,
-            stripe_customer_id: customerId,
-          })
-          .eq("user_id", user.id);
-        logStep("Updated client record", { ...planData, subscriptionStatus, trialEndsAt });
-
-        // Initialize credits for new subscribers (only if credits_monthly_cap is not yet set)
+        // Check current credits state FIRST
         const { data: clientRow } = await supabaseClient
           .from("clients")
-          .select("id, credits_monthly_cap")
+          .select("id, credits_balance")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (clientRow && (clientRow.credits_monthly_cap ?? 0) === 0) {
-          const TRIAL_CREDITS = 100;
-          const grantAmount = subscription.status === "trialing" ? TRIAL_CREDITS : planData.credits_monthly_cap;
-          await supabaseClient.from("clients").update({
-            credits_monthly_cap: planData.credits_monthly_cap,
-            channel_scrapes_limit: planData.channel_scrapes_limit,
-            credits_balance: grantAmount,
-            credits_used: 0,
-            channel_scrapes_used: 0,
-            credits_reset_at: new Date(subscription.current_period_end * 1000).toISOString(),
-          }).eq("user_id", user.id);
+        const currentBalance = clientRow?.credits_balance ?? 0;
+        const needsCredits = currentBalance === 0;
+        const grantAmount = subscription.status === "trialing" ? TRIAL_CREDITS : planData.credits_monthly_cap;
 
+        // Single update with ALL fields including credits
+        const isTrial = subscription.status === "trialing";
+
+        const clientUpdate: Record<string, any> = {
+          plan_type: planData.plan_type,
+          script_limit: planData.script_limit,
+          lead_tracker_enabled: planData.lead_tracker_enabled,
+          facebook_integration_enabled: planData.facebook_integration_enabled,
+          channel_scrapes_limit: planData.channel_scrapes_limit,
+          subscription_status: subscriptionStatus,
+          trial_ends_at: trialEndsAt,
+          stripe_customer_id: customerId,
+        };
+
+        // During trial, preserve trial credit cap (250). Don't overwrite with full plan amount.
+        if (!isTrial) {
+          clientUpdate.credits_monthly_cap = planData.credits_monthly_cap;
+        }
+
+        if (needsCredits) {
+          clientUpdate.credits_balance = grantAmount;
+          clientUpdate.credits_used = 0;
+          clientUpdate.channel_scrapes_used = 0;
+          clientUpdate.credits_reset_at = new Date(subscription.current_period_end * 1000).toISOString();
+        }
+
+        const { error: updateError } = await supabaseClient
+          .from("clients")
+          .update(clientUpdate)
+          .eq("user_id", user.id);
+
+        if (updateError) {
+          logStep("ERROR updating client", { error: updateError.message });
+        } else {
+          logStep("Updated client record", { ...planData, subscriptionStatus, creditsGranted: needsCredits ? grantAmount : "skipped" });
+        }
+
+        // Record credit transaction
+        if (needsCredits && clientRow?.id) {
           await supabaseClient.from("credit_transactions").insert({
             client_id: clientRow.id,
             action: "initial_grant",
             credits: grantAmount,
+            balance_after: grantAmount,
             metadata: { plan_type: planData.plan_type, is_trial: subscription.status === "trialing" },
           });
-          logStep("Initialized credits for new subscriber", { grantAmount, planType: planData.plan_type });
+          logStep("Initialized credits", { grantAmount, planType: planData.plan_type });
         }
 
         // Sync to subscriptions table for admin Subscribers page visibility
@@ -237,11 +273,22 @@ serve(async (req) => {
       }
     } else {
       logStep("No active subscription");
-      // Mark as inactive if no active subscription
-      await supabaseClient
-        .from("clients")
-        .update({ subscription_status: "inactive" })
-        .eq("user_id", user.id);
+      // Only mark as inactive if this is NOT a manually assigned subscriber
+      const { data: manualSub } = await supabaseClient
+        .from("subscriptions")
+        .select("id, is_manually_assigned, status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!manualSub?.is_manually_assigned) {
+        await supabaseClient
+          .from("clients")
+          .update({ subscription_status: "inactive" })
+          .eq("user_id", user.id);
+        logStep("Marked client as inactive (no manual sub)");
+      } else {
+        logStep("Skipping inactive update — user has manual subscription", { status: manualSub.status });
+      }
     }
 
     return new Response(
