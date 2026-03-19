@@ -167,6 +167,6 @@ export default function SessionSidebar({
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>
 
-    </div>   {/* end outer wrapper */}
+    </div>
   );
 }
