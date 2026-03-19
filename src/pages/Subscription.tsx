@@ -11,15 +11,16 @@ import { toast } from "sonner";
 import ScriptsLogin from "@/components/ScriptsLogin";
 
 const PLAN_OPTIONS = [
-  { key: "starter",    name: "Starter",    price: "$45/mo",  credits: "500",   scrapes: "5",  amount: 4500  },
-  { key: "growth",     name: "Growth",     price: "$90/mo",  credits: "1,500", scrapes: "12", amount: 9000  },
-  { key: "enterprise", name: "Enterprise", price: "$150/mo", credits: "3,500", scrapes: "25", amount: 15000 },
+  { key: "starter",    name: "Starter",    price: "$39/mo",  credits: "10,000", scrapes: "5",  amount: 3900  },
+  { key: "growth",     name: "Growth",     price: "$79/mo",  credits: "30,000", scrapes: "10", amount: 7900  },
+  { key: "enterprise", name: "Pro",        price: "$139/mo", credits: "75,000", scrapes: "15", amount: 13900 },
 ];
 
 const PLAN_LABELS: Record<string, string> = {
+  free: "Free",
   starter: "Starter",
   growth: "Growth",
-  enterprise: "Enterprise",
+  enterprise: "Pro",
   connecta_plan: "Connecta Plan",
   connecta_plus: "Connecta Plus",
   trial: "Trial",
@@ -194,7 +195,6 @@ export default function Subscription() {
       <ScriptsLogin
         onSignIn={() => {}}
         signInWithEmail={signInWithEmail}
-        signUpWithEmail={signUpWithEmail}
       />
     );
   }
@@ -665,26 +665,36 @@ export default function Subscription() {
                   language === "en"
                     ? "Transcribe video (Vault)"
                     : "Transcribir video (Vault)",
-                cost: 15,
+                cost: 150,
               },
               {
                 action:
                   language === "en"
-                    ? "AI Research (Script Wizard)"
-                    : "Investigación AI (Wizard)",
-                cost: 5,
+                    ? "AI Research + Script"
+                    : "Investigación AI + Guión",
+                cost: 50,
               },
               {
                 action:
                   language === "en"
                     ? "Refine / Translate script"
                     : "Refinar / Traducir guión",
-                cost: 2,
+                cost: 25,
               },
               {
                 action:
-                  language === "en" ? "Templatize script" : "Convertir en plantilla",
-                cost: 5,
+                  language === "en" ? "Templatize / Extract facts" : "Convertir en plantilla / Extraer hechos",
+                cost: 50,
+              },
+              {
+                action:
+                  language === "en" ? "Generate Hooks / CTAs" : "Generar Hooks / CTAs",
+                cost: 25,
+              },
+              {
+                action:
+                  language === "en" ? "Canvas Generate" : "Generar Canvas",
+                cost: 50,
               },
             ].map(({ action, cost }) => (
               <div key={action} className="flex justify-between text-muted-foreground">

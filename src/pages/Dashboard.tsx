@@ -12,6 +12,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WelcomeSubscriptionModal from "@/components/WelcomeSubscriptionModal";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -26,6 +27,13 @@ type FolderKey = "content" | "sales" | "setup";
 
 export default function Dashboard() {
   const { user, loading, isAdmin, isUser, isVideographer, isEditor, isConnectaPlus, role, signOut, signInWithEmail, signUpWithEmail } = useAuth();
+  // Detect just-paid BEFORE calling hooks (hooks can't be conditional)
+  const [justPaid] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !!localStorage.getItem("connecta_just_paid");
+  });
+  // Skip the slow Stripe reconciliation if we just came from PaymentSuccess (it already verified)
+  const { checking: subscriptionChecking, subscriptionData } = useSubscriptionGuard({ skipRedirect: true, skipReconcile: justPaid });
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
@@ -55,7 +63,8 @@ export default function Dashboard() {
 
   const isStaff = isAdmin || isVideographer;
   const isClientRole = !isAdmin && !isVideographer && !isEditor && !isUser;
-  const showClientSelector = isAdmin || isVideographer || isUser;
+  const isSubscriber = userPlanType === "free" || userPlanType === "starter" || userPlanType === "growth" || userPlanType === "enterprise";
+  const showClientSelector = isAdmin || isVideographer;
 
   // Listen for viewMode changes from sidebar
   useEffect(() => {
@@ -92,54 +101,61 @@ export default function Dashboard() {
       });
   }, [user, showClientSelector]);
 
-  // Subscription check (for non-admin/videographer/editor/connectaPlus client roles)
+  // Sync plan type from subscription guard (no duplicate edge function call)
   useEffect(() => {
-    if (justPaidRef.current) {
-      justPaidRef.current = false;
-      return;
-    }
+    if (subscriptionChecking) return;
     if (loading || !user) return;
     if (isAdmin || isVideographer || isEditor || isConnectaPlus) return;
 
-    const VALID = ["active", "trialing", "trial", "pending_contact", "canceling", "connecta_plus"];
-
-    const checkSubscription = async () => {
-      const { data } = await supabase
-        .from("clients")
-        .select("plan_type, subscription_status")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const valid = data?.plan_type && data?.subscription_status && VALID.includes(data.subscription_status);
-      setUserPlanType(data?.plan_type ?? null);
-      if (valid) return; // All good
-
-      // DB shows no valid subscription — reconcile with Stripe before redirecting
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session) {
-          await supabase.functions.invoke("check-subscription", {
-            headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
-          });
-          const { data: refreshed } = await supabase
+    if (subscriptionData.plan_type) {
+      setUserPlanType(subscriptionData.plan_type);
+    } else if (justPaidRef.current) {
+      // Just paid but DB not updated yet — use the plan from payment flow
+      justPaidRef.current = false;
+      setUserPlanType(welcomePlan as string);
+      // Trigger background reconciliation so credits get set up
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase.functions.invoke("check-subscription", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }).catch(() => {});
+        }
+      });
+    } else {
+      // Auto-initialize free tier for new users (no paywall)
+      const initFreeTier = async () => {
+        const { error } = await supabase.from("clients").insert({
+          user_id: user.id,
+          name: user.user_metadata?.full_name || user.email,
+          email: user.email,
+          plan_type: "free",
+          subscription_status: "active",
+          credits_balance: 250,
+          credits_monthly_cap: 250,
+          credits_used: 0,
+          channel_scrapes_limit: 1,
+          channel_scrapes_used: 0,
+          lead_tracker_enabled: true,
+          facebook_integration_enabled: true,
+        });
+        if (!error) {
+          setUserPlanType("free");
+        } else if (error.code === "23505") {
+          // Row already exists (race condition) — just fetch and use it
+          const { data: existing } = await supabase
             .from("clients")
-            .select("plan_type, subscription_status")
+            .select("plan_type")
             .eq("user_id", user.id)
             .maybeSingle();
-          if (refreshed?.plan_type && refreshed?.subscription_status && VALID.includes(refreshed.subscription_status)) {
-            setUserPlanType(refreshed?.plan_type ?? null);
-            return;
-          }
+          setUserPlanType(existing?.plan_type || "free");
+        } else {
+          console.error("Failed to initialize free tier:", error);
+          setUserPlanType("free");
         }
-      } catch {
-        // Non-fatal — fall through to redirect
-      }
-
-      navigate("/select-plan");
-    };
-
-    checkSubscription();
-  }, [user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, role, navigate]);
+      };
+      initFreeTier();
+    }
+  }, [subscriptionChecking, subscriptionData, user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, navigate, welcomePlan]);
 
   // Reset folder when switching view mode
   useEffect(() => {
@@ -198,8 +214,8 @@ export default function Dashboard() {
     setup: [
       { label: "Onboarding", description: language === "en" ? "Complete your account setup" : "Completa la configuración de tu cuenta", icon: UserPlus, color: "text-primary", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
       { label: "Public Booking", description: language === "en" ? "Configure your booking page" : "Configura tu página de reservas", icon: Globe, color: "text-emerald-400", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
-      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isUser && userPlanType !== "enterprise" },
-      { label: "Master Database", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "text-cyan-400", path: clientId ? `/clients/${clientId}/database` : "/dashboard" },
+      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
+      { label: "Master Database", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "text-cyan-400", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
     ],
   });
 
@@ -247,7 +263,7 @@ export default function Dashboard() {
 
   const toolCards = getToolCards();
 
-  if (loading) {
+  if (loading || subscriptionChecking) {
     return (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -260,7 +276,6 @@ export default function Dashboard() {
       <ScriptsLogin
         onSignIn={() => {}}
         signInWithEmail={signInWithEmail}
-        signUpWithEmail={signUpWithEmail}
       />
     );
   }
@@ -281,6 +296,34 @@ export default function Dashboard() {
         planType={welcomePlan}
       />
 
+      {/* Credits increased banner — show once for existing subscribers */}
+      {(() => {
+        const dismissed = typeof window !== "undefined" && localStorage.getItem("connecta_credits_banner_dismissed");
+        if (dismissed || !isSubscriber || userPlanType === "free") return null;
+        return (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4">
+            <div className="flex items-center gap-3 bg-[#0891B2]/15 border border-[#0891B2]/30 rounded-xl px-4 py-3 backdrop-blur-sm">
+              <Zap className="w-5 h-5 text-[#0891B2] shrink-0" />
+              <p className="text-sm text-foreground flex-1">
+                {language === "en"
+                  ? "Your credits have been increased! Enjoy more AI power."
+                  : "¡Tus créditos han sido aumentados! Disfruta de más poder AI."}
+              </p>
+              <button
+                onClick={() => {
+                  localStorage.setItem("connecta_credits_banner_dismissed", "1");
+                  // Force re-render by toggling a dummy state
+                  setShowWelcome(false);
+                }}
+                className="text-muted-foreground hover:text-foreground text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Background glows */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
         <div className="absolute top-[-100px] right-[-150px] w-[800px] h-[600px] rounded-full opacity-[0.08] blur-[180px]" style={{ background: `rgba(8,145,178,0.6)` }} />
@@ -293,53 +336,7 @@ export default function Dashboard() {
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="max-w-3xl w-full text-center">
 
-            {/* ===== SUBSCRIBER (isUser): 3 direct cards only ===== */}
-            {isUser ? (
-              <>
-                <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
-                  👋 {tr(t.dashboard.greeting, language)}, {displayName}
-                </motion.p>
-                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
-                  {tr(t.dashboard.question, language)}
-                </motion.h1>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                  {[
-                    { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "text-orange-400", path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
-                    { label: language === "en" ? "Scripts" : "Guiones", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "text-primary", path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
-                    { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "text-rose-400", path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
-                    { label: "Content Calendar", description: language === "en" ? "Plan and schedule your content" : "Planifica y programa tu contenido", icon: Calendar, color: "text-cyan-400", path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
-                    { label: language === "en" ? "Lead Tracker" : "Rastreador de Leads", description: language === "en" ? "Track and manage your leads" : "Rastrea y gestiona tus leads", icon: Target, color: "text-emerald-400", path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
-                    { label: language === "en" ? "Master Database" : "Base de Datos", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "text-cyan-400", path: "/master-database" },
-                    { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: ownClientId ? `/clients/${ownClientId}/landing-page` : "/", disabled: userPlanType !== "enterprise" },
-                  ].map((card, i) => {
-                    const isDisabled = (card as any).disabled;
-                    return (
-                      <motion.button
-                        key={card.path}
-                        onClick={() => !isDisabled && navigate(card.path)}
-                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        initial="hidden"
-                        animate="visible"
-                        custom={i + 2}
-                        variants={fadeUp}
-                      >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                          <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
-                        </div>
-                        <div>
-                          <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
-                          {isDisabled && (
-                            <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
-                          )}
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : isClientRole ? (
+            {isClientRole ? (
               activeFolder ? (
                 <div>
                   <motion.div

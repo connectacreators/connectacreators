@@ -742,7 +742,6 @@ export default function Scripts() {
       <ScriptsLogin
         onSignIn={() => {}}
         signInWithEmail={signInWithEmail}
-        signUpWithEmail={signUpWithEmail}
       />
     );
   }

@@ -50,6 +50,7 @@ import ViralToday from "./pages/ViralToday";
 import ViralVideoDetail from "./pages/ViralVideoDetail";
 import Subscribers from "./pages/Subscribers";
 import PublicVideoReview from "./pages/PublicVideoReview";
+import Signup from "./pages/Signup";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => (
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/facebook-callback" element={<FacebookCallback />} />
+            <Route path="/signup" element={<Signup />} />
 
             {/* Authenticated routes — all share the DashboardLayout */}
             <Route element={<DashboardLayout />}>

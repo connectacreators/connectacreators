@@ -230,7 +230,6 @@ export default function Videographers() {
       <ScriptsLogin
         onSignIn={() => {}}
         signInWithEmail={signInWithEmail}
-        signUpWithEmail={signUpWithEmail}
       />
     );
   }

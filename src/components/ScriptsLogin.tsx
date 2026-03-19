@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { Input } from "@/components/ui/input";
 import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
@@ -16,10 +15,9 @@ import { AnimatePresence, motion } from "framer-motion";
 type Props = {
   onSignIn: () => void;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
-  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
 };
 
-export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmail }: Props) {
+export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const [wordIndex, setWordIndex] = useState(0);
@@ -34,8 +32,6 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
   const [isForgot, setIsForgot] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -66,20 +62,17 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
   const handleEmailAuth = async () => {
     if (!identifier.trim() || !password.trim()) return;
-    if (isSignUp && !fullName.trim()) { toast.error(tr(t.login.nameRequired, language)); return; }
     setLoading(true);
-    if (isSignUp) {
-      const { error } = await signUpWithEmail(identifier, password, fullName.trim());
-      setLoading(false);
-      if (error) toast.error(error.message);
-      else toast.success(tr(t.login.checkEmailConfirm, language));
-    } else {
+    try {
       const email = await resolveEmail(identifier);
       if (!email) { setLoading(false); return; }
       const { error } = await signInWithEmail(email, password);
-      setLoading(false);
       if (error) toast.error(error.message);
       else onSignIn();
+    } catch (err) {
+      toast.error("Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,12 +90,11 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
     <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background ambient-glow flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageToggle />
-        <ThemeToggle />
       </div>
       <div className="flex-1 flex items-center justify-center pt-16">
       <div className="w-full max-w-xs sm:max-w-sm glass-card rounded-2xl p-6 sm:p-8 space-y-4 sm:space-y-6">
         <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground whitespace-nowrap">
             {(words[wordIndex] as any).pre}{" "}
             <span className="inline-block relative" style={{ minWidth: "7ch" }}>
               <AnimatePresence mode="wait">
@@ -121,7 +113,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
             {tr(t.login.headlinePost, language)}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isForgot ? tr(t.login.forgotPrompt, language) : isSignUp ? tr(t.login.createAccount, language) : tr(t.login.signInToContinue, language)}
+            {isForgot ? tr(t.login.forgotPrompt, language) : tr(t.login.signInToContinue, language)}
           </p>
         </div>
 
@@ -145,16 +137,9 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
             </>
           ) : (
             <>
-              {isSignUp && (
-                <Input
-                  placeholder={tr(t.login.fullName, language)}
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              )}
               <Input
-                placeholder={isSignUp ? tr(t.login.emailOnly, language) : tr(t.login.emailPlaceholder, language)}
-                type={isSignUp ? "email" : "text"}
+                placeholder={tr(t.login.emailPlaceholder, language)}
+                type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
               />
@@ -167,13 +152,11 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
               />
               <Button onClick={handleEmailAuth} className="w-full gap-2 btn-primary-glass" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4 text-[#94a3b8]" />}
-                {isSignUp ? tr(t.login.signUp, language) : tr(t.login.signIn, language)}
+                {tr(t.login.signIn, language)}
               </Button>
-              {!isSignUp && (
-                <button onClick={() => setIsForgot(true)} className="text-sm text-muted-foreground hover:text-primary hover:underline w-full text-center">
-                  {tr(t.login.forgotPassword, language)}
-                </button>
-              )}
+              <button onClick={() => setIsForgot(true)} className="text-sm text-muted-foreground hover:text-primary hover:underline w-full text-center">
+                {tr(t.login.forgotPassword, language)}
+              </button>
             </>
           )}
         </div>
@@ -193,14 +176,11 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
         </Button>
 
         {!isForgot && (
-          <p className="text-center text-sm text-muted-foreground">
-            {isSignUp ? tr(t.login.hasAccount, language) : tr(t.login.noAccount, language)}{" "}
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary hover:underline font-semibold"
-            >
-              {isSignUp ? tr(t.login.signIn, language) : tr(t.login.signUp, language)}
-            </button>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            {tr(t.login.noAccount, language)}{" "}
+            <a href="/signup" className="text-primary hover:underline font-medium">
+              {tr(t.login.signUp, language)}
+            </a>
           </p>
         )}
       </div>
@@ -208,9 +188,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, signUpWithEmai
 
       <div className="py-6 flex justify-center">
         <a href="/" className="cursor-pointer">
-          <div className="gradient-brand rounded-xl px-3 py-1 flex items-center justify-center">
-            <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
-          </div>
+          <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
         </a>
       </div>
     </div>

@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Loader2, Search, User, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -12,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
-import AnimatedDots from "@/components/ui/AnimatedDots";
 import { toast } from "sonner";
 
 type ClientRow = {
@@ -35,8 +32,6 @@ export default function Clients() {
   const { user, loading, isAdmin, isUser, isVideographer, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [search, setSearch] = useState("");
@@ -125,9 +120,9 @@ export default function Clients() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
     );
   }
 
@@ -136,7 +131,6 @@ export default function Clients() {
       <ScriptsLogin
         onSignIn={() => {}}
         signInWithEmail={signInWithEmail}
-        signUpWithEmail={signUpWithEmail}
       />
     );
   }
@@ -148,16 +142,8 @@ export default function Clients() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/clients" />
-
-      <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <>
+    <main className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
           <motion.h1
@@ -206,7 +192,7 @@ export default function Clients() {
                 <motion.button
                   key={client.id}
                   onClick={() => navigate(`/clients/${client.id}`)}
-                  className="w-full border border-border/50 rounded-xl p-5 bg-card/30 hover:border-primary/30 transition-colors flex items-center gap-3 text-left"
+                  className="w-full glass-card rounded-xl p-5 hover:border-primary/30 transition-colors flex items-center gap-3 text-left"
                   initial="hidden"
                   animate="visible"
                   custom={i + 1}
@@ -270,6 +256,6 @@ export default function Clients() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
