@@ -8,18 +8,19 @@ export interface SubscriptionData {
   subscription_status: string | null;
 }
 
+const VALID_STATUSES = ["active", "trialing", "trial", "pending_contact", "canceling", "connecta_plus"];
+
+function isValidStatus(status: string | null): boolean {
+  return status !== null && VALID_STATUSES.includes(status);
+}
+
 /**
  * Hook that checks subscription_status from the clients table.
- * Redirects to /select-plan if not active or pending_contact.
- * Admin and videographer roles bypass this check automatically.
- *
- * Returns:
- * - checking: boolean - true while loading
- * - hasValidSubscription: boolean - true if subscription is active/valid
- * - subscriptionData: SubscriptionData - plan and status info
+ * If the DB shows no valid subscription, reconciles with Stripe via check-subscription
+ * before redirecting — prevents false negatives from timing/sync issues.
  */
-export function useSubscriptionGuard(options?: { skipRedirect?: boolean }) {
-  const { user, loading, isAdmin, isVideographer } = useAuth();
+export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipReconcile?: boolean }) {
+  const { user, loading, isAdmin, isVideographer, isConnectaPlus, isEditor } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [hasValidSubscription, setHasValidSubscription] = useState(false);
@@ -31,8 +32,8 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean }) {
   useEffect(() => {
     if (loading) return;
 
-    // Admin and videographer roles bypass subscription check
-    if (isAdmin || isVideographer) {
+    // Admin, videographer, editor, and connecta_plus roles bypass subscription check
+    if (isAdmin || isVideographer || isConnectaPlus || isEditor) {
       setHasValidSubscription(true);
       setChecking(false);
       return;
@@ -43,43 +44,80 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean }) {
       return;
     }
 
-    supabase
-      .from("clients")
-      .select("subscription_status, plan_type")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("Error fetching subscription:", error);
-          setChecking(false);
-          return;
-        }
+    const checkAndReconcile = async () => {
+      // Step 1: Query clients table
+      const { data, error } = await supabase
+        .from("clients")
+        .select("subscription_status, plan_type")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-        if (!data || !data.plan_type) {
-          setHasValidSubscription(false);
-          setSubscriptionData({ plan_type: null, subscription_status: null });
-          if (!options?.skipRedirect) {
-            navigate("/select-plan");
-          }
-        } else if (
-          data.subscription_status === "active" ||
-          data.subscription_status === "trialing" ||
-          data.subscription_status === "pending_contact" ||
-          data.subscription_status === "canceling" ||
-          data.subscription_status === "connecta_plus"
-        ) {
-          setHasValidSubscription(true);
-          setSubscriptionData(data);
-        } else {
-          setHasValidSubscription(false);
-          setSubscriptionData(data);
-          if (!options?.skipRedirect) {
-            navigate("/select-plan");
-          }
-        }
+      if (error) {
+        console.error("Error fetching subscription:", error);
         setChecking(false);
-      });
-  }, [user, loading, isAdmin, isVideographer, navigate, options?.skipRedirect]);
+        return;
+      }
+
+      const statusOk = isValidStatus(data?.subscription_status ?? null);
+      const planOk = !!data?.plan_type;
+
+      if (data && statusOk && planOk) {
+        // Happy path: DB shows active subscription
+        setHasValidSubscription(true);
+        setSubscriptionData(data);
+        setChecking(false);
+        return;
+      }
+
+      // Step 2: DB doesn't show a valid subscription — reconcile with Stripe before redirecting
+      // Skip the slow edge function call if caller says so (e.g. just came from PaymentSuccess)
+      if (!options?.skipReconcile) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session) {
+            await supabase.functions.invoke("check-subscription", {
+              headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+            });
+
+            // Step 3: Re-query after reconciliation
+            const { data: refreshed } = await supabase
+              .from("clients")
+              .select("subscription_status, plan_type")
+              .eq("user_id", user.id)
+              .maybeSingle();
+
+            if (refreshed && isValidStatus(refreshed.subscription_status) && refreshed.plan_type) {
+              setHasValidSubscription(true);
+              setSubscriptionData(refreshed);
+              setChecking(false);
+              return;
+            }
+          }
+        } catch (reconcileErr) {
+          console.error("Reconcile check-subscription failed:", reconcileErr);
+        }
+      }
+
+      // Step 4: No valid subscription — redirect to signup wizard
+      if (!data?.plan_type || !data?.subscription_status) {
+        setHasValidSubscription(false);
+        setSubscriptionData({ plan_type: data?.plan_type ?? null, subscription_status: data?.subscription_status ?? null });
+        setChecking(false);
+        if (!options?.skipRedirect) {
+          navigate("/signup");
+        }
+        return;
+      }
+      setHasValidSubscription(false);
+      setSubscriptionData({ plan_type: data?.plan_type ?? null, subscription_status: data?.subscription_status ?? null });
+      if (!options?.skipRedirect) {
+        navigate("/signup");
+      }
+      setChecking(false);
+    };
+
+    checkAndReconcile();
+  }, [user, loading, isAdmin, isVideographer, isConnectaPlus, isEditor, navigate, options?.skipRedirect]);
 
   return { checking, hasValidSubscription, subscriptionData };
 }
