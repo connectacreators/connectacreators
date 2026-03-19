@@ -53,11 +53,14 @@ function IconBtn({
 
 const DRAW_COLORS = ["#22d3ee", "#f43f5e", "#a3e635", "#f59e0b", "#a78bfa", "#ffffff"];
 
-export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, onClearDrawing, drawColor, onDrawColorChange, saveStatus, sidebarOffset: _sidebarOffset }: Props) {
+export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, onClearDrawing, drawColor, onDrawColorChange, saveStatus, sidebarOffset }: Props) {
   return (
     <div className="absolute top-3 left-0 right-0 z-10 flex items-center justify-center pointer-events-none">
       {/* Back + save status — absolute left */}
-      <div className="absolute left-3 pointer-events-auto flex items-center gap-2">
+      <div
+        className="absolute pointer-events-auto flex items-center gap-2 transition-all duration-200"
+        style={{ left: (sidebarOffset ?? 0) + 12 }}
+      >
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
