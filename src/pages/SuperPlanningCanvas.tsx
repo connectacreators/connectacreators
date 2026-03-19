@@ -28,6 +28,7 @@ import InstagramProfileNode from "@/components/canvas/InstagramProfileNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
+import SessionSidebar, { type SessionItem } from "@/components/canvas/SessionSidebar";
 import { useScripts } from "@/hooks/useScripts";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -121,14 +122,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [showViralPicker, setShowViralPicker] = useState(false);
   const [draftScriptId, setDraftScriptId] = useState<string | null>(null);
 
-  // NOTE: SessionItem is defined here temporarily. Task 6 (Step 1) will remove this local
-  // definition and import the exported type from SessionSidebar.tsx instead.
-  interface SessionItem {
-    id: string;
-    name: string;
-    is_active: boolean;
-    updated_at: string;
-  }
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   // activeSessionId React state mirrors activeSessionIdRef so the sidebar re-renders on switch
@@ -210,6 +203,118 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       .order("updated_at", { ascending: false });
     if (data) setSessions(data as SessionItem[]);
   }, [selectedClient.id]);
+
+  /** Create a brand new blank session, deactivate the current one */
+  const newChat = useCallback(async () => {
+    if (!userIdRef.current) return;
+    isSwitchingSessionRef.current = true;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    try {
+      // Deactivate previous session first (required by partial unique index)
+      const prevId = activeSessionIdRef.current;
+      if (prevId) {
+        await supabase.from("canvas_states").update({ is_active: false }).eq("id", prevId);
+      }
+
+      // Insert new blank session
+      const { data: newSession } = await supabase
+        .from("canvas_states")
+        .insert({
+          client_id: selectedClient.id,
+          user_id: userIdRef.current,
+          nodes: [],
+          edges: [],
+          draw_paths: [],
+          name: "New chat",
+          is_active: true,
+        })
+        .select("id")
+        .single();
+
+      if (newSession) {
+        activeSessionIdRef.current = newSession.id;
+        setActiveSessionId(newSession.id);
+        lastSavedJsonRef.current = "";
+        setNodes([makeAiNode()]);
+        setEdges([]);
+        setDrawPaths([]);
+        await loadSessions();
+      }
+    } finally {
+      // Always unblock saves, even if an error occurred
+      isSwitchingSessionRef.current = false;
+    }
+  }, [selectedClient.id, loadSessions]);
+
+  /** Switch to an existing session */
+  const switchSession = useCallback(async (session: SessionItem) => {
+    if (session.id === activeSessionIdRef.current) return;
+    isSwitchingSessionRef.current = true;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    try {
+      // Deactivate previous first, then activate new (partial index constraint)
+      const prevId = activeSessionIdRef.current;
+      if (prevId) {
+        await supabase.from("canvas_states").update({ is_active: false }).eq("id", prevId);
+      }
+      await supabase.from("canvas_states").update({ is_active: true }).eq("id", session.id);
+
+      // Load canvas data BEFORE updating the active session ref.
+      const { data } = await supabase
+        .from("canvas_states")
+        .select("nodes, edges, draw_paths")
+        .eq("id", session.id)
+        .single();
+
+      // Only commit the session switch after we have confirmed the data loaded
+      activeSessionIdRef.current = session.id;
+      setActiveSessionId(session.id);
+
+      if (data) {
+        const restoredNodes = attachCallbacks((data.nodes as Node[]) || []);
+        if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
+        lastSavedJsonRef.current = "";
+        setNodes(restoredNodes);
+        setEdges((data.edges as Edge[]) || []);
+        setDrawPaths(Array.isArray((data as any).draw_paths) ? (data as any).draw_paths : []);
+      }
+
+      await loadSessions();
+    } finally {
+      // Always unblock saves, even if an error occurred
+      isSwitchingSessionRef.current = false;
+    }
+  }, [loadSessions, attachCallbacks]);
+
+  /** Rename a session inline */
+  const renameSession = useCallback(async (id: string, name: string) => {
+    await supabase.from("canvas_states").update({ name }).eq("id", id);
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s));
+  }, []);
+
+  /** Delete a session; if it was active, switch to the next most recent or create fresh. */
+  const deleteSession = useCallback(async (id: string) => {
+    const wasActive = id === activeSessionIdRef.current;
+    await supabase.from("canvas_states").delete().eq("id", id);
+
+    if (wasActive) {
+      // Fetch fresh remaining sessions from DB — do not rely on stale React state closure
+      const { data: remaining } = await supabase
+        .from("canvas_states")
+        .select("id, name, is_active, updated_at")
+        .eq("client_id", clientIdRef.current)
+        .eq("user_id", userIdRef.current!)
+        .order("updated_at", { ascending: false });
+      const list = remaining || [];
+      if (list.length > 0) {
+        await switchSession(list[0] as SessionItem);
+      } else {
+        await newChat();
+      }
+    } else {
+      setSessions(prev => prev.filter(s => s.id !== id));
+    }
+  }, [switchSession, newChat]);
 
   const handleFormatChange = useCallback((f: string) => setFormat(f), []);
   const handleLanguageChange = useCallback((l: "en" | "es") => setLanguage(l), []);
@@ -787,6 +892,19 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
+      {/* Session Sidebar */}
+      <SessionSidebar
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(c => !c)}
+        onNewChat={newChat}
+        onSwitch={switchSession}
+        onRename={renameSession}
+        onDelete={deleteSession}
+      />
+
+      {/* Canvas area */}
       <div className="flex-1 relative min-w-0" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
         <CanvasToolbar
           onAddNode={addNode}
@@ -801,6 +919,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           drawColor={drawColor}
           onDrawColorChange={setDrawColor}
           saveStatus={saveStatus}
+          sidebarOffset={sidebarCollapsed ? 0 : 220}
         />
 
         {showViralPicker && (
