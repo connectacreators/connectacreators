@@ -103,14 +103,19 @@ User opens canvas for a client
   → If none: create a new session, insert as active
 
 User clicks "New chat"
+  → Set isSwitchingSessionRef = true, cancel auto-save timer
+  → UPDATE previous active row SET is_active=false   ← must come first
   → INSERT new canvas_states row (blank nodes/edges, is_active=true, name='New chat')
-  → UPDATE previous active row SET is_active=false
-  → Canvas clears
+  → Store new row id in activeSessionIdRef
+  → Canvas clears, set isSwitchingSessionRef = false
 
 User clicks a past session in sidebar
+  → Set isSwitchingSessionRef = true, cancel auto-save timer
+  → UPDATE previous active row SET is_active=false   ← must come first
   → UPDATE clicked row SET is_active=true
-  → UPDATE previous active row SET is_active=false
-  → Load nodes/edges from clicked row into canvas
+  → Store clicked row id in activeSessionIdRef
+  → Load nodes/edges/draw_paths from clicked row into canvas
+  → Set isSwitchingSessionRef = false
 
 User saves a script
   → Script saved to scripts table
@@ -126,9 +131,38 @@ User deletes session
 
 ---
 
+## Save / BeaconSave — Must Both Save by `id`
+
+The current code has two save paths:
+
+1. **`saveCanvas`** — standard async save via Supabase JS client, currently upserts on `client_id+user_id`
+2. **`beaconSave`** — fires on tab close, constructs a raw REST URL with `?on_conflict=client_id,user_id`
+
+After the migration drops the `UNIQUE(client_id, user_id)` constraint, both paths **must** switch to saving by session `id`. A new `activeSessionIdRef` must be added to hold the current session's UUID and used by both save paths. The upsert conflict target becomes `id`.
+
+## Session Switch Guard
+
+Switching sessions while the auto-save debounce timer is running risks overwriting the newly-loaded session's content with stale data from the previous session. Before switching:
+
+1. Set a boolean ref `isSwitchingSessionRef = true`
+2. Cancel any pending auto-save timer
+3. Set previous active session `is_active = false` (UPDATE first)
+4. Insert or activate new session
+5. Load new session's nodes/edges into React state
+6. Set `isSwitchingSessionRef = false`
+
+Both `saveCanvas` and the auto-save interval must bail out early if `isSwitchingSessionRef.current === true`.
+
+## "New chat" Write Order
+
+The partial unique index `canvas_states_one_active` enforces `UNIQUE(client_id, user_id) WHERE is_active = true`. Inserting a new `is_active=true` row before deactivating the old one violates this constraint. The correct order is:
+
+1. **UPDATE** existing active row: `SET is_active = false` (deactivate first)
+2. **INSERT** new row with `is_active = true` (then insert)
+
 ## What Is Not Changed
 
 - AI chat message format inside nodes — unchanged
 - Node types, canvas toolbar controls — unchanged
-- Auto-save logic (still saves every 800ms on change + 30s interval) — unchanged, now saves to the active session's row by `id` instead of by `client_id+user_id`
-- RLS policies — still user-owns-their-rows (no change needed since filtering by `user_id` covers all sessions)
+- RLS policies — still user-owns-their-rows; filtering by `user_id` covers all sessions
+- Draft script logic — known gap: draft scripts are not per-session in this version; all sessions for a client share one draft. Tracked for a future iteration.
