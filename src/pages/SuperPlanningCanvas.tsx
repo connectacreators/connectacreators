@@ -204,6 +204,26 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     if (data) setSessions(data as SessionItem[]);
   }, [selectedClient.id]);
 
+  /** Re-attach callbacks to content nodes */
+  const attachCallbacks = useCallback((nodeList: Node[]): Node[] => {
+    return nodeList.map(n => {
+      if (n.id === AI_NODE_ID) return n; // AI node gets callbacks separately
+      const nodeId = n.id;
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          authToken,
+          clientId: selectedClient.id,
+          onUpdate: (updates: any) =>
+            setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
+          onDelete: () =>
+            setNodes(ns => ns.filter(nd => nd.id !== nodeId)),
+        },
+      };
+    });
+  }, [authToken, selectedClient.id, setNodes]);
+
   /** Create a brand new blank session, deactivate the current one */
   const newChat = useCallback(async () => {
     if (!userIdRef.current) return;
@@ -353,25 +373,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   }, [selectedClient.id, directSave]);
 
   /** Re-attach callbacks to content nodes */
-  const attachCallbacks = useCallback((nodeList: Node[]): Node[] => {
-    return nodeList.map(n => {
-      if (n.id === AI_NODE_ID) return n; // AI node gets callbacks separately
-      const nodeId = n.id;
-      return {
-        ...n,
-        data: {
-          ...n.data,
-          authToken,
-          clientId: selectedClient.id,
-          onUpdate: (updates: any) =>
-            setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
-          onDelete: () =>
-            setNodes(ns => ns.filter(nd => nd.id !== nodeId)),
-        },
-      };
-    });
-  }, [authToken, selectedClient.id, setNodes]);
-
   // ─── Load saved canvas state on mount (waits for auth) ───
   useEffect(() => {
     if (!authToken) return; // wait for auth to load
