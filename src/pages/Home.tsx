@@ -4,7 +4,6 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
 import { t, tr } from "@/i18n/translations";
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { FileText, Target, CalendarDays, UserPlus, Users, Sparkles, Send, Briefcase, Film } from "lucide-react";
 
@@ -93,8 +92,7 @@ export default function Home() {
           />
           <div className="flex items-center gap-3">
             <LanguageToggle />
-            <ThemeToggle />
-            <Link to="/dashboard">
+            <Link to="/signup">
               <button className="btn-17 btn-17-secondary px-5 py-1.5 text-sm font-medium">
                 {tr(t.home.cta, language)}
               </button>
@@ -150,7 +148,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.4 }}
           >
-            <Link to="/dashboard">
+            <Link to="/signup">
               <button className="btn-17 btn-17-hero px-8 py-3 text-sm font-semibold tracking-wide">
                 {tr(t.home.cta, language)}
               </button>
@@ -279,7 +277,7 @@ export default function Home() {
             custom={2}
             variants={fadeUp}
           >
-            <Link to="/dashboard">
+            <Link to="/signup">
               <button className="btn-17 btn-17-hero px-8 py-3 text-sm font-semibold tracking-wide">
                 {tr(t.home.cta, language)}
               </button>

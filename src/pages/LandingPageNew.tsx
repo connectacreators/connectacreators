@@ -747,7 +747,7 @@ export default function LandingPageNew() {
             </motion.div>
             <div className="hidden md:flex items-center gap-6">
               <Link
-                to="/dashboard"
+                to="/signup"
                 className="btn-primary-glass px-6 py-2.5 rounded-lg font-semibold text-sm transition duration-200 hover:scale-105 active:scale-95"
               >
                 Try Connecta
@@ -764,7 +764,7 @@ export default function LandingPageNew() {
               className="md:hidden px-6 py-4 border-t"
               style={{ backgroundColor: "rgba(6,9,12,0.95)", borderColor: "rgba(8,145,178,0.2)", backdropFilter: "blur(24px)" }}
             >
-              <Link to="/dashboard" className="btn-primary-glass block px-6 py-2.5 rounded-lg font-semibold text-sm w-fit">
+              <Link to="/signup" className="btn-primary-glass block px-6 py-2.5 rounded-lg font-semibold text-sm w-fit">
                 Try Connecta
               </Link>
             </motion.div>
