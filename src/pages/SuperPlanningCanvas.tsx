@@ -138,6 +138,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const clientIdRef = useRef(selectedClient.id);
   const draftIdRef = useRef<string | null>(null);
   const remixInjectedRef = useRef(false);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const isSwitchingSessionRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -343,21 +345,25 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
   /** Core save function — deduplicates via JSON snapshot comparison */
   const saveCanvas = useCallback(async (force = false) => {
-    if (!userIdRef.current || nodesRef.current.length === 0) return;
+    if (isSwitchingSessionRef.current) return;          // session switch in progress
+    if (!userIdRef.current) return;
+    if (!activeSessionIdRef.current) return;             // not yet loaded
+    if (nodesRef.current.length === 0) return;
     const serializedNodes = serializeNodes(nodesRef.current);
     const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
-    if (!force && snapshot === lastSavedJsonRef.current) return; // no changes
+    if (!force && snapshot === lastSavedJsonRef.current) return;
     pendingSaveRef.current = true;
     setSaveStatus("saving");
     try {
       await supabase.from("canvas_states").upsert({
+        id: activeSessionIdRef.current,
         client_id: clientIdRef.current,
         user_id: userIdRef.current,
         nodes: serializedNodes,
         edges: edgesRef.current,
         draw_paths: drawPathsRef.current,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "client_id,user_id" });
+      }, { onConflict: "id" });
       lastSavedJsonRef.current = snapshot;
       pendingSaveRef.current = false;
       isDirtyRef.current = false;
@@ -368,15 +374,17 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }
   }, []);
 
-  /** Sync save using sendBeacon for tab close — last resort, no await */
+  /** Sync save using fetch keepalive for tab close — last resort, no await */
   const beaconSave = useCallback(() => {
-    if (!userIdRef.current || nodesRef.current.length === 0) return;
+    if (isSwitchingSessionRef.current) return;
+    if (!userIdRef.current || !activeSessionIdRef.current) return;
+    if (nodesRef.current.length === 0) return;
     const serializedNodes = serializeNodes(nodesRef.current);
     const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
     if (snapshot === lastSavedJsonRef.current) return;
-    // Use sendBeacon with Supabase REST API directly for reliability on tab close
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/canvas_states?on_conflict=client_id,user_id`;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/canvas_states?on_conflict=id`;
     const body = JSON.stringify({
+      id: activeSessionIdRef.current,
       client_id: clientIdRef.current,
       user_id: userIdRef.current,
       nodes: serializedNodes,
@@ -384,14 +392,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       draw_paths: drawPathsRef.current,
       updated_at: new Date().toISOString(),
     });
-    const blob = new Blob([body], { type: "application/json" });
     const headers = {
       apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       "Content-Type": "application/json",
       Prefer: "resolution=merge-duplicates",
     };
-    // sendBeacon doesn't support custom headers — use fetch with keepalive instead
     try {
       fetch(url, { method: "POST", headers, body, keepalive: true });
     } catch {
