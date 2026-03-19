@@ -58,7 +58,6 @@ interface RemixVideo {
 
 interface Props {
   selectedClient: Client;
-  onSaved: (scriptId: string) => void;
   onCancel: () => void;
   remixVideo?: RemixVideo;
 }
@@ -110,7 +109,7 @@ interface DrawPath {
   width: number;
 }
 
-function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
+function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -129,6 +128,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   const [drawColor, setDrawColor] = useState("#22d3ee");
   const [drawWidth, setDrawWidth] = useState(3);
   const drawPathsRef = useRef<DrawPath[]>([]);
+  const canvasContextRef = useRef<any>(null);
   const { directSave } = useScripts();
   const { theme } = useTheme();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -191,6 +191,8 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
 
   const handleSaveScript = useCallback(async (generatedScript: any) => {
     try {
+      // Use the first connected video node's URL as the inspiration source
+      const inspirationUrl = canvasContextRef.current?.video_sources?.[0]?.url || undefined;
       const saved = await directSave({
         clientId: selectedClient.id,
         existingScriptId: draftIdRef.current || undefined,
@@ -204,18 +206,20 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
         target: generatedScript.target,
         formato: generatedScript.formato,
         viralityScore: generatedScript.virality_score,
+        inspirationUrl,
       });
       if (saved) {
-        toast.success("Script saved!");
-        draftIdRef.current = null;
-        setDraftScriptId(null);
-        onSaved(saved.scriptId);
+        toast.success("Script saved! Find it in the Scripts list.", { duration: 5000 });
+        // Update draft ref to the newly-saved script ID so next edits update the same record
+        draftIdRef.current = saved.scriptId;
+        setDraftScriptId(saved.scriptId);
+        // Do NOT call onSaved — canvas stays open, no navigation
       }
     } catch (e: any) {
       toast.error(e.message || "Failed to save script");
       throw e;
     }
-  }, [selectedClient.id, directSave, onSaved]);
+  }, [selectedClient.id, directSave]);
 
   /** Re-attach callbacks to content nodes */
   const attachCallbacks = useCallback((nodeList: Node[]): Node[] => {
@@ -335,6 +339,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const pendingSaveRef = useRef(false);
   const lastSavedJsonRef = useRef<string>("");
+  const isDirtyRef = useRef(false);
 
   /** Core save function — deduplicates via JSON snapshot comparison */
   const saveCanvas = useCallback(async (force = false) => {
@@ -355,6 +360,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
       }, { onConflict: "client_id,user_id" });
       lastSavedJsonRef.current = snapshot;
       pendingSaveRef.current = false;
+      isDirtyRef.current = false;
       setSaveStatus("saved");
     } catch (e) {
       console.error("[Canvas] Save failed:", e);
@@ -393,6 +399,16 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     }
   }, []);
 
+  // ─── Mark dirty when canvas state changes ───
+  useEffect(() => {
+    if (!loaded) return;
+    const serializedNodes = serializeNodes(nodesRef.current);
+    const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
+    if (snapshot !== lastSavedJsonRef.current) {
+      isDirtyRef.current = true;
+    }
+  }, [nodes, edges, drawPaths, loaded]);
+
   // ─── Auto-save (debounced 800ms — fast enough to not lose work) ───
   useEffect(() => {
     if (!loaded || !userIdRef.current) return;
@@ -405,12 +421,21 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     };
   }, [nodes, edges, drawPaths, loaded, selectedClient.id, saveCanvas]);
 
+  // ─── Periodic auto-save every 30 seconds as safety net ───
+  useEffect(() => {
+    if (!loaded || !userIdRef.current) return;
+    const interval = setInterval(() => {
+      if (isDirtyRef.current) saveCanvas();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [loaded, saveCanvas]);
+
   // ─── Save on tab close / navigate away ───
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       beaconSave();
-      // Only show prompt if there are unsaved changes
-      if (pendingSaveRef.current) {
+      // Show browser "Leave page?" prompt when there are unsaved changes
+      if (isDirtyRef.current) {
         e.preventDefault();
       }
     };
@@ -455,8 +480,8 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
     );
 
     // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
-    // Include nodes with videoAnalysis even if transcription is empty (B-roll videos)
-    const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription || !!(n.data as any).videoAnalysis);
+    // Include nodes with transcription, videoAnalysis, OR structure (structure-only = visual breakdown exists)
+    const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription || !!(n.data as any).videoAnalysis || !!(n.data as any).structure);
 
     // Build a node inventory so the AI always knows what's connected even before data loads
     const nodeInventory = [
@@ -479,7 +504,15 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
 
     return {
       connected_nodes: nodeInventory,
-      transcriptions: videoNodesWithTranscript.map(n => (n.data as any).transcription || ""),
+      transcriptions: videoNodesWithTranscript.map(n => {
+        const d = n.data as any;
+        if (d.transcription) return d.transcription;
+        // Fallback: reconstruct transcript-like text from structure sections
+        if (d.structure?.sections?.length) {
+          return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n");
+        }
+        return "";
+      }),
       structures: videoNodesWithTranscript.map(n => {
         const d = n.data as any;
         if (!d.structure) return null;
@@ -526,6 +559,7 @@ function CanvasInner({ selectedClient, onSaved, onCancel, remixVideo }: Props) {
 
   // Sync canvasContext + token + format + language to AI node
   useEffect(() => {
+    canvasContextRef.current = canvasContext;
     setNodes(ns => ns.map(n =>
       n.id === AI_NODE_ID
         ? {

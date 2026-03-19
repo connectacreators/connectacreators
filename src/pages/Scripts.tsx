@@ -13,7 +13,6 @@ import Teleprompter from "@/components/Teleprompter";
 import AIScriptWizard from "@/components/AIScriptWizard";
 import SuperPlanningCanvas from "@/pages/SuperPlanningCanvas";
 import VideoRecorder from "@/components/VideoRecorder";
-import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -35,6 +34,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
 import ScriptDocEditor from "@/components/ScriptDocEditor";
+import { checkResourceLimit } from "@/utils/planLimits";
 
 // Mic button using Web Speech API
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
@@ -789,6 +789,18 @@ export default function Scripts() {
       return;
     }
 
+    // Check plan limit before saving
+    const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
+    if (!limitCheck.allowed) {
+      toast.error(
+        tr({
+          en: `You've reached your script limit (${limitCheck.limit} scripts). Upgrade your plan for more.`,
+          es: `Has alcanzado tu límite de scripts (${limitCheck.limit} scripts). Mejora tu plan para más.`,
+        }, language)
+      );
+      return;
+    }
+
     const result = await directSave({
       clientId: selectedClient.id,
       lines: scriptLines,
@@ -916,32 +928,6 @@ export default function Scripts() {
           <SuperPlanningCanvas
             selectedClient={selectedClient}
             remixVideo={remixVideo ?? undefined}
-            onSaved={async (scriptId) => {
-              setRemixVideo(null);
-              // Load full script + lines so view-script renders properly
-              const [lines, { data: script }] = await Promise.all([
-                getScriptLines(scriptId),
-                supabase.from("scripts").select("*").eq("id", scriptId).single(),
-              ]);
-              setParsedLines(lines || []);
-              setScriptEditorTab("cards");
-              if (script) {
-                setViewingInspirationUrl(script.inspiration_url ?? null);
-                setViewingCaption(script.caption ?? "");
-                setViewingMetadata({
-                  idea_ganadora: script.idea_ganadora,
-                  target: script.target,
-                  formato: script.formato,
-                  google_drive_link: script.google_drive_link,
-                });
-                try {
-                  const { data: videoData } = await supabase.from("video_edits").select("file_submission").eq("script_id", scriptId).maybeSingle();
-                  setFileSubmission(videoData?.file_submission || null);
-                } catch { setFileSubmission(null); }
-              }
-              setViewingScriptId(scriptId);
-              setView("view-script");
-            }}
             onCancel={() => {
               setRemixVideo(null);       // clear remix state
               setView("client-detail");  // MUST NOT be "new-script" — that re-triggers remix loop
@@ -962,7 +948,6 @@ export default function Scripts() {
               {isVideographer && <span className="text-emerald-400 font-bold">(Videographer)</span>}
             </span>
             <LanguageToggle />
-            <ThemeToggle />
             <Link to="/settings">
               <Button variant="ghost" size="sm" className="flex-shrink-0">
                 <Settings className="w-3.5 h-3.5" />
@@ -1763,6 +1748,17 @@ export default function Scripts() {
                 selectedClient={selectedClient}
                 initialTemplateVideo={remixVideo ?? undefined}
                 onComplete={async (result, inspirationUrl) => {
+                  // Check plan limit before saving AI-generated script
+                  const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
+                  if (!limitCheck.allowed) {
+                    toast.error(
+                      tr({
+                        en: `You've reached your script limit (${limitCheck.limit} scripts). Upgrade your plan for more.`,
+                        es: `Has alcanzado tu límite de scripts (${limitCheck.limit} scripts). Mejora tu plan para más.`,
+                      }, language)
+                    );
+                    return;
+                  }
                   const saved = await directSave({
                     clientId: selectedClient.id,
                     lines: result.lines,
