@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { Folder, FolderOpen } from "lucide-react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -146,6 +147,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [currentPath, setCurrentPath] = useState<[number, number][] | null>(null);
   const [drawColor, setDrawColor] = useState("#22d3ee");
   const [drawWidth, setDrawWidth] = useState(3);
+  // ─── Context menu for group/ungroup ───
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "selection" | "group"; groupId?: string } | null>(null);
   const drawPathsRef = useRef<DrawPath[]>([]);
   const canvasContextRef = useRef<any>(null);
   const { directSave } = useScripts();
@@ -1030,6 +1033,120 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     });
   }, [getInternalNode, getIntersectingNodes, setNodes]);
 
+  // ─── Context menu handlers for group/ungroup ───
+  const handleSelectionContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    const selectedNodes = nodesRef.current.filter(n => n.selected && n.type !== "groupNode" && n.id !== AI_NODE_ID);
+    if (selectedNodes.length < 2) return;
+    setContextMenu({ x: event.clientX, y: event.clientY, type: "selection" });
+  }, []);
+
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    if (node.type !== "groupNode") return;
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, type: "group", groupId: node.id });
+  }, []);
+
+  const handleGroupSelected = useCallback(() => {
+    setContextMenu(null);
+    const selectedNodes = nodesRef.current.filter(n => n.selected && n.type !== "groupNode" && n.id !== AI_NODE_ID);
+    if (selectedNodes.length < 2) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of selectedNodes) {
+      const internal = getInternalNode(n.id);
+      const absPos = internal?.internals?.positionAbsolute ?? n.position;
+      const w = n.measured?.width ?? (n as any).width ?? 200;
+      const h = n.measured?.height ?? (n as any).height ?? 150;
+      minX = Math.min(minX, absPos.x);
+      minY = Math.min(minY, absPos.y);
+      maxX = Math.max(maxX, absPos.x + w);
+      maxY = Math.max(maxY, absPos.y + h);
+    }
+
+    const padding = 40;
+    const groupX = minX - padding;
+    const groupY = minY - padding;
+    const groupW = maxX - minX + padding * 2;
+    const groupH = maxY - minY + padding * 2;
+    const groupId = `groupNode_${Date.now()}`;
+
+    setNodes(ns => {
+      const groupNode: Node = {
+        id: groupId,
+        type: "groupNode",
+        position: { x: groupX, y: groupY },
+        width: groupW,
+        height: groupH,
+        style: { width: groupW, height: groupH },
+        data: {
+          label: "New Group",
+          childCount: selectedNodes.length,
+          onUpdate: (updates: any) =>
+            setNodes(nns => nns.map(nd => nd.id === groupId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
+          onDelete: () => {
+            setNodes(nns => {
+              const gPos = nns.find(nd => nd.id === groupId)?.position ?? { x: 0, y: 0 };
+              const childCount = nns.filter(nd => nd.parentId === groupId).length;
+              if (childCount > 0 && !window.confirm(`This group has ${childCount} node(s). Delete the group? (Nodes will be released)`)) return nns;
+              const updated = nns.map(nd => {
+                if (nd.parentId === groupId) {
+                  return { ...nd, parentId: undefined, expandParent: undefined, position: { x: nd.position.x + gPos.x, y: nd.position.y + gPos.y } };
+                }
+                return nd;
+              });
+              return updated.filter(nd => nd.id !== groupId);
+            });
+          },
+        },
+      };
+
+      const selectedIds = new Set(selectedNodes.map(n => n.id));
+      const updated = ns.map(n => {
+        if (selectedIds.has(n.id)) {
+          const internal = getInternalNode(n.id);
+          const absPos = internal?.internals?.positionAbsolute ?? n.position;
+          return {
+            ...n,
+            parentId: groupId,
+            expandParent: true,
+            position: { x: absPos.x - groupX, y: absPos.y - groupY },
+          };
+        }
+        return n;
+      });
+
+      return ensureParentOrder([groupNode, ...updated]);
+    });
+  }, [getInternalNode, setNodes]);
+
+  const handleUngroup = useCallback(() => {
+    const groupId = contextMenu?.groupId;
+    setContextMenu(null);
+    if (!groupId) return;
+
+    setNodes(ns => {
+      const groupNode = ns.find(n => n.id === groupId);
+      const groupPos = groupNode?.position ?? { x: 0, y: 0 };
+      const updated = ns.map(n => {
+        if (n.parentId === groupId) {
+          return { ...n, parentId: undefined, expandParent: undefined, position: { x: n.position.x + groupPos.x, y: n.position.y + groupPos.y } };
+        }
+        return n;
+      });
+      return updated.filter(n => n.id !== groupId);
+    });
+  }, [contextMenu, setNodes]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = () => setContextMenu(null);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setContextMenu(null); };
+    window.addEventListener("click", handleClick);
+    window.addEventListener("keydown", handleKey);
+    return () => { window.removeEventListener("click", handleClick); window.removeEventListener("keydown", handleKey); };
+  }, [contextMenu]);
+
   // ─── Paste URL → auto-create VideoNode ───
   useEffect(() => {
     const isVideoUrl = (text: string): boolean => {
@@ -1193,6 +1310,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           nodeTypes={nodeTypes}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
+          onSelectionContextMenu={handleSelectionContextMenu}
+          onNodeContextMenu={handleNodeContextMenu}
           colorMode={theme === "light" ? "light" : "dark"}
           defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 } }}
           fitView={false}
@@ -1261,6 +1380,39 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       </div>
 
       <CanvasTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+
+        {/* Context menu for Group/Ungroup */}
+        {contextMenu && (
+          <div
+            className="fixed z-50 min-w-[160px] rounded-xl bg-card/95 backdrop-blur-md border border-border shadow-xl py-1"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={e => e.stopPropagation()}
+          >
+            {contextMenu.type === "selection" && (
+              <>
+                <div className="px-3 py-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
+                  {nodesRef.current.filter(n => n.selected && n.type !== "groupNode" && n.id !== AI_NODE_ID).length} nodes selected
+                </div>
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-purple-500/15 transition-colors"
+                  onClick={handleGroupSelected}
+                >
+                  <Folder className="w-4 h-4 text-purple-400" />
+                  Group Selected
+                </button>
+              </>
+            )}
+            {contextMenu.type === "group" && (
+              <button
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-orange-500/15 transition-colors"
+                onClick={handleUngroup}
+              >
+                <FolderOpen className="w-4 h-4 text-orange-400" />
+                Ungroup
+              </button>
+            )}
+          </div>
+        )}
     </div>
   );
 }
