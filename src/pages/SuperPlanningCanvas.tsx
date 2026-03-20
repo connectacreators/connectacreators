@@ -34,6 +34,7 @@ import CanvasTutorial from "@/components/canvas/CanvasTutorial";
 import { type SessionItem } from "@/components/canvas/CanvasToolbar";
 import { useScripts } from "@/hooks/useScripts";
 import { useTheme } from "@/hooks/useTheme";
+import { canvasMediaService } from "@/services/canvasMediaService";
 
 const AI_NODE_ID = "ai-assistant";
 
@@ -271,6 +272,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         extra.sessionId = activeSessionIdRef.current;
         extra.nodeId = nodeId;
       }
+      // MediaNode needs cleanup: delete storage file + canvas_media row on remove
+      const onDeleteCb = n.type === "mediaNode"
+        ? () => {
+            const nd = nodesRef.current.find(x => x.id === nodeId);
+            const mediaId = (nd?.data as any)?.mediaId;
+            const storagePath = (nd?.data as any)?.storagePath;
+            if (mediaId && storagePath) {
+              canvasMediaService.deleteMedia(mediaId, storagePath).catch(() => {});
+            }
+            setNodes(ns => ns.filter(x => x.id !== nodeId));
+          }
+        : () => setNodes(ns => ns.filter(x => x.id !== nodeId));
       return {
         ...n,
         data: {
@@ -280,8 +293,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           ...extra,
           onUpdate: (updates: any) =>
             setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
-          onDelete: () =>
-            setNodes(ns => ns.filter(nd => nd.id !== nodeId)),
+          onDelete: onDeleteCb,
         },
       };
     });
@@ -922,8 +934,17 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             sessionId: activeSessionIdRef.current,
             onUpdate: (updates: any) =>
               setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
-            onDelete: () =>
-              setNodes(ns => ns.filter(n => n.id !== nodeId)),
+            onDelete: type === "mediaNode"
+              ? () => {
+                  const nd = nodesRef.current.find(x => x.id === nodeId);
+                  const mediaId = (nd?.data as any)?.mediaId;
+                  const storagePath = (nd?.data as any)?.storagePath;
+                  if (mediaId && storagePath) {
+                    canvasMediaService.deleteMedia(mediaId, storagePath).catch(() => {});
+                  }
+                  setNodes(ns => ns.filter(x => x.id !== nodeId));
+                }
+              : () => setNodes(ns => ns.filter(n => n.id !== nodeId)),
           },
     };
     // Groups go to the front of the array for parent-before-child ordering
