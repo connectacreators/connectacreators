@@ -55,7 +55,7 @@ function barColor(pct: number, base: string) {
 
 export default function Subscription() {
   const { user, loading: authLoading, isAdmin } = useAuth();
-  const { credits, loading, percentUsed, scrapePercentUsed, refetch } = useCredits();
+  const { credits, loading, percentUsed, scrapePercentUsed } = useCredits();
   const { language } = useLanguage();
   const en = language === "en";
 
@@ -308,8 +308,8 @@ export default function Subscription() {
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 space-y-4">
           <p className="text-sm text-muted-foreground">{en ? "Monthly credits left" : "Créditos mensuales restantes"}</p>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-extrabold tabular-nums">{credits.credits_balance}</span>
-            <span className="text-lg text-muted-foreground">/ {credits.credits_monthly_cap}</span>
+            <span className="text-3xl font-extrabold tabular-nums">{credits.credits_balance.toLocaleString()}</span>
+            <span className="text-lg text-muted-foreground">/ {credits.credits_monthly_cap.toLocaleString()}</span>
           </div>
 
           {/* progress bar */}
