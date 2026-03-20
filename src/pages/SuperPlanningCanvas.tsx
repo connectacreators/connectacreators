@@ -726,6 +726,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     // Include nodes with transcription, videoAnalysis, OR structure (structure-only = visual breakdown exists)
     const videoNodesWithTranscript = videoNodes.filter(n => !!(n.data as any).transcription || !!(n.data as any).videoAnalysis || !!(n.data as any).structure);
 
+    // Helper to get group label for a node
+    const groupSuffix = (nodeId: string) => {
+      const node = nodes.find(nd => nd.id === nodeId);
+      if (!node?.parentId) return "";
+      const group = nodes.find(nd => nd.id === node.parentId);
+      const label = (group?.data as any)?.label;
+      return label ? ` [in group: "${label}"]` : "";
+    };
+
     // Build a node inventory so the AI always knows what's connected even before data loads
     const nodeInventory = [
       ...videoNodes.map(n => {
@@ -734,18 +743,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         const hasAnalysis = !!d.videoAnalysis;
         const username = d.channel_username ? `@${d.channel_username}` : null;
         const label = username || (d.url ? "video" : "video node");
-        if (hasTranscript || hasAnalysis) return `VideoNode(${label}, transcription=${hasTranscript}, visual_analysis=${hasAnalysis})`;
-        return `VideoNode(${label}, status=loading_or_empty)`;
+        if (hasTranscript || hasAnalysis) return `VideoNode(${label}, transcription=${hasTranscript}, visual_analysis=${hasAnalysis})${groupSuffix(n.id)}`;
+        return `VideoNode(${label}, status=loading_or_empty)${groupSuffix(n.id)}`;
       }),
-      ...textNoteNodes.map(n => `TextNote(${(n.data as any).noteText ? "has_content" : "empty"})`),
-      ...researchNodes.map(n => `ResearchNode(topic="${(n.data as any).topic || "none"}", facts=${((n.data as any).facts || []).length})`),
-      ...hookNodes.map(() => "HookGeneratorNode"),
-      ...brandNodes.map(() => "BrandGuideNode"),
-      ...ctaNodes.map(() => "CTABuilderNode"),
-      ...instagramProfileNodes.map(n => `CompetitorNode(@${(n.data as any).username || "unknown"}, posts=${((n.data as any).posts || []).length})`),
+      ...textNoteNodes.map(n => `TextNote(${(n.data as any).noteText ? "has_content" : "empty"})${groupSuffix(n.id)}`),
+      ...researchNodes.map(n => `ResearchNode(topic="${(n.data as any).topic || "none"}", facts=${((n.data as any).facts || []).length})${groupSuffix(n.id)}`),
+      ...hookNodes.map(n => `HookGeneratorNode${groupSuffix(n.id)}`),
+      ...brandNodes.map(n => `BrandGuideNode${groupSuffix(n.id)}`),
+      ...ctaNodes.map(n => `CTABuilderNode${groupSuffix(n.id)}`),
+      ...instagramProfileNodes.map(n => `CompetitorNode(@${(n.data as any).username || "unknown"}, posts=${((n.data as any).posts || []).length})${groupSuffix(n.id)}`),
       ...mediaNodes.map(n => {
         const d = n.data as any;
-        return `MediaNode(${d.fileName || "unnamed"}, type=${d.fileType}, transcription=${d.transcriptionStatus === "done" ? "yes" : "no"})`;
+        return `MediaNode(${d.fileName || "unnamed"}, type=${d.fileType}, transcription=${d.transcriptionStatus === "done" ? "yes" : "no"})${groupSuffix(n.id)}`;
       }),
     ];
 
