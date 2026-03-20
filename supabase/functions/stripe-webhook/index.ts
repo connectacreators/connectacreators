@@ -22,9 +22,9 @@ const PLAN_CONFIG: Record<string, {
   facebook_integration_enabled: boolean;
 }> = {
   free:       { credits_monthly_cap: 250,   channel_scrapes_limit: 1,  script_limit: 10,   lead_tracker_enabled: true, facebook_integration_enabled: true },
-  starter:    { credits_monthly_cap: 10000, channel_scrapes_limit: 5,  script_limit: 75,   lead_tracker_enabled: true, facebook_integration_enabled: true },
-  growth:     { credits_monthly_cap: 30000, channel_scrapes_limit: 10, script_limit: 200,  lead_tracker_enabled: true, facebook_integration_enabled: true },
-  enterprise: { credits_monthly_cap: 75000, channel_scrapes_limit: 15, script_limit: 500,  lead_tracker_enabled: true, facebook_integration_enabled: true },
+  starter:    { credits_monthly_cap: 10000, channel_scrapes_limit: 8,  script_limit: 75,   lead_tracker_enabled: true, facebook_integration_enabled: true },
+  growth:     { credits_monthly_cap: 30000, channel_scrapes_limit: 15, script_limit: 200,  lead_tracker_enabled: true, facebook_integration_enabled: true },
+  enterprise: { credits_monthly_cap: 75000, channel_scrapes_limit: 25, script_limit: 500,  lead_tracker_enabled: true, facebook_integration_enabled: true },
 };
 
 const PRODUCT_PLAN_MAP: Record<string, string> = {
