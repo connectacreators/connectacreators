@@ -25,10 +25,12 @@ import HookGeneratorNode from "@/components/canvas/HookGeneratorNode";
 import BrandGuideNode from "@/components/canvas/BrandGuideNode";
 import CTABuilderNode from "@/components/canvas/CTABuilderNode";
 import InstagramProfileNode from "@/components/canvas/InstagramProfileNode";
+import MediaNode from "@/components/canvas/MediaNode";
+import GroupNode from "@/components/canvas/GroupNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
-import SessionSidebar, { type SessionItem } from "@/components/canvas/SessionSidebar";
+import { type SessionItem } from "@/components/canvas/CanvasToolbar";
 import { useScripts } from "@/hooks/useScripts";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -72,6 +74,8 @@ const nodeTypes = {
   brandGuideNode: BrandGuideNode,
   ctaBuilderNode: CTABuilderNode,
   instagramProfileNode: InstagramProfileNode,
+  mediaNode: MediaNode,
+  groupNode: GroupNode,
 };
 
 function getInitialPosition(existingCount: number) {
@@ -87,10 +91,19 @@ function serializeNodes(nodes: Node[]): any[] {
     width: n.width,
     height: n.height,
     deletable: n.deletable,
+    parentId: n.parentId,
+    expandParent: n.expandParent,
     data: Object.fromEntries(
       Object.entries(n.data || {}).filter(([k]) => !CALLBACK_KEYS.includes(k))
     ),
   }));
+}
+
+/** Reorder nodes so parent group nodes always precede their children (ReactFlow requirement) */
+function ensureParentOrder(nodes: Node[]): Node[] {
+  const groups = nodes.filter(n => n.type === "groupNode");
+  const others = nodes.filter(n => n.type !== "groupNode");
+  return [...groups, ...others];
 }
 
 /** Wrapper that provides ReactFlowProvider context */
@@ -123,9 +136,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [draftScriptId, setDraftScriptId] = useState<string | null>(null);
 
   const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   // activeSessionId React state mirrors activeSessionIdRef so the sidebar re-renders on switch
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sessionStorageUsed, setSessionStorageUsed] = useState(0);
 
   // ─── Drawing state ───
   const [drawingMode, setDrawingMode] = useState(false);
@@ -204,17 +217,64 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     if (data) setSessions(data as SessionItem[]);
   }, [selectedClient.id]);
 
+  /** Refresh session storage usage (bytes used in canvas_media for active session) */
+  const refreshStorageUsage = useCallback(async () => {
+    const sid = activeSessionIdRef.current;
+    if (!sid) return;
+    const { data } = await supabase
+      .from("canvas_media")
+      .select("file_size_bytes")
+      .eq("session_id", sid);
+    const used = (data || []).reduce((sum: number, r: any) => sum + (r.file_size_bytes || 0), 0);
+    setSessionStorageUsed(used);
+  }, []);
+
   /** Re-attach callbacks to content nodes */
   const attachCallbacks = useCallback((nodeList: Node[]): Node[] => {
     return nodeList.map(n => {
-      if (n.id === AI_NODE_ID) return n; // AI node gets callbacks separately
+      if (n.id === AI_NODE_ID) return n;
       const nodeId = n.id;
+
+      // ── GroupNode: completely custom callbacks (no authToken/clientId needed) ──
+      if (n.type === "groupNode") {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            childCount: nodeList.filter(nd => nd.parentId === nodeId).length,
+            onUpdate: (updates: any) =>
+              setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
+            onDelete: () => {
+              setNodes(ns => {
+                const groupPos = ns.find(nd => nd.id === nodeId)?.position ?? { x: 0, y: 0 };
+                const childCount = ns.filter(nd => nd.parentId === nodeId).length;
+                if (childCount > 0 && !window.confirm(`This group has ${childCount} node(s). Delete the group? (Nodes will be released)`)) return ns;
+                const updated = ns.map(nd => {
+                  if (nd.parentId === nodeId) {
+                    return { ...nd, parentId: undefined, expandParent: undefined, position: { x: nd.position.x + groupPos.x, y: nd.position.y + groupPos.y } };
+                  }
+                  return nd;
+                });
+                return updated.filter(nd => nd.id !== nodeId);
+              });
+            },
+          },
+        };
+      }
+
+      // ── All other nodes: standard callbacks ──
+      const extra: Record<string, any> = {};
+      if (n.type === "mediaNode") {
+        extra.sessionId = activeSessionIdRef.current;
+        extra.nodeId = nodeId;
+      }
       return {
         ...n,
         data: {
           ...n.data,
           authToken,
           clientId: selectedClient.id,
+          ...extra,
           onUpdate: (updates: any) =>
             setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
           onDelete: () =>
@@ -291,7 +351,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       setActiveSessionId(session.id);
 
       if (data) {
-        const restoredNodes = attachCallbacks((data.nodes as Node[]) || []);
+        const restoredNodes = ensureParentOrder(attachCallbacks((data.nodes as Node[]) || []));
         if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
         lastSavedJsonRef.current = "";
         setNodes(restoredNodes);
@@ -315,6 +375,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   /** Delete a session; if it was active, switch to the next most recent or create fresh. */
   const deleteSession = useCallback(async (id: string) => {
     const wasActive = id === activeSessionIdRef.current;
+
+    // Clean up storage files for this session's media before deleting the row
+    const { data: mediaFiles } = await supabase
+      .from("canvas_media")
+      .select("storage_path")
+      .eq("session_id", id);
+    if (mediaFiles?.length) {
+      const paths = mediaFiles.map(m => m.storage_path);
+      await supabase.storage.from("canvas-media").remove(paths);
+    }
+    // canvas_media rows auto-deleted via ON DELETE CASCADE
+
     await supabase.from("canvas_states").delete().eq("id", id);
 
     if (wasActive) {
@@ -401,7 +473,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           setActiveSessionId(active.id);
 
           if (Array.isArray(active.nodes) && active.nodes.length > 0) {
-            const restoredNodes = attachCallbacks(active.nodes as Node[]);
+            const restoredNodes = ensureParentOrder(attachCallbacks(active.nodes as Node[]));
             if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
             setNodes(restoredNodes);
             setEdges((active.edges as Edge[]) || []);
@@ -433,6 +505,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
         // Single source of truth for the sessions sidebar list
         await loadSessions();
+        refreshStorageUsage();
       } catch {
         setNodes([makeAiNode()]);
       }
@@ -480,6 +553,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       data: {
         canvasContext: { transcriptions: [], structures: [], text_notes: "", research_facts: [], primary_topic: "" },
         clientInfo: { name: selectedClient.name, target: selectedClient.target },
+        clientId: selectedClient.id,
+        nodeId: AI_NODE_ID,
         authToken,
         format,
         language,
@@ -600,10 +675,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       beaconSave();
-      // Show browser "Leave page?" prompt when there are unsaved changes
-      if (isDirtyRef.current) {
-        e.preventDefault();
-      }
+      // Always show browser "Leave page?" prompt — canvas always has active work
+      e.preventDefault();
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -644,6 +717,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       (n.data as any).status === "done" &&
       ((n.data as any).posts?.length ?? 0) > 0
     );
+    const mediaNodes = contextNodes.filter(n => n.type === "mediaNode" && !!(n.data as any).mediaId);
 
     // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
     // Include nodes with transcription, videoAnalysis, OR structure (structure-only = visual breakdown exists)
@@ -666,19 +740,28 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       ...brandNodes.map(() => "BrandGuideNode"),
       ...ctaNodes.map(() => "CTABuilderNode"),
       ...instagramProfileNodes.map(n => `CompetitorNode(@${(n.data as any).username || "unknown"}, posts=${((n.data as any).posts || []).length})`),
+      ...mediaNodes.map(n => {
+        const d = n.data as any;
+        return `MediaNode(${d.fileName || "unnamed"}, type=${d.fileType}, transcription=${d.transcriptionStatus === "done" ? "yes" : "no"})`;
+      }),
     ];
 
     return {
       connected_nodes: nodeInventory,
-      transcriptions: videoNodesWithTranscript.map(n => {
-        const d = n.data as any;
-        if (d.transcription) return d.transcription;
-        // Fallback: reconstruct transcript-like text from structure sections
-        if (d.structure?.sections?.length) {
-          return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n");
-        }
-        return "";
-      }),
+      transcriptions: [
+        ...videoNodesWithTranscript.map(n => {
+          const d = n.data as any;
+          if (d.transcription) return d.transcription;
+          if (d.structure?.sections?.length) {
+            return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n");
+          }
+          return "";
+        }),
+        // Include audio transcriptions from uploaded media nodes
+        ...mediaNodes
+          .filter(n => !!(n.data as any).audioTranscription)
+          .map(n => `[${(n.data as any).fileName}]: ${(n.data as any).audioTranscription}`),
+      ],
       structures: videoNodesWithTranscript.map(n => {
         const d = n.data as any;
         if (!d.structure) return null;
@@ -720,6 +803,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             return { username: d.username || "unknown", top_posts: posts, hook_patterns: hookPatterns, content_themes: contentThemes };
           })
         : null,
+      media_files: mediaNodes.length > 0
+        ? mediaNodes.map(n => {
+            const d = n.data as any;
+            return {
+              file_name: d.fileName || "unnamed",
+              file_type: d.fileType as "image" | "video" | "voice",
+              audio_transcription: d.audioTranscription || null,
+              visual_transcription: d.visualTranscription || null,
+              signed_url: d.fileType === "image" ? d.signedUrl : null,
+            };
+          })
+        : null,
     };
   }, [nodes, edges]);
 
@@ -732,6 +827,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             ...n,
             data: {
               ...n.data,
+              clientId: selectedClient.id,   // always override — old sessions may lack this
+              nodeId: AI_NODE_ID,             // always override — old sessions may lack this
+              clientInfo: { name: selectedClient.name, target: selectedClient.target },
               canvasContext,
               authToken,
               format,
@@ -762,7 +860,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "mediaNode" | "groupNode") => {
     const nodeId = `${type}_${Date.now()}`;
     const nonAiCount = nodes.filter(n => n.id !== AI_NODE_ID).length;
     const position = getInitialPosition(nonAiCount);
@@ -774,22 +872,54 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       : type === "brandGuideNode" ? 280
       : type === "ctaBuilderNode" ? 300
       : type === "instagramProfileNode" ? 480
+      : type === "mediaNode" ? 280
+      : type === "groupNode" ? 400
       : 288;
+    const isGroup = type === "groupNode";
     const newNode: Node = {
       id: nodeId,
       type,
       position,
       width: initialWidth,
-      data: {
-        authToken,
-        clientId: selectedClient.id,
-        onUpdate: (updates: any) =>
-          setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
-        onDelete: () =>
-          setNodes(ns => ns.filter(n => n.id !== nodeId)),
-      },
+      ...(isGroup ? { height: 300, style: { width: 400, height: 300 } } : {}),
+      data: isGroup
+        ? {
+            label: "New Group",
+            childCount: 0,
+            onUpdate: (updates: any) =>
+              setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+            onDelete: () => {
+              setNodes(ns => {
+                const groupPos = ns.find(nd => nd.id === nodeId)?.position ?? { x: 0, y: 0 };
+                const childCount = ns.filter(nd => nd.parentId === nodeId).length;
+                if (childCount > 0 && !window.confirm(`This group has ${childCount} node(s). Delete the group? (Nodes will be released)`)) return ns;
+                const updated = ns.map(nd => {
+                  if (nd.parentId === nodeId) {
+                    return { ...nd, parentId: undefined, expandParent: undefined, position: { x: nd.position.x + groupPos.x, y: nd.position.y + groupPos.y } };
+                  }
+                  return nd;
+                });
+                return updated.filter(nd => nd.id !== nodeId);
+              });
+            },
+          }
+        : {
+            authToken,
+            clientId: selectedClient.id,
+            nodeId,
+            sessionId: activeSessionIdRef.current,
+            onUpdate: (updates: any) =>
+              setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+            onDelete: () =>
+              setNodes(ns => ns.filter(n => n.id !== nodeId)),
+          },
     };
-    setNodes(prev => [...prev, newNode]);
+    // Groups go to the front of the array for parent-before-child ordering
+    if (isGroup) {
+      setNodes(prev => [newNode, ...prev]);
+    } else {
+      setNodes(prev => [...prev, newNode]);
+    }
   }, [nodes, authToken, selectedClient.id, setNodes]);
 
   const { zoomIn, zoomOut, screenToFlowPosition } = useReactFlow();
@@ -845,8 +975,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }
   }, [loaded]);
 
-  // ─── Await save before leaving (fixes fire-and-forget race) ───
+  // ─── Await save before leaving — always warn since canvas work is always active ───
   const handleBack = useCallback(async () => {
+    const ok = window.confirm("Leave the canvas? Your work is auto-saved but any unsaved AI chat messages will be saved now.");
+    if (!ok) return;
     await saveCanvas(true);
     onCancel();
   }, [onCancel, saveCanvas]);
@@ -893,19 +1025,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
-      {/* Session Sidebar */}
-      <SessionSidebar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed(c => !c)}
-        onNewChat={newChat}
-        onSwitch={switchSession}
-        onRename={renameSession}
-        onDelete={deleteSession}
-      />
-
-      {/* Canvas area */}
+      {/* Canvas area — full width, sessions in toolbar */}
       <div className="flex-1 relative min-w-0" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
         <CanvasToolbar
           onAddNode={addNode}
@@ -920,7 +1040,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           drawColor={drawColor}
           onDrawColorChange={setDrawColor}
           saveStatus={saveStatus}
-          sidebarOffset={sidebarCollapsed ? 0 : 220}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onNewSession={newChat}
+          onSwitchSession={switchSession}
+          onRenameSession={renameSession}
+          onDeleteSession={deleteSession}
+          sessionStorageUsed={sessionStorageUsed}
         />
 
         {showViralPicker && (
