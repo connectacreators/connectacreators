@@ -922,8 +922,113 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }
   }, [nodes, authToken, selectedClient.id, setNodes]);
 
-  const { zoomIn, zoomOut, screenToFlowPosition } = useReactFlow();
+  const { zoomIn, zoomOut, screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow();
   const viewport = useViewport();
+
+  // ─── Group drag-to-add/remove tracking ───
+  const dragOutThresholdRef = useRef<string | null>(null);
+
+  const handleNodeDrag = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
+    // Skip groups, AI node
+    if (draggedNode.type === "groupNode" || draggedNode.id === AI_NODE_ID) {
+      setNodes(ns => ns.map(n => n.type === "groupNode" && (n.data as any).isDropTarget ? { ...n, data: { ...n.data, isDropTarget: false } } : n));
+      return;
+    }
+
+    // Check if this child is being dragged out of its parent group
+    if (draggedNode.parentId) {
+      const parentNode = getInternalNode(draggedNode.parentId);
+      if (parentNode) {
+        const parentW = parentNode.measured?.width ?? (parentNode as any).width ?? 400;
+        const parentH = parentNode.measured?.height ?? (parentNode as any).height ?? 300;
+        const pos = draggedNode.position;
+        const threshold = 50;
+        const isOutside = pos.x < -threshold || pos.y < -threshold || pos.x > parentW + threshold || pos.y > parentH + threshold;
+        dragOutThresholdRef.current = isOutside ? draggedNode.id : null;
+      }
+    }
+
+    // Visual drop indicator for groups
+    const intersecting = getIntersectingNodes(draggedNode);
+    const targetGroup = intersecting
+      .filter(n => n.type === "groupNode" && n.id !== draggedNode.parentId)
+      .sort((a, b) => ((a.measured?.width ?? 400) * (a.measured?.height ?? 300)) - ((b.measured?.width ?? 400) * (b.measured?.height ?? 300)))[0];
+
+    setNodes(ns => ns.map(n => {
+      if (n.type !== "groupNode") return n;
+      const shouldHighlight = targetGroup?.id === n.id;
+      if ((n.data as any).isDropTarget !== shouldHighlight) {
+        return { ...n, data: { ...n.data, isDropTarget: shouldHighlight } };
+      }
+      return n;
+    }));
+  }, [getInternalNode, getIntersectingNodes, setNodes]);
+
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
+    // Clear all drop indicators
+    setNodes(ns => ns.map(n => n.type === "groupNode" && (n.data as any).isDropTarget ? { ...n, data: { ...n.data, isDropTarget: false } } : n));
+
+    // Skip groups, AI node
+    if (draggedNode.type === "groupNode" || draggedNode.id === AI_NODE_ID) return;
+
+    // ── CASE 1: Drag OUT of a group ──
+    if (draggedNode.parentId && dragOutThresholdRef.current === draggedNode.id) {
+      const nodeInternal = getInternalNode(draggedNode.id);
+      const absPos = nodeInternal?.internals?.positionAbsolute ?? draggedNode.position;
+      const oldParentId = draggedNode.parentId;
+
+      setNodes(ns => {
+        const updated = ns.map(n => {
+          if (n.id === draggedNode.id) {
+            return { ...n, parentId: undefined, expandParent: undefined, position: absPos };
+          }
+          if (n.id === oldParentId) {
+            const newCount = ns.filter(nd => nd.parentId === oldParentId && nd.id !== draggedNode.id).length;
+            return { ...n, data: { ...n.data, childCount: newCount } };
+          }
+          return n;
+        });
+        return updated;
+      });
+      dragOutThresholdRef.current = null;
+      return;
+    }
+    dragOutThresholdRef.current = null;
+
+    // ── CASE 2: Drag INTO a group ──
+    const intersecting = getIntersectingNodes(draggedNode);
+    const targetGroup = intersecting
+      .filter(n => n.type === "groupNode" && n.id !== draggedNode.parentId)
+      .sort((a, b) => ((a.measured?.width ?? 400) * (a.measured?.height ?? 300)) - ((b.measured?.width ?? 400) * (b.measured?.height ?? 300)))[0];
+
+    if (!targetGroup) return;
+
+    const groupInternal = getInternalNode(targetGroup.id);
+    const nodeInternal = getInternalNode(draggedNode.id);
+    if (!groupInternal || !nodeInternal) return;
+
+    const groupAbsPos = groupInternal.internals?.positionAbsolute ?? targetGroup.position;
+    const nodeAbsPos = nodeInternal.internals?.positionAbsolute ?? draggedNode.position;
+    const relativePos = { x: nodeAbsPos.x - groupAbsPos.x, y: nodeAbsPos.y - groupAbsPos.y };
+
+    setNodes(ns => {
+      const updated = ns.map(n => {
+        if (n.id === draggedNode.id) {
+          return { ...n, parentId: targetGroup.id, expandParent: true, position: relativePos };
+        }
+        if (n.id === targetGroup.id) {
+          const newCount = ns.filter(nd => nd.parentId === targetGroup.id).length + 1;
+          return { ...n, data: { ...n.data, childCount: newCount } };
+        }
+        if (draggedNode.parentId && n.id === draggedNode.parentId) {
+          const newCount = ns.filter(nd => nd.parentId === draggedNode.parentId && nd.id !== draggedNode.id).length;
+          return { ...n, data: { ...n.data, childCount: newCount } };
+        }
+        return n;
+      });
+      return ensureParentOrder(updated);
+    });
+  }, [getInternalNode, getIntersectingNodes, setNodes]);
 
   // ─── Paste URL → auto-create VideoNode ───
   useEffect(() => {
@@ -1086,6 +1191,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
           colorMode={theme === "light" ? "light" : "dark"}
           defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 } }}
           fitView={false}
