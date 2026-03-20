@@ -357,7 +357,7 @@ export default function Subscription() {
             <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${barColor(scrapePercentUsed, "bg-[#60a5fa]")}`}
-                style={{ width: `${Math.max(2, scrapePercentUsed)}%` }}
+                style={{ width: `${Math.max(2, 100 - scrapePercentUsed)}%` }}
               />
             </div>
           </div>
