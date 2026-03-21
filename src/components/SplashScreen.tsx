@@ -44,7 +44,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           {/* Ring pulse */}
           <motion.div
             initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: [0, 0.35, 0], scale: [0.5, 2.8] }}
+            animate={{ opacity: [0, 0.35, 0], scale: [0.5, 1.8, 2.8] }}
             transition={{ duration: 1.2, ease: "easeOut" }}
             style={{
               position: "absolute", width: 200, height: 200, borderRadius: "50%",
@@ -58,8 +58,8 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
             muted
             playsInline
             initial={{ opacity: 0, scale: 1.3, filter: "blur(20px) brightness(1.3) contrast(1.4)" }}
-            animate={{ opacity: 1, scale: 1, filter: "blur(0px) brightness(1.3) contrast(1.4)" }}
-            transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
+            animate={{ opacity: 1, scale: [1.3, 0.95, 1.02, 1.0], filter: "blur(0px) brightness(1.3) contrast(1.4)" }}
+            transition={{ duration: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
             style={{
               height: 220, objectFit: "contain",
               mixBlendMode: "lighten",
