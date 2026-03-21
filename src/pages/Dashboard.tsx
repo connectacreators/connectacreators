@@ -12,6 +12,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WelcomeSubscriptionModal from "@/components/WelcomeSubscriptionModal";
+import SplashScreen from "@/components/SplashScreen";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 const fadeUp = {
@@ -47,6 +48,11 @@ export default function Dashboard() {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomePlan, setWelcomePlan] = useState("starter");
+  const [showSplash, setShowSplash] = useState(() => {
+    if (sessionStorage.getItem("splash_shown")) return false;
+    sessionStorage.setItem("splash_shown", "1");
+    return true;
+  });
   const [userPlanType, setUserPlanType] = useState<string | null>(null);
   const justPaidRef = useRef(false);
 
@@ -290,6 +296,7 @@ export default function Dashboard() {
 
   return (
     <>
+      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       <WelcomeSubscriptionModal
         open={showWelcome}
         onClose={() => setShowWelcome(false)}
@@ -324,11 +331,30 @@ export default function Dashboard() {
         );
       })()}
 
-      {/* Background glows */}
+      {/* Near-black background with faint orbs */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-100px] right-[-150px] w-[800px] h-[600px] rounded-full opacity-[0.08] blur-[180px]" style={{ background: `rgba(8,145,178,0.6)` }} />
-        <div className="absolute bottom-[-200px] left-[-100px] w-[600px] h-[700px] rounded-full opacity-[0.06] blur-[160px]" style={{ background: `rgba(132,204,22,0.4)` }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[900px] rounded-full opacity-[0.03] blur-[200px]" style={{ background: `radial-gradient(circle, rgba(8,145,178,0.8), rgba(0,0,0,0.1))` }} />
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-card" />
+
+        {/* Faint cyan orb top-right */}
+        <motion.div
+          className="absolute w-[500px] h-[500px] rounded-full blur-3xl -top-48 -right-32"
+          style={{ background: 'rgba(34,211,238,0.08)' }}
+          animate={{ y: [0, 30, 0], x: [0, -15, 0] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        />
+        {/* Faint lime orb bottom-left */}
+        <motion.div
+          className="absolute w-[350px] h-[350px] rounded-full blur-3xl bottom-10 -left-24"
+          style={{ background: 'rgba(163,230,53,0.04)' }}
+          animate={{ y: [0, -25, 0], x: [0, 20, 0] }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* Dot grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03] hidden md:block" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }} />
       </div>
 
       <main className="flex-1 flex flex-col min-h-screen relative">
@@ -372,13 +398,13 @@ export default function Dashboard() {
                       <motion.button
                         key={card.path}
                         onClick={() => !(card as any).disabled && navigate(card.path)}
-                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                         initial="hidden"
                         animate="visible"
                         custom={i + 1}
                         variants={fadeUp}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
                           <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
                         </div>
                         <div>
@@ -397,7 +423,7 @@ export default function Dashboard() {
                   <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
-                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] bg-gradient-to-r from-foreground via-foreground to-primary/70 bg-clip-text text-transparent" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {tr(t.dashboard.question, language)}
                   </motion.h1>
 
@@ -406,13 +432,13 @@ export default function Dashboard() {
                       <motion.button
                         key={folder.key}
                         onClick={() => setActiveFolder(folder.key)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
+                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500"
                         initial="hidden"
                         animate="visible"
                         custom={i + 2}
                         variants={fadeUp}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
                           <folder.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
                         </div>
                         <div>
@@ -424,13 +450,13 @@ export default function Dashboard() {
                   </div>
                 </>
               )
-            ) : viewMode === "master" ? (
+            ) : viewMode === "master" || isEditor ? (
               /* ===== MASTER MODE ===== */
               <>
                 <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                   👋 {tr(t.dashboard.greeting, language)}, {displayName}
                 </motion.p>
-                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] bg-gradient-to-r from-foreground via-foreground to-primary/70 bg-clip-text text-transparent" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                   {tr(t.dashboard.question, language)}
                 </motion.h1>
 
@@ -439,13 +465,13 @@ export default function Dashboard() {
                     <motion.button
                       key={tool.path}
                       onClick={() => navigate(tool.path)}
-                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
+                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500"
                       initial="hidden"
                       animate="visible"
                       custom={i + 2}
                       variants={fadeUp}
                     >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
                         <tool.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: tool.color.startsWith('#') ? tool.color : undefined }} />
                       </div>
                       <div>
@@ -496,13 +522,13 @@ export default function Dashboard() {
                         <motion.button
                           key={card.path}
                           onClick={() => !(card as any).disabled && navigate(card.path)}
-                          className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                           initial="hidden"
                           animate="visible"
                           custom={i + 1}
                           variants={fadeUp}
                         >
-                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
                             <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
                           </div>
                           <div>
@@ -534,13 +560,13 @@ export default function Dashboard() {
                       <motion.button
                         key={folder.key}
                         onClick={() => setActiveFolder(folder.key)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
+                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500"
                         initial="hidden"
                         animate="visible"
                         custom={i + 3}
                         variants={fadeUp}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
                           <folder.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
                         </div>
                         <div>
