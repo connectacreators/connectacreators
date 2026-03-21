@@ -14,8 +14,7 @@ import {
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock,
 } from "lucide-react";
 
-import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
-import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
+import connectaHorseLogo from "@/assets/connecta-horse-logo.png";
 
 interface Props {
   sidebarOpen: boolean;
@@ -92,12 +91,36 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     }
   }, [clientSelectorOpen]);
 
-  // Sync viewMode to localStorage and broadcast change
+  // Sync viewMode to localStorage, broadcast change, and navigate to same feature for new client
   const handleViewModeChange = (mode: string) => {
     setViewMode(mode);
     setClientSelectorOpen(false);
     localStorage.setItem("dashboard_viewMode", mode);
     window.dispatchEvent(new CustomEvent("viewModeChanged", { detail: mode }));
+
+    // Navigate to the equivalent route for the newly selected client
+    const [pathname, search] = currentPath.split("?");
+    const queryString = search ? `?${search}` : "";
+
+    // Extract the feature segment from current path
+    const clientPathMatch = pathname.match(/^\/clients\/[^/]+\/(.+)$/);
+    const feature = clientPathMatch ? clientPathMatch[1] : pathname.replace(/^\//, "");
+
+    // Only auto-navigate for features that have client-specific routes
+    const clientFeatures = ["vault", "scripts", "editing-queue", "content-calendar", "leads", "booking-settings", "lead-calendar"];
+    if (!clientFeatures.includes(feature)) return;
+
+    const targetClientId = mode === "master" ? null : mode === "me" ? ownClientId : mode;
+
+    if (targetClientId) {
+      navigate(`/clients/${targetClientId}/${feature}${queryString}`);
+    } else {
+      // Master mode — navigate to master route if it exists
+      const masterFeatures = ["vault", "scripts", "editing-queue", "content-calendar"];
+      if (masterFeatures.includes(feature)) {
+        navigate(`/${feature}${queryString}`);
+      }
+    }
   };
 
   const selectedClientName =
@@ -162,6 +185,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
         { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
+        ...(ownClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${ownClientId}/booking-settings` }] : []),
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
@@ -175,6 +199,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
       { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
       { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
+      ...(ownClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${ownClientId}/booking-settings` }] : []),
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
       { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
@@ -191,17 +216,17 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full lg:w-0 lg:translate-x-0 lg:overflow-hidden"
       } fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
-      <div className="flex items-center gap-2 px-4 py-5 border-b border-border/50 relative z-10">
+      <div className="flex items-center gap-2 px-4 py-5 border-b border-[rgba(8,145,178,0.10)] relative z-10">
         <button onClick={() => navigate("/")} className="focus:outline-none">
           <img
-            src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
+            src={connectaHorseLogo}
             alt="Connecta"
-            className="h-5 object-contain hover:opacity-80 transition-opacity rounded-md"
+            className="h-8 object-contain hover:opacity-80 transition-opacity"
           />
         </button>
         <button
           onClick={() => setSidebarOpen(false)}
-          className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+          className="ml-auto text-[#4a7080] hover:text-[#94a3b8] transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -215,44 +240,59 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             onClick={() => setClientSelectorOpen(v => !v)}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden"
             style={{
-              background: 'rgba(255,255,255,0.07)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              backdropFilter: 'blur(28px)',
-              WebkitBackdropFilter: 'blur(28px)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12)',
+              background: 'rgba(8,145,178,0.06)',
+              border: '1px solid rgba(8,145,178,0.15)',
+              boxShadow: 'inset 0 1px 0 rgba(8,145,178,0.08)',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(8,145,178,0.12)';
-              e.currentTarget.style.borderColor = 'rgba(8,145,178,0.35)';
-              e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.2), 0 0 12px rgba(8,145,178,0.15), inset 0 1px 0 rgba(255,255,255,0.15)';
+              e.currentTarget.style.background = 'rgba(8,145,178,0.10)';
+              e.currentTarget.style.borderColor = 'rgba(8,145,178,0.25)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)';
-              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12)';
+              e.currentTarget.style.background = 'rgba(8,145,178,0.06)';
+              e.currentTarget.style.borderColor = 'rgba(8,145,178,0.15)';
             }}
           >
-            <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span className="flex-1 text-left truncate text-foreground">{selectedClientName}</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${clientSelectorOpen ? 'rotate-180' : ''}`} />
+            <Users className="w-4 h-4 text-[#4a7080] flex-shrink-0" />
+            <span className="flex-1 text-left truncate text-[#b0cad8]">{selectedClientName}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-[#4a7080] transition-transform duration-200 ${clientSelectorOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       )}
 
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto relative z-10">
+      <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10">
         {navItems.map((item) => {
-          const isActive = item.path === currentPath;
+          const currentPathname = currentPath.split("?")[0];
+          const itemPathname = item.path.split("?")[0];
+          const itemHasQuery = item.path.includes("?");
+          const isActive = itemHasQuery
+            ? item.path === currentPath
+            : itemPathname === currentPathname && !navItems.some(
+                other => other !== item && other.path.split("?")[0] === itemPathname && other.path === currentPath
+              );
           return (
             <button
               key={item.label}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                 isActive
-                  ? "text-[#22d3ee] bg-[rgba(8,145,178,0.2)] border border-[rgba(8,145,178,0.35)] shadow-[0_0_16px_rgba(8,145,178,0.3)]"
-                  : "text-[#94a3b8] hover:text-[#cbd5e1] hover:bg-[rgba(8,145,178,0.1)] border border-transparent"
+                  ? "text-[#a3e635]"
+                  : "text-[#7b919f] hover:text-[#b0cad8] hover:bg-[rgba(8,145,178,0.06)]"
               }`}
+              style={isActive ? {
+                background: 'linear-gradient(90deg, rgba(163,230,53,0.10) 0%, rgba(163,230,53,0.03) 60%, transparent 100%)',
+              } : undefined}
             >
-              {isActive && <span className="w-1.5 h-1.5 rounded-full bg-lime-400 shrink-0" />}
+              {isActive && (
+                <span
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full"
+                  style={{
+                    height: '60%',
+                    background: '#a3e635',
+                    boxShadow: '0 0 10px rgba(163,230,53,0.4)',
+                  }}
+                />
+              )}
               <item.icon className="w-4 h-4" />
               {item.label}
             </button>
@@ -260,13 +300,13 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         })}
       </nav>
 
-      <div className="border-t border-border/50 p-3 space-y-1 relative z-10">
+      <div className="border-t border-[rgba(8,145,178,0.10)] p-3 space-y-1 relative z-10">
         {credits?.subscription_status === "trialing" && credits?.trial_ends_at && (() => {
           const daysLeft = Math.max(0, Math.ceil(
             (new Date(credits.trial_ends_at!).getTime() - Date.now()) / 86_400_000
           ));
           return (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-semibold text-amber-400 mt-1">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-semibold text-amber-400/80 mt-1">
               <Clock className="w-3 h-3" />
               Trial — {daysLeft}d left
             </div>
@@ -277,7 +317,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         </div>
         <button
           onClick={signOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/15 hover:backdrop-blur-sm border border-transparent hover:border-red-500/20 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#7b919f] hover:text-red-400/80 hover:bg-red-500/[0.06] transition-all duration-200"
         >
           <LogOut className="w-4 h-4" />
           {tr(t.dashboard.signOut, language)}
