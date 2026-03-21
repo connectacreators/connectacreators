@@ -39,22 +39,22 @@ async function callClaude(apiKey: string, systemPrompt: string, userPrompt: stri
   return await res.json();
 }
 
-// Credit costs per action
+// Credit costs per action (10x scale)
 const CREDIT_COSTS: Record<string, number> = {
-  "research": 5,                 // covers research + generate-script as one flow
-  "autopilot": 5,                // one-click: research + hook + format selection via Opus
-  "refine-script": 2,
-  "translate-script": 2,
-  "templatize-script": 5,
-  "analyze-template": 0,         // bundled with transcribe-video (15cr already charged)
-  "generate-script": 0,          // charged at research step
-  "verify-video-type": 0,        // free — no AI generation, just text analysis
-  "generate-caption-script": 5,  // caption flow script generation
-  "extract-story-facts": 5,      // storytelling path: extract key moments from user's story
-  "analyze-structure": 0,        // Super Planning: break transcription into hook/body/cta with visual cues
-  "canvas-generate": 5,          // Super Planning: generate script from all canvas context
-  "generate-hooks": 3,
-  "generate-ctas": 2,
+  "research": 50,
+  "refine-script": 25,
+  "translate-script": 25,
+  "templatize-script": 50,
+  "analyze-template": 0,
+  "generate-script": 0,
+  "verify-video-type": 0,
+  "generate-caption-script": 50,
+  "extract-story-facts": 50,
+  "analyze-structure": 0,
+  "canvas-generate": 50,
+  "generate-hooks": 25,
+  "generate-ctas": 25,
+  "analyze-competitor-post": 0,
 };
 
 // All hook templates mirrored from AIScriptWizard.tsx
@@ -1133,99 +1133,6 @@ Generate the full storyboard with alternating filming instructions and captions.
       });
     }
 
-    // ==================== STEP: AUTOPILOT ====================
-    if (step === "autopilot") {
-      const { topic, language: reqLang } = body;
-      if (!topic) throw new Error("topic is required for autopilot");
-
-      const langLabel = reqLang === "es" ? "SPANISH" : "ENGLISH";
-      const hookTemplatesStr = Object.entries(HOOK_TEMPLATES).map(([cat, templates]) =>
-        `${cat}:\n${templates.map((t: string, i: number) => `  ${i}: "${t}"`).join("\n")}`
-      ).join("\n\n");
-
-      const autopilotRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 3000,
-          thinking: { type: "adaptive" },
-          system: `You are a world-class short-form video script strategist. Given a topic, produce:\n1. Exactly 5 shocking, viral-worthy research facts (impact score 8-10)\n2. The single best hook category + template index for maximum engagement\n3. The best script format for the content type\nBe decisive. Think, then return the structured plan.`,
-          messages: [{
-            role: "user",
-            content: `Topic: "${topic}"\nLanguage: ${langLabel}\n\nAvailable hook categories and templates:\n${hookTemplatesStr}\n\nChoose the best combination for this topic to maximize viral potential. Return 5 facts, the best hook category, the best template index (0-4) within that category, and the best format.`,
-          }],
-          tools: [{
-            name: "return_autopilot_plan",
-            description: "Return the complete autopilot plan with facts, hook selection, and format",
-            input_schema: {
-              type: "object",
-              properties: {
-                facts: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      fact: { type: "string", description: "The shocking, viral-worthy fact" },
-                      impact_score: { type: "number", description: "Impact score from 8 to 10" },
-                    },
-                    required: ["fact", "impact_score"],
-                  },
-                  description: "Exactly 5 research facts",
-                },
-                hook_category: {
-                  type: "string",
-                  enum: ["educational", "randomInspo", "authorityInspo", "comparisonInspo", "storytellingInspo"],
-                  description: "The best hook category for this topic",
-                },
-                hook_template_index: {
-                  type: "integer",
-                  description: "Index (0-4) of the best template within the chosen category",
-                },
-                format: {
-                  type: "string",
-                  enum: ["talking_head", "broll_caption", "entrevista", "variado"],
-                  description: "Best script format for this content type",
-                },
-              },
-              required: ["facts", "hook_category", "hook_template_index", "format"],
-            },
-          }],
-          tool_choice: { type: "tool", name: "return_autopilot_plan" },
-        }),
-      });
-
-      if (!autopilotRes.ok) {
-        const status = autopilotRes.status;
-        const text = await autopilotRes.text();
-        console.error("Autopilot Claude error:", status, text);
-        if (status === 429) throw { status: 429, message: "Rate limit exceeded. Try again shortly." };
-        throw new Error(`Autopilot error: ${status}`);
-      }
-
-      const autopilotData = await autopilotRes.json();
-      const toolUse = autopilotData.content?.find((c: any) => c.type === "tool_use");
-      if (!toolUse) throw new Error("No tool use in autopilot response");
-
-      const { facts, hook_category, hook_template_index, format } = toolUse.input;
-      const idx = Math.min(Math.max(hook_template_index ?? 0, 0), 4);
-      const hookTemplate = HOOK_TEMPLATES[hook_category]?.[idx] ?? HOOK_TEMPLATES[hook_category]?.[0] ?? "";
-
-      return new Response(JSON.stringify({
-        facts,
-        hookCategory: hook_category,
-        hookTemplate,
-        format,
-        language: reqLang || "en",
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // ══════════════════════════════════════════════════════════════
     // STEP: analyze-structure (Super Planning — free, bundled)
     // ══════════════════════════════════════════════════════════════
@@ -1240,7 +1147,15 @@ For each section identify:
 2. A concrete visual/filming instruction (visual_cue) — what the viewer should SEE during this section
 3. Which narrative section it belongs to: hook, body, or cta
 
-Also detect the overall video format.`;
+Also detect the overall video format using EXACTLY one of these values:
+- TALKING HEAD: One person speaking directly to camera, solo delivery
+- COMPARATIVE DIALOGUE: Two or more people or voices contrasting mindsets/behaviors (avg vs top performer, wrong vs right way, before vs after) — even if one person is playing both roles
+- INTERVIEW: Host and guest conversational Q&A format
+- B-ROLL CAPTION: No speaking voice — only visual footage with text overlays
+- VOICEOVER: Narrated footage, voiceover-driven storytelling (no on-camera speaker)
+- MIXED: Mixed format or doesn't fit cleanly above
+
+Also return format_notes: 1-2 sentences describing the specific structural pattern of this video. Example: "Two people alternate contrasting mindset statements per body section. Each section has one below-average rep line then one top-performer line."`;
 
       const analyzeData = await callClaude(
         ANTHROPIC_API_KEY,
@@ -1255,7 +1170,8 @@ Transcription:
           input_schema: {
             type: "object",
             properties: {
-              detected_format: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
+              detected_format: { type: "string", enum: ["TALKING HEAD", "COMPARATIVE DIALOGUE", "INTERVIEW", "B-ROLL CAPTION", "VOICEOVER", "MIXED"] },
+              format_notes: { type: "string", description: "1-2 sentences describing the specific structural pattern of this video (e.g. speaker count, contrast style, pacing pattern)" },
               sections: {
                 type: "array",
                 items: {
@@ -1285,20 +1201,117 @@ Transcription:
 
     // ─── Step: generate-hooks ───
     if (step === "generate-hooks") {
-      const { topic } = body;
+      const { topic, previousHooks } = body;
       if (!topic?.trim()) return errorResponse("topic is required for generate-hooks");
 
+      // Curated subset of ~70 proven viral hook formulas (10 per category)
+      const FORMULA_BANK = `
+EDUCATIONAL:
+- "Here's exactly how much (insert action/item) you need to (insert result)"
+- "It took me 10 years to learn this but I'll teach it to you in less than 1 minute"
+- "(Insert number) things I wish I knew before (insert action)"
+- "Stop (insert action) if you want to (insert result)"
+- "The real reason why (insert topic) is (insert revelation)"
+- "Most people don't know this about (insert topic)"
+- "I tested (insert thing) for (insert time) — here's what happened"
+- "The biggest mistake people make with (insert topic)"
+- "Why (insert common belief) is actually wrong"
+- "Here's a hack for (insert topic) that actually works"
+
+COMPARISON:
+- "This is an (insert noun), and this is an (insert noun)"
+- "For this (insert item) you could have all of these (insert item)"
+- "(Insert option A) vs (insert option B) — which is actually better?"
+- "What (insert $) gets you at (insert place A) vs (insert place B)"
+- "I compared (insert thing A) and (insert thing B) so you don't have to"
+- "Everyone chooses (insert option A) but (insert option B) is actually better"
+- "The difference between (insert level A) and (insert level B)"
+- "What most people use vs what professionals use for (insert topic)"
+- "I tried the cheap version vs the expensive version of (insert item)"
+- "(Insert thing) then vs now — the difference is insane"
+
+MYTH BUSTING:
+- "This is why doing (insert action) makes you (insert pain point)"
+- "Stop using (insert item) for (insert result)"
+- "Everything you've been told about (insert topic) is wrong"
+- "No, (insert common advice) does NOT (insert claimed result)"
+- "(Insert popular thing) is actually ruining your (insert area)"
+- "The (insert topic) industry doesn't want you to know this"
+- "I used to believe (insert myth) until I discovered (insert truth)"
+- "Why (insert popular advice) is the worst thing you can do"
+- "3 (insert topic) myths that are costing you (insert consequence)"
+- "If you're still (insert action), you need to hear this"
+
+STORYTELLING:
+- "I started my (insert business) when I was (insert age) with (insert $)"
+- "X years ago my (insert person) told me (insert quote)"
+- "I was (insert bad situation) until I discovered (insert solution)"
+- "Nobody believed me when I said (insert claim) — here's what happened"
+- "The moment that changed everything for my (insert area)"
+- "I almost gave up on (insert goal) but then (insert turning point)"
+- "Here's the story of how I went from (insert before) to (insert after)"
+- "My (insert person) thought I was crazy when I (insert action)"
+- "The worst advice I ever received about (insert topic)"
+- "I failed at (insert thing) (insert number) times before this worked"
+
+RANDOM:
+- "POV: you're a (insert role) and (insert scenario)"
+- "Things that just hit different when (insert situation)"
+- "Tell me you're a (insert identity) without telling me you're a (insert identity)"
+- "Nobody talks about (insert topic) and it shows"
+- "This is your sign to (insert action)"
+- "Unpopular opinion: (insert hot take about topic)"
+- "If (insert topic) was a person, they'd be (insert comparison)"
+- "Day (insert number) of (insert challenge) until (insert goal)"
+- "Ranking (insert things) from worst to best"
+- "Watch this before you (insert action)"
+
+AUTHORITY:
+- "My (insert before state) used to look like this and now they look like this"
+- "10 YEARS it took me from (insert before state) to (insert after state)"
+- "After (insert number) years of (insert expertise), here's my honest advice"
+- "I've (insert credential/achievement) — here's what nobody tells you"
+- "As a (insert profession) for (insert years), this is what I recommend"
+- "I've helped (insert number) people (insert result) — this is the #1 thing that works"
+- "Most (insert professionals) won't tell you this"
+- "After working with (insert number)+ clients, I can tell you (insert insight)"
+- "The advice I give to every (insert audience) who (insert situation)"
+- "I built a (insert achievement) by doing this one thing differently"
+
+DAY IN THE LIFE:
+- "We all have the same 24 hours in a day so here I am putting my 24 hours to work"
+- "A day in the life of a (insert profession) in (insert location)"
+- "What a (insert $amount/timeframe) day looks like as a (insert profession)"
+- "Come to work with me as a (insert profession)"
+- "How I spend my mornings as a (insert profession)"
+- "Behind the scenes of running a (insert business/practice)"
+- "What most people don't see about being a (insert profession)"
+- "5 AM to 10 PM — a realistic day in my life as a (insert profession)"
+- "The part of my job nobody talks about"
+- "This is what (insert time period) of hard work actually looks like"
+`;
+
+      // Build anti-repetition clause
+      let avoidClause = "";
+      if (Array.isArray(previousHooks) && previousHooks.length > 0) {
+        const capped = previousHooks.slice(-20);
+        avoidClause = `\n\nIMPORTANT — Do NOT reuse these formula structures (already generated):\n${capped.map((h: string) => `- "${h}"`).join("\n")}\n`;
+      }
+
       const hooksSystem = `You are a creative hook writer for short-form social media scripts.
-Generate exactly 5 hook variations for the given topic — one per category.
-Categories: educational, randomInspo (unexpected/weird angle), authorityInspo (expert credibility), comparisonInspo (before/after or vs), storytellingInspo (narrative opener).
-Each hook must be a single sentence, max 15 words, punchy and attention-grabbing.
+Below are proven viral hook FORMULAS organized by category. Choose the ones that fit BEST for the given topic — only pick formulas where the topic naturally fills the placeholders. Do NOT force a formula that doesn't fit. Each hook must use a DIFFERENT formula structure.${avoidClause}
+
+${FORMULA_BANK}
+
 Return a JSON tool call only — no prose.`;
 
-      const hooksUserPrompt = `Topic: "${topic}"\n\nGenerate one creative hook per category.`;
+      const hooksUserPrompt = `Topic: "${topic}"
+
+Pick the 3-7 best-fitting formulas from the bank above and adapt them by filling in the placeholders with topic-specific content. Only include formulas that genuinely fit — do not force a formula just to reach a count.`;
 
       const hooksTools = [{
         name: "return_hooks",
-        description: "Return 5 hooks, one per category",
+        description: "Return 3-7 hooks based on proven viral formulas",
         input_schema: {
           type: "object",
           properties: {
@@ -1307,13 +1320,13 @@ Return a JSON tool call only — no prose.`;
               items: {
                 type: "object",
                 properties: {
-                  category: { type: "string", enum: ["educational", "randomInspo", "authorityInspo", "comparisonInspo", "storytellingInspo"] },
+                  category: { type: "string", enum: ["educational", "comparison", "mythBusting", "storytelling", "random", "authority", "dayInTheLife"] },
                   text: { type: "string" },
                 },
                 required: ["category", "text"],
               },
-              minItems: 5,
-              maxItems: 5,
+              minItems: 3,
+              maxItems: 7,
             },
           },
           required: ["hooks"],
@@ -1403,6 +1416,8 @@ Return a JSON tool call only — no prose.`;
         selected_hook_category,
         brand_guide,
         selected_cta,
+        video_analyses,
+        competitor_profiles,
       } = body;
 
       const langLabel = canvasLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
@@ -1429,7 +1444,7 @@ Return a JSON tool call only — no prose.`;
         : "";
 
       const structureSection = validStructures.length > 0
-        ? `\n<reference_structures>\n⚠️ THIS IS THE #1 PRIORITY — YOUR SCRIPT MUST MATCH THIS SKELETON EXACTLY.\nDetected format: ${validStructures[0]?.detected_format || "unknown"}.\nReplicate this exact section-by-section breakdown — same number of sections, same line count per section, same visual cue style, same pacing:${sectionEnforcement}\n\n${validStructures.map((s: any, i: number) => `Reference ${i + 1} (${s.detected_format}):\n${(s.sections || []).map((sec: any) => `[${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}\n</reference_structures>`
+        ? `\n<reference_structures>\n⚠️ THIS IS THE #1 PRIORITY — YOUR SCRIPT MUST MATCH THIS SKELETON EXACTLY.\nDetected format: ${validStructures[0]?.detected_format || "unknown"}.${validStructures[0]?.format_notes ? `\nFormat pattern: ${validStructures[0].format_notes}` : ""}\nReplicate this exact section-by-section breakdown — same number of sections, same line count per section, same visual cue style, same pacing:${sectionEnforcement}\n\n${validStructures.map((s: any, i: number) => `Reference ${i + 1} (${s.detected_format}):\n${(s.sections || []).map((sec: any) => `[${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}\n</reference_structures>`
         : "";
 
       const notesSection = text_notes
@@ -1452,8 +1467,35 @@ Return a JSON tool call only — no prose.`;
         ? `\n<client_context>\n${clientContext}\n</client_context>`
         : "";
 
+      const competitorSection = Array.isArray(competitor_profiles) && competitor_profiles.length > 0
+        ? `\n<competitor_analysis>\nUse these competitor insights to understand what hooks and themes are proven to work for this audience. When generating the script, reference these patterns as inspiration only — do NOT copy competitor content.\n${
+            competitor_profiles.map((cp: any) => {
+              const best = cp.top_posts?.[0];
+              return `@${cp.username}:\n- Proven hook patterns: ${(cp.hook_patterns || []).join(", ") || "not analyzed"}\n- Top content themes: ${(cp.content_themes || []).join(", ") || "not analyzed"}${best ? `\n- Best post (${best.outlier_score?.toFixed(1)}x, ${best.views?.toLocaleString()} views): "${(best.caption || "").slice(0, 120)}"` : ""}`;
+            }).join("\n\n")
+          }\n</competitor_analysis>`
+        : "";
+
       const conversationSection = Array.isArray(conversationMessages) && conversationMessages.length > 0
         ? `\n<approved_direction>\n⚠️ CRITICAL: The creator already discussed and APPROVED a specific script direction in this chat. Your generated script MUST follow this approved direction exactly. Do NOT deviate:\n${(conversationMessages as any[]).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n")}\n</approved_direction>`
+        : "";
+
+      const visualSection = Array.isArray(video_analyses) && video_analyses.length > 0
+        ? `\n<visual_analysis>\nThese are the actual visual scenes extracted from the reference video(s) using AI frame analysis. Use them as the scene-by-scene VISUAL TEMPLATE for the new script:\n${
+            (video_analyses as any[]).map((va: any, i: number) => {
+              const lines = [`Video ${i + 1} (${va.detected_format || "unknown format"}):`];
+              (va.visual_segments || []).forEach((seg: any) => {
+                const tos = seg.text_on_screen?.length
+                  ? ` | TEXT ON SCREEN: "${(seg.text_on_screen as string[]).join(" / ")}"`
+                  : "";
+                lines.push(`  [${seg.start}s–${seg.end}s] ${seg.description}${tos}`);
+              });
+              if (va.audio) {
+                lines.push(`  Audio: music=${va.audio.has_music}, energy=${va.audio.energy}, speech=${va.audio.speech_density}`);
+              }
+              return lines.join("\n");
+            }).join("\n\n")
+          }\n</visual_analysis>`
         : "";
 
       const canvasSystemPrompt = `<system_instructions>
@@ -1464,7 +1506,9 @@ Return a JSON tool call only — no prose.`;
 - Use short, punchy sentences to create a fast-paced cadence.
 - Use simple language that anyone can understand.
 - Avoid jargon and technical terms.
-- Avoid em dashes (—) and corporate buzzwords or jargon.
+- NEVER use em dashes (—). Replace with a comma, a period, or a new line.
+- NEVER use corporate jargon. Banned words: leverage, synergy, utilize, streamline, robust, scalable, game-changer, innovative, cutting-edge, value proposition, pain points, paradigm shift, holistic, actionable, deliverable.
+- Write like texting a smart friend. If a 14-year-old would not understand a word, replace it.
 - Sound like human-written content. You must not sound like AI-generated content.
 - Use a first-person tone, as if you are speaking to a friend.
 - No fluff or wasted words. Be concise and to the point.
@@ -1472,14 +1516,30 @@ Return a JSON tool call only — no prose.`;
 - IMPORTANT: When reference transcriptions and structures are provided from connected video nodes, they are FORMAT TEMPLATES. The new script MUST follow the same structure, section count, pacing, rhythm, and visual approach as the reference. Think of the reference as the mold — pour new topic content into the same mold.
 - IMPORTANT: The reference structures only contain the sections the user SELECTED (hook, body, cta). If only hook sections are shown, only use the hook as template. If all sections are shown, template the whole thing.
 - IMPORTANT: Creator notes (text notes) are CORE CONTENT — they contain the actual topic, talking points, research, brand voice, and instructions. USE everything in the notes as the foundation of the script.
+- IMPORTANT: When <visual_analysis> is present, use the visual scenes as the scene-by-scene template. Keep the same visual pacing, cut timing, and text-overlay pattern — substitute only the topic/values from creator notes. For example if the reference shows TEXT ON SCREEN: "18 years old" and the client is a D2D sales rep aged 23, generate TEXT ON SCREEN: "23 years old". Always output on-screen text content as line_type: "text_on_screen".
+- IMPORTANT: For B-roll/caption videos (audio: music=true, speech=low), generate lines primarily as filming, text_on_screen, and editor. Only use actor line_type if the reference video has spoken dialogue.
+- IMPORTANT: For talking-head videos, use visual segments to enrich filming directions with actual camera framing and shot timing from the reference (close-up, mid-shot, cut timing, etc.).
 </style_guide>
 </system_instructions>
 
 You must categorize EVERY line into:
-- line_type: "filming" (camera/visual instructions), "actor" (spoken dialogue/voiceover), or "editor" (post-production/text overlays/effects)
+- line_type: "filming" (camera/visual instructions), "actor" (spoken dialogue/voiceover), "editor" (post-production effects like transitions, zoom, speed ramp — NOT text overlays), or "text_on_screen" (ANY on-screen caption, overlay text, or subtitle that appears visually on the video)
 - section: "hook" (opening), "body" (main content), or "cta" (call-to-action closing)
 
-Return a virality_score (1-10) averaging: TAM, explosivity, emotional resonance, novelty, value tease, curiosity hook, absorption, rehook, stickiness.
+⚠️ CRITICAL RULE: Any line that contains text meant to appear ON SCREEN (captions, overlays, subtitles, titles) MUST use line_type "text_on_screen" — NEVER "editor". The "editor" type is ONLY for post-production effects (cuts, transitions, zoom, speed changes, color grading). If you write "TEXT ON SCREEN:" in a line, it MUST be text_on_screen type.
+
+<quality_checklist>
+Before finalizing the script, check every item below and adjust until ALL pass:
+1. NO JARGON: Every word is plain English a 14-year-old understands.
+2. NO EM DASHES: Zero em dashes in the entire script.
+3. TAM LARGE ENOUGH: The topic and angle appeal to a broad audience, not an ultra-niche group.
+4. REHOOK PRESENT: There is a moment mid-body that re-engages viewers about to scroll away.
+5. TEMPLATE MATCH: If reference video structures are provided, the section count, rhythm, and pacing match exactly.
+6. STORY MAKES SENSE: Hook → Body → CTA flows logically with no confusing jumps.
+7. AUDIENCE CAN FOLLOW: No assumed knowledge. Concepts are explained simply on first mention.
+</quality_checklist>
+
+Return a virality_score (1-10) averaging: TAM, explosivity, emotional resonance, novelty, value tease, curiosity hook, absorption, rehook, stickiness, template_fidelity (how well the script follows reference video structure), story_clarity (logical flow hook→body→CTA).
 
 Write in ${langLabel}. Format: ${formatLabel}.
 For idea_ganadora: STRICT MAXIMUM 3-5 words — short punchy title only.`;
@@ -1487,7 +1547,7 @@ For idea_ganadora: STRICT MAXIMUM 3-5 words — short punchy title only.`;
       const canvasUserPrompt = `<task>Write a compelling viral short-form video script (~45 seconds / 90-120 words) based on all the context below. ${refSectionCount > 0 ? `YOUR SCRIPT MUST MATCH THE REFERENCE STRUCTURE — same sections, same tempo, same size.` : ""}</task>
 
 <topic>${primary_topic || "Based on the provided context"}</topic>
-${conversationSection}${structureSection}${transcriptSection}${notesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}`;
+${conversationSection}${structureSection}${transcriptSection}${notesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}`;
 
       const canvasScriptTools = [{
         name: "return_script",
@@ -1500,7 +1560,7 @@ ${conversationSection}${structureSection}${transcriptSection}${notesSection}${ho
               items: {
                 type: "object",
                 properties: {
-                  line_type: { type: "string", enum: ["filming", "actor", "editor"] },
+                  line_type: { type: "string", enum: ["filming", "actor", "editor", "text_on_screen"] },
                   section: { type: "string", enum: ["hook", "body", "cta"] },
                   text: { type: "string" },
                 },
@@ -1510,7 +1570,7 @@ ${conversationSection}${structureSection}${transcriptSection}${notesSection}${ho
             idea_ganadora: { type: "string", description: "Ultra-short punchy title — STRICT MAXIMUM 3-5 words" },
             target: { type: "string", description: "Target audience" },
             formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
-            virality_score: { type: "number" },
+            virality_score: { type: "number", description: "Average score (1-10) across all 11 quality criteria: TAM, explosivity, emotional resonance, novelty, value tease, curiosity hook, absorption, rehook, stickiness, template_fidelity (how well the script follows reference video structure), story_clarity (logical flow hook→body→CTA)" },
           },
           required: ["lines", "idea_ganadora", "target", "formato", "virality_score"],
         },
@@ -1528,12 +1588,84 @@ ${conversationSection}${structureSection}${transcriptSection}${notesSection}${ho
       const canvasToolUse = canvasData.content?.find((c: any) => c.type === "tool_use");
       if (!canvasToolUse) throw new Error("No tool use in canvas-generate response");
 
+      // Ensure lines is always an array (Claude may occasionally return malformed data)
+      if (!Array.isArray(canvasToolUse.input.lines)) {
+        console.error("canvas-generate: lines is not an array, got:", typeof canvasToolUse.input.lines);
+        canvasToolUse.input.lines = [];
+      }
+
+      // Auto-correct misclassified text_on_screen lines (Claude sometimes puts them as "editor")
+      for (const line of canvasToolUse.input.lines) {
+        if (line.line_type === "editor" && /text\s*on\s*screen/i.test(line.text)) {
+          line.line_type = "text_on_screen";
+          // Strip the "TEXT ON SCREEN:" prefix if present — the line_type label already shows it
+          line.text = line.text.replace(/^TEXT\s*ON\s*SCREEN\s*:\s*/i, "").replace(/^["']|["']$/g, "");
+        }
+      }
+
       if (canvasToolUse.input.idea_ganadora) {
         const words = canvasToolUse.input.idea_ganadora.split(/\s+/);
         if (words.length > 5) canvasToolUse.input.idea_ganadora = words.slice(0, 5).join(" ");
       }
 
       return new Response(JSON.stringify(canvasToolUse.input), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ==================== STEP: ANALYZE COMPETITOR POST ====================
+    if (step === "analyze-competitor-post") {
+      const { caption, views, engagement_rate, outlier_score } = body;
+
+      const systemPrompt = `You are a viral content strategist. Analyze this Instagram reel's caption and performance metrics and explain why it performed well. Be direct, plain, and specific. No jargon.`;
+
+      const captionText = caption || "(no caption)";
+      const userPrompt = `Caption: "${captionText}"
+Views: ${(views || 0).toLocaleString()}
+Engagement rate: ${typeof engagement_rate === "number" ? engagement_rate.toFixed(2) : "0"}%
+Outlier score: ${typeof outlier_score === "number" ? outlier_score.toFixed(1) : "0"}x (relative to channel average)
+
+Analyze this post and return structured insights.`;
+
+      const data = await callClaude(
+        ANTHROPIC_API_KEY,
+        systemPrompt,
+        userPrompt,
+        [{
+          name: "return_analysis",
+          description: "Return the competitor post analysis",
+          input_schema: {
+            type: "object",
+            properties: {
+              hook_type: {
+                type: "string",
+                enum: ["educational", "authority", "story", "comparison", "shock", "random"],
+                description: "The type of hook used in this post",
+              },
+              content_theme: {
+                type: "string",
+                description: "2-3 word topic label for what this post is about",
+              },
+              why_it_worked: {
+                type: "string",
+                description: "2-3 sentences in plain English explaining why this post got high views. No jargon.",
+              },
+              pattern: {
+                type: "string",
+                description: "The reusable structural pattern, e.g. 'Specific number + timeframe + result'",
+              },
+            },
+            required: ["hook_type", "content_theme", "why_it_worked", "pattern"],
+          },
+        }],
+        { type: "tool", name: "return_analysis" },
+        "claude-haiku-4-5-20251001"
+      );
+
+      const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+      if (!toolUse) throw new Error("No tool use in Claude response");
+
+      return new Response(JSON.stringify(toolUse.input), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
