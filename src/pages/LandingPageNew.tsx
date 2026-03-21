@@ -9,52 +9,13 @@ import {
   CheckCircle, Flame,
 } from "lucide-react";
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
+import connectaHorseLogo from "@/assets/connecta-horse-logo.png";
+import CanvasHeroMockup from "@/components/CanvasHeroMockup";
 
 const gold = "#22d3ee";
 const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #84CC16 100%)";
 const darkBg = "#06090c";
 const borderGold = "rgba(8, 145, 178, 0.15)";
-
-// ── Viral Today Mini Mockup (compact, for hero) ───────────────────────
-function ViralTodayMiniMockup() {
-  const rows = [
-    { topic: "Morning routine for busy dads", ch: "@fitnessmindset", views: "2.3M", score: "12x", hot: true, hue: 30 },
-    { topic: "You've been eating protein wrong", ch: "@drnutrition", views: "847K", score: "7x", hot: true, hue: 90 },
-    { topic: "How I got 100K in 30 days", ch: "@creator", views: "412K", score: "3x", hot: false, hue: 200 },
-  ];
-  return (
-    <div className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full"
-      style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.25)", boxShadow: "0 10px 40px rgba(0,0,0,0.4)" }}>
-      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2">
-          <TrendingUp size={10} style={{ color: "#22d3ee" }} />
-          <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>Viral Today</span>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.2)" }}>— 1,400+ videos</span>
-        </div>
-        <div className="flex gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-red-500 opacity-70" />
-          <div className="w-2 h-2 rounded-full opacity-70" style={{ background: gold }} />
-          <div className="w-2 h-2 rounded-full bg-green-500 opacity-70" />
-        </div>
-      </div>
-      <div className="px-4 py-3 flex flex-col gap-1.5">
-        {rows.map((v, i) => (
-          <div key={i} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div className="w-9 h-7 rounded-md flex-shrink-0" style={{ background: `hsl(${v.hue},35%,18%)` }} />
-            <div className="flex-1 min-w-0">
-              <p style={{ fontSize: 9, color: "rgba(255,255,255,0.75)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.topic}</p>
-              <p style={{ fontSize: 7, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{v.ch} · {v.views}</p>
-            </div>
-            <span style={{ fontSize: 8, fontWeight: 700, color: v.hot ? "#84CC16" : "rgba(255,255,255,0.35)", flexShrink: 0, display: "flex", alignItems: "center", gap: 2 }}>
-              {v.hot ? <Flame className="w-3 h-3 text-[#84CC16]" /> : null}{v.score}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Viral Videos Mockup (full, for feature section) ───────────────────
 function ViralVideosMockup() {
@@ -113,95 +74,6 @@ function ViralVideosMockup() {
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Script Wizard Hero Mockup ─────────────────────────────────────────
-function ScriptWizardHeroMockup() {
-  return (
-    <div
-      className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full"
-      style={{
-        backgroundColor: "rgba(6,9,12,0.97)",
-        borderColor: "rgba(8,145,178,0.35)",
-        boxShadow: "0 0 60px rgba(8,145,178,0.18), 0 30px 80px rgba(0,0,0,0.5)",
-      }}
-    >
-      {/* Titlebar */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2">
-          <Zap size={11} style={{ color: gold }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: gold, letterSpacing: "0.04em" }}>AI Script Wizard</span>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>— Step 2 of 3</span>
-        </div>
-        <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-70" />
-          <div className="w-2.5 h-2.5 rounded-full opacity-70" style={{ background: gold }} />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500 opacity-70" />
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="px-5 pt-4 pb-2">
-        <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }}>
-          <div className="h-full rounded-full" style={{ width: "66%", background: goldGradient }} />
-        </div>
-        <div className="flex justify-between mt-1.5">
-          {["Topic & Research", "Structure & Hook", "Script"].map((s, i) => (
-            <span key={i} style={{ fontSize: 8, color: i < 2 ? gold : "rgba(255,255,255,0.2)", fontWeight: i === 1 ? 700 : 400 }}>{s}</span>
-          ))}
-        </div>
-      </div>
-
-      <div className="px-5 pb-5">
-        {/* Topic */}
-        <div className="mb-4">
-          <p style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", marginBottom: 6 }}>TOPIC</p>
-          <div className="px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(8,145,178,0.25)" }}>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>How to lose 10 lbs without dieting</span>
-          </div>
-        </div>
-
-        {/* Hook style */}
-        <p style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", marginBottom: 8 }}>HOOK STYLE</p>
-        <div className="flex flex-col gap-2 mb-5">
-          {[
-            { label: "Shocking Fact", desc: "Open with a surprising statistic", active: false },
-            { label: "Personal Story", desc: "Share a relatable moment", active: true },
-            { label: "Bold Claim", desc: "Make a powerful statement first", active: false },
-          ].map((hook, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 p-3 rounded-xl"
-              style={{
-                background: hook.active ? "rgba(8,145,178,0.1)" : "rgba(255,255,255,0.03)",
-                border: hook.active ? "1px solid rgba(8,145,178,0.5)" : "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              <div
-                className="w-3 h-3 rounded-full flex-shrink-0"
-                style={{
-                  background: hook.active ? goldGradient : "transparent",
-                  border: hook.active ? "none" : "1px solid rgba(255,255,255,0.2)",
-                }}
-              />
-              <div>
-                <p style={{ fontSize: 10, fontWeight: hook.active ? 600 : 400, color: hook.active ? gold : "rgba(255,255,255,0.65)" }}>{hook.label}</p>
-                <p style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{hook.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* CTA button */}
-        <div
-          className="py-3 rounded-xl text-center font-semibold"
-          style={{ background: goldGradient, color: "#1a1a1a", fontSize: 12, cursor: "pointer" }}
-        >
-          Generate Script →
-        </div>
       </div>
     </div>
   );
@@ -721,8 +593,22 @@ export default function LandingPageNew() {
         @keyframes cc-ember-drift { 0%,100%{opacity:0.042;transform:translate(0,0)} 50%{opacity:0.065;transform:translate(20px,-15px)} }
         @keyframes cc-ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
       `}</style>
+      <style>{`
+        .glow-orb { position: fixed; border-radius: 50%; pointer-events: none; will-change: transform, opacity; }
+        .glow-orb-1 { top: -30%; left: 30%; width: 1200px; height: 1000px; background: radial-gradient(circle, rgba(6,182,212,.6), transparent 60%); opacity: .06; filter: blur(200px); animation: g1 16s ease-in-out infinite; }
+        .glow-orb-2 { bottom: -20%; right: -10%; width: 1000px; height: 800px; background: radial-gradient(circle, rgba(132,204,22,.5), transparent 60%); opacity: .03; filter: blur(180px); animation: g2 20s ease-in-out infinite; }
+        .glow-orb-3 { top: 30%; right: 20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(8,145,178,.4), transparent 60%); opacity: .04; filter: blur(160px); animation: g3 22s ease-in-out infinite; }
+        @keyframes g1 { 0%,100%{opacity:.06;transform:scale(1) translate(0,0)} 50%{opacity:.09;transform:scale(1.05) translate(30px,-20px)} }
+        @keyframes g2 { 0%,100%{opacity:.03;transform:translate(0,0)} 50%{opacity:.05;transform:translate(-25px,15px)} }
+        @keyframes g3 { 0%,100%{opacity:.04;transform:scale(1)} 50%{opacity:.06;transform:scale(1.1) translate(-15px,10px)} }
+        @keyframes horse-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes horse-glow-pulse { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+      `}</style>
 
       <div className="min-h-screen text-white overflow-x-hidden ambient-glow" style={{ backgroundColor: darkBg }}>
+        <div className="glow-orb glow-orb-1" />
+        <div className="glow-orb glow-orb-2" />
+        <div className="glow-orb glow-orb-3" />
 
         {/* Background Embers */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -747,7 +633,7 @@ export default function LandingPageNew() {
             </motion.div>
             <div className="hidden md:flex items-center gap-6">
               <Link
-                to="/signup"
+                to="/scripts"
                 className="btn-primary-glass px-6 py-2.5 rounded-lg font-semibold text-sm transition duration-200 hover:scale-105 active:scale-95"
               >
                 Try Connecta
@@ -764,104 +650,86 @@ export default function LandingPageNew() {
               className="md:hidden px-6 py-4 border-t"
               style={{ backgroundColor: "rgba(6,9,12,0.95)", borderColor: "rgba(8,145,178,0.2)", backdropFilter: "blur(24px)" }}
             >
-              <Link to="/signup" className="btn-primary-glass block px-6 py-2.5 rounded-lg font-semibold text-sm w-fit">
+              <Link to="/scripts" className="btn-primary-glass block px-6 py-2.5 rounded-lg font-semibold text-sm w-fit">
                 Try Connecta
               </Link>
             </motion.div>
           )}
         </nav>
 
-        {/* Hero */}
-        <section className="relative min-h-screen flex items-center justify-center px-6 pt-24 pb-16">
-          <div className="max-w-7xl mx-auto w-full relative z-10">
-            <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-              {/* Left */}
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="text-center md:text-left">
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border mb-7"
-                  style={{ borderColor: "rgba(8,145,178,0.3)", background: "rgba(8,145,178,0.07)" }}
-                >
-                  <Zap size={10} style={{ color: gold }} />
-                  <span style={{ fontSize: 10, color: gold, fontWeight: 700, letterSpacing: "0.1em" }}>ALL-IN-ONE CREATOR PLATFORM</span>
-                </motion.div>
-
-                <motion.h1
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.8 }}
-                  className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tight mb-6 leading-[1.1]"
-                >
-                  Create viral short-form{" "}
-                  <span className="text-gradient-brand" style={{ fontWeight: 600, display: "inline-block" }}>
-                    videos in seconds
-                  </span>
-                </motion.h1>
-
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-base sm:text-lg mb-9 leading-relaxed mx-auto md:mx-0"
-                  style={{ color: "#888", maxWidth: 480 }}
-                >
-                  Research top channels, spot viral outliers, and remix them into winning videos.
-                </motion.p>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
-                >
-                  <Link
-                    to="/dashboard"
-                    className="btn-primary-glass px-8 py-4 rounded-xl font-semibold flex items-center justify-center gap-2 group transition duration-200 hover:scale-105 active:scale-95 text-sm"
-                  >
-                    Try It For Free
-                    <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                  <button
-                    className="px-8 py-4 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition duration-200 hover:scale-105 text-sm"
-                    style={{ border: "1px solid rgba(8,145,178,0.3)", background: "rgba(8,145,178,0.05)" }}
-                  >
-                    <Play size={13} style={{ color: gold }} />
-                    Watch Demo
-                  </button>
-                </motion.div>
-              </motion.div>
-
-              {/* Right — Hero Mockup */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3, duration: 0.9 }}
-                className="relative flex justify-center"
-              >
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div style={{ width: 350, height: 350, background: "radial-gradient(circle, rgba(6,182,212,0.22), transparent 70%)", filter: "blur(70px)" }} />
-                </div>
-                <div className="relative w-full max-w-md flex flex-col gap-2">
-                  {/* Viral Today mini card */}
-                  <ViralTodayMiniMockup />
-                  {/* Flow connector */}
-                  <div className="flex items-center justify-center gap-2 py-0.5">
-                    <div style={{ flex: 1, height: 1, background: "linear-gradient(to right, transparent, rgba(8,145,178,0.35))" }} />
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0"
-                      style={{ background: "rgba(8,145,178,0.08)", border: "1px solid rgba(8,145,178,0.25)" }}>
-                      <Zap size={8} style={{ color: gold }} />
-                      <span style={{ fontSize: 8, fontWeight: 700, color: gold, letterSpacing: "0.08em" }}>REMIX INTO SCRIPT</span>
-                    </div>
-                    <div style={{ flex: 1, height: 1, background: "linear-gradient(to left, transparent, rgba(8,145,178,0.35))" }} />
-                  </div>
-                  {/* Script Wizard card */}
-                  <ScriptWizardHeroMockup />
-                </div>
-              </motion.div>
-            </div>
+        {/* HERO */}
+        <section className="relative flex flex-col items-center" style={{ padding: "140px 48px 60px" }}>
+          {/* Horse logo — prominently above pill */}
+          <div className="relative z-10 flex items-center justify-center mb-5">
+            <div style={{
+              position: "absolute", width: 300, height: 300, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(6,182,212,.15), rgba(132,204,22,.05) 50%, transparent 70%)",
+              filter: "blur(40px)", animation: "horse-glow-pulse 6s ease-in-out infinite",
+            }} />
+            <video
+              autoPlay loop muted playsInline
+              style={{
+                height: 180, objectFit: "contain", position: "relative", zIndex: 1,
+                mixBlendMode: "lighten" as any,
+                filter: "brightness(1.3) contrast(1.4)",
+                maskImage: "radial-gradient(ellipse 75% 75% at 50% 50%, black 40%, transparent 68%)",
+                WebkitMaskImage: "radial-gradient(ellipse 75% 75% at 50% 50%, black 40%, transparent 68%)",
+                animation: "horse-float 8s ease-in-out infinite",
+              }}
+            >
+              <source src="/assets/horse-hero.mp4" type="video/mp4" />
+            </video>
           </div>
+
+          <motion.div
+            className="text-center relative z-10"
+            style={{ maxWidth: 720 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15 }}
+          >
+            <motion.div
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full mb-6"
+              style={{ border: "1px solid rgba(8,145,178,.15)", background: "rgba(8,145,178,.03)", fontSize: 10, color: "rgba(34,211,238,.55)", fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase" as const }}
+            >
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: gold, opacity: .5 }} />
+              AI-Powered Creator Platform
+            </motion.div>
+
+            <h1 style={{ fontSize: 56, fontWeight: 300, lineHeight: 1.08, marginBottom: 20, letterSpacing: -2, color: "rgba(255,255,255,.92)" }}>
+              Create viral short-form<br />
+              <b style={{ fontWeight: 700, background: goldGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>videos in seconds</b>
+            </h1>
+
+            <p style={{ fontSize: 17, color: "rgba(255,255,255,.35)", lineHeight: 1.7, marginBottom: 36, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
+              Research viral outliers, remix them into scripts, and publish — all from one AI-powered canvas.
+            </p>
+
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2.5 hover:scale-[1.02] transition-transform"
+              style={{ padding: "14px 34px", borderRadius: 12, fontSize: 14, fontWeight: 600, color: "#fff", background: "linear-gradient(135deg, rgba(6,182,212,.12), rgba(132,204,22,.06))", border: "1px solid rgba(8,145,178,.25)", textDecoration: "none", letterSpacing: "0.02em" }}
+            >
+              <Play size={14} />
+              Try It Free
+            </Link>
+          </motion.div>
+        </section>
+
+        {/* CANVAS MOCKUP */}
+        <section className="relative pb-24">
+          <img
+            src={connectaHorseLogo}
+            alt=""
+            style={{
+              position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
+              height: 500, objectFit: "contain", opacity: .04, pointerEvents: "none" as const,
+              mixBlendMode: "screen" as any,
+              maskImage: "radial-gradient(ellipse 60% 60% at 50% 50%, black 15%, transparent 55%)",
+              WebkitMaskImage: "radial-gradient(ellipse 60% 60% at 50% 50%, black 15%, transparent 55%)",
+            }}
+          />
+          <CanvasHeroMockup />
         </section>
 
         {/* Ticker */}
