@@ -59,7 +59,8 @@ export function getFormulasByCategory(cat: HookCategory): HookFormula[] {
 ```
 
 - All 1000+ formulas from the PDF, categorized into 7 groups
-- Exported for use by both frontend (browsing) and edge function (embedded copy)
+- **Frontend-only file** — imported by `HookGeneratorNode.tsx` for browsing
+- The edge function **cannot** import from `src/` — it embeds a hardcoded curated subset (~70 formulas) directly in its prompt string
 - Each formula is the template text with `(insert X)` placeholders preserved
 
 ---
@@ -71,9 +72,18 @@ export function getFormulasByCategory(cat: HookCategory): HookFormula[] {
 ### Changes
 
 - **Categories expanded** from 5 to 7 (add `mythBusting`, `dayInTheLife`)
-- **Embed ~10 formulas per category** (~70 total) in the system prompt as structural templates
-- **Smart formula selection** — single-prompt approach where AI picks the 5 best-fitting formulas for the topic rather than random selection
-- **Anti-repetition** — pass previously generated hooks so the AI avoids reusing the same formula structures
+- **Hardcoded curated subset** — ~10 formulas per category (~70 total) embedded directly in the prompt string (edge functions can't import from `src/`)
+- **Smart formula selection** — single-prompt approach where AI picks the 3-7 best-fitting formulas for the topic rather than random selection
+- **Anti-repetition** — frontend sends `previousHooks` array in the request body; edge function injects them into the prompt as "avoid these"
+- **Flexible count** — tool schema allows 3-7 hooks (`minItems: 3, maxItems: 7`) so the AI doesn't force-fit formulas that don't match the topic
+
+### Anti-Repetition Data Flow
+
+1. **Frontend sends:** `{ step: "generate-hooks", topic, previousHooks: ["hook text 1", "hook text 2", ...] }`
+2. **Edge function reads:** `body.previousHooks` and injects into prompt: `"Do NOT reuse these formula structures (already generated): \n- hook text 1\n- hook text 2\n..."`
+3. **Edge function returns:** new hooks
+4. **Frontend accumulates:** after receiving response, appends new hook texts to `previousHooks` via `onUpdate({ previousHooks: [...prev, ...newHookTexts] })`
+5. **Cap at 20:** if `previousHooks.length > 20`, keep only the last 20 to avoid bloating the prompt
 
 ### Prompt Structure
 
@@ -100,17 +110,30 @@ COMPARISON:
 
 Topic: "{user topic}"
 
-Pick the 5 best-fitting formulas and adapt them by filling in
-the placeholders with topic-specific content.
+Pick the 3-7 best-fitting formulas and adapt them by filling in
+the placeholders with topic-specific content. Only include formulas
+that genuinely fit — do not force a formula just to reach a count.
 ```
 
 ### Tool Schema Update
 
 ```ts
-category: {
-  type: "string",
-  enum: ["educational", "comparison", "mythBusting",
-         "storytelling", "random", "authority", "dayInTheLife"]
+hooks: {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      category: {
+        type: "string",
+        enum: ["educational", "comparison", "mythBusting",
+               "storytelling", "random", "authority", "dayInTheLife"]
+      },
+      text: { type: "string" },
+    },
+    required: ["category", "text"],
+  },
+  minItems: 3,
+  maxItems: 7,
 }
 ```
 
@@ -151,9 +174,10 @@ category: {
 - **Category chips:** 7 pills, one active at a time, click to filter, click again to show all
 - **Search input:** filters formulas by keyword across all categories
 - **Formula cards:** compact, show template text + small category tag
-- **Click behavior:**
-  - If topic is entered → AI fills placeholders and adds as hook result
+- **Click behavior:** Client-side placeholder fill (no AI call, zero credits, instant):
+  - If topic is entered → regex replaces `(insert ...)` placeholders with the topic text, adds as a hook result with a brief loading pulse on the card
   - If no topic → added as-is to selected hook (raw template)
+  - No additional edge function step needed — this is purely client-side string manipulation
 
 ### Node Data Changes
 
@@ -170,25 +194,42 @@ interface HookGeneratorData {
 }
 ```
 
+### Category Key Migration
+
+Old keys (`randomInspo`, `authorityInspo`, `comparisonInspo`, `storytellingInspo`) exist in persisted canvas states. A `normalizeCategory()` utility maps old → new:
+
+```ts
+const CATEGORY_KEY_MAP: Record<string, string> = {
+  randomInspo: "random",
+  authorityInspo: "authority",
+  comparisonInspo: "comparison",
+  storytellingInspo: "storytelling",
+};
+
+function normalizeCategory(key: string): string {
+  return CATEGORY_KEY_MAP[key] ?? key;
+}
+```
+
+Called when loading persisted hooks from `canvas_states` and in `CATEGORY_LABELS` lookups. The edge function only returns new-style keys going forward.
+
 ### Category Labels Update
 
-Expand `CATEGORY_LABELS` from 5 → 7:
+Expand `CATEGORY_LABELS` to 7 new-style keys:
 
 ```ts
 const CATEGORY_LABELS: Record<string, string> = {
   educational: "Educational",
-  randomInspo: "Random",        // keep old key for backward compat
   random: "Random",
-  authorityInspo: "Authority",  // keep old key for backward compat
   authority: "Authority",
-  comparisonInspo: "Comparison", // keep old key for backward compat
   comparison: "Comparison",
-  storytellingInspo: "Story",   // keep old key for backward compat
   storytelling: "Storytelling",
   mythBusting: "Myth Busting",
   dayInTheLife: "Day in the Life",
 };
 ```
+
+**Note:** `AIScriptWizard.tsx` has its own `HOOK_FORMATS` with old-style keys — not changed in this phase. Future consolidation task if needed.
 
 ---
 
