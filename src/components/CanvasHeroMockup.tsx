@@ -108,8 +108,9 @@ function InputNode({ label, icon, iconBg, iconColor, preview, features, hasThumb
   return (
     <div className="c-node" style={{
       borderRadius: 14, border: "1px solid rgba(255,255,255,.05)",
-      background: "rgba(255,255,255,.015)", overflow: "hidden", cursor: "default",
-      transition: "all .4s cubic-bezier(.4,0,.2,1)", position: "relative",
+      background: "rgba(255,255,255,.015)", cursor: "default",
+      transition: "border-color .4s, box-shadow .4s, transform .4s cubic-bezier(.4,0,.2,1)",
+      position: "relative",
       backdropFilter: "blur(6px)",
     }}>
       <div style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 8, height: 8, borderRadius: "50%", background: "rgba(8,145,178,.25)", border: "1px solid rgba(8,145,178,.15)", zIndex: 5 }} />
@@ -125,7 +126,7 @@ function InputNode({ label, icon, iconBg, iconColor, preview, features, hasThumb
         )}
         <div style={{ fontSize: 11, color: "rgba(255,255,255,.2)", lineHeight: 1.4 }}>{preview}</div>
       </div>
-      <div className="c-node-expanded" style={{ maxHeight: 0, overflow: "hidden", opacity: 0, padding: "0 16px", transition: "max-height .4s cubic-bezier(.4,0,.2,1), opacity .3s, padding .3s" }}>
+      <div className="c-node-expanded" style={{ position: "absolute", top: 0, left: 0, right: 0, background: "rgba(6,9,12,.97)", borderRadius: 14, opacity: 0, pointerEvents: "none", padding: "44px 16px 14px", transition: "opacity .3s", zIndex: 10 }}>
         <ul style={{ listStyle: "none", padding: 0 }}>
           {features.map((f, i) => (
             <li key={i} style={{ fontSize: 12, color: "rgba(255,255,255,.45)", padding: "3.5px 0", lineHeight: 1.45, display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -138,8 +139,8 @@ function InputNode({ label, icon, iconBg, iconColor, preview, features, hasThumb
       <style>{`
         .c-node:hover { border-color: rgba(8,145,178,.2) !important; box-shadow: 0 12px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(8,145,178,.08); transform: translateY(-4px) scale(1.01); z-index: 100; }
         .c-node:hover .c-node-head { color: #22d3ee !important; }
-        .c-node:hover .c-node-expanded { max-height: 240px !important; opacity: 1 !important; padding: 12px 16px 14px !important; }
-        .c-node:hover .c-node-preview { opacity: 0 !important; max-height: 0 !important; padding: 0 !important; overflow: hidden !important; }
+        .c-node:hover .c-node-expanded { opacity: 1 !important; pointer-events: auto !important; }
+        .c-node:hover .c-node-preview { opacity: 0 !important; }
       `}</style>
     </div>
   );
@@ -206,8 +207,9 @@ function OutputNode({ features }: { features: string[] }) {
   return (
     <div className="output-node" style={{
       borderRadius: 14, border: "1px solid rgba(132,204,22,.08)",
-      background: "rgba(132,204,22,.015)", overflow: "hidden", cursor: "default",
-      transition: "all .4s cubic-bezier(.4,0,.2,1)", position: "relative" as const,
+      background: "rgba(132,204,22,.015)", cursor: "default",
+      transition: "border-color .4s, box-shadow .4s, transform .4s cubic-bezier(.4,0,.2,1)",
+      position: "relative" as const,
       backdropFilter: "blur(6px)",
     }}>
       <div style={{ position: "absolute", left: -5, top: "50%", transform: "translateY(-50%)", width: 8, height: 8, borderRadius: "50%", background: "rgba(132,204,22,.2)", border: "1px solid rgba(132,204,22,.12)", zIndex: 5 }} />
@@ -223,7 +225,7 @@ function OutputNode({ features }: { features: string[] }) {
           </div>
         ))}
       </div>
-      <div className="output-expanded" style={{ maxHeight: 0, overflow: "hidden", opacity: 0, padding: "0 16px", transition: "max-height .4s cubic-bezier(.4,0,.2,1), opacity .3s, padding .3s" }}>
+      <div className="output-expanded" style={{ position: "absolute", top: 0, left: 0, right: 0, background: "rgba(6,9,12,.97)", borderRadius: 14, opacity: 0, pointerEvents: "none", padding: "44px 16px 14px", transition: "opacity .3s", zIndex: 10 }}>
         <ul style={{ listStyle: "none", padding: 0 }}>
           {features.map((f, i) => (
             <li key={i} style={{ fontSize: 12, color: "rgba(255,255,255,.45)", padding: "3.5px 0", lineHeight: 1.45, display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -235,8 +237,8 @@ function OutputNode({ features }: { features: string[] }) {
       </div>
       <style>{`
         .output-node:hover { border-color: rgba(132,204,22,.18) !important; box-shadow: 0 12px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(132,204,22,.06); transform: translateY(-4px) scale(1.01); z-index: 100; }
-        .output-node:hover .output-expanded { max-height: 240px !important; opacity: 1 !important; padding: 12px 16px 14px !important; }
-        .output-node:hover .output-preview { opacity: 0 !important; max-height: 0 !important; padding: 0 !important; overflow: hidden !important; }
+        .output-node:hover .output-expanded { opacity: 1 !important; pointer-events: auto !important; }
+        .output-node:hover .output-preview { opacity: 0 !important; }
       `}</style>
     </div>
   );
