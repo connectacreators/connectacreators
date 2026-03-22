@@ -1,0 +1,60 @@
+import { useState, useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import DashboardSidebar from "@/components/DashboardSidebar";
+import DashboardTopBar from "@/components/DashboardTopBar";
+import AnimatedDots from "@/components/ui/AnimatedDots";
+import FloatingCredits from "@/components/FloatingCredits";
+import { useAuth } from "@/hooks/useAuth";
+
+export default function DashboardLayout() {
+  const { user, requiresPasswordChange } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Redirect to change-password if force_password_change flag is set
+  useEffect(() => {
+    if (requiresPasswordChange && location.pathname !== "/change-password") {
+      navigate("/change-password", { replace: true });
+    }
+  }, [requiresPasswordChange, location.pathname, navigate]);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
+  const showChrome = !!user;
+
+  return (
+    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
+      <AnimatedDots />
+      {showChrome && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      {showChrome && (
+        <DashboardSidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          currentPath={location.pathname + location.search}
+        />
+      )}
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        {showChrome && <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12, ease: "easeInOut" }}
+            className="flex-1 flex flex-col min-h-0 overflow-hidden"
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      {showChrome && <FloatingCredits />}
+    </div>
+  );
+}
