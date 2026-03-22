@@ -9,22 +9,49 @@ import {
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WelcomeSubscriptionModal from "@/components/WelcomeSubscriptionModal";
 import SplashScreen from "@/components/SplashScreen";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import PageTransition from "@/components/PageTransition";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+    transition: { delay: Math.min(i * 0.04, 0.2), duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   }),
 };
 
 type FolderKey = "content" | "sales" | "setup";
+
+function DashboardSkeleton() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-6">
+      <div className="max-w-3xl w-full">
+        <div className="flex items-center gap-3 mb-10">
+          <Skeleton className="w-9 h-9 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-2xl border border-border bg-card/50 p-5 space-y-3">
+              <Skeleton className="w-9 h-9 rounded-xl" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user, loading, isAdmin, isUser, isVideographer, isEditor, isConnectaPlus, role, signOut, signInWithEmail, signUpWithEmail } = useAuth();
@@ -71,6 +98,17 @@ export default function Dashboard() {
   const isClientRole = !isAdmin && !isVideographer && !isEditor && !isUser;
   const isSubscriber = userPlanType === "free" || userPlanType === "starter" || userPlanType === "growth" || userPlanType === "enterprise";
   const showClientSelector = isAdmin || isVideographer;
+
+  // Reset stale viewMode for isUser (subscribers) — they don't manage multiple clients
+  useEffect(() => {
+    if (isUser && !isAdmin && !isVideographer && !isEditor) {
+      const stored = localStorage.getItem("dashboard_viewMode");
+      if (stored && stored !== "master" && stored !== "me") {
+        localStorage.setItem("dashboard_viewMode", "master");
+        setViewMode("master");
+      }
+    }
+  }, [isUser, isAdmin, isVideographer, isEditor]);
 
   // Listen for viewMode changes from sidebar
   useEffect(() => {
@@ -185,43 +223,43 @@ export default function Dashboard() {
       label: "Content Creation",
       description: "Scripts · Vault · Editing Queue · Content Calendar",
       icon: Sparkles,
-      color: "#0891B2",
+      color: "#22d3ee",
     },
     {
       key: "sales" as FolderKey,
       label: "Sales",
       description: "Lead Tracker · Lead Calendar · AI Follow Up Builder",
       icon: BarChart3,
-      color: "text-emerald-400",
+      color: "#999999",
     },
     {
       key: "setup" as FolderKey,
       label: "Client Set Up",
       description: "Onboarding · Public Booking · Landing Page · Master Database",
       icon: Settings2,
-      color: "text-violet-400",
+      color: "#999999",
     },
   ];
 
   // Sub-cards with optional clientId for context-specific routes
   const getClientSubCards = (clientId: string | null) => ({
     content: [
-      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "text-orange-400", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
-      { label: "Scripts", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "text-primary", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
-      { label: "Vault", description: language === "en" ? "Save and reuse video templates" : "Guarda y reutiliza plantillas de video", icon: Archive, color: "#0891B2", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
-      { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "text-rose-400", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
-      { label: "Content Calendar", description: language === "en" ? "Plan and schedule your content" : "Planifica y programa tu contenido", icon: Calendar, color: "text-cyan-400", path: clientId ? `/clients/${clientId}/content-calendar` : "/content-calendar" },
+      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Scripts", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
+      { label: "Vault", description: language === "en" ? "Save and reuse video templates" : "Guarda y reutiliza plantillas de video", icon: Archive, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
+      { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
+      { label: "Content Calendar", description: language === "en" ? "Plan and schedule your content" : "Planifica y programa tu contenido", icon: Calendar, color: "#22d3ee", path: clientId ? `/clients/${clientId}/content-calendar` : "/content-calendar" },
     ],
     sales: [
-      { label: "Lead Tracker", description: language === "en" ? "Track and manage your leads" : "Rastrea y gestiona tus leads", icon: Target, color: "text-emerald-400", path: clientId ? `/clients/${clientId}/leads` : "/leads" },
-      { label: "Lead Calendar", description: language === "en" ? "Schedule and view lead activity" : "Programa y ve la actividad de leads", icon: CalendarDays, color: "text-violet-400", path: clientId ? `/clients/${clientId}/lead-calendar` : "/lead-calendar" },
-      { label: "AI Follow Up Builder", description: language === "en" ? "Build automated follow-up flows" : "Crea flujos de seguimiento automatizados", icon: Zap, color: "#0891B2", path: clientId ? `/clients/${clientId}/workflow` : "/leads" },
+      { label: "Lead Tracker", description: language === "en" ? "Track and manage your leads" : "Rastrea y gestiona tus leads", icon: Target, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/leads` : "/leads" },
+      { label: "Lead Calendar", description: language === "en" ? "Schedule and view lead activity" : "Programa y ve la actividad de leads", icon: CalendarDays, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/lead-calendar` : "/lead-calendar" },
+      { label: "AI Follow Up Builder", description: language === "en" ? "Build automated follow-up flows" : "Crea flujos de seguimiento automatizados", icon: Zap, color: "#22d3ee", path: clientId ? `/clients/${clientId}/workflow` : "/leads" },
     ],
     setup: [
-      { label: "Onboarding", description: language === "en" ? "Complete your account setup" : "Completa la configuración de tu cuenta", icon: UserPlus, color: "text-primary", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
-      { label: "Public Booking", description: language === "en" ? "Configure your booking page" : "Configura tu página de reservas", icon: Globe, color: "text-emerald-400", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
-      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "text-rose-400", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
-      { label: "Master Database", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "text-cyan-400", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
+      { label: "Onboarding", description: language === "en" ? "Complete your account setup" : "Completa la configuración de tu cuenta", icon: UserPlus, color: "#bbbbbb", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
+      { label: "Public Booking", description: language === "en" ? "Configure your booking page" : "Configura tu página de reservas", icon: Globe, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
+      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
+      { label: "Master Database", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "#ffffff", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
     ],
   });
 
@@ -234,7 +272,7 @@ export default function Dashboard() {
         label: "Editing Queue",
         description: language === "en" ? "View and manage your assigned editing tasks" : "Ver y gestionar tus tareas de edición asignadas",
         icon: Clapperboard,
-        color: "text-rose-400",
+        color: "#bbbbbb",
         path: "/editing-queue",
       }];
     }
@@ -245,21 +283,21 @@ export default function Dashboard() {
           label: language === "en" ? "Master Scripts" : "Scripts Master",
           description: language === "en" ? "All scripts across your clients" : "Todos los guiones de tus clientes",
           icon: FileText,
-          color: "text-primary",
+          color: "#bbbbbb",
           path: "/scripts",
         },
         {
           label: language === "en" ? "Master Edit Queue" : "Cola de Edición Master",
           description: language === "en" ? "All editing tasks across clients" : "Todas las tareas de edición",
           icon: Clapperboard,
-          color: "text-rose-400",
+          color: "#bbbbbb",
           path: "/editing-queue",
         },
         ...(isAdmin ? [{
           label: language === "en" ? "Master Database" : "Base de Datos Principal",
           description: language === "en" ? "All leads and videos across all clients" : "Todos los leads y videos de todos los clientes",
           icon: Database,
-          color: "text-cyan-400",
+          color: "#ffffff",
           path: "/master-database",
         }] : []),
       ];
@@ -271,9 +309,9 @@ export default function Dashboard() {
 
   if (loading || subscriptionChecking) {
     return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
+        <DashboardSkeleton />
+      </PageTransition>
     );
   }
 
@@ -333,19 +371,19 @@ export default function Dashboard() {
 
       {/* Near-black background with faint orbs */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-card" />
+        <div className="absolute inset-0" style={{ background: '#161616' }} />
 
-        {/* Faint cyan orb top-right */}
+        {/* Faint white orb top-right */}
         <motion.div
           className="absolute w-[500px] h-[500px] rounded-full blur-3xl -top-48 -right-32"
-          style={{ background: 'rgba(34,211,238,0.08)' }}
+          style={{ background: 'rgba(255,255,255,0.03)' }}
           animate={{ y: [0, 30, 0], x: [0, -15, 0] }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
         />
-        {/* Faint lime orb bottom-left */}
+        {/* Faint white orb bottom-left */}
         <motion.div
           className="absolute w-[350px] h-[350px] rounded-full blur-3xl bottom-10 -left-24"
-          style={{ background: 'rgba(163,230,53,0.04)' }}
+          style={{ background: 'rgba(255,255,255,0.02)' }}
           animate={{ y: [0, -25, 0], x: [0, 20, 0] }}
           transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -357,7 +395,7 @@ export default function Dashboard() {
         }} />
       </div>
 
-      <main className="flex-1 flex flex-col min-h-screen relative">
+      <PageTransition className="flex-1 flex flex-col min-h-screen relative">
 
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="max-w-3xl w-full text-center">
@@ -373,7 +411,7 @@ export default function Dashboard() {
                   >
                     <button
                       onClick={() => setActiveFolder(null)}
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#22d3ee] transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" /> Dashboard
                     </button>
@@ -398,17 +436,17 @@ export default function Dashboard() {
                       <motion.button
                         key={card.path}
                         onClick={() => !(card as any).disabled && navigate(card.path)}
-                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                         initial="hidden"
                         animate="visible"
                         custom={i + 1}
                         variants={fadeUp}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
-                          <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
+                          <card.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
                         </div>
                         <div>
-                          <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
+                          <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{card.label}</h2>
                           <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                           {(card as any).disabled && (
                             <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
@@ -423,7 +461,7 @@ export default function Dashboard() {
                   <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
-                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] bg-gradient-to-r from-foreground via-foreground to-primary/70 bg-clip-text text-transparent" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {tr(t.dashboard.question, language)}
                   </motion.h1>
 
@@ -432,17 +470,17 @@ export default function Dashboard() {
                       <motion.button
                         key={folder.key}
                         onClick={() => setActiveFolder(folder.key)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500"
+                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500"
                         initial="hidden"
                         animate="visible"
                         custom={i + 2}
                         variants={fadeUp}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
-                          <folder.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
+                          <folder.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
                         </div>
                         <div>
-                          <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{folder.label}</h2>
+                          <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
                           <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                         </div>
                       </motion.button>
@@ -456,7 +494,7 @@ export default function Dashboard() {
                 <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                   👋 {tr(t.dashboard.greeting, language)}, {displayName}
                 </motion.p>
-                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] bg-gradient-to-r from-foreground via-foreground to-primary/70 bg-clip-text text-transparent" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                   {tr(t.dashboard.question, language)}
                 </motion.h1>
 
@@ -465,17 +503,17 @@ export default function Dashboard() {
                     <motion.button
                       key={tool.path}
                       onClick={() => navigate(tool.path)}
-                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500"
+                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500"
                       initial="hidden"
                       animate="visible"
                       custom={i + 2}
                       variants={fadeUp}
                     >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
-                        <tool.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: tool.color.startsWith('#') ? tool.color : undefined }} />
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
+                        <tool.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: tool.color.startsWith('#') ? tool.color : undefined }} />
                       </div>
                       <div>
-                        <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{tool.label}</h2>
+                        <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{tool.label}</h2>
                         <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
                       </div>
                     </motion.button>
@@ -494,7 +532,7 @@ export default function Dashboard() {
                   >
                     <button
                       onClick={() => setActiveFolder(null)}
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#22d3ee] transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" /> {selectedClientName}
                     </button>
@@ -522,17 +560,17 @@ export default function Dashboard() {
                         <motion.button
                           key={card.path}
                           onClick={() => !(card as any).disabled && navigate(card.path)}
-                          className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                           initial="hidden"
                           animate="visible"
                           custom={i + 1}
                           variants={fadeUp}
                         >
-                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
-                            <card.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
+                            <card.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
                           </div>
                           <div>
-                            <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{card.label}</h2>
+                            <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{card.label}</h2>
                             <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                             {(card as any).disabled && (
                               <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
@@ -560,17 +598,17 @@ export default function Dashboard() {
                       <motion.button
                         key={folder.key}
                         onClick={() => setActiveFolder(folder.key)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_0_30px_rgba(34,211,238,0.04)] transition-all duration-500"
+                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500"
                         initial="hidden"
                         animate="visible"
                         custom={i + 3}
                         variants={fadeUp}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.10)', boxShadow: 'none' }}>
-                          <folder.icon className="w-5 h-5 group-hover:text-primary transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
+                          <folder.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
                         </div>
                         <div>
-                          <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{folder.label}</h2>
+                          <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
                           <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                         </div>
                       </motion.button>
@@ -583,7 +621,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-      </main>
+      </PageTransition>
     </>
   );
 }
