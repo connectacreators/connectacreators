@@ -14,50 +14,54 @@ Navigating between dashboard pages feels glitchy because:
 ## Goal
 
 Make page navigation feel fast and fluid:
-- Pages transition with a smooth fade-up (not a jarring swap)
-- Cards animate in quickly and consistently across all pages
+- Old page fades out smoothly when navigating away
+- New page content rises up as it fades in
+- Cards animate in quickly and consistently
 - While data loads, the page shows content-shaped skeletons instead of a spinner
 
 ---
 
 ## Architecture
 
-### 1. Route-Level Transition — `DashboardLayout.tsx`
+### 1. Route-Level Exit Transition — `DashboardLayout.tsx`
 
-Add `useLocation()` and wrap `<Outlet />` with `AnimatePresence mode="wait"`:
+Add `useLocation()` and wrap `<Outlet />` with `AnimatePresence`. The layout-level `motion.div` owns **only the exit animation** (fade out old page). Entry animation is owned by `PageTransition` inside each page. This prevents double-animation conflicts.
 
 ```tsx
 const location = useLocation();
 
-<AnimatePresence mode="wait" initial={false}>
+<AnimatePresence mode="wait">
   <motion.div
     key={location.pathname}
-    initial={{ opacity: 0 }}
+    initial={{ opacity: 1 }}   // no entry fade here — PageTransition owns entry
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    transition={{ duration: 0.15, ease: "easeInOut" }}
-    className="flex-1 flex flex-col min-h-0"
+    transition={{ duration: 0.12, ease: "easeInOut" }}
+    className="flex-1 flex flex-col min-h-0 overflow-hidden"
   >
     <Outlet />
   </motion.div>
 </AnimatePresence>
 ```
 
-- `mode="wait"` — old page fully exits before new page enters (prevents overlap glitch)
-- `initial={false}` — no animation on first app load, only on navigation
-- Exit: 0.12s fade out; Enter: 0.15s fade in
-- The `motion.div` takes over the flex layout role of the current plain `div`
+- `mode="wait"` — old page fully exits (0.12s) before new page mounts
+- `initial={{ opacity: 1 }}` — wrapper does not animate on entry; only `PageTransition` inside the page does
+- `overflow-hidden` — prevents scroll-jump artifact while old page fades out
+- The `motion.div` inherits the same flex layout role as the current plain `<div>`
 
 ---
 
 ### 2. `PageTransition` Component — new file
 
-Create `src/components/PageTransition.tsx`:
+Create `src/components/PageTransition.tsx`. This component owns the **entry animation** (fade-up) for every page.
 
 ```tsx
 import { motion } from "framer-motion";
 
-export default function PageTransition({ children, className }: {
+export default function PageTransition({
+  children,
+  className,
+}: {
   children: React.ReactNode;
   className?: string;
 }) {
@@ -74,108 +78,128 @@ export default function PageTransition({ children, className }: {
 }
 ```
 
-Every page wraps its outermost content div with `<PageTransition>`. This gives the content a subtle rise-and-fade on mount, layered on top of the route-level fade.
+**Migration rule for every page:** Replace the outermost `<div className="...layout classes...">` with `<PageTransition className="...same layout classes...">`. The `className` passthrough ensures layout-critical classes (`flex-1 overflow-auto p-6` etc.) are preserved.
 
-**Pages to update** (all authenticated dashboard pages, ~30 files):
-Replace outermost `<div className="flex-1 ...">` or `<main ...>` with `<PageTransition className="flex-1 ...">`.
+**Constraint:** Pages must never return `null` or a fragment before `PageTransition`. If a page has a top-level auth guard or error state that returns early, those returns must also be wrapped:
+```tsx
+if (error) return <PageTransition><ErrorView /></PageTransition>;
+return <PageTransition className="flex-1 p-6"><RealContent /></PageTransition>;
+```
+
+**Scope:** All ~30 authenticated page files under `src/pages/` that render inside `DashboardLayout`.
 
 ---
 
-### 3. Card Stagger Fix
+### 3. Skeleton ↔ Content Swap
 
-Current pattern in Dashboard, Clients, Checkout, ClientDatabase:
+When data is loading, show a skeleton. When data arrives, swap to real content. Because React does not remount the same component type, a plain conditional would silently skip the animation. Use `AnimatePresence` with a `key` to force a proper mount/unmount cycle:
+
+```tsx
+<AnimatePresence mode="wait" initial={false}>
+  {loading ? (
+    <PageTransition key="skeleton" className="flex-1 p-6">
+      <SkeletonView />
+    </PageTransition>
+  ) : (
+    <PageTransition key="content" className="flex-1 p-6">
+      <RealContent />
+    </PageTransition>
+  )}
+</AnimatePresence>
+```
+
+- `initial={false}` — suppresses animation on the very first render of `AnimatePresence` (i.e., when the page first mounts showing the skeleton, no double fade)
+- When `loading` flips to `false`, skeleton fades out 0.28s → content fades up 0.28s
+
+---
+
+### 4. Skeleton Loaders — 5 pages
+
+Replace `<Loader2 className="animate-spin">` with content-shaped skeletons. Use the existing `Skeleton` component (`src/components/ui/skeleton.tsx`).
+
+#### Dashboard
+```
+[circle w-9 h-9]  [h-4 w-32]   <- greeting
+                  [h-3 w-24]
+
+[card h-32 rounded-xl]  [card h-32]  [card h-32]   <- 3-col grid
+```
+3 card skeletons in a `grid grid-cols-1 sm:grid-cols-3 gap-6`. Each card has a `Skeleton` for icon circle, title line, and subtitle line.
+
+#### Clients
+```
+[h-9 w-9 rounded-full]  [h-4 w-40]  [h-5 w-16 rounded-full]
+```
+6 row skeletons in `space-y-3`. Each row: avatar circle + name line + 1 badge pill.
+
+#### Scripts
+```
+[h-4 w-3/4]  [h-5 w-20 rounded-full]
+[h-3 w-1/2]
+```
+8 row skeletons in `space-y-3`. Each: title line + status badge + date line.
+
+#### Vault
+```
+[h-36 rounded-xl]  [h-36 rounded-xl]  [h-36 rounded-xl]
+[h-4 w-3/4]        [h-4 w-2/3]        [h-4 w-3/4]
+```
+6 card skeletons in a `grid grid-cols-2 sm:grid-cols-3 gap-4`.
+
+#### Editing Queue
+```
+[h-4 w-32]  [h-4 w-48]  [h-5 w-20 rounded-full]  [h-4 w-24]
+```
+8 row skeletons matching the table column widths.
+
+Each skeleton view is a small local component (e.g., `DashboardSkeleton`) defined in the same page file — no need for separate skeleton files.
+
+---
+
+### 5. Card Stagger Fix
+
+**Files with stagger pattern to update:**
+- `src/pages/Dashboard.tsx`
+- `src/pages/Clients.tsx`
+- `src/pages/Checkout.tsx`
+- `src/pages/ClientDatabase.tsx`
+
+Find via: `grep -r "delay: i \* 0.08" src/pages/`
+
+**Replace:**
 ```tsx
 transition: { delay: i * 0.08, duration: 0.45 }
 ```
 
-Replace with:
+**With:**
 ```tsx
 transition: { delay: Math.min(i * 0.04, 0.2), duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }
 ```
 
-Changes:
-- Delay per item: `0.08s → 0.04s` (half the wait)
-- Max total stagger delay: capped at `0.2s` (item 5 and beyond all start at 0.2s)
-- Duration: `0.45s → 0.35s` (snappier individual animation)
-- Net effect: a 10-card grid finishes animating in 0.55s instead of 1.25s
+**Rationale:** Delay per item halves from 0.08s to 0.04s. Items beyond index 5 all start at the same 0.2s delay and animate simultaneously — this is intentional. With many items (10+), staggering every card produces a "slow waterfall" that feels sluggish. Capping ensures the grid fills in fast as a group after the initial few cards lead the eye.
 
-This fix applies to every `fadeUp` / `custom={i}` pattern in the codebase.
-
----
-
-### 4. Skeleton Loaders
-
-Replace bare `<Loader2 animate-spin>` loading states with content-shaped skeletons on 5 key pages. Each skeleton mirrors the visual structure of the real content so the page feels "already loaded."
-
-The existing `Skeleton` component (`src/components/ui/skeleton.tsx`) is used as-is (animate-pulse + bg-muted).
-
-#### Dashboard (`/dashboard`)
-```
-[circle]  [line ████████]
-           [line ██████]
-
-[card ████████████]  [card ████████████]  [card ████████████]
-[████████████████]   [████████████████]   [████████████████]
-```
-- 1 greeting skeleton (circle + 2 lines)
-- 3 card skeletons matching the grid layout
-
-#### Clients (`/clients`)
-```
-[avatar] [line ████████]  [badge]  [badge]
-[avatar] [line ██████]    [badge]
-[avatar] [line ████████]  [badge]  [badge]
-```
-- 6 row skeletons with avatar circle + name line + 2 badge pills
-
-#### Scripts (`/scripts`)
-```
-[line ████████████████████████]  [badge]
-[line ██████████████]            [badge]
-[line ████████████████████]      [badge]
-```
-- 8 row skeletons matching script list items
-
-#### Vault (`/vault`)
-```
-[card ██████]  [card ██████]  [card ██████]
-[████████████] [████████████] [████████████]
-[██] [████]    [██] [████]    [██] [████]
-```
-- 6 card skeletons in a grid
-
-#### Editing Queue (`/editing-queue`)
-```
-[████] [████████████████] [badge] [████]
-[████] [████████████]     [badge] [████]
-[████] [██████████████]   [badge] [████]
-```
-- 8 row skeletons matching the table structure
-
-**Implementation pattern** for each page:
-```tsx
-if (loading) return <PageTransition><SkeletonView /></PageTransition>;
-return <PageTransition><RealContent /></PageTransition>;
-```
-
-The skeleton is itself wrapped in `<PageTransition>` so it fades in smoothly, and when data loads, the real content also fades in via the route transition.
+| Items | Old total time | New total time |
+|---|---|---|
+| 3 cards | 0.69s | 0.43s |
+| 6 cards | 1.05s | 0.55s |
+| 10 cards | 1.25s | 0.55s |
 
 ---
 
-## Files Changed
+## Files Changed Summary
 
 | File | Change |
 |---|---|
-| `src/layouts/DashboardLayout.tsx` | Add AnimatePresence + motion.div + useLocation |
-| `src/components/PageTransition.tsx` | **New file** |
-| `src/pages/Dashboard.tsx` | Add PageTransition, skeleton, fix stagger |
-| `src/pages/Clients.tsx` | Add PageTransition, skeleton, fix stagger |
-| `src/pages/Scripts.tsx` | Add PageTransition, skeleton |
-| `src/pages/Vault.tsx` | Add PageTransition, skeleton |
-| `src/pages/EditingQueue.tsx` | Add PageTransition, skeleton |
-| `src/pages/Checkout.tsx` | Add PageTransition, fix stagger |
-| `src/pages/ClientDatabase.tsx` | Add PageTransition, fix stagger |
-| All other ~23 page files | Add PageTransition wrapper only |
+| `src/layouts/DashboardLayout.tsx` | Add `useLocation`, `AnimatePresence`, keyed `motion.div` (exit only) |
+| `src/components/PageTransition.tsx` | **New file** — entry fade-up wrapper |
+| `src/pages/Dashboard.tsx` | `PageTransition` wrapper, `AnimatePresence` skeleton swap, stagger fix |
+| `src/pages/Clients.tsx` | `PageTransition` wrapper, `AnimatePresence` skeleton swap, stagger fix |
+| `src/pages/Scripts.tsx` | `PageTransition` wrapper, `AnimatePresence` skeleton swap |
+| `src/pages/Vault.tsx` | `PageTransition` wrapper, `AnimatePresence` skeleton swap |
+| `src/pages/EditingQueue.tsx` | `PageTransition` wrapper, `AnimatePresence` skeleton swap |
+| `src/pages/Checkout.tsx` | `PageTransition` wrapper, stagger fix |
+| `src/pages/ClientDatabase.tsx` | `PageTransition` wrapper, stagger fix |
+| All other ~22 page files | `PageTransition` wrapper only (mechanical find-replace) |
 
 ---
 
@@ -183,16 +207,17 @@ The skeleton is itself wrapped in `<PageTransition>` so it fades in smoothly, an
 
 | Property | Old | New |
 |---|---|---|
-| Route fade duration | none | 0.15s |
-| Page content rise | 0ms | 0.28s, y: 12→0 |
-| Card stagger delay | `i × 0.08s` | `min(i × 0.04s, 0.2s)` |
+| Route exit fade | none | 0.12s |
+| Page content entry | none | 0.28s fade-up, y: 12→0 |
+| Card stagger per item | `i × 0.08s` | `min(i × 0.04s, 0.2s)` |
 | Card animation duration | 0.45s | 0.35s |
+| Skeleton → content swap | instant | 0.28s crossfade |
 
 ---
 
 ## Non-Goals
 
-- No code splitting / lazy loading (separate concern, would require Suspense boundaries)
+- No code splitting / lazy loading (separate concern)
 - No slide/directional transitions (user chose fade-up)
 - No changes to public pages (only authenticated dashboard routes)
-- No changes to animation logic inside modals or sheets
+- No changes to animation inside modals, sheets, or drawers
