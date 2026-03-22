@@ -256,7 +256,7 @@ export default function Vault() {
 
   // Regular user — standalone page
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background" style={{ fontFamily: "Arial, sans-serif" }}>
+    <PageTransition className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background" style={{ fontFamily: "Arial, sans-serif" }}>
       <header className="border-b border-border/50 sticky top-0 z-50 bg-gradient-to-r from-background/90 to-card/90 backdrop-blur-xl hidden lg:block">
         <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
           <Link to="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
@@ -288,7 +288,7 @@ export default function Vault() {
             language={language}
         />
       </div>
-    </div>
+    </PageTransition>
   );
 }
 
