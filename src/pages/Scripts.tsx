@@ -6,18 +6,17 @@ import { Switch } from "@/components/ui/switch";
 import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
-  Camera, Settings, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
+  Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
   Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame,
 } from "lucide-react";
 import Teleprompter from "@/components/Teleprompter";
 import AIScriptWizard from "@/components/AIScriptWizard";
 import SuperPlanningCanvas from "@/pages/SuperPlanningCanvas";
 import VideoRecorder from "@/components/VideoRecorder";
-import LanguageToggle from "@/components/LanguageToggle";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import { Link, useParams, useSearchParams, useLocation } from "react-router-dom";
+import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { useClients, type Client } from "@/hooks/useClients";
@@ -35,6 +34,8 @@ import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
 import ScriptDocEditor from "@/components/ScriptDocEditor";
 import { checkResourceLimit } from "@/utils/planLimits";
+import PageTransition from "@/components/PageTransition";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Mic button using Web Speech API
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
@@ -281,13 +282,32 @@ function SortableLineItem({
 
 // (SortableSection removed — replaced by single flat DndContext in the render below)
 
+function ScriptsSkeleton() {
+  return (
+    <div className="flex-1 p-6 space-y-3 max-w-4xl mx-auto w-full">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card/50">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <Skeleton className="h-8 w-8 rounded-lg flex-shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Scripts() {
   const { clientId: urlClientId } = useParams<{ clientId?: string }>();
   const location = useLocation();
   const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, role, loading: authLoading, signOut, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user, role, loading: authLoading, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
@@ -423,14 +443,15 @@ export default function Scripts() {
   useEffect(() => {
     if (!user || authLoading || isAdmin || isVideographer) return;
     const checkName = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const name = data?.display_name;
+      const [{ data: profile }, { data: client }] = await Promise.all([
+        supabase.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle(),
+        supabase.from("clients").select("name").eq("user_id", user.id).maybeSingle(),
+      ]);
+      // If client record already has a proper name, skip prompt
+      const clientName = client?.name?.trim();
+      if (clientName && clientName !== user.email && clientName !== (user.email || "").split("@")[0]) return;
+      const name = profile?.display_name;
       const email = user.email || "";
-      // If no name, or name equals the email, prompt
       if (!name || name === email || name === email.split("@")[0]) {
         setShowNamePrompt(true);
       }
@@ -530,8 +551,6 @@ export default function Scripts() {
         const viewParam = searchParams.get("view");
         if (viewParam === "canvas") {
           setView("super-planning");
-          searchParams.delete("view");
-          setSearchParams(searchParams, { replace: true });
         } else {
           setView("client-detail");
         }
@@ -555,13 +574,23 @@ export default function Scripts() {
     setView("client-detail");
   }, [isAdmin, isVideographer, clientsLoading, clients, selectedClient, user, urlClientId]);
 
+  // Switch client when URL clientId changes (e.g., sidebar client selector)
+  useEffect(() => {
+    if (!urlClientId || clientsLoading || clients.length === 0) return;
+    if (selectedClient?.id === urlClientId) return;
+    const target = clients.find((c) => c.id === urlClientId);
+    if (target) {
+      setSelectedClient(target);
+      fetchScriptsByClient(target.id);
+      setView("client-detail");
+    }
+  }, [urlClientId, clientsLoading, clients]);
+
   // Handle view=canvas when navigating back with selectedClient already set
   useEffect(() => {
     const viewParam = searchParams.get("view");
     if (viewParam === "canvas" && selectedClient) {
       setView("super-planning");
-      searchParams.delete("view");
-      setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, selectedClient]);
 
@@ -730,9 +759,9 @@ export default function Scripts() {
   // Auth loading
   if (authLoading || subscriptionChecking) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+      <PageTransition className="flex-1 flex flex-col overflow-hidden">
+        <ScriptsSkeleton />
+      </PageTransition>
     );
   }
 
@@ -788,16 +817,18 @@ export default function Scripts() {
       return;
     }
 
-    // Check plan limit before saving
-    const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
-    if (!limitCheck.allowed) {
-      toast.error(
-        tr({
-          en: `You've reached your script limit (${limitCheck.limit} scripts). Upgrade your plan for more.`,
-          es: `Has alcanzado tu límite de scripts (${limitCheck.limit} scripts). Mejora tu plan para más.`,
-        }, language)
-      );
-      return;
+    // Check plan limit before saving (admins and videographers are unlimited)
+    if (!isAdmin && !isVideographer) {
+      const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
+      if (!limitCheck.allowed) {
+        toast.error(
+          tr({
+            en: `You've reached your script limit (${limitCheck.limit} scripts). Upgrade your plan for more.`,
+            es: `Has alcanzado tu límite de scripts (${limitCheck.limit} scripts). Mejora tu plan para más.`,
+          }, language)
+        );
+        return;
+      }
     }
 
     const result = await directSave({
@@ -920,7 +951,7 @@ export default function Scripts() {
   };
 
   return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <PageTransition className="flex-1 flex flex-col overflow-hidden">
       {/* Super Planning Canvas — full screen override */}
       {view === "super-planning" && selectedClient && (
         <div className="flex-1 overflow-hidden">
@@ -936,28 +967,6 @@ export default function Scripts() {
       )}
       {view !== "super-planning" && (
       <>
-      {/* Header */}
-      <header className="border-b border-border/50 sticky top-0 z-40 bg-gradient-to-r from-background/90 to-card/90 backdrop-blur-xl hidden lg:block">
-        <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
-              {user.email} {isAdmin && <span className="text-primary font-bold">(Admin)</span>}
-              {isVideographer && <span className="text-emerald-400 font-bold">(Videographer)</span>}
-            </span>
-            <LanguageToggle />
-            <Link to="/settings">
-              <Button variant="ghost" size="sm" className="flex-shrink-0">
-                <Settings className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1 flex-shrink-0">
-              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{tr(t.scripts.exit, language)}</span>
-            </Button>
-          </div>
-        </div>
-      </header>
 
       <main className="flex-1 overflow-y-auto">
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
@@ -1384,7 +1393,7 @@ export default function Scripts() {
                   <div className="grid gap-3">
                     {trashedScripts.map((s) => {
                       const deletedDate = s.deleted_at ? new Date(s.deleted_at) : new Date();
-                      const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                      const daysLeft = Math.max(0, 90 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
                       return (
                         <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-destructive/5 border border-border rounded-2xl transition-smooth overflow-hidden opacity-70">
                           <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
@@ -1747,16 +1756,18 @@ export default function Scripts() {
                 selectedClient={selectedClient}
                 initialTemplateVideo={remixVideo ?? undefined}
                 onComplete={async (result, inspirationUrl) => {
-                  // Check plan limit before saving AI-generated script
-                  const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
-                  if (!limitCheck.allowed) {
-                    toast.error(
-                      tr({
-                        en: `You've reached your script limit (${limitCheck.limit} scripts). Upgrade your plan for more.`,
-                        es: `Has alcanzado tu límite de scripts (${limitCheck.limit} scripts). Mejora tu plan para más.`,
-                      }, language)
-                    );
-                    return;
+                  // Check plan limit before saving AI-generated script (admins and videographers are unlimited)
+                  if (!isAdmin && !isVideographer) {
+                    const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
+                    if (!limitCheck.allowed) {
+                      toast.error(
+                        tr({
+                          en: `You've reached your script limit (${limitCheck.limit} scripts). Upgrade your plan for more.`,
+                          es: `Has alcanzado tu límite de scripts (${limitCheck.limit} scripts). Mejora tu plan para más.`,
+                        }, language)
+                      );
+                      return;
+                    }
                   }
                   const saved = await directSave({
                     clientId: selectedClient.id,
@@ -2679,6 +2690,6 @@ export default function Scripts() {
 
       </>
       )}
-      </div>
+      </PageTransition>
   );
 }
