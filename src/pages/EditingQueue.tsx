@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2 } from "lucide-react";
+import PageTransition from "@/components/PageTransition";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -87,6 +89,21 @@ function getStatusDotColor(status: string): string {
   return "bg-muted-foreground";
 }
 
+function EditingQueueSkeleton() {
+  return (
+    <div className="flex-1 px-4 sm:px-8 py-8 max-w-7xl mx-auto w-full space-y-3">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card/50">
+          <Skeleton className="h-4 w-32 flex-shrink-0" />
+          <Skeleton className="h-4 w-48 flex-1" />
+          <Skeleton className="h-5 w-20 rounded-full flex-shrink-0" />
+          <Skeleton className="h-4 w-24 flex-shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function EditingQueue() {
   const { clientId } = useParams<{ clientId: string }>();
   const { user, loading } = useAuth();
@@ -163,6 +180,7 @@ export default function EditingQueue() {
         .from("video_edits")
         .select("id, reel_title, status, file_submission, script_url, assignee, assignee_user_id, revisions, post_status, schedule_date, created_at, footage, caption, script_id, upload_source, storage_path, storage_url")
         .eq("client_id", clientId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (videoErr) throw videoErr;
@@ -303,11 +321,15 @@ export default function EditingQueue() {
   const handleDeleteItem = async () => {
     if (!deleteConfirmItem) return;
     setDeleting(true);
+    const now = new Date().toISOString();
     try {
-      const { error } = await supabase.from("video_edits").delete().eq("id", deleteConfirmItem.id);
+      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).eq("id", deleteConfirmItem.id);
       if (error) throw error;
+      if (deleteConfirmItem.script_id) {
+        await supabase.from("scripts").update({ deleted_at: now }).eq("id", deleteConfirmItem.script_id);
+      }
       setItems((prev) => prev.filter((item) => item.id !== deleteConfirmItem.id));
-      toast.success(language === "en" ? "Item deleted" : "Elemento eliminado");
+      toast.success(language === "en" ? "Moved to trash" : "Movido a papelera");
       setDeleteConfirmItem(null);
     } catch (e: any) {
       console.error("Error deleting item:", e);
@@ -320,13 +342,19 @@ export default function EditingQueue() {
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
     setBulkDeleting(true);
+    const now = new Date().toISOString();
     try {
       const ids = Array.from(selectedIds);
-      await supabase.from("video_edits").delete().in("id", ids);
+      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).in("id", ids);
+      if (error) throw error;
+      const scriptIds = items.filter(i => selectedIds.has(i.id) && i.script_id).map(i => i.script_id!);
+      if (scriptIds.length > 0) {
+        await supabase.from("scripts").update({ deleted_at: now }).in("id", scriptIds);
+      }
       const count = selectedIds.size;
       setItems(prev => prev.filter(i => !selectedIds.has(i.id)));
       setSelectedIds(new Set());
-      toast.success(language === "en" ? `${count} items deleted` : `${count} elementos eliminados`);
+      toast.success(language === "en" ? `${count} items moved to trash` : `${count} elementos movidos a papelera`);
     } catch (e: any) {
       toast.error(language === "en" ? "Failed to delete items" : "Error al eliminar elementos");
     } finally {
@@ -393,9 +421,9 @@ export default function EditingQueue() {
 
   if (loading) {
     return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
+        <EditingQueueSkeleton />
+      </PageTransition>
     );
   }
 
@@ -444,7 +472,7 @@ export default function EditingQueue() {
   return (
 
     <>
-      <main className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-4 sm:px-8 py-8 max-w-7xl mx-auto w-full">
           <motion.div
@@ -473,9 +501,7 @@ export default function EditingQueue() {
           </motion.div>
 
           {fetching ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
+            <EditingQueueSkeleton />
           ) : error ? (
             <div className="text-center py-20 text-muted-foreground text-sm">{error}</div>
           ) : (
@@ -750,7 +776,7 @@ export default function EditingQueue() {
             </motion.div>
           )}
         </div>
-      </main>
+      </PageTransition>
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
