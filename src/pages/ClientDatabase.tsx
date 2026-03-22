@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, ArrowLeft, Target, Clapperboard, Database, Pencil, Trash2, Plus, Sync, ExternalLink, Filter } from "lucide-react";
+import { Loader2, ArrowLeft, Target, Clapperboard, Database, Pencil, Trash2, Plus, Sync, ExternalLink, Filter, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { leadService, type Lead } from "@/services/leadService";
 import { videoService, type VideoEdit } from "@/services/videoService";
 import { scriptService, type Script } from "@/services/scriptService";
@@ -19,13 +20,14 @@ import { clientService, type Client } from "@/services/clientService";
 import TableHeaderComponent from "@/components/tables/TableHeader";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exportToCSV } from "@/utils/csvExport";
+import PageTransition from "@/components/PageTransition";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+    transition: { delay: Math.min(i * 0.04, 0.2), duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   }),
 };
 
@@ -114,6 +116,9 @@ export default function ClientDatabase() {
   });
 
   const [editQueueFilter, setEditQueueFilter] = useState(false);
+  const [showVideoTrash, setShowVideoTrash] = useState(false);
+  const [trashedVideos, setTrashedVideos] = useState<any[]>([]);
+  const [fetchingTrash, setFetchingTrash] = useState(false);
 
   const [savingNewLead, setSavingNewLead] = useState(false);
   const [savingNewVideo, setSavingNewVideo] = useState(false);
@@ -436,14 +441,63 @@ export default function ClientDatabase() {
   };
 
   const handleDeleteVideo = async (videoId: string) => {
-    if (!confirm("Are you sure you want to delete this video?")) return;
+    if (!confirm(language === "en" ? "Move to trash?" : "¿Mover a la papelera?")) return;
+    const now = new Date().toISOString();
     try {
       await videoService.deleteVideo(videoId);
-      toast.success("Video deleted");
+      // Also trash linked script
+      const video = allVideos.find(v => v.id === videoId);
+      if (video?.script_id) {
+        await supabase.from("scripts").update({ deleted_at: now }).eq("id", video.script_id);
+      }
+      toast.success(language === "en" ? "Moved to trash" : "Movido a papelera");
       await loadAllData();
     } catch (error) {
       console.error("Error deleting video:", error);
       toast.error("Failed to delete video");
+    }
+  };
+
+  const fetchTrashedVideos = async () => {
+    if (!clientId) return;
+    setFetchingTrash(true);
+    try {
+      const { data } = await supabase
+        .from("video_edits")
+        .select("id, reel_title, deleted_at, script_id")
+        .eq("client_id", clientId)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+      setTrashedVideos(data || []);
+    } catch { /* ignore */ }
+    finally { setFetchingTrash(false); }
+  };
+
+  const handleRestoreVideo = async (item: any) => {
+    try {
+      await supabase.from("video_edits").update({ deleted_at: null }).eq("id", item.id);
+      if (item.script_id) {
+        await supabase.from("scripts").update({ deleted_at: null }).eq("id", item.script_id);
+      }
+      setTrashedVideos(prev => prev.filter(v => v.id !== item.id));
+      toast.success(language === "en" ? "Restored" : "Restaurado");
+      loadAllData();
+    } catch {
+      toast.error(language === "en" ? "Failed to restore" : "Error al restaurar");
+    }
+  };
+
+  const handlePermanentDeleteVideo = async (item: any) => {
+    if (!confirm(language === "en" ? "Permanently delete? Cannot be undone." : "¿Eliminar permanentemente? No se puede deshacer.")) return;
+    try {
+      await supabase.from("video_edits").delete().eq("id", item.id);
+      if (item.script_id) {
+        await supabase.from("scripts").delete().eq("id", item.script_id);
+      }
+      setTrashedVideos(prev => prev.filter(v => v.id !== item.id));
+      toast.success(language === "en" ? "Permanently deleted" : "Eliminado permanentemente");
+    } catch {
+      toast.error(language === "en" ? "Failed to delete" : "Error al eliminar");
     }
   };
 
@@ -559,16 +613,18 @@ export default function ClientDatabase() {
 
   if (loading) {
     return (
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
+      </PageTransition>
     );
   }
 
   return (
     <>
 
-      <main className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-6 py-8">
           <div className="max-w-7xl mx-auto">
@@ -811,6 +867,16 @@ export default function ClientDatabase() {
                           <Filter className="w-4 h-4" />
                           <span className="hidden sm:inline">Editing Queue</span>
                         </Button>
+                        <Button
+                          size="sm"
+                          variant={showVideoTrash ? "destructive" : "outline"}
+                          onClick={() => {
+                            if (!showVideoTrash) fetchTrashedVideos();
+                            setShowVideoTrash(!showVideoTrash);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> <span className="hidden sm:inline">{language === "en" ? "Trash" : "Papelera"}</span>
+                        </Button>
                         <Button size="sm" onClick={() => { resetVideoForm(); setEditingVideoId(null); setShowAddVideoDialog(true); }}>
                           <Plus className="w-4 h-4 mr-1" /> {language === "en" ? "Add Video" : "Agregar Video"}
                         </Button>
@@ -818,7 +884,51 @@ export default function ClientDatabase() {
                     }
                   />
 
-                  {loading_data ? (
+                  {showVideoTrash ? (
+                    <div className="rounded-lg border border-border/40 bg-card/20 backdrop-blur-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border/40">
+                        <p className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {language === "en" ? "Items are automatically deleted after 90 days in trash" : "Los elementos se eliminan automáticamente después de 90 días en la papelera"}
+                        </p>
+                      </div>
+                      {fetchingTrash ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                      ) : trashedVideos.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground text-sm">
+                          {language === "en" ? "Trash is empty" : "La papelera está vacía"}
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-border/30">
+                          {trashedVideos.map((item) => {
+                            const deletedDate = new Date(item.deleted_at);
+                            const daysLeft = Math.max(0, 90 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                            return (
+                              <div key={item.id} className="flex items-center gap-3 px-4 py-3 opacity-70 hover:opacity-90 transition-opacity">
+                                <Clapperboard className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-muted-foreground truncate line-through">{item.reel_title || "Untitled"}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {language === "en" ? "Deleted" : "Eliminado"} {deletedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX")} · {daysLeft} {language === "en" ? "days left" : "días restantes"}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button variant="ghost" size="sm" onClick={() => handleRestoreVideo(item)} className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400" title={language === "en" ? "Restore" : "Restaurar"}>
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => handlePermanentDeleteVideo(item)} className="h-8 w-8 p-0 text-destructive hover:text-destructive" title={language === "en" ? "Delete permanently" : "Eliminar permanentemente"}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : loading_data ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Loading videos...
@@ -1081,7 +1191,7 @@ export default function ClientDatabase() {
             </motion.div>
           </div>
         </div>
-      </main>
+      </PageTransition>
 
       {/* Add/Edit Lead Dialog */}
       <Dialog open={showAddLeadDialog} onOpenChange={setShowAddLeadDialog}>
