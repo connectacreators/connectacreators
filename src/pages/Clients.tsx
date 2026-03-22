@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import PageTransition from "@/components/PageTransition";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ClientRow = {
   id: string;
@@ -27,6 +29,23 @@ const fadeUp = {
     transition: { delay: i * 0.05, duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   }),
 };
+
+function ClientsSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card/50">
+          <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <Skeleton className="h-5 w-16 rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Clients() {
   const { user, loading, isAdmin, isUser, isVideographer, signInWithEmail, signUpWithEmail } = useAuth();
@@ -120,9 +139,11 @@ export default function Clients() {
 
   if (loading) {
     return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
+          <ClientsSkeleton />
         </div>
+      </PageTransition>
     );
   }
 
@@ -143,7 +164,7 @@ export default function Clients() {
 
   return (
     <>
-    <main className="flex-1 flex flex-col min-h-screen">
+    <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
           <motion.h1
@@ -179,9 +200,7 @@ export default function Clients() {
           </div>
 
           {loadingClients ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
+            <ClientsSkeleton />
           ) : filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-20 text-sm">
               {language === "en" ? "No clients found" : "No se encontraron clientes"}
@@ -198,8 +217,8 @@ export default function Clients() {
                   custom={i + 1}
                   variants={fadeUp}
                 >
-                  <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4 text-muted-foreground" />
+                  <div className="w-9 h-9 rounded-full bg-[rgba(8,145,178,0.15)] flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-[#0891B2]" />
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-foreground">{client.name}</h2>
@@ -212,7 +231,7 @@ export default function Clients() {
             </div>
           )}
         </div>
-      </main>
+      </PageTransition>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="sm:max-w-md">
