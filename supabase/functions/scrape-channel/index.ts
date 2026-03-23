@@ -7,7 +7,56 @@ const corsHeaders = {
 };
 
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
-const APIFY_ACTOR_ID = "apify~instagram-reel-scraper";
+const APIFY_ACTOR_INSTAGRAM = "apidojo~instagram-scraper";
+const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
+const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
+
+function getActorId(platform: string) {
+  if (platform === "tiktok") return APIFY_ACTOR_TIKTOK;
+  if (platform === "youtube") return APIFY_ACTOR_YOUTUBE;
+  return APIFY_ACTOR_INSTAGRAM;
+}
+
+function parseYouTubeViewCount(text: string | undefined): number {
+  if (!text) return 0;
+  const clean = text.replace(/[^0-9.KMBkmb]/g, "").toUpperCase();
+  if (clean.endsWith("B")) return Math.round(parseFloat(clean) * 1_000_000_000);
+  if (clean.endsWith("M")) return Math.round(parseFloat(clean) * 1_000_000);
+  if (clean.endsWith("K")) return Math.round(parseFloat(clean) * 1_000);
+  return parseInt(clean) || 0;
+}
+
+// HARD CAP: never scrape more than 100 posts per channel per run regardless of caller input.
+// apidojo~instagram-scraper burned $60+ when resultsLimit was silently ignored and full
+// profiles (10,000+ posts) were scraped. This cap is the last line of defense.
+const MAX_RESULTS_PER_CHANNEL = 100;
+
+function buildApifyInput(platform: string, username: string, resultsLimit: number) {
+  const safeLimit = Math.min(resultsLimit, MAX_RESULTS_PER_CHANNEL);
+  if (platform === "tiktok") {
+    return {
+      handles: [username],
+      startUrls: [{ url: `https://www.tiktok.com/@${username}` }],
+      resultsPerPage: safeLimit,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+    };
+  }
+  if (platform === "youtube") {
+    // Confirmed: channelUrl (string) + maxResults — NOT startUrls array
+    const youtubeUrl = username.startsWith("http") ? username : `https://youtube.com/@${username}`;
+    return {
+      channelUrl: youtubeUrl,
+      maxResults: safeLimit,
+    };
+  }
+  // apidojo~instagram-scraper: maxItems is the actual limit field
+  // (resultsLimit is silently ignored by this actor — must use maxItems)
+  return {
+    startUrls: [`https://www.instagram.com/${username}/`],
+    maxItems: safeLimit,
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -57,11 +106,40 @@ serve(async (req) => {
         return json({ error: "channelId and username required" }, 400);
       }
 
-      // Accept full URLs like https://www.instagram.com/username/ or @username
-      const urlMatch = username.match(/instagram\.com\/([^/?#\s]+)/i);
-      const cleanUsername = urlMatch
-        ? urlMatch[1].replace(/\/$/, "").toLowerCase()
-        : username.replace(/^@/, "").trim().toLowerCase();
+      // Accept full URLs like https://www.instagram.com/username/, https://tiktok.com/@user, or @username
+      const tiktokMatch = username.match(/tiktok\.com\/@?([^/?#\s]+)/i);
+      const instaMatch = username.match(/instagram\.com\/([^/?#\s]+)/i);
+      const ytHandleMatch = username.match(/youtube\.com\/@([^/?#\s]+)/i);
+      const ytCustomMatch = username.match(/youtube\.com\/c\/([^/?#\s]+)/i);
+      const ytChannelMatch = username.match(/youtube\.com\/channel\/([^/?#\s]+)/i);
+
+      // Reject single YouTube video URLs before calling Apify
+      if (platform === "youtube" && /youtube\.com\/shorts\/[^/]+\/?$/.test(username)) {
+        await supabase.from("viral_channels")
+          .update({ scrape_status: "error", scrape_error: "Paste a YouTube channel URL, not a single video URL" })
+          .eq("id", channelId);
+        return json({ error: "Paste a YouTube channel URL, not a single video URL" }, 400);
+      }
+
+      const cleanUsername =
+        tiktokMatch ? tiktokMatch[1].replace(/\/$/, "").toLowerCase()
+        : instaMatch ? instaMatch[1].replace(/\/$/, "").toLowerCase()
+        : ytHandleMatch ? ytHandleMatch[1].replace(/\/$/, "")
+        : ytCustomMatch ? ytCustomMatch[1].replace(/\/$/, "")
+        : ytChannelMatch ? ytChannelMatch[1].replace(/\/$/, "")
+        : username.replace(/^@/, "").trim();
+
+      // For YouTube, build full URL to pass to buildApifyInput
+      const youtubeFullUrl =
+        ytHandleMatch ? `https://youtube.com/@${cleanUsername}`
+        : ytCustomMatch ? `https://youtube.com/c/${cleanUsername}`
+        : ytChannelMatch ? `https://youtube.com/channel/${cleanUsername}`
+        : `https://youtube.com/@${cleanUsername}`;
+
+      // Pass full URL as "username" for youtube (buildApifyInput checks startsWith("http"))
+      const apifyUsername = platform === "youtube" ? youtubeFullUrl : cleanUsername;
+
+      const actorId = getActorId(platform);
 
       // Mark channel as running
       await supabase
@@ -71,15 +149,11 @@ serve(async (req) => {
 
       // Trigger Apify actor run (wait up to 25s — stays within Supabase's 60s timeout)
       const apifyRes = await fetch(
-        `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?token=${APIFY_TOKEN}&waitForFinish=25`,
+        `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_TOKEN}&waitForFinish=25`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: [cleanUsername],
-            resultsLimit: 200,
-            minPostsFromDaysAgo: 365, // Only posts from last 12 months
-          }),
+          body: JSON.stringify(buildApifyInput(platform, apifyUsername, 7)),
         }
       );
 
@@ -150,54 +224,73 @@ async function processDataset(
     return 0;
   }
 
-  // Parse each item — handle multiple field naming conventions across Apify actors
-  const videos = items
+  // YouTube actor returns a "channel_metadata" item first — filter to only video items
+  const processItems = platform === "youtube"
+    ? items.filter((item: any) => item.itemType === "short")
+    : items;
+
+  // Parse each item — apidojo~instagram-scraper field mapping
+  const videos = processItems
     .map((item: any) => {
+      // apidojo~instagram-scraper: views are in item.video.playCount for video posts
       const views =
+        (platform === "youtube" ? parseYouTubeViewCount(item.viewCountText) : null) ??
+        item.video?.playCount ??
         item.videoViewCount ??
         item.videoPlayCount ??
         item.playsCount ??
         item.plays ??
         item.viewCount ??
         0;
-      const likes = item.likesCount ?? item.diggCount ?? item.likes ?? 0;
-      const comments = item.commentsCount ?? item.commentCount ?? item.comments ?? 0;
+      // apidojo: likeCount / commentCount (no trailing 's')
+      const likes = item.likeCount ?? item.likesCount ?? item.diggCount ?? item.likes ?? 0;
+      const comments = item.commentCount ?? item.commentsCount ?? item.comments ?? 0;
       const totalInteractions = likes + comments;
       const engagementRate = views > 0 ? (totalInteractions / views) * 100 : 0;
 
-      // Video ID — prefer shortCode for Instagram (stable), else id/pk
+      // apidojo: code field (not shortCode)
       const videoId =
+        item.videoId ??        // YouTube Shorts
+        item.code ??
         item.shortCode ??
         item.id ??
         item.pk ??
-        item.videoId ??
         item.aweme_id ??
         null;
 
+      // apidojo: image is an object {url, width, height}
       const thumbnailUrl =
+        item.thumbnail ??                    // YouTube Shorts (direct string)
+        item.thumbnails?.[0]?.url ??         // YouTube Shorts array fallback
+        (typeof item.image === "object" ? item.image?.url : item.image) ??
         item.displayUrl ??
         item.thumbnailUrl ??
         item.coverUrl ??
         item.cover ??
         item.previewUrl ??
-        item.thumbnail ??
         null;
 
+      // apidojo: url is already the full post URL
       const videoUrl =
+        item.shortUrl ??          // YouTube Shorts (actor provides full URL)
         item.url ??
-        (item.shortCode
-          ? `https://www.instagram.com/reel/${item.shortCode}/`
-          : null) ??
         item.webVideoUrl ??
+        (item.code
+          ? `https://www.instagram.com/p/${item.code}/`
+          : item.shortCode
+            ? `https://www.instagram.com/reel/${item.shortCode}/`
+            : null) ??
+        (platform === "tiktok" && (item.id ?? item.aweme_id)
+          ? `https://www.tiktok.com/@${username}/video/${item.id ?? item.aweme_id}`
+          : null) ??
         null;
 
-      // Timestamp — Instagram returns ISO string or unix seconds
+      // apidojo: createdAt is ISO string; fallback to legacy field names
       let postedAt: string | null = null;
-      const rawTs = item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
+      const rawTs = item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
       if (rawTs) {
         const num = typeof rawTs === "number" ? rawTs : Number(rawTs);
         if (!isNaN(num)) {
-          // Unix seconds (< 2e10) vs milliseconds
           postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
         } else if (typeof rawTs === "string") {
           postedAt = new Date(rawTs).toISOString();
@@ -205,6 +298,7 @@ async function processDataset(
       }
 
       const caption = (
+        item.title ??          // YouTube Shorts
         item.caption ??
         item.captionText ??
         item.text ??
