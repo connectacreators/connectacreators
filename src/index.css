@@ -9,8 +9,8 @@ All colors MUST be HSL for consistency and theming.
 @layer base {
   :root {
     /* Backgrounds */
-    --background: 218 33% 4%;        /* #06090c */
-    --card: 240 5% 7%;               /* #111115 */
+    --background: 210 8% 10%;        /* #161a1f subtle blue-grey */
+    --card: 210 6% 12%;              /* #1b1e22 */
     --card-foreground: 213 31% 91%;
     --popover: 240 5% 7%;
     --popover-foreground: 213 31% 91%;
@@ -35,7 +35,7 @@ All colors MUST be HSL for consistency and theming.
     --muted: 240 4% 10%;
     --secondary: 240 4% 10%;
     --secondary-foreground: 213 31% 91%;
-    --border: 197 30% 12%;
+    --border: 0 0% 15%;
     --input: 240 4% 10%;
     --ring: 197 91% 37%;
 
@@ -182,29 +182,37 @@ All colors MUST be HSL for consistency and theming.
 
   /* ── Tier 1: Sidebar (strongest) ── */
   .glass-sidebar {
-    background: rgba(8, 145, 178, 0.04);
-    backdrop-filter: blur(72px) saturate(180%) brightness(1.04);
-    -webkit-backdrop-filter: blur(72px) saturate(180%) brightness(1.04);
-    border-right: 1px solid rgba(8, 145, 178, 0.12);
+    background: linear-gradient(180deg, #080808 0%, #060606 40%, #050505 100%);
+    backdrop-filter: blur(72px) saturate(120%);
+    -webkit-backdrop-filter: blur(72px) saturate(120%);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
     position: relative;
   }
   .glass-sidebar::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 50%;
-    background: linear-gradient(180deg, rgba(8, 145, 178, 0.08) 0%, transparent 100%);
+    height: 60%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.01) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glass-sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 0;
     pointer-events: none;
     z-index: 0;
   }
 
   /* ── Tier 2: Cards / Panels (standard) ── */
   .glass-card {
-    background: rgba(255, 255, 255, 0.035);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 20px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0,0,0,0.3);
     position: relative;
   }
   .glass-card::before {
@@ -294,15 +302,21 @@ All colors MUST be HSL for consistency and theming.
 
   /* ── Ocean Surge Button System ── */
   .btn-primary-glass {
-    background: linear-gradient(135deg, #0891B2, #84CC16);
+    background: rgba(255, 255, 255, 0.06);
     color: #fff;
-    box-shadow: 0 4px 20px rgba(8,145,178,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
     position: relative; overflow: hidden;
+  }
+  .btn-primary-glass:hover {
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.22);
   }
   .btn-primary-glass::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0; height: 50%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
     pointer-events: none;
   }
   .btn-secondary-glass {
@@ -408,6 +422,88 @@ All colors MUST be HSL for consistency and theming.
   scrollbar-color: #e8d5b0 transparent;
 }
 
+/* ReactFlow — Dark charcoal canvas node cards */
+.react-flow .glass-card {
+  background: #1e1f24;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+  color: #e0e0e0;
+}
+.react-flow .glass-card::before {
+  display: none;
+}
+
+/* Heading / general text inside nodes */
+.react-flow .glass-card p,
+.react-flow .glass-card strong,
+.react-flow .glass-card label,
+.react-flow .glass-card h1,
+.react-flow .glass-card h2,
+.react-flow .glass-card h3 {
+  color: #e0e0e0;
+}
+
+/* Muted text */
+.react-flow .glass-card .text-muted-foreground,
+.react-flow .glass-card .text-muted-foreground\/50,
+.react-flow .glass-card .text-muted-foreground\/60,
+.react-flow .glass-card .text-muted-foreground\/70,
+.react-flow .glass-card [class*="text-muted"] {
+  color: #707278 !important;
+}
+
+/* Inner borders */
+.react-flow .glass-card [class*="border-border"] {
+  border-color: rgba(255, 255, 255, 0.065) !important;
+}
+
+/* Strip cyan/teal inline borders from node headers */
+.react-flow .glass-card [class*="border-[rgba(8,145,178"],
+.react-flow .glass-card [class*="border-[rgba(14,165,233"],
+.react-flow .glass-card [class*="border-[rgba(34,211,238"] {
+  border-color: rgba(255, 255, 255, 0.065) !important;
+}
+
+/* Inner surface backgrounds (inputs, muted areas) */
+.react-flow .glass-card [class*="bg-muted"] {
+  background: #272830 !important;
+}
+.react-flow .glass-card .bg-card,
+.react-flow .glass-card .bg-card\/80,
+.react-flow .glass-card .bg-card\/70,
+.react-flow .glass-card .bg-background {
+  background: #272830 !important;
+}
+
+/* Strip cyan/teal inline backgrounds from node headers */
+.react-flow .glass-card [class*="bg-[rgba(8,145,178"],
+.react-flow .glass-card [class*="bg-[rgba(14,165,233"],
+.react-flow .glass-card [class*="bg-[rgba(34,211,238"] {
+  background: #1e1f24 !important;
+}
+
+/* Strip primary/cyan bg utility classes */
+.react-flow .glass-card [class*="bg-primary"] {
+  background: #272830 !important;
+}
+
+/* Strip hardcoded cyan/dark text utility classes */
+.react-flow .glass-card [class*="text-[#22d3ee"],
+.react-flow .glass-card [class*="text-[#0891B2"],
+.react-flow .glass-card [class*="text-primary"],
+.react-flow .glass-card [class*="text-cyan"] {
+  color: #e0e0e0 !important;
+}
+
+/* Handle connection dots — cyan with glow */
+.react-flow .glass-card .react-flow__handle {
+  background: #22d3ee !important;
+  border-color: #131417 !important;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.4) !important;
+}
+
 /* ReactFlow — Make connection handles bigger and above NodeResizer */
 .react-flow__handle {
   width: 14px !important;
@@ -421,6 +517,16 @@ All colors MUST be HSL for consistency and theming.
 }
 .react-flow__handle.connectionindicator {
   cursor: crosshair;
+}
+
+/* ── Sidebar nav transition animations ── */
+@keyframes nav-blur-in {
+  0%   { filter: blur(1px); opacity: 0.75; }
+  100% { filter: blur(0);   opacity: 1; }
+}
+@keyframes nav-indicator-in {
+  0%   { opacity: 0; transform: translateY(-50%) scaleY(0.7); filter: blur(1px); }
+  100% { opacity: 1; transform: translateY(-50%) scaleY(1); filter: blur(0); }
 }
 
 /* ── Backward-compat aliases (removed in rebrand, will be migrated per-component in later chunks) ── */
