@@ -25,7 +25,6 @@ import AIAssistantNode from "@/components/canvas/AIAssistantNode";
 import HookGeneratorNode from "@/components/canvas/HookGeneratorNode";
 import BrandGuideNode from "@/components/canvas/BrandGuideNode";
 import CTABuilderNode from "@/components/canvas/CTABuilderNode";
-import InstagramProfileNode from "@/components/canvas/InstagramProfileNode";
 import CompetitorProfileNode from "@/components/canvas/CompetitorProfileNode";
 import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
@@ -1407,7 +1406,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           <Background
             variant={BackgroundVariant.Dots}
             bgColor="#131417"
-            color="rgba(255,255,255,0.04)"
+            color="rgba(255,255,255,0.09)"
             gap={24}
             size={1.5}
           />
