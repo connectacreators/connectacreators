@@ -11,62 +11,9 @@ const YTDLP_SERVER = "http://72.62.200.145:3099";
 const YTDLP_API_KEY = "ytdlp_connecta_2026_secret";
 const CREDIT_COST = 150;
 
-// ─── Apify actors ───
+// ─── Apify (YouTube transcript extraction only) ───
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_YT_ACTOR = "streamers~youtube-scraper";
-const APIFY_IG_TASK = "connectacreators~instagram-reel-scraper-task";
-
-// ─── Instagram: normalize /reels/ → /reel/ for the Apify task ───
-function normalizeInstagramReelUrl(url: string): string {
-  // Task expects /reel/CODE/ (singular), not /reels/CODE/ (plural)
-  return url.replace(/\/reels\/([A-Za-z0-9_-]+)/, "/reel/$1");
-}
-
-// ─── Instagram: get direct CDN video URL + thumbnail via Apify task ───
-async function extractInstagramVideoUrl(reelUrl: string): Promise<{ videoUrl: string | null; displayUrl: string | null }> {
-  if (!/instagram\.com\/(reel|reels|p)\//.test(reelUrl)) return { videoUrl: null, displayUrl: null };
-
-  const normalizedUrl = normalizeInstagramReelUrl(reelUrl);
-  console.log("Extracting Instagram reel via Apify task:", normalizedUrl);
-
-  try {
-    const taskUrl = `https://api.apify.com/v2/actor-tasks/${APIFY_IG_TASK}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=90`;
-    const res = await fetch(taskUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: [normalizedUrl] }),
-    });
-
-    if (!res.ok) {
-      console.error("Apify IG task error:", res.status, await res.text().catch(() => ""));
-      return { videoUrl: null, displayUrl: null };
-    }
-
-    const items = await res.json();
-    if (!Array.isArray(items) || items.length === 0) {
-      console.log("Apify IG task returned no items");
-      return { videoUrl: null, displayUrl: null };
-    }
-
-    const item = items[0];
-    const videoUrl = item.videoUrl || item.video_url || item.videoPlaybackUrl || item.download_url || null;
-    const displayUrl = item.displayUrl || item.display_url || item.thumbnailUrl || item.thumbnail_url || null;
-
-    if (videoUrl) {
-      console.log("Instagram videoUrl from Apify task:", videoUrl.slice(0, 80) + "...");
-    } else {
-      console.log("No videoUrl in Apify task response, keys:", Object.keys(item).join(", "));
-    }
-    if (displayUrl) {
-      console.log("Instagram displayUrl from Apify task:", displayUrl.slice(0, 80) + "...");
-    }
-
-    return { videoUrl, displayUrl };
-  } catch (e) {
-    console.error("Apify IG task error:", e);
-    return { videoUrl: null, displayUrl: null };
-  }
-}
 
 async function extractYouTubeTranscript(videoUrl: string): Promise<string | null> {
   const ytMatch = videoUrl.match(
@@ -243,7 +190,6 @@ serve(async (req) => {
 
     let transcription: string | null = null;
     const isYouTube = /(?:youtube\.com\/|youtu\.be\/)/.test(url);
-    const isInstagram = /instagram\.com\/(reel|reels|p)\//.test(url);
 
     // ─── YouTube: try caption extraction first (fast, free, no audio download) ───
     if (isYouTube) {
@@ -280,26 +226,8 @@ serve(async (req) => {
       }
     }
 
-    // ─── Instagram: use Apify task for thumbnail only ───
-    // Audio extraction always uses the original page URL via VPS cobalt+ffmpeg,
-    // which is more reliable than Apify CDN URLs (which may expire or be blocked
-    // from Supabase's IP, returning HTML/garbage that Whisper can't decode).
-    let igDisplayUrl: string | null = null;
-    if (isInstagram) {
-      console.log("Instagram URL detected — resolving thumbnail via Apify task...");
-      const { videoUrl: igVideoUrl, displayUrl } = await extractInstagramVideoUrl(url);
-      igDisplayUrl = displayUrl;
-      if (igVideoUrl) {
-        console.log("Apify CDN videoUrl available (thumbnail only):", igVideoUrl.slice(0, 80) + "...");
-      }
-      // VPS /extract-audio handles the original page URL via cobalt+ffmpeg
-    }
-
-    // ─── Instagram: pass displayUrl raw — frontend proxies via VPS /proxy-image ───
-    const igThumbnailUrl: string | null = igDisplayUrl || null;
-    if (igThumbnailUrl) {
-      console.log("Instagram displayUrl for thumbnail:", igThumbnailUrl.slice(0, 80) + "...");
-    }
+    // ─── Instagram thumbnails handled by separate fetch-thumbnail edge function ───
+    // (no Apify call here — saves 10-90s that could cause edge function timeout)
 
     // ─── Extract audio via VPS yt-dlp server (cobalt+ffmpeg → always returns MP3) ───
     let videoCacheUrl: string | null = null;
@@ -364,8 +292,9 @@ serve(async (req) => {
 
     console.log("Transcription complete, length:", transcription.length, "chars");
 
-    const thumbnailUrl = youtubeThumbnailUrl || igThumbnailUrl || null;
     const finalVideoUrl = videoCacheUrl || null;
+    // YouTube thumbnails from this function; Instagram thumbnails via separate fetch-thumbnail
+    const thumbnailUrl = youtubeThumbnailUrl || null;
     return new Response(JSON.stringify({ transcription, videoUrl: finalVideoUrl, thumbnail_url: thumbnailUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
