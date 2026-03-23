@@ -26,6 +26,7 @@ import HookGeneratorNode from "@/components/canvas/HookGeneratorNode";
 import BrandGuideNode from "@/components/canvas/BrandGuideNode";
 import CTABuilderNode from "@/components/canvas/CTABuilderNode";
 import InstagramProfileNode from "@/components/canvas/InstagramProfileNode";
+import CompetitorProfileNode from "@/components/canvas/CompetitorProfileNode";
 import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
@@ -75,7 +76,8 @@ const nodeTypes = {
   hookGeneratorNode: HookGeneratorNode,
   brandGuideNode: BrandGuideNode,
   ctaBuilderNode: CTABuilderNode,
-  instagramProfileNode: InstagramProfileNode,
+  instagramProfileNode: CompetitorProfileNode,  // alias — backward compat for saved sessions
+  competitorProfileNode: CompetitorProfileNode,
   mediaNode: MediaNode,
   groupNode: GroupNode,
 };
@@ -728,7 +730,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     const brandNodes = contextNodes.filter(n => n.type === "brandGuideNode");
     const ctaNodes = contextNodes.filter(n => n.type === "ctaBuilderNode");
     const instagramProfileNodes = contextNodes.filter(
-      n => n.type === "instagramProfileNode" &&
+      n => (n.type === "instagramProfileNode" || n.type === "competitorProfileNode") &&
       (n.data as any).status === "done" &&
       ((n.data as any).posts?.length ?? 0) > 0
     );
@@ -884,7 +886,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "mediaNode" | "groupNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode") => {
     const nodeId = `${type}_${Date.now()}`;
     const nonAiCount = nodes.filter(n => n.id !== AI_NODE_ID).length;
     const position = getInitialPosition(nonAiCount);
@@ -895,7 +897,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       : type === "hookGeneratorNode" ? 300
       : type === "brandGuideNode" ? 280
       : type === "ctaBuilderNode" ? 300
-      : type === "instagramProfileNode" ? 480
+      : (type === "instagramProfileNode" || type === "competitorProfileNode") ? 480
       : type === "mediaNode" ? 280
       : type === "groupNode" ? 400
       : 288;
