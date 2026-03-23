@@ -370,20 +370,25 @@ serve(async (req) => {
         throw new Error("Video is too long for transcription (max ~25MB audio). Try a shorter clip.");
       }
 
+      // Read blob content into ArrayBuffer once — calling arrayBuffer() twice on a
+      // Response-derived Blob in Deno consumes the underlying stream the first time,
+      // leaving an empty buffer on the second read.
+      const audioBuffer = await audioBlob.arrayBuffer();
+
       console.log("Sending to OpenAI Whisper...");
       // Detect the actual container format by checking MP4 magic bytes (ftyp box at offset 4).
-      // We can't trust blob.type (often empty) or rawCdnFallback alone — yt-dlp on a direct
-      // CDN URL may return the raw MP4 container instead of an extracted MP3 and still return HTTP 200.
+      // rawCdnFallback alone isn't enough — yt-dlp on a direct CDN URL can return the raw
+      // MP4 container with HTTP 200 instead of an extracted MP3.
       let isMp4 = false;
-      if (audioBlob.size >= 12) {
-        const header = new Uint8Array(await audioBlob.slice(0, 12).arrayBuffer());
+      if (audioBuffer.byteLength >= 12) {
+        const header = new Uint8Array(audioBuffer, 0, 12);
         isMp4 = header[4] === 0x66 && header[5] === 0x74 && header[6] === 0x79 && header[7] === 0x70; // 'ftyp'
       }
       const whisperMime = (rawCdnFallback || isMp4) ? "video/mp4" : "audio/mpeg";
       const whisperFilename = (rawCdnFallback || isMp4) ? "audio.mp4" : "audio.mp3";
-      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (rawCdnFallback=${rawCdnFallback} isMp4=${isMp4})`);
+      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (rawCdnFallback=${rawCdnFallback} isMp4=${isMp4} bytes=${audioBuffer.byteLength})`);
       const formData = new FormData();
-      formData.append("file", new Blob([await audioBlob.arrayBuffer()], { type: whisperMime }), whisperFilename);
+      formData.append("file", new Blob([audioBuffer], { type: whisperMime }), whisperFilename);
       formData.append("model", "whisper-1");
 
       const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
