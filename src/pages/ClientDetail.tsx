@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Workflow, Sparkles } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Zap, Sparkles, GitBranch, Calendar, BarChart3, Settings2, ChevronLeft, Bot } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
-import AnimatedDots from "@/components/ui/AnimatedDots";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,8 +28,6 @@ export default function ClientDetail() {
   const { user, loading, isAdmin, isUser, isVideographer } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientOwnerId, setClientOwnerId] = useState<string | null>(null);
@@ -53,7 +49,7 @@ export default function ClientDetail() {
   const [notionFootageProp, setNotionFootageProp] = useState("Footage");
   const [notionFileSubmissionProp, setNotionFileSubmissionProp] = useState("File Submission");
   const [notionLoading, setNotionLoading] = useState(false);
-
+  const [activeFolder, setActiveFolder] = useState<"content" | "sales" | "setup" | null>(null);
 
   const canViewClient = isAdmin || isVideographer || isUser;
 
@@ -95,10 +91,8 @@ export default function ClientDetail() {
       });
   }, [clientId, isAdmin]);
 
-
-
   const handleSaveNotion = async () => {
-    if (!clientId || !notionDbId.trim() || !notionLeadsDbId.trim()) return;
+    if (!clientId || !notionDbId.trim()) return;
     setNotionLoading(true);
     // Strip any URL prefix or view param — keep just the 32-char ID
     const rawId = notionDbId.trim().split("?")[0].replace(/-/g, "").slice(-32);
@@ -158,7 +152,6 @@ export default function ClientDetail() {
     setDeleteLoading(false);
   };
 
-
   useEffect(() => {
     if (!loading && user && !canViewClient) {
       navigate("/dashboard");
@@ -167,99 +160,128 @@ export default function ClientDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
     );
   }
 
-  const toolCards = [
+  const folderCards = [
     {
-      label: "Script Breakdown",
-      description: language === "en" ? "View and manage scripts" : "Ver y gestionar guiones",
-      icon: FileText,
-      color: "text-primary",
-      path: `/clients/${clientId}/scripts`,
-    },
-    {
-      label: "Lead Tracker",
-      description: language === "en" ? "Track incoming leads" : "Seguimiento de leads",
-      icon: Target,
-      color: "text-emerald-400",
-      path: `/clients/${clientId}/leads`,
-    },
-    {
-      label: language === "en" ? "Lead Calendar" : "Calendario de Leads",
-      description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads",
-      icon: CalendarDays,
-      color: "text-violet-400",
-      path: `/clients/${clientId}/lead-calendar`,
-    },
-    {
-      label: language === "en" ? "Public Booking" : "Booking Público",
-      description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly",
-      icon: Globe,
-      color: "text-sky-400",
-      path: `/clients/${clientId}/booking-settings`,
-    },
-    {
-      label: "Vault",
-      description: language === "en" ? "Script templates from viral videos" : "Plantillas de scripts de videos virales",
-      icon: Archive,
-      color: "text-amber-400",
-      path: `/clients/${clientId}/vault`,
-    },
-    {
-      label: "Editing Queue",
-      description: language === "en" ? "Track video production status" : "Estado de producción de videos",
-      icon: Clapperboard,
-      color: "text-rose-400",
-      path: `/clients/${clientId}/editing-queue`,
-    },
-    {
-      label: "Workflow",
-      description: language === "en" ? "Facebook Leads Integration & automation" : "Integración de Leads de Facebook y automatización",
-      icon: Workflow,
-      color: "text-blue-400",
-      path: `/clients/${clientId}/workflow`,
-    },
-    {
-      label: language === "en" ? "Brand Setup" : "Configuración de Marca",
-      description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding",
+      key: "content" as const,
+      label: language === "en" ? "Content Creation" : "Creación de Contenido",
+      description: language === "en" ? "Scripts · Vault · Editing Queue · Content Calendar" : "Guiones · Vault · Cola de Edición · Calendario",
       icon: Sparkles,
-      color: "text-yellow-400",
-      path: `/onboarding/${clientId}`,
+      color: "text-amber-400",
     },
     {
-      label: "Database",
-      description: language === "en" ? "(Future) Direct database access - Supabase storage" : "(Futuro) Acceso directo a base de datos - almacenamiento Supabase",
-      icon: Database,
-      color: "text-cyan-400",
-      action: "database",
+      key: "sales" as const,
+      label: "Sales",
+      description: language === "en" ? "Lead Tracker · Lead Calendar · AI Follow-Up" : "Tracker · Calendario de Leads · Seguimiento IA",
+      icon: BarChart3,
+      color: "text-emerald-400",
+    },
+    {
+      key: "setup" as const,
+      label: language === "en" ? "Client Set Up" : "Configuración",
+      description: language === "en" ? "Brand Setup · Public Booking · Database" : "Marca · Booking Público · Base de Datos",
+      icon: Settings2,
+      color: "text-violet-400",
     },
   ];
 
+  const subCards: Record<"content" | "sales" | "setup", { label: string; description: string; icon: React.ElementType; color: string; path?: string; action?: string }[]> = {
+    content: [
+      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "text-orange-400", path: `/clients/${clientId}/scripts?view=canvas` },
+      { label: "Script Breakdown", description: language === "en" ? "View and manage scripts" : "Ver y gestionar guiones", icon: FileText, color: "text-primary", path: `/clients/${clientId}/scripts` },
+      { label: "Vault", description: language === "en" ? "Script templates from viral videos" : "Plantillas de scripts de videos virales", icon: Archive, color: "text-amber-400", path: `/clients/${clientId}/vault` },
+      { label: "Editing Queue", description: language === "en" ? "Track video production status" : "Estado de producción de videos", icon: Clapperboard, color: "text-rose-400", path: `/clients/${clientId}/editing-queue` },
+      { label: language === "en" ? "Content Calendar" : "Calendario de Contenido", description: language === "en" ? "Schedule & approve posts" : "Programar y aprobar publicaciones", icon: Calendar, color: "text-fuchsia-400", path: `/clients/${clientId}/content-calendar` },
+    ],
+    sales: [
+      { label: "Lead Tracker", description: language === "en" ? "Track incoming leads" : "Seguimiento de leads", icon: Target, color: "text-emerald-400", path: `/clients/${clientId}/leads` },
+      { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads", icon: CalendarDays, color: "text-violet-400", path: `/clients/${clientId}/lead-calendar` },
+      { label: language === "en" ? "AI Follow-Up Builder" : "Constructor IA de Seguimiento", description: language === "en" ? "Visual workflow canvas for lead follow-up sequences" : "Lienzo visual de flujo para secuencias de seguimiento", icon: GitBranch, color: "text-indigo-400", path: `/clients/${clientId}/followup-builder` },
+      { label: language === "en" ? "Follow-Up Automation" : "Automatización de Seguimiento", description: language === "en" ? "SMTP email settings, Facebook connection & email automation" : "Configuración SMTP, Facebook y automatización de emails", icon: Zap, color: "text-orange-400", path: `/clients/${clientId}/followup-automation` },
+    ],
+    setup: [
+      { label: language === "en" ? "Brand Setup" : "Configuración de Marca", description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding", icon: Sparkles, color: "text-yellow-400", path: `/onboarding/${clientId}` },
+      { label: language === "en" ? "Public Booking" : "Booking Público", description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly", icon: Globe, color: "text-sky-400", path: `/clients/${clientId}/booking-settings` },
+      { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "text-emerald-400", path: `/clients/${clientId}/landing-page` },
+      { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "text-cyan-400", action: "database" },
+    ],
+  };
+
+  const activeFolderData = activeFolder ? folderCards.find(f => f.key === activeFolder) : null;
+  const activeSubCards = activeFolder ? subCards[activeFolder] : [];
+
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+    <>
 
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/clients" />
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
-      <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        {activeFolder ? (
+          /* ===== SUB-VIEW: top-aligned, wider, 2x2 grid ===== */
+          <div className="flex-1 px-4 sm:px-8 py-8 overflow-y-auto">
+            <div className="max-w-2xl mx-auto">
+              {/* Breadcrumb */}
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+                className="flex items-center gap-2 mb-10"
+              >
+                <button
+                  onClick={() => setActiveFolder(null)}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" /> {clientName}
+                </button>
+                <span className="text-muted-foreground/30">/</span>
+                {activeFolderData && (
+                  <span className={`text-sm font-semibold ${activeFolderData.color}`}>{activeFolderData.label}</span>
+                )}
+              </motion.div>
 
-        <div className="flex-1 flex items-center justify-center px-6">
+              <motion.h1
+                className="text-2xl sm:text-3xl font-bold text-foreground mb-10 tracking-tight text-center"
+                initial="hidden" animate="visible" custom={0} variants={fadeUp}
+              >
+                {activeFolderData?.label}
+              </motion.h1>
+
+              {/* Always 2-column grid — comfortable on all screen sizes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {activeSubCards.map((tool, i) => (
+                  <motion.button
+                    key={tool.path || tool.action}
+                    onClick={() => {
+                      if (tool.action === "database") navigate(`/clients/${clientId}/database`);
+                      else if (tool.path) navigate(tool.path);
+                    }}
+                    className="group flex flex-col items-center gap-5 p-8 sm:p-10 text-center glass-card rounded-xl"
+                    initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}
+                  >
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                      <tool.icon className={`w-6 h-6 ${tool.color} group-hover:text-primary transition-colors`} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight">{tool.label}</h2>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ===== MAIN VIEW: vertically centered, 3 folder cards ===== */
+          <div className="flex-1 flex items-center justify-center px-4 sm:px-6">
           <div className="max-w-3xl w-full text-center">
             <motion.button
               onClick={() => navigate("/clients")}
               className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
-              initial="hidden"
-              animate="visible"
-              custom={0}
-              variants={fadeUp}
+              initial="hidden" animate="visible" custom={0} variants={fadeUp}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               {language === "en" ? "Back to clients" : "Volver a clientes"}
@@ -267,10 +289,7 @@ export default function ClientDetail() {
 
             <motion.div
               className="flex items-center justify-center gap-2 mb-2"
-              initial="hidden"
-              animate="visible"
-              custom={1}
-              variants={fadeUp}
+              initial="hidden" animate="visible" custom={1} variants={fadeUp}
             >
               <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">
                 {clientName}
@@ -306,49 +325,44 @@ export default function ClientDetail() {
               )}
             </motion.div>
 
-            <motion.h1
-              className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]"
-              initial="hidden"
-              animate="visible"
-              custom={2}
-              variants={fadeUp}
-            >
-              {language === "en" ? "What do we want to do?" : "¿Qué queremos hacer?"}
-            </motion.h1>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {toolCards.map((tool: any, i) => (
-                <motion.button
-                  key={tool.path || tool.action}
-                  onClick={() => {
-                    if (tool.action === "database") {
-                      navigate(`/clients/${clientId}/database`);
-                    } else {
-                      navigate(tool.path);
-                    }
-                  }}
-                  className="group flex flex-col items-center gap-5 p-8 text-center card-glass-17"
+            {/* Main folder view */}
+            <>
+                <motion.h1
+                  className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]"
                   initial="hidden"
                   animate="visible"
-                  custom={i + 3}
+                  custom={2}
                   variants={fadeUp}
                 >
-                  <div className="w-12 h-12 rounded-full border border-foreground/10 flex items-center justify-center group-hover:border-primary/30 transition-colors">
-                    <tool.icon className={`w-5 h-5 ${tool.color} group-hover:text-primary transition-colors`} />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{tool.label}</h2>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
-                  </div>
-                  {i < toolCards.length - 1 && (
-                    <span className="hidden sm:block absolute -right-3 top-1/2 -translate-y-1/2 text-muted-foreground/20 text-lg">→</span>
-                  )}
-                </motion.button>
-              ))}
+                  {language === "en" ? "What do we want to do?" : "¿Qué queremos hacer?"}
+                </motion.h1>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {folderCards.map((folder, i) => (
+                    <motion.button
+                      key={folder.key}
+                      onClick={() => setActiveFolder(folder.key)}
+                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl"
+                      initial="hidden"
+                      animate="visible"
+                      custom={i + 3}
+                      variants={fadeUp}
+                    >
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                        <folder.icon className={`w-5 h-5 ${folder.color} group-hover:text-primary transition-colors`} />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{folder.label}</h2>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </>
             </div>
           </div>
-        </div>
-      </main>
+          )}
+      </PageTransition>
 
       {/* Edit Client Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
@@ -442,7 +456,6 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
 
-
       {/* Delete Client Alert */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent>
@@ -469,6 +482,6 @@ export default function ClientDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

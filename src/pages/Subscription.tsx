@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { PLAN_LIMITS } from "@/utils/planLimits";
-import { Loader2, Check, X, ChevronDown, ExternalLink } from "lucide-react";
+import { Loader2, Check, X, ChevronDown, ExternalLink, Zap, Shield } from "lucide-react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 /* ── Plan data ──────────────────────────────────────────────────────── */
 
@@ -36,30 +38,29 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function SectionHeader({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-      <span className="text-[11px] font-bold tracking-[2px] uppercase text-muted-foreground">{label}</span>
-    </div>
-  );
-}
-
 function barColor(pct: number, base: string) {
   if (pct >= 90) return "bg-red-400";
   if (pct >= 75) return "bg-amber-400";
   return base;
 }
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number) => ({
+    opacity: 1, y: 0,
+    transition: { delay: i * 0.08, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+  }),
+};
+
 /* ── Component ──────────────────────────────────────────────────────── */
 
 export default function Subscription() {
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
   const { credits, loading, percentUsed, scrapePercentUsed } = useCredits();
   const { language } = useLanguage();
   const en = language === "en";
 
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState<string | boolean>(false);
   const [showPlans, setShowPlans] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<{
     status: string;
@@ -99,6 +100,29 @@ export default function Subscription() {
     }
   };
 
+  const handleChangePlan = async (targetPlan: string) => {
+    setPortalLoading(targetPlan);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
+        body: { action: "portal-upgrade", target_plan: targetPlan },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No portal URL returned");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to open plan change");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   const fetchStripeStatus = async () => {
     setStatusLoading(true);
     try {
@@ -118,7 +142,7 @@ export default function Subscription() {
   };
 
   useEffect(() => {
-    if (user && !isAdmin) fetchStripeStatus();
+    if (user && !isAdmin && !isVideographer) fetchStripeStatus();
   }, [user, isAdmin]);
 
   /* ── Loading / auth guards ───────────────────────────────────────── */
@@ -139,10 +163,10 @@ export default function Subscription() {
     );
   }
 
-  /* ── Admin view ──────────────────────────────────────────────────── */
+  /* ── Admin / Videographer view ───────────────────────────────────── */
 
-  if (isAdmin) {
-    const adminFeatures = [
+  if (isAdmin || isVideographer) {
+    const staffFeatures = [
       en ? "Unlimited credits"   : "Créditos ilimitados",
       en ? "Unlimited scrapes"   : "Scrapes ilimitados",
       en ? "Unlimited scripts"   : "Guiones ilimitados",
@@ -151,26 +175,36 @@ export default function Subscription() {
       en ? "Landing pages"       : "Páginas de aterrizaje",
       en ? "Vault templates"     : "Plantillas Vault",
     ];
+    const roleLabel = isAdmin ? "Admin" : en ? "Videographer" : "Videógrafo";
     return (
       <div className="max-w-[800px] mx-auto px-4 py-8 space-y-8">
-        <SectionHeader color="#4ade80" label={en ? "SUBSCRIPTION" : "SUSCRIPCIÓN"} />
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6">
+        <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "SUBSCRIPTION" : "SUSCRIPCIÓN"}</span>
+          </div>
+        </motion.div>
+        <motion.div initial="hidden" animate="visible" custom={1} variants={fadeUp}
+          className="glass-card rounded-xl p-6 overflow-hidden"
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xl font-bold">{en ? "Unlimited" : "Ilimitado"}</span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/20 text-primary">Admin</span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/20 text-primary">{roleLabel}</span>
           </div>
           <p className="text-sm text-muted-foreground mb-5">
-            {en ? "Admin account — no limits" : "Cuenta admin — sin límites"}
+            {isAdmin
+              ? (en ? "Admin account — no limits" : "Cuenta admin — sin límites")
+              : (en ? "Videographer account — no limits" : "Cuenta de videógrafo — sin límites")}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {adminFeatures.map((f) => (
+            {staffFeatures.map((f) => (
               <div key={f} className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-green-400 shrink-0" />
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{f}</span>
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -209,7 +243,6 @@ export default function Subscription() {
     ? formatDate(credits.credits_reset_at)
     : null;
 
-  // Build feature list
   type Feature = { label: string; included: boolean };
   const features: Feature[] = [];
   features.push({ label: `${credits.credits_monthly_cap.toLocaleString()} ${en ? "credits per month" : "créditos al mes"}`, included: true });
@@ -231,7 +264,6 @@ export default function Subscription() {
     features.push({ label: en ? "Unlimited leads & scripts" : "Leads y guiones ilimitados", included: true });
   }
 
-  // Status badge for non-standard states
   const showStatusBadge = stripeStatus && (
     stripeStatus.status === "trialing" ||
     stripeStatus.cancel_at_period_end ||
@@ -256,12 +288,17 @@ export default function Subscription() {
   /* ── Render ──────────────────────────────────────────────────────── */
 
   return (
-    <div className="max-w-[800px] mx-auto px-4 py-8 space-y-10">
+    <PageTransition className="max-w-[800px] mx-auto px-4 py-8 space-y-10">
 
       {/* ── Section 1: SUBSCRIPTION ──────────────────────────────── */}
       <section>
-        <SectionHeader color="#4ade80" label={en ? "SUBSCRIPTION" : "SUSCRIPCIÓN"} />
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6">
+        <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "SUBSCRIPTION" : "SUSCRIPCIÓN"}</span>
+        </motion.div>
+        <motion.div initial="hidden" animate="visible" custom={1} variants={fadeUp}
+          className="glass-card rounded-xl p-6 overflow-hidden"
+        >
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-3">
               <span className="text-xl font-bold">{planLabel}</span>
@@ -273,7 +310,7 @@ export default function Subscription() {
             </div>
             <button
               onClick={() => setShowPlans((v) => !v)}
-              className="text-sm font-medium px-4 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+              className="text-sm font-medium px-4 py-1.5 rounded-lg border border-primary/25 text-primary hover:bg-primary/10 transition-colors"
             >
               {showPlans
                 ? (en ? "Hide plans" : "Ocultar planes")
@@ -293,19 +330,24 @@ export default function Subscription() {
             {features.map((f) => (
               <div key={f.label} className="flex items-center gap-2 text-sm">
                 {f.included
-                  ? <Check className="w-4 h-4 text-green-400 shrink-0" />
-                  : <X className="w-4 h-4 text-red-400 shrink-0" />}
+                  ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  : <X className="w-4 h-4 text-red-400/60 shrink-0" />}
                 <span className={f.included ? "" : "text-muted-foreground"}>{f.label}</span>
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* ── Section 2: CREDITS ───────────────────────────────────── */}
       <section>
-        <SectionHeader color="#4ade80" label={en ? "CREDITS" : "CRÉDITOS"} />
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 space-y-4">
+        <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 rounded-full" style={{ background: "#22d3ee" }} />
+          <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "CREDITS" : "CRÉDITOS"}</span>
+        </motion.div>
+        <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp}
+          className="glass-card rounded-xl p-6 space-y-4 overflow-hidden"
+        >
           <p className="text-sm text-muted-foreground">{en ? "Monthly credits left" : "Créditos mensuales restantes"}</p>
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-extrabold tabular-nums">{credits.credits_balance.toLocaleString()}</span>
@@ -313,7 +355,7 @@ export default function Subscription() {
           </div>
 
           {/* progress bar */}
-          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.06)" }}>
             <div
               className={`h-full rounded-full transition-all ${barColor(percentUsed, "bg-primary")}`}
               style={{ width: `${Math.max(2, 100 - percentUsed)}%` }}
@@ -341,56 +383,63 @@ export default function Subscription() {
               ))}
             </div>
           </details>
-        </div>
+        </motion.div>
       </section>
 
       {/* ── Section 3: CHANNEL SCRAPES ───────────────────────────── */}
       {credits.channel_scrapes_limit > 0 && (
         <section>
-          <SectionHeader color="#60a5fa" label={en ? "CHANNEL SCRAPES" : "SCRAPES DE CANALES"} />
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 space-y-4">
+          <motion.div initial="hidden" animate="visible" custom={4} variants={fadeUp} className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-blue-400" />
+            <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "CHANNEL SCRAPES" : "SCRAPES DE CANALES"}</span>
+          </motion.div>
+          <motion.div initial="hidden" animate="visible" custom={5} variants={fadeUp}
+            className="glass-card rounded-xl p-6 space-y-4 overflow-hidden"
+          >
             <p className="text-sm text-muted-foreground">{en ? "Scrapes used this cycle" : "Scrapes usados este ciclo"}</p>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-extrabold tabular-nums">{credits.channel_scrapes_used}</span>
               <span className="text-lg text-muted-foreground">/ {credits.channel_scrapes_limit}</span>
             </div>
-            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.06)" }}>
               <div
-                className={`h-full rounded-full transition-all ${barColor(scrapePercentUsed, "bg-[#60a5fa]")}`}
+                className={`h-full rounded-full transition-all ${barColor(scrapePercentUsed, "bg-blue-400")}`}
                 style={{ width: `${Math.max(2, 100 - scrapePercentUsed)}%` }}
               />
             </div>
-          </div>
+          </motion.div>
         </section>
       )}
 
       {/* ── Section 4: CHANGE PLAN (hidden by default) ───────────── */}
       {showPlans && (
         <section>
-          <SectionHeader color="#f59e0b" label={en ? "CHANGE PLAN" : "CAMBIAR PLAN"} />
+          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "CHANGE PLAN" : "CAMBIAR PLAN"}</span>
+          </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {PLAN_OPTIONS.map((plan) => {
+            {PLAN_OPTIONS.map((plan, i) => {
               const isCurrent = planKey === plan.key;
               const isUpgrade = plan.amount > currentAmount;
               const isDowngrade = plan.amount < currentAmount;
 
               return (
-                <div
-                  key={plan.key}
-                  className={`bg-[#1a1a1a] border rounded-xl p-5 flex flex-col justify-between ${
-                    isCurrent ? "border-primary" : "border-[#2a2a2a]"
+                <motion.div key={plan.key} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}
+                  className={`glass-card rounded-xl p-5 flex flex-col justify-between overflow-hidden ${
+                    isCurrent ? "!border-primary/40" : ""
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-bold text-base">{plan.name}</span>
                       {isCurrent && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/20 text-primary">
                           {en ? "Current" : "Actual"}
                         </span>
                       )}
                       {!isCurrent && isUpgrade && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
                           {en ? "Upgrade" : "Mejora"}
                         </span>
                       )}
@@ -400,43 +449,56 @@ export default function Subscription() {
                         </span>
                       )}
                     </div>
-                    <p className="text-2xl font-extrabold mb-3">${plan.price}<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
-                    <ul className="space-y-1 text-sm text-muted-foreground mb-4">
-                      <li>{plan.credits.toLocaleString()} {en ? "credits" : "créditos"}</li>
-                      <li>{plan.scrapes} {en ? "scrapes" : "scrapes"}</li>
-                      <li>{plan.scripts} {en ? "scripts" : "guiones"}</li>
+                    <p className="text-2xl font-extrabold mb-3">
+                      ${plan.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+                    </p>
+                    <ul className="space-y-1.5 text-sm text-muted-foreground mb-4">
+                      <li className="flex items-center gap-2">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        {plan.credits.toLocaleString()} {en ? "credits" : "créditos"}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-blue-400" />
+                        {plan.scrapes} {en ? "scrapes" : "scrapes"}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        {plan.scripts} {en ? "scripts" : "guiones"}
+                      </li>
                     </ul>
                   </div>
 
                   {isCurrent ? (
                     <button
                       disabled
-                      className="w-full text-sm font-medium py-2 rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
+                      className="w-full text-sm font-medium py-2 rounded-lg border border-white/[.06] text-muted-foreground cursor-not-allowed"
+                      style={{ background: "rgba(255,255,255,.03)" }}
                     >
                       {en ? "Your Plan" : "Tu Plan"}
                     </button>
                   ) : isUpgrade ? (
                     <button
-                      onClick={handleManageSubscription}
-                      disabled={portalLoading}
-                      className="w-full text-sm font-medium py-2 rounded-lg bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 transition-colors"
+                      onClick={() => handleChangePlan(plan.key)}
+                      disabled={!!portalLoading}
+                      className="w-full text-sm font-medium py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
                     >
-                      {portalLoading
+                      {portalLoading === plan.key
                         ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                         : (en ? "Upgrade" : "Mejorar")}
                     </button>
                   ) : (
                     <button
-                      onClick={handleManageSubscription}
-                      disabled={portalLoading}
-                      className="w-full text-sm font-medium py-2 rounded-lg border border-[#2a2a2a] text-muted-foreground hover:border-[#3a3a3a] transition-colors"
+                      onClick={() => handleChangePlan(plan.key)}
+                      disabled={!!portalLoading}
+                      className="w-full text-sm font-medium py-2 rounded-lg border border-white/[.08] text-muted-foreground hover:border-white/[.15] transition-colors"
+                      style={{ background: "rgba(255,255,255,.03)" }}
                     >
-                      {portalLoading
+                      {portalLoading === plan.key
                         ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                         : (en ? "Downgrade" : "Degradar")}
                     </button>
                   )}
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -444,8 +506,8 @@ export default function Subscription() {
       )}
 
       {/* ── Section 5: MANAGE SUBSCRIPTION ───────────────────────── */}
-      <section>
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 flex items-center justify-between">
+      <motion.section initial="hidden" animate="visible" custom={6} variants={fadeUp}>
+        <div className="glass-card rounded-xl p-6 flex items-center justify-between overflow-hidden">
           <div>
             <p className="font-semibold text-sm">{en ? "Manage Subscription" : "Gestionar Suscripción"}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -454,14 +516,14 @@ export default function Subscription() {
           </div>
           <button
             onClick={handleManageSubscription}
-            disabled={portalLoading}
-            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            disabled={!!portalLoading}
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-primary/25 text-primary hover:bg-primary/10 transition-colors"
           >
-            {portalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+            {portalLoading === true ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
             {en ? "Manage" : "Gestionar"}
           </button>
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </PageTransition>
   );
 }

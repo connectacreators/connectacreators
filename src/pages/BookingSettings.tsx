@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +39,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
-import AnimatedDots from "@/components/ui/AnimatedDots";
 
 const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
@@ -95,11 +93,9 @@ type BookingSettingsData = {
 
 export default function BookingSettings() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const [settings, setSettings] = useState<BookingSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,8 +164,8 @@ export default function BookingSettings() {
   }, [authLoading, user, fetchSettings, fetchBookings]);
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) navigate("/dashboard");
-  }, [authLoading, isAdmin, navigate]);
+    if (!authLoading && !user) navigate("/dashboard");
+  }, [authLoading, user, navigate]);
 
   const handleSave = async () => {
     if (!settings || !clientId) return;
@@ -255,22 +251,17 @@ export default function BookingSettings() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
     );
   }
 
   if (!settings) return null;
 
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/clients" />
 
-      <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
           <button
@@ -286,8 +277,8 @@ export default function BookingSettings() {
               <CalendarDays className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-foreground">Calendario Público</h1>
-              <p className="text-xs text-muted-foreground">Configuración del booking para {clientName}</p>
+              <h1 className="text-lg font-bold text-foreground">Public Calendar</h1>
+              <p className="text-xs text-muted-foreground">Booking settings for {clientName}</p>
             </div>
           </div>
 
@@ -295,8 +286,8 @@ export default function BookingSettings() {
             {/* Active toggle */}
             <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card/50">
               <div>
-                <Label className="text-sm font-semibold">Activar Calendario Público</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Permite que las personas agenden citas online</p>
+                <Label className="text-sm font-semibold">Enable Public Calendar</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Allow people to book appointments online</p>
               </div>
               <Switch checked={settings.is_active} onCheckedChange={(v) => setSettings({ ...settings, is_active: v })} />
             </div>
@@ -304,7 +295,7 @@ export default function BookingSettings() {
             {/* Title & Description */}
             <div className="space-y-3">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Título del Booking</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">Booking Title</Label>
                 <Input
                   value={settings.booking_title}
                   onChange={(e) => setSettings({ ...settings, booking_title: e.target.value })}
@@ -312,19 +303,19 @@ export default function BookingSettings() {
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Descripción (opcional)</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">Description (optional)</Label>
                 <Textarea
                   value={settings.booking_description || ""}
                   onChange={(e) => setSettings({ ...settings, booking_description: e.target.value || null })}
                   className="min-h-[60px]"
-                  placeholder="Agenda una llamada estratégica con nosotros..."
+                  placeholder="Schedule a strategy call with us..."
                 />
               </div>
             </div>
 
             {/* Available days */}
             <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Días Disponibles</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block">Available Days</Label>
               <div className="flex gap-2">
                 {DAY_LABELS.map((label, i) => (
                   <button
@@ -345,7 +336,7 @@ export default function BookingSettings() {
             {/* Hours, Duration & Timezone */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Hora Inicio</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">Start Time</Label>
                 <Select value={String(settings.start_hour)} onValueChange={(v) => setSettings({ ...settings, start_hour: Number(v) })}>
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -356,7 +347,7 @@ export default function BookingSettings() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Hora Fin</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">End Time</Label>
                 <Select value={String(settings.end_hour)} onValueChange={(v) => setSettings({ ...settings, end_hour: Number(v) })}>
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -367,14 +358,14 @@ export default function BookingSettings() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Duración</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">Duration</Label>
                 <Select value={String(settings.slot_duration_minutes)} onValueChange={(v) => setSettings({ ...settings, slot_duration_minutes: Number(v) })}>
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="15">15 min</SelectItem>
                     <SelectItem value="30">30 min</SelectItem>
                     <SelectItem value="45">45 min</SelectItem>
-                    <SelectItem value="60">1 hora</SelectItem>
+                    <SelectItem value="60">1 hour</SelectItem>
                     <SelectItem value="90">1.5 hrs</SelectItem>
                     <SelectItem value="120">2 hrs</SelectItem>
                   </SelectContent>
@@ -382,7 +373,7 @@ export default function BookingSettings() {
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
-                  <Globe className="w-3 h-3" /> Zona Horaria
+                  <Globe className="w-3 h-3" /> Timezone
                 </Label>
                 <Select value={settings.timezone} onValueChange={(v) => setSettings({ ...settings, timezone: v })}>
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
@@ -398,9 +389,9 @@ export default function BookingSettings() {
             {/* Logo */}
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block flex items-center gap-1">
-                <ImageUp className="w-3 h-3" /> Logo del Calendario Público
+                <ImageUp className="w-3 h-3" /> Public Calendar Logo
               </Label>
-              <p className="text-[10px] text-muted-foreground mb-3">Se muestra en la cabecera de tu página de reservas. Máx. 2MB.</p>
+              <p className="text-[10px] text-muted-foreground mb-3">Displayed in the header of your booking page. Max. 2MB.</p>
               <div className="flex items-center gap-3">
                 {settings.logo_url ? (
                   <div className="relative w-20 h-20 rounded-xl border border-border bg-card/50 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -428,7 +419,7 @@ export default function BookingSettings() {
                     />
                     <span className={`inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border text-xs font-medium transition-colors hover:bg-accent/10 ${logoUploading ? "opacity-50 pointer-events-none" : ""}`}>
                       {logoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageUp className="w-3.5 h-3.5" />}
-                      {settings.logo_url ? "Cambiar logo" : "Subir logo"}
+                      {settings.logo_url ? "Change logo" : "Upload logo"}
                     </span>
                   </label>
                   <p className="text-[10px] text-muted-foreground mt-1.5">PNG, JPG, WebP o SVG</p>
@@ -439,11 +430,11 @@ export default function BookingSettings() {
             {/* Colors */}
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block flex items-center gap-1">
-                <Palette className="w-3 h-3" /> Colores del Calendario Público
+                <Palette className="w-3 h-3" /> Public Calendar Colors
               </Label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[10px] text-muted-foreground mb-1 block">Color Principal (botones, acentos)</Label>
+                  <Label className="text-[10px] text-muted-foreground mb-1 block">Primary Color (buttons, accents)</Label>
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
@@ -460,7 +451,7 @@ export default function BookingSettings() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-[10px] text-muted-foreground mb-1 block">Color de Fondo</Label>
+                  <Label className="text-[10px] text-muted-foreground mb-1 block">Background Color</Label>
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
@@ -482,9 +473,9 @@ export default function BookingSettings() {
             {/* Break Times */}
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block flex items-center gap-1">
-                <Coffee className="w-3 h-3" /> Descansos / Break Times
+                <Coffee className="w-3 h-3" /> Break Times
               </Label>
-              <p className="text-[10px] text-muted-foreground mb-3">Los horarios de descanso bloquean slots durante esos periodos.</p>
+              <p className="text-[10px] text-muted-foreground mb-3">Break times block slots during those periods.</p>
               <div className="space-y-2">
                 {settings.break_times.map((bt, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -503,7 +494,7 @@ export default function BookingSettings() {
                         })}
                       </SelectContent>
                     </Select>
-                    <span className="text-xs text-muted-foreground">a</span>
+                    <span className="text-xs text-muted-foreground">to</span>
                     <Select value={bt.end} onValueChange={(v) => {
                       const updated = [...settings.break_times];
                       updated[idx] = { ...updated[idx], end: v };
@@ -542,14 +533,14 @@ export default function BookingSettings() {
                   setSettings({ ...settings, break_times: [...settings.break_times, { start: defaultStart, end: defaultEnd }] });
                 }}
               >
-                <Plus className="w-3 h-3 mr-1" /> Agregar descanso
+                <Plus className="w-3 h-3 mr-1" /> Add break
               </Button>
             </div>
 
             {/* Zapier Webhook */}
             <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Zapier Webhook URL (opcional)</Label>
-              <p className="text-[10px] text-muted-foreground mb-2">Envía automáticamente los datos del booking a Zapier para follow-ups.</p>
+              <Label className="text-xs text-muted-foreground mb-1 block">Zapier Webhook URL (optional)</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">Automatically sends booking data to Zapier for follow-ups.</p>
               <Input
                 value={settings.zapier_webhook_url || ""}
                 onChange={(e) => setSettings({ ...settings, zapier_webhook_url: e.target.value || null })}
@@ -561,13 +552,13 @@ export default function BookingSettings() {
             {/* Save button */}
             <Button onClick={handleSave} disabled={saving} className="w-full h-11 rounded-xl">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-              Guardar Configuración
+              Save Settings
             </Button>
 
             {/* Share links — only show if saved and active */}
             {settings.id && settings.is_active && (
               <div className="space-y-3 pt-4 border-t border-border">
-                <h3 className="text-sm font-semibold text-foreground">Compartir</h3>
+                <h3 className="text-sm font-semibold text-foreground">Share</h3>
 
                 {/* Public link */}
                 <div className="p-3 rounded-xl border border-border bg-card/50">
@@ -602,7 +593,7 @@ export default function BookingSettings() {
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2">
                       <Code className="w-4 h-4 text-primary flex-shrink-0" />
-                      <span className="text-xs font-medium text-foreground">Código Embed</span>
+                      <span className="text-xs font-medium text-foreground">Embed Code</span>
                     </div>
                     <Button
                       size="sm"
@@ -611,7 +602,7 @@ export default function BookingSettings() {
                       onClick={() => copyToClipboard(embedCode, "embed")}
                     >
                       {copied === "embed" ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
-                      Copiar
+                      Copy
                     </Button>
                   </div>
                   <pre className="text-[9px] text-muted-foreground bg-background rounded-lg p-2 overflow-x-auto">
@@ -625,7 +616,7 @@ export default function BookingSettings() {
             <div className="pt-4 border-t border-border">
               <div className="flex items-center gap-2 mb-4">
                 <History className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">Historial de Citas</h3>
+                <h3 className="text-sm font-semibold text-foreground">Appointment History</h3>
                 <span className="text-[10px] text-muted-foreground">({bookings.length})</span>
               </div>
 
@@ -636,7 +627,7 @@ export default function BookingSettings() {
               ) : bookings.length === 0 ? (
                 <div className="text-center py-8">
                   <CalendarDays className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">Aún no hay citas registradas.</p>
+                  <p className="text-xs text-muted-foreground">No appointments yet.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -690,7 +681,6 @@ export default function BookingSettings() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </PageTransition>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Save, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -99,7 +100,7 @@ export default function Settings() {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto">
+    <PageTransition className="flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 py-8 max-w-lg">
         <h1 className="text-2xl font-bold text-foreground mb-8">{tr(t.settings.title, language)}</h1>
 
@@ -162,6 +163,6 @@ export default function Settings() {
           </Button>
         </div>
       </div>
-    </main>
+    </PageTransition>
   );
 }

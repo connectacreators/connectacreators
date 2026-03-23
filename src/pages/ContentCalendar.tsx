@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -264,6 +265,7 @@ export default function ContentCalendar() {
       let query = supabase
         .from("video_edits")
         .select("id, reel_title, schedule_date, post_status, assignee, script_id, file_submission, caption, script_url, revisions, client_id")
+        .is("deleted_at", null)
         .not("schedule_date", "is", null)
         .order("schedule_date", { ascending: true });
       if (clientId) {
@@ -397,7 +399,7 @@ export default function ContentCalendar() {
   return (
 
     <>
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <PageTransition className="flex-1 flex flex-col min-h-screen overflow-hidden">
 
         <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col animate-fade-in">
 
@@ -744,7 +746,7 @@ export default function ContentCalendar() {
           )}
 
         </div>
-      </main>
+      </PageTransition>
 
       {/* ─── Post Detail Modal ─────────────────────────────────────────────────── */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>

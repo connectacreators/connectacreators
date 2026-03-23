@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowLeft, Target, Clapperboard, Database, Pencil, Trash2, Plus, CalendarDays, ExternalLink, Filter, MessageSquare, Play } from "lucide-react";
+import { Loader2, ArrowLeft, Target, Clapperboard, Database, Pencil, Trash2, Plus, CalendarDays, ExternalLink, Filter, MessageSquare, Play, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ const formatPhoneNumber = (phone: string): string => {
 };
 
 export default function MasterDatabase() {
-  const { user, loading, isAdmin, isUser } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -87,6 +88,8 @@ export default function MasterDatabase() {
     booked: false,
     stopped: false,
     replied: false,
+    booking_date: "",
+    booking_time: "",
   });
 
   const [videoForm, setVideoForm] = useState({
@@ -125,6 +128,9 @@ export default function MasterDatabase() {
   });
 
   const [editQueueFilter, setEditQueueFilter] = useState(false);
+  const [showVideoTrash, setShowVideoTrash] = useState(false);
+  const [trashedVideos, setTrashedVideos] = useState<any[]>([]);
+  const [fetchingTrash, setFetchingTrash] = useState(false);
 
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewVideo, setReviewVideo] = useState<(VideoEdit & { client_name?: string }) | null>(null);
@@ -134,39 +140,46 @@ export default function MasterDatabase() {
   const [savingNewVideo, setSavingNewVideo] = useState(false);
 
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
+  const [isSubscriber, setIsSubscriber] = useState(false);
+  const [subscriberChecked, setSubscriberChecked] = useState(false);
 
   useEffect(() => {
-    if (!user || !isUser) return;
+    if (!user) return;
     supabase
       .from("clients")
-      .select("id")
+      .select("id, plan_type")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setOwnClientId(data.id);
+        if (data) {
+          setOwnClientId(data.id);
+          const pt = data.plan_type;
+          setIsSubscriber(pt === "starter" || pt === "growth" || pt === "enterprise");
+        }
+        setSubscriberChecked(true);
       });
-  }, [user, isUser]);
+  }, [user]);
 
-  // Check admin access
+  // Check admin access — allow admin and subscribers (wait for subscriber check)
   useEffect(() => {
-    if (!loading && user && !isAdmin && !isUser) {
+    if (!loading && user && subscriberChecked && !isAdmin && !isSubscriber) {
       navigate("/dashboard");
     }
-  }, [loading, user, isAdmin, isUser, navigate]);
+  }, [loading, user, isAdmin, isSubscriber, subscriberChecked, navigate]);
 
   // Load all data on mount
   useEffect(() => {
-    if ((!isAdmin && !isUser) || !user) return;
-    if (isUser && !ownClientId) return; // wait for ownClientId to load
+    if ((!isAdmin && !isSubscriber) || !user) return;
+    if (isSubscriber && !ownClientId) return; // wait for ownClientId to load
     loadAllData();
-  }, [isAdmin, isUser, user, ownClientId]);
+  }, [isAdmin, isSubscriber, user, ownClientId]);
 
   const loadAllData = async () => {
     setLoadingData(true);
     try {
       // Load clients — scoped to own client for subscribers
       let clientsData: Client[];
-      if (isUser && ownClientId) {
+      if (isSubscriber && ownClientId) {
         const { data } = await supabase.from("clients").select("*").eq("id", ownClientId);
         clientsData = (data || []) as Client[];
       } else {
@@ -180,7 +193,7 @@ export default function MasterDatabase() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (isUser && ownClientId) {
+      if (isSubscriber && ownClientId) {
         leadsQuery.eq("client_id", ownClientId);
       }
 
@@ -194,13 +207,14 @@ export default function MasterDatabase() {
       }));
       setAllLeads(leadsWithClientNames);
 
-      // Load all videos with client and script info
+      // Load all videos with client and script info (exclude trashed)
       const videosQuery = supabase
         .from("video_edits")
         .select("*")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
-      if (isUser && ownClientId) {
+      if (isSubscriber && ownClientId) {
         videosQuery.eq("client_id", ownClientId);
       }
 
@@ -208,10 +222,11 @@ export default function MasterDatabase() {
 
       if (videosData.error) throw videosData.error;
 
-      // Get all scripts
+      // Get all scripts (exclude trashed)
       const scriptsData = await supabase
         .from("scripts")
-        .select("*");
+        .select("*")
+        .is("deleted_at", null);
 
       if (scriptsData.error) throw scriptsData.error;
       setScripts(scriptsData.data || []);
@@ -374,7 +389,7 @@ export default function MasterDatabase() {
   };
 
   const handleSaveLead = async () => {
-    const clientId = isUser ? (ownClientId || "") : leadForm.client_id;
+    const clientId = isSubscriber ? (ownClientId || "") : leadForm.client_id;
     if (!clientId || !leadForm.name.trim()) {
       toast.error("Client and lead name are required");
       return;
@@ -395,6 +410,11 @@ export default function MasterDatabase() {
           stopped: leadForm.stopped,
           replied: leadForm.replied,
         });
+        // Also update booking_date/time directly (not in UpdateLeadInput)
+        await supabase.from("leads").update({
+          booking_date: leadForm.booking_date || null,
+          booking_time: leadForm.booking_time || null,
+        }).eq("id", editingLeadId);
         toast.success("Lead updated");
       } else {
         await leadService.createLead({
@@ -404,6 +424,14 @@ export default function MasterDatabase() {
           email: leadForm.email || null,
           source: leadForm.source || null,
           status: leadForm.status,
+          booking_date: leadForm.booking_date || null,
+          booking_time: leadForm.booking_time || null,
+          booked: leadForm.booked,
+          follow_up_step: leadForm.follow_up_step,
+          last_contacted_at: leadForm.last_contacted_at || null,
+          next_follow_up_at: leadForm.next_follow_up_at || null,
+          stopped: leadForm.stopped,
+          replied: leadForm.replied,
         });
         toast.success("Lead created");
       }
@@ -443,6 +471,8 @@ export default function MasterDatabase() {
       booked: lead.booked,
       stopped: lead.stopped,
       replied: lead.replied,
+      booking_date: lead.booking_date || "",
+      booking_time: lead.booking_time || "",
     });
     setEditingLeadId(lead.id);
     setShowAddLeadDialog(true);
@@ -450,7 +480,7 @@ export default function MasterDatabase() {
 
   const resetLeadForm = () => {
     setLeadForm({
-      client_id: isUser ? (ownClientId || "") : "",
+      client_id: isSubscriber ? (ownClientId || "") : "",
       name: "",
       phone: "",
       email: "",
@@ -462,11 +492,13 @@ export default function MasterDatabase() {
       booked: false,
       stopped: false,
       replied: false,
+      booking_date: "",
+      booking_time: "",
     });
   };
 
   const handleSaveVideo = async () => {
-    const clientId = isUser ? (ownClientId || "") : videoForm.client_id;
+    const clientId = isSubscriber ? (ownClientId || "") : videoForm.client_id;
     if (!clientId || !videoForm.reel_title.trim()) {
       toast.error("Client and reel title are required");
       return;
@@ -504,10 +536,16 @@ export default function MasterDatabase() {
   };
 
   const handleDeleteVideo = async (videoId: string) => {
-    if (!confirm("Are you sure you want to delete this video?")) return;
+    if (!confirm(language === "en" ? "Move this item to trash?" : "¿Mover a la papelera?")) return;
+    const now = new Date().toISOString();
     try {
       await videoService.deleteVideo(videoId);
-      toast.success("Video deleted");
+      // Also trash the linked script
+      const video = allVideos.find(v => v.id === videoId);
+      if (video?.script_id) {
+        await supabase.from("scripts").update({ deleted_at: now }).eq("id", video.script_id);
+      }
+      toast.success(language === "en" ? "Moved to trash" : "Movido a papelera");
       await loadAllData();
     } catch (error) {
       console.error("Error deleting video:", error);
@@ -536,7 +574,7 @@ export default function MasterDatabase() {
 
   const resetVideoForm = () => {
     setVideoForm({
-      client_id: isUser ? (ownClientId || "") : "",
+      client_id: isSubscriber ? (ownClientId || "") : "",
       script_id: "",
       file_url: "",
       status: "Not started",
@@ -630,14 +668,58 @@ export default function MasterDatabase() {
   };
 
   const handleDeleteScript = async (scriptId: string) => {
-    if (!confirm("Are you sure you want to delete this script?")) return;
+    if (!confirm(language === "en" ? "Move this item to trash?" : "¿Mover a la papelera?")) return;
+    const now = new Date().toISOString();
     try {
-      await supabase.from("scripts").update({ deleted_at: new Date().toISOString() }).eq("id", scriptId);
-      toast.success("Script deleted");
+      await supabase.from("scripts").update({ deleted_at: now }).eq("id", scriptId);
+      // Also trash linked video_edit
+      await supabase.from("video_edits").update({ deleted_at: now }).eq("script_id", scriptId);
+      toast.success(language === "en" ? "Moved to trash" : "Movido a papelera");
       setAllVideos((prev) => prev.filter((v) => v.id !== scriptId));
     } catch (error) {
       console.error("Error deleting script:", error);
       toast.error("Failed to delete script");
+    }
+  };
+
+  const fetchTrashedVideos = async () => {
+    setFetchingTrash(true);
+    try {
+      const { data } = await supabase
+        .from("video_edits")
+        .select("id, reel_title, client_id, deleted_at, script_id, clients(name)")
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+      setTrashedVideos(data || []);
+    } catch { /* ignore */ }
+    finally { setFetchingTrash(false); }
+  };
+
+  const handleRestoreVideo = async (item: any) => {
+    try {
+      await supabase.from("video_edits").update({ deleted_at: null }).eq("id", item.id);
+      if (item.script_id) {
+        await supabase.from("scripts").update({ deleted_at: null }).eq("id", item.script_id);
+      }
+      setTrashedVideos(prev => prev.filter(v => v.id !== item.id));
+      toast.success(language === "en" ? "Restored" : "Restaurado");
+      fetchData();
+    } catch {
+      toast.error(language === "en" ? "Failed to restore" : "Error al restaurar");
+    }
+  };
+
+  const handlePermanentDeleteVideo = async (item: any) => {
+    if (!confirm(language === "en" ? "Permanently delete? This cannot be undone." : "¿Eliminar permanentemente? No se puede deshacer.")) return;
+    try {
+      await supabase.from("video_edits").delete().eq("id", item.id);
+      if (item.script_id) {
+        await supabase.from("scripts").delete().eq("id", item.script_id);
+      }
+      setTrashedVideos(prev => prev.filter(v => v.id !== item.id));
+      toast.success(language === "en" ? "Permanently deleted" : "Eliminado permanentemente");
+    } catch {
+      toast.error(language === "en" ? "Failed to delete" : "Error al eliminar");
     }
   };
 
@@ -649,7 +731,7 @@ export default function MasterDatabase() {
     );
   }
 
-  if (isUser && !ownClientId && !loading) {
+  if (isSubscriber && !ownClientId && !loading) {
     return (
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-16 max-w-6xl text-center">
@@ -664,7 +746,7 @@ export default function MasterDatabase() {
   return (
     <>
 
-      <main className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-6 py-8">
           <div className="max-w-7xl mx-auto">
@@ -705,7 +787,7 @@ export default function MasterDatabase() {
               variants={fadeUp}
             >
               <div className="flex flex-wrap gap-3 items-end">
-                {!isUser && (
+                {!isSubscriber && (
                 <div>
                   <Label className="text-sm mb-2 block">Filter by Client</Label>
                   <Select value={selectedClientFilter} onValueChange={(value) => setSelectedClientFilter(value === "__all__" ? "" : value)}>
@@ -975,6 +1057,16 @@ export default function MasterDatabase() {
                         <Button size="sm" variant={editQueueFilter ? "default" : "outline"} onClick={() => setEditQueueFilter(!editQueueFilter)}>
                           <Filter className="w-4 h-4 mr-1" /> Editing Queue
                         </Button>
+                        <Button
+                          size="sm"
+                          variant={showVideoTrash ? "destructive" : "outline"}
+                          onClick={() => {
+                            if (!showVideoTrash) fetchTrashedVideos();
+                            setShowVideoTrash(!showVideoTrash);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> {language === "en" ? "Trash" : "Papelera"}
+                        </Button>
                         <Button size="sm" onClick={() => { resetVideoForm(); setEditingVideoId(null); setShowAddVideoDialog(true); }}>
                           <Plus className="w-4 h-4 mr-1" /> {language === "en" ? "Add Video" : "Agregar Video"}
                         </Button>
@@ -982,7 +1074,53 @@ export default function MasterDatabase() {
                     }
                   />
 
-                  {loading_data ? (
+                  {showVideoTrash ? (
+                    <div className="rounded-lg border border-border/40 bg-card/20 backdrop-blur-sm glass-card overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border/40">
+                        <p className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {language === "en" ? "Items are automatically deleted after 90 days in trash" : "Los elementos se eliminan automáticamente después de 90 días en la papelera"}
+                        </p>
+                      </div>
+                      {fetchingTrash ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        </div>
+                      ) : trashedVideos.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground text-sm">
+                          {language === "en" ? "Trash is empty" : "La papelera está vacía"}
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-border/30">
+                          {trashedVideos.map((item) => {
+                            const deletedDate = new Date(item.deleted_at);
+                            const daysLeft = Math.max(0, 90 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                            return (
+                              <div key={item.id} className="flex items-center gap-3 px-4 py-3 opacity-70 hover:opacity-90 transition-opacity">
+                                <Clapperboard className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-muted-foreground truncate line-through">{item.reel_title || "Untitled"}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.clients?.name || "Unknown"} · {language === "en" ? "Deleted" : "Eliminado"} {deletedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX")} · {daysLeft} {language === "en" ? "days left" : "días restantes"}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button variant="ghost" size="sm" onClick={() => handleRestoreVideo(item)} className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400" title={language === "en" ? "Restore" : "Restaurar"}>
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                  </Button>
+                                  {isAdmin && (
+                                    <Button variant="ghost" size="sm" onClick={() => handlePermanentDeleteVideo(item)} className="h-8 w-8 p-0 text-destructive hover:text-destructive" title={language === "en" ? "Delete permanently" : "Eliminar permanentemente"}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : loading_data ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Loading videos...
@@ -1247,7 +1385,7 @@ export default function MasterDatabase() {
             </motion.div>
           </div>
         </div>
-      </main>
+      </PageTransition>
 
       {/* Add/Edit Lead Dialog */}
       <Dialog open={showAddLeadDialog} onOpenChange={setShowAddLeadDialog}>
@@ -1256,7 +1394,7 @@ export default function MasterDatabase() {
             <DialogTitle>{editingLeadId ? "Edit Lead" : "Add New Lead"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {!isUser && (
+            {!isSubscriber && (
             <div className="space-y-2">
               <Label>Client *</Label>
               <Select value={leadForm.client_id} onValueChange={(value) => setLeadForm({ ...leadForm, client_id: value })}>
@@ -1314,6 +1452,13 @@ export default function MasterDatabase() {
               <Label>Next Follow Up</Label>
               <Input type="date" value={leadForm.next_follow_up_at} onChange={(e) => setLeadForm({ ...leadForm, next_follow_up_at: e.target.value })} />
             </div>
+            <div className="space-y-2">
+              <Label>Booking Date & Time</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="date" value={leadForm.booking_date} onChange={(e) => setLeadForm({ ...leadForm, booking_date: e.target.value })} style={{ colorScheme: "dark" }} />
+                <Input type="time" value={leadForm.booking_time} onChange={(e) => setLeadForm({ ...leadForm, booking_time: e.target.value })} style={{ colorScheme: "dark" }} />
+              </div>
+            </div>
             <div className="space-y-3 pt-2 border-t">
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="booked" checked={leadForm.booked} onChange={(e) => setLeadForm({ ...leadForm, booked: e.target.checked })} className="rounded" />
@@ -1347,7 +1492,7 @@ export default function MasterDatabase() {
             <DialogTitle>{editingVideoId ? "Edit Video" : "Add New Video"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {!isUser && (
+            {!isSubscriber && (
             <div className="space-y-2">
               <Label>Client *</Label>
               <Select value={videoForm.client_id} onValueChange={(value) => setVideoForm({ ...videoForm, client_id: value })}>

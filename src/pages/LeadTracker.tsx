@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
@@ -54,6 +55,7 @@ import { t, tr } from "@/i18n/translations";
 import { toast } from "sonner";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { leadService } from "@/services/leadService";
+import { checkResourceLimit } from "@/utils/planLimits";
 
 type Lead = {
   id: string;
@@ -95,27 +97,35 @@ const SOURCE_COLORS: Record<string, string> = {
 
 const ALLOWED_STATUSES = ["New Lead", "Follow-up 1", "Follow-up 2", "Follow-up 3", "Booked", "Canceled"];
 
+/** Strip the "db_" prefix added by fetch-leads edge function to get the real Supabase UUID */
+const stripDbPrefix = (id: string) => id.startsWith("db_") ? id.slice(3) : id;
+
 export default function LeadTracker() {
   const { clientId: urlClientId } = useParams<{ clientId?: string }>();
   const { checking: subscriptionChecking } = useSubscriptionGuard();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, loading: authLoading, isAdmin, isUser, isVideographer } = useAuth();
+  const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
   const isStaff = isAdmin || isVideographer;
 
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
+  const [isSubscriber, setIsSubscriber] = useState(false);
 
   useEffect(() => {
-    if (!user || !isUser) return;
+    if (!user) return;
     supabase
       .from("clients")
-      .select("id")
+      .select("id, plan_type")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setOwnClientId(data.id);
+        if (data) {
+          setOwnClientId(data.id);
+          const pt = data.plan_type;
+          setIsSubscriber(pt === "starter" || pt === "growth" || pt === "enterprise");
+        }
       });
-  }, [user, isUser]);
+  }, [user]);
   const { clients } = useClients(isStaff);
   const navigate = useNavigate();
 
@@ -149,6 +159,11 @@ export default function LeadTracker() {
   const [notesText, setNotesText] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
 
+  // Booking date/time state for lead detail modal
+  const [editBookingDate, setEditBookingDate] = useState("");
+  const [editBookingTime, setEditBookingTime] = useState("");
+  const [savingBooking, setSavingBooking] = useState(false);
+
   // Delete state
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -169,12 +184,14 @@ export default function LeadTracker() {
     name: "", email: "", phone: "", source: "", status: "New Lead",
     follow_up_step: 0, last_contacted_at: "", next_follow_up_at: "",
     booked: false, stopped: false, replied: false,
+    booking_date: "", booking_time: "",
   });
 
   const resetAddLeadForm = () => setAddLeadForm({
     name: "", email: "", phone: "", source: "", status: "New Lead",
     follow_up_step: 0, last_contacted_at: "", next_follow_up_at: "",
     booked: false, stopped: false, replied: false,
+    booking_date: "", booking_time: "",
   });
 
   // (Lead notifications are now handled globally by LeadNotificationProvider)
@@ -266,7 +283,7 @@ export default function LeadTracker() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      if (isUser) {
+      if (isSubscriber) {
         fetchSubscriberLeads();
       } else if (isStaff) {
         fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined);
@@ -274,13 +291,13 @@ export default function LeadTracker() {
         fetchLeads();
       }
     }
-  }, [authLoading, user, isUser, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
+  }, [authLoading, user, isSubscriber, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
 
   // Auto-refresh every 2 minutes
   useEffect(() => {
     if (!user || authLoading) return;
     const interval = setInterval(() => {
-      if (isUser) {
+      if (isSubscriber) {
         fetchSubscriberLeads(true);
       } else if (isStaff) {
         fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined, true);
@@ -289,12 +306,14 @@ export default function LeadTracker() {
       }
     }, 120_000);
     return () => clearInterval(interval);
-  }, [user, authLoading, isUser, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
+  }, [user, authLoading, isSubscriber, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
 
   const openLeadDetail = (lead: Lead) => {
     setSelectedLead(lead);
     setNewStatus(lead.leadStatus);
     setNotesText(lead.notes || "");
+    setEditBookingDate(lead.appointmentDate || "");
+    setEditBookingTime(lead.bookingTime || "");
     setModalOpen(true);
   };
 
@@ -304,8 +323,8 @@ export default function LeadTracker() {
     if (trimmed === (selectedLead.notes || "")) return; // no change
     setSavingNotes(true);
     try {
-      if (isUser) {
-        await leadService.updateLead(selectedLead.id, { notes: trimmed });
+      if (isSubscriber) {
+        await leadService.updateLead(stripDbPrefix(selectedLead.id), { notes: trimmed });
         setLeads((prev) => prev.map((l) => l.id === selectedLead.id ? { ...l, notes: trimmed } : l));
         setSelectedLead((prev) => prev ? { ...prev, notes: trimmed } : prev);
         toast.success(tr({ en: "Notes saved", es: "Notas guardadas" }, language));
@@ -344,6 +363,31 @@ export default function LeadTracker() {
     }
   };
 
+  const handleSaveBooking = async () => {
+    if (!selectedLead) return;
+    setSavingBooking(true);
+    try {
+      if (isSubscriber) {
+        const realId = stripDbPrefix(selectedLead.id);
+        await leadService.updateLead(realId, {
+          booked: !!editBookingDate,
+        });
+        await supabase.from("leads").update({
+          booking_date: editBookingDate || null,
+          booking_time: editBookingTime || null,
+        }).eq("id", realId);
+        setLeads((prev) => prev.map((l) => l.id === selectedLead.id ? { ...l, appointmentDate: editBookingDate, bookingTime: editBookingTime, booked: !!editBookingDate } : l));
+        setSelectedLead((prev) => prev ? { ...prev, appointmentDate: editBookingDate, bookingTime: editBookingTime, booked: !!editBookingDate } : prev);
+        toast.success(tr({ en: "Booking saved", es: "Reserva guardada" }, language));
+      }
+    } catch (e: any) {
+      console.error("Error saving booking:", e);
+      toast.error(tr({ en: "Failed to save booking", es: "Error al guardar la reserva" }, language));
+    } finally {
+      setSavingBooking(false);
+    }
+  };
+
   const handleSaveStatus = async () => {
     if (!selectedLead || newStatus === selectedLead.leadStatus) {
       setModalOpen(false);
@@ -351,8 +395,8 @@ export default function LeadTracker() {
     }
     setSaving(true);
     try {
-      if (isUser) {
-        await leadService.updateLead(selectedLead.id, { status: newStatus });
+      if (isSubscriber) {
+        await leadService.updateLead(stripDbPrefix(selectedLead.id), { status: newStatus });
         toast.success(tr(t.leadDetail.statusUpdated, language));
         setModalOpen(false);
         fetchSubscriberLeads();
@@ -402,7 +446,7 @@ export default function LeadTracker() {
     }
     setDeleting(true);
     try {
-      if (isUser) {
+      if (isSubscriber) {
         await leadService.deleteLead(lead.id);
         setLeads((prev) => prev.filter((l) => l.id !== lead.id));
         toast.success(language === "en" ? "Lead deleted" : "Lead eliminado");
@@ -442,12 +486,22 @@ export default function LeadTracker() {
       toast.error(language === "en" ? "Lead name is required" : "El nombre del lead es requerido");
       return;
     }
-    const clientId = isUser ? ownClientId : urlClientId;
+    const clientId = isSubscriber ? ownClientId : urlClientId;
     if (!clientId) {
       toast.error(language === "en" ? "No client associated" : "Sin cliente asociado");
       return;
     }
     try {
+      // Check plan limit before creating
+      const limitCheck = await checkResourceLimit(clientId, "leads");
+      if (!limitCheck.allowed) {
+        toast.error(
+          language === "en"
+            ? `You've reached your lead limit (${limitCheck.limit} leads). Upgrade your plan for more.`
+            : `Has alcanzado tu límite de leads (${limitCheck.limit} leads). Mejora tu plan para más.`
+        );
+        return;
+      }
       await leadService.createLead({
         client_id: clientId,
         name: addLeadForm.name.trim(),
@@ -455,11 +509,19 @@ export default function LeadTracker() {
         email: addLeadForm.email || null,
         source: addLeadForm.source || null,
         status: addLeadForm.status,
+        booking_date: addLeadForm.booking_date || null,
+        booking_time: addLeadForm.booking_time || null,
+        booked: addLeadForm.booked,
+        follow_up_step: addLeadForm.follow_up_step,
+        last_contacted_at: addLeadForm.last_contacted_at || null,
+        next_follow_up_at: addLeadForm.next_follow_up_at || null,
+        stopped: addLeadForm.stopped,
+        replied: addLeadForm.replied,
       });
       toast.success(language === "en" ? "Lead created" : "Lead creado");
       setShowAddLead(false);
       resetAddLeadForm();
-      if (isUser) {
+      if (isSubscriber) {
         fetchSubscriberLeads();
       } else {
         fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined);
@@ -483,7 +545,7 @@ export default function LeadTracker() {
     return null;
   }
 
-  if (isUser && !ownClientId && !authLoading) {
+  if (isSubscriber && !ownClientId && !authLoading) {
     return (
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-16 max-w-6xl text-center">
@@ -575,7 +637,7 @@ export default function LeadTracker() {
 
   return (
     <>
-    <main className="flex-1 overflow-y-auto">
+    <PageTransition className="flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         {/* Stats Grid — dark glass cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
@@ -764,7 +826,7 @@ export default function LeadTracker() {
               </>
             )}
 
-            {(isUser || isAdmin) && (
+            {(isSubscriber || isAdmin) && (
               <Button
                 size="sm"
                 onClick={() => setShowAddLead(true)}
@@ -1096,7 +1158,7 @@ export default function LeadTracker() {
           </div>
         )}
       </div>
-      </main>
+      </PageTransition>
 
       {/* Lead Detail Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -1152,6 +1214,38 @@ export default function LeadTracker() {
                   </p>
                 </div>
               </div>
+
+              {/* Booking date/time — editable for subscribers */}
+              {isSubscriber && (
+                <div className="space-y-2 pt-2 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-xs font-medium">{language === "en" ? "Booking" : "Reserva"}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs text-primary hover:bg-primary/10"
+                      disabled={savingBooking || (editBookingDate === (selectedLead.appointmentDate || "") && editBookingTime === (selectedLead.bookingTime || ""))}
+                      onClick={handleSaveBooking}
+                    >
+                      {savingBooking ? (
+                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" />{language === "en" ? "Saving..." : "Guardando..."}</>
+                      ) : (
+                        <><Save className="w-3 h-3 mr-1" />{language === "en" ? "Save booking" : "Guardar reserva"}</>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">{language === "en" ? "Date" : "Fecha"}</label>
+                      <Input type="date" value={editBookingDate} onChange={(e) => setEditBookingDate(e.target.value)} className="h-8 text-sm" style={{ colorScheme: "dark" }} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">{language === "en" ? "Time" : "Hora"}</label>
+                      <Input type="time" value={editBookingTime} onChange={(e) => setEditBookingTime(e.target.value)} className="h-8 text-sm" style={{ colorScheme: "dark" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Notes — editable */}
               <div>
@@ -1286,6 +1380,13 @@ export default function LeadTracker() {
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === "en" ? "Next Follow Up" : "Próximo Seguimiento"}</label>
               <Input type="date" value={addLeadForm.next_follow_up_at} onChange={(e) => setAddLeadForm({ ...addLeadForm, next_follow_up_at: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{language === "en" ? "Booking Date & Time" : "Fecha y Hora de Reserva"}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="date" value={addLeadForm.booking_date} onChange={(e) => setAddLeadForm({ ...addLeadForm, booking_date: e.target.value })} style={{ colorScheme: "dark" }} />
+                <Input type="time" value={addLeadForm.booking_time} onChange={(e) => setAddLeadForm({ ...addLeadForm, booking_time: e.target.value })} style={{ colorScheme: "dark" }} />
+              </div>
             </div>
             <div className="space-y-3 pt-2 border-t">
               <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,7 @@ import {
   Image, Type, CalendarDays, MessageSquare, Phone, Trash2, Plus, Check, Copy, Play, Video, Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { checkResourceLimit } from "@/utils/planLimits";
 
 type Testimonial = { quote: string; author: string };
 type Service = { emoji: string; title: string; description: string };
@@ -134,6 +136,20 @@ export default function LandingPageBuilder() {
     if (!page || !clientId) return;
     const slugOk = await validateSlug(page.slug);
     if (!slugOk) { toast.error("Fix the slug before saving"); return; }
+
+    // Check plan limit when creating a new landing page (not updating existing)
+    if (!page.id) {
+      const limitCheck = await checkResourceLimit(clientId, "landing_pages");
+      if (!limitCheck.allowed) {
+        toast.error(
+          limitCheck.limit === 0
+            ? "This client's plan does not include landing pages. Upgrade the plan to enable this feature."
+            : `Landing page limit reached (${limitCheck.limit}). Upgrade the client's plan for more.`
+        );
+        return;
+      }
+    }
+
     setSaving(true);
     const payload = {
       client_id: clientId,
@@ -309,7 +325,7 @@ export default function LandingPageBuilder() {
 
   return (
 
-      <main className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 overflow-auto">
           {/* Header */}
@@ -945,6 +961,6 @@ export default function LandingPageBuilder() {
             )}
           </div>
         </div>
-      </main>
+      </PageTransition>
   );
 }

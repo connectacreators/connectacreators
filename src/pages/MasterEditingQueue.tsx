@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Play, ExternalLink, Download, ChevronDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil } from "lucide-react";
+import { Loader2, Play, ExternalLink, Download, ChevronDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ interface EditingQueueItem {
   uploadSource?: string | null;
   storagePath?: string | null;
   storageUrl?: string | null;
+  deleted_at?: string | null;
 }
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
@@ -89,7 +91,7 @@ function getStatusDotColor(status: string): string {
 }
 
 export default function MasterEditingQueue() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin, isEditor, isVideographer } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -140,6 +142,11 @@ export default function MasterEditingQueue() {
     finally { setSavingInline(false); }
   };
 
+  // Trash
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashedItems, setTrashedItems] = useState<EditingQueueItem[]>([]);
+  const [fetchingTrash, setFetchingTrash] = useState(false);
+
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -149,39 +156,29 @@ export default function MasterEditingQueue() {
     setFetching(true);
     setError(null);
     try {
-      // Fetch client IDs based on role:
-      // - Admins can read client_notion_mapping directly
-      // - Videographers get assigned clients
-      // - Users get owned clients
+      // Fetch client IDs based on role
       let clientIds: string[] = [];
 
-      // Try admin path first (client_notion_mapping)
-      const { data: mappings } = await supabase
-        .from("client_notion_mapping")
-        .select("client_id");
-
-      if (mappings && mappings.length > 0) {
-        clientIds = mappings.map((m) => m.client_id);
-      } else {
-        // Videographer: get assigned clients
+      if (isAdmin) {
+        // Admins see ALL clients
+        const { data: allClients } = await supabase
+          .from("clients")
+          .select("id");
+        if (allClients) clientIds = allClients.map((c) => c.id);
+      } else if (isEditor || isVideographer) {
+        // Editors & videographers see assigned clients
         const { data: assignments } = await supabase
           .from("videographer_clients")
           .select("client_id")
           .eq("videographer_user_id", user.id);
-
-        if (assignments && assignments.length > 0) {
-          clientIds = assignments.map((a) => a.client_id);
-        } else {
-          // User: get owned clients
-          const { data: ownedClients } = await supabase
-            .from("clients")
-            .select("id")
-            .eq("owner_user_id", user.id);
-
-          if (ownedClients && ownedClients.length > 0) {
-            clientIds = ownedClients.map((c) => c.id);
-          }
-        }
+        if (assignments) clientIds = assignments.map((a) => a.client_id);
+      } else {
+        // Regular users see owned clients
+        const { data: ownedClients } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id);
+        if (ownedClients) clientIds = ownedClients.map((c) => c.id);
       }
 
       if (clientIds.length === 0) {
@@ -192,8 +189,9 @@ export default function MasterEditingQueue() {
 
       const { data: dbVideos, error: dbErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, client_id, caption, upload_source, storage_path, storage_url, clients(name)")
+        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, client_id, caption, upload_source, storage_path, storage_url, deleted_at, script_id, clients(name)")
         .in("client_id", clientIds)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (dbErr) throw dbErr;
@@ -218,6 +216,7 @@ export default function MasterEditingQueue() {
         clientName: v.clients?.name || v.client_id,
         caption: v.caption ?? null,
         postStatus: v.post_status ?? null,
+        script_id: v.script_id || null,
         uploadSource: v.upload_source || null,
         storagePath: v.storage_path || null,
         storageUrl: v.storage_url || null,
@@ -380,14 +379,19 @@ export default function MasterEditingQueue() {
   const handleDeleteItem = async () => {
     if (!deleteConfirmItem) return;
     setDeleting(true);
+    const now = new Date().toISOString();
     try {
       const { error } = await supabase
         .from("video_edits")
-        .delete()
+        .update({ deleted_at: now })
         .eq("id", deleteConfirmItem.id);
       if (error) throw error;
+      // Also trash the linked script
+      if (deleteConfirmItem.script_id) {
+        await supabase.from("scripts").update({ deleted_at: now }).eq("id", deleteConfirmItem.script_id);
+      }
       setItems((prev) => prev.filter((item) => item.id !== deleteConfirmItem.id));
-      toast.success(language === "en" ? "Item deleted" : "Elemento eliminado");
+      toast.success(language === "en" ? "Moved to trash" : "Movido a papelera");
       setDeleteConfirmItem(null);
     } catch (e: any) {
       console.error("Error deleting item:", e);
@@ -427,18 +431,172 @@ export default function MasterEditingQueue() {
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
     setBulkDeleting(true);
+    const now = new Date().toISOString();
     try {
       const ids = Array.from(selectedIds);
-      const { error } = await supabase.from("video_edits").delete().in("id", ids);
+      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).in("id", ids);
       if (error) throw error;
+      // Also trash linked scripts
+      const scriptIds = items.filter(i => selectedIds.has(i.id) && i.script_id).map(i => i.script_id!);
+      if (scriptIds.length > 0) {
+        await supabase.from("scripts").update({ deleted_at: now }).in("id", scriptIds);
+      }
       const count = ids.length;
       setItems(prev => prev.filter(i => !selectedIds.has(i.id)));
       setSelectedIds(new Set());
-      toast.success(language === "en" ? `${count} items deleted` : `${count} elementos eliminados`);
+      toast.success(language === "en" ? `${count} items moved to trash` : `${count} elementos movidos a papelera`);
     } catch (e: any) {
       toast.error(language === "en" ? "Failed to delete items" : "Error al eliminar elementos");
     } finally {
       setBulkDeleting(false);
+    }
+  };
+
+  const fetchTrashedItems = async () => {
+    if (!user) return;
+    setFetchingTrash(true);
+    try {
+      const { data, error } = await supabase
+        .from("video_edits")
+        .select("id, reel_title, status, client_id, deleted_at, created_at, script_id, clients(name)")
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+      if (error) throw error;
+      setTrashedItems((data || []).map((v: any) => ({
+        id: v.id,
+        title: v.reel_title || "Untitled",
+        status: v.status || "Not started",
+        statusColor: "",
+        fileSubmissionUrl: null,
+        footageUrl: null,
+        scriptUrl: null,
+        assignee: null,
+        assignee_user_id: null,
+        assigneeId: null,
+        assigneePropName: null,
+        revisions: null,
+        revisionPropName: null,
+        lastEdited: v.created_at,
+        scheduledDate: null,
+        clientId: v.client_id,
+        clientName: v.clients?.name || v.client_id,
+        script_id: v.script_id || null,
+        source: 'db' as const,
+        deleted_at: v.deleted_at,
+      })));
+    } catch (e: any) {
+      toast.error("Failed to fetch trash");
+    } finally {
+      setFetchingTrash(false);
+    }
+  };
+
+  const handleRestoreItem = async (itemId: string) => {
+    try {
+      const item = trashedItems.find(i => i.id === itemId);
+      const { error } = await supabase.from("video_edits").update({ deleted_at: null }).eq("id", itemId);
+      if (error) throw error;
+      // Also restore the linked script
+      if (item?.script_id) {
+        await supabase.from("scripts").update({ deleted_at: null }).eq("id", item.script_id);
+      }
+      setTrashedItems(prev => prev.filter(i => i.id !== itemId));
+      toast.success(language === "en" ? "Item restored" : "Elemento restaurado");
+      fetchQueue();
+    } catch {
+      toast.error(language === "en" ? "Failed to restore" : "Error al restaurar");
+    }
+  };
+
+  const handlePermanentDelete = async (itemId: string) => {
+    if (!window.confirm(language === "en" ? "Permanently delete this item? This cannot be undone." : "¿Eliminar permanentemente? No se puede deshacer.")) return;
+    try {
+      const item = trashedItems.find(i => i.id === itemId);
+      const { error } = await supabase.from("video_edits").delete().eq("id", itemId);
+      if (error) throw error;
+      // Also permanently delete the linked script
+      if (item?.script_id) {
+        await supabase.from("scripts").delete().eq("id", item.script_id);
+      }
+      setTrashedItems(prev => prev.filter(i => i.id !== itemId));
+      toast.success(language === "en" ? "Permanently deleted" : "Eliminado permanentemente");
+    } catch {
+      toast.error(language === "en" ? "Failed to delete" : "Error al eliminar");
+    }
+  };
+
+  const [deletingFootage, setDeletingFootage] = useState<string | null>(null);
+  const [deletingSubmission, setDeletingSubmission] = useState<string | null>(null);
+
+  const handleDeleteFootage = async (item: EditingQueueItem) => {
+    if (!window.confirm(language === "en" ? "Delete this footage? This will also remove the file from storage." : "¿Eliminar este metraje? También se eliminará el archivo del almacenamiento.")) return;
+    setDeletingFootage(item.id);
+    try {
+      // Delete from Supabase Storage if it's a storage path (not a URL)
+      if (item.storagePath && !item.storagePath.includes('/submission/')) {
+        await supabase.storage.from('footage').remove([item.storagePath]);
+      }
+      const update: Record<string, any> = {
+        footage: null,
+        upload_source: null,
+        file_size_bytes: null,
+        file_expires_at: null,
+        record_expires_at: null,
+      };
+      // Only clear storage_path/url if they don't point to a submission
+      if (!item.storagePath?.includes('/submission/')) {
+        update.storage_path = null;
+        update.storage_url = null;
+      }
+      const { error } = await supabase.from('video_edits').update(update).eq('id', item.id);
+      if (error) throw error;
+      setItems(prev => prev.map(i => i.id === item.id ? {
+        ...i,
+        footageUrl: null,
+        storagePath: item.storagePath?.includes('/submission/') ? item.storagePath : null,
+        storageUrl: item.storagePath?.includes('/submission/') ? item.storageUrl : null,
+        uploadSource: item.storagePath?.includes('/submission/') ? item.uploadSource : null,
+      } : i));
+      toast.success(language === "en" ? "Footage deleted" : "Metraje eliminado");
+    } catch (err: any) {
+      toast.error(language === "en" ? `Failed to delete footage: ${err.message}` : `Error al eliminar metraje: ${err.message}`);
+    } finally {
+      setDeletingFootage(null);
+    }
+  };
+
+  const handleDeleteFileSubmission = async (item: EditingQueueItem) => {
+    if (!window.confirm(language === "en" ? "Delete this file submission? This will also remove the file from storage." : "¿Eliminar esta entrega? También se eliminará el archivo del almacenamiento.")) return;
+    setDeletingSubmission(item.id);
+    try {
+      // Delete from Supabase Storage if it's a storage path (not a Google Drive URL)
+      if (item.fileSubmissionUrl && !item.fileSubmissionUrl.startsWith('http')) {
+        await supabase.storage.from('footage').remove([item.fileSubmissionUrl]);
+      }
+      const update: Record<string, any> = { file_submission: null };
+      // If storage_path points to the submission, clear those too
+      if (item.storagePath && item.storagePath === item.fileSubmissionUrl) {
+        update.storage_path = null;
+        update.storage_url = null;
+        update.upload_source = null;
+        update.file_size_bytes = null;
+        update.file_expires_at = null;
+        update.record_expires_at = null;
+      }
+      const { error } = await supabase.from('video_edits').update(update).eq('id', item.id);
+      if (error) throw error;
+      setItems(prev => prev.map(i => i.id === item.id ? {
+        ...i,
+        fileSubmissionUrl: null,
+        storagePath: item.storagePath === item.fileSubmissionUrl ? null : item.storagePath,
+        storageUrl: item.storagePath === item.fileSubmissionUrl ? null : item.storageUrl,
+        uploadSource: item.storagePath === item.fileSubmissionUrl ? null : item.uploadSource,
+      } : i));
+      toast.success(language === "en" ? "File submission deleted" : "Entrega eliminada");
+    } catch (err: any) {
+      toast.error(language === "en" ? `Failed to delete: ${err.message}` : `Error al eliminar: ${err.message}`);
+    } finally {
+      setDeletingSubmission(null);
     }
   };
 
@@ -483,7 +641,7 @@ export default function MasterEditingQueue() {
   return (
 
     <>
-      <main className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-4 sm:px-8 py-8 max-w-6xl mx-auto w-full">
           <motion.div
@@ -513,6 +671,22 @@ export default function MasterEditingQueue() {
                   </SelectContent>
                 </Select>
               )}
+
+              {/* Trash toggle */}
+              <button
+                onClick={() => {
+                  if (!showTrash) fetchTrashedItems();
+                  setShowTrash(!showTrash);
+                }}
+                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm border transition-all ${
+                  showTrash
+                    ? "bg-destructive/15 border-destructive/30 text-destructive"
+                    : "bg-white/10 border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20"
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {language === "en" ? "Trash" : "Papelera"}
+              </button>
 
               {/* Share button */}
               <button
@@ -556,7 +730,71 @@ export default function MasterEditingQueue() {
             </div>
           </motion.div>
 
-          {fetching ? (
+          {showTrash ? (
+            /* ===== TRASH VIEW ===== */
+            <motion.div
+              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.1 }}
+            >
+              <div className="px-4 py-3 border-b border-border/50">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  {language === "en" ? "Items are automatically deleted after 90 days in trash" : "Los elementos se eliminan automáticamente después de 90 días en la papelera"}
+                </h3>
+              </div>
+              {fetchingTrash ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : trashedItems.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground text-sm">
+                  {language === "en" ? "Trash is empty" : "La papelera está vacía"}
+                </div>
+              ) : (
+                <div className="divide-y divide-border/30">
+                  {trashedItems.map((item) => {
+                    const deletedDate = item.deleted_at ? new Date(item.deleted_at) : new Date();
+                    const daysLeft = Math.max(0, 90 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 px-4 py-3 opacity-70 hover:opacity-90 transition-opacity">
+                        <Clapperboard className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-muted-foreground truncate line-through">{item.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.clientName} · {language === "en" ? "Deleted" : "Eliminado"} {deletedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX")} · {daysLeft} {language === "en" ? "days left" : "días restantes"}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRestoreItem(item.id)}
+                            title={language === "en" ? "Restore" : "Restaurar"}
+                            className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePermanentDelete(item.id)}
+                              title={language === "en" ? "Delete permanently" : "Eliminar permanentemente"}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          ) : fetching ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
@@ -708,13 +946,25 @@ export default function MasterEditingQueue() {
                         {/* Footage */}
                         <TableCell>
                           {(item.footageUrl || item.storageUrl) ? (
-                            <button
-                              onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
-                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
-                            >
-                              <Play className="w-3 h-3" />
-                              View
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
+                                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
+                              >
+                                <Play className="w-3 h-3" />
+                                View
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteFootage(item)}
+                                  disabled={deletingFootage === item.id}
+                                  className="inline-flex items-center justify-center w-5 h-5 rounded-full text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                  title={language === "en" ? "Delete footage" : "Eliminar metraje"}
+                                >
+                                  {deletingFootage === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <FootageUploadDialog
                               videoEditId={item.id}
@@ -729,13 +979,25 @@ export default function MasterEditingQueue() {
                         {/* File Submission */}
                         <TableCell>
                           {item.fileSubmissionUrl ? (
-                            <button
-                              onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
-                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
-                            >
-                              <Play className="w-3 h-3" />
-                              View
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
+                                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
+                              >
+                                <Play className="w-3 h-3" />
+                                View
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteFileSubmission(item)}
+                                  disabled={deletingSubmission === item.id}
+                                  className="inline-flex items-center justify-center w-5 h-5 rounded-full text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                  title={language === "en" ? "Delete file submission" : "Eliminar entrega"}
+                                >
+                                  {deletingSubmission === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <FootageUploadDialog
                               videoEditId={item.id}
@@ -808,7 +1070,7 @@ export default function MasterEditingQueue() {
             </motion.div>
           )}
         </div>
-      </main>
+      </PageTransition>
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
@@ -1020,12 +1282,12 @@ export default function MasterEditingQueue() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-sm">
-              {language === "en" ? "Delete Item" : "Eliminar Elemento"}
+              {language === "en" ? "Move to Trash" : "Mover a Papelera"}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {language === "en"
-                ? `Are you sure you want to delete "${deleteConfirmItem?.title}"? This action cannot be undone.`
-                : `¿Estás seguro de que quieres eliminar "${deleteConfirmItem?.title}"? Esta acción no se puede deshacer.`}
+                ? `Move "${deleteConfirmItem?.title}" to trash? You can restore it within 90 days.`
+                : `¿Mover "${deleteConfirmItem?.title}" a la papelera? Puedes restaurarlo en 90 días.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -1034,7 +1296,7 @@ export default function MasterEditingQueue() {
             </Button>
             <Button variant="destructive" size="sm" onClick={handleDeleteItem} disabled={deleting} className="gap-1.5">
               {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              {language === "en" ? "Delete" : "Eliminar"}
+              {language === "en" ? "Move to Trash" : "Mover a Papelera"}
             </Button>
           </DialogFooter>
         </DialogContent>

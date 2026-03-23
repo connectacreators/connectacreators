@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ScriptsLogin from "@/components/ScriptsLogin";
-import { Loader2, Search, Video, Plus, Trash2, Clapperboard, Star, UserPlus } from "lucide-react";
+import { Loader2, Search, Video, Plus, Trash2, Clapperboard, Star, UserPlus, Settings, KeyRound, ShieldOff, ShieldCheck, LogOut, Copy, CheckCircle2, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -69,6 +70,21 @@ export default function Videographers() {
   const [assignDialogMemberId, setAssignDialogMemberId] = useState<string | null>(null);
   const [pendingClientIds, setPendingClientIds] = useState<Set<string>>(new Set());
   const [savingAssignments, setSavingAssignments] = useState(false);
+
+  // Manage modal state
+  const [manageMemberId, setManageMemberId] = useState<string | null>(null);
+  const [manageLoading, setManageLoading] = useState(false);
+  const [manageActionLoading, setManageActionLoading] = useState<string | null>(null);
+  const [manageUserData, setManageUserData] = useState<{
+    id: string;
+    email: string;
+    last_sign_in_at: string | null;
+    email_confirmed_at: string | null;
+    banned_until: string | null;
+    user_metadata: Record<string, any>;
+    created_at: string;
+  } | null>(null);
+  const [lastTempPassword, setLastTempPassword] = useState<string | null>(null);
 
   const fetchMembers = useCallback(async () => {
     if (!user || !isAdmin) return;
@@ -217,6 +233,102 @@ export default function Videographers() {
     }
   };
 
+  // ─── Manage Modal Helpers ───
+
+  const openManageModal = async (userId: string) => {
+    setManageMemberId(userId);
+    setManageLoading(true);
+    setManageUserData(null);
+    setLastTempPassword(null);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || "https://hxojqrilwhhrvloiwmfo.supabase.co"}/functions/v1/create-videographer?user_id=${userId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh4b2pxcmlsd2hocnZsb2l3bWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDI2ODIsImV4cCI6MjA4NzIxODY4Mn0.rE0InfGUiq-Xl7DSJVWoaem_zQ_LnIzhDFzzLQ5k54k",
+          },
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setManageUserData(data);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load user details");
+      setManageMemberId(null);
+    } finally {
+      setManageLoading(false);
+    }
+  };
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+    const arr = new Uint8Array(12);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, (b) => chars[b % chars.length]).join("");
+  };
+
+  const handleResetPassword = async () => {
+    if (!manageMemberId) return;
+    setManageActionLoading("reset_password");
+    const tempPw = generatePassword();
+    try {
+      const { data, error } = await supabase.functions.invoke("create-videographer", {
+        body: { _action: "manage", action: "reset_password", user_id: manageMemberId, password: tempPw },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      await navigator.clipboard.writeText(tempPw).catch(() => {});
+      setLastTempPassword(tempPw);
+      toast.success("Password reset & copied to clipboard");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to reset password");
+    } finally {
+      setManageActionLoading(null);
+    }
+  };
+
+  const handleToggleBan = async () => {
+    if (!manageMemberId || !manageUserData) return;
+    const isBanned = manageUserData.banned_until && new Date(manageUserData.banned_until) > new Date();
+    setManageActionLoading("toggle_ban");
+    try {
+      const { data, error } = await supabase.functions.invoke("create-videographer", {
+        body: { _action: "manage", action: "toggle_ban", user_id: manageMemberId, ban: !isBanned },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(isBanned ? "Account enabled" : "Account disabled");
+      openManageModal(manageMemberId);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update account status");
+    } finally {
+      setManageActionLoading(null);
+    }
+  };
+
+  const handleForceLogout = async () => {
+    if (!manageMemberId) return;
+    setManageActionLoading("force_logout");
+    try {
+      const { data, error } = await supabase.functions.invoke("create-videographer", {
+        body: { _action: "manage", action: "force_logout", user_id: manageMemberId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("All sessions revoked");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to force logout");
+    } finally {
+      setManageActionLoading(null);
+    }
+  };
+
+  const manageMember = manageMemberId ? members.find((m) => m.user_id === manageMemberId) : null;
+  const isBanned = manageUserData?.banned_until ? new Date(manageUserData.banned_until) > new Date() : false;
+
   if (loading) {
     return (
         <div className="flex items-center justify-center h-64">
@@ -245,7 +357,7 @@ export default function Videographers() {
   return (
 
     <>
-      <main className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
           <motion.h1
@@ -334,6 +446,16 @@ export default function Videographers() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => openManageModal(member.user_id)}
+                      title="Manage credentials"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
                       onClick={() => {
                         setAssignDialogMemberId(member.user_id);
                         setPendingClientIds(new Set((assignmentsMap[member.user_id] || []).map((c) => c.id)));
@@ -361,7 +483,7 @@ export default function Videographers() {
             </div>
           )}
         </div>
-      </main>
+      </PageTransition>
 
       {/* Create Team Member Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -476,6 +598,183 @@ export default function Videographers() {
               Save
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Credentials Modal */}
+      <Dialog open={!!manageMemberId} onOpenChange={(open) => { if (!open) { setManageMemberId(null); setManageUserData(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              {language === "en" ? "Manage Member" : "Gestionar Miembro"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {manageLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : manageUserData && manageMember ? (
+            <div className="space-y-5 py-2">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                  {(() => { const Icon = ROLE_ICONS[manageMember.role]; return <Icon className="w-5 h-5 text-muted-foreground" />; })()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm">{manageMember.display_name || "Team Member"}</h3>
+                  <p className="text-xs text-muted-foreground truncate">{manageUserData.email}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[10px] font-medium ${ROLE_COLORS[manageMember.role]}`}>
+                      {ROLE_LABELS[manageMember.role]}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Created {new Date(manageUserData.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Status */}
+              <div className="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {language === "en" ? "Account Status" : "Estado de la Cuenta"}
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Last Login:</span>
+                  </div>
+                  <div className="font-medium">
+                    {manageUserData.last_sign_in_at
+                      ? new Date(manageUserData.last_sign_in_at).toLocaleString()
+                      : "Never"}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Email Verified:</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {manageUserData.email_confirmed_at ? (
+                      <><CheckCircle2 className="w-3 h-3 text-green-500" /> <span className="text-green-600 font-medium">Yes</span></>
+                    ) : (
+                      <><XCircle className="w-3 h-3 text-red-400" /> <span className="text-red-400 font-medium">No</span></>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Account:</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {isBanned ? (
+                      <><ShieldOff className="w-3 h-3 text-red-400" /> <span className="text-red-400 font-medium">Disabled</span></>
+                    ) : (
+                      <><ShieldCheck className="w-3 h-3 text-green-500" /> <span className="text-green-600 font-medium">Enabled</span></>
+                    )}
+                  </div>
+
+                  {manageUserData.user_metadata?.force_password_change && (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">Password:</span>
+                      </div>
+                      <div className="text-amber-500 font-medium flex items-center gap-1">
+                        <KeyRound className="w-3 h-3" /> Must change
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Temp Password Display */}
+              {lastTempPassword && (
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 space-y-1.5">
+                  <h4 className="text-xs font-semibold text-green-600">
+                    {language === "en" ? "Temporary Password" : "Contraseña Temporal"}
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-sm font-mono bg-background/80 px-2 py-1 rounded border border-border select-all">
+                      {lastTempPassword}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => { navigator.clipboard.writeText(lastTempPassword); toast.success("Copied"); }}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {language === "en"
+                      ? "User must change this on next login. Share it securely."
+                      : "El usuario debe cambiarla en su próximo inicio de sesión."}
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {language === "en" ? "Actions" : "Acciones"}
+                </h4>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start gap-2"
+                  onClick={handleResetPassword}
+                  disabled={manageActionLoading === "reset_password"}
+                >
+                  {manageActionLoading === "reset_password" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <KeyRound className="w-4 h-4" />
+                  )}
+                  {language === "en" ? "Reset Password" : "Restablecer Contraseña"}
+                </Button>
+                <p className="text-[10px] text-muted-foreground ml-6">
+                  {language === "en"
+                    ? "Generates a temp password, copies to clipboard. Use Force Logout below if user is currently active."
+                    : "Genera contraseña temporal, copia al portapapeles. Usa Forzar Cierre si el usuario está activo."}
+                </p>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`w-full justify-start gap-2 ${isBanned ? "border-green-500/30 text-green-600 hover:bg-green-500/10" : "border-red-500/30 text-red-500 hover:bg-red-500/10"}`}
+                  onClick={handleToggleBan}
+                  disabled={manageActionLoading === "toggle_ban"}
+                >
+                  {manageActionLoading === "toggle_ban" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isBanned ? (
+                    <ShieldCheck className="w-4 h-4" />
+                  ) : (
+                    <ShieldOff className="w-4 h-4" />
+                  )}
+                  {isBanned
+                    ? (language === "en" ? "Enable Account" : "Habilitar Cuenta")
+                    : (language === "en" ? "Disable Account" : "Deshabilitar Cuenta")}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start gap-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                  onClick={handleForceLogout}
+                  disabled={manageActionLoading === "force_logout"}
+                >
+                  {manageActionLoading === "force_logout" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
+                  {language === "en" ? "Force Logout" : "Forzar Cierre de Sesión"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

@@ -1,9 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
+import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,7 +26,6 @@ import {
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import AnimatedDots from "@/components/ui/AnimatedDots";
 
 type Task = {
   id: string;
@@ -64,8 +62,6 @@ export default function VideographerDetail() {
   const { user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const [videographerName, setVideographerName] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -204,7 +200,7 @@ export default function VideographerDetail() {
 
   if (loading || loadingData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -219,16 +215,8 @@ export default function VideographerDetail() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex" style={{ fontFamily: "Arial, sans-serif" }}>
-      <AnimatedDots />
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <DashboardSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} currentPath="/videographers" />
-
-      <main className="flex-1 flex flex-col min-h-screen">
-        <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <>
+      <PageTransition className="flex-1 flex flex-col min-h-screen">
 
         <div className="flex-1 px-4 sm:px-8 py-8 max-w-3xl mx-auto w-full">
           <motion.button
@@ -370,7 +358,7 @@ export default function VideographerDetail() {
             )}
           </motion.section>
         </div>
-      </main>
+      </PageTransition>
 
       {/* Assign Client Dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
@@ -410,6 +398,6 @@ export default function VideographerDetail() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
