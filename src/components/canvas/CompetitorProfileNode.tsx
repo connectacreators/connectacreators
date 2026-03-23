@@ -1,5 +1,5 @@
 // src/components/canvas/CompetitorProfileNode.tsx
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { Loader2, UserSearch, ExternalLink, ChevronRight, X, Youtube } from "lucide-react";
 import { Instagram } from "lucide-react";
@@ -110,6 +110,8 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
   const [inputUrl, setInputUrl] = useState(savedUrl);
   const [liveDetected, setLiveDetected] = useState<Platform>(savedPlatform);
   const [analyzingIndex, setAnalyzingIndex] = useState<number | null>(null);
+  // Incremented on every new fetch — lets in-flight analysis detect stale state
+  const fetchGeneration = useRef(0);
 
   const handleInputChange = useCallback((val: string) => {
     setInputUrl(val);
@@ -121,6 +123,7 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
     if (!url) { toast.error("Paste a profile URL first"); return; }
     const platform = detectPlatform(url);
     if (!platform) { toast.error("Unsupported URL — paste an Instagram, TikTok, or YouTube channel URL"); return; }
+    fetchGeneration.current += 1;
     onUpdate?.({ status: "loading", profileUrl: url, detectedPlatform: platform, errorMessage: null });
     try {
       const { data: result, error } = await supabase.functions.invoke("fetch-profile-top-posts", {
@@ -140,6 +143,7 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
     onUpdate?.({ selectedPostIndex: index });
     const post = posts[index];
     if (!post || post.hookType) return;
+    const gen = fetchGeneration.current; // capture before async — detects re-fetch mid-analysis
     setAnalyzingIndex(index);
     try {
       const { data: result, error } = await supabase.functions.invoke("ai-build-script", {
@@ -147,6 +151,8 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
       });
       if (error) throw new Error(error.message);
       if (result?.error) throw new Error(result.error);
+      // If user re-fetched a new profile while this was in-flight, discard stale result
+      if (fetchGeneration.current !== gen) return;
       onUpdate?.({ posts: posts.map((p, i) => i === index ? { ...p, hookType: result.hook_type, contentTheme: result.content_theme, whyItWorked: result.why_it_worked, pattern: result.pattern } : p) });
     } catch (e: any) {
       toast.error(`Analysis failed: ${e.message || "Unknown error"}`);
@@ -218,7 +224,7 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
             )}
           </div>
           {status === "error" && errorMessage && <p className="text-xs text-red-400">{errorMessage}</p>}
-          <button onClick={handleFetch} disabled={!inputUrl.trim() || !activePlatform} className="w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40" style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)", color: "white" }}>
+          <button onClick={handleFetch} disabled={!inputUrl.trim() || !activePlatform || status === "loading"} className="w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40" style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)", color: "white" }}>
             Fetch &amp; Analyze →
           </button>
         </div>
@@ -299,7 +305,7 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
                     <p className="text-[10px] text-foreground/80 leading-relaxed">{selectedPost.whyItWorked}</p>
                   </div>
                 )}
-                {!selectedPost.hookType && !analyzingIndex && (
+                {!selectedPost.hookType && analyzingIndex === null && (
                   <p className="text-[10px] text-muted-foreground">Click the post again to load analysis</p>
                 )}
                 {selectedPost.url && (
