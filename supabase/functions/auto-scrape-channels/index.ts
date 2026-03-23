@@ -9,7 +9,7 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apidojo~instagram-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "bernardo_bi~youtube-shorts-scraper";
+const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
 const CRON_SECRET = "connectacreators-cron-2026";
 
 // Apify STARTER plan allows max 5 concurrent actor runs.
@@ -48,13 +48,11 @@ function buildApifyInput(platform: string, username: string, resultsLimit: numbe
     };
   }
   if (platform === "youtube") {
-    // Confirmed: channelUrl (string) + maxResults — NOT startUrls array
-    const youtubeUrl = username.startsWith("UC")
-      ? `https://youtube.com/channel/${username}`
-      : `https://youtube.com/@${username}`;
+    // igview-owner~youtube-shorts-scraper input: channelUsername (plain handle, no @ or URL)
+    const handle = username.replace(/^https?:\/\/(www\.)?youtube\.com\/@?/i, "").replace(/^@/, "").split(/[/?#]/)[0];
     return {
-      channelUrl: youtubeUrl,
-      maxResults: safeLimit,
+      channelUsername: handle,
+      maxShorts: safeLimit,
     };
   }
   // apidojo~instagram-scraper: maxItems is the actual limit field
@@ -135,8 +133,10 @@ async function processChannel(
     return { channel: channel.username, newVideos: 0 };
   }
 
-  // bernardo_bi~youtube-shorts-scraper returns only short items — no metadata row to filter
-  const processItems = items;
+  // igview-owner~youtube-shorts-scraper returns a "channel_metadata" item first — filter to only video items
+  const processItems = channel.platform === "youtube"
+    ? items.filter((item: any) => item.itemType === "short")
+    : items;
 
   // Parse and transform videos — apidojo~instagram-scraper field mapping
   const videos = processItems
