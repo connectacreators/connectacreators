@@ -371,11 +371,17 @@ serve(async (req) => {
       }
 
       console.log("Sending to OpenAI Whisper...");
-      // yt-dlp server always returns MP3. Raw CDN fallback is an MP4 video container —
-      // blob.type may be empty for CDN responses so use the explicit flag instead.
-      const whisperMime = rawCdnFallback ? "video/mp4" : "audio/mpeg";
-      const whisperFilename = rawCdnFallback ? "audio.mp4" : "audio.mp3";
-      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (rawCdnFallback=${rawCdnFallback})`);
+      // Detect the actual container format by checking MP4 magic bytes (ftyp box at offset 4).
+      // We can't trust blob.type (often empty) or rawCdnFallback alone — yt-dlp on a direct
+      // CDN URL may return the raw MP4 container instead of an extracted MP3 and still return HTTP 200.
+      let isMp4 = false;
+      if (audioBlob.size >= 12) {
+        const header = new Uint8Array(await audioBlob.slice(0, 12).arrayBuffer());
+        isMp4 = header[4] === 0x66 && header[5] === 0x74 && header[6] === 0x79 && header[7] === 0x70; // 'ftyp'
+      }
+      const whisperMime = (rawCdnFallback || isMp4) ? "video/mp4" : "audio/mpeg";
+      const whisperFilename = (rawCdnFallback || isMp4) ? "audio.mp4" : "audio.mp3";
+      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (rawCdnFallback=${rawCdnFallback} isMp4=${isMp4})`);
       const formData = new FormData();
       formData.append("file", new Blob([await audioBlob.arrayBuffer()], { type: whisperMime }), whisperFilename);
       formData.append("model", "whisper-1");
