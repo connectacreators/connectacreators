@@ -322,20 +322,22 @@ serve(async (req) => {
 
       videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || null;
       if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
-      const audioBlob = await ytdlpRes.blob();
+      // Materialize the response body into an ArrayBuffer — Deno Response-derived Blobs
+      // may silently yield empty content when passed directly to FormData in some cases.
+      const audioBuffer = await ytdlpRes.arrayBuffer();
 
-      if (audioBlob.size === 0) {
+      if (audioBuffer.byteLength === 0) {
         throw new Error("Received empty audio from extraction server");
       }
 
-      if (audioBlob.size > 25 * 1024 * 1024) {
+      if (audioBuffer.byteLength > 25 * 1024 * 1024) {
         throw new Error("Video is too long for transcription (max ~25MB audio). Try a shorter clip.");
       }
 
-      console.log("Audio received, size:", audioBlob.size, "bytes. Sending to OpenAI Whisper...");
+      console.log("Audio received, size:", audioBuffer.byteLength, "bytes. Sending to OpenAI Whisper...");
       // VPS always converts to MP3 via ffmpeg → declare audio/mpeg
       const formData = new FormData();
-      formData.append("file", audioBlob, "audio.mp3");
+      formData.append("file", new Blob([audioBuffer], { type: "audio/mpeg" }), "audio.mp3");
       formData.append("model", "whisper-1");
 
       const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
