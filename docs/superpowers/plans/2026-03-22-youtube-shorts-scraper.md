@@ -12,48 +12,53 @@
 
 ---
 
-## ⚠️ PREREQUISITE: Verify YouTube Actor Input Schema
+## ✅ PREREQUISITE: YouTube Actor Schema — CONFIRMED
 
-**Do this before writing any code.**
+Test run completed 2026-03-23. All field names are confirmed. No need to verify again.
 
-- [ ] **Step 1: Fetch actor input schema**
+**Actor:** `igview-owner~youtube-shorts-scraper`
 
-```bash
-curl "https://api.apify.com/v2/acts/igview-owner~youtube-shorts-scraper?token=apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2" | python3 -m json.tool | grep -A 50 '"inputSchema"'
+**Confirmed input format:**
+```json
+{ "channelUrl": "https://youtube.com/@handle", "maxResults": 2 }
+```
+- Use `channelUrl` (single string, NOT `startUrls` array)
+- Use `maxResults` for the limit
+
+**Confirmed output item shape** (`itemType: "short"`):
+```json
+{
+  "itemType": "short",
+  "videoId": "94w6q1SWX0M",
+  "title": "video title / caption",
+  "viewCountText": "3.5K views",
+  "thumbnail": "https://i.ytimg.com/vi/ID/frame0.jpg",
+  "thumbnails": [{"url": "...", "width": 1080, "height": 1920}],
+  "shortUrl": "https://www.youtube.com/shorts/94w6q1SWX0M",
+  "channelId": "UCxxx",
+  "channelTitle": "YouTube",
+  "channelHandle": "@YouTube"
+}
 ```
 
-Or visit: `https://apify.com/igview-owner/youtube-shorts-scraper` and read the Input section.
+**Critical notes for implementation:**
+1. First dataset item is `channel_metadata` — filter to only `item.itemType === "short"`
+2. **No numeric viewCount** — only `viewCountText` string (e.g., "3.5K views", "1.2M views"). Must parse it.
+3. **No likeCount, commentCount, publishedAt** — set these to 0 / null
+4. Use `shortUrl` for `video_url`, `thumbnail` for `thumbnail_url`, `videoId` for `apify_video_id`, `title` for `caption`
+5. Thumbnail URLs are public `i.ytimg.com` CDN — no proxy needed
 
-- [ ] **Step 2: Note the exact field names**
-
-You need to confirm:
-- Result limit field name (likely `maxResults` but MUST verify — wrong name = unlimited scrape = big bill)
-- Start URLs field name (likely `startUrls`)
-- Whether URLs go in `startUrls[].url` or as a top-level array
-
-- [ ] **Step 3: Run a test scrape (limit 2 videos)**
-
-```bash
-curl -X POST "https://api.apify.com/v2/acts/igview-owner~youtube-shorts-scraper/runs?token=apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2&waitForFinish=60" \
-  -H "Content-Type: application/json" \
-  -d '{"startUrls":[{"url":"https://youtube.com/@MrBeast"}],"maxResults":2}'
+**viewCountText parser function** (add to all YouTube-using edge functions):
+```typescript
+function parseYouTubeViewCount(text: string | undefined): number {
+  if (!text) return 0;
+  const clean = text.replace(/[^0-9.KMBkmb]/g, "").toUpperCase();
+  if (clean.endsWith("B")) return Math.round(parseFloat(clean) * 1_000_000_000);
+  if (clean.endsWith("M")) return Math.round(parseFloat(clean) * 1_000_000);
+  if (clean.endsWith("K")) return Math.round(parseFloat(clean) * 1_000);
+  return parseInt(clean) || 0;
+}
 ```
-
-If you get 0 results or an error about `maxResults`, try alternate field names:
-`"maxItems":2`, `"resultsLimit":2`, `"limit":2`
-
-- [ ] **Step 4: Inspect the response items**
-
-```bash
-# Get the datasetId from the run response, then:
-curl "https://api.apify.com/v2/datasets/{DATASET_ID}/items?token=apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2&limit=2" | python3 -m json.tool
-```
-
-Note down: exact field names for `videoId`, `viewCount`, `likeCount`, `commentCount`, `publishedAt`, `thumbnails`, `title`, `channelTitle`
-
-- [ ] **Step 5: Update the plan**
-
-Replace all occurrences of `YOUTUBE_LIMIT_FIELD` below with the confirmed field name. Replace YouTube output field names in Task 2 and Task 3 if they differ from the defaults written here.
 
 ---
 
@@ -158,10 +163,10 @@ function buildActorInput(platform: Platform, username: string, fullUrl: string, 
     };
   }
 
-  // YouTube — YOUTUBE_LIMIT_FIELD confirmed during prerequisite step
+  // YouTube — confirmed: input is channelUrl (string) + maxResults (number)
   return {
     actorId: APIFY_ACTOR_YOUTUBE,
-    input: { startUrls: [{ url: fullUrl }], YOUTUBE_LIMIT_FIELD: safeLimit },
+    input: { channelUrl: fullUrl, maxResults: safeLimit },
   };
 }
 
@@ -199,20 +204,31 @@ function normalizeItem(item: any, platform: Platform, username: string) {
   }
 
   if (platform === "youtube") {
-    // Field names confirmed during prerequisite verification
-    views = item.viewCount ?? item.statistics?.viewCount ?? 0;
-    likes = item.likeCount ?? item.statistics?.likeCount ?? 0;
-    comments = item.commentCount ?? item.statistics?.commentCount ?? 0;
+    // Actor returns itemType: "short" for videos, "channel_metadata" for the first item
+    // viewCountText is a string like "3.5K views" — no numeric viewCount field
+    views = parseYouTubeViewCount(item.viewCountText);
+    likes = 0;    // actor does not return like count
+    comments = 0; // actor does not return comment count
     videoId = item.videoId ?? item.id ?? "";
-    caption = (item.title ?? item.snippet?.title ?? item.description ?? "").slice(0, 600);
-    thumbnail = item.thumbnails?.high?.url ?? item.thumbnails?.default?.url ?? item.thumbnail ?? null;
-    postedAt = parseTimestamp(item.publishedAt ?? item.snippet?.publishedAt);
-    url = videoId ? `https://youtube.com/shorts/${videoId}` : "";
+    caption = (item.title ?? "").slice(0, 600);
+    thumbnail = item.thumbnail ?? item.thumbnails?.[0]?.url ?? null;
+    postedAt = ""; // actor does not return publish date
+    url = item.shortUrl ?? (videoId ? `https://www.youtube.com/shorts/${videoId}` : "");
   }
 
   const engagement = views > 0 ? ((likes + comments) / views) * 100 : 0;
 
   return { views: Number(views) || 0, likes: Number(likes) || 0, comments: Number(comments) || 0, videoId: String(videoId), caption, thumbnail, postedAt, url, engagement };
+}
+
+// Parses YouTube viewCountText like "3.5K views", "1.2M views" to a number
+function parseYouTubeViewCount(text: string | undefined): number {
+  if (!text) return 0;
+  const clean = text.replace(/[^0-9.KMBkmb]/g, "").toUpperCase();
+  if (clean.endsWith("B")) return Math.round(parseFloat(clean) * 1_000_000_000);
+  if (clean.endsWith("M")) return Math.round(parseFloat(clean) * 1_000_000);
+  if (clean.endsWith("K")) return Math.round(parseFloat(clean) * 1_000);
+  return parseInt(clean) || 0;
 }
 
 function parseTimestamp(raw: any): string {
@@ -376,9 +392,14 @@ serve(async (req) => {
     const rawItems: any[] = await itemsRes.json();
     console.log(`[fetch-profile-top-posts] got ${rawItems.length} raw items (${platform})`);
 
-    const normalized = rawItems
+    // YouTube actor returns a "channel_metadata" item first — filter to only video items
+    const videoItems = platform === "youtube"
+      ? rawItems.filter(item => item.itemType === "short")
+      : rawItems;
+
+    const normalized = videoItems
       .map(item => normalizeItem(item, platform, username))
-      .filter(p => p.views > 0 && p.videoId);
+      .filter(p => p.videoId); // YouTube videos may have 0 views (very new shorts)
 
     if (normalized.length === 0) {
       return json({ posts: [], username, platform, message: "No posts found for this profile" });
@@ -479,10 +500,11 @@ function buildApifyInput(platform: string, username: string, resultsLimit: numbe
     };
   }
   if (platform === "youtube") {
-    // YOUTUBE_LIMIT_FIELD confirmed during prerequisite — replace YOUTUBE_LIMIT_FIELD with actual field name
+    // Confirmed: channelUrl (string) + maxResults — NOT startUrls array
+    const youtubeUrl = username.startsWith("http") ? username : `https://youtube.com/@${username}`;
     return {
-      startUrls: [{ url: username.startsWith("http") ? username : `https://youtube.com/@${username}` }],
-      YOUTUBE_LIMIT_FIELD: safeLimit,
+      channelUrl: youtubeUrl,
+      maxResults: safeLimit,
     };
   }
   // apidojo~instagram-scraper: maxItems is the actual limit field
@@ -556,24 +578,28 @@ const count = await processDataset(supabase, channelId, cleanUsername, platform,
 
 In `processDataset`, the item mapping block handles Instagram + TikTok fields. Add YouTube field handling to the existing fallback chain:
 
-Find the `views` line (line 187):
+**First, add `parseYouTubeViewCount` helper at the top of the file** (after the constants):
 ```typescript
-const views =
-  item.video?.playCount ??
-  item.videoViewCount ??
-  ...
-  0;
+function parseYouTubeViewCount(text: string | undefined): number {
+  if (!text) return 0;
+  const clean = text.replace(/[^0-9.KMBkmb]/g, "").toUpperCase();
+  if (clean.endsWith("B")) return Math.round(parseFloat(clean) * 1_000_000_000);
+  if (clean.endsWith("M")) return Math.round(parseFloat(clean) * 1_000_000);
+  if (clean.endsWith("K")) return Math.round(parseFloat(clean) * 1_000);
+  return parseInt(clean) || 0;
+}
 ```
 
-Add YouTube-specific fields at the start of the chain:
+Then update the `views` line (line 187). YouTube uses `viewCountText` (string), not a numeric field:
 ```typescript
 const views =
-  item.viewCount ??              // YouTube Shorts
+  (platform === "youtube" ? parseYouTubeViewCount(item.viewCountText) : null) ??
   item.video?.playCount ??
   item.videoViewCount ??
   item.videoPlayCount ??
   item.playsCount ??
   item.plays ??
+  item.viewCount ??
   0;
 
 const likes = item.likeCount ?? item.likesCount ?? item.diggCount ?? item.likes ?? 0;
@@ -592,26 +618,26 @@ const videoId =
   null;
 ```
 
-For `thumbnailUrl` (line 211):
+For `thumbnailUrl` (line 211) — YouTube actor returns `thumbnail` (string) and `thumbnails` (array):
 ```typescript
 const thumbnailUrl =
-  item.thumbnails?.high?.url ??  // YouTube
-  item.thumbnails?.default?.url ?? // YouTube fallback
+  item.thumbnail ??              // YouTube Shorts (direct string URL)
+  item.thumbnails?.[0]?.url ??   // YouTube Shorts array fallback
   (typeof item.image === "object" ? item.image?.url : item.image) ??
   item.displayUrl ??
   item.thumbnailUrl ??
   item.coverUrl ??
   item.cover ??
   item.previewUrl ??
-  item.thumbnail ??
   null;
 ```
 
-For `videoUrl` (line 222), add YouTube case:
+For `videoUrl` (line 222), YouTube actor returns `shortUrl` directly:
 ```typescript
 const videoUrl =
+  item.shortUrl ??               // YouTube Shorts (full URL already provided)
   (platform === "youtube" && (item.videoId ?? item.id)
-    ? `https://youtube.com/shorts/${item.videoId ?? item.id}`
+    ? `https://www.youtube.com/shorts/${item.videoId ?? item.id}`
     : null) ??
   item.url ??
   item.webVideoUrl ??
@@ -623,10 +649,10 @@ const videoUrl =
   null;
 ```
 
-For `caption` (line 248), add YouTube title fields:
+For `caption` (line 248), add YouTube title:
 ```typescript
 const caption = (
-  item.title ??                  // YouTube
+  item.title ??                  // YouTube Shorts
   item.caption ??
   item.captionText ??
   item.text ??
@@ -635,10 +661,20 @@ const caption = (
 ).slice(0, 600);
 ```
 
-For `rawTs` (line 238), add YouTube publishedAt:
+For `rawTs` (line 238) — YouTube actor does NOT return publish dates, so leave the existing fallback chain as-is (it will just return null for YouTube items, which is fine):
 ```typescript
-const rawTs = item.publishedAt ?? item.snippet?.publishedAt ?? item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
+const rawTs = item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
+// Note: YouTube actor does not return publishedAt — posted_at will be null for YouTube Shorts
 ```
+
+**Also add this before the `videos` array processing** in `processDataset` (after line 183, before the `.map()`):
+```typescript
+// YouTube actor: filter to only short items (first item is channel_metadata)
+const processItems = platform === "youtube"
+  ? items.filter((item: any) => item.itemType === "short")
+  : items;
+```
+Then use `processItems` instead of `items` in the `.map()` call.
 
 - [ ] **Step 6: Commit**
 
@@ -702,14 +738,14 @@ function buildApifyInput(platform: string, username: string, resultsLimit: numbe
     };
   }
   if (platform === "youtube") {
-    // username here is the stored clean identifier (handle or channel ID)
-    // Reconstruct full URL for startUrls
+    // username is stored clean identifier (handle or channel ID)
+    // Confirmed input: channelUrl (string) + maxResults (number)
     const youtubeUrl = username.startsWith("UC")
       ? `https://youtube.com/channel/${username}`
       : `https://youtube.com/@${username}`;
     return {
-      startUrls: [{ url: youtubeUrl }],
-      YOUTUBE_LIMIT_FIELD: safeLimit,  // replace with confirmed field name
+      channelUrl: youtubeUrl,
+      maxResults: safeLimit,
     };
   }
   return {
