@@ -19,7 +19,8 @@ function relativeTime(isoString: string): string {
 }
 
 interface Props {
-  onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "mediaNode" | "groupNode") => void;
+  clientName?: string;
+  onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode") => void;
   onBack: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -245,6 +246,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
           <ChevronLeft className="w-3.5 h-3.5" /> Back
         </button>
 
+
         {/* Session dropdown — only shown when session data provided */}
         {sessions && (
           <SessionDropdown
@@ -324,7 +326,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {/* Competitor Profile */}
         <button
-          onClick={() => onAddNode("instagramProfileNode")}
+          onClick={() => onAddNode("competitorProfileNode")}
           title="Add Competitor Profile"
           className="p-2 rounded-lg text-[#94a3b8] hover:text-[#f43f5e] hover:bg-[rgba(244,63,94,0.1)] transition-colors"
         >
