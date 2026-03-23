@@ -9,7 +9,7 @@ import {
   Loader2, TrendingUp, Instagram, Search, ChevronDown, X,
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
-  Clock, Flame, Filter, SlidersHorizontal,
+  Clock, Flame, Filter, SlidersHorizontal, Youtube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ const TRANSLATIONS = {
     allPlatforms: "All platforms",
     instagram: "Instagram",
     tiktok: "TikTok",
+    youtube: "YouTube",
     outlier: "Outlier",
     anyOutlier: "Any outlier",
     views: "Views",
@@ -83,6 +84,7 @@ const TRANSLATIONS = {
     allPlatforms: "Todas las plataformas",
     instagram: "Instagram",
     tiktok: "TikTok",
+    youtube: "YouTube",
     outlier: "Outlier",
     anyOutlier: "Cualquier outlier",
     views: "Vistas",
@@ -197,16 +199,34 @@ function proxyImg(url: string | null): string | null {
 }
 
 // Detect platform and extract clean username from full URL or @handle
-function detectPlatformAndUsername(raw: string): { username: string; platform: "instagram" | "tiktok" } {
+function detectPlatformAndUsername(raw: string): { username: string; platform: "instagram" | "tiktok" | "youtube" } {
   const s = raw.trim();
-  // TikTok URL: tiktok.com/@username
+
+  // TikTok URL
   const tiktokMatch = s.match(/tiktok\.com\/@?([^/?#\s]+)/i);
-  if (tiktokMatch) return { username: tiktokMatch[1].replace(/\/$/, "").toLowerCase(), platform: "tiktok" };
-  // Instagram URL: instagram.com/username
+  if (tiktokMatch) {
+    return { username: tiktokMatch[1].replace(/\/$/, "").toLowerCase(), platform: "tiktok" };
+  }
+
+  // Instagram URL
   const instaMatch = s.match(/instagram\.com\/([^/?#\s]+)/i);
-  if (instaMatch) return { username: instaMatch[1].replace(/\/$/, "").toLowerCase(), platform: "instagram" };
-  // Plain handle — default to instagram
-  return { username: s.replace(/^@/, "").toLowerCase(), platform: "instagram" };
+  if (instaMatch) {
+    return { username: instaMatch[1].replace(/\/$/, "").toLowerCase(), platform: "instagram" };
+  }
+
+  // YouTube URL variants
+  if (s.includes("youtube.com") || s.includes("youtu.be")) {
+    const handleMatch = s.match(/youtube\.com\/@([^/?#\s]+)/i);
+    const customMatch = s.match(/youtube\.com\/c\/([^/?#\s]+)/i);
+    const channelMatch = s.match(/youtube\.com\/channel\/([^/?#\s]+)/i);
+    const username =
+      handleMatch?.[1] ?? customMatch?.[1] ?? channelMatch?.[1] ?? s.replace(/^.*youtube\.com\//i, "").split(/[/?#]/)[0];
+    return { username: username.replace(/\/$/, ""), platform: "youtube" };
+  }
+
+  // @handle with no URL — assume Instagram
+  const clean = s.replace(/^@/, "").trim().toLowerCase();
+  return { username: clean, platform: "instagram" };
 }
 
 function getOutlierColor(score: number): string {
@@ -239,6 +259,7 @@ function getEngagementColor(rate: number): string {
 const PLATFORM_ICON: Record<string, React.ElementType> = {
   instagram: Instagram,
   tiktok: Flame,
+  youtube: Youtube,
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -620,6 +641,7 @@ const getPlatformOpts = (t: any): DropdownOption[] => [
   { label: t.allPlatforms, value: "all" },
   { label: t.instagram, value: "instagram" },
   { label: t.tiktok, value: "tiktok" },
+  { label: t.youtube, value: "youtube" },
 ];
 
 const getOutlierOpts = (t: any): DropdownOption[] => [
