@@ -13,6 +13,10 @@ const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
 
 const MAX_RESULTS = 100; // hard cap
 
+// Require at least this many videos before trusting the vault cache — ensures
+// the top-10 ranking is meaningful and the channel was scraped at scale, not just delta-updated.
+const VAULT_CACHE_MIN_VIDEOS = 20;
+
 type Platform = "instagram" | "tiktok" | "youtube";
 
 function detectPlatform(url: string): Platform | null {
@@ -180,14 +184,14 @@ serve(async (req) => {
       .eq("username", username).eq("platform", platform).eq("scrape_status", "done")
       .maybeSingle();
 
-    if (channelRow?.id && (channelRow.video_count ?? 0) >= 20) {
+    if (channelRow?.id && (channelRow.video_count ?? 0) >= VAULT_CACHE_MIN_VIDEOS) {
       const { data: vaultVideos } = await supabase.from("viral_videos")
         .select("video_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, thumbnail_url")
         .eq("channel_id", channelRow.id).gt("views_count", 0)
         .order("views_count", { ascending: false }).limit(10);
       if (vaultVideos && vaultVideos.length > 0) {
         console.log(`[fetch-profile-top-posts] cache hit — ${vaultVideos.length} from vault for @${username}`);
-        return json({ posts: vaultVideos.map((v: any, i: number) => ({ rank: i + 1, caption: v.caption, views: v.views_count, viewsFormatted: formatViews(v.views_count), likes: v.likes_count, comments: v.comments_count, engagement_rate: v.engagement_rate, outlier_score: v.outlier_score, posted_at: v.posted_at, url: v.video_url, thumbnail: v.thumbnail_url })), username, platform, fromVault: true });
+        return json({ posts: vaultVideos.map((v: any, i: number) => ({ rank: i + 1, caption: v.caption, views: v.views_count, viewsFormatted: formatViews(v.views_count), likes: v.likes_count, comments: v.comments_count, engagement_rate: v.engagement_rate, outlier_score: v.outlier_score, posted_at: v.posted_at, url: v.video_url, thumbnail: v.thumbnail_url, platform })), username, platform, fromVault: true });
       }
     }
 
@@ -210,7 +214,7 @@ serve(async (req) => {
 
     if (!datasetId) throw new Error("No dataset ID from Apify");
 
-    const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=${limit}`);
+    const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=${Math.min(limit, MAX_RESULTS)}`);
     if (!itemsRes.ok) throw new Error(`Dataset fetch failed: ${itemsRes.status}`);
 
     const rawItems: any[] = await itemsRes.json();

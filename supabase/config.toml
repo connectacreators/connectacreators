@@ -5,6 +5,9 @@ project_id = "hxojqrilwhhrvloiwmfo"
 [functions.categorize-script]
 verify_jwt = false
 
+[functions.clear-password-flag]
+verify_jwt = false
+
 [functions.create-subscriber-user]
 verify_jwt = false
 
@@ -111,7 +114,13 @@ verify_jwt = false
 [functions.scrape-channel]
 verify_jwt = false
 
+[functions.scrape-hashtag]
+verify_jwt = false
+
 [functions.fetch-instagram-top-posts]
+verify_jwt = false
+
+[functions.fetch-profile-top-posts]
 verify_jwt = false
 
 # Daily auto-scrape function (triggered via cron, secret-protected)
@@ -152,7 +161,15 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+# Canvas media transcription (audio/visual/both)
+[functions.transcribe-canvas-media]
+verify_jwt = false
+
 # Cleanup expired videos (triggered via cron, secret-protected)
 [functions.cleanup-expired-videos]
 verify_jwt = false
 # Note: Protect with x-cron-secret header check
+
+# Cleanup trash — permanently deletes scripts/video_edits after 90 days in trash
+[functions.cleanup-trash]
+verify_jwt = false
