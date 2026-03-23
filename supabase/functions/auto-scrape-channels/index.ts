@@ -9,7 +9,7 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apidojo~instagram-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
+const APIFY_ACTOR_YOUTUBE = "bernardo_bi~youtube-shorts-scraper";
 const CRON_SECRET = "connectacreators-cron-2026";
 
 // Apify STARTER plan allows max 5 concurrent actor runs.
@@ -135,18 +135,16 @@ async function processChannel(
     return { channel: channel.username, newVideos: 0 };
   }
 
-  // YouTube actor returns a "channel_metadata" item first — filter to only video items
-  const processItems = channel.platform === "youtube"
-    ? items.filter((item: any) => item.itemType === "short")
-    : items;
+  // bernardo_bi~youtube-shorts-scraper returns only short items — no metadata row to filter
+  const processItems = items;
 
   // Parse and transform videos — apidojo~instagram-scraper field mapping
   const videos = processItems
     .map((item: any) => {
-      // YouTube: only viewCountText string (e.g. "3.5K views") — no numeric viewCount
+      // bernardo_bi~youtube-shorts-scraper: viewCount is already a number
       // apidojo: views are in item.video.playCount for video posts
       const views =
-        (channel.platform === "youtube" ? parseYouTubeViewCount(item.viewCountText) : null) ??
+        (channel.platform === "youtube" ? (item.viewCount ?? parseYouTubeViewCount(item.viewCountText)) : null) ??
         item.video?.playCount ??
         item.videoViewCount ??
         item.videoPlayCount ??
@@ -189,7 +187,7 @@ async function processChannel(
 
       let postedAt: string | null = null;
       // apidojo: createdAt is ISO string; fallback to legacy field names
-      const rawTs = item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
+      const rawTs = item.date ?? item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
       if (rawTs) {
         const num = typeof rawTs === "number" ? rawTs : Number(rawTs);
         if (!isNaN(num)) {

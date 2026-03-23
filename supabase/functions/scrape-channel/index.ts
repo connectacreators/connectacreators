@@ -9,7 +9,7 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apidojo~instagram-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
+const APIFY_ACTOR_YOUTUBE = "bernardo_bi~youtube-shorts-scraper";
 
 function getActorId(platform: string) {
   if (platform === "tiktok") return APIFY_ACTOR_TIKTOK;
@@ -224,17 +224,16 @@ async function processDataset(
     return 0;
   }
 
-  // YouTube actor returns a "channel_metadata" item first — filter to only video items
-  const processItems = platform === "youtube"
-    ? items.filter((item: any) => item.itemType === "short")
-    : items;
+  // bernardo_bi~youtube-shorts-scraper returns only short items — no metadata row to filter
+  const processItems = items;
 
   // Parse each item — apidojo~instagram-scraper field mapping
   const videos = processItems
     .map((item: any) => {
       // apidojo~instagram-scraper: views are in item.video.playCount for video posts
+      // bernardo_bi~youtube-shorts-scraper: viewCount is already a number
       const views =
-        (platform === "youtube" ? parseYouTubeViewCount(item.viewCountText) : null) ??
+        (platform === "youtube" ? (item.viewCount ?? parseYouTubeViewCount(item.viewCountText)) : null) ??
         item.video?.playCount ??
         item.videoViewCount ??
         item.videoPlayCount ??
@@ -287,7 +286,7 @@ async function processDataset(
 
       // apidojo: createdAt is ISO string; fallback to legacy field names
       let postedAt: string | null = null;
-      const rawTs = item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
+      const rawTs = item.date ?? item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
       if (rawTs) {
         const num = typeof rawTs === "number" ? rawTs : Number(rawTs);
         if (!isNaN(num)) {
