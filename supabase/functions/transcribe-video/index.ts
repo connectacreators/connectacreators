@@ -280,20 +280,19 @@ serve(async (req) => {
       }
     }
 
-    // ─── Instagram: use Apify task to get direct CDN video URL + thumbnail ───
-    let audioSourceUrl: string | null = null;
+    // ─── Instagram: use Apify task for thumbnail only ───
+    // Audio extraction always uses the original page URL via VPS cobalt+ffmpeg,
+    // which is more reliable than Apify CDN URLs (which may expire or be blocked
+    // from Supabase's IP, returning HTML/garbage that Whisper can't decode).
     let igDisplayUrl: string | null = null;
     if (isInstagram) {
-      console.log("Instagram URL detected — resolving via Apify task...");
+      console.log("Instagram URL detected — resolving thumbnail via Apify task...");
       const { videoUrl: igVideoUrl, displayUrl } = await extractInstagramVideoUrl(url);
+      igDisplayUrl = displayUrl;
       if (igVideoUrl) {
-        audioSourceUrl = igVideoUrl;
-        igDisplayUrl = displayUrl;
-        console.log("Using Apify CDN videoUrl for audio extraction");
-      } else {
-        console.log("Apify task returned no videoUrl — falling back to VPS cobalt with original URL");
-        // audioSourceUrl stays null → VPS /extract-audio receives original IG page URL
+        console.log("Apify CDN videoUrl available (thumbnail only):", igVideoUrl.slice(0, 80) + "...");
       }
+      // VPS /extract-audio handles the original page URL via cobalt+ffmpeg
     }
 
     // ─── Instagram: pass displayUrl raw — frontend proxies via VPS /proxy-image ───
@@ -302,65 +301,28 @@ serve(async (req) => {
       console.log("Instagram displayUrl for thumbnail:", igThumbnailUrl.slice(0, 80) + "...");
     }
 
-    // ─── Extract audio: prefer direct URL from Apify, fallback to yt-dlp server ───
+    // ─── Extract audio via VPS yt-dlp server (cobalt+ffmpeg → always returns MP3) ───
     let videoCacheUrl: string | null = null;
     if (!transcription) {
-      let audioBlob: Blob;
-      // Track whether we fell back to a raw CDN download (MP4 container, not extracted MP3).
-      // This determines which MIME type to declare when uploading to Whisper.
-      let rawCdnFallback = false;
+      console.log("Calling yt-dlp server with original page URL...");
+      const ytdlpRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": YTDLP_API_KEY,
+        },
+        body: JSON.stringify({ url, original_url: url }),
+      });
 
-      if (audioSourceUrl) {
-        // Download audio directly from Apify-provided CDN URL (no cookies needed)
-        console.log("Downloading audio from direct video URL via yt-dlp server...");
-        const ytdlpRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": YTDLP_API_KEY,
-          },
-          body: JSON.stringify({ url: audioSourceUrl, original_url: url }),
-        });
-
-        if (!ytdlpRes.ok) {
-          // Try direct download as fallback — Instagram CDN serves MP4 directly
-          console.log("yt-dlp failed on direct URL, trying raw CDN download...");
-          const directRes = await fetch(audioSourceUrl);
-          if (!directRes.ok) {
-            throw new Error("Failed to download Instagram video audio");
-          }
-          audioBlob = await directRes.blob();
-          rawCdnFallback = true; // raw MP4 video container, not extracted MP3
-          console.log("Raw CDN download, content-type:", directRes.headers.get("content-type"));
-        } else {
-          videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || null;
-          if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
-          audioBlob = await ytdlpRes.blob();
-        }
-      } else {
-        // Standard yt-dlp extraction (works for YouTube fallback, TikTok, etc.)
-        console.log("Calling yt-dlp server...");
-        const ytdlpRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": YTDLP_API_KEY,
-          },
-          body: JSON.stringify({ url, original_url: url }),
-        });
-
-        if (!ytdlpRes.ok) {
-          const err = await ytdlpRes.json().catch(() => ({ error: "Audio extraction failed" }));
-          console.error("yt-dlp server error:", ytdlpRes.status, err);
-          throw new Error(err.error || `Audio extraction failed (${ytdlpRes.status})`);
-        }
-
-        videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || null;
-        if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
-        audioBlob = await ytdlpRes.blob();
+      if (!ytdlpRes.ok) {
+        const err = await ytdlpRes.json().catch(() => ({ error: "Audio extraction failed" }));
+        console.error("yt-dlp server error:", ytdlpRes.status, err);
+        throw new Error(err.error || `Audio extraction failed (${ytdlpRes.status})`);
       }
 
-      console.log("Audio received, size:", audioBlob.size, "bytes");
+      videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || null;
+      if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
+      const audioBlob = await ytdlpRes.blob();
 
       if (audioBlob.size === 0) {
         throw new Error("Received empty audio from extraction server");
@@ -370,25 +332,10 @@ serve(async (req) => {
         throw new Error("Video is too long for transcription (max ~25MB audio). Try a shorter clip.");
       }
 
-      // Read blob content into ArrayBuffer once — calling arrayBuffer() twice on a
-      // Response-derived Blob in Deno consumes the underlying stream the first time,
-      // leaving an empty buffer on the second read.
-      const audioBuffer = await audioBlob.arrayBuffer();
-
-      console.log("Sending to OpenAI Whisper...");
-      // Detect the actual container format by checking MP4 magic bytes (ftyp box at offset 4).
-      // rawCdnFallback alone isn't enough — yt-dlp on a direct CDN URL can return the raw
-      // MP4 container with HTTP 200 instead of an extracted MP3.
-      let isMp4 = false;
-      if (audioBuffer.byteLength >= 12) {
-        const header = new Uint8Array(audioBuffer, 0, 12);
-        isMp4 = header[4] === 0x66 && header[5] === 0x74 && header[6] === 0x79 && header[7] === 0x70; // 'ftyp'
-      }
-      const whisperMime = (rawCdnFallback || isMp4) ? "video/mp4" : "audio/mpeg";
-      const whisperFilename = (rawCdnFallback || isMp4) ? "audio.mp4" : "audio.mp3";
-      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (rawCdnFallback=${rawCdnFallback} isMp4=${isMp4} bytes=${audioBuffer.byteLength})`);
+      console.log("Audio received, size:", audioBlob.size, "bytes. Sending to OpenAI Whisper...");
+      // VPS always converts to MP3 via ffmpeg → declare audio/mpeg
       const formData = new FormData();
-      formData.append("file", new Blob([audioBuffer], { type: whisperMime }), whisperFilename);
+      formData.append("file", audioBlob, "audio.mp3");
       formData.append("model", "whisper-1");
 
       const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -416,11 +363,7 @@ serve(async (req) => {
     console.log("Transcription complete, length:", transcription.length, "chars");
 
     const thumbnailUrl = youtubeThumbnailUrl || igThumbnailUrl || null;
-    // Prefer Apify CDN URL, fall back to VPS-cached video URL
-    const finalVideoUrl = audioSourceUrl || videoCacheUrl || null;
-    if (!audioSourceUrl && videoCacheUrl) {
-      console.log("Apify returned no videoUrl — using VPS cache URL instead:", videoCacheUrl);
-    }
+    const finalVideoUrl = videoCacheUrl || null;
     return new Response(JSON.stringify({ transcription, videoUrl: finalVideoUrl, thumbnail_url: thumbnailUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
