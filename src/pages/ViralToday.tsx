@@ -1404,7 +1404,7 @@ export default function ViralToday() {
                           value={newUsername}
                           onChange={(e) => setNewUsername(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
-                          placeholder="instagram.com/user or tiktok.com/@user"
+                          placeholder="instagram.com/user · tiktok.com/@user · youtube.com/@channel"
                           disabled={!canScrape && !isAdmin}
                           className="w-full h-9 px-3 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all disabled:opacity-50"
                         />
