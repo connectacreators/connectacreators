@@ -146,7 +146,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [drawingMode, setDrawingMode] = useState(false);
   const [drawPaths, setDrawPaths] = useState<DrawPath[]>([]);
   const [currentPath, setCurrentPath] = useState<[number, number][] | null>(null);
-  const [drawColor, setDrawColor] = useState("#22d3ee");
+  const [drawColor, setDrawColor] = useState("hsl(210, 8%, 10%)");
   const [drawWidth, setDrawWidth] = useState(3);
   // ─── Context menu for group/ungroup ───
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "selection" | "group"; groupId?: string } | null>(null);
@@ -958,6 +958,42 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const { zoomIn, zoomOut, screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow();
   const viewport = useViewport();
 
+  // ─── Auto-fit group to its children ───
+  const GPAD = 40; // padding around children
+  const HEADER_H = 36; // header row height
+  const autoFitGroup = useCallback((groupId: string) => {
+    setNodes(ns => {
+      const children = ns.filter(n => n.parentId === groupId);
+      if (children.length === 0) return ns;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of children) {
+        const w = c.measured?.width ?? (c as any).width ?? 250;
+        const h = c.measured?.height ?? (c as any).height ?? 150;
+        minX = Math.min(minX, c.position.x);
+        minY = Math.min(minY, c.position.y);
+        maxX = Math.max(maxX, c.position.x + w);
+        maxY = Math.max(maxY, c.position.y + h);
+      }
+      const newW = maxX - minX + GPAD * 2;
+      const newH = maxY - minY + GPAD * 2 + HEADER_H;
+      const offsetX = minX - GPAD;
+      const offsetY = minY - GPAD - HEADER_H;
+      return ns.map(n => {
+        if (n.id === groupId) {
+          return {
+            ...n,
+            position: { x: n.position.x + offsetX, y: n.position.y + offsetY },
+            style: { ...n.style, width: Math.max(newW, 200), height: Math.max(newH, 150) },
+          };
+        }
+        if (n.parentId === groupId) {
+          return { ...n, position: { x: n.position.x - offsetX, y: n.position.y - offsetY } };
+        }
+        return n;
+      });
+    });
+  }, [setNodes]);
+
   // ─── Group drag-to-add/remove tracking ───
   const dragOutThresholdRef = useRef<string | null>(null);
 
@@ -1023,6 +1059,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         });
         return updated;
       });
+      // Re-fit the group we just left
+      setTimeout(() => autoFitGroup(oldParentId), 50);
       dragOutThresholdRef.current = null;
       return;
     }
@@ -1034,7 +1072,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       .filter(n => n.type === "groupNode" && n.id !== draggedNode.parentId)
       .sort((a, b) => ((a.measured?.width ?? 400) * (a.measured?.height ?? 300)) - ((b.measured?.width ?? 400) * (b.measured?.height ?? 300)))[0];
 
-    if (!targetGroup) return;
+    if (!targetGroup) {
+      // Child moved within its existing group — re-fit parent
+      if (draggedNode.parentId) setTimeout(() => autoFitGroup(draggedNode.parentId!), 50);
+      return;
+    }
 
     const groupInternal = getInternalNode(targetGroup.id);
     const nodeInternal = getInternalNode(draggedNode.id);
@@ -1044,6 +1086,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     const nodeAbsPos = nodeInternal.internals?.positionAbsolute ?? draggedNode.position;
     const relativePos = { x: nodeAbsPos.x - groupAbsPos.x, y: nodeAbsPos.y - groupAbsPos.y };
 
+    const prevParentId = draggedNode.parentId;
     setNodes(ns => {
       const updated = ns.map(n => {
         if (n.id === draggedNode.id) {
@@ -1053,15 +1096,20 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           const newCount = ns.filter(nd => nd.parentId === targetGroup.id).length + 1;
           return { ...n, data: { ...n.data, childCount: newCount } };
         }
-        if (draggedNode.parentId && n.id === draggedNode.parentId) {
-          const newCount = ns.filter(nd => nd.parentId === draggedNode.parentId && nd.id !== draggedNode.id).length;
+        if (prevParentId && n.id === prevParentId) {
+          const newCount = ns.filter(nd => nd.parentId === prevParentId && nd.id !== draggedNode.id).length;
           return { ...n, data: { ...n.data, childCount: newCount } };
         }
         return n;
       });
       return ensureParentOrder(updated);
     });
-  }, [getInternalNode, getIntersectingNodes, setNodes]);
+    // Auto-fit the target group (and old parent if applicable)
+    setTimeout(() => {
+      autoFitGroup(targetGroup.id);
+      if (prevParentId) autoFitGroup(prevParentId);
+    }, 50);
+  }, [getInternalNode, getIntersectingNodes, setNodes, autoFitGroup]);
 
   // ─── Context menu handlers for group/ungroup ───
   const handleSelectionContextMenu = useCallback((event: React.MouseEvent) => {
@@ -1276,10 +1324,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   };
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
+    <div className="flex h-full overflow-hidden" style={{ background: "#131417" }}>
       {/* Canvas area — full width, sessions in toolbar */}
-      <div className="flex-1 relative min-w-0" style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}>
+      <div className="flex-1 relative min-w-0" style={{ background: "#131417" }}>
         <CanvasToolbar
+          clientName={selectedClient?.name}
           onAddNode={addNode}
           onBack={handleBack}
           onZoomIn={() => zoomIn()}
@@ -1342,7 +1391,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           onNodeDragStop={handleNodeDragStop}
           onSelectionContextMenu={handleSelectionContextMenu}
           onNodeContextMenu={handleNodeContextMenu}
-          colorMode={theme === "light" ? "light" : "dark"}
+          colorMode="dark"
           defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 } }}
           fitView={false}
           panOnScroll
@@ -1351,14 +1400,14 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           deleteKeyCode={null}
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
-          style={{ background: theme === "light" ? "hsl(220 5% 96%)" : "#06090c" }}
+          style={{ background: "#131417" }}
         >
           <Background
             variant={BackgroundVariant.Dots}
-            bgColor={theme === "light" ? "hsl(220 5% 96%)" : "#06090c"}
-            color={theme === "light" ? "#cbd5e1" : "#0d1f2a"}
+            bgColor="#131417"
+            color="rgba(255,255,255,0.04)"
             gap={24}
-            size={1}
+            size={1.5}
           />
         </ReactFlow>
 
