@@ -9,7 +9,7 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apify~instagram-reel-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
+const APIFY_ACTOR_YOUTUBE = "streamers~youtube-scraper";
 
 const MAX_RESULTS = 100; // hard cap
 
@@ -67,8 +67,9 @@ function buildActorInput(platform: Platform, username: string, fullUrl: string, 
   if (platform === "tiktok") {
     return { actorId: APIFY_ACTOR_TIKTOK, input: { handles: [username], startUrls: [{ url: fullUrl }], resultsPerPage: safeLimit, shouldDownloadVideos: false, shouldDownloadCovers: false } };
   }
-  // YouTube: confirmed channelUrl + maxResults
-  return { actorId: APIFY_ACTOR_YOUTUBE, input: { channelUrl: fullUrl, maxResults: safeLimit } };
+  // streamers~youtube-scraper: startUrls array + maxResults, /shorts suffix for Shorts only
+  const shortsUrl = fullUrl.replace(/\/(shorts|videos|playlists)\/?$/, "") + "/shorts";
+  return { actorId: APIFY_ACTOR_YOUTUBE, input: { startUrls: [{ url: shortsUrl }], maxResults: safeLimit } };
 }
 
 // Parses "3.5K views" → 3500, "1.2M" → 1200000
@@ -220,8 +221,8 @@ serve(async (req) => {
     const rawItems: any[] = await itemsRes.json();
     console.log(`[fetch-profile-top-posts] got ${rawItems.length} raw items (${platform})`);
 
-    // YouTube actor returns channel_metadata as first item — filter to only video items
-    const videoItems = platform === "youtube" ? rawItems.filter(item => item.itemType === "short") : rawItems;
+    // streamers~youtube-scraper returns video items directly — no metadata wrapper
+    const videoItems = rawItems;
     const normalized = videoItems.map(item => normalizeItem(item, platform, username)).filter(p => p.videoId);
 
     if (normalized.length === 0) return json({ posts: [], username, platform, message: "No posts found for this profile" });

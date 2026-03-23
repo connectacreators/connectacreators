@@ -306,6 +306,9 @@ serve(async (req) => {
     let videoCacheUrl: string | null = null;
     if (!transcription) {
       let audioBlob: Blob;
+      // Track whether we fell back to a raw CDN download (MP4 container, not extracted MP3).
+      // This determines which MIME type to declare when uploading to Whisper.
+      let rawCdnFallback = false;
 
       if (audioSourceUrl) {
         // Download audio directly from Apify-provided CDN URL (no cookies needed)
@@ -320,13 +323,15 @@ serve(async (req) => {
         });
 
         if (!ytdlpRes.ok) {
-          // Try direct download as fallback — CDN URL may serve video directly
-          console.log("yt-dlp failed on direct URL, trying raw download...");
+          // Try direct download as fallback — Instagram CDN serves MP4 directly
+          console.log("yt-dlp failed on direct URL, trying raw CDN download...");
           const directRes = await fetch(audioSourceUrl);
           if (!directRes.ok) {
             throw new Error("Failed to download Instagram video audio");
           }
           audioBlob = await directRes.blob();
+          rawCdnFallback = true; // raw MP4 video container, not extracted MP3
+          console.log("Raw CDN download, content-type:", directRes.headers.get("content-type"));
         } else {
           videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || null;
           if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
@@ -366,14 +371,11 @@ serve(async (req) => {
       }
 
       console.log("Sending to OpenAI Whisper...");
-      // yt-dlp server always returns MP3. Raw CDN fallback returns whatever the CDN serves
-      // (typically video/mp4). Whisper supports mp3, mp4, m4a, webm, ogg, wav — but the
-      // filename extension must match the actual content or Whisper returns 400.
-      const blobMime = audioBlob.type || "audio/mpeg";
-      const isVideoBlob = blobMime.startsWith("video/") || blobMime.includes("mp4") || blobMime.includes("m4");
-      const whisperMime = isVideoBlob ? "video/mp4" : "audio/mpeg";
-      const whisperFilename = isVideoBlob ? "audio.mp4" : "audio.mp3";
-      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (blob.type=${blobMime})`);
+      // yt-dlp server always returns MP3. Raw CDN fallback is an MP4 video container —
+      // blob.type may be empty for CDN responses so use the explicit flag instead.
+      const whisperMime = rawCdnFallback ? "video/mp4" : "audio/mpeg";
+      const whisperFilename = rawCdnFallback ? "audio.mp4" : "audio.mp3";
+      console.log(`Whisper upload: mime=${whisperMime} filename=${whisperFilename} (rawCdnFallback=${rawCdnFallback})`);
       const formData = new FormData();
       formData.append("file", new Blob([await audioBlob.arrayBuffer()], { type: whisperMime }), whisperFilename);
       formData.append("model", "whisper-1");

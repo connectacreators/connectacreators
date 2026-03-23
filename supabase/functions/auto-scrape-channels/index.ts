@@ -9,7 +9,7 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apidojo~instagram-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "igview-owner~youtube-shorts-scraper";
+const APIFY_ACTOR_YOUTUBE = "streamers~youtube-scraper";
 const CRON_SECRET = "connectacreators-cron-2026";
 
 // Apify STARTER plan allows max 5 concurrent actor runs.
@@ -48,11 +48,15 @@ function buildApifyInput(platform: string, username: string, resultsLimit: numbe
     };
   }
   if (platform === "youtube") {
-    // igview-owner~youtube-shorts-scraper input: channelUsername (plain handle, no @ or URL)
-    const handle = username.replace(/^https?:\/\/(www\.)?youtube\.com\/@?/i, "").replace(/^@/, "").split(/[/?#]/)[0];
+    // streamers~youtube-scraper: startUrls array + maxResults
+    // Append /shorts to channel URL so the actor returns Shorts only
+    const baseUrl = username.startsWith("UC")
+      ? `https://www.youtube.com/channel/${username}`
+      : `https://www.youtube.com/@${username}`;
+    const shortsUrl = baseUrl + "/shorts";
     return {
-      channelUsername: handle,
-      maxShorts: safeLimit,
+      startUrls: [{ url: shortsUrl }],
+      maxResults: safeLimit,
     };
   }
   // apidojo~instagram-scraper: maxItems is the actual limit field
@@ -133,10 +137,8 @@ async function processChannel(
     return { channel: channel.username, newVideos: 0 };
   }
 
-  // igview-owner~youtube-shorts-scraper returns a "channel_metadata" item first — filter to only video items
-  const processItems = channel.platform === "youtube"
-    ? items.filter((item: any) => item.itemType === "short")
-    : items;
+  // streamers~youtube-scraper returns all video items directly — no metadata wrapper to filter
+  const processItems = items;
 
   // Parse and transform videos — apidojo~instagram-scraper field mapping
   const videos = processItems
