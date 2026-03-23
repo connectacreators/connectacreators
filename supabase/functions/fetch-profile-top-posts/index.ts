@@ -162,8 +162,8 @@ serve(async (req) => {
     const platform = detectPlatform(profileUrl);
     if (!platform) return json({ error: "Unsupported platform — paste an Instagram, TikTok, or YouTube channel URL" }, 400);
 
-    // Reject single YouTube video URLs
-    if (platform === "youtube" && profileUrl.includes("youtube.com/shorts/") && !/youtube\.com\/@/.test(profileUrl)) {
+    // Reject single YouTube video URLs (youtube.com/shorts/VIDEO_ID)
+    if (platform === "youtube" && /youtube\.com\/shorts\/[^/]+\/?$/.test(profileUrl)) {
       return json({ error: "Paste a YouTube channel URL, not a single video URL" }, 400);
     }
 
