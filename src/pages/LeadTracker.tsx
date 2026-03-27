@@ -113,16 +113,29 @@ export default function LeadTracker() {
 
   useEffect(() => {
     if (!user) return;
+    // Junction table lookup
     supabase
-      .from("clients")
-      .select("id, plan_type")
-      .eq("user_id", user.id)
+      .from("subscriber_clients")
+      .select("client_id, clients(id, plan_type)")
+      .eq("subscriber_user_id", user.id)
+      .eq("is_primary", true)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setOwnClientId(data.id);
-          const pt = data.plan_type;
+        if (data?.client_id && data.clients) {
+          const c = data.clients as any;
+          setOwnClientId(c.id);
+          const pt = c.plan_type;
           setIsSubscriber(pt === "starter" || pt === "growth" || pt === "enterprise");
+        } else {
+          // Fallback: direct lookup
+          supabase.from("clients").select("id, plan_type").eq("user_id", user.id).maybeSingle()
+            .then(({ data: fb }) => {
+              if (fb) {
+                setOwnClientId(fb.id);
+                const pt = fb.plan_type;
+                setIsSubscriber(pt === "starter" || pt === "growth" || pt === "enterprise");
+              }
+            });
         }
       });
   }, [user]);
@@ -146,7 +159,7 @@ export default function LeadTracker() {
   useEffect(() => {
     if (!urlClientId || clients.length === 0) return;
     const target = clients.find((c) => c.id === urlClientId);
-    if (target) setSelectedClient((target as any).notion_lead_name || target.name);
+    if (target) setSelectedClient(target.id);
   }, [urlClientId, clients]);
 
   // Modal state
@@ -286,7 +299,7 @@ export default function LeadTracker() {
       if (isSubscriber) {
         fetchSubscriberLeads();
       } else if (isStaff) {
-        fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined);
+        fetchLeads(undefined, selectedClient !== "all" ? selectedClient : urlClientId || undefined);
       } else {
         fetchLeads();
       }
@@ -300,7 +313,7 @@ export default function LeadTracker() {
       if (isSubscriber) {
         fetchSubscriberLeads(true);
       } else if (isStaff) {
-        fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined, true);
+        fetchLeads(undefined, selectedClient !== "all" ? selectedClient : urlClientId || undefined, true);
       } else {
         fetchLeads(undefined, undefined, true);
       }
@@ -425,7 +438,7 @@ export default function LeadTracker() {
         toast.success(tr(t.leadDetail.statusUpdated, language));
         setModalOpen(false);
         isStaff
-          ? fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined)
+          ? fetchLeads(undefined, selectedClient !== "all" ? selectedClient : urlClientId || undefined)
           : fetchLeads();
       }
     } catch (e: any) {
@@ -524,7 +537,7 @@ export default function LeadTracker() {
       if (isSubscriber) {
         fetchSubscriberLeads();
       } else {
-        fetchLeads(selectedClient !== "all" ? selectedClient : undefined, urlClientId || undefined);
+        fetchLeads(undefined, selectedClient !== "all" ? selectedClient : urlClientId || undefined);
       }
     } catch (e: any) {
       console.error("Error creating lead:", e);
@@ -746,7 +759,7 @@ export default function LeadTracker() {
                 <SelectContent>
                   <SelectItem value="all">{tr(t.leadTracker.allClients, language)}</SelectItem>
                   {clients.map((c) => (
-                    <SelectItem key={c.id} value={(c as any).notion_lead_name || c.name}>
+                    <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
                   ))}

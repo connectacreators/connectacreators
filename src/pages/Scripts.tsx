@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,12 +7,13 @@ import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
-  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame,
+  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload,
 } from "lucide-react";
-import Teleprompter from "@/components/Teleprompter";
-import AIScriptWizard from "@/components/AIScriptWizard";
-import SuperPlanningCanvas from "@/pages/SuperPlanningCanvas";
-import VideoRecorder from "@/components/VideoRecorder";
+// Heavy components lazy-loaded to reduce initial chunk size
+const Teleprompter = lazy(() => import("@/components/Teleprompter"));
+const AIScriptWizard = lazy(() => import("@/components/AIScriptWizard"));
+const SuperPlanningCanvas = lazy(() => import("@/pages/SuperPlanningCanvas"));
+const VideoRecorder = lazy(() => import("@/components/VideoRecorder"));
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
@@ -24,6 +25,8 @@ import { useScripts, type ScriptLine, type Script, type ScriptMetadata } from "@
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { toast } from "sonner";
+import FootageUploadDialog from "@/components/FootageUploadDialog";
+import FootageViewerModal from "@/components/FootageViewerModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -328,6 +331,9 @@ export default function Scripts() {
 
   const [grabadoFilter, setGrabadoFilter] = useState<"all" | "grabado" | "no-grabado">("all");
 
+  // Right-click context menu for "+ New Script"
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+
   // Videographer assignment state (admin only)
   const [videographers, setVideographers] = useState<{ user_id: string; display_name: string; username: string | null }[]>([]);
   const [assignmentsMap, setAssignmentsMap] = useState<Record<string, string[]>>({}); // client_id -> videographer_user_ids
@@ -360,11 +366,12 @@ export default function Scripts() {
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
-  const [editingDriveLink, setEditingDriveLink] = useState(false);
-  const [tempDriveLink, setTempDriveLink] = useState("");
   const [fileSubmission, setFileSubmission] = useState<string | null>(null);
-  const [editingFileSubmission, setEditingFileSubmission] = useState(false);
-  const [tempFileSubmission, setTempFileSubmission] = useState("");
+  const [linkedVideoEdit, setLinkedVideoEdit] = useState<{ id: string; client_id: string; footage: string | null; file_submission: string | null; upload_source: string | null; storage_path: string | null; storage_url: string | null; file_size_bytes: number | null } | null>(null);
+  const [footageViewerOpen, setFootageViewerOpen] = useState(false);
+  const [footageViewerSubfolder, setFootageViewerSubfolder] = useState<string | undefined>(undefined);
+  const [footageStorageFiles, setFootageStorageFiles] = useState<{ name: string; path: string; signedUrl: string }[]>([]);
+  const [submissionStorageFiles, setSubmissionStorageFiles] = useState<{ name: string; path: string; signedUrl: string }[]>([]);
 
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
@@ -400,6 +407,7 @@ export default function Scripts() {
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [promptName, setPromptName] = useState("");
   const [namePromptLoading, setNamePromptLoading] = useState(false);
+  const [primaryClientId, setPrimaryClientId] = useState<string | null>(null);
 
   // Inline editing client name/email
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
@@ -410,7 +418,7 @@ export default function Scripts() {
   const undoStack = useRef<ScriptLine[][]>([]);
 
   // Script folders
-  const [folders, setFolders] = useState<{ id: string; name: string; created_at: string }[]>([]);
+  const [folders, setFolders] = useState<{ id: string; name: string; created_at: string; parent_id: string | null }[]>([]);
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -443,12 +451,28 @@ export default function Scripts() {
   useEffect(() => {
     if (!user || authLoading || isAdmin || isVideographer) return;
     const checkName = async () => {
-      const [{ data: profile }, { data: client }] = await Promise.all([
-        supabase.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle(),
-        supabase.from("clients").select("name").eq("user_id", user.id).maybeSingle(),
-      ]);
+      // Profile lookup stays the same
+      const { data: profile } = await supabase.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle();
+
+      // Client name: use junction table first
+      const { data: link } = await supabase
+        .from("subscriber_clients")
+        .select("client_id, clients(name)")
+        .eq("subscriber_user_id", user.id)
+        .eq("is_primary", true)
+        .maybeSingle();
+      const client = link?.clients ? { name: (link.clients as any).name } : null;
+      if (link?.client_id) setPrimaryClientId(link.client_id);
+
+      // Fallback if no junction entry
+      const clientName = client?.name?.trim() || ((await supabase.from("clients").select("id, name").eq("user_id", user.id).maybeSingle()).data?.name?.trim());
+      // Also capture fallback client id
+      if (!link?.client_id) {
+        const { data: fbClient } = await supabase.from("clients").select("id").eq("user_id", user.id).maybeSingle();
+        if (fbClient?.id) setPrimaryClientId(fbClient.id);
+      }
+
       // If client record already has a proper name, skip prompt
-      const clientName = client?.name?.trim();
       if (clientName && clientName !== user.email && clientName !== (user.email || "").split("@")[0]) return;
       const name = profile?.display_name;
       const email = user.email || "";
@@ -468,11 +492,18 @@ export default function Scripts() {
         .from("profiles")
         .update({ display_name: promptName.trim() })
         .eq("user_id", user.id);
-      // Update client record name
-      await supabase
-        .from("clients")
-        .update({ name: promptName.trim() })
-        .eq("user_id", user.id);
+      // Update client record name (use primary client id from junction table, fall back to user_id match)
+      if (primaryClientId) {
+        await supabase
+          .from("clients")
+          .update({ name: promptName.trim() })
+          .eq("id", primaryClientId);
+      } else {
+        await supabase
+          .from("clients")
+          .update({ name: promptName.trim() })
+          .eq("user_id", user.id);
+      }
       setShowNamePrompt(false);
       toast.success(tr(t.scripts.nameSaved, language));
       // Refresh clients
@@ -609,17 +640,19 @@ export default function Scripts() {
   // Fetch folders when client changes
   useEffect(() => {
     if (!selectedClient) { setFolders([]); setViewingFolderId(null); return; }
-    supabase.from("script_folders").select("id, name, created_at").eq("client_id", selectedClient.id).order("created_at").then(({ data }) => setFolders(data || []));
+    supabase.from("script_folders").select("id, name, created_at, parent_id").eq("client_id", selectedClient.id).order("created_at").then(({ data }) => setFolders(data || []));
   }, [selectedClient]);
 
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim() || !selectedClient) return;
-    const { data, error } = await supabase.from("script_folders").insert({ client_id: selectedClient.id, name: newFolderName.trim() }).select().single();
+    const insertData: any = { client_id: selectedClient.id, name: newFolderName.trim() };
+    if (viewingFolderId) insertData.parent_id = viewingFolderId;
+    const { data, error } = await supabase.from("script_folders").insert(insertData).select().single();
     if (error) { toast.error("Failed to create folder"); return; }
     setFolders((prev) => [...prev, data]);
     setNewFolderName("");
     setCreatingFolder(false);
-  }, [newFolderName, selectedClient]);
+  }, [newFolderName, selectedClient, viewingFolderId]);
 
   const handleMoveToFolder = useCallback(async (scriptId: string, folderId: string | null) => {
     const { error } = await supabase.from("scripts").update({ folder_id: folderId }).eq("id", scriptId);
@@ -755,6 +788,36 @@ export default function Scripts() {
       toast.error(tr({ en: "Error restoring version", es: "Error al restaurar versión" }, language));
     }
   }, [viewingScriptId, language]);
+
+  // Context menu handlers
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleCtxNewScript = useCallback(() => {
+    setCtxMenu(null);
+    setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink("");
+    setView("new-script");
+  }, []);
+
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => { window.removeEventListener("click", close); window.removeEventListener("scroll", close, true); };
+  }, [ctxMenu]);
+
+  // Load storage files whenever linked video edit changes
+  useEffect(() => {
+    if (linkedVideoEdit) {
+      loadStorageFiles(linkedVideoEdit.client_id, linkedVideoEdit.id);
+    } else {
+      setFootageStorageFiles([]);
+      setSubmissionStorageFiles([]);
+    }
+  }, [linkedVideoEdit?.id]);
 
   // Auth loading
   if (authLoading || subscriptionChecking) {
@@ -893,13 +956,42 @@ export default function Scripts() {
       google_drive_link: script.google_drive_link,
     });
     setViewingScriptId(script.id);
-    setEditingFileSubmission(false);
-    // Load file_submission from linked video_edits record
+    // Load file_submission and linked video_edit record
     try {
-      const { data: videoData } = await supabase.from("video_edits").select("file_submission").eq("script_id", script.id).maybeSingle();
+      const { data: videoData } = await supabase.from("video_edits").select("id, client_id, file_submission, footage, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", script.id).maybeSingle();
       setFileSubmission(videoData?.file_submission || null);
-    } catch { setFileSubmission(null); }
+      setLinkedVideoEdit(videoData ? { id: videoData.id, client_id: videoData.client_id, footage: videoData.footage, file_submission: videoData.file_submission, upload_source: videoData.upload_source, storage_path: videoData.storage_path, storage_url: videoData.storage_url, file_size_bytes: videoData.file_size_bytes } : null);
+    } catch { setFileSubmission(null); setLinkedVideoEdit(null); }
     setView("view-script");
+  };
+
+  const refreshLinkedVideoEdit = async (scriptId: string) => {
+    const { data } = await supabase.from("video_edits").select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", scriptId).maybeSingle();
+    if (data) {
+      setFileSubmission(data.file_submission || null);
+      setLinkedVideoEdit({ id: data.id, client_id: data.client_id, footage: data.footage, file_submission: data.file_submission, upload_source: data.upload_source, storage_path: data.storage_path, storage_url: data.storage_url, file_size_bytes: data.file_size_bytes });
+      await loadStorageFiles(data.client_id, data.id);
+    }
+  };
+
+  const loadStorageFiles = async (clientId: string, videoEditId: string) => {
+    const BUCKET = 'footage';
+    const listAndSign = async (prefix: string) => {
+      const { data } = await supabase.storage.from(BUCKET).list(prefix);
+      if (!data?.length) return [];
+      const files = data.filter(f => f.name && !f.name.endsWith('/'));
+      return Promise.all(files.map(async f => {
+        const path = `${prefix}${f.name}`;
+        const { data: url } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+        return url ? { name: f.name, path, signedUrl: url.signedUrl } : null;
+      })).then(r => r.filter(Boolean) as { name: string; path: string; signedUrl: string }[]);
+    };
+    const [footage, submission] = await Promise.all([
+      listAndSign(`${clientId}/${videoEditId}/`),
+      listAndSign(`${clientId}/${videoEditId}/submission/`),
+    ]);
+    setFootageStorageFiles(footage);
+    setSubmissionStorageFiles(submission);
   };
 
   const handleEditScript = (script: Script) => {
@@ -938,7 +1030,6 @@ export default function Scripts() {
       setViewingCaption("");
       setViewingScriptId(null);
       setEditingScript(null);
-      setEditingDriveLink(false);
     } else if (view === "client-detail") {
       if (urlClientId) {
         // Staff coming from /clients/:clientId/scripts → go back to client detail
@@ -954,8 +1045,10 @@ export default function Scripts() {
       <PageTransition className="flex-1 flex flex-col overflow-hidden">
       {/* Super Planning Canvas — full screen override */}
       {view === "super-planning" && selectedClient && (
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
         <div className="flex-1 overflow-hidden">
           <SuperPlanningCanvas
+            key={selectedClient.id}
             selectedClient={selectedClient}
             remixVideo={remixVideo ?? undefined}
             onCancel={() => {
@@ -964,11 +1057,27 @@ export default function Scripts() {
             }}
           />
         </div>
+        </Suspense>
       )}
       {view !== "super-planning" && (
       <>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" onContextMenu={view === "client-detail" && selectedClient ? handleContextMenu : undefined}>
+      {/* Right-click context menu popup */}
+      {ctxMenu && (
+        <div
+          className="fixed z-[999] animate-in fade-in zoom-in-95 duration-100"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          <button
+            onClick={handleCtxNewScript}
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-card/95 backdrop-blur-md border border-border shadow-xl text-sm font-semibold text-foreground hover:bg-primary/15 hover:text-primary hover:border-primary/30 transition-all"
+          >
+            <FilePlus2 className="w-4 h-4" />
+            New Script
+          </button>
+        </div>
+      )}
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
         {/* Breadcrumb */}
         {view !== "clients" && (isAdmin || isVideographer || view !== "client-detail") && (
@@ -1436,9 +1545,25 @@ export default function Scripts() {
               </>
             ) : (
             (() => {
-              // When inside a folder, show back arrow + folder scripts
-              // When at root, show folder grid + unfiled scripts
+              // When inside a folder, show back arrow + folder scripts + subfolders
+              // When at root, show root folders + unfiled scripts
               const currentFolderObj = folders.find(f => f.id === viewingFolderId);
+
+              // Build breadcrumb trail for nested folders
+              const breadcrumbs: { id: string | null; name: string }[] = [];
+              if (viewingFolderId !== null) {
+                let cur = currentFolderObj;
+                while (cur) {
+                  breadcrumbs.unshift({ id: cur.id, name: cur.name });
+                  cur = cur.parent_id ? folders.find(f => f.id === cur!.parent_id) : undefined;
+                }
+              }
+
+              // Subfolders at current level
+              const childFolders = folders.filter(f =>
+                viewingFolderId === null ? !f.parent_id : f.parent_id === viewingFolderId
+              );
+
               const filtered = scripts.filter((s) => {
                 if (viewingFolderId !== null) {
                   if (s.folder_id !== viewingFolderId) return false;
@@ -1570,27 +1695,41 @@ export default function Scripts() {
 
               return (
                 <>
-                  {/* ── Folder view: back arrow + folder name ── */}
+                  {/* ── Folder view: breadcrumb trail ── */}
                   {viewingFolderId !== null && (
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-1.5 mb-4 flex-wrap">
                       <button
                         onClick={() => setViewingFolderId(null)}
                         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <ChevronLeft className="w-4 h-4" /> Script Vault
+                        <ChevronLeft className="w-4 h-4" /> Scripts
                       </button>
-                      <span className="text-muted-foreground/40">/</span>
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                        <FolderOpen className="w-4 h-4 text-primary" /> {currentFolderObj?.name}
-                      </span>
+                      {breadcrumbs.map((bc, i) => (
+                        <span key={bc.id} className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground/40">/</span>
+                          {i < breadcrumbs.length - 1 ? (
+                            <button
+                              onClick={() => setViewingFolderId(bc.id)}
+                              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {bc.name}
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                              <FolderOpen className="w-4 h-4 text-primary" /> {bc.name}
+                            </span>
+                          )}
+                        </span>
+                      ))}
                     </div>
                   )}
 
-                  {/* ── Root view: glassmorphism folder grid ── */}
-                  {viewingFolderId === null && folders.length > 0 && (
+                  {/* ── Folder grid (shown at root and inside folders when subfolders exist) ── */}
+                  {(childFolders.length > 0 || creatingFolder) && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
-                      {folders.map((f) => {
+                      {childFolders.map((f) => {
                         const count = scripts.filter(s => s.folder_id === f.id).length;
+                        const subCount = folders.filter(sf => sf.parent_id === f.id).length;
                         return (
                           <button
                             key={f.id}
@@ -1601,7 +1740,10 @@ export default function Scripts() {
                             <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
                             <div className="relative z-10 w-full min-w-0">
                               <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
-                              <p className="text-xs text-muted-foreground">{count} script{count !== 1 ? "s" : ""}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {count} script{count !== 1 ? "s" : ""}
+                                {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
+                              </p>
                             </div>
                           </button>
                         );
@@ -1613,7 +1755,7 @@ export default function Scripts() {
                             autoFocus
                             value={newFolderName}
                             onChange={(e) => setNewFolderName(e.target.value)}
-                            placeholder="Folder name"
+                            placeholder={viewingFolderId ? "Subfolder name" : "Folder name"}
                             className="h-7 text-sm bg-transparent border-primary/40"
                             onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
                           />
@@ -1631,22 +1773,6 @@ export default function Scripts() {
                           <span className="text-xs font-medium">New folder</span>
                         </button>
                       )}
-                    </div>
-                  )}
-
-                  {/* ── Folder name input (triggered from toolbar) ── */}
-                  {creatingFolder && folders.length === 0 && viewingFolderId === null && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <Input
-                        autoFocus
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        placeholder="Folder name"
-                        className="h-8 text-sm w-48"
-                        onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
-                      />
-                      <Button size="sm" variant="cta" className="h-8 text-xs" onClick={handleCreateFolder}>Save</Button>
-                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}>Cancel</Button>
                     </div>
                   )}
 
@@ -1752,6 +1878,7 @@ export default function Scripts() {
 
             {/* AI Wizard Mode */}
             {view === "new-script" && aiMode && selectedClient ? (
+              <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
               <AIScriptWizard
                 selectedClient={selectedClient}
                 initialTemplateVideo={remixVideo ?? undefined}
@@ -1796,6 +1923,7 @@ export default function Scripts() {
                 }}
                 onCancel={() => { setAiMode(false); setRemixVideo(null); }}
               />
+              </Suspense>
             ) : (
               <>
                 {/* Legend */}
@@ -2308,115 +2436,240 @@ export default function Scripts() {
               </SortableContext>
             </DndContext>
 
-            {/* Google Drive link at the end */}
-            {viewingMetadata && (<>
+            {/* Footage & File Submission */}
+            {viewingMetadata && (() => {
+              const fmt = (b: number | null | undefined) => {
+                if (!b) return '';
+                if (b >= 1e9) return ` · ${(b / 1e9).toFixed(1)} GB`;
+                if (b >= 1e6) return ` · ${(b / 1e6).toFixed(1)} MB`;
+                return ` · ${(b / 1e3).toFixed(0)} KB`;
+              };
+              const isGDrive = (url: string | null) => !!url && url.includes('drive.google.com');
+              const baseName = (path: string | null) => path ? path.split('/').pop() ?? path : '';
+
+              const createVideoEdit = async (_subfolder: 'footage' | 'submission') => {
+                if (!selectedClient || !viewingScriptId) return;
+                const footageLink = viewingMetadata?.google_drive_link || null;
+                const { data, error } = await supabase.from("video_edits").insert({
+                  client_id: selectedClient.id,
+                  script_id: viewingScriptId,
+                  reel_title: viewingMetadata?.idea_ganadora || "Untitled",
+                  status: "Not started",
+                  script_url: `${window.location.origin}/s/${viewingScriptId}`,
+                  file_url: footageLink || "",
+                  footage: footageLink,
+                  upload_source: footageLink ? 'gdrive' : null,
+                  post_status: "Unpublished",
+                }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                if (error) { toast.error("Failed to create video edit record"); return; }
+                setLinkedVideoEdit({ id: data.id, client_id: data.client_id, footage: data.footage, file_submission: data.file_submission, upload_source: data.upload_source, storage_path: data.storage_path, storage_url: data.storage_url, file_size_bytes: data.file_size_bytes });
+              };
+
+              const FootageCard = ({ url, isVideo, fileName, fileSize, accentColor, onView, onRemove }: { url: string; isVideo: boolean; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => (
+                <div
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card/60 px-3 py-2.5 cursor-pointer hover:border-border/80 transition-colors group"
+                  onClick={onView}
+                >
+                  <div className="w-16 h-11 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+                    {isVideo ? (
+                      <>
+                        <video src={url} muted preload="metadata" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <Play className="w-4 h-4 text-white drop-shadow" />
+                        </div>
+                      </>
+                    ) : (
+                      <Link2 className="w-4 h-4 text-blue-400/70" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${isVideo ? 'bg-green-500/15 text-green-400' : 'bg-cyan-500/15 text-cyan-400'}`}>
+                        {isVideo ? 'Video' : 'Link'}
+                      </span>
+                      {fileSize && <span className="text-[10px] text-muted-foreground">{fileSize}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!isVideo && (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                        onClick={e => e.stopPropagation()}
+                        title="Open link"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button
+                      className="w-7 h-7 rounded-lg border border-destructive/30 flex items-center justify-center text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                      onClick={e => { e.stopPropagation(); onRemove(); }}
+                      title="Remove"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+
+              return (<>
               <div className="mt-6 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-semibold text-green-400">Footage:</span>
                 </div>
-                {editingDriveLink ? (
-                  <div className="flex gap-2">
-                    <Input
-                      value={tempDriveLink}
-                      onChange={(e) => setTempDriveLink(e.target.value)}
-                      placeholder={tr(t.scripts.pasteDriveLink, language)}
-                      className="text-sm h-8 flex-1 min-w-0"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && viewingScriptId) {
-                          updateGoogleDriveLink(viewingScriptId, tempDriveLink);
-                          setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
-                          setEditingDriveLink(false);
-                        }
+                {/* Supabase uploaded files — one card each */}
+                {footageStorageFiles.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mb-2">
+                    {footageStorageFiles.map(f => (
+                      <FootageCard
+                        key={f.path}
+                        url={f.signedUrl}
+                        isVideo={true}
+                        fileName={f.name}
+                        fileSize=""
+                        accentColor="green"
+                        onView={() => { setFootageViewerSubfolder(undefined); setFootageViewerOpen(true); }}
+                        onRemove={async () => {
+                          if (!linkedVideoEdit) return;
+                          if (!confirm(language === "en" ? `Delete "${f.name}"?` : `¿Eliminar "${f.name}"?`)) return;
+                          await supabase.storage.from('footage').remove([f.path]);
+                          await loadStorageFiles(linkedVideoEdit.client_id, linkedVideoEdit.id);
+                          if (footageStorageFiles.length === 1) {
+                            await supabase.from("video_edits").update({ upload_source: null, storage_path: null, storage_url: null }).eq("id", linkedVideoEdit.id);
+                            setLinkedVideoEdit(prev => prev ? { ...prev, upload_source: null, storage_path: null, storage_url: null } : prev);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                {/* GDrive / external link card */}
+                {linkedVideoEdit?.footage && !footageStorageFiles.length && (
+                  <div className="mb-2">
+                    <FootageCard
+                      url={linkedVideoEdit.footage}
+                      isVideo={false}
+                      fileName={linkedVideoEdit.footage}
+                      fileSize=""
+                      accentColor="green"
+                      onView={() => { setFootageViewerSubfolder(undefined); setFootageViewerOpen(true); }}
+                      onRemove={async () => {
+                        if (!confirm(language === "en" ? "Remove this footage?" : "¿Eliminar este footage?")) return;
+                        if (viewingScriptId) await updateGoogleDriveLink(viewingScriptId, "");
+                        await supabase.from("video_edits").update({ footage: null, upload_source: null, storage_path: null }).eq("id", linkedVideoEdit.id);
+                        setLinkedVideoEdit(prev => prev ? { ...prev, footage: null, upload_source: null, storage_path: null } : prev);
+                        setViewingMetadata(prev => prev ? { ...prev, google_drive_link: "" } : prev);
                       }}
                     />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-shrink-0"
-                      onClick={async () => {
-                        if (viewingScriptId) {
-                          await updateGoogleDriveLink(viewingScriptId, tempDriveLink);
-                          setViewingMetadata((prev) => prev ? { ...prev, google_drive_link: tempDriveLink || null } : prev);
-                          setEditingDriveLink(false);
-                        }
-                      }}
-                    >
-                      <Save className="w-3 h-3" />
-                    </Button>
                   </div>
-                ) : viewingMetadata.google_drive_link ? (
-                  <div className="flex items-center gap-2 min-w-0">
-                    <button
-                      onClick={() => window.open(viewingMetadata.google_drive_link!, '_blank', 'noopener,noreferrer')}
-                      className="text-sm text-green-400 hover:underline break-all text-left min-w-0"
-                    >
-                      {viewingMetadata.google_drive_link}
-                    </button>
-                    <Button size="sm" variant="ghost" className="flex-shrink-0" onClick={() => { setTempDriveLink(viewingMetadata.google_drive_link || ""); setEditingDriveLink(true); }}>
-                      <Pencil className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                   <button onClick={() => { setTempDriveLink(""); setEditingDriveLink(true); }} className="text-sm text-muted-foreground hover:text-foreground">{tr(t.scripts.addLink, language)}</button>
+                )}
+                {linkedVideoEdit ? (
+                  <FootageUploadDialog
+                    videoEditId={linkedVideoEdit.id}
+                    clientId={linkedVideoEdit.client_id}
+                    onComplete={async () => { if (viewingScriptId) await refreshLinkedVideoEdit(viewingScriptId); }}
+                    onDriveLinkSaved={async (url) => { if (viewingScriptId) { await updateGoogleDriveLink(viewingScriptId, url); await refreshLinkedVideoEdit(viewingScriptId); setViewingMetadata(prev => prev ? { ...prev, google_drive_link: url } : prev); } }}
+                    currentFootageUrl={linkedVideoEdit.footage}
+                  />
+                ) : selectedClient && viewingScriptId && (
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => createVideoEdit('footage')}>
+                    <Plus className="h-3 w-3" />{language === "en" ? "Add Footage" : "Agregar Footage"}
+                  </Button>
                 )}
               </div>
 
               {/* File Submission */}
               <div className="mt-4 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-[#22d3ee]" />
                   <span className="text-sm font-semibold text-[#22d3ee]">File Submission:</span>
                 </div>
-                {editingFileSubmission ? (
-                  <div className="flex gap-2">
-                    <Input
-                      value={tempFileSubmission}
-                      onChange={(e) => setTempFileSubmission(e.target.value)}
-                      placeholder="Paste file submission URL (Google Drive)"
-                      className="text-sm h-8 flex-1 min-w-0"
-                      onKeyDown={async (e) => {
-                        if (e.key === "Enter" && viewingScriptId) {
-                          await supabase.from("video_edits").update({ file_submission: tempFileSubmission || null }).eq("script_id", viewingScriptId);
-                          setFileSubmission(tempFileSubmission || null);
-                          setEditingFileSubmission(false);
-                          toast.success("File submission saved");
-                        }
+                {/* Supabase submission files — one card each */}
+                {submissionStorageFiles.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mb-2">
+                    {submissionStorageFiles.map(f => (
+                      <FootageCard
+                        key={f.path}
+                        url={f.signedUrl}
+                        isVideo={true}
+                        fileName={f.name}
+                        fileSize=""
+                        accentColor="cyan"
+                        onView={() => { setFootageViewerSubfolder('submission'); setFootageViewerOpen(true); }}
+                        onRemove={async () => {
+                          if (!linkedVideoEdit) return;
+                          if (!confirm(language === "en" ? `Delete "${f.name}"?` : `¿Eliminar "${f.name}"?`)) return;
+                          await supabase.storage.from('footage').remove([f.path]);
+                          await loadStorageFiles(linkedVideoEdit.client_id, linkedVideoEdit.id);
+                          if (submissionStorageFiles.length === 1) {
+                            await supabase.from("video_edits").update({ file_submission: null }).eq("id", linkedVideoEdit.id);
+                            setFileSubmission(null);
+                            setLinkedVideoEdit(prev => prev ? { ...prev, file_submission: null } : prev);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                {/* GDrive submission link card */}
+                {fileSubmission && isGDrive(fileSubmission) && !submissionStorageFiles.length && (
+                  <div className="mb-2">
+                    <FootageCard
+                      url={fileSubmission}
+                      isVideo={false}
+                      fileName={fileSubmission}
+                      fileSize=""
+                      accentColor="cyan"
+                      onView={() => { setFootageViewerSubfolder('submission'); setFootageViewerOpen(true); }}
+                      onRemove={async () => {
+                        if (!linkedVideoEdit) return;
+                        if (!confirm(language === "en" ? "Remove this file submission?" : "¿Eliminar este archivo?")) return;
+                        await supabase.from("video_edits").update({ file_submission: null }).eq("id", linkedVideoEdit.id);
+                        setFileSubmission(null);
+                        setLinkedVideoEdit(prev => prev ? { ...prev, file_submission: null } : prev);
+                        toast.success(language === "en" ? "Removed" : "Eliminado");
                       }}
                     />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-shrink-0"
-                      onClick={async () => {
-                        if (viewingScriptId) {
-                          await supabase.from("video_edits").update({ file_submission: tempFileSubmission || null }).eq("script_id", viewingScriptId);
-                          setFileSubmission(tempFileSubmission || null);
-                          setEditingFileSubmission(false);
-                          toast.success("File submission saved");
-                        }
-                      }}
-                    >
-                      <Save className="w-3 h-3" />
-                    </Button>
                   </div>
-                ) : fileSubmission ? (
-                  <div className="flex items-center gap-2 min-w-0">
-                    <button
-                      onClick={() => window.open(fileSubmission!, '_blank', 'noopener,noreferrer')}
-                      className="text-sm text-[#22d3ee] hover:underline break-all text-left min-w-0"
-                    >
-                      {fileSubmission}
-                    </button>
-                    <Button size="sm" variant="ghost" className="flex-shrink-0" onClick={() => { setTempFileSubmission(fileSubmission || ""); setEditingFileSubmission(true); }}>
-                      <Pencil className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setTempFileSubmission(""); setEditingFileSubmission(true); }} className="text-sm text-muted-foreground hover:text-foreground">+ Add file submission</button>
+                )}
+                {linkedVideoEdit ? (
+                  <FootageUploadDialog
+                    videoEditId={linkedVideoEdit.id}
+                    clientId={linkedVideoEdit.client_id}
+                    onComplete={async () => { if (viewingScriptId) await refreshLinkedVideoEdit(viewingScriptId); }}
+                    currentFileSubmissionUrl={linkedVideoEdit.file_submission}
+                    subfolder="submission"
+                  />
+                ) : selectedClient && viewingScriptId && (
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => createVideoEdit('submission')}>
+                    <Plus className="h-3 w-3" />{language === "en" ? "Add File" : "Agregar Archivo"}
+                  </Button>
                 )}
               </div>
-            </>)}
+
+              {/* Footage viewer modal */}
+              {linkedVideoEdit && (
+                <FootageViewerModal
+                  open={footageViewerOpen}
+                  onClose={() => setFootageViewerOpen(false)}
+                  title={viewingMetadata?.idea_ganadora ?? ""}
+                  videoEditId={linkedVideoEdit.id}
+                  clientId={linkedVideoEdit.client_id}
+                  footageUrl={linkedVideoEdit.footage}
+                  fileSubmissionUrl={linkedVideoEdit.file_submission}
+                  uploadSource={linkedVideoEdit.upload_source}
+                  storagePath={linkedVideoEdit.storage_path}
+                  storageUrl={linkedVideoEdit.storage_url}
+                  subfolder={footageViewerSubfolder}
+                  onComplete={async () => { if (viewingScriptId) await refreshLinkedVideoEdit(viewingScriptId); }}
+                />
+              )}
+              </>);
+            })()}
             </>
             )}
 
@@ -2465,11 +2718,15 @@ export default function Scripts() {
       </main>
 
       {showTeleprompter && (
+        <Suspense fallback={null}>
         <Teleprompter lines={parsedLines} onClose={() => setShowTeleprompter(false)} showRecorder={showRecorder} onToggleRecorder={() => setShowRecorder((p) => !p)} scriptTitle={viewingMetadata?.idea_ganadora || scriptTitle || undefined} />
+        </Suspense>
       )}
 
       {showRecorder && !showTeleprompter && (
+        <Suspense fallback={null}>
         <VideoRecorder pip scriptTitle={viewingMetadata?.idea_ganadora || scriptTitle || undefined} onClose={() => setShowRecorder(false)} />
+        </Suspense>
       )}
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
