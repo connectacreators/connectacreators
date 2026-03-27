@@ -45,12 +45,35 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
     }
 
     const checkAndReconcile = async () => {
-      // Step 1: Query clients table
-      const { data, error } = await supabase
-        .from("clients")
-        .select("subscription_status, plan_type")
-        .eq("user_id", user.id)
+      // Step 1: Query primary client via junction table
+      let data: { subscription_status: string | null; plan_type: string | null } | null = null;
+      let error: any = null;
+
+      const { data: link } = await supabase
+        .from("subscriber_clients")
+        .select("client_id")
+        .eq("subscriber_user_id", user.id)
+        .eq("is_primary", true)
         .maybeSingle();
+
+      if (link?.client_id) {
+        const result = await supabase
+          .from("clients")
+          .select("subscription_status, plan_type")
+          .eq("id", link.client_id)
+          .single();
+        data = result.data;
+        error = result.error;
+      } else {
+        // Fallback: direct user_id lookup
+        const result = await supabase
+          .from("clients")
+          .select("subscription_status, plan_type")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error("Error fetching subscription:", error);
@@ -79,12 +102,15 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
               headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
             });
 
-            // Step 3: Re-query after reconciliation
-            const { data: refreshed } = await supabase
-              .from("clients")
-              .select("subscription_status, plan_type")
-              .eq("user_id", user.id)
-              .maybeSingle();
+            // Step 3: Re-query after reconciliation (use same primary client lookup)
+            let refreshed: { subscription_status: string | null; plan_type: string | null } | null = null;
+            if (link?.client_id) {
+              const r = await supabase.from("clients").select("subscription_status, plan_type").eq("id", link.client_id).single();
+              refreshed = r.data;
+            } else {
+              const r = await supabase.from("clients").select("subscription_status, plan_type").eq("user_id", user.id).maybeSingle();
+              refreshed = r.data;
+            }
 
             if (refreshed && isValidStatus(refreshed.subscription_status) && refreshed.plan_type) {
               setHasValidSubscription(true);

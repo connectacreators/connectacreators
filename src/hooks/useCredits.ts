@@ -36,11 +36,35 @@ export function useCredits() {
     setLoading(true);
     setError(null);
     try {
-      const { data: clientData, error: clientError } = await supabase
-        .from("clients")
-        .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at")
-        .eq("user_id", user.id)
+      // Look up primary client via junction table first
+      let clientData: any = null;
+      let clientError: any = null;
+
+      const { data: link } = await supabase
+        .from("subscriber_clients")
+        .select("client_id")
+        .eq("subscriber_user_id", user.id)
+        .eq("is_primary", true)
         .maybeSingle();
+
+      if (link?.client_id) {
+        const result = await supabase
+          .from("clients")
+          .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at")
+          .eq("id", link.client_id)
+          .single();
+        clientData = result.data;
+        clientError = result.error;
+      } else {
+        // Fallback: direct user_id lookup
+        const result = await supabase
+          .from("clients")
+          .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        clientData = result.data;
+        clientError = result.error;
+      }
       if (clientError) throw clientError;
       if (clientData) {
         setCredits({
