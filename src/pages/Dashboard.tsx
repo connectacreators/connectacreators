@@ -97,18 +97,7 @@ export default function Dashboard() {
   const isStaff = isAdmin || isVideographer;
   const isClientRole = !isAdmin && !isVideographer && !isEditor && !isUser;
   const isSubscriber = userPlanType === "free" || userPlanType === "starter" || userPlanType === "growth" || userPlanType === "enterprise";
-  const showClientSelector = isAdmin || isVideographer;
-
-  // Reset stale viewMode for isUser (subscribers) — they don't manage multiple clients
-  useEffect(() => {
-    if (isUser && !isAdmin && !isVideographer && !isEditor) {
-      const stored = localStorage.getItem("dashboard_viewMode");
-      if (stored && stored !== "master" && stored !== "me") {
-        localStorage.setItem("dashboard_viewMode", "master");
-        setViewMode("master");
-      }
-    }
-  }, [isUser, isAdmin, isVideographer, isEditor]);
+  const showClientSelector = isAdmin || isVideographer || isUser;
 
   // Listen for viewMode changes from sidebar
   useEffect(() => {
@@ -120,30 +109,63 @@ export default function Dashboard() {
     return () => window.removeEventListener("viewModeChanged", handler);
   }, []);
 
-  // Fetch own client record for all roles (for "Me" mode)
+  // Fetch own client record via junction table (for "Me" mode)
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
+      .from("subscriber_clients")
+      .select("client_id")
+      .eq("subscriber_user_id", user.id)
+      .eq("is_primary", true)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setOwnClientId(data.id);
+        if (data?.client_id) {
+          setOwnClientId(data.client_id);
+        } else {
+          // Fallback: direct user_id lookup
+          supabase
+            .from("clients")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle()
+            .then(({ data: fallback }) => {
+              if (fallback) setOwnClientId(fallback.id);
+            });
+        }
       });
   }, [user]);
 
   // Fetch clients list for selector
   useEffect(() => {
     if (!user || !showClientSelector) return;
-    supabase
-      .from("clients")
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setClients(data);
-      });
-  }, [user, showClientSelector]);
+
+    if (isUser) {
+      // Subscribers: fetch via junction table
+      supabase
+        .from("subscriber_clients")
+        .select("client_id, is_primary, clients(id, name)")
+        .eq("subscriber_user_id", user.id)
+        .order("is_primary", { ascending: false })
+        .order("created_at")
+        .then(({ data }) => {
+          if (data) {
+            setClients(data.map((d: any) => ({
+              id: d.clients.id,
+              name: d.clients.name,
+            })));
+          }
+        });
+    } else {
+      // Admin/videographer: existing fetch
+      supabase
+        .from("clients")
+        .select("id, name")
+        .order("name")
+        .then(({ data }) => {
+          if (data) setClients(data);
+        });
+    }
+  }, [user, showClientSelector, isUser]);
 
   // Sync plan type from subscription guard (no duplicate edge function call)
   useEffect(() => {
@@ -168,6 +190,30 @@ export default function Dashboard() {
     } else {
       // Auto-initialize free tier for new users (no paywall)
       const initFreeTier = async () => {
+        // Check for existing client row first to avoid duplicates
+        // Use ownClientId if already resolved, otherwise look up
+        let existing: any = null;
+        if (ownClientId) {
+          const { data } = await supabase
+            .from("clients")
+            .select("id, plan_type")
+            .eq("id", ownClientId)
+            .maybeSingle();
+          existing = data;
+        } else {
+          const { data } = await supabase
+            .from("clients")
+            .select("id, plan_type")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          existing = data;
+        }
+
+        if (existing) {
+          setUserPlanType(existing.plan_type || "free");
+          return;
+        }
+
         const { error } = await supabase.from("clients").insert({
           user_id: user.id,
           name: user.user_metadata?.full_name || user.email,
@@ -186,12 +232,10 @@ export default function Dashboard() {
           setUserPlanType("free");
         } else if (error.code === "23505") {
           // Row already exists (race condition) — just fetch and use it
-          const { data: existing } = await supabase
-            .from("clients")
-            .select("plan_type")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          setUserPlanType(existing?.plan_type || "free");
+          const { data: raceExisting } = ownClientId
+            ? await supabase.from("clients").select("plan_type").eq("id", ownClientId).maybeSingle()
+            : await supabase.from("clients").select("plan_type").eq("user_id", user.id).maybeSingle();
+          setUserPlanType(raceExisting?.plan_type || "free");
         } else {
           console.error("Failed to initialize free tier:", error);
           setUserPlanType("free");
@@ -199,7 +243,7 @@ export default function Dashboard() {
       };
       initFreeTier();
     }
-  }, [subscriptionChecking, subscriptionData, user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, navigate, welcomePlan]);
+  }, [subscriptionChecking, subscriptionData, user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, navigate, welcomePlan, ownClientId]);
 
   // Reset folder when switching view mode
   useEffect(() => {
