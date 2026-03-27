@@ -44,6 +44,9 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [clientLimit, setClientLimit] = useState(5);
+  const [addingClient, setAddingClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
 
   // Sync viewMode when URL contains a client ID (e.g. navigating from Clients list)
   useEffect(() => {
@@ -100,6 +103,19 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         .then(({ data }) => { if (data) setClients(data); });
     }
   }, [user, showClientSelector, isUser]);
+
+  // Fetch subscriber client limit
+  useEffect(() => {
+    if (!user || !isUser) return;
+    supabase
+      .from("subscriptions")
+      .select("client_limit")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.client_limit) setClientLimit(data.client_limit);
+      });
+  }, [user, isUser]);
 
   // Close selector on outside click (check both trigger area and portal dropdown)
   useEffect(() => {
@@ -290,6 +306,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           >
             <Users className="w-4 h-4 text-[#888888] flex-shrink-0" />
             <span className="flex-1 text-left truncate text-[#cccccc]">{selectedClientName}</span>
+            {isUser && (
+              <span style={{ fontSize: 10, color: '#888', marginRight: 4 }}>
+                {clients.length}/{clientLimit}
+              </span>
+            )}
             <ChevronDown className={`w-3.5 h-3.5 text-[#888888] transition-transform duration-200 ${clientSelectorOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
@@ -416,7 +437,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 8px rgba(99,102,241,0.12)' }}>
                 <UserCircle className="w-3.5 h-3.5 text-indigo-400" />
               </div>
-              <span className="text-sm font-medium text-foreground flex-1">Me</span>
+              <span className="text-sm font-medium text-foreground flex-1">Me {isUser && <span style={{ fontSize: 9, color: '#22d3ee', marginLeft: 4 }}>PRIMARY</span>}</span>
               {viewMode === "me" && <Check className="w-3.5 h-3.5 text-primary" />}
             </button>
           )}
@@ -445,6 +466,108 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               </button>
             ))}
           </div>
+
+          {/* Subscriber: Add Client */}
+          {isUser && !addingClient && clients.length < clientLimit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setAddingClient(true); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-b-xl"
+              style={{ color: '#22d3ee' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              <span style={{ fontSize: 16 }}>+</span>
+              <span className="flex-1 text-left">{language === "en" ? "Add Client" : "Agregar Cliente"}</span>
+              <span style={{ fontSize: 10, color: '#666' }}>{clientLimit - clients.length} left</span>
+            </button>
+          )}
+
+          {isUser && addingClient && (
+            <div className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+              <input
+                autoFocus
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder={language === "en" ? "Client name..." : "Nombre del cliente..."}
+                className="w-full px-2 py-1.5 rounded-md text-sm text-white bg-[rgba(255,255,255,0.08)] border border-[rgba(34,211,238,0.3)] outline-none"
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && newClientName.trim()) {
+                    const { data: newClient, error } = await supabase
+                      .from("clients")
+                      .insert({ name: newClientName.trim(), owner_user_id: user!.id })
+                      .select("id")
+                      .single();
+                    if (!error && newClient) {
+                      await supabase.from("subscriber_clients").insert({
+                        subscriber_user_id: user!.id,
+                        client_id: newClient.id,
+                        is_primary: false,
+                      });
+                      handleViewModeChange(newClient.id);
+                      setNewClientName("");
+                      setAddingClient(false);
+                      // Re-fetch client list
+                      supabase
+                        .from("subscriber_clients")
+                        .select("client_id, is_primary, clients(id, name)")
+                        .eq("subscriber_user_id", user!.id)
+                        .order("is_primary", { ascending: false })
+                        .order("created_at")
+                        .then(({ data }) => {
+                          if (data) setClients(data.map((d: any) => ({ id: d.clients.id, name: d.clients.name })));
+                        });
+                    }
+                  }
+                  if (e.key === "Escape") {
+                    setNewClientName("");
+                    setAddingClient(false);
+                  }
+                }}
+              />
+              <div className="flex gap-1 mt-1">
+                <button
+                  onClick={async () => {
+                    if (!newClientName.trim()) return;
+                    const { data: newClient, error } = await supabase
+                      .from("clients")
+                      .insert({ name: newClientName.trim(), owner_user_id: user!.id })
+                      .select("id")
+                      .single();
+                    if (!error && newClient) {
+                      await supabase.from("subscriber_clients").insert({
+                        subscriber_user_id: user!.id,
+                        client_id: newClient.id,
+                        is_primary: false,
+                      });
+                      handleViewModeChange(newClient.id);
+                      setNewClientName("");
+                      setAddingClient(false);
+                    }
+                  }}
+                  className="flex-1 py-1 text-xs font-semibold rounded-md"
+                  style={{ background: '#22d3ee', color: 'black' }}
+                >
+                  {language === "en" ? "Create" : "Crear"}
+                </button>
+                <button
+                  onClick={() => { setNewClientName(""); setAddingClient(false); }}
+                  className="flex-1 py-1 text-xs rounded-md"
+                  style={{ background: 'rgba(255,255,255,0.08)', color: '#888' }}
+                >
+                  {language === "en" ? "Cancel" : "Cancelar"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isUser && clients.length >= clientLimit && (
+            <div className="px-3 py-2 text-xs text-center rounded-b-xl" style={{ color: '#888' }}>
+              {language === "en" ? "Client limit reached — " : "Límite alcanzado — "}
+              <a href="/subscription" style={{ color: '#22d3ee' }}>
+                {language === "en" ? "upgrade" : "mejorar plan"}
+              </a>
+            </div>
+          )}
         </div>,
         document.body
       )}
