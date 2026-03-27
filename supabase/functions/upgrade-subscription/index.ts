@@ -9,21 +9,34 @@ const corsHeaders = {
 };
 
 const PLAN_PRICE_MAP: Record<string, string> = {
-  starter: "price_1T1x9fCp1qPE081LEf73Op0m",
-  growth: "price_1T1x9zCp1qPE081LIVsbMuUG",
-  enterprise: "price_1T1xADCp1qPE081LU9NP8EE3",
+  starter: Deno.env.get("STRIPE_PRICE_STARTER") || "price_1TCX3SCp1qPE081LCBJc8avw",
+  growth: Deno.env.get("STRIPE_PRICE_GROWTH") || "price_1TCX3SCp1qPE081LSkPmF8FN",
+  enterprise: Deno.env.get("STRIPE_PRICE_ENTERPRISE") || "price_1TCX3SCp1qPE081LODOQradO",
 };
 
-const PLAN_CONFIG: Record<string, { script_limit: number; lead_tracker_enabled: boolean; facebook_integration_enabled: boolean }> = {
-  starter: { script_limit: 75, lead_tracker_enabled: false, facebook_integration_enabled: false },
-  growth: { script_limit: 200, lead_tracker_enabled: false, facebook_integration_enabled: false },
-  enterprise: { script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true },
+const PLAN_CONFIG: Record<string, { script_limit: number; lead_tracker_enabled: boolean; facebook_integration_enabled: boolean; credits_monthly_cap: number }> = {
+  starter: { script_limit: 75, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 10000 },
+  growth: { script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 30000 },
+  enterprise: { script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 75000 },
 };
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[UPGRADE-SUBSCRIPTION] ${step}${detailsStr}`);
 };
+
+async function getPrimaryClientId(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await adminClient
+    .from("subscriber_clients")
+    .select("client_id")
+    .eq("subscriber_user_id", userId)
+    .eq("is_primary", true)
+    .maybeSingle();
+  return data?.client_id ?? null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,10 +72,14 @@ serve(async (req) => {
     logStep("Upgrade requested", { new_plan_type });
 
     // Get stripe_customer_id from clients table
+    const primaryClientId = await getPrimaryClientId(supabaseClient, user.id);
+    if (!primaryClientId) {
+      throw new Error("No client record found for this user");
+    }
     const { data: clientData, error: clientError } = await supabaseClient
       .from("clients")
       .select("stripe_customer_id, plan_type")
-      .eq("user_id", user.id)
+      .eq("id", primaryClientId)
       .single();
 
     if (clientError || !clientData?.stripe_customer_id) {
@@ -120,10 +137,19 @@ serve(async (req) => {
       .update({
         plan_type: new_plan_type,
         script_limit: config.script_limit,
+        credits_monthly_cap: config.credits_monthly_cap,
         lead_tracker_enabled: config.lead_tracker_enabled,
         facebook_integration_enabled: config.facebook_integration_enabled,
         subscription_status: "active",
       })
+      .eq("id", primaryClientId);
+
+    // Update client_limit on subscriptions table
+    const CLIENT_LIMITS: Record<string, number> = {
+      starter: 5, growth: 10, enterprise: 20, connecta_dfy: 1, connecta_plus: 1
+    };
+    await supabaseClient.from("subscriptions")
+      .update({ client_limit: CLIENT_LIMITS[new_plan_type] || 1 })
       .eq("user_id", user.id);
 
     logStep("Client record updated", { new_plan_type, ...config });

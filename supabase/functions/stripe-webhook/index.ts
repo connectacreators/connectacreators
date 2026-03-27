@@ -38,7 +38,7 @@ const PRODUCT_PLAN_MAP: Record<string, string> = {
   "prod_Tzx4OBg3PpYuES": "enterprise",
 };
 
-const TRIAL_CREDITS = 250;
+const TRIAL_CREDITS = 1000;
 
 function getDbStatus(sub: Stripe.Subscription): string {
   if (sub.cancel_at_period_end && sub.status === "active") return "canceling";
@@ -56,9 +56,18 @@ async function getClientBySubscription(
   adminClient: ReturnType<typeof createClient>,
   sub: Stripe.Subscription
 ): Promise<string | null> {
-  // Primary: look up by supabase_user_id in subscription metadata
+  // Primary: metadata.supabase_user_id → subscriber_clients → primary client
   const userId = sub.metadata?.supabase_user_id;
   if (userId) {
+    const { data: link } = await adminClient
+      .from("subscriber_clients")
+      .select("client_id")
+      .eq("subscriber_user_id", userId)
+      .eq("is_primary", true)
+      .maybeSingle();
+    if (link?.client_id) return link.client_id;
+
+    // Fallback: direct user_id match on clients (for legacy data)
     const { data } = await adminClient
       .from("clients")
       .select("id")
@@ -67,7 +76,7 @@ async function getClientBySubscription(
     if (data?.id) return data.id;
   }
 
-  // Fallback: look up by stripe_customer_id
+  // Fallback: stripe_customer_id
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
   if (customerId) {
     const { data } = await adminClient
@@ -141,7 +150,7 @@ async function syncSubscription(
     const isTrial = sub.status === "trialing";
     const grantAmount = isTrial ? 250 : planCfg.credits_monthly_cap;
     if (isTrial) {
-      clientUpdate.credits_monthly_cap = 250;
+      clientUpdate.credits_monthly_cap = 1000;
     }
     clientUpdate.credits_balance = grantAmount;
     clientUpdate.credits_used = 0;
@@ -194,6 +203,28 @@ async function syncSubscription(
     }, { onConflict: "email" });
   } catch (syncErr) {
     logStep("WARNING: subscriptions table sync failed (non-fatal)", { error: String(syncErr) });
+  }
+
+  // Ensure subscriber_clients junction entry exists
+  if (isNew && userId && clientId) {
+    try {
+      await adminClient.from("subscriber_clients").upsert({
+        subscriber_user_id: userId,
+        client_id: clientId,
+        is_primary: true,
+      }, { onConflict: "subscriber_user_id,client_id" });
+
+      // Set client_limit on subscriptions
+      const CLIENT_LIMITS: Record<string, number> = {
+        starter: 5, growth: 10, enterprise: 20, connecta_dfy: 1, connecta_plus: 1
+      };
+      await adminClient.from("subscriptions")
+        .update({ client_limit: CLIENT_LIMITS[planType] || 1 })
+        .eq("user_id", userId);
+      logStep("Created subscriber_clients junction entry", { userId, clientId });
+    } catch (junctionErr) {
+      logStep("WARNING: junction entry creation failed (non-fatal)", { error: String(junctionErr) });
+    }
   }
 
   // Assign 'user' role if needed
@@ -324,7 +355,7 @@ serve(async (req) => {
           .eq("id", clientId)
           .maybeSingle();
 
-        const isPostTrial = currentClient?.subscription_status === "trialing" || currentClient?.credits_monthly_cap === 250;
+        const isPostTrial = currentClient?.subscription_status === "trialing" || (currentClient?.credits_monthly_cap != null && currentClient.credits_monthly_cap < planCfg.credits_monthly_cap);
 
         if (isPostTrial) {
           // First charge after trial — grant full plan credits

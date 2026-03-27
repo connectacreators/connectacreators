@@ -32,6 +32,19 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+async function getPrimaryClientId(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await adminClient
+    .from("subscriber_clients")
+    .select("client_id")
+    .eq("subscriber_user_id", userId)
+    .eq("is_primary", true)
+    .maybeSingle();
+  return data?.client_id ?? null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -167,14 +180,13 @@ serve(async (req) => {
 
       if (planData) {
         const subscriptionStatus = subscription.status === "trialing" ? "trialing" : "active";
-        const TRIAL_CREDITS = 250;
+        const TRIAL_CREDITS = 1000;
 
         // Check current credits state FIRST
-        const { data: clientRow } = await supabaseClient
-          .from("clients")
-          .select("id, credits_balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        const primaryClientId = await getPrimaryClientId(supabaseClient, user.id);
+        const { data: clientRow } = primaryClientId
+          ? await supabaseClient.from("clients").select("id, credits_balance").eq("id", primaryClientId).maybeSingle()
+          : { data: null };
 
         const currentBalance = clientRow?.credits_balance ?? 0;
         const needsCredits = currentBalance === 0;
@@ -194,8 +206,10 @@ serve(async (req) => {
           stripe_customer_id: customerId,
         };
 
-        // During trial, preserve trial credit cap (250). Don't overwrite with full plan amount.
-        if (!isTrial) {
+        // During trial, set trial credit cap. After trial, set full plan amount.
+        if (isTrial) {
+          clientUpdate.credits_monthly_cap = TRIAL_CREDITS;
+        } else {
           clientUpdate.credits_monthly_cap = planData.credits_monthly_cap;
         }
 
@@ -206,10 +220,10 @@ serve(async (req) => {
           clientUpdate.credits_reset_at = new Date(subscription.current_period_end * 1000).toISOString();
         }
 
-        const { error: updateError } = await supabaseClient
-          .from("clients")
-          .update(clientUpdate)
-          .eq("user_id", user.id);
+        const updateTarget = primaryClientId || clientRow?.id;
+        const { error: updateError } = updateTarget
+          ? await supabaseClient.from("clients").update(clientUpdate).eq("id", updateTarget)
+          : { error: { message: "No client to update" } };
 
         if (updateError) {
           logStep("ERROR updating client", { error: updateError.message });
@@ -281,10 +295,13 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!manualSub?.is_manually_assigned) {
-        await supabaseClient
-          .from("clients")
-          .update({ subscription_status: "inactive" })
-          .eq("user_id", user.id);
+        const inactivePrimaryId = await getPrimaryClientId(supabaseClient, user.id);
+        if (inactivePrimaryId) {
+          await supabaseClient
+            .from("clients")
+            .update({ subscription_status: "inactive" })
+            .eq("id", inactivePrimaryId);
+        }
         logStep("Marked client as inactive (no manual sub)");
       } else {
         logStep("Skipping inactive update — user has manual subscription", { status: manualSub.status });
