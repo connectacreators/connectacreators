@@ -14,7 +14,7 @@ import {
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock,
 } from "lucide-react";
 
-import connectaHorseLogo from "@/assets/connecta-horse-logo.png";
+import connectaTextLogo from "@/assets/connecta-logo-text-light.png";
 
 interface Props {
   sidebarOpen: boolean;
@@ -43,31 +43,63 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const selectorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // Fetch own client record (for user and client roles)
+  // Sync viewMode when URL contains a client ID (e.g. navigating from Clients list)
+  useEffect(() => {
+    const match = currentPath.match(/^\/clients\/([^/]+)/);
+    if (match) {
+      const urlClientId = match[1];
+      if (urlClientId && urlClientId !== viewMode) {
+        setViewMode(urlClientId);
+        localStorage.setItem("dashboard_viewMode", urlClientId);
+      }
+    }
+  }, [currentPath]);
+
+  // Fetch own client record via junction table
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
+      .from("subscriber_clients")
+      .select("client_id")
+      .eq("subscriber_user_id", user.id)
+      .eq("is_primary", true)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setOwnClientId(data.id);
+        if (data?.client_id) {
+          setOwnClientId(data.client_id);
+        } else {
+          supabase.from("clients").select("id").eq("user_id", user.id).maybeSingle()
+            .then(({ data: fb }) => { if (fb) setOwnClientId(fb.id); });
+        }
       });
   }, [user]);
 
   // Fetch clients list for selector
   useEffect(() => {
     if (!user || !showClientSelector) return;
-    supabase
-      .from("clients")
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setClients(data);
-      });
-  }, [user, showClientSelector]);
+
+    if (isUser) {
+      supabase
+        .from("subscriber_clients")
+        .select("client_id, is_primary, clients(id, name)")
+        .eq("subscriber_user_id", user.id)
+        .order("is_primary", { ascending: false })
+        .order("created_at")
+        .then(({ data }) => {
+          if (data) {
+            setClients(data.map((d: any) => ({
+              id: d.clients.id,
+              name: d.clients.name,
+            })));
+          }
+        });
+    } else {
+      supabase.from("clients").select("id, name").order("name")
+        .then(({ data }) => { if (data) setClients(data); });
+    }
+  }, [user, showClientSelector, isUser]);
 
   // Close selector on outside click (check both trigger area and portal dropdown)
   useEffect(() => {
@@ -179,13 +211,16 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       ];
     }
     if (isUser) {
+      const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
-        { label: "Connecta AI", icon: Bot, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
-        { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
-        { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
-        { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
-        ...(ownClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${ownClientId}/booking-settings` }] : []),
+        { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
+        { label: "Connecta AI", icon: Bot, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+        { label: tr(t.dashboard.scripts, language), icon: FileText, path: selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts" },
+        { label: "Editing Queue", icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue" },
+        { label: "Content Calendar", icon: Calendar, path: selectedClientId ? `/clients/${selectedClientId}/content-calendar` : "/content-calendar" },
+        ...(selectedClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${selectedClientId}/booking-settings` }] : []),
+        { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
@@ -216,17 +251,17 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full lg:w-0 lg:translate-x-0 lg:overflow-hidden"
       } fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
-      <div className="flex items-center gap-2 px-4 py-5 border-b border-[rgba(8,145,178,0.10)] relative z-10">
+      <div className="flex items-center gap-2 px-4 py-5 border-b border-[rgba(255,255,255,0.06)] relative z-10">
         <button onClick={() => navigate("/")} className="focus:outline-none">
           <img
-            src={connectaHorseLogo}
+            src={connectaTextLogo}
             alt="Connecta"
-            className="h-8 object-contain hover:opacity-80 transition-opacity"
+            className="h-6 object-contain hover:opacity-80 transition-opacity"
           />
         </button>
         <button
           onClick={() => setSidebarOpen(false)}
-          className="ml-auto text-[#4a7080] hover:text-[#94a3b8] transition-colors"
+          className="ml-auto text-[#888888] hover:text-[#dddddd] transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -240,27 +275,27 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             onClick={() => setClientSelectorOpen(v => !v)}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden"
             style={{
-              background: 'rgba(8,145,178,0.06)',
-              border: '1px solid rgba(8,145,178,0.15)',
-              boxShadow: 'inset 0 1px 0 rgba(8,145,178,0.08)',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: 'none',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(8,145,178,0.10)';
-              e.currentTarget.style.borderColor = 'rgba(8,145,178,0.25)';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(8,145,178,0.06)';
-              e.currentTarget.style.borderColor = 'rgba(8,145,178,0.15)';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
             }}
           >
-            <Users className="w-4 h-4 text-[#4a7080] flex-shrink-0" />
-            <span className="flex-1 text-left truncate text-[#b0cad8]">{selectedClientName}</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-[#4a7080] transition-transform duration-200 ${clientSelectorOpen ? 'rotate-180' : ''}`} />
+            <Users className="w-4 h-4 text-[#888888] flex-shrink-0" />
+            <span className="flex-1 text-left truncate text-[#cccccc]">{selectedClientName}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-[#888888] transition-transform duration-200 ${clientSelectorOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       )}
 
-      <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10">
+      <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10" onMouseLeave={() => setHoveredItem(null)}>
         {navItems.map((item) => {
           const currentPathname = currentPath.split("?")[0];
           const itemPathname = item.path.split("?")[0];
@@ -270,37 +305,45 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             : itemPathname === currentPathname && !navItems.some(
                 other => other !== item && other.path.split("?")[0] === itemPathname && other.path === currentPath
               );
+          const isHovered = hoveredItem === item.label;
+          // When something is hovered, only the hovered item shows active; otherwise the real active item does
+          const showActive = hoveredItem ? isHovered : isActive;
           return (
             <button
               key={item.label}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                isActive
-                  ? "text-[#a3e635]"
-                  : "text-[#7b919f] hover:text-[#b0cad8] hover:bg-[rgba(8,145,178,0.06)]"
+              onMouseEnter={() => setHoveredItem(item.label)}
+              className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative ${
+                showActive ? "text-[#22d3ee]" : "text-[#aaaaaa]"
               }`}
-              style={isActive ? {
-                background: 'linear-gradient(90deg, rgba(163,230,53,0.10) 0%, rgba(163,230,53,0.03) 60%, transparent 100%)',
+              style={showActive ? {
+                background: 'linear-gradient(90deg, rgba(34,211,238,0.10) 0%, rgba(34,211,238,0.03) 60%, transparent 100%)',
               } : undefined}
             >
-              {isActive && (
+              {showActive && (
                 <span
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full"
                   style={{
                     height: '60%',
-                    background: '#a3e635',
-                    boxShadow: '0 0 10px rgba(163,230,53,0.4)',
+                    background: '#22d3ee',
+                    boxShadow: '0 0 10px rgba(34,211,238,0.4)',
+                    animation: 'nav-indicator-in 0.45s cubic-bezier(0.25,0.46,0.45,0.94) forwards',
                   }}
                 />
               )}
-              <item.icon className="w-4 h-4" />
-              {item.label}
+              <span
+                key={`${item.label}-${showActive}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', animation: 'nav-blur-in 0.45s cubic-bezier(0.25,0.46,0.45,0.94) forwards' }}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </span>
             </button>
           );
         })}
       </nav>
 
-      <div className="border-t border-[rgba(8,145,178,0.10)] p-3 space-y-1 relative z-10">
+      <div className="border-t border-[rgba(255,255,255,0.06)] p-3 space-y-1 relative z-10">
         {credits?.subscription_status === "trialing" && credits?.trial_ends_at && (() => {
           const daysLeft = Math.max(0, Math.ceil(
             (new Date(credits.trial_ends_at!).getTime() - Date.now()) / 86_400_000
@@ -317,7 +360,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         </div>
         <button
           onClick={signOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#7b919f] hover:text-red-400/80 hover:bg-red-500/[0.06] transition-all duration-200"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#aaaaaa] hover:text-red-400/80 hover:bg-red-500/[0.04] transition-all duration-200"
         >
           <LogOut className="w-4 h-4" />
           {tr(t.dashboard.signOut, language)}
@@ -350,11 +393,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           <button
             onClick={() => handleViewModeChange("master")}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150 rounded-t-xl"
-            style={{ background: viewMode === "master" ? 'rgba(8,145,178,0.08)' : 'transparent' }}
+            style={{ background: viewMode === "master" ? 'rgba(255,255,255,0.06)' : 'transparent' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = viewMode === "master" ? 'rgba(8,145,178,0.08)' : 'transparent'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = viewMode === "master" ? 'rgba(255,255,255,0.06)' : 'transparent'; }}
           >
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: 'rgba(8,145,178,0.2)', color: '#22d3ee', boxShadow: '0 0 8px rgba(8,145,178,0.2)' }}>
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)', color: '#22d3ee', border: '1px solid rgba(255,255,255,0.12)' }}>
               M
             </div>
             <span className="text-sm font-medium text-foreground flex-1">Master</span>
