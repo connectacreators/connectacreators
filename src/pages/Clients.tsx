@@ -19,6 +19,7 @@ type ClientRow = {
   name: string;
   email: string | null;
   user_id: string | null;
+  is_primary?: boolean;
 };
 
 const fadeUp = {
@@ -61,12 +62,14 @@ export default function Clients() {
 
   const canManageClients = isAdmin || isVideographer || isUser;
   const canAddClients = isAdmin || isUser;
-  const MAX_CLIENTS = 20;
+  const [clientLimit, setClientLimit] = useState(5);
 
   const handleAddClient = async () => {
     if (!newClientName.trim() || !user) return;
-    if (isUser && clients.length >= MAX_CLIENTS) {
-      toast.error(language === "en" ? `You can have up to ${MAX_CLIENTS} clients` : `Puedes tener hasta ${MAX_CLIENTS} clientes`);
+    if (isUser && clients.length >= clientLimit) {
+      toast.error(language === "en"
+        ? `You've reached your ${clientLimit}-client limit. Upgrade your plan for more.`
+        : `Has alcanzado el límite de ${clientLimit} clientes. Mejora tu plan para más.`);
       return;
     }
     setAdding(true);
@@ -77,17 +80,41 @@ export default function Clients() {
     if (isUser) {
       insertData.owner_user_id = user.id;
     }
-    const { error } = await supabase.from("clients").insert(insertData);
+    const { data: newClient, error } = await supabase.from("clients").insert(insertData).select("id").single();
+
+    if (!error && newClient && isUser) {
+      // Create junction table entry (non-primary)
+      await supabase.from("subscriber_clients").insert({
+        subscriber_user_id: user.id,
+        client_id: newClient.id,
+        is_primary: false,
+      });
+    }
+
     if (error) {
-      toast.error(language === "en" ? "Error adding client" : "Error al agregar cliente");
+      toast.error(language === "en" ? "Failed to create client" : "Error al crear cliente");
     } else {
-      toast.success(language === "en" ? "Client added" : "Cliente agregado");
+      toast.success(language === "en" ? "Client created!" : "¡Cliente creado!");
       setNewClientName("");
       setNewClientEmail("");
       setShowAddDialog(false);
       fetchClients();
     }
     setAdding(false);
+  };
+
+  const handleDeleteClient = async (clientId: string, isPrimary: boolean) => {
+    if (isPrimary) return;
+    if (!confirm(language === "en" ? "Delete this client and all their data?" : "¿Eliminar este cliente y todos sus datos?")) return;
+
+    await supabase.from("subscriber_clients")
+      .delete()
+      .eq("subscriber_user_id", user!.id)
+      .eq("client_id", clientId);
+    await supabase.from("clients").delete().eq("id", clientId);
+
+    toast.success(language === "en" ? "Client deleted" : "Cliente eliminado");
+    fetchClients();
   };
 
   const fetchClients = useCallback(async () => {
@@ -119,11 +146,22 @@ export default function Clients() {
       }
     } else if (isUser) {
       const { data } = await supabase
-        .from("clients")
-        .select("id, name, email, user_id")
-        .eq("owner_user_id", user.id)
-        .order("name");
-      setClients(data || []);
+        .from("subscriber_clients")
+        .select("client_id, is_primary, clients(id, name, email, created_at)")
+        .eq("subscriber_user_id", user.id)
+        .order("is_primary", { ascending: false })
+        .order("created_at");
+      if (data) {
+        setClients(data.map((d: any) => ({
+          id: d.clients.id,
+          name: d.clients.name,
+          email: d.clients.email,
+          user_id: null,
+          is_primary: d.is_primary,
+        })));
+      } else {
+        setClients([]);
+      }
     }
 
     setLoadingClients(false);
@@ -136,6 +174,19 @@ export default function Clients() {
       navigate("/dashboard");
     }
   }, [loading, user, canManageClients, fetchClients, navigate]);
+
+  // Fetch client limit from subscriptions table
+  useEffect(() => {
+    if (!user || !isUser) return;
+    supabase
+      .from("subscriptions")
+      .select("client_limit")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.client_limit) setClientLimit(data.client_limit);
+      });
+  }, [user, isUser]);
 
   if (loading) {
     return (
@@ -174,8 +225,22 @@ export default function Clients() {
             custom={0}
             variants={fadeUp}
           >
-            {language === "en" ? "Who are we working on today?" : "¿Con quién trabajamos hoy?"}
+            {isUser
+              ? (language === "en" ? "My Clients" : "Mis Clientes")
+              : (language === "en" ? "Who are we working on today?" : "¿Con quién trabajamos hoy?")}
           </motion.h1>
+
+          {isUser && (
+            <motion.p
+              className="text-sm text-muted-foreground text-center mb-6 -mt-4"
+              initial="hidden"
+              animate="visible"
+              custom={0.5}
+              variants={fadeUp}
+            >
+              {clients.length} of {clientLimit} client slots used
+            </motion.p>
+          )}
 
           <div className="flex items-center gap-3 mb-6">
             <div className="relative flex-1">
@@ -208,25 +273,46 @@ export default function Clients() {
           ) : (
             <div className="space-y-3">
               {filtered.map((client, i) => (
-                <motion.button
+                <motion.div
                   key={client.id}
-                  onClick={() => navigate(`/clients/${client.id}`)}
-                  className="w-full glass-card rounded-xl p-5 hover:border-primary/30 transition-colors flex items-center gap-3 text-left"
+                  className={`w-full glass-card rounded-xl p-5 transition-colors flex items-center gap-3 text-left ${
+                    (client as any).is_primary ? 'border-[#22d3ee]/30' : 'hover:border-primary/30'
+                  }`}
                   initial="hidden"
                   animate="visible"
                   custom={i + 1}
                   variants={fadeUp}
                 >
-                  <div className="w-9 h-9 rounded-full bg-[rgba(8,145,178,0.15)] flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4 text-[#0891B2]" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-foreground">{client.name}</h2>
-                    {client.email && (
-                      <p className="text-xs text-muted-foreground">{client.email}</p>
-                    )}
-                  </div>
-                </motion.button>
+                  <button
+                    onClick={() => navigate(`/clients/${client.id}`)}
+                    className="flex items-center gap-3 flex-1 text-left"
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                      (client as any).is_primary ? 'bg-[rgba(34,211,238,0.15)]' : 'bg-[rgba(8,145,178,0.15)]'
+                    }`}>
+                      <User className={`w-4 h-4 ${(client as any).is_primary ? 'text-[#22d3ee]' : 'text-[#0891B2]'}`} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-foreground">
+                        {client.name}
+                        {(client as any).is_primary && (
+                          <span className="ml-2 text-[10px] font-semibold text-[#22d3ee]">PRIMARY</span>
+                        )}
+                      </h2>
+                      {client.email && (
+                        <p className="text-xs text-muted-foreground">{client.email}</p>
+                      )}
+                    </div>
+                  </button>
+                  {isUser && !(client as any).is_primary && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteClient(client.id, !!(client as any).is_primary); }}
+                      className="text-xs text-red-400/60 hover:text-red-400 transition-colors px-2 py-1"
+                    >
+                      {language === "en" ? "Delete" : "Eliminar"}
+                    </button>
+                  )}
+                </motion.div>
               ))}
             </div>
           )}
@@ -259,8 +345,8 @@ export default function Clients() {
             {isUser && (
               <p className="text-xs text-muted-foreground">
                 {language === "en"
-                  ? `${clients.length}/${MAX_CLIENTS} clients`
-                  : `${clients.length}/${MAX_CLIENTS} clientes`}
+                  ? `${clients.length}/${clientLimit} clients`
+                  : `${clients.length}/${clientLimit} clientes`}
               </p>
             )}
           </div>
