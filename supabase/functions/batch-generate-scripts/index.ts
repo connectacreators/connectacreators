@@ -6,7 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_COST_PER_SCRIPT = 5;
+const BATCH_COST_PER_SCRIPT = 50;
+
+async function getPrimaryClientId(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await adminClient
+    .from("subscriber_clients")
+    .select("client_id")
+    .eq("subscriber_user_id", userId)
+    .eq("is_primary", true)
+    .maybeSingle();
+  return data?.client_id ?? null;
+}
 
 const SCRIPT_SYSTEM_PROMPT = `<system_instructions>
 <job>You are a world-class script writer for short-form social media videos.</job>
@@ -91,13 +104,15 @@ async function deductCredits(
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (roleData?.role === "admin") return null;
+  if (roleData?.role === "admin" || roleData?.role === "videographer") return null;
 
+  const primaryClientId = await getPrimaryClientId(adminClient, userId);
+  if (!primaryClientId) return null;
   const { data: client, error: fetchErr } = await adminClient
     .from("clients")
     .select("id, credits_balance, credits_used")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .eq("id", primaryClientId)
+    .single();
 
   if (fetchErr || !client) return null; // staff/no-record accounts pass through
 
@@ -116,7 +131,7 @@ async function deductCredits(
       credits_balance: (client.credits_balance ?? 0) - cost,
       credits_used: (client.credits_used ?? 0) + cost,
     })
-    .eq("id", client.id);
+    .eq("id", primaryClientId);
 
   if (updateErr) {
     console.error("Credit update error:", updateErr);

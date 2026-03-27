@@ -11,6 +11,21 @@ const YTDLP_SERVER = "http://72.62.200.145:3099";
 const YTDLP_API_KEY = "ytdlp_connecta_2026_secret";
 
 const COSTS: Record<string, number> = { audio: 150, visual: 100, both: 200 };
+
+async function getPrimaryClientId(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await adminClient
+    .from("subscriber_clients")
+    .select("client_id")
+    .eq("subscriber_user_id", userId)
+    .eq("is_primary", true)
+    .maybeSingle();
+  return data?.client_id ?? null;
+}
+
+const DOUBLE_COST_THRESHOLD = 25 * 1024 * 1024; // 25 MB — files above this cost 2×
 const VALID_MODES = ["audio", "visual", "both"];
 
 // ─── Credit deduction (same pattern as transcribe-video) ───
@@ -28,12 +43,14 @@ async function deductCredits(
     .maybeSingle();
   if (roleData?.role === "admin") return null;
 
-  // Get client record
+  // Get client record via primary client lookup
+  const primaryClientId = await getPrimaryClientId(adminClient, userId);
+  if (!primaryClientId) return null; // No primary client — allow through (staff accounts)
   const { data: client, error: fetchErr } = await adminClient
     .from("clients")
     .select("id, credits_balance, credits_used")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .eq("id", primaryClientId)
+    .single();
 
   if (fetchErr || !client) return null; // No client record — allow through (staff accounts)
 
@@ -53,7 +70,7 @@ async function deductCredits(
       credits_balance: (client.credits_balance ?? 0) - cost,
       credits_used: (client.credits_used ?? 0) + cost,
     })
-    .eq("id", client.id);
+    .eq("id", primaryClientId);
 
   if (updateErr) {
     console.error("Credit update error:", updateErr);
@@ -91,17 +108,30 @@ async function transcribeAudio(
 
   let audioBlob: Blob;
 
-  if (fileType === "video") {
-    // Video → extract audio via VPS
-    console.log("File is video — extracting audio via VPS...");
+  // VPS /extract-audio accepts a URL, downloads, and returns compressed MP3.
+  // Used for: (1) videos — extracts audio track, (2) large audio — compresses to fit Whisper's 25MB limit.
+  const needsVpsExtract = fileType === "video" || fileData.size > 25 * 1024 * 1024;
 
-    const formData = new FormData();
-    formData.append("file", fileData, "input_video.mp4");
+  if (needsVpsExtract) {
+    const label = fileType === "video" ? "video — extracting audio" : "audio too large — compressing";
+    console.log(`File is ${label} via VPS... (original size: ${fileData.size} bytes)`);
+
+    // Create a temporary signed URL so VPS can download the file
+    const { data: signedData, error: signErr } = await adminClient.storage
+      .from("canvas-media")
+      .createSignedUrl(storagePath, 300); // 5 minutes
+
+    if (signErr || !signedData?.signedUrl) {
+      throw new Error(`Failed to create signed URL for audio: ${signErr?.message || "no URL"}`);
+    }
 
     const extractRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
       method: "POST",
-      headers: { "x-api-key": YTDLP_API_KEY },
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": YTDLP_API_KEY,
+      },
+      body: JSON.stringify({ url: signedData.signedUrl }),
     });
 
     if (!extractRes.ok) {
@@ -110,9 +140,9 @@ async function transcribeAudio(
     }
 
     audioBlob = await extractRes.blob();
-    console.log("Audio extracted from video, size:", audioBlob.size, "bytes");
+    console.log("Audio from VPS, size:", audioBlob.size, "bytes");
   } else {
-    // Voice note — use file directly
+    // Voice note under 25 MB — use file directly
     audioBlob = fileData;
     console.log("Voice note file, size:", audioBlob.size, "bytes");
   }
@@ -122,16 +152,27 @@ async function transcribeAudio(
   }
 
   if (audioBlob.size > 25 * 1024 * 1024) {
-    throw new Error("Audio file too large for transcription (max ~25MB). Try a shorter recording.");
+    throw new Error("Audio still too large after compression (max 25MB). Try a shorter recording.");
   }
 
-  // Send to Whisper
+  // Send to Whisper — use correct MIME + extension so Whisper accepts the file
   console.log("Sending to OpenAI Whisper...");
+  const mimeToExt: Record<string, string> = {
+    "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/aac": "m4a",
+    "audio/wav": "wav", "audio/webm": "webm", "audio/ogg": "ogg",
+    "audio/flac": "flac",
+  };
+  const blobMime = audioBlob.type || "audio/mpeg";
+  const ext = mimeToExt[blobMime] || "mp3";
+  const whisperMime = ext === "m4a" ? "audio/mp4" : blobMime;
+  console.log("Whisper upload: mime =", whisperMime, "ext =", ext, "original blob type =", blobMime);
+
   const whisperForm = new FormData();
   whisperForm.append(
     "file",
-    new Blob([await audioBlob.arrayBuffer()], { type: "audio/mpeg" }),
-    "audio.mp3",
+    new Blob([await audioBlob.arrayBuffer()], { type: whisperMime }),
+    `audio.${ext}`,
   );
   whisperForm.append("model", "whisper-1");
 
@@ -457,8 +498,9 @@ serve(async (req) => {
       });
     }
 
-    // Deduct credits BEFORE processing
-    const cost = COSTS[mode];
+    // Deduct credits BEFORE processing (2× for files > 25 MB)
+    const baseCost = COSTS[mode];
+    const cost = (media.file_size_bytes > DOUBLE_COST_THRESHOLD) ? baseCost * 2 : baseCost;
     const creditErr = await deductCredits(adminClient, user.id, `canvas_transcribe_${mode}`, cost);
     if (creditErr) {
       return new Response(creditErr, {
