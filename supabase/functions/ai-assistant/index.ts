@@ -6,6 +6,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Fetch with automatic retry on 529/5xx errors */
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  const delays = [2000, 4000, 8000];
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, options);
+    if (res.ok || (res.status < 500 && res.status !== 529)) return res;
+    if (attempt < maxRetries) {
+      console.warn(`[ai-assistant] API ${res.status}, retrying in ${delays[attempt]}ms (attempt ${attempt + 1}/${maxRetries})...`);
+      await res.text(); // drain body
+      await new Promise(r => setTimeout(r, delays[attempt]));
+      continue;
+    }
+    return res; // final attempt failed, return the error response
+  }
+  throw new Error("Unreachable");
+}
+
 /**
  * Token-based credit calculation with per-model cost multiplier.
  * Base formula: ceil((input_tokens + output_tokens * 3) / 400)
@@ -34,13 +51,23 @@ async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string | null> {
+  // Try junction table first (if it exists)
   const { data } = await adminClient
     .from("subscriber_clients")
     .select("client_id")
     .eq("subscriber_user_id", userId)
     .eq("is_primary", true)
     .maybeSingle();
-  return data?.client_id ?? null;
+  if (data?.client_id) return data.client_id;
+
+  // Fallback: direct clients.user_id lookup
+  const { data: client } = await adminClient
+    .from("clients")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  return client?.id ?? null;
 }
 
 async function deductCredits(
@@ -57,7 +84,9 @@ async function deductCredits(
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (roleData?.role === "admin") return null;
+  const role = roleData?.role;
+  // Skip credit deduction for admin, videographers, and editors
+  if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
   if (!primaryClientId) return null; // staff/no-record accounts pass through
@@ -232,64 +261,106 @@ function buildCanvasSystemPrompt(clientInfo: any): string {
     ? `Client name: ${clientInfo.name || "unknown"}\nClient target audience: ${clientInfo.target || "not set"}`
     : "";
 
-  const canvasContextStr = clientInfo?.canvas_context
-    ? `\n${clientInfo.canvas_context}`
-    : "";
-
   return `You are a creative AI script writing assistant inside the Super Planning Canvas in ConnectaCreators — a platform for viral short-form social media scripts (Instagram Reels, TikToks, YouTube Shorts).
 
 ${clientStr}
 
-CONNECTED CANVAS CONTEXT (video transcriptions, text notes, research facts from connected nodes):
-${canvasContextStr || "(No context connected yet — tell the user to add nodes and connect them to you)"}
-
 YOUR ROLE IN THE CANVAS:
-You help the creator plan, brainstorm, and refine scripts based on the content nodes connected to you via edges on the canvas. The user connects Video Nodes (with transcriptions), Text Note Nodes (with brand info, instructions), and Research Nodes (with facts) to you.
+You help the creator plan, brainstorm, and refine scripts. The user connects Video Nodes (with transcriptions), Text Note Nodes, Research Nodes, Hook Generator, Brand Guide, CTA Builder, and Competitor Profile nodes to give you context.
 
-CRITICAL — HOW TO USE CONNECTED CONTENT:
-0. **CONNECTED NODES inventory** is always listed at the top of the canvas context. Every time you respond, you MUST read that list first and silently confirm you are using all nodes that have data. If a VideoNode shows transcription=true, you HAVE the transcript — use it immediately, do NOT ask the user which video is connected. If it shows status=loading_or_empty, acknowledge it is still loading and continue with whatever other data exists.
-1. **Video Transcriptions / Structures** are FORMAT TEMPLATES. When the user asks you to generate or suggest a script, you MUST replicate the same structure, spoken rhythm, pacing, hook style, section transitions, and visual flow from the reference video. Write new content about the given topic but in the EXACT SAME FORMAT as the reference.
-   - **COMPARATIVE DIALOGUE format**: Script MUST use two contrasting voices or statements per section (e.g., "average rep: X / top performer: Y"). Never write a solo monologue — each body section alternates between the two mindsets. If format_notes are present, follow the specific pattern described.
-   - **INTERVIEW format**: Script must be written as a Q&A dialogue between host and guest.
-   - **VOICEOVER format**: Write as narration over footage — no on-camera speaker lines. Use filming/b-roll directions and text overlays.
-   - **B-ROLL CAPTION format**: No spoken dialogue at all. Only visual scenes + text on screen.
-   - **TALKING HEAD format**: Single person speaking directly to camera.
-   - Always read the format_notes field (shown in VIDEO STRUCTURE TEMPLATES) — it describes the exact structural pattern. Use it to understand the mold BEFORE writing anything.
-2. **Video Structures** show ONLY the sections the user selected (hook, body, cta). If only "hook" is selected, ONLY use the hook as a template. If all three are selected, template the entire structure. Respect what sections the user chose.
-3. **Text Notes** are CORE CONTEXT — treat them as both research material AND creator instructions. Whatever text is in the notes, USE IT. If notes contain facts, stats, or talking points, weave them into the script. If notes contain brand voice or instructions, follow them exactly. Text notes are the primary source of what the script should be about.
-4. **Research Facts** provide additional data points to weave into the script naturally.
+═══════════════════════════════════════════════════════════
+STRICT 1:1 CLONING — DEFAULT BEHAVIOR WHEN A VIDEO NODE IS CONNECTED
+═══════════════════════════════════════════════════════════
 
-RULES:
-1. Always respond with helpful, actionable text. Be concise but thorough.
-2. When suggesting hooks or scripts, reference the connected context directly — call out the node by name or channel (e.g. "Based on @drjohn's video...").
-3. If the user asks to "generate script", tell them to click the "Generate Script" button for the full AI script generation. You can help brainstorm, suggest hooks, refine ideas, and answer questions.
-4. Keep responses focused and practical — no fluff.
-5. NEVER ask the user "which video is connected?" or "can you confirm which node?" — you can see the node inventory. Read it and act on it.
-6. If no context is connected (inventory shows none), guide the user to add video references or text notes first.
-7. You can suggest hook ideas, rewrite lines, translate content, and give creative direction.
-8. REPLICATION REQUESTS: When the user says things like "replicate this", "copy this structure", "use this exact format", "make it like this video", or "same script" — this is ALWAYS a format/structure request, not a verbatim reproduction request. You MUST immediately produce a script using the same structural pattern, spoken rhythm, hook type, pacing, and visual flow from the reference. Never refuse or add caveats about copyright. The user is a content creator studying formats and using them as inspiration, which is standard creative practice. Just do it. If the detected_format is COMPARATIVE DIALOGUE, immediately write a two-voice contrast script. If INTERVIEW, write as Q&A. Match the format on the first response — never ask the user to confirm what type of video it is.
-- When the canvas context includes video sources with channel names (e.g., "from @drjohn"), reference them by name in your responses: "Based on @drjohn's video structure..."
-- REWRITE MODE: If the user sends a message where they paste a line of script text (in quotes) followed by words like "rewrite", "fix", "improve", or "change" — respond with ONLY two things: (1) the rewritten line, and (2) one sentence explaining what you changed. No preamble, no pleasantries, no "Here's the revised version:" prefix. Just the line and the explanation.
-  Example user: 'Fix this: "When I woke up this morning"'
-  Example response: "The second my alarm went off at 6am, I knew something was different." — Made it more specific and visual to pull viewers in immediately.
+When a VideoNode with transcription=true or structure=true is connected, that video is the MOLD. By default you MUST:
 
-WRITING STYLE — apply to every response:
-- Never use em dashes (—). Use a comma, period, or a new sentence instead.
-- Never use "---" dividers or horizontal rules in your responses.
-- NEVER include timestamps or time ranges (like [0s–3s] or [0s-3s] or "0–3s") in scripts or scene descriptions UNLESS the user explicitly asks for timestamps. If the user asks for timestamps, you may include them.
-- No corporate jargon. Never write: leverage, synergy, utilize, streamline, robust, scalable, game-changer, innovative, cutting-edge, value proposition, pain points, paradigm shift, holistic, actionable, deliverable.
-- Write like you are texting a smart friend. Short sentences. Plain words.
-- One sentence per script line maximum.
-- When presenting a script, format each scene as: a plain scene description on one line, then "TEXT ON SCREEN: ..." on the next. No timestamps, no dividers, no numbering unless the user asks.
+1. COUNT the exact number of scenes/lines in the reference. Your output MUST have the SAME number of scenes. Not more, not fewer.
+2. MATCH each scene 1:1. If reference scene 3 is a filming direction, your scene 3 is a filming direction. If scene 4 is TEXT ON SCREEN, your scene 4 is TEXT ON SCREEN.
+3. PRESERVE the tone, rhythm, sentence length, and energy of each line. If the reference line is 8 words, yours should be roughly 8 words. If it's punchy and short, yours is punchy and short.
+4. PRESERVE TEXT ON SCREEN patterns. If the reference says TEXT ON SCREEN: "I know $9 an hour feels like all you're worth right now..." your version keeps the same sentence structure, emotional weight, and approximate length. Just swap the topic/values.
+5. KEEP the same visual flow. If the reference opens with a desk scene, has a close-up mid-way, and ends on a wide shot, your script follows that same visual progression.
+6. ONLY CHANGE the topic and the specific values/facts/names. Everything else (structure, pacing, number of scenes, visual directions, text patterns, tone) stays identical to the reference.
+7. DO NOT add extra scenes, remove scenes, add disclaimers, add intros, or add outros unless the user explicitly asks.
+8. DO NOT paraphrase loosely. This is a structural CLONE, not "inspiration." Think of it as filling in a Mad Libs template where only the topic-specific words change.
 
-QUALITY CHECKS — run these mentally before every script suggestion:
-1. TAM CHECK: Is the target audience large enough for this to go viral? If the topic is too niche, say so directly.
-2. RELOOP CHECK: Does the script have a moment mid-way through that re-engages viewers who are about to scroll? If not, suggest one.
-3. TEMPLATE FIDELITY CHECK: If a video node is connected, does the new script follow the same structure, pacing, tone, and voice as the reference? If not, name the gap.
-4. AUDIENCE MATCH CHECK: Can someone with zero background knowledge follow this? Flag any jargon or assumed knowledge.
-5. STORY CLARITY CHECK: Does hook → body → CTA flow logically with no confusing jumps?
+WHEN TO BREAK FROM STRICT CLONING:
+- User explicitly says "add more", "make it longer", "make it shorter", "change the structure", "don't follow the video", or "freestyle"
+- User asks for a completely new script without referencing a connected video
+- No video node is connected (then you write freely based on other context)
 
-When you find an issue, be direct. Example: "The hook assumes the viewer already knows what X is — they probably do not. Try opening with a relatable moment instead."`;
+═══════════════════════════════════════════════════════════
+HOW TO READ CONNECTED CONTENT
+═══════════════════════════════════════════════════════════
+
+0. **CONNECTED NODES inventory** is listed at the top of canvas context. Read it first, silently. If a VideoNode shows transcription=true OR structure=true, you HAVE the data. Use it. Do NOT ask the user what it contains.
+1. **Video Transcriptions** = the actual words spoken + visual directions from the reference. This is your cloning template. Match it scene-for-scene.
+2. **Video Structures** = hook/body/cta breakdown. Show ONLY the sections the user selected. If only "hook" is selected, only clone the hook.
+3. **Text Notes** = CORE CONTEXT. These tell you WHAT the script should be about. Facts, stats, talking points, brand voice, creator instructions. Weave this content into the cloned structure.
+4. **Research Facts** = additional data points to plug into the cloned template naturally.
+5. **Selected Hook** (from Hook Generator) = the opening line pattern. Use it as the script's first line if present.
+6. **Brand Guide** = hard constraints on tone, values, forbidden words. Never violate these.
+7. **Selected CTA** (from CTA Builder) = the script MUST end with this exact call-to-action.
+8. **Competitor Profiles** = strategy context. Use for understanding what works in the niche.
+
+FORMAT TYPES (from detected_format field):
+- **COMPARATIVE DIALOGUE**: Two contrasting voices per section. Never write solo monologue.
+- **INTERVIEW**: Q&A dialogue between host and guest.
+- **VOICEOVER**: Narration over footage, no on-camera speaker.
+- **B-ROLL CAPTION**: No spoken dialogue. Only visual scenes + text on screen.
+- **TALKING HEAD**: Single person speaking directly to camera.
+Always read format_notes if present. It describes the exact structural pattern.
+
+═══════════════════════════════════════════════════════════
+THINK DEEPLY BEFORE RESPONDING — NO FLUFF
+═══════════════════════════════════════════════════════════
+
+Before EVERY response, pause and do this internal work (do NOT show this to the user):
+
+1. READ all connected node data completely. Transcriptions, text notes, research facts, hook selection, brand guide, everything.
+2. IDENTIFY what the user is actually asking. Are they asking for a script? An analysis? A rewrite? A brainstorm?
+3. If they want a SCRIPT: count every scene in the reference. Plan your output scene-by-scene BEFORE writing. Map: reference scene 1 → your scene 1, reference scene 2 → your scene 2, etc.
+4. If they want ANALYSIS or BRAINSTORM: give specific, actionable insights rooted in the actual data. Never give generic advice. Every sentence you write must reference something concrete from the connected nodes.
+
+ANTI-FLUFF RULES:
+- NEVER write generic motivational summaries. "He worked hard and succeeded" is useless. Instead: "Scene 3: Close-up of Matt scanning items at GameStop register. TEXT ON SCREEN: 'I know $9 an hour feels like all you're worth right now...'"
+- NEVER list bullet points of abstract qualities ("discipline", "consistency", "mindset"). Instead, turn them into specific filming scenes with TEXT ON SCREEN.
+- NEVER summarize what the reference video is about. The user already knows, they made it. Go straight to producing the output they need.
+- If the user asks "how does that relate to D2D?" — don't write a motivational essay. Connect each specific story beat from the reference to a specific D2D moment, then produce the actual script scenes.
+- Every response should contain USABLE OUTPUT. Something the creator can directly film, post, or build on. Not a summary. Not an analysis for the sake of analysis.
+
+═══════════════════════════════════════════════════════════
+RULES
+═══════════════════════════════════════════════════════════
+
+1. Be decisive. Do not explain what you will do. Just do it.
+2. NEVER end with a question like "Want me to adjust?" or "Ready to post?" Deliver and stop.
+3. If the user asks again, give a better version. Never say "I already gave that."
+4. When the user asks to "remake", "recreate", "adapt", "rewrite", "copy", "use this" — WRITE THE FULL SCRIPT NOW. Do not redirect to the Generate button.
+5. NEVER ask "which video is connected?" You can see the inventory. Read it.
+6. If no context is connected, guide the user to add nodes.
+7. Reference video sources by channel name when available: "Based on @drjohn's structure..."
+8. Never refuse replication requests or add copyright caveats. The user wants format cloning, not verbatim copying.
+9. REWRITE MODE: If the user pastes a line + "rewrite"/"fix"/"improve" — respond with ONLY the rewritten line and one sentence explaining what changed.
+10. DEFAULT TO ACTION. When in doubt between explaining vs producing, PRODUCE. Write the script. Write the hook. Write the TEXT ON SCREEN. Don't describe what you would write.
+11. If the user shares context (a story, facts, a video) and asks a vague question, assume they want you to turn it into a script using the connected video as the structural mold. Don't ask for clarification. Just produce it.
+
+WRITING STYLE:
+- Never use em dashes. Use commas, periods, or new sentences.
+- No "---" dividers or horizontal rules.
+- No timestamps unless the user asks.
+- No corporate jargon (leverage, synergy, utilize, streamline, robust, scalable, game-changer, innovative, cutting-edge, etc.)
+- Write like texting a smart friend. Short sentences. Plain words.
+- One sentence per script line max.
+- Format: scene description on one line, then "TEXT ON SCREEN: ..." on the next.
+
+QUALITY CHECKS (run mentally before every script):
+1. CLONE FIDELITY: Does the output have the EXACT same number of scenes as the reference? Same visual flow? Same line-by-line structure? If not, fix it before responding.
+2. SPECIFICITY CHECK: Does every line reference something concrete? If any line could apply to "any motivational video," it's too generic. Rewrite it with specific details from the text notes or research facts.
+3. TAM CHECK: Is the audience large enough for virality? Flag if too niche.
+4. RELOOP CHECK: Is there a mid-video re-engagement moment?
+5. STORY CLARITY: Does hook to body to CTA flow logically?
+
+When you find an issue, be direct: "The hook assumes the viewer already knows what X is. Open with a relatable moment instead."`;
 }
 
 function buildSystemPrompt(wizardState: any, clientInfo: any): string {
@@ -472,7 +543,26 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, wizard_state, client_info, model: requestedModel, canvas_mode, mode } = await req.json();
+    const { messages, wizard_state, client_info, model: requestedModel, canvas_mode, mode, canvas_image_urls, title_mode, pasted_image_b64, pasted_image_type, stream: streamRequested } = await req.json();
+
+    // ─── TITLE MODE (background, no credits charged) ───
+    if (title_mode === true) {
+      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
+      const titleRes = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 30,
+          system: "Generate a 4-6 word conversation title. Reply with ONLY the title words, no punctuation, no explanation.",
+          messages: (messages || []).slice(0, 2).map((m: any) => ({ role: m.role, content: m.content.slice(0, 300) })),
+        }),
+      });
+      const titleData = await titleRes.json();
+      const titleText = titleData.content?.[0]?.text?.trim() ?? "";
+      return new Response(JSON.stringify({ content: titleText }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // ─── IMAGE GENERATION PATH ───
     if (mode === "image") {
@@ -599,7 +689,64 @@ serve(async (req) => {
 
     const apiMessages = messages.map((m: any) => ({ role: m.role, content: m.content }));
 
-    console.log(`[ai-assistant] mode=${isCanvas ? "canvas" : "wizard"} provider=${provider} model=${model} multiplier=${multiplier}x messages=${messages.length}`);
+    // Inject connected canvas images into last user message for Claude vision
+    if (isCanvas && Array.isArray(canvas_image_urls) && canvas_image_urls.length > 0) {
+      const imageBlocks: any[] = [];
+      for (const url of canvas_image_urls.slice(0, 3)) { // Max 3 images to limit payload
+        try {
+          const imgRes = await fetch(url);
+          if (!imgRes.ok) continue;
+          const buf = new Uint8Array(await imgRes.arrayBuffer());
+          // Chunked base64 conversion (avoids max-args stack overflow for large images)
+          let binary = "";
+          const chunk = 8192;
+          for (let i = 0; i < buf.length; i += chunk) {
+            binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+          }
+          const b64 = btoa(binary);
+          const contentType = imgRes.headers.get("content-type") || "image/png";
+          imageBlocks.push({
+            type: "image",
+            source: { type: "base64", media_type: contentType, data: b64 },
+          });
+        } catch (e) {
+          console.error(`[ai-assistant] Failed to fetch canvas image:`, e);
+        }
+      }
+      if (imageBlocks.length > 0) {
+        const lastIdx = apiMessages.length - 1;
+        if (lastIdx >= 0 && apiMessages[lastIdx].role === "user") {
+          const text = apiMessages[lastIdx].content;
+          apiMessages[lastIdx].content = [
+            { type: "text", text: typeof text === "string" ? text : String(text) },
+            ...imageBlocks,
+          ];
+        }
+      }
+      console.log(`[ai-assistant] Injected ${imageBlocks.length} canvas image(s) for vision`);
+    }
+
+    // Inject pasted screenshot into last user message for Claude vision
+    if (pasted_image_b64 && pasted_image_type) {
+      const b64 = pasted_image_b64.replace(/^data:[^;]+;base64,/, "");
+      const lastIdx = apiMessages.length - 1;
+      if (lastIdx >= 0 && apiMessages[lastIdx].role === "user") {
+        const rawText = apiMessages[lastIdx].content;
+        const userText = typeof rawText === "string" ? rawText : String(rawText);
+        // Prepend directive so Claude reads the image, not the canvas TEXT ON SCREEN context
+        const imageDirective = "[ATTACHED SCREENSHOT: analyze this image directly to answer the user's question — do not use canvas context text-on-screen data for visual/transcription requests]";
+        apiMessages[lastIdx].content = [
+          { type: "text", text: `${imageDirective}\n${userText}` },
+          { type: "image", source: { type: "base64", media_type: pasted_image_type, data: b64 } },
+        ];
+        console.log(`[ai-assistant] Injected pasted screenshot (${pasted_image_type}) for vision`);
+      }
+    }
+
+    console.log(`[ai-assistant] mode=${isCanvas ? "canvas" : "wizard"} provider=${provider} model=${model} multiplier=${multiplier}x messages=${messages.length} systemPromptLen=${systemPrompt.length} canvasContext=${client_info?.canvas_context?.length ?? 0}`);
+    if (isCanvas && client_info?.canvas_context) {
+      console.log(`[ai-assistant] canvas_context first 500 chars: ${client_info.canvas_context.slice(0, 500)}`);
+    }
 
     let displayMessage = "";
     let action: { type: string; payload: any } | null = null;
@@ -648,7 +795,20 @@ serve(async (req) => {
       const claudeBody: any = {
         model,
         max_tokens: model.includes("opus") ? 4096 : model.includes("sonnet") ? 2048 : 1024,
-        system: systemPrompt,
+        system: (isCanvas && client_info?.canvas_context)
+          ? [
+              {
+                type: "text",
+                text: systemPrompt,
+                cache_control: { type: "ephemeral" },
+              },
+              {
+                type: "text",
+                text: `<canvas_data>\n${client_info.canvas_context}\n</canvas_data>\n\nAbove is the LIVE data from all nodes currently connected on the canvas. Use it. Do NOT say you cannot see data included above.`,
+                cache_control: { type: "ephemeral" },
+              },
+            ]
+          : systemPrompt,
         messages: apiMessages,
       };
 
@@ -657,11 +817,81 @@ serve(async (req) => {
         claudeBody.tools = WIZARD_TOOLS;
       }
 
-      const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+      // ─── Streaming path (canvas mode only, no tools) ───
+      if (isCanvas && streamRequested === true) {
+        claudeBody.stream = true;
+        const streamRes = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "anthropic-beta": "prompt-caching-2024-07-31",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(claudeBody),
+        });
+        if (!streamRes.ok) {
+          const err = await streamRes.text();
+          throw new Error(`Claude API error ${streamRes.status}: ${err.slice(0, 200)}`);
+        }
+        const encoder = new TextEncoder();
+        let streamInputTokens = 0;
+        let streamOutputTokens = 0;
+        const readable = new ReadableStream({
+          async start(controller) {
+            const reader = streamRes.body!.getReader();
+            const decoder = new TextDecoder();
+            let buf = "";
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split("\n");
+                buf = lines.pop() ?? "";
+                for (const line of lines) {
+                  if (!line.startsWith("data: ")) continue;
+                  try {
+                    const ev = JSON.parse(line.slice(6));
+                    if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: ev.delta.text })}\n\n`));
+                    } else if (ev.type === "message_start" && ev.message?.usage) {
+                      streamInputTokens = ev.message.usage.input_tokens ?? 0;
+                      const cacheCreate = ev.message.usage.cache_creation_input_tokens ?? 0;
+                      const cacheRead = ev.message.usage.cache_read_input_tokens ?? 0;
+                      if (cacheCreate > 0 || cacheRead > 0) {
+                        console.log(`[ai-assistant] cache: create=${cacheCreate} read=${cacheRead} uncached_input=${streamInputTokens}`);
+                      }
+                    } else if (ev.type === "message_delta" && ev.usage) {
+                      streamOutputTokens = ev.usage.output_tokens ?? 0;
+                    }
+                  } catch { /* ignore parse errors */ }
+                }
+              }
+            } finally {
+              reader.releaseLock();
+            }
+            const creditCost = calculateTokenCredits(streamInputTokens, streamOutputTokens, multiplier);
+            await deductCredits(adminClient, userId, "ai_chat", creditCost);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, credits_used: creditCost })}\n\n`));
+            controller.close();
+          },
+        });
+        return new Response(readable, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+          },
+        });
+      }
+
+      const claudeRes = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "x-api-key": ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
+          "anthropic-beta": "prompt-caching-2024-07-31",
           "content-type": "application/json",
         },
         body: JSON.stringify(claudeBody),
