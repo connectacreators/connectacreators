@@ -1,12 +1,21 @@
-import { memo, useState, useEffect, useRef } from "react";
+import { memo, useState, useEffect, useRef, useCallback } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
-import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play, Eye, Type, Music2, Zap, MicOff, Clock } from "lucide-react";
+import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play, Pause, Eye, Type, Music2, Zap, MicOff, Clock, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const VPS_API_URL = "https://connectacreators.com/api";
 const VPS_API_KEY = "ytdlp_connecta_2026_secret";
+
+// Instagram CDN URLs are CORS-blocked in browsers — proxy through VPS
+const proxyInstagramUrl = (url: string): string => {
+  if (!url || url.startsWith("data:")) return url;
+  if (url.includes("cdninstagram.com") || url.includes("fbcdn.net")) {
+    return `${VPS_API_URL}/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
 
 interface Section {
   section: "hook" | "body" | "cta";
@@ -40,7 +49,9 @@ interface VideoData {
   caption?: string;
   channel_username?: string;
   thumbnailUrl?: string | null;
+  videoTitle?: string | null;        // ← add this line
   videoFileUrl?: string | null;
+  cdnVideoUrl?: string | null;
   selectedSections?: string[];
   clientId?: string | null;
   onUpdate?: (updates: Partial<VideoData>) => void;
@@ -55,10 +66,198 @@ const viralBadgeClass = (score: number): string => {
 };
 
 const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string; border: string }> = {
-  hook: { label: "Hook", accent: "text-amber-400", bg: "bg-amber-500/8", border: "border-amber-500/25" },
-  body: { label: "Body", accent: "text-blue-400", bg: "bg-blue-500/8", border: "border-blue-500/25" },
-  cta:  { label: "CTA",  accent: "text-green-400", bg: "bg-green-500/8", border: "border-green-500/25" },
+  hook: { label: "Hook", accent: "text-[#22d3ee]", bg: "bg-[rgba(8,145,178,0.08)]", border: "border-[rgba(8,145,178,0.2)]" },
+  body: { label: "Body", accent: "text-[#94a3b8]", bg: "bg-[rgba(148,163,184,0.06)]", border: "border-[rgba(148,163,184,0.15)]" },
+  cta:  { label: "CTA",  accent: "text-[#a3e635]", bg: "bg-[rgba(132,204,22,0.06)]", border: "border-[rgba(132,204,22,0.15)]" },
 };
+
+// ── Custom Video Player ─────────────────────────────────────────────
+function CanvasVideoPlayer({ src, aspectRatio, onClose }: { src: string; aspectRatio: string; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    hideTimeout.current = setTimeout(() => {
+      if (playing) setShowControls(false);
+    }, 2500);
+  }, [playing]);
+
+  const toggle = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); setShowControls(true); }
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const handleTimeUpdate = useCallback(() => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    setCurrentTime(v.currentTime);
+    setProgress(v.currentTime / v.duration);
+  }, []);
+
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    const bar = progressRef.current;
+    if (!v || !bar) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    v.currentTime = ratio * v.duration;
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const toggleMute = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.();
+      setFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setFullscreen(false);
+    }
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  useEffect(() => {
+    const handler = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  useEffect(() => { resetHideTimer(); }, [resetHideTimer]);
+
+  const accentColor = "#22d3ee";
+
+  return (
+    <div
+      ref={containerRef}
+      className="nodrag relative w-full overflow-hidden"
+      style={{
+        aspectRatio,
+        background: "#000",
+        borderRadius: fullscreen ? 0 : undefined,
+        cursor: "pointer",
+      }}
+      onMouseMove={resetHideTimer}
+      onMouseLeave={() => { if (playing) setShowControls(false); }}
+      onClick={toggle}
+    >
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        playsInline
+        crossOrigin="anonymous"
+        className="w-full h-full object-contain"
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+        onEnded={() => { setPlaying(false); setShowControls(true); }}
+        onError={(e) => {
+          console.error("[CanvasVideoPlayer] Video load error:", (e.target as HTMLVideoElement).error);
+          toast.error("Video failed to load");
+          onClose();
+        }}
+      />
+
+      {/* Big play overlay when paused */}
+      {!playing && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+          <div
+            className="flex items-center justify-center"
+            style={{
+              width: 56, height: 56, borderRadius: "50%",
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            <Play className="w-5 h-5 text-white/90 ml-0.5" fill="rgba(255,255,255,0.9)" />
+          </div>
+        </div>
+      )}
+
+      {/* Close button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="absolute top-2 left-2 p-1 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white/80 hover:text-white transition-colors z-10"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+
+      {/* Controls bar */}
+      <div
+        className="absolute bottom-0 left-0 right-0 z-10"
+        style={{
+          padding: "20px 10px 8px",
+          background: "linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%)",
+          transition: "opacity 0.3s ease",
+          opacity: showControls ? 1 : 0,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Progress bar */}
+        <div
+          ref={progressRef}
+          className="nodrag"
+          style={{ height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2, marginBottom: 8, cursor: "pointer", position: "relative" }}
+          onClick={handleSeek}
+        >
+          <div style={{ height: "100%", width: `${progress * 100}%`, background: accentColor, borderRadius: 2, position: "relative" }}>
+            <div style={{
+              position: "absolute", right: -4, top: "50%", transform: "translateY(-50%)",
+              width: 8, height: 8, borderRadius: "50%", background: "#fff",
+              boxShadow: `0 0 6px ${accentColor}`,
+            }} />
+          </div>
+        </div>
+
+        {/* Controls row */}
+        <div className="flex items-center gap-2">
+          <button onClick={toggle} className="nodrag bg-transparent border-none cursor-pointer text-white p-0 flex items-center">
+            {playing ? <Pause size={13} /> : <Play size={13} />}
+          </button>
+          <button onClick={toggleMute} className="nodrag bg-transparent border-none cursor-pointer text-white/60 p-0 flex items-center">
+            {muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+          </button>
+          <span className="text-[10px] text-white/40 tabular-nums tracking-wide">
+            {fmt(currentTime)} / {fmt(duration)}
+          </span>
+          <div className="flex-1" />
+          <button onClick={toggleFullscreen} className="nodrag bg-transparent border-none cursor-pointer text-white/60 p-0 flex items-center">
+            {fullscreen ? <Minimize size={12} /> : <Maximize size={12} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /*
  * VideoNode — Thumbnail-first interaction model
@@ -83,6 +282,7 @@ const VideoNode = memo(({ data }: NodeProps) => {
   const [thumbStatus, setThumbStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [thumbError, setThumbError] = useState<string | null>(null);
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(d.videoFileUrl || null);
+  const [videoTitle, setVideoTitle] = useState<string | null>(d.videoTitle ?? null);
   const [playingVideo, setPlayingVideo] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
 
@@ -105,35 +305,42 @@ const VideoNode = memo(({ data }: NodeProps) => {
       setThumbStatus("loading");
       setThumbError(null);
 
-      // Download video MP4 — fire-and-forget for playback
-      downloadVideoFile(urlInput.trim());
+      // Download video MP4 — fire-and-forget for playback (non-IG and non-YT only)
+      const isIg = /instagram\.com/.test(urlInput);
+      const isYtUrl = /youtube\.com|youtu\.be/.test(urlInput);
+      if (!isIg && !isYtUrl) downloadVideoFile(urlInput.trim());
 
-      // Thumbnail — fire-and-forget with visible status
+      // Thumbnail — fire-and-forget for non-YouTube (YouTube thumbnail comes back in transcribe-video response)
       const thumbUrl = `${SUPABASE_URL}/functions/v1/fetch-thumbnail`;
+      const skipThumbFetch = isYtUrl;
       console.log("[VideoNode] Fetching thumbnail from:", thumbUrl);
-      fetch(thumbUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: urlInput.trim() }),
-      }).then(r => {
-        console.log("[VideoNode] Thumbnail response status:", r.status);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      }).then(j => {
-        console.log("[VideoNode] Thumbnail result:", j.thumbnail_url ? `got ${j.thumbnail_url.length} chars` : "null");
-        if (j.thumbnail_url) {
-          setThumbnailUrl(j.thumbnail_url);
-          setThumbStatus("done");
-          d.onUpdate?.({ thumbnailUrl: j.thumbnail_url });
-        } else {
+      if (!skipThumbFetch) {
+        fetch(thumbUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ url: urlInput.trim() }),
+        }).then(r => {
+          console.log("[VideoNode] Thumbnail response status:", r.status);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        }).then(j => {
+          console.log("[VideoNode] Thumbnail result:", j.thumbnail_url ? `got ${j.thumbnail_url.length} chars` : "null");
+          if (j.thumbnail_url) {
+            const proxied = proxyInstagramUrl(j.thumbnail_url);
+            console.log("[VideoNode] Thumbnail proxied:", proxied.slice(0, 100));
+            setThumbnailUrl(proxied);
+            setThumbStatus("done");
+            d.onUpdate?.({ thumbnailUrl: proxied });
+          } else {
+            setThumbStatus("error");
+            setThumbError(j.error || "No thumbnail returned");
+          }
+        }).catch(err => {
+          console.error("[VideoNode] Thumbnail fetch failed:", err);
           setThumbStatus("error");
-          setThumbError(j.error || "No thumbnail returned");
-        }
-      }).catch(err => {
-        console.error("[VideoNode] Thumbnail fetch failed:", err);
-        setThumbStatus("error");
-        setThumbError(err.message || "Fetch failed");
-      });
+          setThumbError(err.message || "Fetch failed");
+        });
+      }
 
       // Transcribe
       const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
@@ -142,9 +349,48 @@ const VideoNode = memo(({ data }: NodeProps) => {
         body: JSON.stringify({ url: urlInput.trim() }),
       });
       const json = await res.json();
+      console.log("[VideoNode] transcribe-video response:", JSON.stringify({
+        hasTranscription: !!json.transcription,
+        transcriptionLen: json.transcription?.length,
+        thumbnail_url: json.thumbnail_url ? `${json.thumbnail_url.slice(0, 60)}... (${json.thumbnail_url.length} chars)` : null,
+        videoUrl: json.videoUrl ? json.videoUrl.slice(0, 80) + "..." : null,
+        error: json.error,
+      }));
       if (!res.ok) throw new Error(json.error || "Transcription failed");
 
-      d.onUpdate?.({ url: urlInput.trim(), transcription: json.transcription });
+      const updates: Partial<VideoData> = { url: urlInput.trim(), transcription: json.transcription };
+
+      // Capture title for YouTube
+      if (json.video_title) {
+        setVideoTitle(json.video_title);
+        updates.videoTitle = json.video_title;
+      }
+
+      // Store CDN video URL for later visual analysis (Instagram CDN URLs expire, so use ASAP)
+      if (json.videoUrl) {
+        updates.cdnVideoUrl = json.videoUrl;
+      }
+
+      // Use thumbnail from transcription response if fetch-thumbnail hasn't resolved yet
+      if (json.thumbnail_url && !thumbnailUrl) {
+        const proxied = proxyInstagramUrl(json.thumbnail_url);
+        console.log("[VideoNode] Setting thumbnail from transcription response:", proxied.slice(0, 100));
+        setThumbnailUrl(proxied);
+        setThumbStatus("done");
+        updates.thumbnailUrl = proxied;
+      } else {
+        console.log("[VideoNode] No thumbnail from transcription. thumbnail_url:", json.thumbnail_url, "current thumbnailUrl:", thumbnailUrl);
+      }
+
+      // For Instagram: trigger VPS video download for playback using the CDN URL
+      if (isIg && json.videoUrl) {
+        console.log("[VideoNode] Triggering IG video download from CDN URL");
+        downloadVideoFile(json.videoUrl);
+      } else if (isIg) {
+        console.log("[VideoNode] IG but no videoUrl in response — no playback");
+      }
+
+      d.onUpdate?.(updates);
       setStage("transcribed");
     } catch (e: any) {
       toast.error(e.message || "Processing failed");
@@ -152,9 +398,34 @@ const VideoNode = memo(({ data }: NodeProps) => {
     }
   };
 
-  // ─── Download video for playback (fire-and-forget during transcription) ───
-  const downloadVideoFile = async (videoUrl: string) => {
+  // ─── Download video for playback ───
+  const downloadVideoFile = async (videoUrl: string, autoPlay = false) => {
+    console.log("[VideoNode] downloadVideoFile called:", videoUrl.slice(0, 80), "autoPlay:", autoPlay);
+
+    // Already a cached/proxied URL on our own domain — play directly
+    const isOwnUrl = /connectacreators\.com\/(video-cache|api\/proxy-video)/.test(videoUrl);
+    if (isOwnUrl) {
+      console.log("[VideoNode] Already a cached/proxied URL — playing directly");
+      setVideoFileUrl(videoUrl);
+      d.onUpdate?.({ videoFileUrl: videoUrl });
+      if (autoPlay) setPlayingVideo(true);
+      return;
+    }
+
+    // For Instagram CDN URLs — proxy directly, no download needed
+    const isIgCDN = /cdninstagram\.com|fbcdn\.net/.test(videoUrl);
+    if (isIgCDN) {
+      const proxied = `${VPS_API_URL}/proxy-video?url=${encodeURIComponent(videoUrl)}`;
+      console.log("[VideoNode] Using VPS proxy for IG CDN video");
+      setVideoFileUrl(proxied);
+      d.onUpdate?.({ videoFileUrl: proxied });
+      if (autoPlay) setPlayingVideo(true);
+      return;
+    }
+
+    // For page URLs — download via VPS cobalt, cache as MP4
     setDownloadingVideo(true);
+    toast.info("Preparing video for playback...");
     try {
       const res = await fetch(`${VPS_API_URL}/download-video`, {
         method: "POST",
@@ -162,12 +433,17 @@ const VideoNode = memo(({ data }: NodeProps) => {
         body: JSON.stringify({ url: videoUrl }),
       });
       const json = await res.json();
+      console.log("[VideoNode] /download-video response:", res.status, json);
       if (res.ok && json.video_url) {
         setVideoFileUrl(json.video_url);
         d.onUpdate?.({ videoFileUrl: json.video_url });
+        if (autoPlay) setPlayingVideo(true);
+      } else {
+        toast.error("Could not load video: " + (json.error || "Unknown error"));
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("[VideoNode] Video download failed:", e);
+      toast.error("Video download failed: " + (e.message || "Network error"));
     } finally {
       setDownloadingVideo(false);
     }
@@ -192,7 +468,7 @@ const VideoNode = memo(({ data }: NodeProps) => {
         }).then(r => r.json()),
         fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
           method: "POST", headers,
-          body: JSON.stringify({ url: d.url || urlInput, transcript: d.transcription }),
+          body: JSON.stringify({ url: d.cdnVideoUrl || d.url || urlInput, original_url: d.url || urlInput, transcript: d.transcription }),
         }).then(r => r.json()),
       ]);
 
@@ -260,18 +536,45 @@ const VideoNode = memo(({ data }: NodeProps) => {
     }
   };
 
+  // ─── Re-run visual analysis only (when structure exists but videoAnalysis is missing) ───
+  const reAnalyzeVisual = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+      setVisualProgress("running");
+
+      const visualRes = await fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
+        method: "POST", headers,
+        body: JSON.stringify({ url: d.cdnVideoUrl || d.url || urlInput, original_url: d.url || urlInput, transcript: d.transcription || "" }),
+      }).then(r => r.json());
+
+      if (visualRes.error) throw new Error(visualRes.error);
+
+      d.onUpdate?.({ videoAnalysis: visualRes });
+      setVisualProgress("done");
+      setShowBreakdown(true);
+    } catch (e: any) {
+      console.error("[VideoNode] reAnalyzeVisual error:", e);
+      setVisualProgress("error");
+      toast.error("Visual analysis failed: " + (e.message || "unknown error"));
+    }
+  };
+
   // ─── Reset ───
   const reset = () => {
     setStage("idle");
     setThumbnailUrl(null);
     setVideoFileUrl(null);
+    setVideoTitle(null);
     setPlayingVideo(false);
     setShowTranscript(false);
     setShowBreakdown(false);
     setSelectedSections(["hook", "body", "cta"]);
     setStructureProgress("idle");
     setVisualProgress("idle");
-    d.onUpdate?.({ url: undefined, transcription: undefined, structure: undefined, videoAnalysis: undefined, thumbnailUrl: undefined, videoFileUrl: undefined, selectedSections: undefined });
+    d.onUpdate?.({ url: undefined, transcription: undefined, structure: undefined, videoAnalysis: undefined, thumbnailUrl: undefined, videoTitle: undefined, videoFileUrl: undefined, selectedSections: undefined });
   };
 
   // ─── Toggle section context ───
@@ -333,12 +636,13 @@ const VideoNode = memo(({ data }: NodeProps) => {
   const hasStructure = !!d.structure;
 
   // Detect platform for aspect ratio: Instagram/TikTok = 9:19 (vertical), YouTube = 16:9
+  const isYt = /youtube\.com|youtu\.be/.test(d.url || urlInput);
   const isVertical = urlInput.includes("instagram.com") || urlInput.includes("tiktok.com");
   const aspectRatio = isVertical ? "9 / 19" : "16 / 9";
 
   return (
     <div
-      className="bg-white/95 dark:bg-[#252525] backdrop-blur-sm border border-border/60 dark:border-white/8 rounded-2xl shadow-xl"
+      className="glass-card rounded-2xl shadow-xl relative"
       style={{ width: "100%", minWidth: "180px" }}
     >
       <NodeResizer
@@ -347,11 +651,12 @@ const VideoNode = memo(({ data }: NodeProps) => {
         handleStyle={{ opacity: 0, width: 12, height: 12 }}
         lineStyle={{ opacity: 0 }}
       />
+      <div className="overflow-hidden rounded-2xl">
       {/* ──────── IDLE: URL Input ──────── */}
       {stage === "idle" && !thumbnailUrl && (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2.5 bg-primary/10 border-b border-primary/20">
+          <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
             <div className="flex items-center gap-2">
               <Film className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-semibold text-primary/80">Video Reference</span>
@@ -382,7 +687,7 @@ const VideoNode = memo(({ data }: NodeProps) => {
                 Go
               </button>
             </div>
-            <p className="text-[10px] text-muted-foreground px-0.5">Instagram, TikTok, YouTube — transcribes audio automatically.</p>
+            <p className="text-[10px] text-muted-foreground px-0.5">Instagram, TikTok, YouTube — paste a URL to get transcript.</p>
           </div>
         </>
       )}
@@ -390,26 +695,34 @@ const VideoNode = memo(({ data }: NodeProps) => {
       {/* ──────── HAS VIDEO: Thumbnail-first layout ──────── */}
       {(hasVideo || thumbnailUrl) && (
         <>
-          {/* Thumbnail hero / Video player */}
+          {/* Drag handle header — always draggable, shows delete */}
+          <div className="flex items-center justify-between px-3 py-1.5 bg-[rgba(8,145,178,0.08)] border-b border-[rgba(8,145,178,0.15)]" style={{ cursor: "grab" }}>
+            <div className="flex items-center gap-2">
+              <Film className="w-3 h-3 text-primary/60" />
+              <span className="text-[10px] font-semibold text-primary/60">Video Reference</span>
+            </div>
+            {d.onDelete && (
+              <button onClick={d.onDelete} className="nodrag p-0.5 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Thumbnail hero / Custom Video Player */}
           <div className="relative">
             {playingVideo && videoFileUrl ? (
-              <div className="relative">
-                <video
-                  src={videoFileUrl}
-                  controls
-                  autoPlay
-                  className="w-full nodrag"
-                  style={{ aspectRatio }}
-                />
-                <button
-                  onClick={() => setPlayingVideo(false)}
-                  className="nodrag absolute top-2 left-2 p-1 rounded-lg bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white/90 hover:text-white transition-colors z-10"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <CanvasVideoPlayer
+                src={videoFileUrl}
+                aspectRatio={aspectRatio}
+                onClose={() => setPlayingVideo(false)}
+              />
             ) : thumbnailUrl ? (
-              <div className="relative group cursor-pointer" onClick={() => { if (videoFileUrl) setPlayingVideo(true); }}>
+              <div className={`relative group ${isYt ? "cursor-default" : "cursor-pointer"}`} onClick={() => {
+                if (isYt) return;  // YouTube has no playback
+                if (videoFileUrl) { setPlayingVideo(true); return; }
+                if (downloadingVideo) return;
+                if (d.url) downloadVideoFile(d.cdnVideoUrl || d.url, true);
+              }}>
                 <img
                   src={thumbnailUrl}
                   alt="Video thumbnail"
@@ -419,16 +732,22 @@ const VideoNode = memo(({ data }: NodeProps) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
                 />
-                {/* Play button overlay */}
-                {(videoFileUrl || downloadingVideo) && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                {/* Video title — YouTube only */}
+                {isYt && videoTitle && (
+                  <div className="px-3 py-2 bg-black/60 backdrop-blur-sm">
+                    <p className="text-[11px] font-medium text-white/90 leading-snug line-clamp-2">{videoTitle}</p>
+                  </div>
+                )}
+                {/* Play button overlay — hidden for YouTube (no playback) */}
+                {d.url && !isYt && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
                     {downloadingVideo ? (
-                      <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center">
+                        <Loader2 className="w-5 h-5 text-white animate-spin" />
                       </div>
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+                      <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
                       </div>
                     )}
                   </div>
@@ -470,27 +789,18 @@ const VideoNode = memo(({ data }: NodeProps) => {
               </div>
             )}
 
-            {/* Top-right controls */}
-            <div className="absolute top-2 right-2 flex gap-1.5">
-              {d.onDelete && (
-                <button onClick={d.onDelete} className="nodrag p-1 rounded-lg bg-black/40 backdrop-blur-sm hover:bg-red-500/60 text-white/80 hover:text-white transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+            {/* Top-right controls — delete handled by header X, no duplicate here */}
 
-            {/* Bottom overlay: format badge + reset */}
-            <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-between">
+            {/* Bottom overlay: format badge + reset only */}
+            <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-between">
               <div className="flex items-center gap-1.5">
-                <Film className="w-3 h-3 text-white/70" />
-                <span className="text-[10px] font-semibold text-white/90">Video Reference</span>
                 {hasStructure && d.structure && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/20 text-white/80 border border-white/20">
                     {d.structure.detected_format}
                   </span>
                 )}
               </div>
-              <button onClick={reset} className="nodrag text-[10px] text-white/60 hover:text-white transition-colors">
+              <button onClick={reset} className="nodrag text-[10px] text-white/50 hover:text-white transition-colors">
                 reset
               </button>
             </div>
@@ -519,45 +829,40 @@ const VideoNode = memo(({ data }: NodeProps) => {
                     : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
                 </button>
                 {showTranscript && (
-                  <div className="px-3 py-2.5 border-b border-border/40 bg-muted/10 nowheel" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                    <p className="text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap">{d.transcription}</p>
+                  <div className="px-3 py-2.5 border-b border-border/40 bg-muted/10 nowheel nodrag" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                    <p className="text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap select-text cursor-text" style={{ userSelect: "text" }}>{d.transcription}</p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* ── "Generate Visual Breakdown" button ── */}
-            {hasTranscript && !hasStructure && (
-              <div className="px-3 py-3 space-y-2">
+            {/* ── "Generate Visual Breakdown" button — hidden for YouTube ── */}
+            {hasTranscript && !hasStructure && !isYt && (
+              <div className="px-3 py-2">
                 {stage !== "analyzing" ? (
-                  <>
-                    <button
-                      onClick={analyzeStructure}
-                      className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-xs font-semibold"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Generate Visual Breakdown
-                    </button>
-                    <p className="text-[10px] text-muted-foreground/60 text-center px-1">
-                      Includes AI visual scene analysis — reads frames to detect scenes &amp; on-screen text
-                    </p>
-                  </>
+                  <button
+                    onClick={analyzeStructure}
+                    className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-xs font-semibold"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Generate Visual Breakdown
+                  </button>
                 ) : (
                   <div className="space-y-1.5">
                     {/* Structure progress */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-green-500/8 border border-green-500/15" : "bg-primary/6 border border-primary/15"}`}>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-[rgba(132,204,22,0.06)] border border-[rgba(132,204,22,0.12)]" : "bg-primary/6 border border-primary/15"}`}>
                       {structureProgress === "done"
-                        ? <span className="text-green-400 text-[11px]">✓</span>
+                        ? <span className="text-[#a3e635] text-[11px]">✓</span>
                         : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
-                      <span className={structureProgress === "done" ? "text-green-400/80" : "text-primary/70"}>
+                      <span className={structureProgress === "done" ? "text-[#a3e635]/80" : "text-primary/70"}>
                         Structure analysis{structureProgress === "done" ? " complete" : "…"}
                       </span>
                     </div>
                     {/* Visual progress */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-green-500/8 border border-green-500/15" : "bg-primary/6 border border-primary/15"}`}>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-[rgba(132,204,22,0.06)] border border-[rgba(132,204,22,0.12)]" : "bg-primary/6 border border-primary/15"}`}>
                       {visualProgress === "done"
-                        ? <span className="text-green-400 text-[11px]">✓</span>
+                        ? <span className="text-[#a3e635] text-[11px]">✓</span>
                         : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
-                      <span className={visualProgress === "done" ? "text-green-400/80" : "text-primary/70"}>
+                      <span className={visualProgress === "done" ? "text-[#a3e635]/80" : "text-primary/70"}>
                         Visual scene analysis{visualProgress === "done" ? " complete" : "…"}
                       </span>
                     </div>
@@ -622,6 +927,22 @@ const VideoNode = memo(({ data }: NodeProps) => {
                       );
                     })}
 
+                    {/* ── Re-run visual analysis button (when missing) ── */}
+                    {!(d as any).videoAnalysis && visualProgress !== "running" && (
+                      <button
+                        onClick={reAnalyzeVisual}
+                        className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-xs font-semibold"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Run Visual Analysis
+                      </button>
+                    )}
+                    {visualProgress === "running" && !(d as any).videoAnalysis && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-primary/6 border border-primary/15">
+                        <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />
+                        <span className="text-primary/70">Visual scene analysis…</span>
+                      </div>
+                    )}
+
                     {/* ── Visual Scenes (from multimodal analysis) ── */}
                     {(d as any).videoAnalysis?.visual_segments?.length > 0 && (
                       <div className="space-y-2">
@@ -642,7 +963,7 @@ const VideoNode = memo(({ data }: NodeProps) => {
                             {seg.text_on_screen && seg.text_on_screen.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {seg.text_on_screen.map((txt, j) => (
-                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400/80">
+                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[rgba(8,145,178,0.08)] border border-[rgba(8,145,178,0.2)] text-[#22d3ee]/80">
                                     <Type className="w-2.5 h-2.5 flex-shrink-0" />
                                     {txt}
                                   </span>
@@ -685,7 +1006,7 @@ const VideoNode = memo(({ data }: NodeProps) => {
                 <button
                   onClick={saveToVault}
                   disabled={savingVault || !d.clientId}
-                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15 text-[11px] font-medium transition-colors disabled:opacity-40"
+                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(8,145,178,0.25)] bg-[rgba(8,145,178,0.08)] text-[#22d3ee] hover:bg-[rgba(8,145,178,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
                 >
                   {savingVault ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
                   {savingVault ? "Saving..." : "Save to Vault"}
@@ -696,7 +1017,9 @@ const VideoNode = memo(({ data }: NodeProps) => {
         </>
       )}
 
-      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70" />
+      </div>{/* end content wrapper */}
+      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 });
