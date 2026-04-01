@@ -283,7 +283,8 @@ serve(async (req) => {
           const maxresUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
           try {
             const thumbCheck = await fetch(maxresUrl, { method: "HEAD" });
-            youtubeThumbnailUrl = thumbCheck.ok
+            const cLen = thumbCheck.headers.get("content-length");
+            youtubeThumbnailUrl = (thumbCheck.ok && cLen !== "1403")
               ? maxresUrl
               : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
           } catch {
