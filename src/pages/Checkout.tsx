@@ -23,18 +23,18 @@ const stripePromise = loadStripe(
 const PLAN_DETAILS: Record<string, { name: string; price: string; features: string[] }> = {
   starter: {
     name: "Starter",
-    price: "$30/month",
-    features: ["Access to Connecta CRM", "Up to 75 scripts per month", "Script generator access", "Save and organize scripts"],
+    price: "$39/month",
+    features: ["10,000 AI credits per month", "Access to Connecta CRM", "Script generator access", "Lead tracker access", "Save and organize scripts"],
   },
   growth: {
     name: "Growth",
-    price: "$60/month",
-    features: ["Access to Connecta CRM", "Up to 200 scripts per month", "Script generator access", "Save and organize scripts"],
+    price: "$79/month",
+    features: ["30,000 AI credits per month", "Access to Connecta CRM", "Script generator access", "Lead tracker access", "Save and organize scripts"],
   },
   enterprise: {
-    name: "Enterprise",
-    price: "$150/month",
-    features: ["Access to Connecta CRM", "Up to 500 scripts per month", "Lead tracker access", "Facebook lead integration", "Automatic syncing of leads"],
+    name: "Pro",
+    price: "$139/month",
+    features: ["75,000 AI credits per month", "Access to Connecta CRM", "Script generator access", "Lead tracker access", "Facebook lead integration", "Automatic syncing of leads"],
   },
 };
 
@@ -88,23 +88,41 @@ export default function Checkout() {
     setLoadingCheckout(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      // Refresh session to ensure token is not expired
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      const session = refreshed?.session;
+      if (!session) {
+        toast.error("Your session has expired. Please sign in again.");
+        setLoadingCheckout(false);
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { plan_type: planKey, phone },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to extract the actual error message from the function response
+        let msg = "Failed to start checkout. Please try again.";
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch {}
+        console.error("Checkout error:", error, msg);
+        toast.error(msg);
+        setLoadingCheckout(false);
+        return;
+      }
+
       if (data?.client_secret) {
         setClientSecret(data.client_secret);
       } else {
-        throw new Error("No client secret returned");
+        throw new Error("No client secret returned from server");
       }
     } catch (err: any) {
       console.error("Checkout error:", err);
-      toast.error("Failed to start checkout. Please try again.");
+      toast.error(err?.message || "Failed to start checkout. Please try again.");
       setLoadingCheckout(false);
     }
   }, [user, planKey, phone]);

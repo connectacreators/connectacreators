@@ -3,7 +3,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { t, tr } from "@/i18n/translations";
-import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LogOut } from "lucide-react";
 
@@ -37,7 +36,6 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
         </button>
         <div className="ml-auto flex items-center gap-2">
           <LanguageToggle />
-          <ThemeToggle />
           <button
             onClick={signOut}
             className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"

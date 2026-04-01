@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,55 +7,67 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
 import DashboardLayout from "./layouts/DashboardLayout";
-import Home from "./pages/Home";
-import LandingPageNew from "./pages/LandingPageNew";
-import Index from "./pages/Index";
-import IndexEN from "./pages/IndexEN";
-import Onboarding from "./pages/Onboarding";
-import Scripts from "./pages/Scripts";
-import Clients from "./pages/Clients";
-import ClientDetail from "./pages/ClientDetail";
-import Vault from "./pages/Vault";
-import Videographers from "./pages/Videographers";
-import VideographerDetail from "./pages/VideographerDetail";
-import Dashboard from "./pages/Dashboard";
-import LeadTracker from "./pages/LeadTracker";
-import LeadCalendar from "./pages/LeadCalendar";
-import Settings from "./pages/Settings";
-import Subscription from "./pages/Subscription";
-import NotFound from "./pages/NotFound";
-import PublicScript from "./pages/PublicScript";
-import PublicBooking from "./pages/PublicBooking";
-import BookingSettings from "./pages/BookingSettings";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsAndConditions from "./pages/TermsAndConditions";
-import SelectPlan from "./pages/SelectPlan";
-import ComingSoon from "./pages/ComingSoon";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import Checkout from "./pages/Checkout";
-import EditingQueue from "./pages/EditingQueue";
-import MasterEditingQueue from "./pages/MasterEditingQueue";
-import MasterDatabase from "./pages/MasterDatabase";
-import ClientDatabase from "./pages/ClientDatabase";
-import ClientFollowUpAutomation from "./pages/ClientFollowUpAutomation";
-import AIFollowUpBuilder from "./pages/AIFollowUpBuilder";
-import LandingPageBuilder from "./pages/LandingPageBuilder";
-import PublicLandingPage from "./pages/PublicLandingPage";
-import FacebookCallback from "./pages/FacebookCallback";
-import ContentCalendar from "./pages/ContentCalendar";
-import PublicContentCalendar from "./pages/PublicContentCalendar";
-import PublicOnboarding from "./pages/PublicOnboarding";
-import PublicEditingQueue from "./pages/PublicEditingQueue";
-import Trainings from "./pages/Trainings";
-import ViralToday from "./pages/ViralToday";
-import ViralVideoDetail from "./pages/ViralVideoDetail";
-import Subscribers from "./pages/Subscribers";
-import PublicVideoReview from "./pages/PublicVideoReview";
-import Signup from "./pages/Signup";
+import { Loader2 } from "lucide-react";
+
+// Lazy-loaded pages — each becomes its own chunk, loaded on demand
+const Home = lazy(() => import("./pages/Home"));
+const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
+const Index = lazy(() => import("./pages/Index"));
+const IndexEN = lazy(() => import("./pages/IndexEN"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Scripts = lazy(() => import("./pages/Scripts"));
+const Clients = lazy(() => import("./pages/Clients"));
+const ClientDetail = lazy(() => import("./pages/ClientDetail"));
+const Vault = lazy(() => import("./pages/Vault"));
+const Videographers = lazy(() => import("./pages/Videographers"));
+const VideographerDetail = lazy(() => import("./pages/VideographerDetail"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const LeadTracker = lazy(() => import("./pages/LeadTracker"));
+const LeadCalendar = lazy(() => import("./pages/LeadCalendar"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Subscription = lazy(() => import("./pages/Subscription"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PublicScript = lazy(() => import("./pages/PublicScript"));
+const PublicBooking = lazy(() => import("./pages/PublicBooking"));
+const BookingSettings = lazy(() => import("./pages/BookingSettings"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+const SelectPlan = lazy(() => import("./pages/SelectPlan"));
+const ComingSoon = lazy(() => import("./pages/ComingSoon"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const EditingQueue = lazy(() => import("./pages/EditingQueue"));
+const MasterEditingQueue = lazy(() => import("./pages/MasterEditingQueue"));
+const MasterDatabase = lazy(() => import("./pages/MasterDatabase"));
+const ClientDatabase = lazy(() => import("./pages/ClientDatabase"));
+const ClientFollowUpAutomation = lazy(() => import("./pages/ClientFollowUpAutomation"));
+const AIFollowUpBuilder = lazy(() => import("./pages/AIFollowUpBuilder"));
+const LandingPageBuilder = lazy(() => import("./pages/LandingPageBuilder"));
+const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
+const FacebookCallback = lazy(() => import("./pages/FacebookCallback"));
+const ContentCalendar = lazy(() => import("./pages/ContentCalendar"));
+const PublicContentCalendar = lazy(() => import("./pages/PublicContentCalendar"));
+const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
+const PublicEditingQueue = lazy(() => import("./pages/PublicEditingQueue"));
+const Trainings = lazy(() => import("./pages/Trainings"));
+const ViralToday = lazy(() => import("./pages/ViralToday"));
+const ViralVideoDetail = lazy(() => import("./pages/ViralVideoDetail"));
+const Subscribers = lazy(() => import("./pages/Subscribers"));
+const PublicVideoReview = lazy(() => import("./pages/PublicVideoReview"));
+const Signup = lazy(() => import("./pages/Signup"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 
 const queryClient = new QueryClient();
 
 const KNOWN_HOSTS = ['connectacreators.com', 'www.connectacreators.com', 'connecta.so', 'www.connecta.so'];
+
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center min-h-[200px]">
+      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function RootRoute() {
   const hostname = window.location.hostname;
@@ -71,6 +84,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public / unauthenticated routes */}
             <Route path="/" element={<RootRoute />} />
@@ -126,11 +140,13 @@ const App = () => (
               <Route path="/viral-today" element={<ViralToday />} />
               <Route path="/viral-today/video/:videoId" element={<ViralVideoDetail />} />
               <Route path="/subscribers" element={<Subscribers />} />
+              <Route path="/change-password" element={<ChangePassword />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
       </LeadNotificationProvider>

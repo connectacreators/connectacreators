@@ -235,7 +235,7 @@ export default function Index() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1.1, delay: 0.5, ease: [0.22, 0.9, 0.36, 1] }}
-            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(2.6rem, 7vw, 6rem)", fontWeight: 600, lineHeight: 1.07, marginBottom: "1.25rem", color: "#F0EAD8" }}
+            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(1.8rem, 4.5vw, 3.5rem)", fontWeight: 600, lineHeight: 1.1, marginBottom: "1.25rem", color: "#F0EAD8" }}
           >
             El sistema paso a paso<br />
             para ganar{" "}
@@ -261,14 +261,13 @@ export default function Index() {
           transition={{ duration: 1, delay: 1 }}
           style={{ position: "relative", zIndex: 1, maxWidth: "860px", margin: "0 auto", padding: "0 1.5rem 0" }}
         >
-          <div style={{ position: "relative", paddingBottom: "75%", height: 0, borderRadius: "4px", overflow: "hidden", border: "1px solid rgba(8,145,178,0.2)", boxShadow: "0 0 80px rgba(6,182,212,0.1), 0 30px 60px rgba(0,0,0,0.6)" }}>
-            <iframe
-              src="https://player.vimeo.com/video/1172266100?badge=0&autopause=0&player_id=0&app_id=58479"
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-              allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allowFullScreen
-              title="Roberto_VSL_4 - 11"
+          <div style={{ borderRadius: "4px", overflow: "hidden", border: "1px solid rgba(8,145,178,0.2)", boxShadow: "0 0 80px rgba(6,182,212,0.1), 0 30px 60px rgba(0,0,0,0.6)" }}>
+            <video
+              src="/reto-vsl.mp4"
+              controls
+              playsInline
+              preload="metadata"
+              style={{ width: "100%", display: "block", background: "#000" }}
             />
           </div>
         </motion.div>

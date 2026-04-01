@@ -257,7 +257,7 @@ export default function Dashboard() {
 
   const selectedClientName =
     viewMode === "master" ? "Master"
-    : viewMode === "me" ? "Me"
+    : viewMode === "me" ? (isUser ? "My Brand" : "Me")
     : clients.find(c => c.id === viewMode)?.name ?? "Client";
 
   // Folder cards definition
@@ -631,11 +631,16 @@ export default function Dashboard() {
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
                   <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95]" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
-                    {selectedClientName === "Me" ? "Your Account" : selectedClientName}
+                    {viewMode === "me"
+                      ? (language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?")
+                      : selectedClientName}
                   </motion.h1>
+                  {viewMode !== "me" && (
                   <motion.p className="text-xs text-muted-foreground mb-10" initial="hidden" animate="visible" custom={2} variants={fadeUp}>
                     {language === "en" ? "What do you want to work on?" : "¿En qué quieres trabajar?"}
                   </motion.p>
+                  )}
+                  {viewMode === "me" && <div className="mb-10" />}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (

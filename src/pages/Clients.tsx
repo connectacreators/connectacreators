@@ -73,26 +73,27 @@ export default function Clients() {
       return;
     }
     setAdding(true);
-    const insertData: any = {
-      name: newClientName.trim(),
-      email: newClientEmail.trim() || null,
-    };
-    if (isUser) {
-      insertData.owner_user_id = user.id;
-    }
-    const { data: newClient, error } = await supabase.from("clients").insert(insertData).select("id").single();
 
-    if (!error && newClient && isUser) {
-      // Create junction table entry (non-primary)
-      await supabase.from("subscriber_clients").insert({
-        subscriber_user_id: user.id,
-        client_id: newClient.id,
-        is_primary: false,
+    let error: any = null;
+    if (isUser) {
+      // Use RPC to bypass RLS — function handles both client + junction table insert
+      const { data: clientId, error: rpcError } = await supabase.rpc("create_client_for_subscriber", {
+        _name: newClientName.trim(),
+        _email: newClientEmail.trim() || null,
       });
+      error = rpcError;
+    } else {
+      // Admin/videographer: direct insert
+      const { error: insertError } = await supabase.from("clients").insert({
+        name: newClientName.trim(),
+        email: newClientEmail.trim() || null,
+      });
+      error = insertError;
     }
 
     if (error) {
-      toast.error(language === "en" ? "Failed to create client" : "Error al crear cliente");
+      console.error("Client insert error:", error);
+      toast.error(language === "en" ? `Failed to create client: ${error.message}` : `Error al crear cliente: ${error.message}`);
     } else {
       toast.success(language === "en" ? "Client created!" : "¡Cliente creado!");
       setNewClientName("");
@@ -145,11 +146,13 @@ export default function Clients() {
         setClients([]);
       }
     } else if (isUser) {
+      // Only fetch non-primary clients — the primary (subscriber's own brand)
+      // is accessible via the sidebar and shouldn't appear in this list
       const { data } = await supabase
         .from("subscriber_clients")
         .select("client_id, is_primary, clients(id, name, email, created_at)")
         .eq("subscriber_user_id", user.id)
-        .order("is_primary", { ascending: false })
+        .eq("is_primary", false)
         .order("created_at");
       if (data) {
         setClients(data.map((d: any) => ({
@@ -157,7 +160,7 @@ export default function Clients() {
           name: d.clients.name,
           email: d.clients.email,
           user_id: null,
-          is_primary: d.is_primary,
+          is_primary: false,
         })));
       } else {
         setClients([]);
@@ -226,7 +229,7 @@ export default function Clients() {
             variants={fadeUp}
           >
             {isUser
-              ? (language === "en" ? "My Clients" : "Mis Clientes")
+              ? (language === "en" ? "Manage Clients" : "Gestionar Clientes")
               : (language === "en" ? "Who are we working on today?" : "¿Con quién trabajamos hoy?")}
           </motion.h1>
 

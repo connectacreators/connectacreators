@@ -9,12 +9,11 @@ const corsHeaders = {
 
 const NOTION_API_VERSION = "2022-06-28";
 const ALLOWED_STATUSES = [
-  "Meta Ad (Not Booked)",
-  "Appointment Booked",
-  "Canceled",
-  "Follow up #1 (Not Booked)",
-  "Follow up #2 (Not Booked)",
-  "Follow up #3 (Not Booked)",
+  // Standardized statuses (DB + new Notion configs)
+  "New Lead", "Follow-up 1", "Follow-up 2", "Follow-up 3", "Booked", "Canceled",
+  // Legacy Notion statuses (backward compat)
+  "Meta Ad (Not Booked)", "Appointment Booked",
+  "Follow up #1 (Not Booked)", "Follow up #2 (Not Booked)", "Follow up #3 (Not Booked)",
 ];
 
 serve(async (req) => {
@@ -106,6 +105,23 @@ serve(async (req) => {
           });
         }
       }
+    }
+
+    // If this is a DB lead (id prefixed with "db_"), update Supabase leads table directly
+    if (leadId.startsWith("db_")) {
+      const realId = leadId.slice(3);
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const { error: dbError } = await adminClient
+        .from("leads")
+        .update({ status: newStatus })
+        .eq("id", realId);
+      if (dbError) throw new Error(`DB update error: ${dbError.message}`);
+      return new Response(JSON.stringify({ success: true, id: realId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Update Notion page

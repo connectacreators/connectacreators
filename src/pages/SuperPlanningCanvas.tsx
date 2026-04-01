@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { Folder, FolderOpen } from "lucide-react";
+import { Folder, FolderOpen, Upload } from "lucide-react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -16,6 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 import VideoNode from "@/components/canvas/VideoNode";
@@ -28,6 +29,7 @@ import CTABuilderNode from "@/components/canvas/CTABuilderNode";
 import CompetitorProfileNode from "@/components/canvas/CompetitorProfileNode";
 import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
+import AnnotationNode from "@/components/canvas/AnnotationNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
@@ -38,8 +40,10 @@ import { canvasMediaService } from "@/services/canvasMediaService";
 
 const AI_NODE_ID = "ai-assistant";
 
-// Keys to strip from node data before saving (non-serializable callbacks)
+// Keys to strip from node data before saving (non-serializable callbacks + heavy ephemeral data)
 const CALLBACK_KEYS = ["onUpdate", "onDelete", "onFormatChange", "onLanguageChange", "onModelChange", "onSaveScript"];
+// Keys stripped to reduce memory pressure — large objects re-fetched at runtime
+const HEAVY_DATA_KEYS = ["canvasContext", "canvasContextRef", "authToken", "signedUrl"];
 
 interface Client { id: string; name?: string; target?: string; }
 
@@ -67,6 +71,12 @@ interface Props {
   remixVideo?: RemixVideo;
 }
 
+const CANVAS_ACCEPTED_MIME = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/quicktime", "video/webm",
+  "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac", "audio/wav", "audio/webm", "audio/ogg",
+]);
+
 const nodeTypes = {
   videoNode: VideoNode,
   textNoteNode: TextNoteNode,
@@ -79,27 +89,48 @@ const nodeTypes = {
   competitorProfileNode: CompetitorProfileNode,
   mediaNode: MediaNode,
   groupNode: GroupNode,
+  annotationNode: AnnotationNode,
 };
 
 function getInitialPosition(existingCount: number) {
   return { x: 60 + (existingCount % 3) * 380, y: 80 + Math.floor(existingCount / 3) * 360 };
 }
 
-/** Strip non-serializable fields from node data for persistence */
+/** Return center of the current viewport in flow coordinates, with small random jitter to avoid stacking */
+function getViewportCenter(viewport: { x: number; y: number; zoom: number }): { x: number; y: number } {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const centerX = (-viewport.x + w / 2) / viewport.zoom;
+  const centerY = (-viewport.y + h / 2) / viewport.zoom;
+  // Small random offset so multiple adds don't stack perfectly
+  const jitter = () => (Math.random() - 0.5) * 60;
+  return { x: Math.round(centerX + jitter()), y: Math.round(centerY + jitter()) };
+}
+
+/** Strip non-serializable fields and heavy ephemeral data from node data for persistence.
+ *  This prevents multi-MB JSON snapshots that crash Chrome with OOM (Error code 5). */
 function serializeNodes(nodes: Node[]): any[] {
-  return nodes.map(n => ({
-    id: n.id,
-    type: n.type,
-    position: n.position,
-    width: n.width,
-    height: n.height,
-    deletable: n.deletable,
-    parentId: n.parentId,
-    expandParent: n.expandParent,
-    data: Object.fromEntries(
-      Object.entries(n.data || {}).filter(([k]) => !CALLBACK_KEYS.includes(k))
-    ),
-  }));
+  const STRIP_KEYS = new Set([...CALLBACK_KEYS, ...HEAVY_DATA_KEYS]);
+  return nodes.map(n => {
+    const filtered = Object.fromEntries(
+      Object.entries(n.data || {}).filter(([k]) => !STRIP_KEYS.has(k))
+    );
+    // For competitor profile nodes, strip thumbnail URLs from posts (re-fetched on load)
+    if ((n.type === "competitorProfileNode" || n.type === "instagramProfileNode") && Array.isArray(filtered.posts)) {
+      filtered.posts = filtered.posts.map((p: any) => ({ ...p, thumbnail: null }));
+    }
+    return {
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      width: n.width,
+      height: n.height,
+      deletable: n.deletable,
+      parentId: n.parentId,
+      expandParent: n.expandParent,
+      data: filtered,
+    };
+  });
 }
 
 /** Reorder nodes so parent group nodes always precede their children (ReactFlow requirement) */
@@ -109,10 +140,37 @@ function ensureParentOrder(nodes: Node[]): Node[] {
   return [...groups, ...others];
 }
 
+/** Tiny memory monitor — shows Chrome heap usage in corner (Chrome-only API) */
+function MemoryMonitor() {
+  const [mem, setMem] = useState("");
+  useEffect(() => {
+    const perf = (performance as any);
+    if (!perf.memory) return; // not Chrome
+    const update = () => {
+      const m = perf.memory;
+      const used = (m.usedJSHeapSize / 1024 / 1024).toFixed(0);
+      const total = (m.totalJSHeapSize / 1024 / 1024).toFixed(0);
+      const limit = (m.jsHeapSizeLimit / 1024 / 1024).toFixed(0);
+      setMem(`${used}/${total}MB (limit ${limit}MB)`);
+    };
+    update();
+    const id = setInterval(update, 3000);
+    return () => clearInterval(id);
+  }, []);
+  if (!mem) return null;
+  return (
+    <div className="fixed bottom-2 left-2 z-[9999] text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 text-white/50 pointer-events-none select-none">
+      Heap: {mem}
+    </div>
+  );
+}
+
 /** Wrapper that provides ReactFlowProvider context */
 export default function SuperPlanningCanvas(props: Props) {
+  const { isAdmin } = useAuth();
   return (
     <ReactFlowProvider>
+      {isAdmin && <MemoryMonitor />}
       <CanvasInner {...props} />
     </ReactFlowProvider>
   );
@@ -151,7 +209,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const [drawWidth, setDrawWidth] = useState(3);
   // ─── Context menu for group/ungroup ───
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "selection" | "group"; groupId?: string } | null>(null);
+  const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
+  const dragOverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawPathsRef = useRef<DrawPath[]>([]);
+  const viewportRef = useRef<{ x: number; y: number; zoom: number }>({ x: 0, y: 0, zoom: 1 });
   const canvasContextRef = useRef<any>(null);
   const { directSave } = useScripts();
   const { theme } = useTheme();
@@ -160,6 +221,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
   const clientIdRef = useRef(selectedClient.id);
+  useEffect(() => { clientIdRef.current = selectedClient.id; }, [selectedClient.id]);
   const draftIdRef = useRef<string | null>(null);
   const remixInjectedRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -176,36 +238,56 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   useEffect(() => {
     if (!authToken || !userIdRef.current) return;
     const userId = userIdRef.current;
+    const lsKey = `canvas_last_script_${userId}_${selectedClient.id}`;
     const ensureDraft = async () => {
-      // Check for existing draft for this client+user
-      const { data: existing } = await supabase
+      // 1. Check for existing in-progress draft
+      const { data: existingList } = await supabase
         .from("scripts")
         .select("id")
         .eq("client_id", selectedClient.id)
         .eq("canvas_user_id", userId)
         .eq("status", "draft")
         .is("deleted_at", null)
-        .maybeSingle();
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const existing = existingList?.[0] ?? null;
       if (existing) {
         setDraftScriptId(existing.id);
         draftIdRef.current = existing.id;
-      } else {
-        // Create a new draft script
-        const { data: created } = await supabase
+        return;
+      }
+      // 2. No draft — check if we have a previously saved canvas script for this client
+      // so subsequent saves update the same queue entry instead of creating duplicates
+      const lastScriptId = localStorage.getItem(lsKey);
+      if (lastScriptId) {
+        const { data: lastScript } = await supabase
           .from("scripts")
-          .insert({
-            client_id: selectedClient.id,
-            title: "Connecta AI — In Progress",
-            raw_content: "",
-            status: "draft",
-            canvas_user_id: userId,
-          })
           .select("id")
-          .single();
-        if (created) {
-          setDraftScriptId(created.id);
-          draftIdRef.current = created.id;
+          .eq("id", lastScriptId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (lastScript) {
+          setDraftScriptId(lastScript.id);
+          draftIdRef.current = lastScript.id;
+          return;
         }
+        localStorage.removeItem(lsKey);
+      }
+      // 3. Create a new draft script
+      const { data: created } = await supabase
+        .from("scripts")
+        .insert({
+          client_id: selectedClient.id,
+          title: "Connecta AI — In Progress",
+          raw_content: "",
+          status: "draft",
+          canvas_user_id: userId,
+        })
+        .select("id")
+        .single();
+      if (created) {
+        setDraftScriptId(created.id);
+        draftIdRef.current = created.id;
       }
     };
     ensureDraft();
@@ -262,6 +344,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
                 });
                 return updated.filter(nd => nd.id !== nodeId);
               });
+              setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
             },
           },
         };
@@ -283,8 +366,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
               canvasMediaService.deleteMedia(mediaId, storagePath).catch(() => {});
             }
             setNodes(ns => ns.filter(x => x.id !== nodeId));
+            setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
           }
-        : () => setNodes(ns => ns.filter(x => x.id !== nodeId));
+        : () => {
+            setNodes(ns => ns.filter(x => x.id !== nodeId));
+            setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+          };
       return {
         ...n,
         data: {
@@ -298,13 +385,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         },
       };
     });
-  }, [authToken, selectedClient.id, setNodes]);
+  }, [authToken, selectedClient.id, setNodes, setEdges]);
 
   /** Create a brand new blank session, deactivate the current one */
   const newChat = useCallback(async () => {
     if (!userIdRef.current) return;
     isSwitchingSessionRef.current = true;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    // Clear saved script pointer so this new session creates a fresh queue entry on save
+    localStorage.removeItem(`canvas_last_script_${userIdRef.current}_${selectedClient.id}`);
     try {
       // Deactivate previous session first (required by partial unique index)
       const prevId = activeSessionIdRef.current;
@@ -449,9 +538,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       });
       if (saved) {
         toast.success("Script saved! Find it in the Scripts list.", { duration: 5000 });
-        // Update draft ref to the newly-saved script ID so next edits update the same record
+        // Update draft ref + persist to localStorage so next session reuses same queue entry
         draftIdRef.current = saved.scriptId;
         setDraftScriptId(saved.scriptId);
+        const lsKey = `canvas_last_script_${userIdRef.current}_${selectedClient.id}`;
+        localStorage.setItem(lsKey, saved.scriptId);
         // Do NOT call onSaved — canvas stays open, no navigation
       }
     } catch (e: any) {
@@ -459,6 +550,16 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       throw e;
     }
   }, [selectedClient.id, directSave]);
+
+  // Stable wrapper: prevents useScripts() directSave reference changes from triggering
+  // the AI node sync effect on every render (was causing infinite render loop → OOM crash)
+  const handleSaveScriptRef = useRef(handleSaveScript);
+  handleSaveScriptRef.current = handleSaveScript;
+  const stableSaveScript = useCallback(
+    async (generatedScript: any) => handleSaveScriptRef.current(generatedScript),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   /** Re-attach callbacks to content nodes */
   // ─── Load saved canvas state on mount (waits for auth) ───
@@ -472,28 +573,35 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         return;
       }
       try {
-        // Fetch all sessions for this client+user, newest first
+        // Fetch session metadata only (no heavy node/edge data) for the sidebar list
         const { data: allSessions } = await supabase
           .from("canvas_states")
-          .select("id, name, is_active, updated_at, nodes, edges, draw_paths")
+          .select("id, name, is_active, updated_at")
           .eq("client_id", selectedClient.id)
           .eq("user_id", userId)
           .order("updated_at", { ascending: false });
 
         // Only consider explicitly active sessions. If none is active, create a new blank one.
-        const active = allSessions?.find(s => s.is_active) ?? null;
+        const activeMeta = allSessions?.find(s => s.is_active) ?? null;
 
-        if (active) {
+        if (activeMeta) {
           // Store session id for all future saves
-          activeSessionIdRef.current = active.id;
-          setActiveSessionId(active.id);
+          activeSessionIdRef.current = activeMeta.id;
+          setActiveSessionId(activeMeta.id);
 
-          if (Array.isArray(active.nodes) && active.nodes.length > 0) {
-            const restoredNodes = ensureParentOrder(attachCallbacks(active.nodes as Node[]));
+          // Fetch heavy data ONLY for the active session
+          const { data: activeData } = await supabase
+            .from("canvas_states")
+            .select("nodes, edges, draw_paths")
+            .eq("id", activeMeta.id)
+            .single();
+
+          if (activeData && Array.isArray(activeData.nodes) && activeData.nodes.length > 0) {
+            const restoredNodes = ensureParentOrder(attachCallbacks(activeData.nodes as Node[]));
             if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
             setNodes(restoredNodes);
-            setEdges((active.edges as Edge[]) || []);
-            if (Array.isArray(active.draw_paths)) setDrawPaths(active.draw_paths as DrawPath[]);
+            setEdges((activeData.edges as Edge[]) || []);
+            if (Array.isArray(activeData.draw_paths)) setDrawPaths(activeData.draw_paths as DrawPath[]);
           } else {
             setNodes([makeAiNode()]);
           }
@@ -546,8 +654,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             clientId: selectedClient.id,
             onUpdate: (updates: any) =>
               setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
-            onDelete: () =>
-              setNodes(ns => ns.filter(n => n.id !== nodeId)),
+            onDelete: () => {
+              setNodes(ns => ns.filter(n => n.id !== nodeId));
+              setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+            },
           },
         };
         setNodes(prev => [...prev, remixNode]);
@@ -567,7 +677,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       height: 700,
       deletable: false,
       data: {
-        canvasContext: { transcriptions: [], structures: [], text_notes: "", research_facts: [], primary_topic: "" },
+        canvasContextRef,
         clientInfo: { name: selectedClient.name, target: selectedClient.target },
         clientId: selectedClient.id,
         nodeId: AI_NODE_ID,
@@ -578,14 +688,48 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         onFormatChange: handleFormatChange,
         onLanguageChange: handleLanguageChange,
         onModelChange: handleModelChange,
-        onSaveScript: handleSaveScript,
+        onSaveScript: stableSaveScript,
       },
     };
   }
 
   // ─── Keep refs in sync for unmount save ───
-  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
-  useEffect(() => { edgesRef.current = edges; }, [edges]);
+  // Also expose on window so CanvasAIPanel can build fresh context at send-time
+  useEffect(() => { nodesRef.current = nodes; (window as any).__canvasNodes = nodes; }, [nodes]);
+  useEffect(() => { edgesRef.current = edges; (window as any).__canvasEdges = edges; }, [edges]);
+  useEffect(() => { (window as any).__canvasSaveScript = stableSaveScript; }, [stableSaveScript]);
+
+  // Expose research node creation for CanvasAIPanel "Save to Canvas" button
+  useEffect(() => {
+    (window as any).__canvasAddResearchNode = (topic: string, facts: Array<{ fact: string; impact_score: number }>) => {
+      const nodeId = `researchNoteNode_${Date.now()}`;
+      const aiNode = nodesRef.current.find((n: any) => n.id === AI_NODE_ID);
+      const position = aiNode
+        ? { x: (aiNode.position?.x ?? 860) - 360, y: (aiNode.position?.y ?? 60) + 80 }
+        : getViewportCenter(viewportRef.current);
+      const newNode = {
+        id: nodeId,
+        type: "researchNoteNode",
+        position,
+        width: 320,
+        data: {
+          authToken,
+          clientId: selectedClient.id,
+          nodeId,
+          sessionId: activeSessionIdRef.current,
+          topic,
+          facts,
+          onUpdate: (updates: any) =>
+            setNodes((ns: any[]) => ns.map((n: any) => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+          onDelete: () => {
+            setNodes((ns: any[]) => ns.filter((n: any) => n.id !== nodeId));
+            setEdges((es: any[]) => es.filter((e: any) => e.source !== nodeId && e.target !== nodeId));
+          },
+        },
+      };
+      setNodes((prev: any[]) => [...prev, newNode]);
+    };
+  }, [authToken, selectedClient.id, setNodes, setEdges]);
   useEffect(() => { drawPathsRef.current = drawPaths; }, [drawPaths]);
 
   // ─── Robust save system ───
@@ -593,16 +737,22 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const pendingSaveRef = useRef(false);
   const lastSavedJsonRef = useRef<string>("");
   const isDirtyRef = useRef(false);
+  const IDLE_TIMEOUT = 60_000; // 60 seconds
+  const lastActivityRef = useRef(Date.now());
 
-  /** Core save function — deduplicates via JSON snapshot comparison */
+  /** Core save function — deduplicates via lightweight hash comparison (not full snapshot) */
   const saveCanvas = useCallback(async (force = false) => {
     if (isSwitchingSessionRef.current) return;          // session switch in progress
     if (!userIdRef.current) return;
     if (!activeSessionIdRef.current) return;             // not yet loaded
     if (nodesRef.current.length === 0) return;
+    // Skip serialization if not dirty (prevents 2-5MB temp string during idle)
+    if (!force && !isDirtyRef.current) return;
     const serializedNodes = serializeNodes(nodesRef.current);
+    // Use lightweight hash instead of keeping multi-MB snapshot in memory
     const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
-    if (!force && snapshot === lastSavedJsonRef.current) return;
+    const snapshotHash = `${snapshot.length}:${snapshot.slice(0, 128)}:${snapshot.slice(-128)}`;
+    if (!force && snapshotHash === lastSavedJsonRef.current) return;
     pendingSaveRef.current = true;
     setSaveStatus("saving");
     try {
@@ -615,7 +765,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         draw_paths: drawPathsRef.current,
         updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
-      lastSavedJsonRef.current = snapshot;
+      lastSavedJsonRef.current = snapshotHash; // store hash, not full snapshot
       pendingSaveRef.current = false;
       isDirtyRef.current = false;
       setSaveStatus("saved");
@@ -630,9 +780,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     if (isSwitchingSessionRef.current) return;
     if (!userIdRef.current || !activeSessionIdRef.current) return;
     if (nodesRef.current.length === 0) return;
+    if (!isDirtyRef.current) return; // skip if nothing changed
     const serializedNodes = serializeNodes(nodesRef.current);
-    const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
-    if (snapshot === lastSavedJsonRef.current) return;
     const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/canvas_states?on_conflict=id`;
     const body = JSON.stringify({
       id: activeSessionIdRef.current,
@@ -656,22 +805,40 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }
   }, []);
 
-  // ─── Mark dirty when canvas state changes ───
+  // ─── Mark dirty when canvas state changes (lightweight — actual comparison done in saveCanvas) ───
   useEffect(() => {
     if (!loaded) return;
-    const serializedNodes = serializeNodes(nodesRef.current);
-    const snapshot = JSON.stringify({ n: serializedNodes, e: edgesRef.current, d: drawPathsRef.current });
-    if (snapshot !== lastSavedJsonRef.current) {
-      isDirtyRef.current = true;
-    }
+    isDirtyRef.current = true;
   }, [nodes, edges, drawPaths, loaded]);
 
-  // ─── Auto-save (debounced 800ms — fast enough to not lose work) ───
+  // ─── Track user activity for idle-aware saves (throttled to 1Hz) ───
+  useEffect(() => {
+    let lastFired = 0;
+    const markActive = () => {
+      const now = Date.now();
+      if (now - lastFired < 1000) return; // throttle: max once per second
+      lastFired = now;
+      const wasIdle = now - lastActivityRef.current > IDLE_TIMEOUT;
+      lastActivityRef.current = now;
+      // If returning from idle, trigger a catch-up save
+      if (wasIdle && isDirtyRef.current) saveCanvas();
+    };
+    window.addEventListener("mousemove", markActive, { passive: true });
+    window.addEventListener("keydown", markActive, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", markActive);
+      window.removeEventListener("keydown", markActive);
+    };
+  }, [saveCanvas]);
+
+  // ─── Auto-save (debounced 2s — balances data safety vs memory pressure) ───
   useEffect(() => {
     if (!loaded || !userIdRef.current) return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => saveCanvas(), 800);
+    saveTimerRef.current = setTimeout(() => {
+      if (Date.now() - lastActivityRef.current < IDLE_TIMEOUT) saveCanvas();
+    }, 2000);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -682,7 +849,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   useEffect(() => {
     if (!loaded || !userIdRef.current) return;
     const interval = setInterval(() => {
-      if (isDirtyRef.current) saveCanvas();
+      if (isDirtyRef.current && Date.now() - lastActivityRef.current < IDLE_TIMEOUT) saveCanvas();
     }, 30_000);
     return () => clearInterval(interval);
   }, [loaded, saveCanvas]);
@@ -715,12 +882,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
   // Edge-aware context: only nodes connected (via edges) to AI node feed context (either direction)
   const canvasContext = useMemo(() => {
-    const connectedSrcIds = edges
-      .filter(e => e.target === AI_NODE_ID || e.source === AI_NODE_ID)
-      .map(e => e.target === AI_NODE_ID ? e.source : e.target);
-    const contextNodes = connectedSrcIds.length > 0
-      ? nodes.filter(n => connectedSrcIds.includes(n.id))
-      : nodes.filter(n => n.id !== AI_NODE_ID); // fallback: all non-AI nodes
+    // AI sees ALL canvas nodes — no edge-based filtering
+    const contextNodes = nodes.filter(n => n.id !== AI_NODE_ID);
+    console.log("[CanvasContext] contextNodes:", contextNodes.length, "types:", contextNodes.map(n => n.type));
 
     const videoNodes = contextNodes.filter(n => n.type === "videoNode");
     const textNoteNodes = contextNodes.filter(n => n.type === "textNoteNode");
@@ -754,9 +918,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         const d = n.data as any;
         const hasTranscript = !!d.transcription;
         const hasAnalysis = !!d.videoAnalysis;
+        const hasStructure = !!d.structure;
         const username = d.channel_username ? `@${d.channel_username}` : null;
         const label = username || (d.url ? "video" : "video node");
-        if (hasTranscript || hasAnalysis) return `VideoNode(${label}, transcription=${hasTranscript}, visual_analysis=${hasAnalysis})${groupSuffix(n.id)}`;
+        if (hasTranscript || hasAnalysis || hasStructure) return `VideoNode(${label}, transcription=${hasTranscript}, visual_analysis=${hasAnalysis}, structure=${hasStructure})${groupSuffix(n.id)}`;
         return `VideoNode(${label}, status=loading_or_empty)${groupSuffix(n.id)}`;
       }),
       ...textNoteNodes.map(n => `TextNote(${(n.data as any).noteText ? "has_content" : "empty"})${groupSuffix(n.id)}`),
@@ -774,18 +939,19 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     return {
       connected_nodes: nodeInventory,
       transcriptions: [
-        ...videoNodesWithTranscript.map(n => {
+        ...videoNodesWithTranscript.slice(0, 8).map(n => { // Cap at 8 video transcriptions
           const d = n.data as any;
-          if (d.transcription) return d.transcription;
+          if (d.transcription) return (d.transcription as string).slice(0, 3000); // Cap each at 3KB
           if (d.structure?.sections?.length) {
-            return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n");
+            return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n").slice(0, 3000);
           }
           return "";
         }),
-        // Include audio transcriptions from uploaded media nodes
+        // Include audio transcriptions from uploaded media nodes (cap at 4)
         ...mediaNodes
           .filter(n => !!(n.data as any).audioTranscription)
-          .map(n => `[${(n.data as any).fileName}]: ${(n.data as any).audioTranscription}`),
+          .slice(0, 4)
+          .map(n => `[${(n.data as any).fileName}]: ${((n.data as any).audioTranscription as string).slice(0, 2000)}`),
       ],
       structures: videoNodesWithTranscript.map(n => {
         const d = n.data as any;
@@ -799,11 +965,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       })),
       video_analyses: videoNodesWithTranscript
         .filter(n => !!(n.data as any).videoAnalysis)
+        .slice(0, 6) // Cap at 6 video analyses
         .map(n => {
           const va = (n.data as any).videoAnalysis;
           return {
             detected_format: (n.data as any).structure?.detected_format ?? null,
-            visual_segments: va.visual_segments || [],
+            visual_segments: (va.visual_segments || []).slice(0, 10), // 10 segments max (was 20)
             audio: va.audio || null,
           };
         }),
@@ -820,21 +987,24 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       } : null,
       selected_cta: (ctaNodes[0]?.data as any)?.selectedCTA ?? null,
       competitor_profiles: instagramProfileNodes.length > 0
-        ? instagramProfileNodes.map(n => {
+        ? instagramProfileNodes.slice(0, 4).map(n => { // Cap at 4 competitor profiles
             const d = n.data as any;
             const posts: any[] = d.posts || [];
-            const hookPatterns = [...new Set(posts.map((p: any) => p.hookType).filter(Boolean))] as string[];
-            const contentThemes = [...new Set(posts.map((p: any) => p.contentTheme).filter(Boolean))] as string[];
-            return { username: d.username || "unknown", top_posts: posts, hook_patterns: hookPatterns, content_themes: contentThemes };
+            const hookPatterns = [...new Set(posts.map((p: any) => p.hookType).filter(Boolean))].slice(0, 10) as string[];
+            const contentThemes = [...new Set(posts.map((p: any) => p.contentTheme).filter(Boolean))].slice(0, 10) as string[];
+            const topPosts = posts
+              .sort((a: any, b: any) => (b.outlier_score ?? 0) - (a.outlier_score ?? 0))
+              .slice(0, 3); // Was 5, now 3
+            return { username: d.username || "unknown", top_posts: topPosts, hook_patterns: hookPatterns, content_themes: contentThemes };
           })
         : null,
       media_files: mediaNodes.length > 0
-        ? mediaNodes.map(n => {
+        ? mediaNodes.slice(0, 8).map(n => { // Cap at 8 media files
             const d = n.data as any;
             return {
               file_name: d.fileName || "unnamed",
               file_type: d.fileType as "image" | "video" | "voice",
-              audio_transcription: d.audioTranscription || null,
+              audio_transcription: d.audioTranscription ? (d.audioTranscription as string).slice(0, 2000) : null,
               visual_transcription: d.visualTranscription || null,
               signed_url: d.fileType === "image" ? d.signedUrl : null,
             };
@@ -843,19 +1013,30 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     };
   }, [nodes, edges]);
 
-  // Sync canvasContext + token + format + language to AI node
+  // Keep canvasContext ref up to date (used by AI node at send-time, not stored on node data)
+  // Also expose on window so CanvasAIPanel can always read the freshest context
+  // regardless of memo/re-render timing issues
   useEffect(() => {
     canvasContextRef.current = canvasContext;
+    (window as any).__canvasContext = canvasContext;
+    console.log("[CanvasContext] ref updated. connected_nodes:", canvasContext.connected_nodes?.length, "transcriptions:", canvasContext.transcriptions?.length, "structures:", canvasContext.structures?.length);
+  }, [canvasContext]);
+
+  // Sync token + format + language + model to AI node
+  // NOTE: canvasContext is intentionally NOT in this effect to avoid an infinite loop:
+  //   nodes → canvasContext (useMemo) → setNodes → nodes → canvasContext → …
+  // Instead, canvasContext is passed via canvasContextRef and read at send-time.
+  useEffect(() => {
     setNodes(ns => ns.map(n =>
       n.id === AI_NODE_ID
         ? {
             ...n,
             data: {
               ...n.data,
-              clientId: selectedClient.id,   // always override — old sessions may lack this
-              nodeId: AI_NODE_ID,             // always override — old sessions may lack this
+              clientId: selectedClient.id,
+              nodeId: AI_NODE_ID,
               clientInfo: { name: selectedClient.name, target: selectedClient.target },
-              canvasContext,
+              canvasContextRef,
               authToken,
               format,
               language,
@@ -869,12 +1050,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
               onFormatChange: handleFormatChange,
               onLanguageChange: handleLanguageChange,
               onModelChange: handleModelChange,
-              onSaveScript: handleSaveScript,
+              onSaveScript: stableSaveScript,
             },
           }
         : n
     ));
-  }, [canvasContext, authToken, format, language, aiModel, remixVideo, handleFormatChange, handleLanguageChange, handleModelChange, handleSaveScript, setNodes]);
+  }, [authToken, format, language, aiModel, remixVideo, handleFormatChange, handleLanguageChange, handleModelChange, stableSaveScript, setNodes, selectedClient.id, selectedClient.name, selectedClient.target]);
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges(eds => addEdge({
@@ -885,10 +1066,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode") => {
     const nodeId = `${type}_${Date.now()}`;
-    const nonAiCount = nodes.filter(n => n.id !== AI_NODE_ID).length;
-    const position = getInitialPosition(nonAiCount);
+    const position = getViewportCenter(viewportRef.current);
 
     const initialWidth = type === "videoNode" ? 240
       : type === "textNoteNode" ? 288
@@ -899,14 +1079,17 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       : (type === "instagramProfileNode" || type === "competitorProfileNode") ? 480
       : type === "mediaNode" ? 280
       : type === "groupNode" ? 400
+      : type === "annotationNode" ? 200
       : 288;
     const isGroup = type === "groupNode";
+    const isAnnotation = type === "annotationNode";
     const newNode: Node = {
       id: nodeId,
       type,
       position,
       width: initialWidth,
       ...(isGroup ? { height: 300, style: { width: 400, height: 300 } } : {}),
+      ...(isAnnotation ? { height: 60, style: { width: 200, height: 60 } } : {}),
       data: isGroup
         ? {
             label: "New Group",
@@ -926,6 +1109,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
                 });
                 return updated.filter(nd => nd.id !== nodeId);
               });
+              setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
             },
           }
         : {
@@ -944,8 +1128,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
                     canvasMediaService.deleteMedia(mediaId, storagePath).catch(() => {});
                   }
                   setNodes(ns => ns.filter(x => x.id !== nodeId));
+                  setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
                 }
-              : () => setNodes(ns => ns.filter(n => n.id !== nodeId)),
+              : () => {
+                  setNodes(ns => ns.filter(n => n.id !== nodeId));
+                  setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+                },
           },
     };
     // Groups go to the front of the array for parent-before-child ordering
@@ -954,10 +1142,59 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     } else {
       setNodes(prev => [...prev, newNode]);
     }
-  }, [nodes, authToken, selectedClient.id, setNodes]);
+  }, [nodes, authToken, selectedClient.id, setNodes, setEdges]);
 
-  const { zoomIn, zoomOut, screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow();
+  const { zoomIn, zoomOut, fitView, screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow();
+
+  const handleCanvasDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverCanvas(false);
+
+    // Ignore if dropping onto an existing node (let the node handle it)
+    if ((e.target as HTMLElement).closest('.react-flow__node')) return;
+
+    const file = Array.from(e.dataTransfer.files)[0];
+    if (!file || !CANVAS_ACCEPTED_MIME.has(file.type)) return;
+
+    if (!activeSessionIdRef.current) {
+      toast.error("No active session — save the canvas first.");
+      return;
+    }
+
+    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const nodeId = `mediaNode_${Date.now()}`;
+
+    const newNode: Node = {
+      id: nodeId,
+      type: "mediaNode",
+      position,
+      width: 280,
+      data: {
+        authToken,
+        clientId: selectedClient.id,
+        nodeId,
+        sessionId: activeSessionIdRef.current,
+        initialFile: file,
+        onUpdate: (updates: any) =>
+          setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+        onDelete: () => {
+          const nd = nodesRef.current.find(x => x.id === nodeId);
+          const mediaId = (nd?.data as any)?.mediaId;
+          const storagePath = (nd?.data as any)?.storagePath;
+          if (mediaId && storagePath) {
+            canvasMediaService.deleteMedia(mediaId, storagePath).catch(() => {});
+          }
+          setNodes(ns => ns.filter(x => x.id !== nodeId));
+          setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+        },
+      },
+    };
+
+    setNodes(prev => [...prev, newNode]);
+  }, [screenToFlowPosition, authToken, selectedClient.id, activeSessionIdRef, nodesRef, setNodes, setEdges]);
   const viewport = useViewport();
+  // Keep viewport ref in sync so callbacks defined earlier can access current viewport
+  useEffect(() => { viewportRef.current = viewport; }, [viewport]);
 
   // ─── Auto-fit group to its children ───
   const GPAD = 40; // padding around children
@@ -997,6 +1234,22 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
   // ─── Group drag-to-add/remove tracking ───
   const dragOutThresholdRef = useRef<string | null>(null);
+  // Capture parent's original dimensions at drag start (before expandParent grows the group)
+  const dragParentBoundsRef = useRef<{ w: number; h: number } | null>(null);
+
+  const handleNodeDragStart = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (node.parentId) {
+      const parent = getInternalNode(node.parentId);
+      dragParentBoundsRef.current = parent ? {
+        w: parent.measured?.width ?? 400,
+        h: parent.measured?.height ?? 300,
+      } : null;
+      // Disable expandParent during drag so the group doesn't grow to swallow the node
+      setNodes(ns => ns.map(n => n.id === node.id ? { ...n, expandParent: false } : n));
+    } else {
+      dragParentBoundsRef.current = null;
+    }
+  }, [getInternalNode, setNodes]);
 
   const handleNodeDrag = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
     // Skip groups, AI node
@@ -1006,16 +1259,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }
 
     // Check if this child is being dragged out of its parent group
-    if (draggedNode.parentId) {
-      const parentNode = getInternalNode(draggedNode.parentId);
-      if (parentNode) {
-        const parentW = parentNode.measured?.width ?? (parentNode as any).width ?? 400;
-        const parentH = parentNode.measured?.height ?? (parentNode as any).height ?? 300;
-        const pos = draggedNode.position;
-        const threshold = 50;
-        const isOutside = pos.x < -threshold || pos.y < -threshold || pos.x > parentW + threshold || pos.y > parentH + threshold;
-        dragOutThresholdRef.current = isOutside ? draggedNode.id : null;
-      }
+    if (draggedNode.parentId && dragParentBoundsRef.current) {
+      const { w: parentW, h: parentH } = dragParentBoundsRef.current;
+      const pos = draggedNode.position;
+      const threshold = 50;
+      const isOutside = pos.x < -threshold || pos.y < -threshold || pos.x > parentW + threshold || pos.y > parentH + threshold;
+      dragOutThresholdRef.current = isOutside ? draggedNode.id : null;
     }
 
     // Visual drop indicator for groups
@@ -1037,6 +1286,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   const handleNodeDragStop = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
     // Clear all drop indicators
     setNodes(ns => ns.map(n => n.type === "groupNode" && (n.data as any).isDropTarget ? { ...n, data: { ...n.data, isDropTarget: false } } : n));
+    dragParentBoundsRef.current = null;
 
     // Skip groups, AI node
     if (draggedNode.type === "groupNode" || draggedNode.id === AI_NODE_ID) return;
@@ -1074,8 +1324,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       .sort((a, b) => ((a.measured?.width ?? 400) * (a.measured?.height ?? 300)) - ((b.measured?.width ?? 400) * (b.measured?.height ?? 300)))[0];
 
     if (!targetGroup) {
-      // Child moved within its existing group — re-fit parent
-      if (draggedNode.parentId) setTimeout(() => autoFitGroup(draggedNode.parentId!), 50);
+      // Child moved within its existing group — re-enable expandParent and re-fit
+      if (draggedNode.parentId) {
+        setNodes(ns => ns.map(n => n.id === draggedNode.id ? { ...n, expandParent: true } : n));
+        setTimeout(() => autoFitGroup(draggedNode.parentId!), 50);
+      }
       return;
     }
 
@@ -1176,6 +1429,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
               });
               return updated.filter(nd => nd.id !== groupId);
             });
+            setEdges(es => es.filter(e => e.source !== groupId && e.target !== groupId));
           },
         },
       };
@@ -1242,8 +1496,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       if (!isVideoUrl(text)) return;
       e.preventDefault();
       const nodeId = `videoNode_${Date.now()}`;
-      const nonAiCount = nodesRef.current.filter(n => n.id !== AI_NODE_ID).length;
-      const position = getInitialPosition(nonAiCount);
+      const position = getViewportCenter(viewportRef.current);
       const newNode: Node = {
         id: nodeId,
         type: "videoNode",
@@ -1256,8 +1509,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           clientId: selectedClient.id,
           onUpdate: (updates: any) =>
             setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
-          onDelete: () =>
-            setNodes(ns => ns.filter(n => n.id !== nodeId)),
+          onDelete: () => {
+            setNodes(ns => ns.filter(n => n.id !== nodeId));
+            setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+          },
         },
       };
       setNodes(prev => [...prev, newNode]);
@@ -1266,7 +1521,19 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
 
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [authToken, selectedClient.id, setNodes]);
+  }, [authToken, selectedClient.id, setNodes, setEdges]);
+
+  // ─── Fit view to nodes after loading a session ───
+  const fitViewDoneRef = useRef(false);
+  useEffect(() => {
+    if (!loaded) return;
+    // Small delay so ReactFlow has measured the nodes
+    const t = setTimeout(() => {
+      fitView({ padding: 0.15, duration: 300 });
+      fitViewDoneRef.current = true;
+    }, 150);
+    return () => clearTimeout(t);
+  }, [loaded, activeSessionId, fitView]);
 
   // ─── Auto-show tutorial on first visit ───
   useEffect(() => {
@@ -1327,13 +1594,35 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "#131417" }}>
       {/* Canvas area — full width, sessions in toolbar */}
-      <div className="flex-1 relative min-w-0" style={{ background: "#131417" }}>
+      <div
+        className="flex-1 relative min-w-0"
+        style={{ background: "#131417" }}
+        onDragOver={(e) => {
+          const hasSupported = Array.from(e.dataTransfer.items).some(
+            i => i.kind === "file" && CANVAS_ACCEPTED_MIME.has(i.type)
+          );
+          if (!hasSupported) return;
+          e.preventDefault();
+          setIsDragOverCanvas(true);
+          // Auto-clear if dragover stops firing (e.g. moved into AI node which stops propagation)
+          if (dragOverTimerRef.current) clearTimeout(dragOverTimerRef.current);
+          dragOverTimerRef.current = setTimeout(() => setIsDragOverCanvas(false), 120);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            if (dragOverTimerRef.current) clearTimeout(dragOverTimerRef.current);
+            setIsDragOverCanvas(false);
+          }
+        }}
+        onDrop={handleCanvasDrop}
+      >
         <CanvasToolbar
           clientName={selectedClient?.name}
           onAddNode={addNode}
           onBack={handleBack}
           onZoomIn={() => zoomIn()}
           onZoomOut={() => zoomOut()}
+          onFitView={() => fitView({ padding: 0.15, duration: 300 })}
           onShowTutorial={() => setShowTutorial(true)}
           onOpenViralPicker={() => setShowViralPicker(true)}
           drawingMode={drawingMode}
@@ -1356,7 +1645,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             onSelect={(videoUrl, channelUsername, caption) => {
               setShowViralPicker(false);
               const nodeId = `videoNode_${Date.now()}`;
-              const position = getInitialPosition(nodesRef.current.filter(n => n.id !== AI_NODE_ID).length);
+              const position = getViewportCenter(viewportRef.current);
               const newNode: Node = {
                 id: nodeId,
                 type: "videoNode",
@@ -1371,8 +1660,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
                   clientId: selectedClient.id,
                   onUpdate: (updates: any) =>
                     setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
-                  onDelete: () =>
-                    setNodes(ns => ns.filter(n => n.id !== nodeId)),
+                  onDelete: () => {
+                    setNodes(ns => ns.filter(n => n.id !== nodeId));
+                    setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+                  },
                 },
               };
               setNodes(prev => [...prev, newNode]);
@@ -1388,6 +1679,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
           onSelectionContextMenu={handleSelectionContextMenu}
@@ -1399,6 +1691,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           zoomOnScroll
           panOnDrag={[1, 2]}
           deleteKeyCode={null}
+          connectOnClick
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
           style={{ background: "#131417" }}
@@ -1456,6 +1749,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             onPointerUp={handleDrawPointerUp}
             onPointerCancel={handleDrawPointerUp}
           />
+        )}
+
+        {/* File drop overlay */}
+        {isDragOverCanvas && (
+          <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center"
+            style={{ background: "rgba(34,211,238,0.05)", border: "2px dashed rgba(34,211,238,0.4)" }}>
+            <div className="bg-card/90 backdrop-blur-sm border border-primary/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-2 shadow-xl">
+              <Upload className="w-8 h-8 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Drop to create media node</p>
+              <p className="text-xs text-muted-foreground">Images · Videos · Voice notes</p>
+            </div>
+          </div>
         )}
       </div>
 

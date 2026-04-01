@@ -44,7 +44,7 @@ export default function VideoRecorder({ pip = false, scriptTitle, onClose }: Vid
       }
       setHasStream(true);
     } catch (err) {
-      toast.error("No se pudo acceder a la cámara. Verifica los permisos.");
+      toast.error("Could not access camera. Please check your permissions.");
       setHasStream(false);
     }
   }, []);
@@ -112,7 +112,7 @@ export default function VideoRecorder({ pip = false, scriptTitle, onClose }: Vid
     a.href = recordedUrl;
     a.download = `${safeName}-${new Date().toISOString().slice(0, 10)}.${ext}`;
     a.click();
-    toast.success("Video descargado");
+    toast.success("Video downloaded");
   }, [recordedUrl]);
 
   const handleClose = useCallback(() => {

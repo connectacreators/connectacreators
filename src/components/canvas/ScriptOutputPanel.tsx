@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { CheckCircle2, Loader2, Camera, Mic, Scissors, Type, Wand2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ScriptLine {
   line_type: "filming" | "actor" | "editor" | "text_on_screen";
@@ -70,15 +71,24 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [lines, setLines] = useState<ScriptLine[]>(Array.isArray(script.lines) ? script.lines : []);
 
+  const savingRef = useRef(false);
   const handleSave = async () => {
+    if (savingRef.current) return; // prevent double-fire from pointerDown + click
+    savingRef.current = true;
     setSaving(true);
     try {
-      await onSave({ ...script, lines });
+      const saveFn = onSave || (window as any).__canvasSaveScript;
+      if (!saveFn) {
+        toast.error("Save function not available");
+        return;
+      }
+      await saveFn({ ...script, lines });
       setSaved(true);
-    } catch {
-      // error handled by parent
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save script");
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   };
 
@@ -169,28 +179,51 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
             <div className="flex items-center justify-center gap-2 text-green-400 text-sm">
               <CheckCircle2 className="w-4 h-4" /> Script saved!
             </div>
-            <Button variant="ghost" size="sm" className="w-full text-xs gap-1" onClick={onClear}>
+            <button
+              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); onClear(); }}
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
+              type="button"
+              className="w-full flex items-center justify-center gap-1 text-xs py-2 px-3 rounded-lg cursor-pointer select-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", position: "relative", zIndex: 100 }}
+            >
               <ArrowLeft className="w-3 h-3" /> Back to Chat
-            </Button>
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <Button
-              onClick={handleSave}
+            <button
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (!saving) handleSave();
+              }}
               disabled={saving}
-              variant="cta"
-              className="w-full gap-2"
+              type="button"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold cursor-pointer select-none"
+              style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", color: "#22d3ee", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {saving ? "Saving..." : "Save Script"}
-            </Button>
+            </button>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="flex-1 text-xs gap-1" onClick={onClear}>
+              <button
+                onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); onClear(); }}
+                onClick={(e) => { e.stopPropagation(); onClear(); }}
+                type="button"
+                className="flex-1 flex items-center justify-center gap-1 text-xs py-2 px-3 rounded-lg cursor-pointer select-none"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", position: "relative", zIndex: 100 }}
+              >
                 <ArrowLeft className="w-3 h-3" /> Back to Chat
-              </Button>
-              <Button variant="ghost" size="sm" className="flex-1 text-xs gap-1" onClick={handleRefine}>
+              </button>
+              <button
+                onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); handleRefine(); }}
+                onClick={(e) => { e.stopPropagation(); handleRefine(); }}
+                type="button"
+                className="flex-1 flex items-center justify-center gap-1 text-xs py-2 px-3 rounded-lg cursor-pointer select-none"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", position: "relative", zIndex: 100 }}
+              >
                 <Wand2 className="w-3 h-3" /> Refine
-              </Button>
+              </button>
             </div>
           </div>
         )}

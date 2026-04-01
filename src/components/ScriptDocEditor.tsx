@@ -100,9 +100,14 @@ function ScriptLineEditor({
           onEnterRef.current(idx);
           return true;
         }
-        if (event.key === "Backspace") {
+        if (event.key === "Backspace" || event.key === "Delete") {
           const { empty, from } = _view.state.selection;
-          if (empty && from <= 1 && !_view.state.doc.textContent) {
+          const docIsEmpty = !_view.state.doc.textContent.trim();
+          // Backspace at start of empty line, or Delete anywhere on empty line → remove line
+          const shouldDeleteLine =
+            docIsEmpty &&
+            (event.key === "Delete" || (event.key === "Backspace" && from <= 1));
+          if (empty && shouldDeleteLine) {
             event.preventDefault();
             onBackspaceEmptyRef.current(idx);
             return true;

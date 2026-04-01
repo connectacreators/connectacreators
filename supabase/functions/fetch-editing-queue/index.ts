@@ -108,6 +108,50 @@ async function fetchQueueForClient(
       }
     }
 
+    // Caption
+    let caption: string | null = null;
+    const captionNames = ["Caption", "Caption text", "Pie de foto", "Leyenda"];
+    for (const name of captionNames) {
+      if (props[name]?.rich_text !== undefined) {
+        if (props[name].rich_text.length > 0) {
+          caption = props[name].rich_text.map((t: any) => t.plain_text).join("");
+        }
+        break;
+      }
+    }
+
+    // Post Status (for Content Calendar approval workflow)
+    let postStatus: string | null = null;
+    const postStatusField = props["Post Status"];
+    if (postStatusField?.select?.name) {
+      postStatus = postStatusField.select.name;
+    } else if (postStatusField?.status?.name) {
+      postStatus = postStatusField.status.name;
+    }
+
+    // Scheduled date — scan ALL date-type properties dynamically
+    let scheduledDate: string | null = null;
+    const dateKeywords = ["scheduled", "date", "post", "publish", "fecha"];
+    // Priority 1: name contains keyword
+    for (const [name, prop] of Object.entries(props)) {
+      if ((prop as any)?.type === "date" && (prop as any)?.date?.start) {
+        const lname = name.toLowerCase();
+        if (dateKeywords.some((kw) => lname.includes(kw))) {
+          scheduledDate = (prop as any).date.start;
+          break;
+        }
+      }
+    }
+    // Priority 2: any date property with a value
+    if (!scheduledDate) {
+      for (const [, prop] of Object.entries(props)) {
+        if ((prop as any)?.type === "date" && (prop as any)?.date?.start) {
+          scheduledDate = (prop as any).date.start;
+          break;
+        }
+      }
+    }
+
     return {
       id: page.id,
       title,
@@ -120,9 +164,60 @@ async function fetchQueueForClient(
       assigneePropName,
       revisions,
       revisionPropName,
+      caption,
+      postStatus,
+      scheduledDate,
       lastEdited: page.last_edited_time,
     };
   });
+
+  // Merge content_calendar data — authoritative source for scheduledDate & postStatus
+  try {
+    const pageIds = items.map((i: any) => i.id);
+    if (pageIds.length > 0) {
+      const { data: calendarRows } = await serviceSupabase
+        .from("content_calendar")
+        .select("notion_page_id, scheduled_date, post_status, caption")
+        .eq("client_id", clientId)
+        .in("notion_page_id", pageIds);
+
+      if (calendarRows && calendarRows.length > 0) {
+        const calMap = new Map<string, { scheduled_date: string; post_status: string }>();
+        for (const row of calendarRows) {
+          calMap.set(row.notion_page_id, row);
+        }
+        for (const item of items) {
+          const cal = calMap.get(item.id);
+          if (cal) {
+            // content_calendar is authoritative for scheduledDate (set by admin in app)
+            // Notion is authoritative for postStatus (editors update it directly in Notion)
+            if (cal.scheduled_date) item.scheduledDate = cal.scheduled_date;
+            // Sync Notion's postStatus and caption back into content_calendar
+            const calUpdates: Record<string, any> = {};
+            if (item.postStatus && item.postStatus !== cal.post_status) {
+              calUpdates.post_status = item.postStatus;
+            }
+            if (item.caption != null) {
+              calUpdates.caption = item.caption;
+            }
+            if (Object.keys(calUpdates).length > 0) {
+              serviceSupabase
+                .from("content_calendar")
+                .update(calUpdates)
+                .eq("notion_page_id", item.id)
+                .eq("client_id", clientId)
+                .then(() => {/* fire-and-forget */});
+            }
+            if (!item.postStatus && cal.post_status) {
+              item.postStatus = cal.post_status;
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to merge content_calendar data:", e);
+  }
 
   // Fetch Notion workspace users
   const notionUsersMap = new Map<string, string>();

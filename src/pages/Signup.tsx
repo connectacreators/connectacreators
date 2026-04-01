@@ -152,16 +152,16 @@ export default function Signup() {
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
               s < step
-                ? "bg-green-600 text-white"
+                ? "bg-[#0891B2] text-white"
                 : s === step
-                ? "bg-green-600 text-white"
-                : "bg-muted text-muted-foreground"
+                ? "bg-[#0891B2] text-white"
+                : "bg-white/[0.06] text-muted-foreground border border-white/[0.08]"
             }`}
           >
             {s < step ? <Check className="w-4 h-4" /> : s}
           </div>
           {i < 2 && (
-            <div className={`w-8 h-0.5 ${s < step ? "bg-green-600" : "bg-muted"}`} />
+            <div className={`w-8 h-0.5 ${s < step ? "bg-[#0891B2]" : "bg-white/[0.08]"}`} />
           )}
         </div>
       ))}
@@ -170,19 +170,26 @@ export default function Signup() {
 
   if (checkingAuth || authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(218 33% 4%) 0%, hsl(210 8% 10%) 50%, hsl(218 33% 4%) 100%)' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: '#060a0f' }}>
+      {/* Large ambient glow blobs */}
+      <div className="absolute top-[-30%] left-[-10%] w-[800px] h-[800px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.18) 0%, transparent 60%)', filter: 'blur(80px)' }} />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(132,204,22,0.12) 0%, transparent 60%)', filter: 'blur(80px)' }} />
+      <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.06) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      <div className="w-full max-w-md relative z-10">
+        {/* Card with visible glass effect */}
+        <div className="rounded-2xl p-8 relative overflow-hidden" style={{ background: 'rgba(15,20,30,0.85)', border: '1px solid rgba(8,145,178,0.25)', boxShadow: '0 0 60px rgba(8,145,178,0.08), 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
+          {/* Top gradient line */}
+          <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ background: 'linear-gradient(90deg, transparent, rgba(8,145,178,0.6), rgba(132,204,22,0.4), transparent)' }} />
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-xl font-bold text-primary tracking-wide">CONNECTA CREATORS</h1>
+            <h1 className="text-xl font-bold tracking-wide text-gradient-brand">CONNECTA CREATORS</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {step === 1 && tr(t.signup.startTrial, language)}
               {step === 2 && tr(t.signup.choosePlan, language)}
@@ -205,7 +212,7 @@ export default function Signup() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
               />
               <input
                 type="email"
@@ -213,7 +220,7 @@ export default function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
               />
               <input
                 type="password"
@@ -222,14 +229,14 @@ export default function Signup() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-3 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
               />
               <input
                 type="tel"
                 placeholder={tr(t.signup.phone, language)}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
               />
 
               {error && (
@@ -237,15 +244,15 @@ export default function Signup() {
               )}
 
               <div className="flex items-center gap-3 my-3">
-                <div className="flex-1 h-px bg-border" />
+                <div className="flex-1 h-px bg-white/[0.08]" />
                 <span className="text-muted-foreground text-xs">{tr(t.signup.orDivider, language)}</span>
-                <div className="flex-1 h-px bg-border" />
+                <div className="flex-1 h-px bg-white/[0.08]" />
               </div>
 
               <button
                 type="button"
                 onClick={handleGoogleSignup}
-                className="w-full py-2.5 rounded-lg bg-muted border border-border text-foreground text-sm hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg text-foreground text-sm transition-colors flex items-center justify-center gap-2 hover:brightness-125" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }}
               >
                 <span className="text-orange-400 font-bold">G</span>
                 {tr(t.signup.signUpGoogle, language)}
@@ -254,7 +261,7 @@ export default function Signup() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #0891B2, #84CC16)', boxShadow: '0 4px 20px rgba(8,145,178,0.35)' }} className="w-full py-3 rounded-lg text-white font-bold text-sm transition-all hover:brightness-110 disabled:opacity-50"
               >
                 {loading ? "..." : `${tr(t.signup.nextChoosePlan, language)} →`}
               </button>
@@ -280,14 +287,14 @@ export default function Signup() {
                   key={plan.key}
                   type="button"
                   onClick={() => setSelectedPlan(plan.key)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-colors relative ${
-                    selectedPlan === plan.key
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-muted-foreground/30"
-                  }`}
+                  className="w-full text-left p-4 rounded-lg transition-all relative"
+                  style={selectedPlan === plan.key
+                    ? { background: 'rgba(8,145,178,0.1)', border: '1px solid rgba(8,145,178,0.4)', boxShadow: '0 0 20px rgba(8,145,178,0.15), inset 0 1px 0 rgba(8,145,178,0.15)' }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }
+                  }
                 >
                   {plan.popular && (
-                    <span className="absolute -top-2.5 right-3 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    <span className="absolute -top-2.5 right-3 text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(132,204,22,0.15)', color: '#a3e635', border: '1px solid rgba(132,204,22,0.3)' }}>
                       {tr(t.signup.popular, language)}
                     </span>
                   )}
@@ -307,21 +314,27 @@ export default function Signup() {
                 </button>
               ))}
 
-              <p className="text-center text-xs text-green-500 mt-2">
-                ✓ {tr(t.signup.trialBanner, language)}
-              </p>
-
-              <button
-                onClick={() => setStep(3)}
-                disabled={!selectedPlan}
-                className="w-full py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold text-sm transition-colors disabled:opacity-50 mt-2"
-              >
-                {`${tr(t.signup.nextPayment, language)} →`}
-              </button>
+              {/* CTA Zone */}
+              <div className="text-center mt-4 rounded-xl p-5" style={{ background: 'linear-gradient(135deg, rgba(8,145,178,0.1), rgba(132,204,22,0.04))', border: '1px solid rgba(8,145,178,0.18)' }}>
+                <div className="font-bold leading-none mb-1" style={{ fontSize: '32px', background: 'linear-gradient(135deg, #22d3ee, #a3e635)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                  $0 {language === 'es' ? 'hoy' : 'today'}
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {language === 'es' ? 'Acceso completo por' : 'Full access for'} <strong className="text-foreground">{language === 'es' ? '7 días gratis' : '7 days free'}</strong>. {language === 'es' ? 'Cancela cuando quieras.' : 'Cancel anytime.'}
+                </p>
+                <button
+                  onClick={() => setStep(3)}
+                  disabled={!selectedPlan}
+                  style={{ background: 'linear-gradient(135deg, #0891B2, #84CC16)', boxShadow: '0 4px 20px rgba(8,145,178,0.35)' }}
+                  className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all hover:brightness-110 disabled:opacity-50"
+                >
+                  {language === 'es' ? 'Empezar Gratis' : 'Start Free'} →
+                </button>
+              </div>
 
               <button
                 onClick={() => { if (!user) setStep(1); }}
-                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors mt-3"
               >
                 ← {tr(t.signup.back, language)}
               </button>
@@ -332,7 +345,7 @@ export default function Signup() {
           {step === 3 && (
             <div className="space-y-4">
               {/* Order Summary */}
-              <div className="bg-muted rounded-lg p-4 border border-border">
+              <div className="rounded-lg p-4" style={{ background: 'rgba(8,145,178,0.08)', border: '1px solid rgba(8,145,178,0.2)', boxShadow: 'inset 0 1px 0 rgba(8,145,178,0.15)' }}>
                 <div className="text-xs text-muted-foreground uppercase mb-2">
                   {tr(t.signup.orderSummary, language)}
                 </div>
@@ -344,18 +357,18 @@ export default function Signup() {
                     ${PLANS.find(p => p.key === selectedPlan)?.price}{tr(t.signup.perMonth, language)}
                   </span>
                 </div>
-                <p className="text-xs text-green-500">
+                <p className="text-xs text-cyan-400">
                   {tr(t.signup.freeTrial, language)} — {tr(t.signup.firstCharge, language)}{" "}
                   {new Date(Date.now() + 7 * 86400000).toLocaleDateString(language === "es" ? "es-ES" : "en-US", { month: "short", day: "numeric" })}
                 </p>
                 <div className="border-t border-border mt-3 pt-3 text-xs text-muted-foreground">
-                  {tr(t.signup.todayCharge, language)}: <span className="text-green-500 font-bold">$0.00</span>
+                  {tr(t.signup.todayCharge, language)}: <span className="text-cyan-400 font-bold">$0.00</span>
                 </div>
               </div>
 
               {/* Stripe Embedded Checkout */}
               {clientSecret ? (
-                <div className="border border-border rounded-lg overflow-hidden min-h-[300px]">
+                <div className="border border-white/[0.08] rounded-lg overflow-hidden min-h-[300px]">
                   <EmbeddedCheckoutProvider stripe={stripePromise} options={{ clientSecret }}>
                     <EmbeddedCheckout />
                   </EmbeddedCheckoutProvider>

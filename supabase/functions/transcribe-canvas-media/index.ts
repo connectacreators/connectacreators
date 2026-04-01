@@ -16,13 +16,23 @@ async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string | null> {
+  // Try junction table first (if it exists)
   const { data } = await adminClient
     .from("subscriber_clients")
     .select("client_id")
     .eq("subscriber_user_id", userId)
     .eq("is_primary", true)
     .maybeSingle();
-  return data?.client_id ?? null;
+  if (data?.client_id) return data.client_id;
+
+  // Fallback: direct clients.user_id lookup
+  const { data: client } = await adminClient
+    .from("clients")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  return client?.id ?? null;
 }
 
 const DOUBLE_COST_THRESHOLD = 25 * 1024 * 1024; // 25 MB — files above this cost 2×
@@ -41,7 +51,9 @@ async function deductCredits(
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (roleData?.role === "admin") return null;
+  const role = roleData?.role;
+  // Skip credit deduction for admin, videographers, and editors
+  if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   // Get client record via primary client lookup
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
@@ -135,8 +147,15 @@ async function transcribeAudio(
     });
 
     if (!extractRes.ok) {
-      const err = await extractRes.text().catch(() => "Audio extraction failed");
-      throw new Error(`VPS audio extraction failed (${extractRes.status}): ${err}`);
+      const errBody = await extractRes.text().catch(() => "");
+      let errMsg = "Audio extraction failed";
+      try {
+        const errJson = JSON.parse(errBody);
+        if (errJson.error) errMsg = errJson.error;
+      } catch { errMsg = errBody || errMsg; }
+      // Strip internal prefix so the user sees a clean message
+      if (errMsg.startsWith("FACEBOOK_NO_AUDIO: ")) errMsg = errMsg.slice(19);
+      throw new Error(errMsg);
     }
 
     audioBlob = await extractRes.blob();

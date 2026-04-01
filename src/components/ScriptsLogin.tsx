@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageToggle from "@/components/LanguageToggle";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const [wordIndex, setWordIndex] = useState(0);
@@ -68,7 +70,10 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
       if (!email) { setLoading(false); return; }
       const { error } = await signInWithEmail(email, password);
       if (error) toast.error(error.message);
-      else onSignIn();
+      else {
+        onSignIn();
+        navigate("/dashboard");
+      }
     } catch (err) {
       toast.error("Login failed");
     } finally {

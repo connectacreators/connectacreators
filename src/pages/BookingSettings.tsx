@@ -198,10 +198,10 @@ export default function BookingSettings() {
     }
 
     if (error) {
-      toast.error("Error guardando configuración");
+      toast.error("Error saving settings");
       console.error(error);
     } else {
-      toast.success("Configuración guardada");
+      toast.success("Settings saved");
     }
     setSaving(false);
   };
@@ -217,7 +217,7 @@ export default function BookingSettings() {
   const copyToClipboard = (text: string, type: "link" | "embed") => {
     navigator.clipboard.writeText(text);
     setCopied(type);
-    toast.success("Copiado al portapapeles");
+    toast.success("Copied to clipboard");
     setTimeout(() => setCopied(null), 2000);
   };
 
@@ -234,9 +234,9 @@ export default function BookingSettings() {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("booking-logos").getPublicUrl(path);
       setSettings((s) => s ? { ...s, logo_url: publicUrl } : s);
-      toast.success("Logo subido correctamente");
+      toast.success("Logo uploaded successfully");
     } catch (err) {
-      toast.error("Error subiendo el logo");
+      toast.error("Error uploading logo");
     } finally {
       setLogoUploading(false);
       e.target.value = "";
@@ -246,7 +246,7 @@ export default function BookingSettings() {
   const handleLogoRemove = async () => {
     if (!settings || !clientId) return;
     setSettings({ ...settings, logo_url: null });
-    toast.success("Logo eliminado");
+    toast.success("Logo removed");
   };
 
   if (authLoading || loading) {

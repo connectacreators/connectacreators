@@ -403,6 +403,11 @@ All colors MUST be HSL for consistency and theming.
   100% { background-position: -200% center; }
 }
 
+@keyframes ai-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
 /* Visual Breakdown horizontal scrollbar — cream outline, no fill */
 .visual-breakdown-scroll::-webkit-scrollbar {
   height: 4px;
@@ -420,6 +425,92 @@ All colors MUST be HSL for consistency and theming.
 }
 .visual-breakdown-scroll:hover {
   scrollbar-color: #e8d5b0 transparent;
+}
+
+/* Editing Queue horizontal scrollbar — transparent with cyan outline */
+.eq-table-wrap ::-webkit-scrollbar {
+  height: 6px;
+}
+.eq-table-wrap ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.eq-table-wrap ::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 1.5px solid rgba(8, 145, 178, 0.4);
+  border-radius: 10px;
+}
+.eq-table-wrap ::-webkit-scrollbar-thumb:hover {
+  background: rgba(8, 145, 178, 0.15);
+  border-color: rgba(8, 145, 178, 0.6);
+}
+.eq-table-wrap .overflow-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(8, 145, 178, 0.4) transparent;
+}
+
+/* Canvas scrollbars — cyan outline, no fill (AI panel + all nodes) */
+.canvas-ai-scroll::-webkit-scrollbar,
+.react-flow__node ::-webkit-scrollbar,
+.react-flow__panel ::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.canvas-ai-scroll::-webkit-scrollbar-track,
+.react-flow__node ::-webkit-scrollbar-track,
+.react-flow__panel ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.canvas-ai-scroll::-webkit-scrollbar-thumb,
+.react-flow__node ::-webkit-scrollbar-thumb,
+.react-flow__panel ::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 1.5px solid rgba(34, 211, 238, 0.4);
+  border-radius: 10px;
+}
+.canvas-ai-scroll::-webkit-scrollbar-thumb:hover,
+.react-flow__node ::-webkit-scrollbar-thumb:hover,
+.react-flow__panel ::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.6);
+}
+.canvas-ai-scroll,
+.react-flow__node *,
+.react-flow__panel * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.4) transparent;
+}
+
+/* ReactFlow — rounded node wrappers + selection glow */
+.react-flow__node {
+  border-radius: 1rem !important;
+}
+.react-flow__node.selected,
+.react-flow__node:focus,
+.react-flow__node:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 1.5px rgba(34, 211, 238, 0.6), 0 5px 20px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 1rem !important;
+}
+
+/* ReactFlow — Allow text selection + copy inside all canvas nodes */
+/* Only target actual text elements, not interactive containers */
+.react-flow .glass-card p,
+.react-flow .glass-card pre,
+.react-flow .glass-card code,
+.react-flow .glass-card .select-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
+}
+/* Keep buttons/handles/inputs as pointer; override text cursor */
+.react-flow .glass-card button,
+.react-flow .glass-card a,
+.react-flow .glass-card .react-flow__handle,
+.react-flow .glass-card input,
+.react-flow .glass-card select,
+.react-flow .glass-card video {
+  cursor: pointer;
+  user-select: none !important;
 }
 
 /* ReactFlow — Dark charcoal canvas node cards */
@@ -495,6 +586,17 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card [class*="text-primary"],
 .react-flow .glass-card [class*="text-cyan"] {
   color: #e0e0e0 !important;
+}
+
+/* Textarea inside canvas nodes — white text */
+.react-flow .glass-card textarea {
+  color: #e0e0e0 !important;
+}
+
+/* Generate Script + btn-17-primary inside canvas nodes */
+.react-flow .glass-card .btn-17-primary,
+.react-flow .glass-card .btn-17-primary * {
+  color: #ffffff !important;
 }
 
 /* Handle connection dots — cyan with glow */

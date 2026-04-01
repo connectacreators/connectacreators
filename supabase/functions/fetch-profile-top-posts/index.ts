@@ -9,7 +9,7 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apify~instagram-reel-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "streamers~youtube-scraper";
+const APIFY_ACTOR_YOUTUBE = "scrapesmith~youtube-shorts-scraper";
 
 const MAX_RESULTS = 100; // hard cap
 
@@ -67,9 +67,9 @@ function buildActorInput(platform: Platform, username: string, fullUrl: string, 
   if (platform === "tiktok") {
     return { actorId: APIFY_ACTOR_TIKTOK, input: { handles: [username], startUrls: [{ url: fullUrl }], resultsPerPage: safeLimit, shouldDownloadVideos: false, shouldDownloadCovers: false } };
   }
-  // streamers~youtube-scraper: startUrls array + maxResults, /shorts suffix for Shorts only
-  const shortsUrl = fullUrl.replace(/\/(shorts|videos|playlists)\/?$/, "") + "/shorts";
-  return { actorId: APIFY_ACTOR_YOUTUBE, input: { startUrls: [{ url: shortsUrl }], maxResults: safeLimit } };
+  // scrapesmith~youtube-shorts-scraper: channelUrls + maxShortsPerChannel (200 cap for YT)
+  const cleanUrl = fullUrl.replace(/\/(shorts|videos|playlists)\/?$/, "");
+  return { actorId: APIFY_ACTOR_YOUTUBE, input: { channelUrls: [cleanUrl], maxShortsPerChannel: Math.min(limit, 200) } };
 }
 
 // Parses "3.5K views" → 3500, "1.2M" → 1200000
@@ -104,15 +104,19 @@ function normalizeItem(item: any, platform: Platform, username: string) {
     postedAt = parseTimestamp(item.createTime ?? item.create_time ?? item.createdAt);
     url = item.webVideoUrl ?? item.url ?? (videoId ? `https://www.tiktok.com/@${username}/video/${videoId}` : "");
   } else {
-    // YouTube — confirmed field names from test run
-    views = parseYouTubeViewCount(item.viewCountText);
-    likes = 0;    // not returned by actor
-    comments = 0; // not returned by actor
-    videoId = item.videoId ?? item.id ?? "";
+    // scrapesmith~youtube-shorts-scraper fields
+    views = item.views ?? 0;
+    likes = item.likes ?? 0;
+    comments = item.comments ?? 0;
+    videoId = item.video_id ?? "";
     caption = (item.title ?? "").slice(0, 600);
-    thumbnail = item.thumbnail ?? item.thumbnails?.[0]?.url ?? null;
-    postedAt = ""; // not returned by actor
-    url = item.shortUrl ?? (videoId ? `https://www.youtube.com/shorts/${videoId}` : "");
+    thumbnail = item.thumbnail ?? null;
+    url = item.video_url ?? (videoId ? `https://www.youtube.com/shorts/${videoId}` : "");
+    // date_posted format: "Mar 23, 2026"
+    if (item.date_posted) {
+      const parsed = new Date(item.date_posted);
+      if (!isNaN(parsed.getTime())) postedAt = parsed.toISOString();
+    }
   }
 
   const engagement = views > 0 ? ((likes + comments) / views) * 100 : 0;
@@ -225,7 +229,38 @@ serve(async (req) => {
     const videoItems = rawItems;
     const normalized = videoItems.map(item => normalizeItem(item, platform, username)).filter(p => p.videoId);
 
-    if (normalized.length === 0) return json({ posts: [], username, platform, message: "No posts found for this profile" });
+    // Extract profile picture from raw Apify data
+    let profilePicUrl: string | null = null;
+    for (const item of rawItems) {
+      if (platform === "instagram") {
+        profilePicUrl = item.ownerProfilePicUrl ?? item.profilePicUrl ?? item.ownerProfilePicUrlHd ?? null;
+      } else if (platform === "tiktok") {
+        profilePicUrl = item.authorMeta?.avatar ?? item.author?.avatarUrl ?? item.avatarUrl ?? null;
+      } else {
+        profilePicUrl = item.channelAvatar ?? item.channelThumbnail ?? null;
+      }
+      if (profilePicUrl) break;
+    }
+    console.log(`[fetch-profile-top-posts] profilePicUrl: ${profilePicUrl ? profilePicUrl.slice(0, 80) + "..." : "none"}`);
+
+    // Download profile pic and convert to base64 so it survives CDN expiry
+    let profilePicB64: string | null = null;
+    if (profilePicUrl) {
+      try {
+        const picRes = await fetch(profilePicUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://www.instagram.com/" },
+        });
+        if (picRes.ok) {
+          const buf = await picRes.arrayBuffer();
+          const contentType = picRes.headers.get("content-type") || "image/jpeg";
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          profilePicB64 = `data:${contentType};base64,${b64}`;
+          console.log(`[fetch-profile-top-posts] profilePic downloaded: ${(buf.byteLength / 1024).toFixed(1)} KB`);
+        }
+      } catch (e) { console.warn("[fetch-profile-top-posts] profilePic download failed:", e); }
+    }
+
+    if (normalized.length === 0) return json({ posts: [], username, platform, profilePicUrl, profilePicB64, message: "No posts found for this profile" });
 
     const avgViews = normalized.reduce((s, p) => s + p.views, 0) / normalized.length;
 
@@ -233,7 +268,7 @@ serve(async (req) => {
     saveToVault(supabase, username, platform, normalized, avgViews);
 
     const sorted = [...normalized].sort((a, b) => b.views - a.views).slice(0, 10);
-    return json({ posts: sorted.map((p, i) => ({ rank: i + 1, caption: p.caption, views: p.views, viewsFormatted: formatViews(p.views), likes: p.likes, comments: p.comments, engagement_rate: parseFloat(p.engagement.toFixed(2)), outlier_score: parseFloat((p.views / (avgViews || 1) * 10).toFixed(1)), posted_at: p.postedAt, url: p.url, thumbnail: p.thumbnail, platform })), username, platform });
+    return json({ posts: sorted.map((p, i) => ({ rank: i + 1, caption: p.caption, views: p.views, viewsFormatted: formatViews(p.views), likes: p.likes, comments: p.comments, engagement_rate: parseFloat(p.engagement.toFixed(2)), outlier_score: parseFloat((p.views / (avgViews || 1) * 10).toFixed(1)), posted_at: p.postedAt, url: p.url, thumbnail: p.thumbnail, platform })), username, platform, profilePicUrl, profilePicB64 });
   } catch (e: any) {
     console.error("[fetch-profile-top-posts] error:", e);
     return json({ error: e.message || "Unknown error" }, 500);

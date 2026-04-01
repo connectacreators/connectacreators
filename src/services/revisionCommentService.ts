@@ -10,6 +10,7 @@ export interface RevisionComment {
   author_id: string | null;
   resolved: boolean;
   created_at: string;
+  source_ref: string | null;
 }
 
 export interface CreateCommentInput {
@@ -19,6 +20,7 @@ export interface CreateCommentInput {
   author_name: string;
   author_role: 'admin' | 'editor' | 'client';
   author_id?: string | null;
+  source_ref?: string | null;
 }
 
 export const revisionCommentService = {
@@ -48,6 +50,15 @@ export const revisionCommentService = {
     const { error } = await supabase
       .from('revision_comments')
       .update({ resolved })
+      .eq('id', commentId);
+
+    if (error) throw error;
+  },
+
+  async updateComment(commentId: string, comment: string): Promise<void> {
+    const { error } = await supabase
+      .from('revision_comments')
+      .update({ comment })
       .eq('id', commentId);
 
     if (error) throw error;

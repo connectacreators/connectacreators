@@ -21,11 +21,51 @@ import {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const MONTH_NAMES = [
+const DAY_NAMES_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_NAMES_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MONTH_NAMES_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const MONTH_NAMES_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
+
+const TRANSLATIONS = {
+  en: {
+    changeDate: "Change date",
+    selectTime: "Select available time",
+    noSlots: "No time slots available for this date.",
+    changeTime: "Change time",
+    confirmBooking: "Confirm Booking",
+    fullName: "Your full name",
+    email: "your@email.com",
+    phone: "123 456 7890",
+    message: "Message or notes (optional)",
+    bookingConfirmed: "Booking Confirmed!",
+    bookingSuccess: "Your appointment has been booked successfully.",
+    contactSoon: "We will contact you soon.",
+    poweredBy: "Powered by Connecta Creators",
+    errorMessage: "This calendar is not available.",
+  },
+  es: {
+    changeDate: "Cambiar fecha",
+    selectTime: "Selecciona un horario disponible",
+    noSlots: "No hay horarios disponibles para esta fecha.",
+    changeTime: "Cambiar horario",
+    confirmBooking: "Confirmar Cita",
+    fullName: "Tu nombre completo",
+    email: "tu@email.com",
+    phone: "123 456 7890",
+    message: "Mensaje o notas (opcional)",
+    bookingConfirmed: "¡Cita Confirmada!",
+    bookingSuccess: "Tu cita ha sido agendada exitosamente.",
+    contactSoon: "Nos pondremos en contacto contigo pronto.",
+    poweredBy: "Powered by Connecta Creators",
+    errorMessage: "Este calendario no está disponible.",
+  },
+};
 
 const COUNTRY_CODES = [
   { code: "+1", flag: "🇺🇸", label: "US" },
@@ -82,6 +122,9 @@ export default function PublicBooking() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Language state — always defaults to English on each visit
+  const [language, setLanguage] = useState<"en" | "es">("en");
+
   const [step, setStep] = useState<Step>("date");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -95,6 +138,11 @@ export default function PublicBooking() {
 
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
+
+  // Get translations and date names for current language
+  const t = TRANSLATIONS[language];
+  const dayNames = language === "en" ? DAY_NAMES_EN : DAY_NAMES_ES;
+  const monthNames = language === "en" ? MONTH_NAMES_EN : MONTH_NAMES_ES;
 
   // Colors from settings
   const primaryColor = settings?.primary_color || "#C4922A";
@@ -245,7 +293,7 @@ export default function PublicBooking() {
       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: bgColor }}>
         <div className="text-center space-y-3">
           <CalendarDays className="w-12 h-12 mx-auto" style={{ color: cssVars["--bk-text-dim"] }} />
-          <p className="text-sm" style={{ color: cssVars["--bk-text-muted"] }}>Este calendario no está disponible.</p>
+          <p className="text-sm" style={{ color: cssVars["--bk-text-muted"] }}>{t.errorMessage}</p>
         </div>
       </div>
     );
@@ -263,6 +311,32 @@ export default function PublicBooking() {
       onClick={() => showCountryDropdown && setShowCountryDropdown(false)}
     >
       <div className="w-full max-w-md">
+        {/* Language Toggle */}
+        <div className="flex gap-2 justify-end mb-4">
+          <button
+            onClick={() => setLanguage("en")}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+            style={{
+              background: language === "en" ? primaryColor : "transparent",
+              color: language === "en" ? cssVars["--bk-bg"] : cssVars["--bk-text-muted"],
+              border: `1px solid ${language === "en" ? primaryColor : cssVars["--bk-card-border"]}`,
+            }}
+          >
+            EN
+          </button>
+          <button
+            onClick={() => setLanguage("es")}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+            style={{
+              background: language === "es" ? primaryColor : "transparent",
+              color: language === "es" ? cssVars["--bk-bg"] : cssVars["--bk-text-muted"],
+              border: `1px solid ${language === "es" ? primaryColor : cssVars["--bk-card-border"]}`,
+            }}
+          >
+            ES
+          </button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           {settings.logo_url ? (
@@ -323,14 +397,14 @@ export default function PublicBooking() {
               <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }} className="p-1.5 rounded-lg transition-opacity hover:opacity-70">
                 <ChevronLeft className="w-4 h-4" style={{ color: cssVars["--bk-text-muted"] }} />
               </button>
-              <span className="text-sm font-semibold" style={{ color: cssVars["--bk-text"] }}>{MONTH_NAMES[calMonth]} {calYear}</span>
+              <span className="text-sm font-semibold" style={{ color: cssVars["--bk-text"] }}>{monthNames[calMonth]} {calYear}</span>
               <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }} className="p-1.5 rounded-lg transition-opacity hover:opacity-70">
                 <ChevronRight className="w-4 h-4" style={{ color: cssVars["--bk-text-muted"] }} />
               </button>
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {DAY_NAMES.map((d) => (
+              {dayNames.map((d) => (
                 <span key={d} className="text-[10px] text-center font-medium" style={{ color: cssVars["--bk-text-muted"] }}>{d}</span>
               ))}
             </div>
@@ -384,20 +458,20 @@ export default function PublicBooking() {
         {step === "time" && selectedDate && (
           <div className="rounded-2xl p-5" style={{ background: cssVars["--bk-card"], border: `1px solid ${cssVars["--bk-card-border"]}` }}>
             <button onClick={() => setStep("date")} className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70 mb-4" style={{ color: cssVars["--bk-text-muted"] }}>
-              <ChevronLeft className="w-3 h-3" />Cambiar fecha
+              <ChevronLeft className="w-3 h-3" />{t.changeDate}
             </button>
 
             <p className="text-sm font-semibold mb-1" style={{ color: cssVars["--bk-text"] }}>
-              {selectedDate.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
+              {selectedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX", { weekday: "long", day: "numeric", month: "long" })}
             </p>
-            <p className="text-xs mb-4" style={{ color: cssVars["--bk-text-muted"] }}>Selecciona un horario disponible</p>
+            <p className="text-xs mb-4" style={{ color: cssVars["--bk-text-muted"] }}>{t.selectTime}</p>
 
             {slotsLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin" style={{ color: primaryColor }} />
               </div>
             ) : availableSlots.length === 0 ? (
-              <p className="text-xs text-center py-8" style={{ color: cssVars["--bk-text-dim"] }}>No hay horarios disponibles para esta fecha.</p>
+              <p className="text-xs text-center py-8" style={{ color: cssVars["--bk-text-dim"] }}>{t.noSlots}</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {availableSlots.map((slot) => (
@@ -435,7 +509,7 @@ export default function PublicBooking() {
         {step === "form" && selectedDate && selectedTime && (
           <div className="rounded-2xl p-5" style={{ background: cssVars["--bk-card"], border: `1px solid ${cssVars["--bk-card-border"]}` }}>
             <button onClick={() => setStep("time")} className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70 mb-4" style={{ color: cssVars["--bk-text-muted"] }}>
-              <ChevronLeft className="w-3 h-3" />Cambiar horario
+              <ChevronLeft className="w-3 h-3" />{t.changeTime}
             </button>
 
             <div
@@ -444,7 +518,7 @@ export default function PublicBooking() {
             >
               <CalendarDays className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
               <span className="text-xs capitalize" style={{ color: cssVars["--bk-text"] }}>
-                {selectedDate.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
+                {selectedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX", { weekday: "long", day: "numeric", month: "long" })}
               </span>
               <Clock className="w-4 h-4 flex-shrink-0 ml-2" style={{ color: primaryColor }} />
               <span className="text-xs font-semibold" style={{ color: primaryColor }}>{formatTimeDisplay(selectedTime)}</span>
@@ -455,7 +529,7 @@ export default function PublicBooking() {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: cssVars["--bk-text-dim"] }} />
                 <input
-                  placeholder="Tu nombre completo"
+                  placeholder={t.fullName}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
@@ -475,7 +549,7 @@ export default function PublicBooking() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: cssVars["--bk-text-dim"] }} />
                 <input
                   type="email"
-                  placeholder="tu@email.com"
+                  placeholder={t.email}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -543,7 +617,7 @@ export default function PublicBooking() {
                 {/* Phone input */}
                 <input
                   type="tel"
-                  placeholder="123 456 7890"
+                  placeholder={t.phone}
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
@@ -563,7 +637,7 @@ export default function PublicBooking() {
               <div className="relative">
                 <MessageSquare className="absolute left-3 top-3 w-4 h-4" style={{ color: cssVars["--bk-text-dim"] }} />
                 <textarea
-                  placeholder="Mensaje o notas (opcional)"
+                  placeholder={t.message}
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   className="w-full pl-10 py-3 rounded-xl text-sm outline-none transition-colors min-h-[80px] resize-none"
@@ -585,7 +659,7 @@ export default function PublicBooking() {
                 className="w-full h-11 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center"
                 style={{ background: primaryColor, color: cssVars["--bk-bg"] }}
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar Cita"}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t.confirmBooking}
               </button>
             </form>
           </div>
@@ -597,8 +671,8 @@ export default function PublicBooking() {
             <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
             </div>
-            <h2 className="text-lg font-bold mb-2" style={{ color: cssVars["--bk-text"] }}>¡Cita Confirmada!</h2>
-            <p className="text-sm mb-4" style={{ color: cssVars["--bk-text-muted"] }}>Tu cita ha sido agendada exitosamente.</p>
+            <h2 className="text-lg font-bold mb-2" style={{ color: cssVars["--bk-text"] }}>{t.bookingConfirmed}</h2>
+            <p className="text-sm mb-4" style={{ color: cssVars["--bk-text-muted"] }}>{t.bookingSuccess}</p>
 
             <div
               className="inline-flex items-center gap-3 px-4 py-2.5 rounded-xl"
@@ -606,19 +680,19 @@ export default function PublicBooking() {
             >
               <CalendarDays className="w-4 h-4" style={{ color: primaryColor }} />
               <span className="text-xs capitalize" style={{ color: cssVars["--bk-text"] }}>
-                {selectedDate.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
+                {selectedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX", { weekday: "long", day: "numeric", month: "long" })}
               </span>
               <Clock className="w-4 h-4" style={{ color: primaryColor }} />
               <span className="text-xs font-semibold" style={{ color: primaryColor }}>{formatTimeDisplay(selectedTime)}</span>
             </div>
 
-            <p className="text-xs mt-6" style={{ color: cssVars["--bk-text-dim"] }}>Nos pondremos en contacto contigo pronto.</p>
+            <p className="text-xs mt-6" style={{ color: cssVars["--bk-text-dim"] }}>{t.contactSoon}</p>
           </div>
         )}
 
         {/* Footer */}
         <p className="text-center text-[8px] mt-6" style={{ color: cssVars["--bk-text-dim"] }}>
-          Powered by Connecta Creators
+          {t.poweredBy}
         </p>
       </div>
     </div>

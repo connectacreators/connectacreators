@@ -37,12 +37,16 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div
-      className={`group relative w-full h-full rounded-xl border backdrop-blur-xl transition-colors ${
+      className={`group relative w-full h-full rounded-xl border backdrop-blur-md transition-colors ${
         d.isDropTarget
           ? "bg-purple-500/10 border-purple-500/50"
-          : "bg-black/45 border-white/20"
+          : "border-white/[0.12]"
       }`}
-      style={{ minWidth: 200, minHeight: 150 }}
+      style={{
+        minWidth: 200,
+        minHeight: 150,
+        ...(!d.isDropTarget ? { background: "linear-gradient(145deg, rgba(180,180,190,0.18) 0%, rgba(100,100,115,0.22) 100%)" } : {}),
+      }}
     >
       <NodeResizer
         minWidth={200}
@@ -54,7 +58,7 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-md max-w-[80%]">
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-white/10 rounded-md max-w-[80%]">
           <Folder className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
           {editing ? (
             <input

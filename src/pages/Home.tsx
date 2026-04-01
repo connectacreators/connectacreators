@@ -92,7 +92,7 @@ export default function Home() {
           />
           <div className="flex items-center gap-3">
             <LanguageToggle />
-            <Link to="/signup">
+            <Link to="/scripts">
               <button className="btn-17 btn-17-secondary px-5 py-1.5 text-sm font-medium">
                 {tr(t.home.cta, language)}
               </button>
@@ -148,7 +148,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.4 }}
           >
-            <Link to="/signup">
+            <Link to="/scripts">
               <button className="btn-17 btn-17-hero px-8 py-3 text-sm font-semibold tracking-wide">
                 {tr(t.home.cta, language)}
               </button>
@@ -277,7 +277,7 @@ export default function Home() {
             custom={2}
             variants={fadeUp}
           >
-            <Link to="/signup">
+            <Link to="/scripts">
               <button className="btn-17 btn-17-hero px-8 py-3 text-sm font-semibold tracking-wide">
                 {tr(t.home.cta, language)}
               </button>

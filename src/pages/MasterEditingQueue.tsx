@@ -57,7 +57,7 @@ interface EditingQueueItem {
 }
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
-const POST_STATUS_OPTIONS = ["Scheduled", "Needs Revision", "Approved", "Done"];
+const POST_STATUS_OPTIONS = ["Unpublished", "Scheduled", "Needs Revision", "Published"];
 
 function extractGoogleDriveFileId(url: string): string | null {
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -84,9 +84,10 @@ function getStatusClassName(status: string): string {
 
 function getStatusDotColor(status: string): string {
   const lower = status.toLowerCase();
-  if (lower === "done" || lower === "complete") return "bg-emerald-400";
+  if (lower === "done" || lower === "complete" || lower === "published") return "bg-emerald-400";
   if (lower.includes("revision")) return "bg-destructive";
   if (lower.includes("progress")) return "bg-amber-400";
+  if (lower === "scheduled") return "bg-primary";
   return "bg-muted-foreground";
 }
 
@@ -118,6 +119,7 @@ export default function MasterEditingQueue() {
 
   const [inlineEdit, setInlineEdit] = useState<{ itemId: string; value: string } | null>(null);
   const [savingInline, setSavingInline] = useState(false);
+  const [editingTitle, setEditingTitle] = useState<{ itemId: string; value: string } | null>(null);
   const [footageViewerItem, setFootageViewerItem] = useState<EditingQueueItem | null>(null);
   const [viewerSubfolder, setViewerSubfolder] = useState<string | undefined>(undefined);
 
@@ -140,6 +142,22 @@ export default function MasterEditingQueue() {
       setInlineEdit(null);
     } catch { toast.error("Failed to save"); }
     finally { setSavingInline(false); }
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editingTitle) return;
+    const newTitle = editingTitle.value.trim() || "Untitled";
+    const item = items.find(i => i.id === editingTitle.itemId);
+    try {
+      const { error } = await supabase.from("video_edits").update({ reel_title: newTitle }).eq("id", editingTitle.itemId);
+      if (error) throw error;
+      // Sync to scripts table if linked
+      if (item?.script_id) {
+        await supabase.from("scripts").update({ title: newTitle, idea_ganadora: newTitle }).eq("id", item.script_id);
+      }
+      setItems(prev => prev.map(i => i.id === editingTitle.itemId ? { ...i, title: newTitle } : i));
+      setEditingTitle(null);
+    } catch { toast.error("Failed to save title"); setEditingTitle(null); }
   };
 
   // Trash
@@ -806,7 +824,7 @@ export default function MasterEditingQueue() {
             </div>
           ) : (
             <motion.div
-              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card"
+              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card eq-table-wrap"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 }}
@@ -862,7 +880,26 @@ export default function MasterEditingQueue() {
                             {item.clientName}
                           </button>
                         </TableCell>
-                        <TableCell className="font-medium text-foreground">{item.title}</TableCell>
+                        <TableCell className="font-medium text-foreground max-w-[200px]">
+                          {editingTitle?.itemId === item.id ? (
+                            <input
+                              autoFocus
+                              className="text-xs font-medium border rounded px-1.5 py-0.5 w-full bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                              value={editingTitle.value}
+                              onChange={(e) => setEditingTitle({ ...editingTitle, value: e.target.value })}
+                              onBlur={handleSaveTitle}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveTitle(); } if (e.key === 'Escape') setEditingTitle(null); }}
+                            />
+                          ) : (
+                            <button
+                              onClick={() => setEditingTitle({ itemId: item.id, value: item.title })}
+                              className="text-left w-full truncate hover:text-primary transition-colors cursor-text"
+                              title="Click to edit title"
+                            >
+                              {item.title}
+                            </button>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -898,16 +935,21 @@ export default function MasterEditingQueue() {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingPostStatus === item.id}>
-                                  <Badge variant="outline" className="cursor-pointer text-xs">
-                                    {updatingPostStatus === item.id ? (
+                                  {updatingPostStatus === item.id ? (
+                                    <Badge variant="outline" className="cursor-pointer text-xs">
                                       <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                      <>
-                                        {item.postStatus || "—"}
-                                        <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                                      </>
-                                    )}
-                                  </Badge>
+                                    </Badge>
+                                  ) : item.postStatus ? (
+                                    <span className="cursor-pointer inline-flex items-center gap-1">
+                                      <StatusBadge status={item.postStatus} />
+                                      <ChevronDown className="w-3 h-3 opacity-60" />
+                                    </span>
+                                  ) : (
+                                    <Badge variant="outline" className="cursor-pointer text-xs">
+                                      —
+                                      <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+                                    </Badge>
+                                  )}
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
@@ -917,7 +959,7 @@ export default function MasterEditingQueue() {
                                     onClick={() => handlePostStatusChange(item.id, s)}
                                     className={item.postStatus === s ? "font-bold" : ""}
                                   >
-                                    {s}
+                                    <StatusBadge status={s} />
                                   </DropdownMenuItem>
                                 ))}
                               </DropdownMenuContent>
@@ -1341,6 +1383,7 @@ export default function MasterEditingQueue() {
           storagePath={footageViewerItem.storagePath}
           storageUrl={footageViewerItem.storageUrl}
           subfolder={viewerSubfolder}
+          scriptId={footageViewerItem.script_id}
           onComplete={() => { fetchQueue(); setFootageViewerItem(null); }}
         />
       )}

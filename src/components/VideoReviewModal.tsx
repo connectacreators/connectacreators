@@ -7,18 +7,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
 import { videoUploadService } from '@/services/videoUploadService';
 import { toast } from 'sonner';
-import { Check, CheckCheck, Play, Pause, Send, X } from 'lucide-react';
+import { Check, CheckCheck, Download, Loader2, Send, Trash2, X } from 'lucide-react';
+import ThemedVideoPlayer from './ThemedVideoPlayer';
 
 interface VideoReviewModalProps {
   open: boolean;
   onClose: () => void;
   videoEditId: string;
   title: string;
-  uploadSource: string | null; // 'supabase' | 'gdrive' | null
+  uploadSource: string | null;
   storagePath: string | null;
   fileSubmissionUrl: string | null;
   onCommentsChanged?: () => void;
   onStatusChanged?: (newStatus: string) => void;
+}
+
+interface VideoSource {
+  id: string;
+  label: string;
+  type: 'supabase' | 'drive' | 'external';
+  rawUrl: string;
+  driveId?: string;
 }
 
 function formatTimestamp(seconds: number): string {
@@ -49,6 +58,19 @@ function extractGoogleDriveFileId(url: string): string | null {
   return null;
 }
 
+function parseLinks(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('[')) {
+    try { return (JSON.parse(trimmed) as string[]).filter(Boolean); } catch { return [trimmed]; }
+  }
+  return [trimmed];
+}
+
+function shortLabel(str: string, max = 20): string {
+  return str.length <= max ? str : str.slice(0, max - 1) + '…';
+}
+
 const ROLE_COLORS: Record<string, string> = {
   admin: '#3b82f6',
   editor: '#8b5cf6',
@@ -74,12 +96,70 @@ export default function VideoReviewModal({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
 
-  const isSupabaseVideo = uploadSource === 'supabase' && storagePath;
-  const isDriveVideo = uploadSource === 'gdrive' && fileSubmissionUrl;
-  const driveFileId = isDriveVideo ? extractGoogleDriveFileId(fileSubmissionUrl!) : null;
+  // Multi-source
+  const [sources, setSources] = useState<VideoSource[]>([]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null); // signed URL for supabase source
+  const activeSource = sources[activeIdx] ?? null;
+
+  // Build source list when modal opens
+  useEffect(() => {
+    if (!open) return;
+    const list: VideoSource[] = [];
+
+    // Parse links/paths from file_submission
+    const links = parseLinks(fileSubmissionUrl);
+    const addedPaths = new Set<string>();
+    links.forEach((url, i) => {
+      if (!url.startsWith('http')) {
+        // Raw Supabase storage path stored in file_submission (set by videoUploadService for submission uploads)
+        const filename = url.split('/').pop() || 'Upload';
+        list.push({ id: `sub-${i}`, label: shortLabel(filename), type: 'supabase', rawUrl: url });
+        addedPaths.add(url);
+      } else {
+        const driveId = extractGoogleDriveFileId(url);
+        if (driveId) {
+          list.push({ id: `drive-${i}`, label: `Link ${i + 1}`, type: 'drive', rawUrl: url, driveId });
+        } else {
+          list.push({ id: `ext-${i}`, label: `Link ${i + 1}`, type: 'external', rawUrl: url });
+        }
+      }
+    });
+
+    // Supabase storage file from storage_path (avoid duplicate if already added via file_submission)
+    if (storagePath && !addedPaths.has(storagePath)) {
+      const filename = storagePath.split('/').pop() || 'Upload';
+      list.push({ id: 'supabase', label: shortLabel(filename), type: 'supabase', rawUrl: storagePath });
+    }
+
+    setSources(list);
+    setActiveIdx(0);
+    setVideoUrl(null);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPaused(true);
+  }, [open, fileSubmissionUrl, storagePath]);
+
+  // Load signed URL when active source is supabase
+  useEffect(() => {
+    if (!activeSource || activeSource.type !== 'supabase') { setVideoUrl(null); return; }
+    videoUploadService.getSignedVideoUrl(activeSource.rawUrl)
+      .then(setVideoUrl)
+      .catch(() => setVideoUrl(null));
+  }, [activeSource]);
+
+  // Reset playback state when switching sources
+  const switchSource = (idx: number) => {
+    setActiveIdx(idx);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPaused(true);
+  };
 
   // Load comments
   useEffect(() => {
@@ -91,36 +171,31 @@ export default function VideoReviewModal({
       .finally(() => setLoading(false));
   }, [open, videoEditId]);
 
-  // Load signed video URL for Supabase videos
-  useEffect(() => {
-    if (!open || !isSupabaseVideo || !storagePath) return;
-    videoUploadService.getSignedVideoUrl(storagePath)
-      .then(setVideoUrl)
-      .catch(() => toast.error('Failed to load video'));
-  }, [open, isSupabaseVideo, storagePath]);
+  const isActiveSupabase = activeSource?.type === 'supabase' && !!videoUrl;
+  const isActiveDrive = activeSource?.type === 'drive' && !!activeSource.driveId;
+  // Can seek only when ThemedVideoPlayer is active (Supabase sources)
+  const canSeek = isActiveSupabase;
 
-  // Track video time
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration);
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPaused(false);
-    } else {
-      videoRef.current.pause();
-      setIsPaused(true);
-    }
+  const handleDownload = async () => {
+    if (!activeSource) return;
+    let url: string | null = null;
+    if (activeSource.type === 'supabase') url = videoUrl;
+    else if (activeSource.type === 'drive' && activeSource.driveId)
+      url = `https://drive.google.com/uc?export=download&id=${activeSource.driveId}`;
+    else url = activeSource.rawUrl;
+    if (!url) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${(title || 'video').replace(/[^a-zA-Z0-9_\- ]/g, '')}.mp4`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(blobUrl);
+    } catch { toast.error('Download failed'); }
+    finally { setDownloading(false); }
   };
 
   const seekTo = (seconds: number) => {
@@ -130,14 +205,6 @@ export default function VideoReviewModal({
     }
   };
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!videoRef.current || !duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    seekTo(pct * duration);
-  };
-
-  // Sorted comments: timestamped first (ascending), then general (null timestamp) at end
   const sortedComments = useMemo(() => {
     const timestamped = comments
       .filter(c => c.timestamp_seconds !== null)
@@ -153,16 +220,15 @@ export default function VideoReviewModal({
     if (!newComment.trim()) return;
 
     let timestampSeconds: number | null = null;
-
-    if (isSupabaseVideo) {
-      // Auto-capture from paused player
+    if (canSeek) {
       timestampSeconds = isPaused ? Math.floor(currentTime) : null;
-    } else if (isDriveVideo && manualTimestamp.trim()) {
-      // Manual timestamp for Drive videos
+    } else if (manualTimestamp.trim()) {
       timestampSeconds = parseTimestamp(manualTimestamp);
     }
 
     const authorName = user?.user_metadata?.full_name || user?.email || 'Admin';
+    // Tag with source only when multiple sources exist
+    const sourceRef = sources.length > 1 ? (activeSource?.label ?? null) : null;
 
     try {
       const created = await revisionCommentService.createComment({
@@ -172,33 +238,28 @@ export default function VideoReviewModal({
         author_name: authorName,
         author_role: 'admin',
         author_id: user?.id || null,
+        source_ref: sourceRef,
       });
       setComments(prev => [...prev, created]);
       setNewComment('');
       setManualTimestamp('');
-      // Auto-set status to Needs Revision when a comment is added
       await supabase.from('video_edits').update({ status: 'Needs Revision' }).eq('id', videoEditId);
       onStatusChanged?.('Needs Revision');
       onCommentsChanged?.();
-    } catch {
-      toast.error('Failed to add comment');
-    }
+    } catch { toast.error('Failed to add comment'); }
   };
 
   const handleResolve = async (commentId: string, resolved: boolean) => {
     try {
       await revisionCommentService.resolveComment(commentId, resolved);
-      const updatedComments = comments.map(c => c.id === commentId ? { ...c, resolved } : c);
-      setComments(updatedComments);
-      // Auto-update status based on unresolved count
-      const allResolved = updatedComments.length > 0 && updatedComments.every(c => c.resolved);
+      const updated = comments.map(c => c.id === commentId ? { ...c, resolved } : c);
+      setComments(updated);
+      const allResolved = updated.length > 0 && updated.every(c => c.resolved);
       const newStatus = allResolved ? 'Done' : 'Needs Revision';
       await supabase.from('video_edits').update({ status: newStatus }).eq('id', videoEditId);
       onStatusChanged?.(newStatus);
       onCommentsChanged?.();
-    } catch {
-      toast.error('Failed to update comment');
-    }
+    } catch { toast.error('Failed to update comment'); }
   };
 
   const handleResolveAll = async () => {
@@ -207,14 +268,31 @@ export default function VideoReviewModal({
     try {
       await Promise.all(unresolved.map(c => revisionCommentService.resolveComment(c.id, true)));
       setComments(prev => prev.map(c => ({ ...c, resolved: true })));
-      // All resolved → set status to Done
       await supabase.from('video_edits').update({ status: 'Done' }).eq('id', videoEditId);
       onStatusChanged?.('Done');
       onCommentsChanged?.();
       toast.success('All revisions marked as complete');
-    } catch {
-      toast.error('Failed to resolve all comments');
-    }
+    } catch { toast.error('Failed to resolve all comments'); }
+  };
+
+  const handleEditComment = async (commentId: string) => {
+    const trimmed = editText.trim();
+    if (!trimmed) return;
+    try {
+      await revisionCommentService.updateComment(commentId, trimmed);
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, comment: trimmed } : c));
+      setEditingId(null);
+      onCommentsChanged?.();
+    } catch { toast.error('Failed to update note'); }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await revisionCommentService.deleteComment(commentId);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      onCommentsChanged?.();
+      toast.success('Note deleted');
+    } catch { toast.error('Failed to delete note'); }
   };
 
   const timeAgo = (dateStr: string) => {
@@ -226,97 +304,124 @@ export default function VideoReviewModal({
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
+  // Comments for active source (if multi-source, filter; otherwise show all)
+  const visibleComments = useMemo(() => {
+    if (sources.length <= 1) return sortedComments;
+    return sortedComments.filter(c => !c.source_ref || c.source_ref === activeSource?.label);
+  }, [sortedComments, sources.length, activeSource]);
+
+  const progressOverlay = duration > 0 ? (
+    <>
+      {visibleComments.filter(c => c.timestamp_seconds !== null).map(c => (
+        <div
+          key={c.id}
+          style={{
+            position: 'absolute',
+            left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
+            top: '50%', transform: 'translateY(-50%)',
+            width: 10, height: 10, borderRadius: '50%',
+            border: '2px solid rgba(0,0,0,0.6)',
+            cursor: 'pointer',
+            backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+            zIndex: 2,
+          }}
+          title={`${formatTimestamp(c.timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
+          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%) scale(1.3)'; }}
+          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%)'; }}
+          onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
+        />
+      ))}
+    </>
+  ) : undefined;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 [&>button:last-child]:hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h2 className="text-lg font-semibold truncate">{title || 'Video Review'}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {activeSource && (
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleDownload} disabled={downloading}>
+                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {downloading ? 'Downloading...' : 'Download'}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        {/* Body: Player + Comments */}
+        {/* Body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: Video Player */}
-          <div className="flex-[3] flex flex-col p-4 border-r">
-            {/* Video area */}
-            <div className="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center">
-              {isSupabaseVideo && videoUrl ? (
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="max-w-full max-h-full"
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
+          {/* Left: Video */}
+          <div className="flex-[3] flex flex-col p-4 border-r overflow-hidden">
+
+            {/* Source tabs — only when multiple sources */}
+            {sources.length > 1 && (
+              <div className="flex gap-1.5 mb-2 flex-wrap">
+                {sources.map((s, i) => (
+                  <button
+                    key={s.id}
+                    onClick={() => switchSource(i)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                      i === activeIdx
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                    }`}
+                  >
+                    <span className="opacity-60 font-mono">{i + 1}</span>
+                    <span className="max-w-[110px] truncate">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Player area */}
+            <div className="w-full flex-1 min-h-0" style={{ maxHeight: '60vh' }}>
+              {isActiveSupabase ? (
+                <ThemedVideoPlayer
+                  src={videoUrl!}
+                  videoRef={videoRef}
+                  className="h-full"
+                  maxHeight="100%"
+                  onTimeUpdate={(t) => setCurrentTime(t)}
+                  onLoadedMetadata={(d) => setDuration(d)}
                   onPlay={() => setIsPaused(false)}
                   onPause={() => setIsPaused(true)}
-                  controls={false}
-                  onClick={handlePlayPause}
+                  progressOverlay={progressOverlay}
                 />
-              ) : isDriveVideo && driveFileId ? (
-                <iframe
-                  src={`https://drive.google.com/file/d/${driveFileId}/preview`}
-                  className="w-full h-full"
-                  allow="autoplay"
-                  sandbox="allow-scripts allow-same-origin"
-                />
+              ) : isActiveDrive ? (
+                // Always use Google Drive's native embedded player
+                <div className="w-full h-full rounded-lg overflow-hidden bg-black" style={{ border: '1px solid rgba(8,145,178,0.2)' }}>
+                  <iframe
+                    src={`https://drive.google.com/file/d/${activeSource!.driveId}/preview`}
+                    className="w-full h-full"
+                    allow="autoplay"
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                  />
+                </div>
+              ) : activeSource?.type === 'external' ? (
+                <div className="w-full h-full bg-black rounded-lg flex flex-col items-center justify-center gap-3" style={{ border: '1px solid rgba(8,145,178,0.2)' }}>
+                  <p className="text-sm text-muted-foreground">External link — open in browser</p>
+                  <a href={activeSource.rawUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">{activeSource.rawUrl}</a>
+                </div>
               ) : (
-                <div className="text-muted-foreground text-sm">No video available</div>
+                <div className="w-full h-full bg-black rounded-lg flex items-center justify-center text-muted-foreground text-sm" style={{ border: '1px solid rgba(8,145,178,0.2)' }}>
+                  No video available
+                </div>
               )}
             </div>
 
-            {/* Custom controls for Supabase videos */}
-            {isSupabaseVideo && videoUrl && (
-              <>
-                {/* Progress bar with markers */}
-                <div className="mt-3 relative cursor-pointer" onClick={handleProgressClick}>
-                  <div className="w-full h-1.5 bg-muted rounded-full">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  {/* Timeline markers */}
-                  {duration > 0 && sortedComments
-                    .filter(c => c.timestamp_seconds !== null)
-                    .map(c => (
-                      <div
-                        key={c.id}
-                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-background cursor-pointer hover:scale-125 transition-transform"
-                        style={{
-                          left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
-                          backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
-                        }}
-                        title={`${formatTimestamp(c.timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          seekTo(c.timestamp_seconds!);
-                        }}
-                      />
-                    ))}
-                </div>
-                {/* Time + Play/Pause */}
-                <div className="flex items-center justify-between mt-2">
-                  <Button variant="ghost" size="sm" onClick={handlePlayPause}>
-                    {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                  </Button>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {formatTimestamp(currentTime)} / {formatTimestamp(duration)}
-                  </span>
-                </div>
-              </>
-            )}
-
-            {/* Comment input */}
+            {/* Note input */}
             <div className="mt-3 flex gap-2 items-center">
-              {isSupabaseVideo && isPaused && (
+              {canSeek && isPaused && (
                 <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono whitespace-nowrap">
                   {formatTimestamp(currentTime)}
                 </span>
               )}
-              {isDriveVideo && (
+              {(!canSeek) && (
                 <Input
                   placeholder="0:00"
                   value={manualTimestamp}
@@ -326,11 +431,9 @@ export default function VideoReviewModal({
               )}
               <Input
                 placeholder={
-                  isSupabaseVideo && isPaused
+                  canSeek && isPaused
                     ? `Add note at ${formatTimestamp(currentTime)}...`
-                    : isDriveVideo
-                    ? 'Add revision note...'
-                    : 'Add general note...'
+                    : 'Add revision note...'
                 }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
@@ -343,23 +446,19 @@ export default function VideoReviewModal({
             </div>
           </div>
 
-          {/* Right: Comment Thread */}
+          {/* Right: Comments */}
           <div className="flex-[2] flex flex-col p-4 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-muted-foreground">
-                REVISION NOTES ({comments.length})
+                REVISION NOTES ({visibleComments.length})
+                {sources.length > 1 && activeSource && (
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">· {activeSource.label}</span>
+                )}
               </span>
               <div className="flex items-center gap-2">
-                {resolvedCount > 0 && (
-                  <span className="text-xs text-green-500">{resolvedCount} resolved</span>
-                )}
+                {resolvedCount > 0 && <span className="text-xs text-green-500">{resolvedCount} resolved</span>}
                 {isAdmin && unresolvedCount > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 text-[10px] px-2 gap-1 border-green-500 text-green-500 hover:bg-green-500/10"
-                    onClick={handleResolveAll}
-                  >
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 gap-1 border-green-500 text-green-500 hover:bg-green-500/10" onClick={handleResolveAll}>
                     <CheckCheck className="h-3 w-3" /> Mark All Complete
                   </Button>
                 )}
@@ -368,62 +467,73 @@ export default function VideoReviewModal({
 
             {loading ? (
               <div className="text-sm text-muted-foreground">Loading comments...</div>
-            ) : sortedComments.length === 0 ? (
+            ) : visibleComments.length === 0 ? (
               <div className="text-sm text-muted-foreground">No revision notes yet. Pause the video and add one.</div>
             ) : (
               <div className="flex flex-col gap-2">
-                {sortedComments.map((c) => (
+                {visibleComments.map((c) => (
                   <div
                     key={c.id}
-                    className={`rounded-lg p-3 border-l-[3px] ${
-                      c.resolved
-                        ? 'opacity-40 bg-muted/20'
-                        : 'bg-card border border-border/60 shadow-sm'
-                    }`}
-                    style={{
-                      borderLeftColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
-                    }}
+                    className={`rounded-lg p-3 border-l-[3px] ${c.resolved ? 'opacity-40 bg-muted/20' : 'bg-card border border-border/60 shadow-sm'}`}
+                    style={{ borderLeftColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888') }}
                   >
                     <div className="flex items-center justify-between">
-                      {c.timestamp_seconds !== null ? (
-                        <button
-                          className="text-xs font-semibold font-mono hover:underline"
-                          style={{ color: ROLE_COLORS[c.author_role] || '#888' }}
-                          onClick={() => isSupabaseVideo && seekTo(c.timestamp_seconds!)}
-                        >
-                          {formatTimestamp(c.timestamp_seconds)} {isSupabaseVideo ? '— Jump' : ''}
-                        </button>
-                      ) : (
-                        <span className="text-xs font-semibold text-muted-foreground">General note</span>
-                      )}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {c.timestamp_seconds !== null ? (
+                          <button
+                            className="text-xs font-semibold font-mono hover:underline whitespace-nowrap"
+                            style={{ color: ROLE_COLORS[c.author_role] || '#888' }}
+                            onClick={() => canSeek && c.source_ref === (sources.length > 1 ? activeSource?.label : c.source_ref) && seekTo(c.timestamp_seconds!)}
+                          >
+                            {formatTimestamp(c.timestamp_seconds)} {canSeek ? '— Jump' : ''}
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-muted-foreground">General note</span>
+                        )}
+                        {sources.length > 1 && c.source_ref && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground truncate max-w-[80px]">{c.source_ref}</span>
+                        )}
+                      </div>
                       {c.resolved ? (
                         isAdmin ? (
-                          <button
-                            className="text-xs text-green-500 flex items-center gap-1 hover:text-amber-500 hover:line-through transition-colors"
-                            title="Click to unresolve"
-                            onClick={() => handleResolve(c.id, false)}
-                          >
+                          <button className="text-xs text-green-500 flex items-center gap-1 hover:text-amber-500 transition-colors whitespace-nowrap" onClick={() => handleResolve(c.id, false)}>
                             <Check className="h-3 w-3" /> Resolved
                           </button>
                         ) : (
-                          <span className="text-xs text-green-500 flex items-center gap-1">
-                            <Check className="h-3 w-3" /> Resolved
-                          </span>
+                          <span className="text-xs text-green-500 flex items-center gap-1 whitespace-nowrap"><Check className="h-3 w-3" /> Resolved</span>
                         )
                       ) : isAdmin ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 text-[10px] px-2"
-                          onClick={() => handleResolve(c.id, true)}
-                        >
-                          Mark Resolved
-                        </Button>
+                        <Button variant="ghost" size="sm" className="h-5 text-[10px] px-2 whitespace-nowrap" onClick={() => handleResolve(c.id, true)}>Mark Resolved</Button>
                       ) : null}
                     </div>
-                    <p className="text-sm mt-1">{c.comment}</p>
-                    <div className="text-[11px] text-muted-foreground mt-1">
-                      {c.author_name} ({c.author_role}) · {timeAgo(c.created_at)}
+
+                    {editingId === c.id ? (
+                      <div className="flex gap-1.5 mt-1">
+                        <Input autoFocus value={editText} onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleEditComment(c.id); if (e.key === 'Escape') setEditingId(null); }}
+                          className="h-7 text-sm" />
+                        <Button size="sm" className="h-7 text-xs px-2" onClick={() => handleEditComment(c.id)}>Save</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingId(null)}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-all"
+                        onDoubleClick={() => { setEditingId(c.id); setEditText(c.comment); }}
+                        title="Double-click to edit"
+                      >
+                        {c.comment.split(/(https?:\/\/[^\s]+)/g).map((part, idx) =>
+                          /^https?:\/\//.test(part)
+                            ? <a key={idx} href={part} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:opacity-80" onClick={e => e.stopPropagation()}>{part}</a>
+                            : part
+                        )}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
+                      <span>{c.author_name} ({c.author_role}) · {timeAgo(c.created_at)}</span>
+                      {isAdmin && (
+                        <button onClick={() => handleDeleteComment(c.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5" title="Delete note">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-type UserRole = "admin" | "user" | "client" | "videographer";
+type UserRole = "admin" | "user" | "client" | "videographer" | "editor" | "connecta_plus";
 
 interface AuthContextType {
   user: User | null;
@@ -11,11 +11,14 @@ interface AuthContextType {
   isAdmin: boolean;
   isUser: boolean;
   isVideographer: boolean;
+  isEditor: boolean;
+  isConnectaPlus: boolean;
   signOut: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
   isPasswordRecovery: boolean;
   clearPasswordRecovery: () => void;
+  requiresPasswordChange: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -26,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [roleLoading, setRoleLoading] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(u);
 
         if (u) {
+          setRequiresPasswordChange(u.user_metadata?.force_password_change === true);
           setRoleLoading(true);
           // Use setTimeout to avoid Supabase auth deadlock
           setTimeout(() => {
@@ -70,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setRole("client");
           setRoleLoading(false);
+          setRequiresPasswordChange(false);
         }
 
         // Mark loading done on initial session
@@ -99,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setRole("client");
+    window.location.href = "/";
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
@@ -133,11 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: role === "admin",
         isUser: role === "user",
         isVideographer: role === "videographer",
+        isEditor: role === "editor",
+        isConnectaPlus: role === "connecta_plus",
         signOut,
         signInWithEmail,
         signUpWithEmail,
         isPasswordRecovery,
         clearPasswordRecovery,
+        requiresPasswordChange,
       }}
     >
       {children}

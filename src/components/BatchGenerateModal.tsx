@@ -59,7 +59,7 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
     .slice(0, 10);
 
   const { credits } = useCredits();
-  const totalCost = topics.length * 5;
+  const totalCost = topics.length * 50;
   const hasEnoughCredits = (credits?.credits_balance ?? 0) >= totalCost;
 
   // Poll for batch completion
@@ -299,7 +299,7 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
               <div className="flex-1 flex flex-col gap-1">
                 {topics.length > 0 && (
                   <div className="text-xs text-muted-foreground mb-1">
-                    {topics.length} script{topics.length !== 1 ? "s" : ""} × 5 credits = <span className="font-medium">{totalCost} credits</span>
+                    {topics.length} script{topics.length !== 1 ? "s" : ""} × 50 credits = <span className="font-medium">{totalCost} credits</span>
                     {credits && (
                       <span className={hasEnoughCredits ? " text-cyan-400" : " text-red-400"}>
                         {" "}(balance: {credits.credits_balance})

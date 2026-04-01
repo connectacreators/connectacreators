@@ -9,7 +9,7 @@ import {
   Shuffle, Crown, GitCompare, MessageSquare, Check, ArrowRight,
   Languages, Send, Copy, ChevronDown, ChevronUp, Film, Mic, Scissors,
   X, RefreshCw, AlignLeft, Video, Users, Grid3X3, Archive, MonitorPlay,
-  Music, Rows3, LayoutList, Eye,
+  Music, Rows3, LayoutList, Eye, ArrowLeftRight, ShieldX, BookText, Camera, List,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Client } from "@/hooks/useClients";
 import type { ScriptLine } from "@/hooks/useScripts";
-import AIAssistantPanel from "@/components/AIAssistantPanel";
+import { VIRAL_HOOK_FORMULAS, HOOK_CATEGORY_META, type HookFormula, type HookCategory } from "@/data/viralHookFormulas";
 
 // ==================== VAULT TEMPLATE TYPE ====================
 type VaultTemplate = {
@@ -49,82 +49,9 @@ type RemixVideo = {
   formatDetection?: FormatDetection | null;
 };
 
-function inferHookCategory(hookType: string): string {
-  const h = hookType.toLowerCase();
-  if (h.includes("story") || h.includes("narrative") || h.includes("personal")) return "storytellingInspo";
-  if (h.includes("compar") || h.includes("before") || h.includes("vs") || h.includes("versus")) return "comparisonInspo";
-  if (h.includes("authority") || h.includes("expert") || h.includes("credib")) return "authorityInspo";
-  if (h.includes("random") || h.includes("unexpected") || h.includes("weird") || h.includes("shock")) return "randomInspo";
-  return "educational";
-}
-
-// ==================== HOOK FORMAT DATA ====================
-const HOOK_FORMATS = {
-  educational: {
-    icon: BookOpen,
-    label: { en: "Educational", es: "Educativo" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)] text-[#22d3ee]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)] text-[#22d3ee]",
-    templates: [
-      "This represents your X before, during, and after X",
-      "Here's exactly how much (insert action/item) you need to (insert result)",
-      "Can you tell us how to (insert result) in 60 seconds?",
-      "I'm going to tell you how to get (insert result), (insert mind blowing method).",
-      "It took me 10 years to learn this but I'll teach it to you in less than 1 minute.",
-    ],
-  },
-  randomInspo: {
-    icon: Shuffle,
-    label: { en: "Random Inspo", es: "Inspo Random" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)] text-[#22d3ee]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)] text-[#22d3ee]",
-    templates: [
-      "This is (insert large number) of (insert item).",
-      "You're losing your boyfriend/girlfriend this week to (insert event/hobby).",
-      "What (insert title) says vs what they mean.",
-      "(insert trend) is the most disgusting trend on social media.",
-      "I do not believe in (insert common belief), I believe in (insert your belief).",
-    ],
-  },
-  authorityInspo: {
-    icon: Crown,
-    label: { en: "Authority Inspo", es: "Inspo de Autoridad" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)] text-[#22d3ee]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)] text-[#22d3ee]",
-    templates: [
-      "My (insert before state) used to look like this and now they look like this.",
-      "10 YEARS it took me from (insert before state) to (insert after state).",
-      "How to turn this into this in X simple steps.",
-      "(insert big result) from (insert item/thing). Here's how you can do it in X steps.",
-      "Over the past (insert time) I've grown my (insert thing) from (insert before) to (insert after).",
-    ],
-  },
-  comparisonInspo: {
-    icon: GitCompare,
-    label: { en: "Comparison", es: "Comparación" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)] text-[#22d3ee]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)] text-[#22d3ee]",
-    templates: [
-      "This is an (insert noun), and this is an (insert noun).",
-      "This (insert noun) and this (insert noun) have the same amount of (insert noun).",
-      "A lot of people ask me what's better (option #1) or (option #2) for (dream result)...",
-      "For this (insert item) you could have all of these (insert item).",
-      "This (option #1) has (insert noun) in it, and (option #2) has (insert noun) in it.",
-    ],
-  },
-  storytellingInspo: {
-    icon: MessageSquare,
-    label: { en: "Storytelling", es: "Storytelling" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)] text-[#22d3ee]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)] text-[#22d3ee]",
-    templates: [
-      "I started my (insert business) when I was (insert age) with (insert $).",
-      "X years ago my (insert person) told me (insert quote).",
-      "I don't have a backup plan so this kind of needs to work.",
-      "This is how my (insert event/item/result) changed my life.",
-      "X years ago I decided to (insert decision).",
-    ],
-  },
+// Icon map for hook categories — maps string names from HOOK_CATEGORY_META to Lucide components
+const HOOK_ICON_MAP: Record<string, any> = {
+  BookOpen, ArrowLeftRight, ShieldX, BookText, Shuffle, Crown, Camera,
 };
 
 // ==================== SCRIPT FORMATS ====================
@@ -205,13 +132,13 @@ function formatTime(seconds: number): string {
 
 function viralityColor(score: number) {
   if (score >= 8) return "text-green-400";
-  if (score >= 6) return "text-amber-100";
+  if (score >= 6) return "text-cyan-400";
   return "text-red-400";
 }
 
 function viralityBg(score: number) {
   if (score >= 8) return "bg-green-500/20 border-green-500/30";
-  if (score >= 6) return "bg-amber-100/20 border-amber-100/30";
+  if (score >= 6) return "bg-cyan-400/20 border-cyan-400/30";
   return "bg-red-500/20 border-red-500/30";
 }
 
@@ -231,10 +158,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
   const [facts, setFacts] = useState<Fact[]>([]);
   const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
 
-  // Step 3 — Hook
-  const [expandedHookCategory, setExpandedHookCategory] = useState<string | null>(null);
-  const [selectedHookCategory, setSelectedHookCategory] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  // Step 3 — Hook (AI suggestions from 984 viral hooks)
+  const [suggestedHooks, setSuggestedHooks] = useState<HookFormula[]>([]);
+  const [hookLoading, setHookLoading] = useState(false);
+  const [selectedHook, setSelectedHook] = useState<HookFormula | null>(null);
+  const [shownHookIds, setShownHookIds] = useState<string[]>([]);
+  const [showBrowseAll, setShowBrowseAll] = useState(false);
 
   // Step 4 — Style/Format
   const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
@@ -296,12 +225,6 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
   const [pacingStyle, setPacingStyle] = useState<"one_screen" | "two_beats" | "one_beat" | null>(null);
   const [captionGenerating, setCaptionGenerating] = useState(false);
 
-  // AI Assistant panel
-  const [showAssistant, setShowAssistant] = useState(true);
-  const [assistantSession, setAssistantSession] = useState<any>(null);
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setAssistantSession(data.session));
-  }, []);
 
   const lengthLabels = [
     tr({ en: "Short (30s)", es: "Corto (30s)" }, language),
@@ -530,9 +453,6 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               setUseRemixStructure(true);
               const hookType = (saved.structure_analysis as any)?.hook_type;
               // Always activate remix hook for all talking-head remixes — fallback to educational if no hookType
-              const category = hookType ? inferHookCategory(hookType) : "educational";
-              setSelectedHookCategory(category);
-              setExpandedHookCategory(category);
               setUseRemixHook(true);
             }
           } catch (e) {
@@ -589,8 +509,6 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 setRemixVaultMatch(fallbackSaved);
                 setUseRemixStructure(true);
                 setUseRemixHook(true);
-                setSelectedHookCategory("educational");
-                setExpandedHookCategory("educational");
               }
             } catch (fallbackErr) {
               console.warn("Fallback transcript vault save also failed:", fallbackErr);
@@ -646,9 +564,6 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               setUseRemixStructure(true);
               const hookType = (match.structure_analysis as any)?.hook_type;
               // Always activate remix hook — fallback to educational if no hookType
-              const category = hookType ? inferHookCategory(hookType) : "educational";
-              setSelectedHookCategory(category);
-              setExpandedHookCategory(category);
               setUseRemixHook(true);
             }
           }
@@ -673,6 +588,56 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       }
     }
   }, [currentStep, vaultTemplates.length, vaultTemplatesLoading, fetchVaultTemplates, initialTemplateVideo?.url]);
+
+  // ==================== HOOK SUGGESTION FETCH ====================
+  const hasFetchedForTopic = useRef<string | null>(null);
+
+  const fetchSuggestedHooks = useCallback(async (excludeIds: string[] = []) => {
+    if (!topic || !selectedClient?.id) return;
+    setHookLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/suggest-hooks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            topic: topic.trim().toLowerCase(),
+            client_id: selectedClient.id,
+            exclude_ids: excludeIds,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.hooks) {
+        setSuggestedHooks(data.hooks);
+        setShownHookIds(prev => [...prev, ...data.hooks.map((h: HookFormula) => h.id)]);
+        if (data.reset) {
+          toast.info(tr({ en: "All hooks cycled — fresh selection!", es: "Todos los hooks usados — seleccion fresca!" }, language));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch hook suggestions:", e);
+      toast.error(tr({ en: "Could not load hook suggestions", es: "No se pudieron cargar las sugerencias de hooks" }, language));
+    } finally {
+      setHookLoading(false);
+    }
+  }, [topic, selectedClient?.id, language]);
+
+  useEffect(() => {
+    const normalizedTopic = topic?.trim().toLowerCase() ?? null;
+    if (currentStep === 3 && normalizedTopic && hasFetchedForTopic.current !== normalizedTopic) {
+      hasFetchedForTopic.current = normalizedTopic;
+      setShownHookIds([]);
+      setSelectedHook(null);
+      setSuggestedHooks([]);
+      fetchSuggestedHooks();
+    }
+  }, [currentStep, topic, fetchSuggestedHooks]);
 
   // ==================== API HELPER ====================
   async function callAIBuild(payload: any) {
@@ -815,11 +780,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         toast.success("Research facts updated by AI assistant");
         break;
       }
-      case "select_hook":
-        setSelectedHookCategory(action.payload.category ?? null);
-        setSelectedTemplate(action.payload.template ?? null);
+      case "select_hook": {
+        // AI assistant selected a hook — find matching hook from the data or create a synthetic one
+        const aiCategory = action.payload.category ?? "educational";
+        const aiTemplate = action.payload.template ?? "";
+        const matchedHook = VIRAL_HOOK_FORMULAS.find(h => h.category === aiCategory && h.template === aiTemplate)
+          || { id: `ai-${Date.now()}`, category: aiCategory as HookCategory, template: aiTemplate };
+        setSelectedHook(matchedHook);
+        setUseRemixHook(false);
         toast.success("Hook selected by AI assistant");
         break;
+      }
       case "advance_step": {
         const s = Number(action.payload.step);
         if (s >= 1 && s <= 5) advanceTo(s as Step);
@@ -937,11 +908,11 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     const remixHookType = (remixVaultMatch?.structure_analysis as any)?.hook_type;
     // When remix is active, always have fallbacks so generation is never blocked
     const effectiveHookCategory = useRemixHook
-      ? (remixHookType ? inferHookCategory(remixHookType) : (selectedHookCategory || "educational"))
-      : selectedHookCategory;
+      ? (remixHookType || selectedHook?.category || "educational")
+      : selectedHook?.category;
     const effectiveHookTemplate = useRemixHook
-      ? (remixHookType || selectedTemplate || "hook_from_remix")
-      : selectedTemplate;
+      ? (remixHookType || selectedHook?.template || "hook_from_remix")
+      : selectedHook?.template;
 
     if (!useRemixHook && (!effectiveHookCategory || !effectiveHookTemplate)) {
       toast.error(tr({ en: "Please select a hook template first.", es: "Selecciona una plantilla de hook primero." }, language));
@@ -981,6 +952,14 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       setIsStreaming(false);
       setGeneratedScript(data);
       advanceTo(5);
+      // Record hook usage for anti-repetition
+      if (selectedHook && selectedClient?.id) {
+        supabase.from("hook_usage").upsert({
+          client_id: selectedClient.id,
+          topic: topic.trim().toLowerCase(),
+          hook_id: selectedHook.id,
+        }, { onConflict: "client_id,topic,hook_id" }).then(() => {}).catch(() => {});
+      }
     } catch (e: any) {
       setIsStreaming(false);
       toast.error(e.message || tr({ en: "Error generating script", es: "Error al generar el script" }, language));
@@ -1052,8 +1031,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           step: "generate-script",
           topic,
           selectedFacts: chosenFacts,
-          hookCategory: selectedHookCategory,
-          hookTemplate: selectedTemplate,
+          hookCategory: selectedHook?.category || "educational",
+          hookTemplate: selectedHook?.template || "",
           structure: "Hook → Story → CTA",
           formato: selectedFormat || "talking_head",
           length: lengthMap[scriptLength],
@@ -1232,9 +1211,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     setTopic("");
     setFacts([]);
     setSelectedFacts([]);
-    setSelectedHookCategory(null);
-    setSelectedTemplate(null);
-    setExpandedHookCategory(null);
+    setSelectedHook(null);
+    setSuggestedHooks([]);
+    setShownHookIds([]);
+    hasFetchedForTopic.current = null;
     setSelectedFormat(null);
     setSelectedVaultTemplateId(null);
     setStructureMode("default");
@@ -1324,10 +1304,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
           {/* Vault structure hint (if remixing) */}
           {remixVaultMatch?.structure_analysis && (
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-100/8 border border-amber-100/20">
-              <MessageSquare className="w-4 h-4 text-amber-100 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-cyan-400/8 border border-cyan-400/20">
+              <MessageSquare className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] font-bold text-amber-100 uppercase tracking-wider mb-0.5">
+                <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
                   {tr({ en: "Viral hook structure detected from video", es: "Estructura de hook viral detectada del video" }, language)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1353,7 +1333,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               className={`absolute bottom-3 right-3 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                 isRecording
                   ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/30"
-                  : "bg-amber-100/10 text-amber-100 border border-amber-100/30 hover:bg-amber-100/20"
+                  : "bg-cyan-400/10 text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/20"
               }`}
             >
               {isRecording ? <X className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -1377,7 +1357,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <Button
               onClick={handleExtractStoryFacts}
               disabled={extractingStory || storyText.trim().length < 50}
-              className="gap-2 bg-amber-100/10 hover:bg-amber-100/20 text-amber-100 border border-amber-100/40 rounded-xl px-5 h-11"
+              className="gap-2 bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-400 border border-cyan-400/40 rounded-xl px-5 h-11"
             >
               {extractingStory ? (
                 <><Loader2 className="w-4 h-4 animate-spin" />{tr({ en: "Extracting moments…", es: "Extrayendo momentos…" }, language)}</>
@@ -1416,7 +1396,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <Button
             onClick={handleResearch}
             disabled={loading || !topic.trim()}
-            className="w-full h-12 text-base font-semibold rounded-xl bg-amber-100/15 hover:bg-amber-100/25 text-amber-100 border border-amber-100/40 gap-3 transition-all"
+            className="w-full h-12 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3 transition-all"
           >
             {loading ? (
               <><Loader2 className="w-5 h-5 animate-spin" />{tr({ en: "Researching...", es: "Investigando..." }, language)}</>
@@ -1425,10 +1405,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             )}
           </Button>
           {loading && (
-            <div className="bg-card/50 border border-amber-100/25 rounded-2xl p-6 text-center space-y-3">
+            <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-3">
               <div className="flex justify-center gap-2">
                 {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-amber-100/60 animate-bounce" style={{ animationDelay: `${i * 0.1}s` }} />
+                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-cyan-400/60 animate-bounce" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
               </div>
               <p className="text-sm text-muted-foreground">
@@ -1466,7 +1446,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     <div className="space-y-3">
       {/* Header row: label + Edit All button */}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-amber-100 uppercase tracking-wider">
+        <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
           {tr(labelKey, language)}
         </p>
         {facts.length > 0 && (
@@ -1474,8 +1454,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             onClick={editingFactsBulk ? saveBulkEdit : openBulkEdit}
             className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
               editingFactsBulk
-                ? "bg-amber-100 text-amber-900 border-amber-100"
-                : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-amber-100/40"
+                ? "bg-cyan-400 text-white border-cyan-400"
+                : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-cyan-400/40"
             }`}
           >
             {editingFactsBulk ? <><Check className="w-3 h-3" />{tr({ en: "Save edits", es: "Guardar" }, language)}</> : <>{tr({ en: "✏️ Edit all", es: "✏️ Editar todo" }, language)}</>}
@@ -1521,7 +1501,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               >
                 <div className="flex items-start gap-4">
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    isSelected ? "bg-amber-100 text-amber-900" : "bg-muted text-muted-foreground border border-border"
+                    isSelected ? "bg-cyan-400 text-white" : "bg-muted text-muted-foreground border border-border"
                   }`}>
                     {isSelected ? <Check className="w-4 h-4" /> : <span className="text-xs font-bold">{i + 1}</span>}
                   </div>
@@ -1531,7 +1511,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     </p>
                   </div>
                   <div className={`flex-shrink-0 flex flex-col items-center gap-0.5 ${
-                    f.impact_score >= 9 ? "text-rose-400" : f.impact_score >= 8 ? "text-amber-100" : "text-muted-foreground"
+                    f.impact_score >= 9 ? "text-rose-400" : f.impact_score >= 8 ? "text-cyan-400" : "text-muted-foreground"
                   }`}>
                     <span className="text-lg font-bold leading-none">{f.impact_score}</span>
                     <span className="text-[10px] font-medium opacity-70">/ 10</span>
@@ -1552,7 +1532,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <Button
             onClick={() => onNextOverride ? onNextOverride() : advanceTo(3)}
             disabled={selectedFacts.length === 0 || (!!onNextOverride && (loading || vaultSaving))}
-            className="gap-2 bg-amber-100/15 hover:bg-amber-100/25 text-amber-100 border border-amber-100/40 rounded-xl px-6"
+            className="gap-2 bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 rounded-xl px-6"
           >
             {!!onNextOverride && loading
               ? tr({ en: "Generating…", es: "Generando…" }, language)
@@ -1590,8 +1570,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
           {/* Remix auto-structure notice for storytelling mode */}
           {isRemixTalkingHead && (
-            <div className="flex flex-col gap-1 p-3 rounded-xl bg-amber-100/10 border border-amber-100/25 text-sm">
-              <span className="font-semibold text-amber-100 text-xs uppercase tracking-wide">
+            <div className="flex flex-col gap-1 p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/25 text-sm">
+              <span className="font-semibold text-cyan-400 text-xs uppercase tracking-wide">
                 {tr({ en: "Auto-detected from original video", es: "Auto-detectado del video original" }, language)}
               </span>
               {remixHookLabelGlobal && (
@@ -1648,8 +1628,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       </div>
 
       {/* Topic recap */}
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-100/8 border border-amber-100/25">
-        <Search className="w-4 h-4 text-amber-100 flex-shrink-0" />
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-cyan-400/8 border border-cyan-400/25">
+        <Search className="w-4 h-4 text-cyan-400 flex-shrink-0" />
         <span className="text-sm text-foreground font-medium">{topic}</span>
         <button
           onClick={() => { setCurrentStep(1); }}
@@ -1661,8 +1641,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
       {/* Remix auto-structure notice */}
       {isRemixTalkingHead && (
-        <div className="flex flex-col gap-1 p-3 rounded-xl bg-amber-100/10 border border-amber-100/25 text-sm">
-          <span className="font-semibold text-amber-100 text-xs uppercase tracking-wide">
+        <div className="flex flex-col gap-1 p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/25 text-sm">
+          <span className="font-semibold text-cyan-400 text-xs uppercase tracking-wide">
             {tr({ en: "Auto-detected from original video", es: "Auto-detectado del video original" }, language)}
           </span>
           {remixHookLabel && (
@@ -1701,33 +1681,32 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           {tr({ en: "Pick your hook style", es: "Elige el estilo de tu hook" }, language)}
         </h2>
         <p className="text-muted-foreground text-sm">
-          {tr({ en: "The first line that stops the scroll. Select a category, then a template.", es: "La primera línea que detiene el scroll. Elige una categoría y luego una plantilla." }, language)}
+          {tr({ en: "AI picks the best hooks for your topic. Choose one.", es: "La IA elige los mejores hooks para tu tema. Elige uno." }, language)}
         </p>
       </div>
 
-      {/* Remix hook option */}
+      {/* Remix hook option — unchanged */}
       {initialTemplateVideo && (
         <button
           onClick={() => {
             if (!remixVaultMatch) return;
             setUseRemixHook(true);
-            setSelectedHookCategory(null);
-            setSelectedTemplate(null);
+            setSelectedHook(null);
           }}
           disabled={vaultSaving && !remixVaultMatch}
           className={`w-full text-left p-4 rounded-2xl border transition-all ${
             useRemixHook
-              ? "border-amber-100/50 bg-amber-100/10 ring-1 ring-amber-100/20"
+              ? "border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20"
               : remixVaultMatch
-                ? "border-border/60 bg-card/50 hover:border-amber-100/30 hover:bg-amber-100/5"
+                ? "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
                 : vaultSaving
-                  ? "border-amber-100/25 bg-amber-100/5 cursor-wait"
-                  : "border-border/60 bg-card/50 hover:border-amber-100/30 hover:bg-amber-100/5"
+                  ? "border-cyan-400/25 bg-cyan-400/5 cursor-wait"
+                  : "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
           }`}
         >
           <div className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              useRemixHook ? "bg-amber-100 text-amber-900" : vaultSaving && !remixVaultMatch ? "bg-amber-100/10 text-amber-100" : "bg-muted text-muted-foreground"
+              useRemixHook ? "bg-cyan-400 text-white" : vaultSaving && !remixVaultMatch ? "bg-cyan-400/10 text-cyan-400" : "bg-muted text-muted-foreground"
             }`}>
               {useRemixHook ? <Check className="w-4 h-4" /> : vaultSaving && !remixVaultMatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
             </div>
@@ -1737,14 +1716,14 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   {tr({ en: "Use hook from remix video", es: "Usar hook del video remixeado" }, language)}
                 </p>
                 {useRemixHook && (
-                  <span className="text-[10px] font-bold text-amber-100 bg-amber-100/15 border border-amber-100/25 px-2 py-0.5 rounded-full">REMIX</span>
+                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/15 border border-cyan-400/25 px-2 py-0.5 rounded-full">REMIX</span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
                 {remixVaultMatch
                   ? (remixVaultMatch.structure_analysis as any)?.hook_type || tr({ en: "Hook detected from video", es: "Hook detectado del video" }, language)
                   : vaultSaving
-                    ? <><Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />{tr({ en: "Analyzing video hook…", es: "Analizando hook del video…" }, language)}</>
+                    ? <><Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />{tr({ en: "Analyzing video hook...", es: "Analizando hook del video..." }, language)}</>
                     : tr({ en: "Hook style from original video", es: "Estilo de hook del video original" }, language)
                 }
               </p>
@@ -1753,118 +1732,126 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         </button>
       )}
 
-      {/* Hook category grid */}
-      <div className="grid grid-cols-1 gap-3">
-        {Object.entries(HOOK_FORMATS).map(([key, cat]) => {
-          const Icon = cat.icon;
-          const isExpanded = expandedHookCategory === key;
-          const isCategorySelected = selectedHookCategory === key;
-
-          return (
-            <div
-              key={key}
-              className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
-                isCategorySelected
-                  ? `bg-gradient-to-br ${cat.activeColor}`
-                  : `bg-gradient-to-br ${cat.color} hover:opacity-90`
-              }`}
-            >
-              {/* Category header */}
-              <button
-                onClick={() => setExpandedHookCategory(isExpanded ? null : key)}
-                className="w-full flex items-center gap-4 p-4 text-left"
-              >
-                <div className={`w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center flex-shrink-0`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{tr(cat.label, language)}</span>
-                    {isCategorySelected && selectedTemplate && (
-                      <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-medium">
-                        {tr({ en: "Selected", es: "Seleccionado" }, language)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs opacity-60 truncate block">
-                    {cat.templates.length} {tr({ en: "templates", es: "plantillas" }, language)}
-                  </span>
-                </div>
-                {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 opacity-60 flex-shrink-0" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 opacity-60 flex-shrink-0" />
-                )}
-              </button>
-
-              {/* Templates */}
-              {isExpanded && (
-                <div className="px-4 pb-4 grid gap-2">
-                  {cat.templates.map((tpl, i) => {
-                    const isSelected = selectedHookCategory === key && selectedTemplate === tpl;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          setSelectedHookCategory(key);
-                          setSelectedTemplate(tpl);
-                          setUseRemixHook(false);
-                        }}
-                        className={`text-left p-3 rounded-xl text-xs leading-relaxed transition-all border ${
-                          isSelected
-                            ? "bg-black/30 border-white/30 text-white font-medium"
-                            : "bg-black/10 border-transparent hover:bg-black/20 text-white/70 hover:text-white"
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 text-[10px] font-bold ${
-                            isSelected ? "bg-white text-black" : "bg-white/20 text-white/60"
-                          }`}>
-                            {isSelected ? <Check className="w-3 h-3" /> : i + 1}
-                          </span>
-                          <span className="italic">"{tpl}"</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* AI Suggestions header */}
+      <div className="flex items-center gap-2 pt-2">
+        <Sparkles className="w-4 h-4 text-cyan-400" />
+        <span className="text-sm font-medium text-cyan-400">
+          {tr({ en: "Best hooks for", es: "Mejores hooks para" }, language)} &quot;{topic}&quot;
+        </span>
       </div>
 
+      {/* Loading skeleton */}
+      {hookLoading && (
+        <div className="space-y-3">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="rounded-2xl border border-border/40 p-4 animate-pulse">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4" />
+                  <div className="h-3 bg-muted rounded w-1/4" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Hook suggestion cards */}
+      {!hookLoading && suggestedHooks.length > 0 && (
+        <div className="space-y-3">
+          {suggestedHooks.map((hook, i) => {
+            const isSelected = selectedHook?.id === hook.id;
+            const meta = HOOK_CATEGORY_META[hook.category as HookCategory];
+            const IconComp = meta ? HOOK_ICON_MAP[meta.icon] : BookOpen;
+
+            return (
+              <button
+                key={hook.id}
+                onClick={() => {
+                  setSelectedHook(hook);
+                  setUseRemixHook(false);
+                }}
+                className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                  isSelected
+                    ? "border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20"
+                    : "border-border/40 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold ${
+                    isSelected ? "bg-cyan-400 text-black" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {isSelected ? <Check className="w-3 h-3" /> : i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground italic leading-relaxed">&quot;{hook.template}&quot;</p>
+                    {meta && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        {IconComp && <IconComp className="w-3 h-3 text-muted-foreground" />}
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {tr(meta.label, language)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => fetchSuggestedHooks(shownHookIds)}
+              disabled={hookLoading}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-cyan-400/30 bg-cyan-400/5 hover:bg-cyan-400/10 text-cyan-400 text-sm transition-all"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${hookLoading ? "animate-spin" : ""}`} />
+              {tr({ en: "Show 5 More", es: "Mostrar 5 Mas" }, language)}
+            </button>
+            <button
+              onClick={() => setShowBrowseAll(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/40 bg-card/50 hover:bg-card text-muted-foreground hover:text-foreground text-sm transition-all"
+            >
+              <List className="w-3.5 h-3.5" />
+              {tr({ en: "Browse All", es: "Ver Todos" }, language)}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Selection summary + next */}
-      {(useRemixHook || (selectedHookCategory && selectedTemplate)) && (
-        <div className="sticky bottom-4 bg-card/95 backdrop-blur border border-amber-100/25 rounded-2xl p-4 shadow-xl space-y-3">
+      {(useRemixHook || selectedHook) && (
+        <div className="sticky bottom-4 bg-card/95 backdrop-blur border border-cyan-400/25 rounded-2xl p-4 shadow-xl space-y-3">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-100/20 flex items-center justify-center flex-shrink-0">
-              <Check className="w-4 h-4 text-amber-100" />
+            <div className="w-8 h-8 rounded-lg bg-cyan-400/20 flex items-center justify-center flex-shrink-0">
+              <Check className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="flex-1 min-w-0">
               {useRemixHook ? (
                 <>
-                  <p className="text-xs text-amber-100 font-semibold flex items-center gap-1">
-                    <span className="text-[10px] bg-amber-100/15 border border-amber-100/25 px-1.5 py-0.5 rounded-full">REMIX</span>
+                  <p className="text-xs text-cyan-400 font-semibold flex items-center gap-1">
+                    <span className="text-[10px] bg-cyan-400/15 border border-cyan-400/25 px-1.5 py-0.5 rounded-full">REMIX</span>
                     {tr({ en: "Hook from video", es: "Hook del video" }, language)}
                   </p>
                   <p className="text-sm text-foreground italic truncate">
-                    "{(remixVaultMatch?.structure_analysis as any)?.hook_type || "Video hook"}"
+                    &quot;{(remixVaultMatch?.structure_analysis as any)?.hook_type || "Video hook"}&quot;
                   </p>
                 </>
-              ) : (
+              ) : selectedHook && (
                 <>
                   <p className="text-xs text-muted-foreground font-medium">
-                    {tr(HOOK_FORMATS[selectedHookCategory as keyof typeof HOOK_FORMATS]?.label, language)}
+                    {tr(HOOK_CATEGORY_META[selectedHook.category as HookCategory]?.label || { en: selectedHook.category, es: selectedHook.category }, language)}
                   </p>
-                  <p className="text-sm text-foreground italic truncate">"{selectedTemplate}"</p>
+                  <p className="text-sm text-foreground italic truncate">&quot;{selectedHook.template}&quot;</p>
                 </>
               )}
             </div>
           </div>
           <Button
             onClick={() => advanceTo(4)}
-            className="w-full gap-2 bg-amber-100/15 hover:bg-amber-100/25 text-amber-100 border border-amber-100/40 rounded-xl"
+            className="w-full gap-2 bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 rounded-xl"
           >
             {tr({ en: "Next: Choose Style", es: "Siguiente: Elegir Estilo" }, language)}
             <ArrowRight className="w-4 h-4" />
@@ -1872,11 +1859,28 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         </div>
       )}
 
-      {!selectedHookCategory && (
+      {!hookLoading && suggestedHooks.length === 0 && !useRemixHook && (
         <p className="text-center text-xs text-muted-foreground">
-          {tr({ en: "Expand a category above to choose a hook template.", es: "Expande una categoría para elegir una plantilla de hook." }, language)}
+          {tr({ en: "Loading hook suggestions...", es: "Cargando sugerencias de hooks..." }, language)}
         </p>
       )}
+
+      {/* Browse All Modal */}
+      <Dialog open={showBrowseAll} onOpenChange={(v) => !v && setShowBrowseAll(false)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{tr({ en: "Browse All Hooks", es: "Ver Todos los Hooks" }, language)}</DialogTitle>
+          </DialogHeader>
+          <BrowseAllContent
+            language={language}
+            onSelect={(hook) => {
+              setSelectedHook(hook);
+              setUseRemixHook(false);
+              setShowBrowseAll(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -1899,19 +1903,19 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </div>
 
           {/* Remix structure confirmation */}
-          <div className={`p-4 rounded-2xl border transition-all ${isAnalyzing ? "border-amber-100/30 bg-amber-100/5" : "border-amber-100/40 bg-amber-100/10"}`}>
+          <div className={`p-4 rounded-2xl border transition-all ${isAnalyzing ? "border-cyan-400/30 bg-cyan-400/5" : "border-cyan-400/40 bg-cyan-400/10"}`}>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-amber-100/20 border border-amber-100/40 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-cyan-400/20 border border-cyan-400/40 flex items-center justify-center flex-shrink-0">
                 {isAnalyzing
-                  ? <Loader2 className="w-4 h-4 animate-spin text-amber-100" />
-                  : <Check className="w-4 h-4 text-amber-100" />}
+                  ? <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  : <Check className="w-4 h-4 text-cyan-400" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-amber-100">
+                  <p className="text-sm font-semibold text-cyan-400">
                     {tr({ en: "Using original video's structure", es: "Usando estructura del video original" }, language)}
                   </p>
-                  <span className="text-[10px] font-bold text-amber-100 bg-amber-100/10 border border-amber-100/20 px-2 py-0.5 rounded-full">REMIX</span>
+                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">REMIX</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {isAnalyzing
@@ -1929,7 +1933,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <div className="space-y-4 p-4 rounded-2xl bg-card/50 border border-border/60">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Languages className="w-4 h-4 text-amber-100" />
+                <Languages className="w-4 h-4 text-cyan-400" />
                 {tr({ en: "Script Language", es: "Idioma del Script" }, language)}
               </label>
               <div className="flex gap-2">
@@ -1939,8 +1943,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     onClick={() => setScriptLanguage(lang)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                       scriptLanguage === lang
-                        ? "bg-amber-100 text-amber-900 border-amber-100"
-                        : "border-border text-muted-foreground hover:border-amber-100/40 bg-card"
+                        ? "bg-cyan-400 text-white border-cyan-400"
+                        : "border-border text-muted-foreground hover:border-cyan-400/40 bg-card"
                     }`}
                   >
                     {lang === "en" ? "English" : "Español"}
@@ -1951,7 +1955,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground flex items-center justify-between">
                 <span>{tr({ en: "Script Length", es: "Duración del Script" }, language)}</span>
-                <span className="text-amber-100 text-xs font-semibold">{lengthLabels[scriptLength]}</span>
+                <span className="text-cyan-400 text-xs font-semibold">{lengthLabels[scriptLength]}</span>
               </label>
               <Slider
                 value={[scriptLength]}
@@ -1993,12 +1997,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </Button>
 
           {loading && (
-            <div className="bg-card/50 border border-amber-100/25 rounded-2xl p-6 text-center space-y-4">
+            <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-4">
               <div className="flex justify-center gap-2">
                 {[0, 1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="w-2.5 h-2.5 rounded-full bg-amber-100/60 animate-bounce"
+                    className="w-2.5 h-2.5 rounded-full bg-cyan-400/60 animate-bounce"
                     style={{ animationDelay: `${i * 0.12}s` }}
                   />
                 ))}
@@ -2042,7 +2046,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             onClick={() => setStructureMode("default")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               isDefaultMode
-                ? "bg-amber-100 text-amber-900 shadow-sm"
+                ? "bg-cyan-400 text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -2053,7 +2057,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             onClick={() => setStructureMode("vault")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               isVaultMode
-                ? "bg-amber-100 text-white shadow-sm"
+                ? "bg-cyan-400 text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -2085,7 +2089,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                       <p className="text-xs text-muted-foreground mt-1">{tr(fmt.description, language)}</p>
                     </div>
                     {isSelected && (
-                      <div className="flex items-center gap-1.5 text-amber-100 text-xs font-medium">
+                      <div className="flex items-center gap-1.5 text-cyan-400 text-xs font-medium">
                         <Check className="w-3.5 h-3.5" />
                         {tr({ en: "Selected", es: "Seleccionado" }, language)}
                       </div>
@@ -2100,7 +2104,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         {/* VAULT MODE: Vault template selection */}
         {isVaultMode && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-amber-100">
+            <div className="flex items-center gap-2 text-sm font-medium text-cyan-400">
               <Archive className="w-4 h-4" />
               {tr({ en: "Select a Vault Template", es: "Selecciona una Plantilla del Vault" }, language)}
             </div>
@@ -2116,17 +2120,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 disabled={vaultSaving && !remixVaultMatch}
                 className={`w-full text-left p-4 rounded-2xl border transition-all ${
                   useRemixStructure
-                    ? "border-amber-100/50 bg-amber-100/10 ring-1 ring-amber-100/20"
+                    ? "border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20"
                     : remixVaultMatch
-                      ? "border-border/60 bg-card/50 hover:border-amber-100/30 hover:bg-amber-100/5"
+                      ? "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
                       : vaultSaving
-                        ? "border-amber-100/20 bg-amber-100/5 cursor-wait"
-                        : "border-border/60 bg-card/50 hover:border-amber-100/30 hover:bg-amber-100/5"
+                        ? "border-cyan-400/20 bg-cyan-400/5 cursor-wait"
+                        : "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    useRemixStructure ? "bg-amber-100 text-white" : vaultSaving && !remixVaultMatch ? "bg-amber-100/10 text-amber-100" : "bg-muted text-muted-foreground"
+                    useRemixStructure ? "bg-cyan-400 text-white" : vaultSaving && !remixVaultMatch ? "bg-cyan-400/10 text-cyan-400" : "bg-muted text-muted-foreground"
                   }`}>
                     {useRemixStructure ? <Check className="w-4 h-4" /> : vaultSaving && !remixVaultMatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
                   </div>
@@ -2136,7 +2140,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                         {tr({ en: "Use structure from remix video", es: "Usar estructura del video remixeado" }, language)}
                       </p>
                       {useRemixStructure && (
-                        <span className="text-[10px] font-bold text-amber-100 bg-amber-100/10 border border-amber-100/20 px-2 py-0.5 rounded-full">REMIX</span>
+                        <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">REMIX</span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
@@ -2161,8 +2165,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 </span>
               </div>
             ) : vaultTemplates.length === 0 ? (
-              <div className="p-6 rounded-2xl border border-amber-100/20 bg-amber-100/5 text-center space-y-2">
-                <Archive className="w-8 h-8 text-amber-100/50 mx-auto" />
+              <div className="p-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 text-center space-y-2">
+                <Archive className="w-8 h-8 text-cyan-400/50 mx-auto" />
                 <p className="text-sm text-muted-foreground">
                   {tr({ en: "No Vault templates found for this client.", es: "No se encontraron plantillas del Vault para este cliente." }, language)}
                 </p>
@@ -2184,13 +2188,13 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                       }}
                       className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${
                         isSelected
-                          ? "bg-amber-100/15 border-amber-100/50 shadow-[0_0_0_1px_rgba(254,243,199,0.2)]"
-                          : "bg-card border-border/60 hover:border-amber-100/30 hover:bg-amber-100/5"
+                          ? "bg-cyan-400/15 border-cyan-400/50 shadow-[0_0_0_1px_rgba(254,243,199,0.2)]"
+                          : "bg-card border-border/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                          isSelected ? "bg-amber-100 text-white" : "bg-muted text-muted-foreground border border-border"
+                          isSelected ? "bg-cyan-400 text-white" : "bg-muted text-muted-foreground border border-border"
                         }`}>
                           {isSelected ? <Check className="w-4 h-4" /> : <Archive className="w-3.5 h-3.5" />}
                         </div>
@@ -2215,7 +2219,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             )}
 
             {selectedVaultTemplate && (
-              <div className="p-3 rounded-xl bg-amber-100/10 border border-amber-100/20 text-xs text-amber-100">
+              <div className="p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/20 text-xs text-cyan-400">
                 <span className="font-medium">{tr({ en: "Using template:", es: "Usando plantilla:" }, language)}</span>{" "}
                 {selectedVaultTemplate.name} — {tr({ en: "AI will follow this exact structure with your topic.", es: "La IA seguirá esta estructura exacta con tu tema." }, language)}
               </div>
@@ -2229,7 +2233,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             {/* Language */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Languages className="w-4 h-4 text-amber-100" />
+                <Languages className="w-4 h-4 text-cyan-400" />
                 {tr({ en: "Script Language", es: "Idioma del Script" }, language)}
               </label>
               <div className="flex gap-2">
@@ -2239,8 +2243,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     onClick={() => setScriptLanguage(lang)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                       scriptLanguage === lang
-                        ? "bg-amber-100 text-amber-900 border-amber-100"
-                        : "border-border text-muted-foreground hover:border-amber-100/40 bg-card"
+                        ? "bg-cyan-400 text-white border-cyan-400"
+                        : "border-border text-muted-foreground hover:border-cyan-400/40 bg-card"
                     }`}
                   >
                     {lang === "en" ? "English" : "Español"}
@@ -2253,7 +2257,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground flex items-center justify-between">
                 <span>{tr({ en: "Script Length", es: "Duración del Script" }, language)}</span>
-                <span className="text-amber-100 text-xs font-semibold">{lengthLabels[scriptLength]}</span>
+                <span className="text-cyan-400 text-xs font-semibold">{lengthLabels[scriptLength]}</span>
               </label>
               <Slider
                 value={[scriptLength]}
@@ -2275,7 +2279,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <div className="p-4 rounded-2xl bg-card/50 border border-border/60">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Languages className="w-4 h-4 text-amber-100" />
+                <Languages className="w-4 h-4 text-cyan-400" />
                 {tr({ en: "Script Language", es: "Idioma del Script" }, language)}
               </label>
               <div className="flex gap-2">
@@ -2285,8 +2289,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     onClick={() => setScriptLanguage(lang)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                       scriptLanguage === lang
-                        ? "bg-amber-100 text-amber-900 border-amber-100"
-                        : "border-border text-muted-foreground hover:border-amber-100/40 bg-card"
+                        ? "bg-cyan-400 text-white border-cyan-400"
+                        : "border-border text-muted-foreground hover:border-cyan-400/40 bg-card"
                     }`}
                   >
                     {lang === "en" ? "English" : "Español"}
@@ -2301,7 +2305,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         <Button
           onClick={handleGenerateScript}
           disabled={loading || !canGenerate}
-          className="w-full h-14 text-base font-semibold rounded-xl bg-amber-100/15 hover:bg-amber-100/25 text-amber-100 border border-amber-100/40 gap-3 transition-all"
+          className="w-full h-14 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3 transition-all"
         >
           {loading ? (
             <>
@@ -2331,12 +2335,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
         {/* Loading progress */}
         {loading && (
-          <div className="bg-card/50 border border-amber-100/25 rounded-2xl p-6 text-center space-y-4">
+          <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-4">
             <div className="flex justify-center gap-2">
               {[0, 1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="w-2.5 h-2.5 rounded-full bg-amber-100/60 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-cyan-400/60 animate-bounce"
                   style={{ animationDelay: `${i * 0.12}s` }}
                 />
               ))}
@@ -2478,7 +2482,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     return (
                       <div
                         key={globalIdx}
-                        className={`rounded-2xl border-2 border-amber-100/40 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-amber-100/5`}
+                        className={`rounded-2xl border-2 border-cyan-400/40 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-cyan-400/5`}
                       >
                         {/* Line type selector */}
                         <div className="flex gap-1 p-3 border-b border-border/40 flex-wrap">
@@ -2528,7 +2532,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                             <Button
                               size="sm"
                               onClick={saveLineEdit}
-                              className="h-7 px-3 text-xs rounded-lg bg-amber-100 text-amber-900 gap-1"
+                              className="h-7 px-3 text-xs rounded-lg bg-cyan-400 text-white gap-1"
                             >
                               <Check className="w-3 h-3" />
                               {tr({ en: "Save", es: "Guardar" }, language)}
@@ -2589,7 +2593,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   className="w-full"
                 />
               </div>
-              <span className="text-xs text-amber-100 font-bold whitespace-nowrap">{lengthLabels[scriptLength]}</span>
+              <span className="text-xs text-cyan-400 font-bold whitespace-nowrap">{lengthLabels[scriptLength]}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -2635,8 +2639,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   disabled={translating || lang === scriptLanguage}
                   className={`h-8 px-3 rounded-lg text-xs font-semibold transition-all border ${
                     lang === scriptLanguage
-                      ? "bg-amber-100/20 border-amber-100/40 text-amber-100"
-                      : "border-border text-muted-foreground hover:border-amber-100/30 hover:text-foreground bg-card"
+                      ? "bg-cyan-400/20 border-cyan-400/40 text-cyan-400"
+                      : "border-border text-muted-foreground hover:border-cyan-400/30 hover:text-foreground bg-card"
                   }`}
                 >
                   {translating && lang !== scriptLanguage ? (
@@ -2676,7 +2680,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="w-full h-11 text-sm font-semibold rounded-xl bg-amber-100 hover:bg-amber-100 text-amber-900 gap-2"
+              className="w-full h-11 text-sm font-semibold rounded-xl bg-cyan-400 hover:bg-cyan-500 text-white gap-2"
             >
               {saving ? (
                 <>
@@ -2717,10 +2721,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
   // ==================== TYPE DETECTION PANEL ====================
   const renderTypeDetectionPanel = () => (
     <div className="px-4 sm:px-6 py-4 max-w-3xl mx-auto">
-      <div className="rounded-2xl border border-amber-100/25 bg-card/50 backdrop-blur-sm overflow-hidden">
+      <div className="rounded-2xl border border-cyan-400/25 bg-card/50 backdrop-blur-sm overflow-hidden">
         {/* Panel header */}
         <div className="px-5 py-4 border-b border-border/30">
-          <p className="text-xs font-bold text-amber-100 uppercase tracking-wider mb-0.5">
+          <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
             {tr({ en: "Detecting video type...", es: "Detectando tipo de video..." }, language)}
           </p>
           {!transcribing && (
@@ -2740,7 +2744,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             ] as const;
             const current = phases.find(p => p.phase === transcribePhase) ?? phases[0];
             return (
-              <div className="relative h-9 rounded-full overflow-hidden border border-amber-100/40 bg-transparent">
+              <div className="relative h-9 rounded-full overflow-hidden border border-cyan-400/40 bg-transparent">
                 {/* Fill — cream at 5% opacity */}
                 <div
                   className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
@@ -2751,10 +2755,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 />
                 {/* Label + pct centered over the bar */}
                 <div className="absolute inset-0 flex items-center justify-center gap-2">
-                  <span className="text-xs font-semibold text-amber-100/80">
+                  <span className="text-xs font-semibold text-cyan-400/80">
                     {tr({ en: current.en, es: current.es }, language)}
                   </span>
-                  <span className="text-xs font-mono text-amber-100/60">
+                  <span className="text-xs font-mono text-cyan-400/60">
                     {current.pct}%
                   </span>
                 </div>
@@ -2769,17 +2773,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               onClick={() => { setVideoType("caption_video_music"); setIsStorytellingMode(false); }}
               className={`text-left p-5 rounded-2xl border transition-all duration-200 ${
                 videoType === "caption_video_music"
-                  ? "bg-gradient-to-br from-amber-100/25 to-amber-100/15 border-amber-100/60 ring-1 ring-amber-100/30"
-                  : "bg-card border-border/60 hover:border-amber-100/40 hover:bg-amber-100/5"
+                  ? "bg-gradient-to-br from-cyan-400/25 to-cyan-400/15 border-cyan-400/60 ring-1 ring-cyan-400/30"
+                  : "bg-card border-border/60 hover:border-cyan-400/40 hover:bg-cyan-400/5"
               }`}
             >
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-100/20 flex items-center justify-center">
-                    <Music className="w-5 h-5 text-amber-100" />
+                  <div className="w-9 h-9 rounded-xl bg-cyan-400/20 flex items-center justify-center">
+                    <Music className="w-5 h-5 text-cyan-400" />
                   </div>
                   {videoType === "caption_video_music" && (
-                    <span className="text-[10px] font-bold bg-amber-100/20 text-amber-100 border border-amber-100/30 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 px-2 py-0.5 rounded-full">
                       {tr({ en: "Selected", es: "Seleccionado" }, language)}
                     </span>
                   )}
@@ -2800,17 +2804,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               onClick={() => setVideoType("talking_head")}
               className={`text-left p-5 rounded-2xl border transition-all duration-200 ${
                 videoType === "talking_head"
-                  ? "bg-gradient-to-br from-amber-100/25 to-amber-100/15 border-amber-100/60 ring-1 ring-amber-100/30"
-                  : "bg-card border-border/60 hover:border-amber-100/40 hover:bg-amber-100/5"
+                  ? "bg-gradient-to-br from-cyan-400/25 to-cyan-400/15 border-cyan-400/60 ring-1 ring-cyan-400/30"
+                  : "bg-card border-border/60 hover:border-cyan-400/40 hover:bg-cyan-400/5"
               }`}
             >
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-100/20 flex items-center justify-center">
-                    <Mic className="w-5 h-5 text-amber-100" />
+                  <div className="w-9 h-9 rounded-xl bg-cyan-400/20 flex items-center justify-center">
+                    <Mic className="w-5 h-5 text-cyan-400" />
                   </div>
                   {videoType === "talking_head" && (
-                    <span className="text-[10px] font-bold bg-amber-100/20 text-amber-100 border border-amber-100/30 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 px-2 py-0.5 rounded-full">
                       {tr({ en: "Selected", es: "Seleccionado" }, language)}
                     </span>
                   )}
@@ -2833,7 +2837,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
                 {tr({ en: "Content style — toggle to switch:", es: "Estilo de contenido — toca para cambiar:" }, language)}
                 {isStorytellingMode && (
-                  <span className="ml-2 text-amber-100 normal-case font-normal">
+                  <span className="ml-2 text-cyan-400 normal-case font-normal">
                     {tr({ en: "✨ detected from transcript", es: "✨ detectado del transcripto" }, language)}
                   </span>
                 )}
@@ -2844,12 +2848,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   onClick={(e) => { e.stopPropagation(); setIsStorytellingMode(false); }}
                   className={`p-3 rounded-xl border text-left transition-all duration-200 ${
                     !isStorytellingMode
-                      ? "bg-amber-100/15 border-amber-100/50 ring-1 ring-amber-100/20"
-                      : "bg-muted/20 border-border/40 hover:border-amber-100/30 hover:bg-amber-100/5"
+                      ? "bg-cyan-400/15 border-cyan-400/50 ring-1 ring-cyan-400/20"
+                      : "bg-muted/20 border-border/40 hover:border-cyan-400/30 hover:bg-cyan-400/5"
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    <Search className={`w-4 h-4 mt-0.5 flex-shrink-0 ${!isStorytellingMode ? "text-amber-100" : "text-muted-foreground"}`} />
+                    <Search className={`w-4 h-4 mt-0.5 flex-shrink-0 ${!isStorytellingMode ? "text-cyan-400" : "text-muted-foreground"}`} />
                     <div>
                       <p className={`text-xs font-semibold ${!isStorytellingMode ? "text-foreground" : "text-muted-foreground"}`}>
                         {tr({ en: "Standard", es: "Estándar" }, language)}
@@ -2866,12 +2870,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   onClick={(e) => { e.stopPropagation(); setIsStorytellingMode(true); }}
                   className={`p-3 rounded-xl border text-left transition-all duration-200 ${
                     isStorytellingMode
-                      ? "bg-amber-100/15 border-amber-100/50 ring-1 ring-amber-100/20"
-                      : "bg-muted/20 border-border/40 hover:border-amber-100/30 hover:bg-amber-100/5"
+                      ? "bg-cyan-400/15 border-cyan-400/50 ring-1 ring-cyan-400/20"
+                      : "bg-muted/20 border-border/40 hover:border-cyan-400/30 hover:bg-cyan-400/5"
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    <MessageSquare className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isStorytellingMode ? "text-amber-100" : "text-muted-foreground"}`} />
+                    <MessageSquare className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isStorytellingMode ? "text-cyan-400" : "text-muted-foreground"}`} />
                     <div>
                       <p className={`text-xs font-semibold ${isStorytellingMode ? "text-foreground" : "text-muted-foreground"}`}>
                         {tr({ en: "Storytelling", es: "Storytelling" }, language)}
@@ -2906,7 +2910,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               // Step 1 is now "Tell Your Story" for storytelling — no skip needed
             }}
             disabled={!videoType || transcribing}
-            className="w-full h-12 text-base font-semibold rounded-xl bg-amber-100/15 hover:bg-amber-100/25 text-amber-100 border border-amber-100/40 gap-3"
+            className="w-full h-12 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3"
           >
             <Check className="w-5 h-5" />
             {videoType === "caption_video_music"
@@ -2967,7 +2971,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         <Button
           onClick={handleGenerateCaptionScript}
           disabled={!canGenerate || captionGenerating}
-          className="w-full h-14 text-base font-semibold rounded-xl bg-amber-100/15 hover:bg-amber-100/25 text-amber-100 border border-amber-100/40 gap-3"
+          className="w-full h-14 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3"
         >
           {captionGenerating ? (
             <>
@@ -3008,7 +3012,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       {/* Remix Banner */}
       {initialTemplateVideo && (
         <div className="px-4 sm:px-6 pt-4 pb-0">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-100/10 border border-amber-100/25 max-w-3xl mx-auto">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/25 max-w-3xl mx-auto">
             {initialTemplateVideo.thumbnail_url && (
               <img
                 src={`https://wsrv.nl/?url=${encodeURIComponent(initialTemplateVideo.thumbnail_url)}&w=80&output=webp`}
@@ -3017,7 +3021,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold text-amber-100 uppercase tracking-wider mb-0.5">
+              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
                 {tr({ en: "Remixing from viral video", es: "Remixeando video viral" }, language)}
               </p>
               <p className="text-sm text-foreground font-semibold truncate">
@@ -3037,7 +3041,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <div className="max-w-3xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-2 mb-3">
-              <Eye className="w-4 h-4 text-amber-100" />
+              <Eye className="w-4 h-4 text-cyan-400" />
               <span className="text-sm font-semibold text-foreground">Visual Breakdown</span>
               {transcribing && videoVisualSegments.length === 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -3176,13 +3180,13 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   <div className="border-t border-border/30 px-5 pt-5 pb-6">
                     {/* Return banner — shown when revisiting a completed step */}
                     {currentStep < maxUnlockedStep && (
-                      <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-amber-100/8 border border-amber-100/25">
+                      <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-cyan-400/8 border border-cyan-400/25">
                         <span className="text-xs text-muted-foreground leading-snug">
                           {tr({ en: "Revisiting — your later progress is saved", es: "Revisando — tu progreso posterior está guardado" }, language)}
                         </span>
                         <button
                           onClick={() => jumpTo(maxUnlockedStep as Step)}
-                          className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-amber-100 hover:text-amber-100 transition-colors"
+                          className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-cyan-400 hover:text-cyan-400 transition-colors"
                         >
                           {tr({ en: "Back to Step", es: "Ir al Paso" }, language)} {maxUnlockedStep}
                           <ArrowRight className="w-3 h-3" />
@@ -3213,37 +3217,6 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     </div>
     </div>{/* end wizard flex-1 */}
 
-    {/* ── AI Assistant panel (sticky sidebar, lg+ only) ── */}
-    {showAssistant && (
-      <div className="hidden lg:block w-72 xl:w-80 sticky top-4 self-start flex-shrink-0 max-h-[calc(100vh-2rem)] overflow-hidden">
-        <AIAssistantPanel
-          wizardState={{
-            step: currentStep,
-            maxUnlockedStep,
-            topic,
-            facts,
-            selectedFactIndices: selectedFacts,
-            hookCategory: selectedHookCategory,
-            hookTemplate: selectedTemplate,
-            scriptLines: generatedScript?.lines ?? null,
-            videoType: videoType ?? undefined,
-            isStorytellingMode,
-            selectedFormat: selectedFormat ?? undefined,
-            isRemixing: !!initialTemplateVideo,
-            remixChannelUsername: initialTemplateVideo?.channel_username,
-            remixHookType: (remixVaultMatch?.structure_analysis as any)?.hook_type ?? undefined,
-            remixBodyPattern: (remixVaultMatch?.structure_analysis as any)?.body_pattern ?? undefined,
-            useRemixHook,
-            useRemixStructure,
-            typeConfirmed,
-          }}
-          clientInfo={{ name: selectedClient?.name, target: undefined }}
-          onAction={handleAssistantAction}
-          authToken={assistantSession?.access_token ?? null}
-          onClose={() => setShowAssistant(false)}
-        />
-      </div>
-    )}
 
     {/* Leave Confirmation Dialog */}
     <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
@@ -3265,6 +3238,92 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       </DialogContent>
     </Dialog>
   </div>
+  );
+}
+
+// ==================== Browse All Hooks Content ====================
+function BrowseAllContent({ language, onSelect }: { language: "en" | "es"; onSelect: (hook: HookFormula) => void }) {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [search]);
+
+  const toggleCategory = (cat: string) => {
+    setActiveCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
+
+  const filteredHooks = VIRAL_HOOK_FORMULAS.filter(h => {
+    if (activeCategories.size > 0 && !activeCategories.has(h.category)) return false;
+    if (debouncedSearch && !h.template.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder={tr({ en: "Search hooks...", es: "Buscar hooks..." }, language)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {(Object.entries(HOOK_CATEGORY_META) as [HookCategory, typeof HOOK_CATEGORY_META[HookCategory]][]).map(([key, meta]) => {
+          const IconComp = HOOK_ICON_MAP[meta.icon];
+          const isActive = activeCategories.has(key);
+          return (
+            <button
+              key={key}
+              onClick={() => toggleCategory(key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                isActive
+                  ? "bg-cyan-400/15 border-cyan-400/40 text-cyan-400"
+                  : "bg-card border-border/40 text-muted-foreground hover:border-border"
+              }`}
+            >
+              {IconComp && <IconComp className="w-3 h-3" />}
+              {tr(meta.label, language)}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-2 min-h-0" style={{ maxHeight: "50vh" }}>
+        {filteredHooks.map(hook => {
+          const meta = HOOK_CATEGORY_META[hook.category as HookCategory];
+          const IconComp = meta ? HOOK_ICON_MAP[meta.icon] : BookOpen;
+          return (
+            <button
+              key={hook.id}
+              onClick={() => onSelect(hook)}
+              className="w-full text-left p-3 rounded-xl border border-border/40 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all"
+            >
+              <p className="text-xs text-foreground italic leading-relaxed">&quot;{hook.template}&quot;</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                {IconComp && <IconComp className="w-3 h-3 text-muted-foreground" />}
+                <span className="text-[10px] text-muted-foreground">{tr(meta?.label || { en: hook.category, es: hook.category }, language)}</span>
+              </div>
+            </button>
+          );
+        })}
+        {filteredHooks.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground py-8">
+            {tr({ en: "No hooks match your search", es: "No hay hooks que coincidan" }, language)}
+          </p>
+        )}
+      </div>
+    </>
   );
 }
 

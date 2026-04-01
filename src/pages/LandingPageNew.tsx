@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Menu, X, ArrowRight, Play,
+  Menu, X, ArrowRight, Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   FileText, Video, BookOpen, Users,
   Calendar, Film, Globe, Zap, Clock,
   TrendingUp, Search, Upload, Monitor,
@@ -10,11 +10,10 @@ import {
 } from "lucide-react";
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
 import connectaHorseLogo from "@/assets/connecta-horse-logo.png";
-import CanvasHeroMockup from "@/components/CanvasHeroMockup";
 
 const gold = "#22d3ee";
 const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #84CC16 100%)";
-const darkBg = "#06090c";
+const darkBg = "#000000";
 const borderGold = "rgba(8, 145, 178, 0.15)";
 
 // ── Viral Videos Mockup (full, for feature section) ───────────────────
@@ -39,13 +38,13 @@ function ViralVideosMockup() {
           <div className="w-2.5 h-2.5 rounded-full bg-green-500 opacity-70" />
         </div>
       </div>
-      <div className="px-5 pt-4 pb-3 flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <Search size={9} style={{ color: "rgba(255,255,255,0.3)" }} />
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Search videos or @channel…</span>
+      <div className="px-5 pt-4 pb-3 flex items-center gap-2 overflow-hidden">
+        <div className="cc-viral-search flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ flex: "1 1 80px", minWidth: 0, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <Search size={9} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Search videos or @channel…</span>
         </div>
         {["All platforms", "This week", "10x+ outlier"].map((f, i) => (
-          <div key={i} className="px-2 py-1 rounded-md flex-shrink-0"
+          <div key={i} className={`px-2 py-1 rounded-md flex-shrink-0${i > 0 ? " cc-viral-overflow-chips" : ""}`}
             style={{ background: i === 2 ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${i === 2 ? "rgba(249,115,22,0.4)" : "rgba(255,255,255,0.1)"}`, fontSize: 8, color: i === 2 ? "#f97316" : "rgba(255,255,255,0.45)", fontWeight: i === 2 ? 700 : 400 }}>
             {f}
           </div>
@@ -498,6 +497,180 @@ function FeatureSection({
   );
 }
 
+// ── Demo Video Player ────────────────────────────────────────────────
+const DEMO_VIDEO_URL = "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/demo-video.mp4";
+
+function DemoPlayer() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    hideTimeout.current = setTimeout(() => {
+      if (playing) setShowControls(false);
+    }, 2800);
+  }, [playing]);
+
+  const toggle = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); setShowControls(true); }
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const handleTimeUpdate = useCallback(() => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    setCurrentTime(v.currentTime);
+    setProgress(v.currentTime / v.duration);
+  }, []);
+
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    const bar = progressRef.current;
+    if (!v || !bar) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    v.currentTime = ratio * v.duration;
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const toggleMute = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.();
+      setFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setFullscreen(false);
+    }
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  useEffect(() => {
+    const handler = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  return (
+    <section style={{ padding: "0 var(--lp-demo-px) 40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+
+
+      {/* Video wrapper */}
+      <div
+        ref={containerRef}
+        style={{
+          position: "relative", width: "100%", maxWidth: 900,
+          borderRadius: fullscreen ? 0 : 20, overflow: "hidden",
+          border: "1px solid rgba(8,145,178,0.18)",
+          boxShadow: "0 0 50px rgba(6,182,212,0.10), 0 0 100px rgba(6,182,212,0.05)",
+          background: "#000",
+          cursor: "pointer",
+        }}
+        onMouseMove={resetHideTimer}
+        onMouseLeave={() => { if (playing) setShowControls(false); }}
+        onClick={toggle}
+      >
+
+        {/* Video */}
+        <video
+          ref={videoRef}
+          src={DEMO_VIDEO_URL}
+          style={{ width: "100%", display: "block", maxHeight: fullscreen ? "100vh" : "none" }}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+          onEnded={() => { setPlaying(false); setShowControls(true); }}
+          playsInline
+        />
+
+        {/* Big play overlay (shown when paused) */}
+        {!playing && (
+          <div style={{
+            position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.25)",
+          }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: "50%",
+              background: "rgba(255,255,255,0.12)", border: "1.5px solid rgba(255,255,255,0.28)",
+              backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Play size={26} style={{ color: "rgba(255,255,255,0.9)", marginLeft: 4 }} />
+            </div>
+          </div>
+        )}
+
+        {/* Controls bar */}
+        <div
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            padding: "28px 16px 14px",
+            background: "linear-gradient(0deg, rgba(0,0,0,0.85) 0%, transparent 100%)",
+            transition: "opacity 0.35s ease",
+            opacity: showControls ? 1 : 0,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Progress bar */}
+          <div
+            ref={progressRef}
+            style={{ height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2, marginBottom: 10, cursor: "pointer", position: "relative" }}
+            onClick={handleSeek}
+          >
+            <div style={{ height: "100%", width: `${progress * 100}%`, background: gold, borderRadius: 2, position: "relative" }}>
+              <div style={{ position: "absolute", right: -4, top: "50%", transform: "translateY(-50%)", width: 8, height: 8, borderRadius: "50%", background: "#fff", boxShadow: `0 0 6px ${gold}` }} />
+            </div>
+          </div>
+
+          {/* Controls row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={toggle} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", padding: 0, display: "flex", alignItems: "center" }}>
+              {playing ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+            <button onClick={toggleMute} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.65)", padding: 0, display: "flex", alignItems: "center" }}>
+              {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" }}>
+              {fmt(currentTime)} / {fmt(duration)}
+            </span>
+            <div style={{ flex: 1 }} />
+            <button onClick={toggleFullscreen} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.65)", padding: 0, display: "flex", alignItems: "center" }}>
+              {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────
 export default function LandingPageNew() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -592,9 +765,35 @@ export default function LandingPageNew() {
         @keyframes cc-ember-breathe { 0%,100%{opacity:0.15;transform:scale(1)} 50%{opacity:0.22;transform:scale(1.08)} }
         @keyframes cc-ember-drift { 0%,100%{opacity:0.042;transform:translate(0,0)} 50%{opacity:0.065;transform:translate(20px,-15px)} }
         @keyframes cc-ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+        :root {
+          --lp-hero-px: 48px;
+          --lp-hero-pt: 120px;
+          --lp-h1-size: 56px;
+          --lp-h1-tracking: -2px;
+          --lp-h1-lh: 1.08;
+          --lp-demo-px: 48px;
+          --lp-horse-h: 110px;
+        }
+        @media (max-width: 640px) {
+          :root {
+            --lp-hero-px: 20px;
+            --lp-hero-pt: 90px;
+            --lp-h1-size: 32px;
+            --lp-h1-tracking: -0.5px;
+            --lp-h1-lh: 1.14;
+            --lp-demo-px: 14px;
+            --lp-horse-h: 80px;
+          }
+          .cc-viral-overflow-chips { display: none !important; }
+          .cc-viral-search { min-width: 0 !important; flex: 1 !important; }
+          .cc-feature-mockup { max-width: 100% !important; overflow-x: hidden; }
+          .cc-cta-btn { padding: 12px 24px !important; font-size: 14px !important; }
+          .cc-stats-num { font-size: 2.75rem !important; }
+        }
       `}</style>
       <style>{`
-        .glow-orb { position: fixed; border-radius: 50%; pointer-events: none; will-change: transform, opacity; }
+        .glow-orb { position: fixed; border-radius: 50%; pointer-events: none; will-change: transform, opacity; z-index: 50; }
         .glow-orb-1 { top: -30%; left: 30%; width: 1200px; height: 1000px; background: radial-gradient(circle, rgba(6,182,212,.6), transparent 60%); opacity: .06; filter: blur(200px); animation: g1 16s ease-in-out infinite; }
         .glow-orb-2 { bottom: -20%; right: -10%; width: 1000px; height: 800px; background: radial-gradient(circle, rgba(132,204,22,.5), transparent 60%); opacity: .03; filter: blur(180px); animation: g2 20s ease-in-out infinite; }
         .glow-orb-3 { top: 30%; right: 20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(8,145,178,.4), transparent 60%); opacity: .04; filter: blur(160px); animation: g3 22s ease-in-out infinite; }
@@ -658,22 +857,17 @@ export default function LandingPageNew() {
         </nav>
 
         {/* HERO */}
-        <section className="relative flex flex-col items-center" style={{ padding: "140px 48px 60px" }}>
+        <section className="relative flex flex-col items-center" style={{ padding: "var(--lp-hero-pt) var(--lp-hero-px) 48px" }}>
           {/* Horse logo — prominently above pill */}
-          <div className="relative z-10 flex items-center justify-center mb-5">
-            <div style={{
-              position: "absolute", width: 300, height: 300, borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(6,182,212,.15), rgba(132,204,22,.05) 50%, transparent 70%)",
-              filter: "blur(40px)", animation: "horse-glow-pulse 6s ease-in-out infinite",
-            }} />
+          <div className="relative flex items-center justify-center mb-5">
             <video
               autoPlay loop muted playsInline
               style={{
-                height: 180, objectFit: "contain", position: "relative", zIndex: 1,
+                height: "var(--lp-horse-h)", objectFit: "contain",
+                background: "none",
+                outline: "none",
+                border: "none",
                 mixBlendMode: "lighten" as any,
-                filter: "brightness(1.3) contrast(1.4)",
-                maskImage: "radial-gradient(ellipse 75% 75% at 50% 50%, black 40%, transparent 68%)",
-                WebkitMaskImage: "radial-gradient(ellipse 75% 75% at 50% 50%, black 40%, transparent 68%)",
                 animation: "horse-float 8s ease-in-out infinite",
               }}
             >
@@ -696,13 +890,13 @@ export default function LandingPageNew() {
               AI-Powered Creator Platform
             </motion.div>
 
-            <h1 style={{ fontSize: 56, fontWeight: 300, lineHeight: 1.08, marginBottom: 20, letterSpacing: -2, color: "rgba(255,255,255,.92)" }}>
+            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "var(--lp-h1-tracking)", color: "rgba(255,255,255,.92)" }}>
               Create viral short-form<br />
               <b style={{ fontWeight: 700, background: goldGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>videos in seconds</b>
             </h1>
 
             <p style={{ fontSize: 17, color: "rgba(255,255,255,.35)", lineHeight: 1.7, marginBottom: 36, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
-              Research viral outliers, remix them into scripts, and publish — all from one AI-powered canvas.
+              Turn any viral video into a ready-to-edit asset, assign it to your team, and ship faster without the chaos.
             </p>
 
             <Link
@@ -716,21 +910,8 @@ export default function LandingPageNew() {
           </motion.div>
         </section>
 
-        {/* CANVAS MOCKUP */}
-        <section className="relative pb-24">
-          <img
-            src={connectaHorseLogo}
-            alt=""
-            style={{
-              position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-              height: 500, objectFit: "contain", opacity: .04, pointerEvents: "none" as const,
-              mixBlendMode: "screen" as any,
-              maskImage: "radial-gradient(ellipse 60% 60% at 50% 50%, black 15%, transparent 55%)",
-              WebkitMaskImage: "radial-gradient(ellipse 60% 60% at 50% 50%, black 15%, transparent 55%)",
-            }}
-          />
-          <CanvasHeroMockup />
-        </section>
+        {/* DEMO VIDEO */}
+        <DemoPlayer />
 
         {/* Ticker */}
         <div
@@ -781,7 +962,7 @@ export default function LandingPageNew() {
                   className="flex flex-col items-center"
                 >
                   <div className="mb-3">{item.icon}</div>
-                  <div className="text-5xl sm:text-6xl font-light mb-2 text-gradient-brand">
+                  <div className="cc-stats-num text-5xl sm:text-6xl font-light mb-2 text-gradient-brand">
                     {item.stat}
                   </div>
                   <p className="text-sm leading-snug" style={{ color: "#666", maxWidth: 180 }}>{item.label}</p>
@@ -856,7 +1037,7 @@ export default function LandingPageNew() {
             </div>
             <div className="relative">
               <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 16 }}>GET STARTED TODAY</p>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tight mb-6 leading-tight text-white">
+              <h2 className="text-3xl sm:text-5xl md:text-6xl font-light tracking-tight mb-6 leading-tight text-white">
                 Ready to Create Content{" "}
                 <span className="text-gradient-brand" style={{ fontWeight: 600 }}>
                   That Converts?
@@ -867,14 +1048,11 @@ export default function LandingPageNew() {
               </p>
               <Link
                 to="/dashboard"
-                className="btn-primary-glass inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-semibold text-base transition duration-200 hover:scale-105 active:scale-95"
+                className="cc-cta-btn btn-primary-glass inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-semibold text-base transition duration-200 hover:scale-105 active:scale-95"
               >
                 Start Free Today
                 <ArrowRight size={18} />
               </Link>
-              <p className="mt-5 text-xs" style={{ color: "#4a4a4a" }}>
-                No credit card required · Setup in 5 minutes
-              </p>
             </div>
           </div>
         </motion.section>
@@ -886,9 +1064,11 @@ export default function LandingPageNew() {
               <img src={connectaLoginLogo} alt="ConnectaCreators" className="h-6 object-contain opacity-60" />
               <span style={{ fontSize: 11, color: "#444" }}>© 2026 ConnectaCreators</span>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 flex-wrap justify-center">
               <Link to="/dashboard" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Dashboard</Link>
               <Link to="/login" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Login</Link>
+              <Link to="/privacy-policy" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Privacy Policy</Link>
+              <Link to="/terms-and-conditions" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Terms of Service</Link>
             </div>
           </div>
         </footer>

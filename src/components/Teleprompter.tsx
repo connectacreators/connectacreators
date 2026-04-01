@@ -121,11 +121,11 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
         <div className="flex items-center gap-2 sm:gap-4">
           <Button variant="ghost" size="sm" onClick={() => setPlaying((p) => !p)} className="text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
             {playing ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5" />}
-            <span className="hidden sm:inline">{playing ? "Pausar" : "Iniciar"}</span>
+            <span className="hidden sm:inline">{playing ? "Pause" : "Play"}</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={handleReset} className="text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
             <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Reiniciar</span>
+            <span className="hidden sm:inline">Reset</span>
           </Button>
           <Button
             variant="ghost"
@@ -134,7 +134,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
             className={`text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 ${mirrored ? "bg-blue-500/30" : ""}`}
           >
             <FlipHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">{mirrored ? "Normal" : "Espejo"}</span>
+            <span className="hidden sm:inline">{mirrored ? "Normal" : "Mirror"}</span>
           </Button>
           <Button
             variant="ghost"
@@ -143,7 +143,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
             className={`text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 ${mirroredV ? "bg-blue-500/30" : ""}`}
           >
             <FlipVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">{mirroredV ? "Normal V" : "Espejo V"}</span>
+            <span className="hidden sm:inline">{mirroredV ? "Normal V" : "Mirror V"}</span>
           </Button>
           <Button
             size="sm"
@@ -151,7 +151,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
             className={`text-white hover:bg-white/10 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 ${isRecorderVisible ? "bg-red-500/30" : ""}`}
           >
             <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">{isRecorderVisible ? "Ocultar Cam" : "Grabar"}</span>
+            <span className="hidden sm:inline">{isRecorderVisible ? "Hide Cam" : "Record"}</span>
           </Button>
         </div>
 
@@ -179,7 +179,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 flex-1 hidden sm:flex">
-            <span className="text-white/70 text-xs sm:text-sm whitespace-nowrap">Velocidad</span>
+            <span className="text-white/70 text-xs sm:text-sm whitespace-nowrap">Speed</span>
             <Slider
               value={[speed]}
               onValueChange={([v]) => setSpeed(v)}

@@ -55,7 +55,7 @@ interface EditingQueueItem {
 
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
-const POST_STATUS_OPTIONS = ["Scheduled", "Needs Revision", "Approved", "Done"];
+const POST_STATUS_OPTIONS = ["Unpublished", "Scheduled", "Needs Revision", "Published"];
 
 // ... keep existing code (extractGoogleDriveFileId, getGoogleDriveDownloadUrl, getStatusClassName, getStatusDotColor)
 function extractGoogleDriveFileId(url: string): string | null {
@@ -632,7 +632,7 @@ export default function EditingQueue() {
                               <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
                                 {POST_STATUS_OPTIONS.map((s) => (
                                   <DropdownMenuItem key={s} onClick={() => handlePostStatusChange(item.id, s)} className={`text-xs ${item.postStatus === s ? "font-bold" : ""}`}>
-                                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s === "Approved" || s === "Done" ? "bg-emerald-400" : s === "Needs Revision" ? "bg-destructive" : s === "Scheduled" ? "bg-primary" : "bg-muted-foreground"}`} />
+                                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s === "Published" ? "bg-emerald-400" : s === "Needs Revision" ? "bg-destructive" : s === "Scheduled" ? "bg-primary" : "bg-muted-foreground"}`} />
                                     {s}
                                   </DropdownMenuItem>
                                 ))}
@@ -1068,6 +1068,7 @@ export default function EditingQueue() {
           storagePath={footageViewerItem.storagePath}
           storageUrl={footageViewerItem.storageUrl}
           subfolder={viewerSubfolder}
+          scriptId={footageViewerItem.script_id}
           onComplete={() => { fetchQueue(); setFootageViewerItem(null); }}
         />
       )}

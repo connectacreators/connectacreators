@@ -29,13 +29,23 @@ async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string | null> {
+  // Try junction table first (if it exists)
   const { data } = await adminClient
     .from("subscriber_clients")
     .select("client_id")
     .eq("subscriber_user_id", userId)
     .eq("is_primary", true)
     .maybeSingle();
-  return data?.client_id ?? null;
+  if (data?.client_id) return data.client_id;
+
+  // Fallback: direct clients.user_id lookup
+  const { data: client } = await adminClient
+    .from("clients")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  return client?.id ?? null;
 }
 
 serve(async (req) => {

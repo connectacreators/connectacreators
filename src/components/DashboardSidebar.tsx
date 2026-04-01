@@ -34,9 +34,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const showClientSelector = isAdmin || isVideographer || isUser;
   const [viewMode, setViewMode] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("dashboard_viewMode") || "master";
+      const stored = localStorage.getItem("dashboard_viewMode");
+      if (stored) return stored;
     }
-    return "master";
+    // Subscribers default to "me" (their own brand), admins to "master"
+    return isUser ? "me" : "master";
   });
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
@@ -84,11 +86,12 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (!user || !showClientSelector) return;
 
     if (isUser) {
+      // Only fetch non-primary clients — primary is shown as the "Me" button
       supabase
         .from("subscriber_clients")
         .select("client_id, is_primary, clients(id, name)")
         .eq("subscriber_user_id", user.id)
-        .order("is_primary", { ascending: false })
+        .eq("is_primary", false)
         .order("created_at")
         .then(({ data }) => {
           if (data) {
@@ -208,6 +211,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isVideographer) {
       return [
         { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: "Connecta AI", icon: Bot, path: connectaAIPath },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
@@ -410,7 +414,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           {/* Top gradient highlight */}
           <div className="absolute top-0 left-[10%] right-[10%] h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)' }} />
 
-          {/* Master */}
+          {/* Master — admin/videographer only */}
+          {!isUser && (
           <button
             onClick={() => handleViewModeChange("master")}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150 rounded-t-xl"
@@ -424,6 +429,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             <span className="text-sm font-medium text-foreground flex-1">Master</span>
             {viewMode === "master" && <Check className="w-3.5 h-3.5 text-primary" />}
           </button>
+          )}
 
           {/* Me */}
           {ownClientId && (
@@ -437,7 +443,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 8px rgba(99,102,241,0.12)' }}>
                 <UserCircle className="w-3.5 h-3.5 text-indigo-400" />
               </div>
-              <span className="text-sm font-medium text-foreground flex-1">Me {isUser && <span style={{ fontSize: 9, color: '#22d3ee', marginLeft: 4 }}>PRIMARY</span>}</span>
+              <span className="text-sm font-medium text-foreground flex-1">{isUser ? "My Brand" : "Me"}</span>
               {viewMode === "me" && <Check className="w-3.5 h-3.5 text-primary" />}
             </button>
           )}
@@ -492,26 +498,19 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                 className="w-full px-2 py-1.5 rounded-md text-sm text-white bg-[rgba(255,255,255,0.08)] border border-[rgba(34,211,238,0.3)] outline-none"
                 onKeyDown={async (e) => {
                   if (e.key === "Enter" && newClientName.trim()) {
-                    const { data: newClient, error } = await supabase
-                      .from("clients")
-                      .insert({ name: newClientName.trim(), owner_user_id: user!.id })
-                      .select("id")
-                      .single();
-                    if (!error && newClient) {
-                      await supabase.from("subscriber_clients").insert({
-                        subscriber_user_id: user!.id,
-                        client_id: newClient.id,
-                        is_primary: false,
-                      });
-                      handleViewModeChange(newClient.id);
+                    const { data: clientId, error } = await supabase.rpc("create_client_for_subscriber", {
+                      _name: newClientName.trim(),
+                      _email: null,
+                    });
+                    if (!error && clientId) {
+                      handleViewModeChange(clientId);
                       setNewClientName("");
                       setAddingClient(false);
-                      // Re-fetch client list
                       supabase
                         .from("subscriber_clients")
                         .select("client_id, is_primary, clients(id, name)")
                         .eq("subscriber_user_id", user!.id)
-                        .order("is_primary", { ascending: false })
+                        .eq("is_primary", false)
                         .order("created_at")
                         .then(({ data }) => {
                           if (data) setClients(data.map((d: any) => ({ id: d.clients.id, name: d.clients.name })));
@@ -528,20 +527,23 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                 <button
                   onClick={async () => {
                     if (!newClientName.trim()) return;
-                    const { data: newClient, error } = await supabase
-                      .from("clients")
-                      .insert({ name: newClientName.trim(), owner_user_id: user!.id })
-                      .select("id")
-                      .single();
-                    if (!error && newClient) {
-                      await supabase.from("subscriber_clients").insert({
-                        subscriber_user_id: user!.id,
-                        client_id: newClient.id,
-                        is_primary: false,
-                      });
-                      handleViewModeChange(newClient.id);
+                    const { data: clientId, error } = await supabase.rpc("create_client_for_subscriber", {
+                      _name: newClientName.trim(),
+                      _email: null,
+                    });
+                    if (!error && clientId) {
+                      handleViewModeChange(clientId);
                       setNewClientName("");
                       setAddingClient(false);
+                      supabase
+                        .from("subscriber_clients")
+                        .select("client_id, is_primary, clients(id, name)")
+                        .eq("subscriber_user_id", user!.id)
+                        .eq("is_primary", false)
+                        .order("created_at")
+                        .then(({ data }) => {
+                          if (data) setClients(data.map((d: any) => ({ id: d.clients.id, name: d.clients.name })));
+                        });
                     }
                   }}
                   className="flex-1 py-1 text-xs font-semibold rounded-md"

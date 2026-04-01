@@ -117,12 +117,45 @@ export function useScripts() {
       .select("*")
       .eq("client_id", clientId)
       .is("deleted_at", null)
+      .neq("status", "draft")
       .order("created_at", { ascending: false });
     if (error) {
       console.error(error);
       return;
     }
     setScripts(data || []);
+
+    // Backfill: ensure every script has a video_edits row
+    // Uses upsert with onConflict to prevent duplicates from concurrent calls
+    if (data && data.length > 0) {
+      try {
+        const scriptIds = data.map((s: any) => s.id);
+        const { data: existingEdits } = await supabase
+          .from("video_edits")
+          .select("script_id")
+          .in("script_id", scriptIds)
+          .is("deleted_at", null);
+        const existingSet = new Set((existingEdits || []).map((e: any) => e.script_id));
+        const missing = data.filter((s: any) => !existingSet.has(s.id));
+        if (missing.length > 0) {
+          const rows = missing.map((s: any) => ({
+            client_id: clientId,
+            script_id: s.id,
+            reel_title: s.idea_ganadora || s.title || "Untitled",
+            status: "Not started",
+            script_url: `${window.location.origin}/s/${s.id}`,
+            footage: s.google_drive_link || null,
+            file_url: s.google_drive_link || "",
+            post_status: "Unpublished",
+          }));
+          // onConflict on the partial unique index prevents duplicates if two calls race
+          await supabase.from("video_edits").upsert(rows, { onConflict: "script_id", ignoreDuplicates: true });
+          console.log(`[useScripts] Backfilled ${missing.length} video_edits rows`);
+        }
+      } catch (e) {
+        console.error("[useScripts] video_edits backfill failed (non-fatal):", e);
+      }
+    }
   };
 
   const fetchTrashedScripts = async (clientId: string) => {
@@ -217,23 +250,38 @@ export function useScripts() {
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
       if (linesErr) throw linesErr;
 
-      toast.success("Script guardado");
+      toast.success("Script saved");
       setScripts((prev) => [script, ...prev]);
 
-      // Auto-create video_edits record for this script
+      // Auto-create or sync video_edits record for this script (upsert by script_id)
       try {
-        await supabase.from("video_edits").insert({
-          client_id: params.clientId,
-          script_id: script.id,
-          reel_title: params.ideaGanadora || "Untitled",
-          status: "Not started",
-          script_url: `${window.location.origin}/s/${script.id}`,
-          footage: params.googleDriveLink || null,
-          file_url: params.googleDriveLink || "",
-          post_status: "Unpublished",
-        });
+        const { data: existingEdit } = await supabase
+          .from("video_edits")
+          .select("id")
+          .eq("script_id", script.id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (existingEdit) {
+          await supabase.from("video_edits").update({
+            reel_title: params.ideaGanadora || "Untitled",
+            script_url: `${window.location.origin}/s/${script.id}`,
+            footage: params.googleDriveLink || null,
+          }).eq("id", existingEdit.id);
+        } else {
+          // upsert with ignoreDuplicates to prevent race condition duplicates
+          await supabase.from("video_edits").upsert({
+            client_id: params.clientId,
+            script_id: script.id,
+            reel_title: params.ideaGanadora || "Untitled",
+            status: "Not started",
+            script_url: `${window.location.origin}/s/${script.id}`,
+            footage: params.googleDriveLink || null,
+            file_url: params.googleDriveLink || "",
+            post_status: "Unpublished",
+          }, { onConflict: "script_id", ignoreDuplicates: true });
+        }
       } catch (videoErr) {
-        console.error("Auto-create video_edits failed (non-fatal):", videoErr);
+        console.error("Auto-create/sync video_edits failed (non-fatal):", videoErr);
       }
 
       return {
@@ -247,7 +295,7 @@ export function useScripts() {
       };
     } catch (e) {
       console.error(e);
-      toast.error("Error al procesar script");
+      toast.error("Error processing script");
       return null;
     } finally {
       setLoading(false);
@@ -280,7 +328,7 @@ export function useScripts() {
 
       if (!res.ok) {
         const err = await res.json();
-        toast.error(err.error || "Error al categorizar");
+        toast.error(err.error || "Error categorizing script");
         return null;
       }
 
@@ -312,7 +360,7 @@ export function useScripts() {
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
       if (linesErr) throw linesErr;
 
-      toast.success("Script guardado y categorizado");
+      toast.success("Script saved and categorized");
       setScripts((prev) => [script, ...prev]);
 
       return {
@@ -327,7 +375,7 @@ export function useScripts() {
       };
     } catch (e) {
       console.error(e);
-      toast.error("Error al procesar script");
+      toast.error("Error processing script");
       return null;
     } finally {
       setLoading(false);
@@ -354,17 +402,20 @@ export function useScripts() {
   };
 
   const deleteScript = async (scriptId: string) => {
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from("scripts")
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: now })
       .eq("id", scriptId);
     if (error) {
-      toast.error("Error al mover a papelera");
+      toast.error("Error moving script to trash");
       console.error(error);
       return false;
     }
+    // Cascade: also trash linked video_edit
+    await supabase.from("video_edits").update({ deleted_at: now }).eq("script_id", scriptId);
     setScripts((prev) => prev.filter((s) => s.id !== scriptId));
-    toast.success("Script movido a la papelera");
+    toast.success("Script moved to trash");
     return true;
   };
 
@@ -374,28 +425,32 @@ export function useScripts() {
       .update({ deleted_at: null })
       .eq("id", scriptId);
     if (error) {
-      toast.error("Error al restaurar script");
+      toast.error("Error restoring script");
       console.error(error);
       return false;
     }
+    // Cascade: also restore linked video_edit
+    await supabase.from("video_edits").update({ deleted_at: null }).eq("script_id", scriptId);
     const restored = trashedScripts.find((s) => s.id === scriptId);
     setTrashedScripts((prev) => prev.filter((s) => s.id !== scriptId));
     if (restored) {
       setScripts((prev) => [{ ...restored, deleted_at: null }, ...prev]);
     }
-    toast.success("Script restaurado");
+    toast.success("Script restored");
     return true;
   };
 
   const permanentlyDeleteScript = async (scriptId: string) => {
+    // Cascade: also permanently delete linked video_edit
+    await supabase.from("video_edits").delete().eq("script_id", scriptId);
     const { error } = await supabase.from("scripts").delete().eq("id", scriptId);
     if (error) {
-      toast.error("Error al eliminar permanentemente");
+      toast.error("Error permanently deleting script");
       console.error(error);
       return false;
     }
     setTrashedScripts((prev) => prev.filter((s) => s.id !== scriptId));
-    toast.success("Script eliminado permanentemente");
+    toast.success("Script permanently deleted");
     return true;
   };
 
@@ -435,7 +490,12 @@ export function useScripts() {
       const ok = await replaceAllLines(scriptId, lines);
       if (!ok) throw new Error("Failed to replace lines");
 
-      toast.success("Script actualizado");
+      // Sync title to linked video_edits record
+      try {
+        await supabase.from("video_edits").update({ reel_title: title || "Sin título" }).eq("script_id", scriptId);
+      } catch (e) { console.error("Sync title to video_edits failed:", e); }
+
+      toast.success("Script updated");
 
       setScripts((prev) =>
         prev.map((s) =>
@@ -451,7 +511,7 @@ export function useScripts() {
       };
     } catch (e) {
       console.error(e);
-      toast.error("Error al actualizar script");
+      toast.error("Error updating script");
       return null;
     } finally {
       setLoading(false);
@@ -460,9 +520,9 @@ export function useScripts() {
 
   const updateGoogleDriveLink = async (scriptId: string, link: string) => {
     const { error } = await supabase.from("scripts").update({ google_drive_link: link || null }).eq("id", scriptId);
-    if (error) { toast.error("Error al guardar link"); return false; }
+    if (error) { toast.error("Error saving link"); return false; }
     setScripts((prev) => prev.map((s) => (s.id === scriptId ? { ...s, google_drive_link: link || null } : s)));
-    toast.success("Link guardado");
+    toast.success("Link saved");
     // Sync footage to linked video_edits record
     try {
       await supabase.from("video_edits").update({ footage: link || null }).eq("script_id", scriptId);
@@ -472,20 +532,20 @@ export function useScripts() {
 
   const toggleGrabado = async (scriptId: string, grabado: boolean) => {
     const { error } = await supabase.from("scripts").update({ grabado }).eq("id", scriptId);
-    if (error) { toast.error("Error al actualizar estado"); return false; }
+    if (error) { toast.error("Error updating status"); return false; }
     setScripts((prev) => prev.map((s) => (s.id === scriptId ? { ...s, grabado } : s)));
     return true;
   };
 
   const updateScriptLine = async (scriptId: string, lineNumber: number, newText: string) => {
-    if (lineNumber == null) { toast.error("Error al actualizar línea"); return false; }
+    if (lineNumber == null) { toast.error("Error updating line"); return false; }
     const { error } = await supabase.from("script_lines").update({ text: newText }).eq("script_id", scriptId).eq("line_number", lineNumber);
-    if (error) { toast.error("Error al actualizar línea"); return false; }
+    if (error) { toast.error("Error updating line"); return false; }
     return true;
   };
 
   const deleteScriptLine = async (scriptId: string, lineNumber: number) => {
-    if (lineNumber == null) { toast.error("Error al eliminar línea"); return false; }
+    if (lineNumber == null) { toast.error("Error deleting line"); return false; }
 
     // Save version snapshot before destructive operation
     await saveVersionSnapshot(scriptId);
@@ -500,14 +560,14 @@ export function useScripts() {
 
     const remaining = allLines.filter(l => l.line_number !== lineNumber);
     const ok = await replaceAllLines(scriptId, remaining);
-    if (!ok) { toast.error("Error al eliminar línea"); return false; }
+    if (!ok) { toast.error("Error deleting line"); return false; }
     return true;
   };
 
   const updateScriptLineType = async (scriptId: string, lineNumber: number, newType: string) => {
     if (lineNumber == null) return false;
     const { error } = await supabase.from("script_lines").update({ line_type: newType }).eq("script_id", scriptId).eq("line_number", lineNumber);
-    if (error) { toast.error("Error al cambiar tipo de línea"); return false; }
+    if (error) { toast.error("Error changing line type"); return false; }
     return true;
   };
 
@@ -539,7 +599,7 @@ export function useScripts() {
     ];
 
     const ok = await replaceAllLines(scriptId, newLines);
-    if (!ok) { toast.error("Error al agregar línea"); return null; }
+    if (!ok) { toast.error("Error adding line"); return null; }
     return insertIdx + 1; // 1-based line_number of the new line
   };
 
@@ -553,7 +613,7 @@ export function useScripts() {
       section: l.section,
       text: l.text,
     })));
-    if (!ok) { toast.error("Error al reordenar"); return false; }
+    if (!ok) { toast.error("Error reordering lines"); return false; }
     return true;
   };
 
@@ -612,6 +672,23 @@ export function useScripts() {
     return ok;
   };
 
+  const bulkToggleGrabado = async (scriptIds: string[], grabado: boolean) => {
+    const { error } = await supabase.from("scripts").update({ grabado }).in("id", scriptIds);
+    if (error) { toast.error("Error updating scripts"); return false; }
+    setScripts((prev) => prev.map((s) => scriptIds.includes(s.id) ? { ...s, grabado } : s));
+    toast.success(`${scriptIds.length} script${scriptIds.length !== 1 ? "s" : ""} marked as ${grabado ? "recorded" : "not recorded"}`);
+    return true;
+  };
+
+  const bulkDelete = async (scriptIds: string[]) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("scripts").update({ deleted_at: now }).in("id", scriptIds);
+    if (error) { toast.error("Error deleting scripts"); return false; }
+    setScripts((prev) => prev.filter((s) => !scriptIds.includes(s.id)));
+    toast.success(`${scriptIds.length} script${scriptIds.length !== 1 ? "s" : ""} moved to trash`);
+    return true;
+  };
+
   return {
     scripts,
     trashedScripts,
@@ -627,6 +704,8 @@ export function useScripts() {
     updateScript,
     updateGoogleDriveLink,
     toggleGrabado,
+    bulkToggleGrabado,
+    bulkDelete,
     updateScriptLine,
     deleteScriptLine,
     updateScriptLineType,

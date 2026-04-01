@@ -1,14 +1,28 @@
 import { supabase } from '@/integrations/supabase/client';
 import * as tus from 'tus-js-client';
-import { videoService } from './videoService';
+import { videoService, type UpdateVideoInput } from './videoService';
 
 const BUCKET = 'footage';
 const FIVE_GB = 5 * 1024 * 1024 * 1024;
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;
 
-function buildStoragePath(clientId: string, videoEditId: string, filename: string): string {
-  return `${clientId}/${videoEditId}/${filename}`;
+function sanitizeFilename(filename: string): string {
+  const lastDot = filename.lastIndexOf('.');
+  const ext = lastDot > 0 ? filename.slice(lastDot) : '';
+  const name = lastDot > 0 ? filename.slice(0, lastDot) : filename;
+  const sanitized = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return (sanitized || 'video') + ext.toLowerCase();
+}
+
+function buildStoragePath(clientId: string, videoEditId: string, filename: string, subfolder?: string): string {
+  const base = subfolder ? `${clientId}/${videoEditId}/${subfolder}/` : `${clientId}/${videoEditId}/`;
+  return `${base}${sanitizeFilename(filename)}`;
 }
 
 function buildExpiryDates() {
@@ -87,9 +101,10 @@ export const videoUploadService = {
     file: File,
     clientId: string,
     videoEditId: string,
-    onProgress: (percent: number) => void
+    onProgress: (percent: number) => void,
+    subfolder?: string
   ): Promise<{ storagePath: string; storageUrl: string }> {
-    const storagePath = buildStoragePath(clientId, videoEditId, file.name);
+    const storagePath = buildStoragePath(clientId, videoEditId, file.name, subfolder);
 
     // Route by file size
     if (file.size <= FIVE_GB) {
@@ -103,14 +118,19 @@ export const videoUploadService = {
 
     // Update video_edits row
     const expiry = buildExpiryDates();
-    await videoService.updateVideo(videoEditId, {
+    const dbUpdate: UpdateVideoInput = {
       storage_path: storagePath,
       storage_url: storageUrl,
       upload_source: 'supabase',
       file_size_bytes: file.size,
       file_expires_at: expiry.file_expires_at,
       record_expires_at: expiry.record_expires_at,
-    });
+    };
+    // Submission uploads also populate file_submission so the UI "View" button appears
+    if (subfolder) {
+      dbUpdate.file_submission = storagePath;
+    }
+    await videoService.updateVideo(videoEditId, dbUpdate);
 
     return { storagePath, storageUrl };
   },

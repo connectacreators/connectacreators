@@ -110,9 +110,8 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
   };
 
   return (
-    <div className="glass-card rounded-2xl min-w-[300px] max-w-[360px] overflow-hidden">
-      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70" />
-      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70" />
+    <div className="glass-card rounded-2xl min-w-[300px] max-w-[360px] relative">
+      <div className="overflow-hidden rounded-2xl">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.06)] border-b border-[rgba(8,145,178,0.12)]">
         <div className="flex items-center gap-2">
@@ -213,10 +212,10 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
       {hooks.length > 0 && (
         <div className="px-3 pb-3 space-y-1.5">
           {hooks.map((hook, i) => (
-            <button
+            <div
               key={i}
               onClick={() => selectHook(hook)}
-              className={`w-full text-left rounded-lg border px-2.5 py-2 text-xs transition-colors ${
+              className={`w-full text-left rounded-lg border px-2.5 py-2 text-xs transition-colors cursor-pointer nodrag ${
                 selectedHook === hook.text
                   ? "bg-[rgba(8,145,178,0.12)] border-[rgba(8,145,178,0.3)] text-foreground"
                   : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -225,16 +224,19 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
               <div className="flex items-start gap-1.5">
                 {selectedHook === hook.text && <Check className="w-3 h-3 text-[#22d3ee] mt-0.5 flex-shrink-0" />}
                 <div>
-                  <span className="text-[10px] uppercase tracking-wide text-[#22d3ee]/80 font-medium">
+                  <span className="text-[10px] uppercase tracking-wide text-[#22d3ee]/80 font-medium select-text">
                     {CATEGORY_LABELS[normalizeCategory(hook.category)] ?? hook.category}
                   </span>
-                  <p className="leading-relaxed mt-0.5">{hook.text}</p>
+                  <p className="leading-relaxed mt-0.5 select-text">{hook.text}</p>
                 </div>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
+      </div>{/* end content wrapper */}
+      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 }

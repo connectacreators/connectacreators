@@ -90,6 +90,7 @@ export const videoService = {
         .from('video_edits')
         .select()
         .eq('client_id', clientId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -105,6 +106,7 @@ export const videoService = {
       const { data, error } = await supabase
         .from('video_edits')
         .select()
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -153,7 +155,7 @@ export const videoService = {
     try {
       const { error } = await supabase
         .from('video_edits')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', videoId);
 
       if (error) throw error;

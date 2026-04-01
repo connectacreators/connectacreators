@@ -2,50 +2,87 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
 
-const RETRY_DELAYS = [3000, 5000, 8000];
+const VALID_STATUSES = ["active", "trialing", "trial", "pending_contact", "canceling"];
+// Fast DB polls: 2s, 3s, 4s, 5s (total ~14s before fallback)
+const POLL_DELAYS = [2000, 3000, 4000, 5000];
+const MAX_POLLS = POLL_DELAYS.length;
 
 export default function PaymentSuccess() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<"checking" | "success" | "error">("checking");
+  const [status, setStatus] = useState<"checking" | "success" | "proceeding">("checking");
   const [attempt, setAttempt] = useState(0);
 
-  const checkSubscription = useCallback(async (retryIndex = 0) => {
+  const proceedToDashboard = useCallback((planType?: string) => {
+    localStorage.setItem("connecta_just_paid", planType ?? "starter");
+    setTimeout(() => navigate("/dashboard"), 2000);
+  }, [navigate]);
+
+  const verifySubscription = useCallback(async (pollIndex = 0) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session");
+      if (!user) return;
 
-      const { data, error } = await supabase.functions.invoke("check-subscription", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      // Fast path: just check the DB — the Stripe webhook should have updated it
+      const { data } = await supabase
+        .from("clients")
+        .select("plan_type, subscription_status, credits_balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (error) throw error;
-      if (data?.subscribed) {
+      if (data?.plan_type && data?.subscription_status && VALID_STATUSES.includes(data.subscription_status)) {
         setStatus("success");
-        setTimeout(() => navigate("/dashboard"), 3000);
+        proceedToDashboard(data.plan_type);
         return;
       }
 
-      // Retry with exponential backoff
-      if (retryIndex < RETRY_DELAYS.length) {
-        setAttempt(retryIndex + 1);
-        setTimeout(() => checkSubscription(retryIndex + 1), RETRY_DELAYS[retryIndex]);
-      } else {
-        setStatus("error");
+      // Still polling — webhook may not have fired yet
+      if (pollIndex < MAX_POLLS) {
+        setAttempt(pollIndex + 1);
+        setTimeout(() => verifySubscription(pollIndex + 1), POLL_DELAYS[pollIndex]);
+        return;
       }
+
+      // DB polls exhausted — call check-subscription as a one-time fallback
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await supabase.functions.invoke("check-subscription", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+
+          // Re-check DB after reconciliation
+          const { data: refreshed } = await supabase
+            .from("clients")
+            .select("plan_type, subscription_status")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (refreshed?.plan_type && refreshed?.subscription_status && VALID_STATUSES.includes(refreshed.subscription_status)) {
+            setStatus("success");
+            proceedToDashboard(refreshed.plan_type);
+            return;
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      // All attempts exhausted — proceed anyway (payment was taken)
+      setStatus("proceeding");
+      proceedToDashboard();
     } catch {
-      if (retryIndex < RETRY_DELAYS.length) {
-        setAttempt(retryIndex + 1);
-        setTimeout(() => checkSubscription(retryIndex + 1), RETRY_DELAYS[retryIndex]);
+      if (pollIndex < MAX_POLLS) {
+        setAttempt(pollIndex + 1);
+        setTimeout(() => verifySubscription(pollIndex + 1), POLL_DELAYS[pollIndex]);
       } else {
-        setStatus("error");
+        setStatus("proceeding");
+        proceedToDashboard();
       }
     }
-  }, [navigate]);
+  }, [user, proceedToDashboard]);
 
   useEffect(() => {
     if (loading) return;
@@ -55,14 +92,9 @@ export default function PaymentSuccess() {
     }
     setStatus("checking");
     setAttempt(0);
-    checkSubscription(0);
-  }, [user, loading, navigate, checkSubscription]);
-
-  const handleRetry = () => {
-    setStatus("checking");
-    setAttempt(0);
-    checkSubscription(0);
-  };
+    // Start checking after 2s (give webhook time to fire)
+    setTimeout(() => verifySubscription(0), 2000);
+  }, [user, loading, navigate, verifySubscription]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -78,7 +110,7 @@ export default function PaymentSuccess() {
             <h1 className="text-2xl font-bold text-foreground mb-2">Verifying your payment...</h1>
             <p className="text-muted-foreground">
               Please wait while we confirm your subscription.
-              {attempt > 0 && ` (Attempt ${attempt + 1}/${RETRY_DELAYS.length + 1})`}
+              {attempt > 0 && ` (${attempt + 1}/${MAX_POLLS + 1})`}
             </p>
           </>
         )}
@@ -89,22 +121,11 @@ export default function PaymentSuccess() {
             <p className="text-muted-foreground">Your subscription is active. Redirecting to dashboard...</p>
           </>
         )}
-        {status === "error" && (
+        {status === "proceeding" && (
           <>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Something went wrong</h1>
-            <p className="text-muted-foreground mb-4">We couldn't verify your subscription. Please try again or contact support.</p>
-            <div className="flex flex-col gap-2 items-center">
-              <Button onClick={handleRetry} className="gap-2">
-                <RefreshCw className="w-4 h-4" />
-                Retry Verification
-              </Button>
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="text-primary underline text-sm"
-              >
-                Go to Dashboard
-              </button>
-            </div>
+            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">Payment Received!</h1>
+            <p className="text-muted-foreground">Your payment was processed. Taking you to your dashboard now...</p>
           </>
         )}
       </motion.div>

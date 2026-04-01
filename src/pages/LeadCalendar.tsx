@@ -425,7 +425,7 @@ export default function LeadCalendar() {
   useEffect(() => {
     if (!urlClientId || clients.length === 0) return;
     const target = clients.find((c) => c.id === urlClientId);
-    if (target) setSelectedClient((target as any).notion_lead_name || target.name);
+    if (target) setSelectedClient(target.id);
   }, [urlClientId, clients]);
 
   const now = new Date();
@@ -438,14 +438,14 @@ export default function LeadCalendar() {
     return d;
   });
 
-  const fetchLeads = useCallback(async (clientName?: string) => {
+  const fetchLeads = useCallback(async (clientId?: string) => {
     setLoading(true);
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
       const params = new URLSearchParams();
-      if (clientName && clientName !== "all") params.set("client_name", clientName);
+      if (clientId && clientId !== "all") params.set("client_id", clientId);
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-leads?${params.toString()}`;
       const res = await fetch(url, {
         headers: {
@@ -610,7 +610,7 @@ export default function LeadCalendar() {
                 <SelectContent>
                   <SelectItem value="all">{tr(t.leadCalendar.allClients, language)}</SelectItem>
                   {clients.map((c) => (
-                    <SelectItem key={c.id} value={(c as any).notion_lead_name || c.name}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -31,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, useDraggable, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
@@ -39,6 +39,26 @@ import ScriptDocEditor from "@/components/ScriptDocEditor";
 import { checkResourceLimit } from "@/utils/planLimits";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Droppable folder card for drag-to-folder
+function DroppableFolder({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `folder-${id}` });
+  return (
+    <div ref={setNodeRef} className={`transition-all rounded-2xl ${isOver ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
+// Draggable wrapper for script rows
+function DraggableScript({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <div ref={setNodeRef} {...attributes} {...listeners} style={{ opacity: isDragging ? 0.4 : 1, cursor: "grab" }}>
+      {children}
+    </div>
+  );
+}
 
 // Mic button using Web Speech API
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
@@ -315,7 +335,7 @@ export default function Scripts() {
   const {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
     categorizeAndSave, directSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
-    updateScript, updateGoogleDriveLink, toggleGrabado,
+    updateScript, updateGoogleDriveLink, toggleGrabado, bulkToggleGrabado, bulkDelete,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
     updateReviewStatus,
   } = useScripts();
@@ -422,8 +442,9 @@ export default function Scripts() {
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
   const [selectedScriptIds, setSelectedScriptIds] = useState<Set<string>>(new Set());
+  const [draggingScriptId, setDraggingScriptId] = useState<string | null>(null);
+  const lastSelectedIdRef = useRef<string | null>(null);
 
   // Drag & drop sensors (must be at component level, not inside IIFE)
   const flatPointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5, delay: 0, tolerance: 5 } });
@@ -661,24 +682,113 @@ export default function Scripts() {
     toast.success(folderId ? "Script moved to folder" : "Script removed from folder");
   }, [selectedClient]);
 
-  const toggleScriptSelect = useCallback((id: string) => {
+  // Smart selection: supports plain click (toggle), Shift+click (range), Cmd/Ctrl+click (add/remove)
+  const handleScriptSelect = useCallback((id: string, e?: React.MouseEvent, visibleIds?: string[]) => {
+    if (e?.shiftKey && lastSelectedIdRef.current && visibleIds) {
+      // Shift+click: select range from last selected to current
+      const lastIdx = visibleIds.indexOf(lastSelectedIdRef.current);
+      const curIdx = visibleIds.indexOf(id);
+      if (lastIdx !== -1 && curIdx !== -1) {
+        const start = Math.min(lastIdx, curIdx);
+        const end = Math.max(lastIdx, curIdx);
+        const rangeIds = visibleIds.slice(start, end + 1);
+        setSelectedScriptIds((prev) => {
+          const next = new Set(prev);
+          rangeIds.forEach((rid) => next.add(rid));
+          return next;
+        });
+        return;
+      }
+    }
+    // Plain click or Cmd/Ctrl+click: toggle individual
     setSelectedScriptIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+    lastSelectedIdRef.current = id;
   }, []);
 
   const exitSelectMode = useCallback(() => {
-    setSelectMode(false);
     setSelectedScriptIds(new Set());
+    lastSelectedIdRef.current = null;
   }, []);
+
+  // Keyboard shortcuts: Cmd/Ctrl+A = select all, Escape = deselect
+  useEffect(() => {
+    if (view !== "client-detail") return;
+    const handler = (e: KeyboardEvent) => {
+      // Don't intercept when typing in inputs/textareas
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        setSelectedScriptIds(new Set(scripts.map((s) => s.id)));
+      }
+      if (e.key === "Escape" && selectedScriptIds.size > 0) {
+        e.preventDefault();
+        setSelectedScriptIds(new Set());
+        lastSelectedIdRef.current = null;
+      }
+    };
+    window.addEventListener("keydown", handler, true); // capture phase to beat browser default
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [view, scripts, selectedScriptIds.size]);
 
   const handleBulkMoveToFolder = useCallback(async (folderId: string | null) => {
     const ids = Array.from(selectedScriptIds);
     await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: folderId }).eq("id", id)));
     if (selectedClient) fetchScriptsByClient(selectedClient.id);
     toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} ${folderId ? "moved to folder" : "removed from folder"}`);
+    exitSelectMode();
+  }, [selectedScriptIds, selectedClient, exitSelectMode]);
+
+  // Bulk actions for smart context menu
+  const handleBulkGrabado = useCallback(async (grabado: boolean) => {
+    const ids = Array.from(selectedScriptIds);
+    await bulkToggleGrabado(ids, grabado);
+    exitSelectMode();
+  }, [selectedScriptIds, bulkToggleGrabado, exitSelectMode]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedScriptIds);
+    await bulkDelete(ids);
+    exitSelectMode();
+  }, [selectedScriptIds, bulkDelete, exitSelectMode]);
+
+  // Select all visible (filtered) scripts
+  const handleSelectAll = useCallback((filteredScripts: typeof scripts) => {
+    setSelectedScriptIds(new Set(filteredScripts.map((s) => s.id)));
+  }, []);
+
+  // Drag-to-folder handlers for script list DndContext
+  const listPointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const listTouchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } });
+  const listSensors = useSensors(listPointerSensor, listTouchSensor);
+
+  const handleListDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    setDraggingScriptId(id);
+    // If dragged script isn't selected, select only it
+    if (!selectedScriptIds.has(id)) {
+      setSelectedScriptIds(new Set([id]));
+    }
+  }, [selectedScriptIds]);
+
+  const handleListDragEnd = useCallback(async (event: DragEndEvent) => {
+    setDraggingScriptId(null);
+    const { over } = event;
+    if (!over) return;
+    const folderId = String(over.id);
+    // Check it's a folder drop target (prefixed with folder-)
+    if (!folderId.startsWith("folder-")) return;
+    const actualFolderId = folderId.replace("folder-", "");
+    const ids = Array.from(selectedScriptIds);
+    if (ids.length === 0) return;
+    await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: actualFolderId }).eq("id", id)));
+    if (selectedClient) fetchScriptsByClient(selectedClient.id);
+    toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} moved to folder`);
     exitSelectMode();
   }, [selectedScriptIds, selectedClient, exitSelectMode]);
 
@@ -1054,6 +1164,7 @@ export default function Scripts() {
             onCancel={() => {
               setRemixVideo(null);       // clear remix state
               setView("client-detail");  // MUST NOT be "new-script" — that re-triggers remix loop
+              if (selectedClient) fetchScriptsByClient(selectedClient.id); // refresh list after canvas save
             }}
           />
         </div>
@@ -1469,15 +1580,15 @@ export default function Scripts() {
                 >
                   <FolderPlus className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-                  title={selectMode ? "Cancel selection" : "Select scripts"}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                    selectMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                </button>
+                {selectedScriptIds.size > 0 && (
+                  <button
+                    onClick={exitSelectMode}
+                    title="Deselect all"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-primary bg-primary/10 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={handleToggleTrash}
                   title={showTrash ? "Hide trash" : "Trash"}
@@ -1575,8 +1686,11 @@ export default function Scripts() {
                 return true;
               });
 
+              const visibleIds = filtered.map((s) => s.id);
               const ScriptCard = ({ s }: { s: typeof scripts[0] }) => (
-                <div key={s.id} className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br border rounded-2xl transition-smooth overflow-hidden ${
+                <div key={s.id} className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br border rounded-2xl transition-smooth overflow-hidden select-none ${
+                    selectedScriptIds.has(s.id) ? 'ring-1 ring-primary/40 ' : ''
+                  }${
                     (s as any).status === 'draft'
                       ? 'from-orange-950/30 via-orange-900/15 to-orange-900/10 border-orange-500/40 hover:border-orange-400/60'
                       : s.review_status === 'approved'
@@ -1585,26 +1699,22 @@ export default function Scripts() {
                       ? 'from-red-950/40 via-red-900/20 to-red-900/10 border-red-500/40'
                       : 'from-card via-card to-muted/30 border-border hover:border-primary/50 hover:to-primary/10'
                   }`}>
-                  {selectMode ? (
-                    <button onClick={(e) => { e.stopPropagation(); toggleScriptSelect(s.id); }} className="flex-shrink-0">
-                      {selectedScriptIds.has(s.id)
-                        ? <CheckCircle2 className="w-5 h-5 text-primary" />
-                        : <Circle className="w-5 h-5 text-muted-foreground" />}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={async () => { await toggleGrabado(s.id, !s.grabado); }}
-                      className="flex-shrink-0"
-                      title={s.grabado ? "Marcar como no grabado" : "Marcar como grabado"}
-                    >
-                      {s.grabado ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />
-                      )}
-                    </button>
-                  )}
-                  <button onClick={() => selectMode ? toggleScriptSelect(s.id) : handleViewScript(s)} className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left overflow-hidden">
+                  <button onClick={(e) => { e.stopPropagation(); handleScriptSelect(s.id, e, visibleIds); }} className="flex-shrink-0" title="Select (Shift+click for range)">
+                    {selectedScriptIds.has(s.id)
+                      ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                      : <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      // Cmd/Ctrl+click on row body = toggle selection (like Finder)
+                      if (e.metaKey || e.ctrlKey) {
+                        e.preventDefault();
+                        handleScriptSelect(s.id, e, visibleIds);
+                        return;
+                      }
+                      handleViewScript(s);
+                    }}
+                    className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 text-left overflow-hidden">
                     {(s as any).status === "draft" ? (
                       <Flame className="w-5 h-5 text-orange-400 flex-shrink-0 hidden sm:block" />
                     ) : (
@@ -1633,60 +1743,94 @@ export default function Scripts() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-52 p-1" align="end">
-                        {isAdmin && (
-                          <button
-                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${
-                              s.review_status === 'approved' ? 'text-green-400'
-                              : s.review_status === 'needs_revision' ? 'text-red-400'
-                              : 'text-foreground'
-                            }`}
-                            onClick={() => setReviewingScript(s)}
-                          >
-                            {s.review_status === 'needs_revision' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                            {s.review_status === 'approved' ? 'Approved' : s.review_status === 'needs_revision' ? 'Needs Revision' : 'Review'}
-                          </button>
-                        )}
-                        <button
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
-                          onClick={() => handleEditScript(s)}
-                        >
-                          <Pencil className="w-4 h-4" /> Edit
-                        </button>
-                        {/* Move to folder submenu */}
-                        {folders.length > 0 && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted">
-                                <Folder className="w-4 h-4" /> Move to folder
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-44 p-1" align="end" side="left">
-                              {s.folder_id && (
+                        {(() => {
+                          const isBulk = selectedScriptIds.has(s.id) && selectedScriptIds.size > 1;
+                          const bulkIds = isBulk ? Array.from(selectedScriptIds) : [s.id];
+                          const bulkHint = isBulk ? <span className="ml-auto text-[10px] text-primary/60">{selectedScriptIds.size} scripts</span> : null;
+                          return (
+                            <>
+                              {!isBulk && (
                                 <button
-                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground transition-colors hover:bg-muted"
-                                  onClick={() => handleMoveToFolder(s.id, null)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                                  onClick={() => handleEditScript(s)}
                                 >
-                                  Remove from folder
+                                  <Pencil className="w-4 h-4" /> Edit
                                 </button>
                               )}
-                              {folders.map((f) => (
+                              {/* Move to folder submenu */}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted">
+                                    <Folder className="w-4 h-4" /> Move to folder {bulkHint}
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-44 p-1" align="end" side="left">
+                                  {(isBulk || s.folder_id) && (
+                                    <button
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground transition-colors hover:bg-muted"
+                                      onClick={() => isBulk ? handleBulkMoveToFolder(null) : handleMoveToFolder(s.id, null)}
+                                    >
+                                      Remove from folder
+                                    </button>
+                                  )}
+                                  {folders.map((f) => (
+                                    <button
+                                      key={f.id}
+                                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${!isBulk && s.folder_id === f.id ? 'text-primary font-medium' : 'text-foreground'}`}
+                                      onClick={() => isBulk ? handleBulkMoveToFolder(f.id) : handleMoveToFolder(s.id, f.id)}
+                                    >
+                                      <Folder className="w-3.5 h-3.5" /> {f.name}
+                                    </button>
+                                  ))}
+                                </PopoverContent>
+                              </Popover>
+                              {/* Mark as recorded / unmark */}
+                              <button
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                                onClick={async () => {
+                                  if (isBulk) {
+                                    // If any selected are not recorded, mark all recorded. Otherwise unmark all.
+                                    const anyNotRecorded = bulkIds.some((id) => !scripts.find((sc) => sc.id === id)?.grabado);
+                                    await bulkToggleGrabado(bulkIds, anyNotRecorded);
+                                    exitSelectMode();
+                                  } else {
+                                    await toggleGrabado(s.id, !s.grabado);
+                                  }
+                                }}
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                {isBulk
+                                  ? (bulkIds.some((id) => !scripts.find((sc) => sc.id === id)?.grabado) ? "Mark as recorded" : "Unmark recorded")
+                                  : (s.grabado ? "Unmark recorded" : "Mark as recorded")
+                                }
+                                {bulkHint}
+                              </button>
+                              {/* Review (admin only) */}
+                              {isAdmin && !isBulk && (
                                 <button
-                                  key={f.id}
-                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${s.folder_id === f.id ? 'text-primary font-medium' : 'text-foreground'}`}
-                                  onClick={() => handleMoveToFolder(s.id, f.id)}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${
+                                    s.review_status === 'approved' ? 'text-green-400'
+                                    : s.review_status === 'needs_revision' ? 'text-red-400'
+                                    : 'text-foreground'
+                                  }`}
+                                  onClick={() => setReviewingScript(s)}
                                 >
-                                  <Folder className="w-3.5 h-3.5" /> {f.name}
+                                  {s.review_status === 'needs_revision' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                  {s.review_status === 'approved' ? 'Approved' : s.review_status === 'needs_revision' ? 'Needs Revision' : 'Review'}
                                 </button>
-                              ))}
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                        <button
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-destructive transition-colors hover:bg-destructive/10"
-                          onClick={() => handleDeleteScript(s.id)}
-                        >
-                          <Trash2 className="w-4 h-4" /> Delete
-                        </button>
+                              )}
+                              <button
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-destructive transition-colors hover:bg-destructive/10"
+                                onClick={async () => {
+                                  if (isBulk) { await handleBulkDelete(); }
+                                  else { handleDeleteScript(s.id); }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" /> Delete {bulkHint}
+                              </button>
+                            </>
+                          );
+                        })()}
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1724,6 +1868,7 @@ export default function Scripts() {
                     </div>
                   )}
 
+                  <DndContext sensors={listSensors} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
                   {/* ── Folder grid (shown at root and inside folders when subfolders exist) ── */}
                   {(childFolders.length > 0 || creatingFolder) && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
@@ -1731,21 +1876,22 @@ export default function Scripts() {
                         const count = scripts.filter(s => s.folder_id === f.id).length;
                         const subCount = folders.filter(sf => sf.parent_id === f.id).length;
                         return (
-                          <button
-                            key={f.id}
-                            onClick={() => setViewingFolderId(f.id)}
-                            className="relative flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-all text-left group overflow-hidden"
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                            <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
-                            <div className="relative z-10 w-full min-w-0">
-                              <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {count} script{count !== 1 ? "s" : ""}
-                                {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
-                              </p>
-                            </div>
-                          </button>
+                          <DroppableFolder key={f.id} id={f.id}>
+                            <button
+                              onClick={() => setViewingFolderId(f.id)}
+                              className="w-full relative flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-all text-left group overflow-hidden"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                              <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
+                              <div className="relative z-10 w-full min-w-0">
+                                <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {count} script{count !== 1 ? "s" : ""}
+                                  {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
+                                </p>
+                              </div>
+                            </button>
+                          </DroppableFolder>
                         );
                       })}
                       {/* New folder card */}
@@ -1783,56 +1929,84 @@ export default function Scripts() {
                     </p>
                   ) : (
                     <div className="grid gap-3">
-                      {filtered.map((s) => <ScriptCard key={s.id} s={s} />)}
+                      {filtered.map((s) => <DraggableScript key={s.id} id={s.id}><ScriptCard s={s} /></DraggableScript>)}
                     </div>
                   )}
+
+                  {/* Drag overlay ghost */}
+                  <DragOverlay>
+                    {draggingScriptId && (
+                      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary/15 border border-primary/30 shadow-2xl backdrop-blur-sm" style={{ width: 280 }}>
+                        <Folder className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-primary">
+                          Moving {selectedScriptIds.size} script{selectedScriptIds.size !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    )}
+                  </DragOverlay>
+                  </DndContext>
                 </>
               );
             })()
             )}
 
-            {/* ── Floating bulk-action bar ── */}
-            {selectMode && selectedScriptIds.size > 0 && (
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-card/90 backdrop-blur-md border border-border shadow-2xl">
-                <span className="text-sm font-medium text-foreground whitespace-nowrap">
-                  {selectedScriptIds.size} selected
-                </span>
+            {/* ── Floating glass bulk-action bar ── */}
+            {selectedScriptIds.size > 0 && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                <span className="text-sm font-medium text-foreground">{selectedScriptIds.size} selected</span>
+                <div className="w-px h-4 bg-border" />
+                <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => handleSelectAll(scripts)}>
+                  Select All
+                </Button>
+                <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={exitSelectMode}>
+                  Deselect
+                </Button>
+                <div className="w-px h-4 bg-border" />
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button size="sm" variant="cta" className="gap-1.5 h-8">
-                      <Folder className="w-4 h-4" /> Move to folder
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2 gap-1">
+                      <Folder className="w-3 h-3" /> Move to folder
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-48 p-1" align="center" side="top">
-                    {folders.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-muted-foreground">No folders yet — create one first</p>
-                    ) : (
-                      <>
-                        <button
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
-                          onClick={() => handleBulkMoveToFolder(null)}
-                        >
-                          Remove from folder
-                        </button>
-                        {folders.map((f) => (
-                          <button
-                            key={f.id}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground hover:bg-muted transition-colors"
-                            onClick={() => handleBulkMoveToFolder(f.id)}
-                          >
-                            <Folder className="w-3.5 h-3.5" /> {f.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                    <button
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
+                      onClick={() => handleBulkMoveToFolder(null)}
+                    >
+                      Remove from folder
+                    </button>
+                    {folders.map((f) => (
+                      <button
+                        key={f.id}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground hover:bg-muted transition-colors"
+                        onClick={() => handleBulkMoveToFolder(f.id)}
+                      >
+                        <Folder className="w-3.5 h-3.5" /> {f.name}
+                      </button>
+                    ))}
                   </PopoverContent>
                 </Popover>
-                <button
-                  onClick={exitSelectMode}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 px-2 gap-1"
+                  onClick={() => {
+                    const ids = Array.from(selectedScriptIds);
+                    const anyNotRecorded = ids.some((id) => !scripts.find((sc) => sc.id === id)?.grabado);
+                    handleBulkGrabado(anyNotRecorded);
+                  }}
                 >
-                  Deselect all
-                </button>
+                  <CheckCircle2 className="w-3 h-3" /> Mark recorded
+                </Button>
+                <div className="w-px h-4 bg-border" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                  onClick={handleBulkDelete}
+                >
+                  <Trash2 className="w-3 h-3" /> Delete
+                </Button>
               </div>
             )}
           </>
@@ -2450,25 +2624,40 @@ export default function Scripts() {
               const createVideoEdit = async (_subfolder: 'footage' | 'submission') => {
                 if (!selectedClient || !viewingScriptId) return;
                 const footageLink = viewingMetadata?.google_drive_link || null;
-                const { data, error } = await supabase.from("video_edits").insert({
-                  client_id: selectedClient.id,
-                  script_id: viewingScriptId,
-                  reel_title: viewingMetadata?.idea_ganadora || "Untitled",
-                  status: "Not started",
-                  script_url: `${window.location.origin}/s/${viewingScriptId}`,
-                  file_url: footageLink || "",
-                  footage: footageLink,
-                  upload_source: footageLink ? 'gdrive' : null,
-                  post_status: "Unpublished",
-                }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
-                if (error) { toast.error("Failed to create video edit record"); return; }
+                // Check for existing record to avoid duplicates
+                const { data: existing } = await supabase.from("video_edits").select("id").eq("script_id", viewingScriptId).is("deleted_at", null).maybeSingle();
+                let data: any;
+                if (existing) {
+                  const { data: updated, error } = await supabase.from("video_edits").update({
+                    reel_title: viewingMetadata?.idea_ganadora || "Untitled",
+                    script_url: `${window.location.origin}/s/${viewingScriptId}`,
+                    footage: footageLink,
+                    upload_source: footageLink ? 'gdrive' : null,
+                  }).eq("id", existing.id).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                  if (error) { toast.error("Failed to update video edit record"); return; }
+                  data = updated;
+                } else {
+                  const { data: inserted, error } = await supabase.from("video_edits").upsert({
+                    client_id: selectedClient.id,
+                    script_id: viewingScriptId,
+                    reel_title: viewingMetadata?.idea_ganadora || "Untitled",
+                    status: "Not started",
+                    script_url: `${window.location.origin}/s/${viewingScriptId}`,
+                    file_url: footageLink || "",
+                    footage: footageLink,
+                    upload_source: footageLink ? 'gdrive' : null,
+                    post_status: "Unpublished",
+                  }, { onConflict: "script_id", ignoreDuplicates: true }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                  if (error) { toast.error("Failed to create video edit record"); return; }
+                  data = inserted;
+                }
                 setLinkedVideoEdit({ id: data.id, client_id: data.client_id, footage: data.footage, file_submission: data.file_submission, upload_source: data.upload_source, storage_path: data.storage_path, storage_url: data.storage_url, file_size_bytes: data.file_size_bytes });
               };
 
               const FootageCard = ({ url, isVideo, fileName, fileSize, accentColor, onView, onRemove }: { url: string; isVideo: boolean; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => (
                 <div
                   className="flex items-center gap-3 rounded-xl border border-border bg-card/60 px-3 py-2.5 cursor-pointer hover:border-border/80 transition-colors group"
-                  onClick={onView}
+                  onClick={() => { if (!isVideo && url.startsWith('http')) { window.open(url, '_blank', 'noopener,noreferrer'); } else { onView(); } }}
                 >
                   <div className="w-16 h-11 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                     {isVideo ? (
@@ -2665,6 +2854,7 @@ export default function Scripts() {
                   storagePath={linkedVideoEdit.storage_path}
                   storageUrl={linkedVideoEdit.storage_url}
                   subfolder={footageViewerSubfolder}
+                  scriptId={viewingScriptId}
                   onComplete={async () => { if (viewingScriptId) await refreshLinkedVideoEdit(viewingScriptId); }}
                 />
               )}

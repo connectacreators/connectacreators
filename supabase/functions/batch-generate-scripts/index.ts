@@ -12,13 +12,23 @@ async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string | null> {
+  // Try junction table first (if it exists)
   const { data } = await adminClient
     .from("subscriber_clients")
     .select("client_id")
     .eq("subscriber_user_id", userId)
     .eq("is_primary", true)
     .maybeSingle();
-  return data?.client_id ?? null;
+  if (data?.client_id) return data.client_id;
+
+  // Fallback: direct clients.user_id lookup
+  const { data: client } = await adminClient
+    .from("clients")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  return client?.id ?? null;
 }
 
 const SCRIPT_SYSTEM_PROMPT = `<system_instructions>
@@ -104,7 +114,9 @@ async function deductCredits(
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (roleData?.role === "admin" || roleData?.role === "videographer") return null;
+  const role = roleData?.role;
+  // Skip credit deduction for admin, videographers, and editors
+  if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
   if (!primaryClientId) return null;

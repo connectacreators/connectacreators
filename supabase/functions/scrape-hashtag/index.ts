@@ -2,26 +2,22 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
-const ACTOR_ID = "apify~instagram-hashtag-scraper";
-const SCRAPE_LIMIT = 500;       // Fetch large pool — more candidates = better top picks
-const MAX_RESULTS = 50;          // Keep only top 50 by composite score (was 200)
-const MIN_VIEWS = 50_000;       // Discard anything below this before scoring
-const CACHE_TTL_HOURS = 6;      // Skip Apify if same hashtags scraped within this window
-const POLL_TIMEOUT_MS = 55000;
-const POLL_INTERVAL_MS = 3000;
+// Use the universal Instagram Scraper — the hashtag-specific actor returns
+// mostly images with zero video view counts, making it useless for viral video discovery.
+const ACTOR_ID = "apify~instagram-scraper";
+const SEARCH_LIMIT = 15;            // Number of accounts to find per keyword
+const RESULTS_LIMIT = 50;           // Posts per account
+const MAX_RESULTS = 50;             // Keep only top 50 by composite score
+const MIN_VIEWS = 50_000;           // Discard anything below this before scoring
+const CACHE_TTL_HOURS = 6;          // Skip Apify if same keywords scraped within this window
+const POLL_TIMEOUT_MS = 120_000;    // Universal scraper needs more time (searches accounts + posts)
+const POLL_INTERVAL_MS = 4000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Build a stable cache key from a list of hashtag strings.
-// Sort alphabetically so ["travel","fitness"] and ["fitness","travel"] produce the same key.
-//
-// NOTE: The previous version of this function used unsorted join(",").
-// Rows written before this deploy have unsorted hashtag_source values and will not
-// match this sorted key, causing a one-time cold-start Apify call per hashtag combo.
-// This is intentional and harmless — the cache will populate correctly going forward.
 function buildCacheKey(tags: string[]): string {
   return [...tags].sort().join(",");
 }
@@ -42,12 +38,11 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Clean hashtags (strip # prefix if included)
+    // Clean keywords (strip # prefix if included)
     const cleanTags = hashtags.map(h => h.replace(/^#/, "").trim()).filter(Boolean);
     const cacheKey = buildCacheKey(cleanTags);
 
     // ── 1. Cache guard ────────────────────────────────────────────────────────
-    // If the same hashtag combination was scraped within CACHE_TTL_HOURS, skip Apify.
     const cacheThreshold = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000).toISOString();
     const { data: cachedRow } = await supabase
       .from("viral_videos")
@@ -64,17 +59,22 @@ serve(async (req) => {
       );
     }
 
-    // ── 2. Start Apify run ────────────────────────────────────────────────────
+    // ── 2. Start Apify run ──────────────────────────────────────────────────
+    // Use the universal Instagram Scraper with user search — it finds accounts
+    // matching the keywords then scrapes their posts, returning videos with
+    // actual videoViewCount data.
+    const searchQuery = cleanTags.join(" ");
     const runRes = await fetch(
       `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${APIFY_TOKEN}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hashtags: cleanTags,
-          resultsLimit: SCRAPE_LIMIT,
-          scrapeType: "top",
-          onlyTopPosts: true,
+          search: searchQuery,
+          searchType: "user",
+          resultsType: "posts",
+          searchLimit: SEARCH_LIMIT,
+          resultsLimit: RESULTS_LIMIT,
         }),
       }
     );
@@ -107,7 +107,7 @@ serve(async (req) => {
 
     // Fetch full dataset
     const datasetRes = await fetch(
-      `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=${SCRAPE_LIMIT}&clean=true`
+      `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=2000&clean=true`
     );
     if (!datasetRes.ok) throw new Error("Failed to fetch dataset");
     const items: any[] = await datasetRes.json();
@@ -118,7 +118,7 @@ serve(async (req) => {
       });
     }
 
-    // ── 3. Early filter: video posts only, then discard below MIN_VIEWS ───────
+    // ── 3. Early filter: video posts only, then discard below MIN_VIEWS ────
     const now = Date.now();
     const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
 
@@ -152,31 +152,27 @@ serve(async (req) => {
       })
       .filter(p => {
         if (!p.videoId) return false;
-        if (p.views < MIN_VIEWS) return false;                         // early filter: < 50K views
-        if (p.postedAt && new Date(p.postedAt).getTime() < oneYearAgo) return false; // older than 1 year
+        if (p.views < MIN_VIEWS) return false;
+        if (p.postedAt && new Date(p.postedAt).getTime() < oneYearAgo) return false;
         return true;
       });
 
     if (!videoPosts.length) {
       return new Response(
-        JSON.stringify({ inserted: 0, message: "No posts met the 50K views threshold" }),
+        JSON.stringify({ inserted: 0, message: `No videos met the ${MIN_VIEWS / 1000}K views threshold`, total_scraped: items.length }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // ── 4. Velocity + composite ranking ──────────────────────────────────────
-    // velocity = views / max(age_in_days, 1)
-    // Posts with no posted_at get velocity = 0 (neutral).
     const scored = videoPosts.map(p => ({
       ...p,
       velocity: p.postedAt ? p.views / Math.max(p.ageInDays, 1) : 0,
     }));
 
-    // Use reduce instead of spread to avoid stack overflow if SCRAPE_LIMIT is ever increased.
     const maxViews    = scored.reduce((m, p) => p.views > m ? p.views : m, 0);
     const maxVelocity = scored.reduce((m, p) => p.velocity > m ? p.velocity : m, 0);
 
-    // Zero-guard: if every post has no posted_at, maxVelocity == 0 → weight 100% on views.
     const ranked = scored
       .map(p => {
         const normViews    = p.views / maxViews;
@@ -224,7 +220,7 @@ serve(async (req) => {
         inserted: count ?? rows.length,
         hashtags: cleanTags,
         total_scraped: items.length,
-        after_early_filter: videoPosts.length,
+        videos_found: videoPosts.length,
         total_processed: ranked.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

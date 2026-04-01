@@ -7,14 +7,14 @@ import * as tus from 'tus-js-client';
 
 const BUCKET = 'canvas-media';
 const MAX_SESSION_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB per session
-const MAX_FILE_BYTES = 500 * 1024 * 1024; // 500 MB single file
+const MAX_FILE_BYTES = 75 * 1024 * 1024; // 75 MB single file
 const TUS_THRESHOLD = 50 * 1024 * 1024; // 50 MB – use TUS above this
 const SIGNED_URL_EXPIRY = 3600; // 1 hour
 
 const ACCEPTED_TYPES: Record<string, string[]> = {
   image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
   video: ['video/mp4', 'video/quicktime', 'video/webm'],
-  voice: ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/webm', 'audio/ogg'],
+  voice: ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/webm', 'audio/ogg'],
 };
 
 // ---------------------------------------------------------------------------

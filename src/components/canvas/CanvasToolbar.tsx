@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Instagram, StickyNote, Search, ChevronLeft, ChevronDown, Plus, Minus, HelpCircle, Anchor, BookOpen, Target, TrendingUp, Pencil, Eraser, UserSearch, Trash2, Check, Paperclip, FolderPlus } from "lucide-react";
+import { Instagram, StickyNote, Search, ChevronLeft, ChevronDown, Plus, Minus, HelpCircle, Anchor, BookOpen, Target, TrendingUp, Pencil, Eraser, UserSearch, Trash2, Check, Paperclip, FolderPlus, Type, Maximize2 } from "lucide-react";
 
 export interface SessionItem {
   id: string;
@@ -20,10 +20,11 @@ function relativeTime(isoString: string): string {
 
 interface Props {
   clientName?: string;
-  onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode") => void;
+  onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode") => void;
   onBack: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onFitView?: () => void;
   onShowTutorial: () => void;
   onOpenViralPicker: () => void;
   drawingMode?: boolean;
@@ -234,7 +235,7 @@ function formatBytes(bytes: number): string {
 
 const MAX_SESSION_BYTES = 5 * 1024 * 1024 * 1024; // 5GB
 
-export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, onClearDrawing, drawColor, onDrawColorChange, saveStatus, sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession, sessionStorageUsed = 0 }: Props) {
+export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, onFitView, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, onClearDrawing, drawColor, onDrawColorChange, saveStatus, sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession, sessionStorageUsed = 0 }: Props) {
   return (
     <div className="absolute top-3 left-0 right-0 z-10 flex items-center justify-center pointer-events-none">
       {/* Back + session switcher + save status — absolute left */}
@@ -335,6 +336,9 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         <div className="w-px h-5 bg-border/60 mx-1" />
 
+        {/* Annotation */}
+        <IconBtn onClick={() => onAddNode("annotationNode")} icon={Type} label="Add Annotation" />
+
         {/* Draw toggle */}
         <div className="relative group">
           <button
@@ -385,6 +389,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         <IconBtn onClick={onZoomOut} icon={Minus} label="Zoom Out" />
         <IconBtn onClick={onZoomIn}  icon={Plus}  label="Zoom In"  />
+        {onFitView && <IconBtn onClick={onFitView} icon={Maximize2} label="Fit to Screen" />}
 
         <div className="w-px h-5 bg-border/60 mx-1" />
 

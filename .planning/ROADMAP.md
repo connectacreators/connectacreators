@@ -81,6 +81,6 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. DB Setup | 1/1 | Complete | 2026-03-11 |
 | 2. Canvas Fix | 1/1 | Complete    | 2026-03-11 |
-| 3. Email Edge Function | 1/1 | Complete | 2026-03-11 |
+| 3. Email Edge Function | 1/1 | Complete    | 2026-03-11 |
 | 4. Triggers + Cron | 0/? | Not started | - |
 | 5. Settings UI | 0/? | Not started | - |

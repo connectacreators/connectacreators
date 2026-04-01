@@ -192,6 +192,9 @@ function timeAgo(dateStr: string | null): string {
 // Proxy Instagram CDN URLs through wsrv.nl to bypass hotlink/CORS restrictions
 function proxyImg(url: string | null): string | null {
   if (!url) return null;
+  // Already cached on VPS — serve directly
+  if (url.includes("connectacreators.com/thumb-cache")) return url;
+  // Legacy CDN URL (during migration) — proxy as before
   if (url.includes("cdninstagram.com") || url.includes("fbcdn.net") || url.includes("instagram.f")) {
     return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
   }
@@ -230,15 +233,16 @@ function detectPlatformAndUsername(raw: string): { username: string; platform: "
 }
 
 function getOutlierColor(score: number): string {
-  if (score >= 10) return "text-emerald-400";
-  if (score >= 3) return "text-green-400";
-  if (score >= 1.5) return "text-lime-400";
+  if (score >= 15) return "text-orange-400";
+  if (score >= 5) return "text-green-400";
+  if (score >= 2) return "text-lime-400";
   return "text-zinc-500";
 }
 
 function viralBadgeClass(score: number): string {
-  if (score >= 8) return 'badge-lime';
-  if (score >= 4) return 'badge-cyan';
+  if (score >= 15) return 'badge-amber';
+  if (score >= 5) return 'badge-lime';
+  if (score >= 2) return 'badge-cyan';
   return 'badge-neutral';
 }
 
@@ -499,8 +503,8 @@ function VideoCard({ video }: { video: ViralVideo }) {
         <div className="flex items-center gap-3 pt-0.5 border-t border-border">
           {/* Outlier */}
           <div className="flex items-center gap-1" title="Outlier score">
-            {video.outlier_score >= 10 ? (
-              <Flame className="text-[#84CC16] w-3.5 h-3.5" />
+            {video.outlier_score >= 15 ? (
+              <Flame className="text-orange-400 w-3.5 h-3.5" />
             ) : (
               <TrendingUp className={cn("w-3 h-3", outlierColor)} />
             )}

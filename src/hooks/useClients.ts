@@ -46,7 +46,7 @@ export function useClients(enabled: boolean, ownerScoped?: boolean) {
       return null;
     }
     setClients((prev) => [data, ...prev]);
-    toast.success("Cliente creado");
+    toast.success("Client created");
     return data;
   };
 
@@ -56,12 +56,12 @@ export function useClients(enabled: boolean, ownerScoped?: boolean) {
       .update(updates)
       .eq("id", id);
     if (error) {
-      toast.error("Error actualizando cliente");
+      toast.error("Error updating client");
       console.error(error);
       return false;
     }
     setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
-    toast.success("Cliente actualizado");
+    toast.success("Client updated");
     return true;
   };
 

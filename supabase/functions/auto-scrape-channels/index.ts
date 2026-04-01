@@ -9,8 +9,29 @@ const corsHeaders = {
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_ACTOR_INSTAGRAM = "apidojo~instagram-scraper";
 const APIFY_ACTOR_TIKTOK = "apidojo~tiktok-profile-scraper";
-const APIFY_ACTOR_YOUTUBE = "streamers~youtube-scraper";
+const APIFY_ACTOR_YOUTUBE = "scrapesmith~youtube-shorts-scraper";
 const CRON_SECRET = "connectacreators-cron-2026";
+
+const VPS_SERVER = "http://72.62.200.145:3099";
+const VPS_API_KEY = "ytdlp_connecta_2026_secret";
+
+async function cacheThumbnail(cdnUrl: string, key: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${VPS_SERVER}/cache-thumbnail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
+      body: JSON.stringify({ url: cdnUrl, key }),
+    });
+    if (!res.ok) return null;
+    const { cached_url } = await res.json();
+    return cached_url || null;
+  } catch { return null; }
+}
+
+function shouldCacheThumbnail(url: string | null): boolean {
+  if (!url) return false;
+  return /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent|tiktokcdn\.com/.test(url);
+}
 
 // Apify STARTER plan allows max 5 concurrent actor runs.
 // We process channels in batches of this size to avoid "too many concurrent runs" errors.
@@ -48,15 +69,14 @@ function buildApifyInput(platform: string, username: string, resultsLimit: numbe
     };
   }
   if (platform === "youtube") {
-    // streamers~youtube-scraper: startUrls array + maxResults
-    // Append /shorts to channel URL so the actor returns Shorts only
-    const baseUrl = username.startsWith("UC")
+    // scrapesmith~youtube-shorts-scraper: channelUrls + maxShortsPerChannel
+    // YouTube Shorts cap is 200 (cheap actor), other platforms stay at 100
+    const channelUrl = username.startsWith("UC")
       ? `https://www.youtube.com/channel/${username}`
       : `https://www.youtube.com/@${username}`;
-    const shortsUrl = baseUrl + "/shorts";
     return {
-      startUrls: [{ url: shortsUrl }],
-      maxResults: safeLimit,
+      channelUrls: [channelUrl],
+      maxShortsPerChannel: Math.min(resultsLimit, 200),
     };
   }
   // apidojo~instagram-scraper: maxItems is the actual limit field
@@ -137,72 +157,55 @@ async function processChannel(
     return { channel: channel.username, newVideos: 0 };
   }
 
-  // streamers~youtube-scraper returns all video items directly — no metadata wrapper to filter
-  const processItems = items;
-
-  // Parse and transform videos — apidojo~instagram-scraper field mapping
-  const videos = processItems
+  // Parse and transform videos — platform-specific field mapping
+  const videos = items
     .map((item: any) => {
-      // bernardo_bi~youtube-shorts-scraper: viewCount is already a number
-      // apidojo: views are in item.video.playCount for video posts
-      const views =
-        (channel.platform === "youtube" ? (item.viewCount ?? parseYouTubeViewCount(item.viewCountText)) : null) ??
-        item.video?.playCount ??
-        item.videoViewCount ??
-        item.videoPlayCount ??
-        item.playsCount ??
-        item.plays ??
-        item.viewCount ??
-        0;
-      // apidojo: likeCount / commentCount (no trailing 's')
-      const likes = item.likeCount ?? item.likesCount ?? item.diggCount ?? item.likes ?? 0;
-      const comments = item.commentCount ?? item.commentsCount ?? item.comments ?? 0;
-      const totalInteractions = likes + comments;
-      const engagementRate = views > 0 ? (totalInteractions / views) * 100 : 0;
-
-      // YouTube: videoId field; apidojo: code field (not shortCode)
-      const videoId =
-        item.videoId ??        // YouTube Shorts
-        item.code ?? item.shortCode ?? item.id ?? item.pk ?? item.aweme_id ?? null;
-
-      // YouTube: thumbnail (direct string) or thumbnails array fallback
-      // apidojo: image is an object {url, width, height}
-      const thumbnailUrl =
-        item.thumbnail ??              // YouTube Shorts (direct string)
-        item.thumbnails?.[0]?.url ??   // YouTube Shorts array fallback
-        (typeof item.image === "object" ? item.image?.url : item.image) ??
-        item.displayUrl ?? item.thumbnailUrl ?? item.coverUrl ?? item.cover ?? item.previewUrl ?? null;
-
-      const videoUrl =
-        item.shortUrl ??   // YouTube Shorts
-        item.url ??
-        item.webVideoUrl ??
-        (item.code
-          ? `https://www.instagram.com/p/${item.code}/`
-          : item.shortCode
-            ? `https://www.instagram.com/reel/${item.shortCode}/`
-            : null) ??
-        ((channel.platform === "tiktok") && (item.id ?? item.aweme_id)
-          ? `https://www.tiktok.com/@${cleanUsername}/video/${item.id ?? item.aweme_id}`
-          : null) ??
-        null;
-
+      let views: number, likes: number, comments: number, videoId: string | null;
+      let thumbnailUrl: string | null, videoUrl: string | null;
       let postedAt: string | null = null;
-      // apidojo: createdAt is ISO string; fallback to legacy field names
-      const rawTs = item.date ?? item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime ?? item.create_time;
-      if (rawTs) {
-        const num = typeof rawTs === "number" ? rawTs : Number(rawTs);
-        if (!isNaN(num)) {
-          postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
-        } else if (typeof rawTs === "string") {
-          postedAt = new Date(rawTs).toISOString();
+      let caption: string;
+
+      if (channel.platform === "youtube") {
+        // scrapesmith~youtube-shorts-scraper fields
+        views = item.views ?? 0;
+        likes = item.likes ?? 0;
+        comments = item.comments ?? 0;
+        videoId = item.video_id ?? null;
+        thumbnailUrl = item.thumbnail ?? null;
+        videoUrl = item.video_url ?? null;
+        caption = (item.title ?? "").slice(0, 600);
+        // date_posted format: "Mar 23, 2026"
+        if (item.date_posted) {
+          const parsed = new Date(item.date_posted);
+          if (!isNaN(parsed.getTime())) postedAt = parsed.toISOString();
+        }
+      } else {
+        // apidojo~instagram-scraper / tiktok field mapping
+        views = item.video?.playCount ?? item.videoViewCount ?? item.videoPlayCount ??
+          item.playsCount ?? item.plays ?? item.viewCount ?? 0;
+        likes = item.likeCount ?? item.likesCount ?? item.diggCount ?? item.likes ?? 0;
+        comments = item.commentCount ?? item.commentsCount ?? item.comments ?? 0;
+        videoId = item.code ?? item.shortCode ?? item.id ?? item.pk ?? item.aweme_id ?? null;
+        thumbnailUrl =
+          (typeof item.image === "object" ? item.image?.url : item.image) ??
+          item.displayUrl ?? item.thumbnailUrl ?? item.coverUrl ?? item.cover ?? null;
+        videoUrl = item.url ??
+          (item.code ? `https://www.instagram.com/p/${item.code}/` :
+           item.shortCode ? `https://www.instagram.com/reel/${item.shortCode}/` : null) ??
+          (channel.platform === "tiktok" && (item.id ?? item.aweme_id)
+            ? `https://www.tiktok.com/@${cleanUsername}/video/${item.id ?? item.aweme_id}` : null) ??
+          null;
+        caption = (item.caption ?? item.captionText ?? item.text ?? item.desc ?? "").slice(0, 600);
+        const rawTs = item.date ?? item.createdAt ?? item.timestamp ?? item.taken_at_timestamp ?? item.createTime;
+        if (rawTs) {
+          const num = typeof rawTs === "number" ? rawTs : Number(rawTs);
+          if (!isNaN(num)) postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
+          else if (typeof rawTs === "string") postedAt = new Date(rawTs).toISOString();
         }
       }
 
-      const caption = (
-        item.title ??      // YouTube Shorts
-        item.caption ?? item.captionText ?? item.text ?? item.desc ?? ""
-      ).slice(0, 600);
+      const totalInteractions = likes + comments;
+      const engagementRate = views > 0 ? (totalInteractions / views) * 100 : 0;
 
       return {
         channel_id: channel.id,
@@ -230,6 +233,15 @@ async function processChannel(
       ...v,
       outlier_score: avgViews > 0 ? Math.round((v.views_count / avgViews) * 10) / 10 : 1,
     }));
+
+    // Cache expiring CDN thumbnails to VPS (Instagram/TikTok only)
+    for (const v of videosWithOutlier) {
+      if (shouldCacheThumbnail(v.thumbnail_url) && v.apify_video_id) {
+        const key = `${v.platform}_${v.apify_video_id}`;
+        const cached = await cacheThumbnail(v.thumbnail_url!, key);
+        if (cached) v.thumbnail_url = cached;
+      }
+    }
 
     // Upsert — updates thumbnail_url + stats on existing rows, inserts new ones
     const { error: upsertError } = await supabase
@@ -282,7 +294,7 @@ serve(async (req) => {
     //        "full"  = fetch last 100 posts (weekly full stats + outlier recalculation)
     const body = await req.json().catch(() => ({}));
     const mode = body.mode === "full" ? "full" : "delta";
-    const resultsLimit = mode === "full" ? 100 : 7;
+    const resultsLimit = mode === "full" ? 200 : 7;
 
     console.log(`Running in ${mode} mode (resultsLimit=${resultsLimit})`);
 

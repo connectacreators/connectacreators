@@ -8,12 +8,15 @@ export interface Lead {
   email: string | null;
   source: string | null;
   status: string;
+  notes: string | null;
   follow_up_step: number;
   last_contacted_at: string | null;
   next_follow_up_at: string | null;
   booked: boolean;
   stopped: boolean;
   replied: boolean;
+  booking_date: string | null;
+  booking_time: string | null;
   created_at: string;
 }
 
@@ -24,6 +27,15 @@ export interface CreateLeadInput {
   email?: string | null;
   source?: string | null;
   status?: string;
+  notes?: string | null;
+  booking_date?: string | null;
+  booking_time?: string | null;
+  booked?: boolean;
+  follow_up_step?: number;
+  last_contacted_at?: string | null;
+  next_follow_up_at?: string | null;
+  stopped?: boolean;
+  replied?: boolean;
 }
 
 export interface UpdateLeadInput {
@@ -32,6 +44,7 @@ export interface UpdateLeadInput {
   email?: string | null;
   source?: string | null;
   status?: string;
+  notes?: string | null;
   follow_up_step?: number;
   last_contacted_at?: string | null;
   next_follow_up_at?: string | null;
@@ -45,12 +58,22 @@ export const leadService = {
     try {
       const { data: result, error } = await supabase
         .from('leads')
-        .insert([data])
+        .insert([{ ...data, next_follow_up_at: new Date().toISOString() }])
         .select()
         .single();
 
       if (error) throw error;
-      return result as Lead;
+      const lead = result as Lead;
+
+      // Trigger immediate follow-up if the lead has an email
+      if (lead.email) {
+        supabase.functions.invoke('send-followup', { body: { lead_id: lead.id } })
+          .then(({ error: fnErr }) => {
+            if (fnErr) console.warn('[leadService] send-followup trigger failed:', fnErr);
+          });
+      }
+
+      return lead;
     } catch (error) {
       console.error('Error creating lead:', error);
       throw error;

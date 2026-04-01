@@ -112,6 +112,7 @@ export default function PublicEditingQueue() {
         .from("video_edits")
         .select("id, reel_title, status, post_status, file_submission, script_url, assignee, revisions, footage, schedule_date, caption, client_id, clients(name)")
         .in("client_id", clientIds)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (dbErr) throw dbErr;

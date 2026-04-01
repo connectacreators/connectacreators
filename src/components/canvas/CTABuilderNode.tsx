@@ -44,12 +44,12 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm min-w-[300px] max-w-[360px] overflow-hidden">
-      <Handle type="source" position={Position.Right} />
+    <div className="glass-card rounded-2xl min-w-[300px] max-w-[360px] relative">
+      <div className="overflow-hidden rounded-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-500/10 border-b border-emerald-500/20">
+      <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(132,204,22,0.06)] border-b border-[rgba(132,204,22,0.12)]">
         <div className="flex items-center gap-2">
-          <Target className="w-3.5 h-3.5 text-emerald-400" />
+          <Target className="w-3.5 h-3.5 text-[#a3e635]" />
           <span className="text-xs font-semibold text-foreground">CTA Builder</span>
         </div>
         <button onClick={() => cd.onDelete?.()} className="text-muted-foreground hover:text-foreground">
@@ -71,7 +71,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
         <button
           onClick={generate}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[rgba(132,204,22,0.08)] text-[#a3e635] border border-[rgba(132,204,22,0.2)] hover:bg-[rgba(132,204,22,0.15)] disabled:opacity-50 transition-colors flex items-center gap-1"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Generate"}
         </button>
@@ -85,18 +85,21 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
               onClick={() => cd.onUpdate?.({ selectedCTA: cta })}
               className={`w-full text-left rounded-lg border px-2.5 py-2 text-xs transition-colors ${
                 selectedCTA === cta
-                  ? "bg-emerald-500/20 border-emerald-500/40 text-foreground"
+                  ? "bg-[rgba(132,204,22,0.1)] border-[rgba(132,204,22,0.25)] text-foreground"
                   : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               <div className="flex items-start gap-1.5">
-                {selectedCTA === cta && <Check className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />}
+                {selectedCTA === cta && <Check className="w-3 h-3 text-[#a3e635] mt-0.5 flex-shrink-0" />}
                 <span className="leading-relaxed">{cta}</span>
               </div>
             </button>
           ))}
         </div>
       )}
+      </div>{/* end content wrapper */}
+      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 }

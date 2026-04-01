@@ -50,6 +50,7 @@ interface MediaNodeData {
   clientId?: string | null;
   nodeId?: string;
   sessionId?: string;
+  initialFile?: File;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,10 @@ const SIGNED_URL_TTL_MS = 55 * 60 * 1000;
 
 const MediaNode = memo(({ data }: NodeProps) => {
   const d = data as MediaNodeData;
+
+  // ─── Large-file pricing (files > 25 MB cost 2×) ───
+  const isLargeFile = (d.fileSizeBytes ?? 0) > 25 * 1024 * 1024;
+  const costMultiplier = isLargeFile ? 2 : 1;
 
   // ─── Upload state ───
   const [uploading, setUploading] = useState(false);
@@ -210,6 +215,14 @@ const MediaNode = memo(({ data }: NodeProps) => {
       setUploadProgress(0);
     }
   };
+
+  // ─── Auto-upload when node is created via drag-drop from computer ───
+  useEffect(() => {
+    if (d.initialFile && !d.mediaId && !uploading) {
+      handleFiles([d.initialFile]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run only on mount
 
   // ─── Drag & drop handlers ───
   const onDragOver = (e: React.DragEvent) => {
@@ -337,17 +350,12 @@ const MediaNode = memo(({ data }: NodeProps) => {
       className="glass-card rounded-2xl shadow-xl relative"
       style={{ width: 280 }}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!bg-primary !border-primary/70"
-      />
-
+      <div className="overflow-hidden rounded-2xl">
       {/* ═══════════ STATE 1: Empty — Drop zone ═══════════ */}
       {isEmpty && (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.08)] border-b border-[rgba(8,145,178,0.15)]">
+          <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
             <div className="flex items-center gap-2">
               <Upload className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-semibold text-primary/80">
@@ -425,7 +433,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
       {uploading && (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.08)] border-b border-[rgba(8,145,178,0.15)]">
+          <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
             <div className="flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
               <span className="text-xs font-semibold text-primary/80">
@@ -463,8 +471,8 @@ const MediaNode = memo(({ data }: NodeProps) => {
                   <img
                     src={signedUrl}
                     alt={d.fileName || "Uploaded image"}
-                    className="w-full rounded-t-2xl object-cover"
-                    style={{ maxHeight: 280 }}
+                    className="w-full rounded-t-2xl object-contain bg-black/20"
+                    style={{ maxHeight: 400 }}
                     onError={() => {
                       // Try refreshing signed URL on error
                       refreshSignedUrl();
@@ -559,26 +567,29 @@ const MediaNode = memo(({ data }: NodeProps) => {
                   <p className="text-[10px] text-muted-foreground/60">
                     Transcribe this video:
                   </p>
+                  {isLargeFile && (
+                    <p className="text-[9px] text-amber-400/80">Files over 25 MB cost 2x credits</p>
+                  )}
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => triggerTranscription("audio")}
                       className="nodrag flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[10px] font-medium"
                     >
                       <Mic className="w-3 h-3" />
-                      Audio (150)
+                      Audio ({150 * costMultiplier})
                     </button>
                     <button
                       onClick={() => triggerTranscription("visual")}
                       className="nodrag flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[10px] font-medium"
                     >
                       <Eye className="w-3 h-3" />
-                      Visual (100)
+                      Visual ({100 * costMultiplier})
                     </button>
                     <button
                       onClick={() => triggerTranscription("both")}
                       className="nodrag flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[10px] font-medium"
                     >
-                      Both (200)
+                      Both ({200 * costMultiplier})
                     </button>
                   </div>
                 </div>
@@ -610,7 +621,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
           {fileType === "voice" && (
             <>
               {/* Header */}
-              <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.08)] border-b border-[rgba(8,145,178,0.15)]">
+              <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
                 <div className="flex items-center gap-2">
                   <FileAudio className="w-3.5 h-3.5 text-primary" />
                   <span className="text-xs font-semibold text-primary/80">
@@ -673,13 +684,18 @@ const MediaNode = memo(({ data }: NodeProps) => {
 
                 {/* Transcription button */}
                 {!hasAudioTranscription && !isProcessing && (
-                  <button
-                    onClick={() => triggerTranscription("audio")}
-                    className="nodrag w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[11px] font-medium"
-                  >
-                    <Mic className="w-3.5 h-3.5" />
-                    Transcribe (150 credits)
-                  </button>
+                  <div className="space-y-1">
+                    {isLargeFile && (
+                      <p className="text-[9px] text-amber-400/80 text-center">Files over 25 MB cost 2x credits</p>
+                    )}
+                    <button
+                      onClick={() => triggerTranscription("audio")}
+                      className="nodrag w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[11px] font-medium"
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      Transcribe ({150 * costMultiplier} credits)
+                    </button>
+                  </div>
                 )}
 
                 {/* Transcription processing */}
@@ -729,10 +745,18 @@ const MediaNode = memo(({ data }: NodeProps) => {
         </>
       )}
 
+      </div>{/* end content wrapper */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-primary !border-primary/70 !w-3 !h-3"
+        style={{ zIndex: 50 }}
+      />
       <Handle
         type="source"
         position={Position.Right}
-        className="!bg-primary !border-primary/70"
+        className="!bg-primary !border-primary/70 !w-3 !h-3"
+        style={{ zIndex: 50 }}
       />
     </div>
   );
@@ -784,7 +808,7 @@ function TranscriptionDropdown({
                   Audio
                 </span>
               </div>
-              <p className="text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              <p className="text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap select-text cursor-text nodrag" style={{ userSelect: "text" }}>
                 {audioTranscription}
               </p>
             </div>
@@ -820,7 +844,7 @@ function TranscriptionDropdown({
                               (txt: string, j: number) => (
                                 <span
                                   key={j}
-                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(8,145,178,0.08)] border border-[rgba(8,145,178,0.2)] text-[#22d3ee]/80"
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(8,145,178,0.10)] border border-[rgba(8,145,178,0.2)] text-[#22d3ee]/80"
                                 >
                                   {txt}
                                 </span>
@@ -833,7 +857,7 @@ function TranscriptionDropdown({
                   )}
                 </div>
               ) : (
-                <p className="text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                <p className="text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap select-text cursor-text nodrag" style={{ userSelect: "text" }}>
                   {typeof visualTranscription === "string"
                     ? visualTranscription
                     : JSON.stringify(visualTranscription, null, 2)}

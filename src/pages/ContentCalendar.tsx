@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import ThemedVideoPlayer from "@/components/ThemedVideoPlayer";
+import { videoUploadService } from "@/services/videoUploadService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,8 @@ interface CalendarPost {
   scheduled_date: string;           // YYYY-MM-DD (truncated at mapping boundary)
   post_status: string;              // Scheduled | Approved | Needs Revision | Done
   file_submission_url?: string | null;
+  upload_source?: string | null;
+  storage_path?: string | null;
   script_url?: string | null;
   revision_notes?: string | null;
   caption?: string | null;
@@ -264,7 +268,7 @@ export default function ContentCalendar() {
     try {
       let query = supabase
         .from("video_edits")
-        .select("id, reel_title, schedule_date, post_status, assignee, script_id, file_submission, caption, script_url, revisions, client_id")
+        .select("id, reel_title, schedule_date, post_status, assignee, script_id, file_submission, upload_source, storage_path, caption, script_url, revisions, client_id")
         .is("deleted_at", null)
         .not("schedule_date", "is", null)
         .order("schedule_date", { ascending: true });
@@ -292,6 +296,8 @@ export default function ContentCalendar() {
         scheduled_date: (v.schedule_date as string).slice(0, 10),
         post_status: v.post_status || "Unpublished",
         file_submission_url: v.file_submission,
+        upload_source: v.upload_source,
+        storage_path: v.storage_path,
         script_url: v.script_url,
         revision_notes: v.revisions ?? null,
         caption: v.caption,
@@ -824,6 +830,13 @@ interface PostDetailProps {
 }
 
 function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision, isEditor }: PostDetailProps) {
+  const isSupabaseVideo = post.upload_source === 'supabase' && post.storage_path;
+  const [supabaseVideoUrl, setSupabaseVideoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (isSupabaseVideo && post.storage_path) {
+      videoUploadService.getSignedVideoUrl(post.storage_path).then(setSupabaseVideoUrl).catch(() => setSupabaseVideoUrl(null));
+    }
+  }, [isSupabaseVideo, post.storage_path]);
   // These are now only computed when the modal is actually open with a post
   const driveId = post.file_submission_url ? extractGoogleDriveFileId(post.file_submission_url) : null;
   const cfg = getStatusConfig(post.post_status);
@@ -890,7 +903,11 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
         )}
 
         {/* Video */}
-        {driveId ? (
+        {isSupabaseVideo && supabaseVideoUrl ? (
+          <div style={{ aspectRatio: '16 / 9' }}>
+            <ThemedVideoPlayer src={supabaseVideoUrl} className="h-full" maxHeight="100%" />
+          </div>
+        ) : driveId ? (
           <div className="rounded-xl overflow-hidden bg-black aspect-video border border-border/30">
             <iframe
               src={`https://drive.google.com/file/d/${driveId}/preview`}

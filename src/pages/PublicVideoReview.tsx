@@ -62,6 +62,7 @@ export default function PublicVideoReview() {
       .from('video_edits')
       .select('*')
       .eq('id', videoEditId)
+      .is('deleted_at', null)
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
@@ -203,7 +204,7 @@ export default function PublicVideoReview() {
                   src={`https://drive.google.com/file/d/${driveFileId}/preview`}
                   className="w-full h-full"
                   allow="autoplay"
-                  sandbox="allow-scripts allow-same-origin"
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 />
               ) : (
                 <div className="text-muted-foreground">No video available</div>

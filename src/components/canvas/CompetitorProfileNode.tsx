@@ -47,6 +47,8 @@ interface CompetitorPost {
 interface NodeData {
   profileUrl?: string;
   username?: string | null;
+  profilePicUrl?: string | null;
+  profilePicB64?: string | null;
   detectedPlatform?: Platform;
   posts?: CompetitorPost[];
   selectedPostIndex?: number | null;
@@ -98,6 +100,8 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
   const {
     profileUrl: savedUrl = "",
     username = null,
+    profilePicUrl = null,
+    profilePicB64 = null,
     detectedPlatform: savedPlatform = null,
     posts = [],
     selectedPostIndex = null,
@@ -131,7 +135,7 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
       });
       if (error) throw new Error(error.message);
       if (result?.error) throw new Error(result.error);
-      onUpdate?.({ status: "done", username: result.username || null, detectedPlatform: result.platform || platform, posts: result.posts || [], selectedPostIndex: null, errorMessage: null });
+      onUpdate?.({ status: "done", username: result.username || null, profilePicUrl: result.profilePicUrl || null, profilePicB64: result.profilePicB64 || null, detectedPlatform: result.platform || platform, posts: result.posts || [], selectedPostIndex: null, errorMessage: null });
     } catch (e: any) {
       const msg = e.message || "Failed to fetch posts";
       onUpdate?.({ status: "error", errorMessage: msg });
@@ -167,15 +171,31 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
   const externalLinkLabel = savedPlatform === "youtube" ? "View on YouTube" : savedPlatform === "tiktok" ? "View on TikTok" : "View on Instagram";
 
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden" style={{ width: 480, minHeight: 200 }}>
-      <Handle type="target" position={Position.Left} className="!bg-[#f43f5e] !border-[#f43f5e]" />
-      <Handle type="source" position={Position.Right} className="!bg-[#f43f5e] !border-[#f43f5e]" />
-
+    <div className="bg-card border border-border rounded-2xl shadow-xl relative" style={{ width: 480, minHeight: 200 }}>
+      <div className="overflow-hidden rounded-2xl">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: "linear-gradient(135deg, rgba(244,63,94,0.15), rgba(168,85,247,0.15))", borderBottom: "1px solid rgba(244,63,94,0.2)" }}>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)" }}>
-          <UserSearch className="w-3.5 h-3.5 text-white" />
-        </div>
+        {(profilePicB64 || profilePicUrl) ? (
+          <img
+            src={profilePicB64 || profilePicUrl!}
+            alt={username || "Profile"}
+            className="w-8 h-8 rounded-full object-cover flex-shrink-0 border-2"
+            style={{ borderColor: "rgba(244,63,94,0.4)" }}
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              // If base64 failed or CDN failed, try proxy
+              if (profilePicUrl && !img.src.includes("/api/proxy-image") && !img.src.startsWith("data:")) {
+                img.src = `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(profilePicUrl)}`;
+              } else {
+                img.style.display = "none";
+              }
+            }}
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)" }}>
+            <UserSearch className="w-3.5 h-3.5 text-white" />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-foreground leading-none">Competitor Profile</p>
           {username && (
@@ -319,6 +339,9 @@ export default function CompetitorProfileNode({ data }: { data: NodeData }) {
           </div>
         </div>
       )}
+      </div>{/* end content wrapper */}
+      <Handle type="target" position={Position.Left} className="!bg-[#f43f5e] !border-[#f43f5e] !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-[#f43f5e] !border-[#f43f5e] !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 }

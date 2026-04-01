@@ -139,6 +139,9 @@ verify_jwt = false
 [functions.ai-assistant]
 verify_jwt = false
 
+[functions.deep-research]
+verify_jwt = false
+
 [functions.delete-lead]
 verify_jwt = false
 
@@ -172,4 +175,8 @@ verify_jwt = false
 
 # Cleanup trash — permanently deletes scripts/video_edits after 90 days in trash
 [functions.cleanup-trash]
+verify_jwt = false
+
+# AI hook suggestion for Script Wizard Step 3 (no credit charge)
+[functions.suggest-hooks]
 verify_jwt = false

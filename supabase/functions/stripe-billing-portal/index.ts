@@ -182,6 +182,70 @@ serve(async (req) => {
       });
     }
 
+    // ── Portal with pre-selected plan change confirmation ─────────────
+    if (action === "portal-upgrade") {
+      const targetPlan = body.target_plan as string;
+      const PLAN_PRICE_MAP: Record<string, string> = {
+        starter:    Deno.env.get("STRIPE_PRICE_STARTER")    || "price_1TCX3SCp1qPE081LCBJc8avw",
+        growth:     Deno.env.get("STRIPE_PRICE_GROWTH")     || "price_1TCX3SCp1qPE081LSkPmF8FN",
+        enterprise: Deno.env.get("STRIPE_PRICE_ENTERPRISE") || "price_1TCX3SCp1qPE081LODOQradO",
+      };
+      if (!targetPlan || !PLAN_PRICE_MAP[targetPlan]) {
+        throw new Error(`Invalid target plan: ${targetPlan}`);
+      }
+
+      // Each product maps to its own price — portal config requires price to belong to product
+      const PRODUCT_PRICE_MAP: Array<{ product: string; prices: string[] }> = [
+        { product: "prod_U8CMY29gkbO85Y", prices: [PLAN_PRICE_MAP.starter] },
+        { product: "prod_U8CMTfvyn4lvgv", prices: [PLAN_PRICE_MAP.growth] },
+        { product: "prod_U8CMxSv9ZoV1PF", prices: [PLAN_PRICE_MAP.enterprise] },
+      ];
+
+      // Create a portal configuration that allows plan switching
+      const portalConfig = await stripe.billingPortal.configurations.create({
+        business_profile: {
+          headline: "Manage your Connecta subscription",
+        },
+        features: {
+          subscription_update: {
+            enabled: true,
+            default_allowed_updates: ["price"],
+            proration_behavior: "always_invoice",
+            products: PRODUCT_PRICE_MAP,
+          },
+          subscription_cancel: { enabled: true, mode: "at_period_end" },
+          payment_method_update: { enabled: true },
+          invoice_history: { enabled: true },
+        },
+      });
+
+      // Find the active subscription
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId, limit: 5,
+      });
+      const subscription = subscriptions.data.find(s => s.status === "active" || s.status === "trialing");
+      if (!subscription) {
+        throw new Error("No active subscription found.");
+      }
+
+      const currentItem = subscription.items.data[0];
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: "https://connectacreators.com/subscription",
+        configuration: portalConfig.id,
+        flow_data: {
+          type: "subscription_update_confirm",
+          subscription_update_confirm: {
+            subscription: subscription.id,
+            items: [{ id: currentItem.id, price: PLAN_PRICE_MAP[targetPlan], quantity: 1 }],
+          },
+        },
+      });
+      return new Response(JSON.stringify({ url: portalSession.url }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "invoices") {
       const invoices = await stripe.invoices.list({ customer: customerId, limit: 12 });
       const invoiceList = invoices.data.map((inv) => ({

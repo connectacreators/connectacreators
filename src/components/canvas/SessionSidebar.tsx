@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 
 export interface SessionItem {
   id: string;
@@ -60,17 +60,8 @@ export default function SessionSidebar({
         {/* Inner content — minWidth prevents layout reflow during width animation */}
         <div className="flex flex-col h-full p-2 gap-1" style={{ minWidth: 220 }}>
 
-          {/* New chat button — mt-10 clears space for the toggle button at top-12 */}
-          <button
-            onClick={onNewChat}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted/50 transition-colors border border-border/50 mt-10"
-          >
-            <Plus className="w-4 h-4 flex-shrink-0" />
-            New chat
-          </button>
-
-          {/* Session list */}
-          <div className="flex-1 overflow-y-auto mt-1 space-y-0.5">
+          {/* Session list — mt-10 clears space for the toggle button at top-12 */}
+          <div className="flex-1 overflow-y-auto mt-10 space-y-0.5">
             {sessions.map(session => {
               const isActive = session.id === activeSessionId;
               const isRenaming = renamingId === session.id;

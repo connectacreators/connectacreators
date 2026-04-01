@@ -267,20 +267,63 @@ Deno.serve(async (req) => {
 
       const createdPage = await createResponse.json();
 
-      // Save booking to local database
-      supabase.from("bookings").insert({
-        client_id: clientId,
-        name,
-        email,
-        phone,
-        message: message || null,
-        booking_date: date,
-        booking_time: time,
-        notion_page_id: createdPage.id,
-        status: "confirmed",
-      }).then(({ error: bookingError }) => {
+      // Save booking to local database + fuzzy-match lead update (fire-and-forget)
+      (async () => {
+        // 1. Insert booking record
+        const { error: bookingError } = await supabase.from("bookings").insert({
+          client_id: clientId,
+          name,
+          email,
+          phone,
+          message: message || null,
+          booking_date: date,
+          booking_time: time,
+          notion_page_id: createdPage.id,
+          status: "confirmed",
+        });
         if (bookingError) console.error("Failed to save booking locally:", bookingError);
-      });
+
+        // 2. Fuzzy phone match → update existing lead OR create new one
+        const normalizePhone = (p: string) => (p || "").replace(/\D/g, "");
+        const bookingDigits = normalizePhone(phone);
+        if (bookingDigits.length >= 7) {
+          const { data: existingLeads } = await supabase
+            .from("leads")
+            .select("id, phone, status")
+            .eq("client_id", clientId);
+
+          const matched = (existingLeads || []).find((lead: any) => {
+            const leadDigits = normalizePhone(lead.phone);
+            if (leadDigits.length < 7) return false;
+            const len = Math.min(10, bookingDigits.length, leadDigits.length);
+            return bookingDigits.slice(-len) === leadDigits.slice(-len);
+          });
+
+          if (matched) {
+            const { error: updateErr } = await supabase.from("leads").update({
+              status: "Booked",
+              booked: true,
+              booking_date: date,
+              booking_time: time,
+            }).eq("id", (matched as any).id);
+            if (updateErr) console.error("Failed to update lead to Booked:", updateErr);
+          } else {
+            // Direct booker — no prior lead record
+            const { error: insertErr } = await supabase.from("leads").insert({
+              client_id: clientId,
+              name,
+              email,
+              phone,
+              source: "Public Booking",
+              status: "Booked",
+              booked: true,
+              booking_date: date,
+              booking_time: time,
+            });
+            if (insertErr) console.error("Failed to create lead from booking:", insertErr);
+          }
+        }
+      })().catch(err => console.error("Booking/lead link error:", err));
 
       // Fire-and-forget: send webhook if configured
       if (settings.zapier_webhook_url) {

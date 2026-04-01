@@ -18,10 +18,10 @@ type ScriptData = {
 };
 
 const typeConfig = {
-  filming: { label: "Instrucciones de Filmación", icon: Film, color: "text-red-400", bg: "bg-gradient-to-br from-red-500/25 to-red-900/10", border: "border-red-500/40" },
-  actor: { label: "Voiceover / Diálogo", icon: Mic, color: "text-purple-400", bg: "bg-gradient-to-br from-purple-500/25 to-purple-900/10", border: "border-purple-500/40" },
-  editor: { label: "Instrucciones de Edición", icon: Scissors, color: "text-emerald-400", bg: "bg-gradient-to-br from-emerald-500/25 to-emerald-900/10", border: "border-emerald-500/40" },
-  text_on_screen: { label: "Texto en Pantalla", icon: MonitorPlay, color: "text-zinc-400", bg: "bg-gradient-to-br from-zinc-500/25 to-zinc-900/10", border: "border-zinc-500/40" },
+  filming: { label: "Instrucciones de Filmación", icon: Film, color: "text-orange-400", bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5", border: "border-orange-500/25" },
+  actor: { label: "Voiceover / Diálogo", icon: Mic, color: "text-[#22d3ee]", bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
+  editor: { label: "Instrucciones de Edición", icon: Scissors, color: "text-[#a3e635]", bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
+  text_on_screen: { label: "Texto en Pantalla", icon: MonitorPlay, color: "text-[#94a3b8]", bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]", border: "border-[rgba(148,163,184,0.15)]" },
 };
 
 export default function PublicScript() {
@@ -97,17 +97,17 @@ export default function PublicScript() {
           )}
           {script.target && (
             <p className="text-sm text-foreground">
-              <span className="font-semibold text-red-400">Target:</span> {script.target}
+              <span className="font-semibold text-orange-400">Target:</span> {script.target}
             </p>
           )}
           {script.formato && (
             <p className="text-sm text-foreground">
-              <span className="font-semibold text-violet-400">Formato:</span> {script.formato}
+              <span className="font-semibold text-[#22d3ee]">Formato:</span> {script.formato}
             </p>
           )}
           {script.inspiration_url && (
             <p className="text-sm text-foreground">
-              <span className="font-semibold text-blue-400">Inspiración:</span>{" "}
+              <span className="font-semibold text-[#22d3ee]">Inspiración:</span>{" "}
               <a href={script.inspiration_url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
                 {script.inspiration_url}
               </a>

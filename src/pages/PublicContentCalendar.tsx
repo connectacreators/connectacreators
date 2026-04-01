@@ -225,6 +225,7 @@ export default function PublicContentCalendar() {
           .from("video_edits")
           .select("id, reel_title, schedule_date, post_status, file_submission, script_url, revisions, caption, client_id")
           .eq("client_id", clientId)
+          .is("deleted_at", null)
           .not("schedule_date", "is", null)
           .order("schedule_date", { ascending: true });
 

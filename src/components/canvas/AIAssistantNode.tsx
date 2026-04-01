@@ -9,15 +9,40 @@ import { useAuth } from "@/hooks/useAuth";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  type?: "text" | "image" | "script_preview";
+  image_b64?: string;
+  revised_prompt?: string;
+  credits_used?: number;
+  script_data?: any;
+}
+
 interface ChatSession {
   id: string;
   name: string;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: ChatMessage[];
   updated_at: string;
 }
 
+/** Strip base64 image data before persisting to DB/localStorage to avoid size limits */
+function stripImagesForPersistence(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map(m => {
+    const stripped: any = { ...m };
+    if (m.type === "image" && m.image_b64) {
+      stripped.image_b64 = undefined;
+      stripped.content = m.revised_prompt || "[Generated image]";
+    }
+    // Never persist user-message screenshot previews (large base64 data URLs)
+    if ((m as any)._imagePreview) stripped._imagePreview = undefined;
+    return stripped;
+  });
+}
+
 interface AIAssistantData {
-  canvasContext: CanvasContext;
+  canvasContext?: CanvasContext;
+  canvasContextRef?: React.RefObject<CanvasContext>;
   clientInfo?: { name?: string; target?: string };
   clientId?: string;
   nodeId?: string;
@@ -46,6 +71,8 @@ const EMPTY_CONTEXT: CanvasContext = {
   primary_topic: "",
 };
 
+const MAX_MESSAGES = 30;
+
 const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   const d = data as AIAssistantData;
   const { user } = useAuth();
@@ -57,6 +84,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeMessages, setActiveMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [chatsLoaded, setChatsLoaded] = useState(false);
+  const [isDragOverAI, setIsDragOverAI] = useState(false);
+  const [droppedAIImage, setDroppedAIImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
   const activeMessagesRef = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const sessionTokenRef = useRef<string | null>(null);
@@ -85,9 +114,10 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
     setChatsLoaded(false);
     (async () => {
       try {
+        // Only fetch metadata (no messages) for sidebar list — saves memory
         const { data: rows } = await supabase
           .from("canvas_ai_chats")
-          .select("id, name, messages, updated_at")
+          .select("id, name, updated_at")
           .eq("user_id", user.id)
           .eq("client_id", d.clientId)
           .eq("node_id", d.nodeId)
@@ -95,21 +125,21 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
 
         console.log("[chat] DB query returned rows:", rows?.length ?? 0);
         if (rows && rows.length > 0) {
-          // Drop stale empty rows if any real (non-empty) chats exist
-          const hasRealChats = rows.some(r => Array.isArray(r.messages) && (r.messages as any[]).length > 0);
-          const visibleRows = hasRealChats
-            ? rows.filter(r => Array.isArray(r.messages) && (r.messages as any[]).length > 0)
-            : rows;
-          // Prune empty rows from DB silently
-          if (hasRealChats) {
-            const emptyIds = rows.filter(r => !Array.isArray(r.messages) || (r.messages as any[]).length === 0).map(r => r.id);
-            if (emptyIds.length > 0) supabase.from("canvas_ai_chats").delete().in("id", emptyIds);
-          }
-          setChats(visibleRows as ChatSession[]);
-          setActiveChatId(visibleRows[0].id);
+          // Set chats with empty messages (loaded on demand)
+          setChats(rows.map(r => ({ ...r, messages: [] })) as ChatSession[]);
+          const activeRow = rows[0];
+          setActiveChatId(activeRow.id);
+
+          // Load messages ONLY for the active chat
+          const { data: activeData } = await supabase
+            .from("canvas_ai_chats")
+            .select("messages")
+            .eq("id", activeRow.id)
+            .single();
+          let restoredMsgs = (activeData?.messages as any) || [];
+
           // Check localStorage for messages newer than DB (in case Supabase save lagged)
-          const lsKey = `cc_chat_${visibleRows[0].id}`;
-          let restoredMsgs = (visibleRows[0].messages as any) || [];
+          const lsKey = `cc_chat_${activeRow.id}`;
           try {
             const lsRaw = localStorage.getItem(lsKey);
             if (lsRaw) {
@@ -120,7 +150,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
               }
             }
           } catch { /* ignore */ }
-          setActiveMessages(restoredMsgs);
+          setActiveMessages(restoredMsgs.length > MAX_MESSAGES ? restoredMsgs.slice(-MAX_MESSAGES) : restoredMsgs);
         } else {
           // No chats yet — create the first one before revealing the panel
           const { data: newRow, error: insertErr } = await supabase
@@ -145,14 +175,16 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   }, [user?.id, d.clientId, d.nodeId]);
 
   // Persist messages to DB immediately (no debounce — called on demand)
-  const persistMessages = useCallback(async (chatId: string, msgs: Array<{ role: string; content: string }>) => {
+  const persistMessages = useCallback(async (chatId: string, msgs: ChatMessage[]) => {
     console.log("[chat] persistMessages chatId:", chatId, "msgs:", msgs.length);
-    const firstUserMsg = msgs.find(m => m.role === "user");
+    // Strip base64 images before saving to DB/localStorage to avoid size limits
+    const safeMsgs = stripImagesForPersistence(msgs);
+    const firstUserMsg = safeMsgs.find(m => m.role === "user");
     const autoName = firstUserMsg
       ? firstUserMsg.content.slice(0, 40) + (firstUserMsg.content.length > 40 ? "…" : "")
       : undefined;
 
-    const updateData: any = { messages: msgs, updated_at: new Date().toISOString() };
+    const updateData: any = { messages: safeMsgs, updated_at: new Date().toISOString() };
     if (autoName) updateData.name = autoName;
 
     const { error } = await supabase.from("canvas_ai_chats").update(updateData).eq("id", chatId);
@@ -174,7 +206,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       const autoName = firstUserMsg
         ? firstUserMsg.content.slice(0, 40) + (firstUserMsg.content.length > 40 ? "…" : "")
         : undefined;
-      const updateData: any = { messages: msgs, updated_at: new Date().toISOString() };
+      const safeMsgs = stripImagesForPersistence(msgs);
+      const updateData: any = { messages: safeMsgs, updated_at: new Date().toISOString() };
       if (autoName) updateData.name = autoName;
       const token = sessionTokenRef.current || SUPABASE_ANON_KEY;
       try {
@@ -218,14 +251,29 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
     }
   }, [user, d.clientId, d.nodeId, chats.length]);
 
-  // Switch to a chat
-  const switchChat = useCallback((chat: ChatSession) => {
+  // Switch to a chat — lazy-load messages from DB
+  const switchChat = useCallback(async (chat: ChatSession) => {
     if (activeChatId && activeMessages.length > 0) {
       persistMessages(activeChatId, activeMessages);
     }
     setActiveChatId(chat.id);
-    setActiveMessages((chat.messages as any) || []);
     setGeneratedScript(null);
+    // Fetch messages for this chat on demand
+    const { data: chatData } = await supabase
+      .from("canvas_ai_chats")
+      .select("messages")
+      .eq("id", chat.id)
+      .single();
+    let msgs = (chatData?.messages as any) || [];
+    // Check localStorage fallback
+    try {
+      const lsRaw = localStorage.getItem(`cc_chat_${chat.id}`);
+      if (lsRaw) {
+        const lsMsgs = JSON.parse(lsRaw);
+        if (Array.isArray(lsMsgs) && lsMsgs.length > msgs.length) msgs = lsMsgs;
+      }
+    } catch { /* ignore */ }
+    setActiveMessages(msgs.length > MAX_MESSAGES ? msgs.slice(-MAX_MESSAGES) : msgs);
   }, [activeChatId, activeMessages, persistMessages]);
 
   // Delete a chat
@@ -233,11 +281,14 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
     e.stopPropagation();
     await supabase.from("canvas_ai_chats").delete().eq("id", chatId);
     setChats(prev => prev.filter(c => c.id !== chatId));
+    // Clean up localStorage for deleted chat
+    try { localStorage.removeItem(`cc_chat_${chatId}`); } catch { /* ignore */ }
     if (activeChatId === chatId) {
       const remaining = chats.filter(c => c.id !== chatId);
       if (remaining.length > 0) {
         setActiveChatId(remaining[0].id);
-        setActiveMessages((remaining[0].messages as any) || []);
+        // Messages will be empty in chats state (lazy-loaded), so just clear
+        setActiveMessages([]);
       } else {
         setActiveChatId(null);
         setActiveMessages([]);
@@ -246,14 +297,14 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   }, [activeChatId, chats]);
 
   // When CanvasAIPanel updates messages, persist immediately (no debounce)
-  const handleMessagesChange = useCallback((msgs: Array<{ role: "user" | "assistant"; content: string }>) => {
+  const handleMessagesChange = useCallback((msgs: ChatMessage[]) => {
     console.log("[chat] handleMessagesChange called, activeChatId:", activeChatId, "msgs.length:", msgs.length);
-    activeMessagesRef.current = msgs;
-    setActiveMessages(msgs);
+    const capped = msgs.length > MAX_MESSAGES ? msgs.slice(-MAX_MESSAGES) : msgs;
+    activeMessagesRef.current = capped;
+    setActiveMessages(capped);
     if (activeChatId) {
-      // localStorage backup — synchronous, survives Supabase failures
-      try { localStorage.setItem(`cc_chat_${activeChatId}`, JSON.stringify(msgs)); } catch { /* ignore */ }
-      persistMessages(activeChatId, msgs);
+      try { localStorage.setItem(`cc_chat_${activeChatId}`, JSON.stringify(stripImagesForPersistence(capped).slice(-MAX_MESSAGES))); } catch { /* ignore */ }
+      persistMessages(activeChatId, capped);
     } else {
       console.warn("[chat] handleMessagesChange called but activeChatId is null — save skipped");
     }
@@ -267,15 +318,54 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   return (
     <div
       data-tutorial-target="ai-node"
-      className="glass-card rounded-2xl shadow-2xl flex flex-row"
-      style={{ width: "100%", height: "100%", minWidth: "340px", minHeight: "400px" }}
+      className="glass-card rounded-2xl shadow-2xl flex flex-row relative"
+      style={{ width: "100%", height: "100%", minWidth: "340px", minHeight: "400px",
+        ...(isDragOverAI ? { boxShadow: "0 0 0 2px rgba(34,211,238,0.6), 0 0 24px rgba(34,211,238,0.15)" } : {})
+      }}
+      onDragOver={(e) => {
+        const hasImage = Array.from(e.dataTransfer.items).some(i => i.kind === "file" && i.type.startsWith("image/"));
+        if (!hasImage) return;
+        e.preventDefault();
+        e.stopPropagation(); // prevent canvas from also showing its overlay
+        setIsDragOverAI(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOverAI(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOverAI(false);
+        const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string;
+          if (dataUrl) setDroppedAIImage({ dataUrl, mimeType: file.type });
+        };
+        reader.readAsDataURL(file);
+      }}
     >
+      {/* Drop overlay — only image drops on the AI node */}
+      {isDragOverAI && (
+        <div className="absolute inset-0 z-50 rounded-2xl pointer-events-none flex items-center justify-center"
+          style={{ background: "rgba(34,211,238,0.07)", border: "2px dashed rgba(34,211,238,0.5)" }}>
+          <div className="bg-card/90 backdrop-blur-sm border border-primary/30 rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
+            <Bot className="w-6 h-6 text-primary" />
+            <p className="text-xs font-semibold text-foreground">Drop image for AI</p>
+            <p className="text-[10px] text-muted-foreground">Claude will analyze it</p>
+          </div>
+        </div>
+      )}
       <NodeResizer
         minWidth={340}
         minHeight={400}
         handleStyle={{ background: "transparent", border: "none", opacity: 0, width: 14, height: 14 }}
         lineStyle={{ border: "none" }}
       />
+
+      {/* Content wrapper — absolute inset-0 + overflow:hidden clips precisely to rounded corners without clipping Handles */}
+      <div className="absolute inset-0 overflow-hidden rounded-2xl flex flex-row pointer-events-auto">
 
       {/* Chat Sidebar — left side */}
       <div
@@ -358,7 +448,10 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
           {generatedScript ? (
             <ScriptOutputPanel
               script={generatedScript}
-              onSave={(editedScript) => d.onSaveScript(editedScript)}
+              onSave={(editedScript) => {
+                const fn = d.onSaveScript || (window as any).__canvasSaveScript;
+                if (fn) return fn(editedScript);
+              }}
               onClear={() => setGeneratedScript(null)}
               onRefine={handleRefine}
             />
@@ -369,7 +462,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
           ) : (
             <CanvasAIPanel
               key={activeChatId ?? "no-chat"}
-              canvasContext={d.canvasContext ?? EMPTY_CONTEXT}
+              canvasContext={d.canvasContextRef?.current ?? d.canvasContext ?? EMPTY_CONTEXT}
+              canvasContextRef={d.canvasContextRef}
               clientInfo={d.clientInfo}
               onGenerateScript={setGeneratedScript}
               authToken={d.authToken}
@@ -385,13 +479,17 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
               onInitialInputConsumed={() => setRefinementInput(null)}
               initialMessages={activeMessages}
               onMessagesChange={handleMessagesChange}
+              onSaveScript={d.onSaveScript}
+              externalDroppedImage={droppedAIImage}
             />
           )}
         </div>
       </div>
 
-      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70" />
-      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70" />
+      </div>{/* end content wrapper */}
+
+      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 });
