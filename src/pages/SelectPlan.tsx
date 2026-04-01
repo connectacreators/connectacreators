@@ -14,7 +14,7 @@ const plans = [
     name: "Starter",
     price: 39,
     description: "Perfect for creators getting started with Connecta.",
-    credits: "10,000",
+    credits: "50,000",
     badge: null as string | null,
     limits: [] as { label: string; value: string }[],
     features: [
@@ -33,7 +33,7 @@ const plans = [
     name: "Growth",
     price: 79,
     description: "Best for active creators and growing businesses.",
-    credits: "30,000",
+    credits: "100,000",
     badge: "Most Popular",
     limits: [] as { label: string; value: string }[],
     features: [
@@ -52,7 +52,7 @@ const plans = [
     name: "Pro",
     price: 139,
     description: "For power users who need unlimited capacity.",
-    credits: "75,000",
+    credits: "175,000",
     badge: null as string | null,
     limits: [] as { label: string; value: string }[],
     features: [
@@ -188,13 +188,15 @@ export default function SelectPlan() {
       const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
         headers: { Authorization: `Bearer ${session?.access_token}` },
-        body: { action: "change-plan", new_plan_type: planKey },
+        body: { action: "portal-upgrade", target_plan: planKey },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      const displayName = planDisplayName[planKey] || planKey;
-      toast.success(`Upgraded to ${displayName} plan!`);
-      navigate("/subscription");
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No portal URL returned");
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to upgrade plan");
     } finally {
