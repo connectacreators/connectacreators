@@ -7,6 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/** Fetch with automatic retry on 529/5xx errors */
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  const delays = [2000, 4000, 8000];
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, options);
+    if (res.ok || (res.status < 500 && res.status !== 529)) return res;
+    if (attempt < maxRetries) {
+      console.warn(`[ai-build-script] API ${res.status}, retrying in ${delays[attempt]}ms (attempt ${attempt + 1}/${maxRetries})...`);
+      await res.text(); // drain body
+      await new Promise(r => setTimeout(r, delays[attempt]));
+      continue;
+    }
+    return res;
+  }
+  throw new Error("Unreachable");
+}
+
 async function callClaude(apiKey: string, systemPrompt: string, userPrompt: string, tools?: any[], toolChoice?: any, modelOverride?: string) {
   const body: any = {
     model: modelOverride || "claude-haiku-4-5",
@@ -17,26 +34,38 @@ async function callClaude(apiKey: string, systemPrompt: string, userPrompt: stri
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [2000, 4000, 8000];
 
-  if (!res.ok) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) return await res.json();
+
     const status = res.status;
     const text = await res.text();
+
+    // Retry on overloaded (529) or server errors (500, 502, 503)
+    if ((status === 529 || status >= 500) && attempt < MAX_RETRIES) {
+      console.warn(`[ai-build-script] Claude API ${status}, retrying in ${RETRY_DELAYS[attempt]}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+      await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+      continue;
+    }
+
     console.error("Claude error:", status, text);
     if (status === 429) throw { status: 429, message: "Rate limit exceeded. Try again shortly." };
     if (status === 402) throw { status: 402, message: "Payment required on Anthropic account." };
+    if (status === 529) throw { status: 529, message: "Claude API is temporarily overloaded. Please try again in a minute." };
     throw new Error(`Claude API error: ${status}`);
   }
-
-  return await res.json();
 }
 
 // Credit costs per action (10x scale)
@@ -46,12 +75,13 @@ const CREDIT_COSTS: Record<string, number> = {
   "translate-script": 25,
   "templatize-script": 50,
   "analyze-template": 0,
-  "generate-script": 0,
+  "generate-script": 10,
   "verify-video-type": 0,
   "generate-caption-script": 50,
   "extract-story-facts": 50,
   "analyze-structure": 0,
   "canvas-generate": 50,
+  "canvas-edit": 25,
   "generate-hooks": 25,
   "generate-ctas": 25,
   "analyze-competitor-post": 0,
@@ -105,13 +135,14 @@ async function deductCredits(
 ): Promise<string | null> {
   if (cost === 0) return null;
 
-  // Admin bypass
+  // Skip credit deduction for admin, videographers, and editors
   const { data: roleData } = await adminClient
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (roleData?.role === "admin") return null;
+  const role = roleData?.role;
+  if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const { data: client, error: fetchErr } = await adminClient
     .from("clients")
@@ -460,7 +491,7 @@ ${factsText || "No specific facts provided — use compelling general knowledge 
 
       // ── Streaming variant: pipe SSE directly to client ──
       if (step === "generate-script-stream") {
-        const streamRes = await fetch("https://api.anthropic.com/v1/messages", {
+        const streamRes = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "x-api-key": ANTHROPIC_API_KEY,
@@ -1418,6 +1449,7 @@ Return a JSON tool call only — no prose.`;
         selected_cta,
         video_analyses,
         competitor_profiles,
+        media_files,
       } = body;
 
       const langLabel = canvasLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
@@ -1449,6 +1481,18 @@ Return a JSON tool call only — no prose.`;
 
       const notesSection = text_notes
         ? `\n<creator_notes>\nCORE CONTENT & INSTRUCTIONS — This is the primary source material. Use everything here as the foundation of the script (topic, talking points, research, brand voice, directions):\n${text_notes}\n</creator_notes>`
+        : "";
+
+      const validMediaFiles = Array.isArray(media_files) ? media_files.filter((f: any) => f.audio_transcription || f.visual_transcription) : [];
+      const mediaFilesSection = validMediaFiles.length > 0
+        ? `\n<media_files>\nThese are uploaded files from the creator — audio recordings, voice notes, or images. Use these as primary content/story source material:\n${
+            validMediaFiles.map((f: any, i: number) => {
+              const parts = [`File ${i + 1}: ${f.file_name} (${f.file_type})`];
+              if (f.audio_transcription) parts.push(`Audio transcription:\n"""${(f.audio_transcription as string).slice(0, 4000)}"""`);
+              if (f.visual_transcription) parts.push(`Visual description: ${(f.visual_transcription as string).slice(0, 1000)}`);
+              return parts.join("\n");
+            }).join("\n\n")
+          }\n</media_files>`
         : "";
 
       const hookSection = selected_hook
@@ -1547,7 +1591,7 @@ For idea_ganadora: STRICT MAXIMUM 3-5 words — short punchy title only.`;
       const canvasUserPrompt = `<task>Write a compelling viral short-form video script (~45 seconds / 90-120 words) based on all the context below. ${refSectionCount > 0 ? `YOUR SCRIPT MUST MATCH THE REFERENCE STRUCTURE — same sections, same tempo, same size.` : ""}</task>
 
 <topic>${primary_topic || "Based on the provided context"}</topic>
-${conversationSection}${structureSection}${transcriptSection}${notesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}`;
+${conversationSection}${structureSection}${transcriptSection}${notesSection}${mediaFilesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}`;
 
       const canvasScriptTools = [{
         name: "return_script",
@@ -1609,6 +1653,121 @@ ${conversationSection}${structureSection}${transcriptSection}${notesSection}${ho
       }
 
       return new Response(JSON.stringify(canvasToolUse.input), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // STEP: canvas-edit (Modify an existing script based on user instruction)
+    // ══════════════════════════════════════════════════════════════
+    if (step === "canvas-edit") {
+      const {
+        existing_script,
+        edit_instruction,
+        language: editLang,
+        conversationMessages: editConvMsgs,
+      } = body;
+
+      if (!existing_script?.lines || !Array.isArray(existing_script.lines)) {
+        throw new Error("canvas-edit requires existing_script with lines array");
+      }
+      if (!edit_instruction) {
+        throw new Error("canvas-edit requires edit_instruction");
+      }
+
+      const langLabel = editLang === "es" ? "SPANISH (Latin American)" : "ENGLISH";
+
+      // Serialize existing script into readable form for Claude
+      const scriptText = existing_script.lines.map((l: any, i: number) =>
+        `${i + 1}. [${l.section?.toUpperCase()}] (${l.line_type}) ${l.text}`
+      ).join("\n");
+
+      const editSystemPrompt = `You are a script editor for short-form social media videos.
+You will receive an existing script and an edit instruction from the creator.
+Apply ONLY the requested changes. Preserve everything else exactly as-is: same sections, same line types, same order, same lines that weren't mentioned.
+Do NOT rewrite the whole script. Do NOT add new sections unless explicitly asked.
+Do NOT change the style, tone, or structure unless the edit instruction specifically asks for it.
+
+Rules:
+- line_type must be one of: "filming", "actor", "editor", "text_on_screen"
+- section must be one of: "hook", "body", "cta"
+- Any on-screen text must use line_type "text_on_screen", never "editor"
+- Keep idea_ganadora, target, formato, and virality_score from the original unless the edit changes them
+
+Write in ${langLabel}.`;
+
+      const editConversationContext = Array.isArray(editConvMsgs) && editConvMsgs.length > 0
+        ? `\n\nRecent conversation for context:\n${(editConvMsgs as any[]).slice(-6).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n")}`
+        : "";
+
+      const editUserPrompt = `<existing_script>
+Title: ${existing_script.idea_ganadora || "Untitled"}
+Target: ${existing_script.target || "General"}
+Format: ${existing_script.formato || "TALKING HEAD"}
+Virality Score: ${existing_script.virality_score || "N/A"}
+
+Lines:
+${scriptText}
+</existing_script>
+
+<edit_instruction>${edit_instruction}</edit_instruction>${editConversationContext}
+
+Apply the edit instruction to the existing script. Return the COMPLETE modified script (all lines, not just changed ones).`;
+
+      const editScriptTools = [{
+        name: "return_script",
+        description: "Return the complete modified script",
+        input_schema: {
+          type: "object",
+          properties: {
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  line_type: { type: "string", enum: ["filming", "actor", "editor", "text_on_screen"] },
+                  section: { type: "string", enum: ["hook", "body", "cta"] },
+                  text: { type: "string" },
+                },
+                required: ["line_type", "section", "text"],
+              },
+            },
+            idea_ganadora: { type: "string" },
+            target: { type: "string" },
+            formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
+            virality_score: { type: "number" },
+            change_summary: { type: "string", description: "One short sentence describing what was changed. Max 12 words. No preamble." },
+          },
+          required: ["lines", "idea_ganadora", "target", "formato", "virality_score", "change_summary"],
+        },
+      }];
+
+      const editData = await callClaude(
+        ANTHROPIC_API_KEY,
+        editSystemPrompt,
+        editUserPrompt,
+        editScriptTools,
+        { type: "tool", name: "return_script" },
+        "claude-sonnet-4-6"
+      );
+
+      const editToolUse = editData.content?.find((c: any) => c.type === "tool_use");
+      if (!editToolUse) throw new Error("No tool use in canvas-edit response");
+
+      if (!Array.isArray(editToolUse.input.lines)) {
+        console.error("canvas-edit: lines is not an array, got:", typeof editToolUse.input.lines);
+        editToolUse.input.lines = [];
+      }
+
+      // Auto-correct misclassified text_on_screen lines
+      for (const line of editToolUse.input.lines) {
+        if (line.line_type === "editor" && /text\s*on\s*screen/i.test(line.text)) {
+          line.line_type = "text_on_screen";
+          line.text = line.text.replace(/^TEXT\s*ON\s*SCREEN\s*:\s*/i, "").replace(/^["']|["']$/g, "");
+        }
+      }
+
+      return new Response(JSON.stringify(editToolUse.input), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
