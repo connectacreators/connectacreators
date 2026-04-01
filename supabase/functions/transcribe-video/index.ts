@@ -14,68 +14,74 @@ const CREDIT_COST = 150;
 // ─── Apify ───
 const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
 const APIFY_YT_ACTOR = "streamers~youtube-scraper";
-const APIFY_IG_ACTOR = "apify~instagram-reel-scraper";
+const APIFY_IG_TASK = "connectacreators~instagram-reel-scraper-task";
 
 async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string | null> {
+  // Try junction table first (if it exists)
   const { data } = await adminClient
     .from("subscriber_clients")
     .select("client_id")
     .eq("subscriber_user_id", userId)
     .eq("is_primary", true)
     .maybeSingle();
-  return data?.client_id ?? null;
+  if (data?.client_id) return data.client_id;
+
+  // Fallback: direct clients.user_id lookup
+  const { data: client } = await adminClient
+    .from("clients")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  return client?.id ?? null;
 }
 
 function normalizeInstagramReelUrl(url: string): string {
   return url.replace(/\/reels\/([A-Za-z0-9_-]+)/, "/reel/$1");
 }
 
-// ─── Instagram: get CDN video URL via Apify reel scraper ───
+// ─── Instagram: get CDN video URL via Apify task (same as fetch-thumbnail & analyze-video) ───
 async function extractInstagramVideoUrl(pageUrl: string): Promise<string | null> {
   try {
     const normalizedUrl = normalizeInstagramReelUrl(pageUrl);
-    console.log("Fetching IG video URL via Apify:", normalizedUrl);
+    console.log("Fetching IG video URL via Apify task:", normalizedUrl);
 
-    const apifyUrl = `https://api.apify.com/v2/acts/${APIFY_IG_ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=60`;
-    const res = await fetch(apifyUrl, {
+    const taskUrl = `https://api.apify.com/v2/actor-tasks/${APIFY_IG_TASK}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=90`;
+    const res = await fetch(taskUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        directUrls: [normalizedUrl],
-        resultsLimit: 1,
-      }),
+      body: JSON.stringify({ username: [normalizedUrl] }),
     });
 
     if (!res.ok) {
-      console.error("Apify IG reel error:", res.status, await res.text().catch(() => ""));
+      console.error("Apify IG task error:", res.status, await res.text().catch(() => ""));
       return null;
     }
 
     const items = await res.json();
-    console.log("Apify IG reel response: items count =", Array.isArray(items) ? items.length : 0);
+    console.log("Apify IG task response: items count =", Array.isArray(items) ? items.length : 0);
     if (!Array.isArray(items) || items.length === 0) return null;
 
     const item = items[0];
-    // Log all available URL fields for debugging
     console.log("Apify IG item keys:", Object.keys(item).join(", "));
-    const videoUrl = item.videoUrl || item.video_url || item.videoPlaybackUrl || null;
+    const videoUrl = item.videoUrl || item.video_url || item.videoPlaybackUrl || item.download_url || null;
     console.log("Apify IG videoUrl:", videoUrl ? videoUrl.slice(0, 100) + "..." : "null");
     return videoUrl;
   } catch (e) {
-    console.error("Apify IG reel extraction error:", e);
+    console.error("Apify IG task extraction error:", e);
     return null;
   }
 }
 
 // ─── YouTube: extract transcript from captions ───
-async function extractYouTubeTranscript(videoUrl: string): Promise<string | null> {
+async function extractYouTubeTranscript(videoUrl: string): Promise<{ transcript: string | null; title: string | null; thumbnailUrl: string | null }> {
   const ytMatch = videoUrl.match(
     /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   );
-  if (!ytMatch) return null;
+  if (!ytMatch) return { transcript: null, title: null, thumbnailUrl: null };
 
   console.log("Extracting YouTube transcript via Apify for:", ytMatch[1]);
 
@@ -95,16 +101,18 @@ async function extractYouTubeTranscript(videoUrl: string): Promise<string | null
 
     if (!res.ok) {
       console.error("Apify YouTube error:", res.status, await res.text().catch(() => ""));
-      return null;
+      return { transcript: null, title: null, thumbnailUrl: null };
     }
 
     const items = await res.json();
     if (!Array.isArray(items) || items.length === 0) {
       console.log("Apify returned no items");
-      return null;
+      return { transcript: null, title: null, thumbnailUrl: null };
     }
 
     const item = items[0];
+    const title: string | null = item.title ?? null;
+    const thumbnailUrl: string | null = item.thumbnailUrl ?? null;
     const subtitles = item.subtitles;
 
     if (Array.isArray(subtitles) && subtitles.length > 0) {
@@ -112,15 +120,15 @@ async function extractYouTubeTranscript(videoUrl: string): Promise<string | null
       if (enSub?.plaintext) {
         const transcript = enSub.plaintext.replace(/\n/g, " ").trim();
         console.log(`YouTube transcript extracted (${enSub.language}): ${transcript.length} chars`);
-        return transcript;
+        return { transcript, title, thumbnailUrl };
       }
     }
 
     console.log("No subtitles in Apify response");
-    return null;
+    return { transcript: null, title, thumbnailUrl };
   } catch (e) {
     console.error("Apify YouTube transcript error:", e);
-    return null;
+    return { transcript: null, title: null, thumbnailUrl: null };
   }
 }
 
@@ -136,7 +144,9 @@ async function deductCredits(
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (roleData?.role === "admin") return null;
+  const role = roleData?.role;
+  // Skip credit deduction for admin, videographers, and editors (they use assigned client credits)
+  if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
   if (!primaryClientId) {
@@ -245,9 +255,14 @@ serve(async (req) => {
     const isInstagram = /instagram\.com/.test(url);
 
     // ─── YouTube: try caption extraction first (fast, free) ───
+    let ytTitle: string | null = null;
+    let ytApifyThumbnail: string | null = null;
     if (isYouTube) {
       console.log("YouTube URL detected — trying Apify transcript extraction...");
-      transcription = await extractYouTubeTranscript(url);
+      const ytResult = await extractYouTubeTranscript(url);
+      transcription = ytResult.transcript;
+      ytTitle = ytResult.title;
+      ytApifyThumbnail = ytResult.thumbnailUrl;
       if (transcription) {
         console.log("YouTube transcript extracted successfully, length:", transcription.length);
       } else {
@@ -255,23 +270,25 @@ serve(async (req) => {
       }
     }
 
-    // ─── YouTube: construct thumbnail URL ───
+    // ─── YouTube: use Apify thumbnail (already fetched above), fall back to CDN URL ───
     let youtubeThumbnailUrl: string | null = null;
     if (isYouTube) {
-      const ytIdMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-      if (ytIdMatch) {
-        const videoId = ytIdMatch[1];
-        const maxresUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-        try {
-          const headRes = await fetch(maxresUrl, { method: "HEAD" });
-          const contentLength = headRes.headers.get("content-length");
-          if (headRes.ok && contentLength !== "1403") {
-            youtubeThumbnailUrl = maxresUrl;
-          } else {
+      if (ytApifyThumbnail) {
+        youtubeThumbnailUrl = ytApifyThumbnail;
+        console.log("Using Apify thumbnail for YouTube:", youtubeThumbnailUrl);
+      } else {
+        const ytIdMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        if (ytIdMatch) {
+          const videoId = ytIdMatch[1];
+          const maxresUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+          try {
+            const thumbCheck = await fetch(maxresUrl, { method: "HEAD" });
+            youtubeThumbnailUrl = thumbCheck.ok
+              ? maxresUrl
+              : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          } catch {
             youtubeThumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
           }
-        } catch {
-          youtubeThumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         }
       }
     }
@@ -368,7 +385,12 @@ serve(async (req) => {
     // For others: return VPS cache URL
     const finalVideoUrl = igCdnVideoUrl || videoCacheUrl || null;
     const thumbnailUrl = youtubeThumbnailUrl || null;
-    return new Response(JSON.stringify({ transcription, videoUrl: finalVideoUrl, thumbnail_url: thumbnailUrl }), {
+    return new Response(JSON.stringify({
+      transcription,
+      videoUrl: finalVideoUrl,
+      thumbnail_url: thumbnailUrl,
+      video_title: ytTitle ?? null,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
