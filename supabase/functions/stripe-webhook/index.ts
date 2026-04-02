@@ -146,9 +146,9 @@ async function syncSubscription(
 
   // On subscription.created only: initialize credits
   if (isNew) {
-    // Trial: grant 250 credits only. Full credits granted on first payment.
+    // Trial: grant 1000 credits. Full credits granted on first payment.
     const isTrial = sub.status === "trialing";
-    const grantAmount = isTrial ? 250 : planCfg.credits_monthly_cap;
+    const grantAmount = isTrial ? 1000 : planCfg.credits_monthly_cap;
     if (isTrial) {
       clientUpdate.credits_monthly_cap = 1000;
     }
