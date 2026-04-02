@@ -308,7 +308,7 @@ serve(async (req) => {
 
     // ─── Extract audio via VPS (uses CDN URL for IG if available, page URL otherwise) ───
     let videoCacheUrl: string | null = null;
-    if (!transcription) {
+    if (!transcription && !isYouTube) {
       // For Instagram: prefer CDN URL from Apify (direct download on VPS)
       // Fallback: original page URL (VPS uses cobalt to resolve)
       const extractionUrl = igCdnVideoUrl || url;
@@ -371,6 +371,11 @@ serve(async (req) => {
       const result = JSON.parse(whisperBody);
       transcription = result.text;
       console.log("Whisper text length:", transcription?.length ?? 0);
+    }
+
+    // YouTube with no captions: don't throw, return a graceful message
+    if (isYouTube && !transcription) {
+      transcription = "(No captions available for this video)";
     }
 
     if (transcription === null || transcription === undefined) {
