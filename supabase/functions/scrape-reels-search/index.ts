@@ -100,7 +100,7 @@ serve(async (req) => {
     console.log(`[scrape-reels-search] Searching: "${cleanQuery}"`);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const timeout = setTimeout(() => controller.abort(), 180_000);
 
     let vpsRes: Response;
     try {
@@ -171,7 +171,7 @@ serve(async (req) => {
           likes_count: likes,
           comments_count: comments,
           engagement_rate: Math.round(engagementRate * 100) / 100,
-          outlier_score: 1, // recalculated below
+          outlier_score: Number(post.outlier_score) || 1, // per-account outlier from VPS
           posted_at: postedAt,
           scraped_at: new Date().toISOString(),
           apify_video_id: String(videoId),
@@ -184,13 +184,8 @@ serve(async (req) => {
       return json({ inserted: 0, query: cleanQuery, cached: false, message: "No recent videos found" });
     }
 
-    // Calculate outlier scores (relative to batch average)
-    const totalViews = videos.reduce((sum, v) => sum + v.views_count, 0);
-    const avgViews = totalViews / videos.length;
-    const videosWithOutlier = videos.map(v => ({
-      ...v,
-      outlier_score: avgViews > 0 ? Math.round((v.views_count / avgViews) * 10) / 10 : 1,
-    }));
+    // VPS already calculates per-account outlier scores — use them directly
+    const videosWithOutlier = videos;
 
     // Cache CDN thumbnails
     for (const v of videosWithOutlier) {
