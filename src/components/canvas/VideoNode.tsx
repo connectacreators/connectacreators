@@ -418,7 +418,7 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose }: { src: string; aspectR
  *   done         → Thumbnail + transcript dropdown + visual breakdown dropdown
  */
 
-const VideoNode = memo(({ data }: NodeProps) => {
+const VideoNode = memo(({ data, selected }: NodeProps) => {
   const d = data as VideoData;
   const [urlInput, setUrlInput] = useState(d.url || "");
   const [stage, setStage] = useState<"idle" | "transcribing" | "transcribed" | "analyzing" | "done">(
@@ -797,9 +797,11 @@ const VideoNode = memo(({ data }: NodeProps) => {
         width: "100%",
         minWidth: "180px",
         border: `1px solid ${theme.cardBorder}`,
-        boxShadow: theme.extraBoxShadow
-          ? `0 8px 24px rgba(0,0,0,0.4), ${theme.extraBoxShadow}`
-          : undefined,
+        boxShadow: selected
+          ? `0 0 0 2px ${theme.cardBorder}, 0 8px 24px rgba(0,0,0,0.4)${theme.extraBoxShadow ? `, ${theme.extraBoxShadow}` : ""}`
+          : theme.extraBoxShadow
+            ? `0 8px 24px rgba(0,0,0,0.4), ${theme.extraBoxShadow}`
+            : undefined,
       }}
     >
       <NodeResizer
