@@ -137,12 +137,23 @@ export default function Signup() {
     }
   }, [user, selectedPlan, phone]);
 
-  // Fetch Stripe client secret when entering Step 3
+  // Pre-fetch Stripe client secret as soon as plan is selected (still on Step 2)
+  // so the checkout is ready (or loading) by the time user clicks "Start Free"
   useEffect(() => {
-    if (step === 3 && !clientSecret && user && selectedPlan) {
+    if (selectedPlan && user && step === 2) {
+      setClientSecret(null);
       fetchClientSecret();
     }
-  }, [step, clientSecret, user, selectedPlan, fetchClientSecret]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlan]);
+
+  // Fallback: fetch on Step 3 if pre-fetch didn't run (e.g. user refreshed mid-flow)
+  useEffect(() => {
+    if (step === 3 && !clientSecret && !loading && user && selectedPlan) {
+      fetchClientSecret();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // Progress bar component
   const ProgressBar = () => (
@@ -374,8 +385,16 @@ export default function Signup() {
                   </EmbeddedCheckoutProvider>
                 </div>
               ) : loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                <div className="rounded-lg overflow-hidden min-h-[300px] flex flex-col gap-3 p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="h-4 rounded-md animate-pulse" style={{ background: 'rgba(255,255,255,0.07)', width: '60%' }} />
+                  <div className="h-10 rounded-lg animate-pulse" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                  <div className="h-4 rounded-md animate-pulse mt-2" style={{ background: 'rgba(255,255,255,0.07)', width: '40%' }} />
+                  <div className="h-10 rounded-lg animate-pulse" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                  <div className="h-10 rounded-lg animate-pulse" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                  <div className="mt-auto flex items-center justify-center gap-2 pt-4">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                    <span className="text-xs text-muted-foreground">Loading secure checkout…</span>
+                  </div>
                 </div>
               ) : error ? (
                 <div className="text-center py-8">
