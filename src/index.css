@@ -488,7 +488,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow__node:focus,
 .react-flow__node:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 1.5px rgba(34, 211, 238, 0.6), 0 5px 20px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35), 0 5px 20px rgba(0, 0, 0, 0.5) !important;
   border-radius: 1rem !important;
 }
 
