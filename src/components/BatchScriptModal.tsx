@@ -1,8 +1,7 @@
 // src/components/BatchScriptModal.tsx
-import { useState, useEffect, useCallback, useRef } from "react";
-import { X, Loader2, AlertCircle, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Loader2, Info, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 interface ViralVideo {
@@ -26,7 +25,6 @@ interface ViralVideo {
 interface Client {
   id: string;
   name: string;
-  credits_balance: number | null;
 }
 
 interface BatchScriptModalProps {
@@ -35,9 +33,6 @@ interface BatchScriptModalProps {
   selectedVideos: Map<string, ViralVideo>;
   onRemoveVideo: (id: string) => void;
 }
-
-const CREDIT_COST_PER_SCRIPT = 25;
-const POLL_INTERVAL_MS = 15_000;
 
 function proxyImg(url: string | null): string | null {
   if (!url) return null;
@@ -52,8 +47,6 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [loadingClients, setLoadingClients] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
 
   // Fetch clients on mount
@@ -62,7 +55,7 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
     setLoadingClients(true);
     supabase
       .from("clients")
-      .select("id, name, credits_balance")
+      .select("id, name")
       .order("name")
       .then(({ data }) => {
         setClients((data ?? []) as Client[]);
@@ -70,126 +63,19 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
       });
   }, [open]);
 
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
   const videoCount = selectedVideos.size;
-  const totalCredits = videoCount * CREDIT_COST_PER_SCRIPT;
-  const selectedClient = clients.find((c) => c.id === selectedClientId);
-  const hasEnoughCredits = !selectedClient || (selectedClient.credits_balance ?? 0) >= totalCredits;
 
-  const handleGenerate = useCallback(async () => {
+  const handleAddToCanvas = () => {
     if (!selectedClientId || videoCount < 2) return;
-    setGenerating(true);
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Not authenticated");
+    // Navigate to the client's scripts page with canvas view + incoming videos in state
+    const videos = Array.from(selectedVideos.values());
+    navigate(`/clients/${selectedClientId}/scripts?view=canvas`, {
+      state: { incomingVideos: videos },
+    });
 
-      const videos = Array.from(selectedVideos.values()).map((v) => ({
-        id: v.id,
-        caption: v.caption,
-        video_url: v.video_url,
-        thumbnail_url: v.thumbnail_url,
-        views_count: v.views_count,
-        outlier_score: v.outlier_score,
-        engagement_rate: v.engagement_rate,
-        owner_username: v.channel_username,
-        platform: v.platform,
-      }));
-
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      // Submit batch
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/batch-generate-scripts`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          videos,
-          clientId: selectedClientId,
-          language: "en",
-          format: "talking_head",
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: "Request failed" }));
-        if (errBody.insufficient_credits) {
-          toast.error(`Not enough credits. Need ${errBody.needed}, have ${errBody.balance}.`);
-          setGenerating(false);
-          return;
-        }
-        throw new Error(errBody.error || `HTTP ${res.status}`);
-      }
-
-      const { batchId, videoMap } = await res.json();
-      toast.success(`Batch started — ${videoCount} scripts generating in background`);
-
-      // Close modal immediately
-      onClose();
-      setGenerating(false);
-
-      // Start background polling
-      pollRef.current = setInterval(async () => {
-        try {
-          const pollRes = await fetch(`${SUPABASE_URL}/functions/v1/batch-poll-scripts`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              batchId,
-              videoMap,
-              clientId: selectedClientId,
-            }),
-          });
-
-          if (!pollRes.ok) return;
-          const pollData = await pollRes.json();
-
-          if (pollData.status === "done") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-
-            const succeeded = pollData.results?.filter((r: any) => r.script) ?? [];
-            const failed = pollData.results?.filter((r: any) => r.error) ?? [];
-            const clientName = selectedClient?.name || "client";
-
-            if (failed.length === 0) {
-              toast.success(`${succeeded.length} scripts added to ${clientName} canvas`, {
-                action: {
-                  label: "Open Canvas →",
-                  onClick: () => navigate(`/canvas?client=${selectedClientId}`),
-                },
-              });
-            } else {
-              toast.success(
-                `${succeeded.length}/${videoCount} scripts generated. ${failed.length} failed.`,
-                {
-                  action: {
-                    label: "Open Canvas →",
-                    onClick: () => navigate(`/canvas?client=${selectedClientId}`),
-                  },
-                }
-              );
-            }
-          }
-        } catch {
-          // Silent poll failure — will retry
-        }
-      }, POLL_INTERVAL_MS);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to start batch generation");
-      setGenerating(false);
-    }
-  }, [selectedClientId, selectedVideos, videoCount, onClose, selectedClient, navigate]);
+    onClose();
+  };
 
   if (!open) return null;
 
@@ -215,7 +101,7 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
         >
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fafafa" }}>
-              Generate Batch Scripts
+              Add to Canvas
             </h2>
             <p style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}>
               {videoCount} video{videoCount !== 1 ? "s" : ""} selected
@@ -304,32 +190,11 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
             </div>
           </div>
 
-          {/* Credit estimate */}
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5"
-            style={{
-              background: hasEnoughCredits ? "rgba(6,182,212,0.08)" : "rgba(239,68,68,0.08)",
-              border: `1px solid ${hasEnoughCredits ? "rgba(6,182,212,0.2)" : "rgba(239,68,68,0.2)"}`,
-            }}
-          >
-            {hasEnoughCredits ? (
-              <Info className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#06b6d4" }} />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#ef4444" }} />
-            )}
-            <span style={{ fontSize: 12, color: hasEnoughCredits ? "#06b6d4" : "#ef4444" }}>
-              {hasEnoughCredits
-                ? `This will use ~${totalCredits} credits (${videoCount} scripts × ${CREDIT_COST_PER_SCRIPT} credits each)`
-                : `Not enough credits. Need ${totalCredits}, have ${selectedClient?.credits_balance ?? 0}.`}
-            </span>
-          </div>
-
-          {/* Info about canvas context */}
+          {/* Info about canvas flow */}
           <div className="flex items-start gap-2 rounded-lg px-3 py-2.5" style={{ background: "#1f1f23" }}>
             <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#71717a" }} />
             <span style={{ fontSize: 11, color: "#71717a", lineHeight: 1.5 }}>
-              Scripts will use context from the client's most recent canvas session (text notes, brand info).
-              Results will be added as nodes to that canvas automatically.
+              Videos will be added to the client's canvas as a group. The AI assistant will help you craft scripts based on these viral videos.
             </span>
           </div>
         </div>
@@ -347,22 +212,16 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
             Cancel
           </button>
           <button
-            onClick={handleGenerate}
-            disabled={!selectedClientId || videoCount < 2 || !hasEnoughCredits || generating}
-            className="px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={handleAddToCanvas}
+            disabled={!selectedClientId || videoCount < 2}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               background: "#06b6d4",
               color: "#000",
               border: "1px solid #06b6d4",
             }}
           >
-            {generating ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting…
-              </span>
-            ) : (
-              "Generate in Background"
-            )}
+            Add to Canvas <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

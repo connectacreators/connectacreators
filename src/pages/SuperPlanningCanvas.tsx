@@ -30,7 +30,7 @@ import CompetitorProfileNode from "@/components/canvas/CompetitorProfileNode";
 import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
 import AnnotationNode from "@/components/canvas/AnnotationNode";
-import ScriptBatchNode from "@/components/canvas/ScriptBatchNode";
+import OnboardingFormNode from "@/components/canvas/OnboardingFormNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
@@ -66,10 +66,24 @@ interface RemixVideo {
   } | null;
 }
 
+interface IncomingViralVideo {
+  id: string;
+  channel_username: string;
+  platform: string;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  caption: string | null;
+  views_count: number;
+  outlier_score: number;
+  engagement_rate: number;
+}
+
 interface Props {
   selectedClient: Client;
   onCancel: () => void;
   remixVideo?: RemixVideo;
+  incomingVideos?: IncomingViralVideo[];
+  onIncomingConsumed?: () => void;
 }
 
 const CANVAS_ACCEPTED_MIME = new Set([
@@ -91,7 +105,7 @@ const nodeTypes = {
   mediaNode: MediaNode,
   groupNode: GroupNode,
   annotationNode: AnnotationNode,
-  scriptBatchNode: ScriptBatchNode,
+  onboardingFormNode: OnboardingFormNode,
 };
 
 function getInitialPosition(existingCount: number) {
@@ -186,7 +200,7 @@ interface DrawPath {
   width: number;
 }
 
-function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
+function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onIncomingConsumed }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -226,6 +240,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
   useEffect(() => { clientIdRef.current = selectedClient.id; }, [selectedClient.id]);
   const draftIdRef = useRef<string | null>(null);
   const remixInjectedRef = useRef(false);
+  const incomingInjectedRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
   const isSwitchingSessionRef = useRef(false);
 
@@ -678,6 +693,84 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
         };
         setNodes(prev => [...prev, remixNode]);
       }
+
+      // Batch incoming videos injection (from Viral Today → BatchScriptModal)
+      if (incomingVideos && incomingVideos.length >= 2 && !incomingInjectedRef.current) {
+        incomingInjectedRef.current = true;
+        const ts = Date.now();
+
+        // Find rightmost existing node to position group to the right
+        const currentNodes = nodesRef.current;
+        let maxX = 0;
+        for (const n of currentNodes) {
+          const nx = (n.position?.x ?? 0) + (n.width ?? 240);
+          if (nx > maxX) maxX = nx;
+        }
+        const groupX = maxX + 100;
+        const groupY = 100;
+        const groupId = `group_viral_batch_${ts}`;
+
+        // Create group node
+        const groupNode: Node = {
+          id: groupId,
+          type: "groupNode",
+          position: { x: groupX, y: groupY },
+          width: 300,
+          height: 120 + incomingVideos.length * 280,
+          data: {
+            label: `Viral Batch \u00B7 ${incomingVideos.length} videos`,
+            onUpdate: (updates: any) =>
+              setNodes(ns => ns.map(n => n.id === groupId ? { ...n, data: { ...n.data, ...updates } } : n)),
+            onDelete: () => {
+              setNodes(ns => ns.filter(n => n.id !== groupId && n.parentId !== groupId));
+              setEdges(es => es.filter(e => e.source !== groupId && e.target !== groupId));
+            },
+          },
+        };
+
+        // Create video nodes inside the group
+        const videoNodes: Node[] = incomingVideos.map((v, i) => {
+          const nodeId = `videoNode_batch_${ts}_${i}`;
+          return {
+            id: nodeId,
+            type: "videoNode",
+            position: { x: 30, y: 60 + i * 280 },
+            width: 240,
+            parentId: groupId,
+            extent: "parent" as const,
+            data: {
+              url: v.video_url,
+              autoTranscribe: true,
+              channel_username: v.channel_username,
+              caption: v.caption ?? undefined,
+              platform: v.platform,
+              thumbnailUrl: v.thumbnail_url,
+              outlierScore: v.outlier_score,
+              viewsCount: v.views_count,
+              authToken,
+              clientId: selectedClient.id,
+              onUpdate: (updates: any) =>
+                setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+              onDelete: () => {
+                setNodes(ns => ns.filter(n => n.id !== nodeId));
+                setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+              },
+            },
+          };
+        });
+
+        // Group must come before its children in the array
+        setNodes(prev => [...prev, groupNode, ...videoNodes]);
+
+        // Notify parent so it can clear navigation state
+        onIncomingConsumed?.();
+
+        // Auto-message to AI after a brief delay for nodes to render
+        const usernames = incomingVideos.map(v => `@${v.channel_username}`).join(", ");
+        setTimeout(() => {
+          (window as any).__canvasAutoMessage = `I just added ${incomingVideos.length} viral videos to the canvas: ${usernames}. Analyze them and ask me what direction I want for the scripts.`;
+        }, 2000);
+      }
     };
 
     loadCanvas();
@@ -914,6 +1007,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       ((n.data as any).posts?.length ?? 0) > 0
     );
     const mediaNodes = contextNodes.filter(n => n.type === "mediaNode" && !!(n.data as any).mediaId);
+    const onboardingNodes = contextNodes.filter(
+      n => n.type === "onboardingFormNode" && (n.data as any).status === "done"
+    );
 
     // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
     // Include nodes with transcription, videoAnalysis, OR structure (structure-only = visual breakdown exists)
@@ -948,8 +1044,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       ...instagramProfileNodes.map(n => `CompetitorNode(@${(n.data as any).username || "unknown"}, posts=${((n.data as any).posts || []).length})${groupSuffix(n.id)}`),
       ...mediaNodes.map(n => {
         const d = n.data as any;
-        return `MediaNode(${d.fileName || "unnamed"}, type=${d.fileType}, transcription=${d.transcriptionStatus === "done" ? "yes" : "no"})${groupSuffix(n.id)}`;
+        const label = d.fileType === "pdf"
+          ? `PDFNode(${d.fileName || "unnamed"}, text_extracted=${d.transcriptionStatus === "done" ? "yes" : "no"})`
+          : `MediaNode(${d.fileName || "unnamed"}, type=${d.fileType}, transcription=${d.transcriptionStatus === "done" ? "yes" : "no"})`;
+        return label + groupSuffix(n.id);
       }),
+      ...onboardingNodes.map(n => `OnboardingFormNode(status=loaded)${groupSuffix(n.id)}`),
     ];
 
     return {
@@ -1026,6 +1126,24 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
             };
           })
         : null,
+      client_onboarding: onboardingNodes.length > 0 ? (() => {
+        const od = (onboardingNodes[0].data as any).onboarding_data ?? {};
+        return {
+          instagram: od.instagram || null,
+          tiktok: od.tiktok || null,
+          youtube: od.youtube || null,
+          facebook: od.facebook || null,
+          industry: od.industryOther || od.industry || null,
+          package: od.package || null,
+          unique_offer: od.uniqueOffer || null,
+          unique_values: od.uniqueValues || null,
+          story: od.story || null,
+          competition: od.competition || null,
+          target_client: od.targetClient || null,
+          top_profiles: od.top3Profiles || null,
+          additional_notes: od.additionalNotes || null,
+        };
+      })() : null,
     };
   }, [nodes, edges]);
 
@@ -1082,7 +1200,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode") => {
     const nodeId = `${type}_${Date.now()}`;
     const position = getViewportCenter(viewportRef.current);
 
@@ -1096,6 +1214,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       : type === "mediaNode" ? 280
       : type === "groupNode" ? 400
       : type === "annotationNode" ? 200
+      : type === "onboardingFormNode" ? 280
       : 288;
     const isGroup = type === "groupNode";
     const isAnnotation = type === "annotationNode";

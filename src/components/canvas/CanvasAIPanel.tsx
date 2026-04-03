@@ -1742,6 +1742,19 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
   // Poll window globals to keep hasContext / contextCount fresh (props are stale due to memo)
   const [liveHasContext, setLiveHasContext] = useState(false);
+  // Auto-message trigger — fired by SuperPlanningCanvas after incoming batch videos are injected
+  useEffect(() => {
+    const id = setInterval(() => {
+      const msg = (window as any).__canvasAutoMessage;
+      if (!msg) return;
+      delete (window as any).__canvasAutoMessage;
+      clearInterval(id);
+      sendMessage(msg);
+    }, 500);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [contextCount, setContextCount] = useState(0);
   useEffect(() => {
     const tick = () => {

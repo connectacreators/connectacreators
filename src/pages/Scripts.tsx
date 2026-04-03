@@ -406,6 +406,7 @@ export default function Scripts() {
     caption: string | null; channel_username: string; platform: string;
     formatDetection?: { format: string; confidence: number; wizard_config: { suggested_format?: string; prompt_hint?: string; use_transcript_as_template?: boolean } } | null;
   } | null>(null);
+  const [incomingVideos, setIncomingVideos] = useState<any[] | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
 
   const [savingScript, setSavingScript] = useState(false);
@@ -572,11 +573,17 @@ export default function Scripts() {
 
   // Detect remix video from router state (navigated from ViralVideoDetail)
   useEffect(() => {
-    const state = location.state as { remixVideo?: typeof remixVideo } | null;
-    if (!state?.remixVideo) return;
-    setRemixVideo(state.remixVideo);
-    // Clear router state so back navigation doesn't re-trigger
-    window.history.replaceState({}, "", window.location.pathname);
+    const state = location.state as { remixVideo?: typeof remixVideo; incomingVideos?: any[] } | null;
+    if (state?.remixVideo) {
+      setRemixVideo(state.remixVideo);
+    }
+    if (state?.incomingVideos && state.incomingVideos.length >= 2) {
+      setIncomingVideos(state.incomingVideos);
+    }
+    if (state?.remixVideo || state?.incomingVideos) {
+      // Clear router state so back navigation doesn't re-trigger
+      window.history.replaceState({}, "", window.location.pathname + window.location.search);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open AI wizard when remix video + selected client are both ready
@@ -585,6 +592,12 @@ export default function Scripts() {
     // Route directly to canvas — do NOT set aiMode, canvas doesn't use it
     setView("super-planning");
   }, [remixVideo, selectedClient]);
+
+  // Auto-open canvas when incoming videos + selected client are both ready
+  useEffect(() => {
+    if (!incomingVideos || incomingVideos.length < 2 || !selectedClient) return;
+    setView("super-planning");
+  }, [incomingVideos, selectedClient]);
 
   // Auto-select client from URL param (admin/videographer deep link)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1161,8 +1174,11 @@ export default function Scripts() {
             key={selectedClient.id}
             selectedClient={selectedClient}
             remixVideo={remixVideo ?? undefined}
+            incomingVideos={incomingVideos ?? undefined}
+            onIncomingConsumed={() => setIncomingVideos(null)}
             onCancel={() => {
               setRemixVideo(null);       // clear remix state
+              setIncomingVideos(null);   // clear incoming videos state
               setView("client-detail");  // MUST NOT be "new-script" — that re-triggers remix loop
               if (selectedClient) fetchScriptsByClient(selectedClient.id); // refresh list after canvas save
             }}
