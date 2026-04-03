@@ -12,9 +12,10 @@ import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
 interface Props {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  hideOnMobile?: boolean;
 }
 
-export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) {
+export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMobile }: Props) {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -23,28 +24,25 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen }: Props) 
   return (
     <>
       {/* Mobile top bar */}
-      <div className="glass-topbar rounded-xl px-4 py-3 flex items-center gap-3 lg:hidden">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="hover:opacity-80 transition-opacity focus:outline-none"
-        >
+      {!hideOnMobile && (
+        <div className="glass-topbar rounded-xl px-4 py-3 flex items-center gap-3 lg:hidden">
           <img
             src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo}
             alt="Connecta"
             className="h-6 object-contain"
           />
-        </button>
-        <div className="ml-auto flex items-center gap-2">
-          <LanguageToggle />
-          <button
-            onClick={signOut}
-            className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-            title={tr(t.dashboard.signOut, language)}
-          >
-            <LogOut className="w-4 h-4 text-red-400" />
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <LanguageToggle />
+            <button
+              onClick={signOut}
+              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+              title={tr(t.dashboard.signOut, language)}
+            >
+              <LogOut className="w-4 h-4 text-red-400" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {/* Desktop collapsed top bar */}
       {!sidebarOpen && (
         <div className="glass-topbar rounded-xl px-4 py-3 hidden lg:flex items-center gap-3">
