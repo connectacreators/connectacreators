@@ -30,6 +30,7 @@ import CompetitorProfileNode from "@/components/canvas/CompetitorProfileNode";
 import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
 import AnnotationNode from "@/components/canvas/AnnotationNode";
+import ScriptBatchNode from "@/components/canvas/ScriptBatchNode";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
@@ -90,6 +91,7 @@ const nodeTypes = {
   mediaNode: MediaNode,
   groupNode: GroupNode,
   annotationNode: AnnotationNode,
+  scriptBatchNode: ScriptBatchNode,
 };
 
 function getInitialPosition(existingCount: number) {
@@ -458,6 +460,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
       if (data) {
         const restoredNodes = ensureParentOrder(attachCallbacks((data.nodes as Node[]) || []));
         if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
+        // Enforce minimum size on AI node for existing sessions
+        const aiIdx = restoredNodes.findIndex(n => n.id === AI_NODE_ID);
+        if (aiIdx !== -1) {
+          const ai = restoredNodes[aiIdx];
+          if ((ai.width ?? 0) < 680) restoredNodes[aiIdx] = { ...ai, width: 680 };
+          if ((ai.height ?? 0) < 780) restoredNodes[aiIdx] = { ...restoredNodes[aiIdx], height: 780 };
+        }
         lastSavedJsonRef.current = "";
         setNodes(restoredNodes);
         setEdges((data.edges as Edge[]) || []);
@@ -599,6 +608,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
           if (activeData && Array.isArray(activeData.nodes) && activeData.nodes.length > 0) {
             const restoredNodes = ensureParentOrder(attachCallbacks(activeData.nodes as Node[]));
             if (!restoredNodes.some(n => n.id === AI_NODE_ID)) restoredNodes.push(makeAiNode());
+            // Enforce minimum size on AI node for existing sessions
+            const aiIdx = restoredNodes.findIndex(n => n.id === AI_NODE_ID);
+            if (aiIdx !== -1) {
+              const ai = restoredNodes[aiIdx];
+              if ((ai.width ?? 0) < 680) restoredNodes[aiIdx] = { ...ai, width: 680 };
+              if ((ai.height ?? 0) < 780) restoredNodes[aiIdx] = { ...restoredNodes[aiIdx], height: 780 };
+            }
             setNodes(restoredNodes);
             setEdges((activeData.edges as Edge[]) || []);
             if (Array.isArray(activeData.draw_paths)) setDrawPaths(activeData.draw_paths as DrawPath[]);
@@ -672,9 +688,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo }: Props) {
     return {
       id: AI_NODE_ID,
       type: "aiAssistantNode",
-      position: { x: 860, y: 60 },
-      width: 520,
-      height: 700,
+      position: { x: 760, y: 60 },
+      width: 680,
+      height: 780,
       deletable: false,
       data: {
         canvasContextRef,
