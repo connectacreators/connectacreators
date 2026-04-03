@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_COST_PER_SCRIPT = 50;
+const BATCH_COST_PER_SCRIPT = 25;
 
 async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
@@ -71,6 +71,64 @@ Format: ${formatDesc}
 
 Create an attention-grabbing hook, engaging body with 2-3 key points, and a clear CTA.
 Use conversational language, short punchy sentences, and high energy throughout.`;
+}
+
+function buildVideoScriptPrompt(
+  video: { caption: string; platform: string; views_count: number; outlier_score: number; engagement_rate: number; owner_username: string },
+  clientContext: string,
+  language: string,
+  format: string,
+): string {
+  const langLabel = language === "es" ? "SPANISH (Latin American)" : "ENGLISH";
+  const formatMap: Record<string, string> = {
+    talking_head: "TALKING HEAD — speak directly to camera, build personal trust, share insight",
+    broll_caption: "B-ROLL CAPTION — words complement visuals, narrate scenes",
+    entrevista: "ENTREVISTA — conversational Q&A energy",
+    variado: "VARIADO — dynamic mixed: direct camera, b-roll, text moments",
+  };
+  const formatDesc = formatMap[format] || formatMap.talking_head;
+
+  return `You are creating a short-form video script inspired by this viral video.
+
+VIRAL VIDEO CONTEXT:
+- Caption: ${video.caption || "No caption"}
+- Platform: ${video.platform}
+- Views: ${video.views_count} | Outlier: ${video.outlier_score}x | Engagement: ${video.engagement_rate}%
+- Account: @${video.owner_username}
+
+CLIENT CONTEXT:
+${clientContext || "No specific client context available."}
+
+Write a compelling, viral short-form social media script (45 seconds / ~90-120 words) in ${langLabel}.
+Format: ${formatDesc}
+
+Create a script that replicates the style, structure, and hook pattern of this viral video but adapted for the client's brand, niche, and audience. Include: HOOK, SHIFT, BODY, CTA sections.`;
+}
+
+async function extractCanvasContext(adminClient: any, clientId: string): Promise<string> {
+  const { data } = await adminClient
+    .from("canvas_states")
+    .select("nodes")
+    .eq("client_id", clientId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data?.nodes || !Array.isArray(data.nodes)) return "";
+
+  const textContent: string[] = [];
+  for (const node of data.nodes) {
+    if (node.type === "textNoteNode" || node.type === "researchNoteNode") {
+      const text = node.data?.noteText || node.data?.text || "";
+      if (text.trim()) textContent.push(text.trim());
+    }
+    if (node.type === "brandGuideNode") {
+      const brand = node.data?.brandText || node.data?.text || "";
+      if (brand.trim()) textContent.push(`BRAND: ${brand.trim()}`);
+    }
+  }
+
+  return textContent.join("\n\n").slice(0, 4000);
 }
 
 const RETURN_SCRIPT_TOOL = {
@@ -201,23 +259,29 @@ serve(async (req) => {
   }
 
   try {
-    const { topics, language = "en", format = "talking_head", clientId } = await req.json();
+    const body = await req.json();
+    const { topics, videos, language = "en", format = "talking_head", clientId } = body;
 
-    if (!topics || !Array.isArray(topics) || topics.length === 0) {
-      return new Response(JSON.stringify({ error: "topics array is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (topics.length > 10) {
-      return new Response(JSON.stringify({ error: "Maximum 10 topics per batch" }), {
+    // Determine mode: videos[] (new) or topics[] (legacy)
+    const isVideoMode = Array.isArray(videos) && videos.length > 0;
+
+    if (!isVideoMode && (!topics || !Array.isArray(topics) || topics.length === 0)) {
+      return new Response(JSON.stringify({ error: "topics or videos array is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Deduct credits before submitting to Anthropic
-    const totalCost = topics.length * BATCH_COST_PER_SCRIPT;
+    const itemCount = isVideoMode ? videos.length : topics.length;
+    if (itemCount > 10) {
+      return new Response(JSON.stringify({ error: "Maximum 10 items per batch" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Deduct credits
+    const totalCost = itemCount * BATCH_COST_PER_SCRIPT;
     if (totalCost > 0) {
       const creditErr = await deductCredits(adminClient, user.id, "batch_generate", totalCost);
       if (creditErr) {
@@ -228,18 +292,38 @@ serve(async (req) => {
       }
     }
 
-    const requests = topics.map((topic: string, i: number) => ({
-      custom_id: `script-${clientId || "unknown"}-${i}-${Date.now()}`,
-      params: {
-        model: "claude-haiku-4-5",
-        max_tokens: 2048,
-        system: SCRIPT_SYSTEM_PROMPT,
-        tools: [RETURN_SCRIPT_TOOL],
-        tool_choice: { type: "tool", name: "return_script" },
-        messages: [{ role: "user", content: buildScriptPrompt(topic, language, format) }],
-      },
-    }));
+    // Extract canvas context for video mode
+    let clientContext = "";
+    if (isVideoMode && clientId) {
+      clientContext = await extractCanvasContext(adminClient, clientId);
+    }
 
+    // Build batch requests
+    const requests = isVideoMode
+      ? videos.map((video: any, i: number) => ({
+          custom_id: `vscript-${clientId || "unknown"}-${i}-${Date.now()}`,
+          params: {
+            model: "claude-haiku-4-5",
+            max_tokens: 2048,
+            system: SCRIPT_SYSTEM_PROMPT,
+            tools: [RETURN_SCRIPT_TOOL],
+            tool_choice: { type: "tool", name: "return_script" },
+            messages: [{ role: "user", content: buildVideoScriptPrompt(video, clientContext, language, format) }],
+          },
+        }))
+      : topics.map((topic: string, i: number) => ({
+          custom_id: `script-${clientId || "unknown"}-${i}-${Date.now()}`,
+          params: {
+            model: "claude-haiku-4-5",
+            max_tokens: 2048,
+            system: SCRIPT_SYSTEM_PROMPT,
+            tools: [RETURN_SCRIPT_TOOL],
+            tool_choice: { type: "tool", name: "return_script" },
+            messages: [{ role: "user", content: buildScriptPrompt(topic, language, format) }],
+          },
+        }));
+
+    // Submit batch
     const batchRes = await fetch("https://api.anthropic.com/v1/messages/batches", {
       method: "POST",
       headers: {
@@ -257,16 +341,26 @@ serve(async (req) => {
 
     const batch = await batchRes.json();
 
-    // Return batch ID and topic map so poll function can correlate results
-    const topicMap: Record<string, string> = {};
-    requests.forEach((r: any, i: number) => { topicMap[r.custom_id] = topics[i]; });
+    // Build map for correlation: custom_id → video/topic data
+    const videoMap: Record<string, any> = {};
+    if (isVideoMode) {
+      requests.forEach((r: any, i: number) => {
+        videoMap[r.custom_id] = videos[i];
+      });
+    } else {
+      requests.forEach((r: any, i: number) => {
+        videoMap[r.custom_id] = topics[i];
+      });
+    }
 
     return new Response(
       JSON.stringify({
         batchId: batch.id,
         status: batch.processing_status,
-        topicMap,
+        videoMap,
+        topicMap: isVideoMode ? undefined : videoMap, // backwards compat
         requestCounts: batch.request_counts,
+        isVideoMode,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
