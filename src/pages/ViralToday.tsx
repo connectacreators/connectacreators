@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+const ViralReelFeed = lazy(() => import("./ViralReelFeed"));
 import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,12 +10,13 @@ import {
   Loader2, TrendingUp, Instagram, Search, ChevronDown, X,
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
-  Clock, Flame, Filter, SlidersHorizontal, Youtube,
+  Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCredits } from "@/hooks/useCredits";
+const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
 
 // ── Language support ──────────────────────────────────────────────────────
 
@@ -439,11 +441,34 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
 }
 
 // Video card
-function VideoCard({ video }: { video: ViralVideo }) {
+function VideoCard({
+  video, isAdmin, onDelete, selected, onToggleSelect,
+}: {
+  video: ViralVideo;
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
+  selected?: boolean;
+  onToggleSelect?: (video: ViralVideo) => void;
+}) {
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? Instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
   const [imgError, setImgError] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Remove this video from the database?")) return;
+    setDeleting(true);
+    const { error } = await supabase.from("viral_videos").delete().eq("id", video.id);
+    if (error) {
+      toast.error("Failed to delete video");
+      setDeleting(false);
+    } else {
+      toast.success("Video removed");
+      onDelete?.(video.id);
+    }
+  };
 
   return (
     <motion.div
@@ -452,7 +477,10 @@ function VideoCard({ video }: { video: ViralVideo }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.25 }}
-      className="group relative flex flex-col rounded-xl overflow-hidden bg-card border border-border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      className={cn(
+        "group relative flex flex-col rounded-xl overflow-hidden bg-card border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+        selected ? "border-cyan-500 ring-1 ring-cyan-500/30" : "border-border"
+      )}
     >
       {/* Thumbnail — click navigates to detail page */}
       <div
@@ -472,22 +500,53 @@ function VideoCard({ video }: { video: ViralVideo }) {
           </div>
         )}
 
-        {/* Platform badge */}
-        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10">
-          <PlatformIcon className="w-3 h-3 text-white/80" />
+        {/* Top-left: platform icon + admin checkbox overlay */}
+        <div className="absolute top-2 left-2 z-10">
+          {isAdmin && onToggleSelect ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleSelect(video); }}
+              className={cn(
+                "w-6 h-6 rounded-md flex items-center justify-center border transition-all",
+                selected
+                  ? "bg-cyan-500 border-cyan-400"
+                  : "bg-black/60 backdrop-blur-sm border-white/10 opacity-0 group-hover:opacity-100"
+              )}
+            >
+              {selected ? (
+                <CheckSquare className="w-3.5 h-3.5 text-white" />
+              ) : (
+                <PlatformIcon className="w-3 h-3 text-white/80" />
+              )}
+            </button>
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10">
+              <PlatformIcon className="w-3 h-3 text-white/80" />
+            </div>
+          )}
         </div>
 
-        {/* External link icon — small button top-left, stops propagation */}
-        <a
-          href={video.video_url ?? "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 z-10 hover:bg-black/80 transition-colors"
-          title="Open original"
-        >
-          <ExternalLink className="w-3 h-3 text-white/80" />
-        </a>
+        {/* Top-right: trash (admin) or external link (non-admin) */}
+        {isAdmin ? (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 z-10 hover:bg-red-600/80 transition-colors"
+            title="Remove video"
+          >
+            {deleting ? <Loader2 className="w-3 h-3 text-white animate-spin" /> : <Trash2 className="w-3 h-3 text-white/80" />}
+          </button>
+        ) : (
+          <a
+            href={video.video_url ?? "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 z-10 hover:bg-black/80 transition-colors"
+            title="Open original"
+          >
+            <ExternalLink className="w-3 h-3 text-white/80" />
+          </a>
+        )}
 
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
@@ -729,7 +788,7 @@ export default function ViralToday() {
     : undefined;
 
   // View: videos | channels
-  const [view, setView] = useState<"videos" | "channels">("videos");
+  const [view, setView] = useState<"videos" | "channels" | "reels">("reels");
 
   // Data
   const [videos, setVideos] = useState<ViralVideo[]>([]);
@@ -756,6 +815,26 @@ export default function ViralToday() {
   const [addingChannel, setAddingChannel] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<"instagram" | "tiktok" | "youtube">("instagram");
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
+
+  // Batch selection
+  const [selectedVideos, setSelectedVideos] = useState<Map<string, ViralVideo>>(new Map());
+  const [showBatchModal, setShowBatchModal] = useState(false);
+
+  const toggleVideoSelect = useCallback((video: ViralVideo) => {
+    setSelectedVideos((prev) => {
+      const next = new Map(prev);
+      if (next.has(video.id)) {
+        next.delete(video.id);
+      } else {
+        if (next.size >= 10) {
+          toast.error("Maximum 10 videos per batch");
+          return prev;
+        }
+        next.set(video.id, video);
+      }
+      return next;
+    });
+  }, []);
 
   // Polling ref for running channels
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1021,11 +1100,24 @@ export default function ViralToday() {
       const { data, error } = await supabase.functions.invoke("scrape-reels-search", {
         body: { query: search.trim() },
       });
-      if (error) throw error;
+      if (error) {
+        // Extract actual error from edge function response
+        let msg = "Search failed";
+        try {
+          const body = data ?? (error as any).context ? await (error as any).context?.json?.() : null;
+          msg = body?.error || error.message || msg;
+        } catch { msg = error.message || msg; }
+        throw new Error(msg);
+      }
       if (data?.cached) {
-        toast.info(`Already searched "${search.trim()}" recently`);
+        toast.info(`Already searched "${search.trim()}" recently — switch Source to "Discovered" to see results`);
+        setFilterSource("discovered");
+        setFilterOutlier("0");
       } else {
         toast.success(`Found ${data?.inserted ?? 0} videos for "${search.trim()}"`);
+        // Auto-switch to Discovered source + remove outlier filter so results are visible
+        setFilterSource("discovered");
+        setFilterOutlier("0");
         fetchVideos();
       }
     } catch (e: any) {
@@ -1089,14 +1181,25 @@ export default function ViralToday() {
       result = result.filter((v) => v.engagement_rate >= minEngage);
     }
 
-    // Search
+    // Smart search: hashtag_source match, strip #/@, partial words, joined words
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      result = result.filter(
-        (v) =>
-          v.caption?.toLowerCase().includes(q) ||
-          v.channel_username.toLowerCase().includes(q)
-      );
+      const words = q.split(/\s+/);
+      const joined = words.join(""); // "saleshumor"
+      result = result.filter((v) => {
+        // 1. Direct match on hashtag_source (discovered videos tagged with this query)
+        if (v.hashtag_source && v.hashtag_source.toLowerCase().includes(q)) return true;
+        // Build searchable text: caption + username, strip # and @
+        const raw = ((v.caption || "") + " " + v.channel_username).toLowerCase();
+        const clean = raw.replace(/[#@]/g, ""); // "#saleshumor" → "saleshumor"
+        // 2. Every word found independently ("sales" + "humor" both in text)
+        if (words.every((w) => clean.includes(w))) return true;
+        // 3. Joined query as one word ("saleshumor" in "saleshumor #funny")
+        if (clean.replace(/\s+/g, "").includes(joined)) return true;
+        // 4. Any single word partial match on hashtags (so "sales" finds "#saleslife")
+        if (words.some((w) => clean.includes(w))) return true;
+        return false;
+      });
     }
 
     // Sort
@@ -1161,6 +1264,47 @@ export default function ViralToday() {
 
   const runningChannels = channels.filter((c) => c.scrape_status === "running");
 
+  // ── Reels view — full-height, own scroll context ──────────────────────────
+  if (view === "reels") {
+    return (
+      <PageTransition className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Compact header */}
+        <div className="px-5 sm:px-8 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-xl font-bold text-foreground tracking-tight">Viral Reels</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Scroll through your top viral content</p>
+            </div>
+            <div className="flex items-center gap-1 bg-muted border border-border rounded-lg p-0.5">
+              <button
+                onClick={() => setView("videos")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Grid
+              </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-card text-foreground transition-all">
+                <Play className="w-3.5 h-3.5" />
+                Reels
+              </button>
+              <button
+                onClick={() => setView("channels")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
+              >
+                <Radio className="w-3.5 h-3.5" />
+                {t.channels}
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Reel feed fills remaining height */}
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+          <ViralReelFeed />
+        </Suspense>
+      </PageTransition>
+    );
+  }
+
   return (
     <PageTransition className="flex-1 flex flex-col min-h-screen overflow-hidden">
 
@@ -1171,11 +1315,13 @@ export default function ViralToday() {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <h1 className="text-xl font-bold text-foreground tracking-tight">
-                  {view === "videos" ? "Videos" : t.channels}
+                  {view === "videos" ? "Videos" : view === "reels" ? "Viral Reels" : t.channels}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {view === "videos"
                     ? t.videosDesc
+                    : view === "reels"
+                    ? "Scroll through your top viral content"
                     : t.channelsDesc}
                 </p>
               </div>
@@ -1205,6 +1351,18 @@ export default function ViralToday() {
                         {filteredVideos.length}
                       </span>
                     )}
+                  </button>
+                  <button
+                    onClick={() => setView("reels")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                      view === "reels"
+                        ? "bg-card text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    Reels
                   </button>
                   <button
                     onClick={() => setView("channels")}
@@ -1407,7 +1565,14 @@ export default function ViralToday() {
                     >
                       <AnimatePresence>
                         {paginatedVideos.map((v) => (
-                          <VideoCard key={v.id} video={v} />
+                          <VideoCard
+                            key={v.id}
+                            video={v}
+                            isAdmin={isAdmin}
+                            onDelete={(id) => setVideos((prev) => prev.filter((x) => x.id !== id))}
+                            selected={selectedVideos.has(v.id)}
+                            onToggleSelect={toggleVideoSelect}
+                          />
                         ))}
                       </AnimatePresence>
                     </motion.div>
@@ -1616,6 +1781,60 @@ export default function ViralToday() {
             )}
           </AnimatePresence>
         </div>
+
+      {/* Floating action bar — visible when 2+ videos selected (admin only) */}
+      <AnimatePresence>
+        {isAdmin && selectedVideos.size >= 2 && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-5 py-3 rounded-2xl shadow-2xl"
+            style={{
+              background: "rgba(24,24,27,0.85)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(63,63,70,0.5)",
+            }}
+          >
+            <span style={{ fontSize: 13, color: "#a1a1aa" }}>
+              <span style={{ color: "#06b6d4", fontWeight: 700 }}>{selectedVideos.size}</span> videos selected
+            </span>
+            <button
+              onClick={() => setShowBatchModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+              style={{ background: "#06b6d4", color: "#000" }}
+            >
+              Generate Scripts →
+            </button>
+            <button
+              onClick={() => setSelectedVideos(new Map())}
+              style={{ fontSize: 12, color: "#71717a", background: "none", border: "none", cursor: "pointer" }}
+              className="hover:text-white transition-colors"
+            >
+              Clear
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Script Modal */}
+      <Suspense fallback={null}>
+        {showBatchModal && (
+          <BatchScriptModal
+            open={showBatchModal}
+            onClose={() => setShowBatchModal(false)}
+            selectedVideos={selectedVideos}
+            onRemoveVideo={(id) => {
+              setSelectedVideos((prev) => {
+                const next = new Map(prev);
+                next.delete(id);
+                return next;
+              });
+            }}
+          />
+        )}
+      </Suspense>
       </PageTransition>
   );
 }
