@@ -652,7 +652,6 @@ export default function ViralReelFeed() {
                           muted
                           loop
                           preload="auto"
-                          data-err-handled="false"
                           onPlaying={(e) => { e.currentTarget.dataset.ready = "true"; }}
                           onCanPlay={(e) => {
                             if (e.currentTarget.paused && !pausedRef.current) {
@@ -662,7 +661,7 @@ export default function ViralReelFeed() {
                           }}
                           onError={() => {
                             const vid = activeVideoRef.current;
-                            if (!vid || vid.dataset.errHandled === "true") return;
+                            if (!vid) return;
 
                             if (v.platform === "youtube") {
                               setUseEmbed(true);
@@ -672,60 +671,15 @@ export default function ViralReelFeed() {
                             if (v.platform === "instagram") {
                               const stage = igErrorStage.current.get(v.id);
                               if (!stage) {
-                                // Stage 1: cache failed → try cobalt-proxy
-                                igErrorStage.current.set(v.id, "cobalt");
-                                vid.dataset.errHandled = "true";
-                                fetch(`${VPS_API}/cobalt-proxy`, {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                    "x-api-key": VPS_API_KEY,
-                                  },
-                                  body: JSON.stringify({ url: v.video_url }),
-                                })
-                                  .then((res) => res.ok ? res.json() : null)
-                                  .then((data) => {
-                                    const resolved = data?.url;
-                                    if (resolved && activeVideoRef.current) {
-                                      resolvedUrls.current.set(v.id, resolved);
-                                      activeVideoRef.current.dataset.errHandled = "false";
-                                      activeVideoRef.current.src = resolved;
-                                      activeVideoRef.current.load();
-                                      activeVideoRef.current.play().catch(() => {});
-                                    } else {
-                                      igErrorStage.current.set(v.id, "stream");
-                                      const fallback = getStreamUrl(v);
-                                      resolvedUrls.current.set(v.id, fallback);
-                                      if (activeVideoRef.current) {
-                                        activeVideoRef.current.dataset.errHandled = "false";
-                                        activeVideoRef.current.src = fallback;
-                                        activeVideoRef.current.load();
-                                        activeVideoRef.current.play().catch(() => {});
-                                      }
-                                    }
-                                  })
-                                  .catch(() => {
-                                    igErrorStage.current.set(v.id, "stream");
-                                    const fallback = getStreamUrl(v);
-                                    resolvedUrls.current.set(v.id, fallback);
-                                    if (activeVideoRef.current) {
-                                      activeVideoRef.current.dataset.errHandled = "false";
-                                      activeVideoRef.current.src = fallback;
-                                      activeVideoRef.current.load();
-                                      activeVideoRef.current.play().catch(() => {});
-                                    }
-                                  });
-                              } else if (stage === "cobalt") {
-                                // Stage 2: cobalt URL failed → try stream-reel
+                                // Stage 1: cache failed → try stream-reel (yt-dlp with IG cookies)
                                 igErrorStage.current.set(v.id, "stream");
                                 const fallback = getStreamUrl(v);
                                 resolvedUrls.current.set(v.id, fallback);
-                                vid.dataset.errHandled = "false";
                                 vid.src = fallback;
                                 vid.load();
                                 vid.play().catch(() => {});
                               } else if (stage === "stream") {
-                                // Stage 3: all failed → show Watch on Instagram
+                                // Stage 2: stream-reel also failed → show Watch on Instagram
                                 igErrorStage.current.set(v.id, "failed");
                                 setIgFailed((prev) => new Set(prev).add(v.id));
                               }
@@ -800,28 +754,28 @@ export default function ViralReelFeed() {
                         </div>
                       )}
 
-                      {/* Bottom overlay */}
+                      {/* Bottom overlay — Instagram-style username + caption above bottom nav */}
                       <div
-                        className="absolute bottom-0 left-0 right-0 z-[5] p-4 pb-5"
+                        className="absolute bottom-0 left-0 right-0 z-[5] p-4 pb-24 lg:pb-5 pr-16 lg:pr-4"
                         style={{
-                          background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.42) 55%, transparent 100%)",
+                          background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.2) 70%, transparent 100%)",
                         }}
                       >
                         <div className="flex items-center gap-2 mb-1.5">
                           {avatarUrl ? (
-                            <img src={avatarUrl} alt="" className="w-8 h-8 rounded-full border border-white/30 object-cover flex-shrink-0" />
+                            <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full border-2 border-white/40 object-cover flex-shrink-0" />
                           ) : (
                             <div
-                              className="w-8 h-8 rounded-full border-2 border-white/40 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                              className="w-9 h-9 rounded-full border-2 border-white/40 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
                               style={{ background: gradientFor(v.channel_username) }}
                             >
                               {inits(v.channel_username)}
                             </div>
                           )}
-                          <span className="text-sm font-bold text-white drop-shadow">@{v.channel_username}</span>
+                          <span className="text-sm font-bold text-white drop-shadow-lg">@{v.channel_username}</span>
                         </div>
                         {v.caption && (
-                          <p className="text-xs text-white/80 leading-relaxed line-clamp-2">{v.caption}</p>
+                          <p className="text-[13px] text-white/90 leading-relaxed line-clamp-3 drop-shadow">{v.caption}</p>
                         )}
                       </div>
 
