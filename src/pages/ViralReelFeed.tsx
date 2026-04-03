@@ -817,6 +817,16 @@ export default function ViralReelFeed() {
                       <p className="font-bold text-sm text-foreground truncate">@{currentVideo.channel_username}</p>
                       <p className="text-xs text-muted-foreground capitalize mt-0.5">{currentVideo.platform}</p>
                     </div>
+                    <a
+                      href={currentVideo.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open on Instagram"
+                      className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
+                      style={{ background: "linear-gradient(135deg, #e1306c, #fd1d1d, #fcb045)" }}
+                    >
+                      <Instagram className="w-4 h-4 text-white" />
+                    </a>
                   </div>
 
                   {/* Outlier badge */}
