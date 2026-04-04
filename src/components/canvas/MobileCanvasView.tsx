@@ -455,6 +455,353 @@ const NodeDetailSheet = memo(
 );
 NodeDetailSheet.displayName = "NodeDetailSheet";
 
+// ── PlusSheet (ChatGPT-style "+" menu) ──────────────────────────────────
+
+interface PlusSheetProps {
+  open: boolean;
+  onClose: () => void;
+  format: string;
+  language: "en" | "es";
+  aiModel: string;
+  onFormatChange: (f: string) => void;
+  onLanguageChange: (l: "en" | "es") => void;
+  onModelChange: (m: string) => void;
+  onAttachImage: () => void;
+  onVoiceInput: () => void;
+  onGenerateScript: () => void;
+  onImageMode: () => void;
+  onResearch: () => void;
+}
+
+const MODEL_LABELS: Record<string, string> = {
+  "claude-haiku-4-5": "Haiku 4.5",
+  "claude-sonnet-4-5": "Sonnet 4.5",
+  "claude-opus-4": "Opus 4",
+  "gpt-4o": "GPT-4o",
+  "gpt-4o-mini": "GPT-4o mini",
+};
+
+const FORMAT_LABELS: Record<string, string> = {
+  "talking_head": "Talking Head",
+  "voiceover": "Voiceover",
+  "text_on_screen": "Text on Screen",
+  "mixed": "Mixed",
+};
+
+const PlusSheet = memo((props: PlusSheetProps) => {
+  const {
+    open,
+    onClose,
+    format,
+    language,
+    aiModel,
+    onFormatChange,
+    onLanguageChange,
+    onModelChange,
+    onAttachImage,
+    onVoiceInput,
+    onGenerateScript,
+    onImageMode,
+    onResearch,
+  } = props;
+
+  const [subPicker, setSubPicker] = useState<null | "model" | "format" | "language">(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (!open) return null;
+
+  const sheetStyle: React.CSSProperties = {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    background: "#1a1a2e",
+    borderRadius: "20px 20px 0 0",
+    maxHeight: "75vh",
+    overflowY: "auto",
+  };
+
+  const menuItemStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    padding: "13px 4px",
+    width: "100%",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+  };
+
+  const iconStyle: React.CSSProperties = {
+    fontSize: 18,
+    width: 28,
+    textAlign: "center",
+  };
+
+  const dividerStyle: React.CSSProperties = {
+    height: 1,
+    background: "rgba(255,255,255,0.06)",
+    margin: "4px 0",
+  };
+
+  const handleActionAndClose = (fn: () => void) => {
+    fn();
+    onClose();
+  };
+
+  // Sub-picker views
+  if (subPicker === "model") {
+    return (
+      <>
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)" }}
+          onClick={onClose}
+        />
+        <div style={sheetStyle}>
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
+            <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+          </div>
+          <div style={{ padding: "0 16px 16px" }}>
+            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>AI Model</p>
+            {Object.entries(MODEL_LABELS).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => { onModelChange(key); setSubPicker(null); onClose(); }}
+                style={{
+                  ...menuItemStyle,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: aiModel === key ? "rgba(34,211,238,0.1)" : "none",
+                  marginBottom: 2,
+                }}
+              >
+                <span style={{ ...iconStyle, color: aiModel === key ? "#22d3ee" : "#e2e8f0" }}>{aiModel === key ? "✓" : " "}</span>
+                <span style={{ color: aiModel === key ? "#22d3ee" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
+              </button>
+            ))}
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+              <button onClick={() => setSubPicker(null)} style={{ color: "#94a3b8", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (subPicker === "format") {
+    return (
+      <>
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)" }}
+          onClick={onClose}
+        />
+        <div style={sheetStyle}>
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
+            <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+          </div>
+          <div style={{ padding: "0 16px 16px" }}>
+            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>Script Format</p>
+            {Object.entries(FORMAT_LABELS).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => { onFormatChange(key); setSubPicker(null); onClose(); }}
+                style={{
+                  ...menuItemStyle,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: format === key ? "rgba(34,211,238,0.1)" : "none",
+                  marginBottom: 2,
+                }}
+              >
+                <span style={{ ...iconStyle, color: format === key ? "#22d3ee" : "#e2e8f0" }}>{format === key ? "✓" : " "}</span>
+                <span style={{ color: format === key ? "#22d3ee" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
+              </button>
+            ))}
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+              <button onClick={() => setSubPicker(null)} style={{ color: "#94a3b8", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (subPicker === "language") {
+    return (
+      <>
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)" }}
+          onClick={onClose}
+        />
+        <div style={sheetStyle}>
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
+            <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+          </div>
+          <div style={{ padding: "0 16px 16px" }}>
+            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>Language</p>
+            {(["en", "es"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => { onLanguageChange(lang); setSubPicker(null); onClose(); }}
+                style={{
+                  ...menuItemStyle,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: language === lang ? "rgba(34,211,238,0.1)" : "none",
+                  marginBottom: 2,
+                }}
+              >
+                <span style={{ ...iconStyle, color: language === lang ? "#22d3ee" : "#e2e8f0" }}>{language === lang ? "✓" : " "}</span>
+                <span style={{ color: language === lang ? "#22d3ee" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{lang === "en" ? "English" : "Español"}</span>
+              </button>
+            ))}
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+              <button onClick={() => setSubPicker(null)} style={{ color: "#94a3b8", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Main sheet view
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)" }}
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div style={sheetStyle}>
+        {/* Handle bar */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
+          <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+        </div>
+
+        <div style={{ padding: "0 16px 24px" }}>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={() => { handleActionAndClose(onAttachImage); }}
+          />
+
+          {/* Photo/Camera row */}
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12, WebkitOverflowScrolling: "touch" as any }}>
+            {/* Camera button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                width: 64,
+                height: 64,
+                flexShrink: 0,
+                borderRadius: 12,
+                background: "rgba(255,255,255,0.06)",
+                border: "1.5px solid rgba(255,255,255,0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <Camera size={22} style={{ color: "#ccc" }} />
+            </button>
+            {/* Placeholder thumbnail buttons */}
+            {[0, 1, 2, 3].map((i) => (
+              <button
+                key={i}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  width: 64,
+                  height: 64,
+                  flexShrink: 0,
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1.5px solid rgba(255,255,255,0.07)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <Image size={18} style={{ color: "#555" }} />
+              </button>
+            ))}
+          </div>
+
+          <div style={dividerStyle} />
+
+          {/* Action items */}
+          <div style={{ paddingTop: 4 }}>
+            <button style={menuItemStyle} onClick={() => handleActionAndClose(onGenerateScript)}>
+              <span style={iconStyle}>🎬</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Generate script</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Build from canvas context</div>
+              </div>
+            </button>
+            <button style={menuItemStyle} onClick={() => handleActionAndClose(onImageMode)}>
+              <span style={iconStyle}>🖼</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Create image</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Visualize with DALL-E 3</div>
+              </div>
+            </button>
+            <button style={menuItemStyle} onClick={() => handleActionAndClose(onResearch)}>
+              <span style={iconStyle}>🔍</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Deep research</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Search the web for trends</div>
+              </div>
+            </button>
+            <button style={menuItemStyle} onClick={() => handleActionAndClose(onVoiceInput)}>
+              <span style={iconStyle}>🎤</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Voice input</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Speak your message</div>
+              </div>
+            </button>
+          </div>
+
+          <div style={dividerStyle} />
+
+          {/* Settings items */}
+          <div style={{ paddingTop: 4 }}>
+            <button style={menuItemStyle} onClick={() => setSubPicker("model")}>
+              <span style={iconStyle}>⚡</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>AI Model</div>
+              </div>
+              <span style={{ color: "#22d3ee", fontSize: 12 }}>{MODEL_LABELS[aiModel] ?? aiModel} ›</span>
+            </button>
+            <button style={menuItemStyle} onClick={() => setSubPicker("format")}>
+              <span style={iconStyle}>📝</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Script format</div>
+              </div>
+              <span style={{ color: "#22d3ee", fontSize: 12 }}>{FORMAT_LABELS[format] ?? format} ›</span>
+            </button>
+            <button style={menuItemStyle} onClick={() => setSubPicker("language")}>
+              <span style={iconStyle}>🌐</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Language</div>
+              </div>
+              <span style={{ color: "#22d3ee", fontSize: 12 }}>{language.toUpperCase()} ›</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+});
+PlusSheet.displayName = "PlusSheet";
+
 // ── Main Component ────────────────────────────────────────────────────────
 
 const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
@@ -804,6 +1151,33 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
       {selectedNode && (
         <NodeDetailSheet node={selectedNode} onClose={handleCloseDetail} />
       )}
+
+      {/* Plus Sheet */}
+      <PlusSheet
+        open={plusSheetOpen}
+        onClose={() => setPlusSheetOpen(false)}
+        format={format}
+        language={language}
+        aiModel={aiModel}
+        onFormatChange={onFormatChange}
+        onLanguageChange={onLanguageChange}
+        onModelChange={onModelChange}
+        onAttachImage={() => {
+          (window as any).__canvasAutoMessage = "[attach_image]";
+        }}
+        onVoiceInput={() => {
+          (window as any).__canvasAutoMessage = "[voice_input]";
+        }}
+        onGenerateScript={() => {
+          (window as any).__canvasAutoMessage = "Based on all connected context, generate a complete script now.";
+        }}
+        onImageMode={() => {
+          (window as any).__canvasAutoMessage = "Generate an image: ";
+        }}
+        onResearch={() => {
+          (window as any).__canvasAutoMessage = "Research: ";
+        }}
+      />
     </div>
   );
 });
