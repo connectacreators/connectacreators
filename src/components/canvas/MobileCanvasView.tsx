@@ -13,12 +13,9 @@ import {
   X,
   Camera,
   Image,
-  Mic,
   Search,
   Globe,
-  Zap,
   FileText,
-  Film,
   Sparkles,
   Palette,
   Megaphone,
@@ -26,9 +23,6 @@ import {
   Hash,
   ClipboardList,
   MessageSquare,
-  Pencil,
-  Trash2,
-  Square,
   Video,
 } from "lucide-react";
 import { Node } from "@xyflow/react";
@@ -970,7 +964,6 @@ PlusSheet.displayName = "PlusSheet";
 
 const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
   const {
-    nodes,
     selectedClient,
     authToken,
     format,
@@ -978,7 +971,6 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
     aiModel,
     canvasContextRef,
     onBack,
-    onAddNode,
     onFormatChange,
     onLanguageChange,
     onModelChange,
@@ -987,8 +979,6 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
     activeSessionId,
     onNewSession,
     onSwitchSession,
-    saveStatus,
-    draftScriptId,
     remixVideo,
   } = props;
 
@@ -1152,12 +1142,6 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
     setSelectedNode(null);
   }, []);
 
-  // Filter out AI node, group nodes, annotations — only show content nodes
-  const contentNodes = useMemo(
-    () => nodes.filter(n => n.type !== "aiAssistantNode" && n.type !== "groupNode" && n.type !== "annotationNode" && n.id !== "__mobile_ai__"),
-    [nodes]
-  );
-
   const clientInfo = useMemo(
     () => ({
       name: selectedClient?.name,
@@ -1169,7 +1153,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
   return (
     <div
       className="fixed inset-0 flex flex-col mobile-canvas-root"
-      style={{ background: "#131417", zIndex: 100 }}
+      style={{ background: "#0f0f1e", zIndex: 100 }}
     >
       {/* Mobile-specific CSS overrides */}
       <style>{`
