@@ -455,6 +455,170 @@ const NodeDetailSheet = memo(
 );
 NodeDetailSheet.displayName = "NodeDetailSheet";
 
+// ── ChatSidebar (left-sliding chat history) ─────────────────────────────
+
+interface ChatSidebarProps {
+  open: boolean;
+  onClose: () => void;
+  sessions: SessionItem[];
+  activeSessionId: string | null;
+  onNewSession: () => void;
+  onSwitchSession: (id: string) => void;
+  onBack: () => void;
+}
+
+function groupSessionsByDate(sessions: SessionItem[]): Record<string, SessionItem[]> {
+  const groups: Record<string, SessionItem[]> = {};
+  const now = new Date();
+  const today = now.toDateString();
+  const yesterday = new Date(now.getTime() - 86400000).toDateString();
+
+  for (const s of sessions) {
+    const d = s.created_at ? new Date(s.created_at) : now;
+    const ds = d.toDateString();
+    let label: string;
+    if (ds === today) label = "Today";
+    else if (ds === yesterday) label = "Yesterday";
+    else label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(s);
+  }
+  return groups;
+}
+
+const ChatSidebar = memo(({
+  open,
+  onClose,
+  sessions,
+  activeSessionId,
+  onNewSession,
+  onSwitchSession,
+  onBack,
+}: ChatSidebarProps) => {
+  const grouped = useMemo(() => groupSessionsByDate(sessions), [sessions]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-50"
+        style={{
+          background: open ? "rgba(0,0,0,0.5)" : "transparent",
+          pointerEvents: open ? "auto" : "none",
+          transition: "background 0.2s",
+        }}
+        onClick={onClose}
+      />
+      {/* Panel */}
+      <div
+        className="fixed top-0 bottom-0 left-0 z-50 flex flex-col"
+        style={{
+          width: "75vw",
+          maxWidth: 280,
+          background: "#12122a",
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.25s ease-out",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 flex-shrink-0"
+          style={{ height: 56, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <span style={{ color: "#fff", fontSize: 15, fontWeight: 600 }}>Chats</span>
+          <button onClick={onClose}>
+            <X size={18} style={{ color: "#888" }} />
+          </button>
+        </div>
+
+        {/* New chat button */}
+        <div className="px-4 pt-3 pb-2 flex-shrink-0">
+          <button
+            onClick={() => { onNewSession(); onClose(); }}
+            className="w-full flex items-center gap-2 rounded-xl"
+            style={{
+              padding: "10px 12px",
+              background: "rgba(34,211,238,0.1)",
+              border: "1px solid rgba(34,211,238,0.2)",
+              color: "#22d3ee",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            <Plus size={14} /> New chat
+          </button>
+        </div>
+
+        {/* Session list */}
+        <div
+          className="flex-1 overflow-y-auto px-4 py-2"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {Object.entries(grouped).map(([dateLabel, dateSessions]) => (
+            <div key={dateLabel} className="mb-3">
+              <div
+                style={{
+                  color: "#555",
+                  fontSize: 9,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  marginBottom: 6,
+                }}
+              >
+                {dateLabel}
+              </div>
+              {dateSessions.map((s) => {
+                const isActive = s.id === activeSessionId;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => { onSwitchSession(s.id); onClose(); }}
+                    className="w-full text-left truncate mb-1"
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: 10,
+                      fontSize: 12,
+                      color: isActive ? "#22d3ee" : "#999",
+                      background: isActive ? "rgba(34,211,238,0.1)" : "transparent",
+                      border: isActive ? "1px solid rgba(34,211,238,0.2)" : "1px solid transparent",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "block",
+                    }}
+                  >
+                    {s.name || "Untitled"}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          {sessions.length === 0 && (
+            <p style={{ color: "#555", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 0" }}>
+              No chats yet
+            </p>
+          )}
+        </div>
+
+        {/* Footer — back to canvas */}
+        <div
+          className="flex-shrink-0 px-4 py-3"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <button
+            onClick={() => { onBack(); onClose(); }}
+            className="flex items-center gap-2"
+            style={{ color: "#888", fontSize: 12 }}
+          >
+            <ArrowLeft size={14} /> Back to canvas
+          </button>
+        </div>
+      </div>
+    </>
+  );
+});
+ChatSidebar.displayName = "ChatSidebar";
+
 // ── PlusSheet (ChatGPT-style "+" menu) ──────────────────────────────────
 
 interface PlusSheetProps {
@@ -1151,6 +1315,17 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
       {selectedNode && (
         <NodeDetailSheet node={selectedNode} onClose={handleCloseDetail} />
       )}
+
+      {/* Chat History Sidebar */}
+      <ChatSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onNewSession={onNewSession}
+        onSwitchSession={onSwitchSession}
+        onBack={onBack}
+      />
 
       {/* Plus Sheet */}
       <PlusSheet
