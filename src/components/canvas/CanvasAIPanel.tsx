@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect, useCallback, Fragment, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Bot, Send, Loader2, Wand2, BookOpen, Layers, Image as ImageIcon, ChevronUp, ChevronDown, Check, Save, ExternalLink, FileText, Copy, Square, RotateCcw, Mic, MicOff, X, Film, Search, Palette, Megaphone, User, Paperclip, Folder, MapPin, Zap } from "lucide-react";
+import { Bot, Send, Loader2, Wand2, Image as ImageIcon, ChevronUp, ChevronDown, Check, Save, ExternalLink, FileText, Copy, Square, RotateCcw, Mic, MicOff, X, Film, Search, Palette, Megaphone, User, Paperclip, Folder, MapPin, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 
-/** Render a single line with inline markdown: **bold**, *italic*, `code` */
+/** Render a single line with inline markdown: **bold**, *italic*, `code`, URLs */
 function renderInline(line: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match **bold**, *italic*, `code` in order
-  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  // Match **bold**, *italic*, `code`, https:// URLs in order
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|(https?:\/\/[^\s<>"']+))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -20,6 +20,7 @@ function renderInline(line: string): React.ReactNode[] {
     if (match[2] !== undefined) parts.push(<strong key={key++} className="font-semibold">{match[2]}</strong>);
     else if (match[3] !== undefined) parts.push(<em key={key++}>{match[3]}</em>);
     else if (match[4] !== undefined) parts.push(<code key={key++} className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono">{match[4]}</code>);
+    else if (match[5] !== undefined) parts.push(<a key={key++} href={match[5]} target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300 break-all" onClick={e => e.stopPropagation()}>{match[5]}</a>);
     last = match.index + match[0].length;
   }
   if (last < line.length) parts.push(<Fragment key={key++}>{line.slice(last)}</Fragment>);
@@ -683,9 +684,17 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
     try {
 
-    // Build context from ALL canvas nodes — AI should see everything, not just edge-connected
+    // Build context from EDGE-CONNECTED nodes only — user controls what AI sees by drawing edges
     const allNonAI = rawNodes.filter((n: any) => n.id !== AI_NODE_ID);
-    const contextNodes = allNonAI;
+    const connectedIds = new Set(
+      rawEdges
+        .filter((e: any) => e.source === AI_NODE_ID || e.target === AI_NODE_ID)
+        .map((e: any) => e.source === AI_NODE_ID ? e.target : e.source)
+    );
+    // Fall back to all nodes only if no edges are drawn (empty canvas / new session)
+    const contextNodes = connectedIds.size > 0
+      ? allNonAI.filter((n: any) => connectedIds.has(n.id))
+      : allNonAI;
 
     const videoNodes = contextNodes.filter((n: any) => n.type === "videoNode");
     const textNoteNodes = contextNodes.filter((n: any) => n.type === "textNoteNode");
@@ -794,12 +803,19 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         tagline: brandNodes[0].data?.tagline ?? null,
       } : null,
       selected_cta: ctaNodes[0]?.data?.selectedCTA ?? null,
-      competitor_profiles: instagramProfileNodes.map((n: any) => ({
-        username: n.data?.username || "unknown",
-        top_posts: (n.data?.posts || []).slice(0, 10),
-        hook_patterns: n.data?.hookPatterns || [],
-        content_themes: n.data?.contentThemes || [],
-      })),
+      competitor_profiles: instagramProfileNodes.map((n: any) => {
+        const posts = (n.data?.posts || []).slice(0, 10);
+        const analyzedPosts = posts.filter((p: any) => p.hookType);
+        const uniqueHooks = [...new Set(analyzedPosts.map((p: any) => p.hookType).filter(Boolean))];
+        const uniqueThemes = [...new Set(analyzedPosts.map((p: any) => p.contentTheme).filter(Boolean))];
+        return {
+          username: n.data?.username || "unknown",
+          platform: n.data?.detectedPlatform || "instagram",
+          top_posts: posts,
+          hook_patterns: uniqueHooks,
+          content_themes: uniqueThemes,
+        };
+      }),
       media_files: mediaNodes.map((n: any) => ({
         file_name: n.data?.fileName || "unnamed",
         file_type: n.data?.fileType || "unknown",
@@ -1033,6 +1049,8 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
   const [showPresets, setShowPresets] = useState(false);
   const presetsRef = useRef<HTMLDivElement>(null);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
 
   const adjustTextareaHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -1111,6 +1129,17 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showPresets]);
+
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setPlusMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [plusMenuOpen]);
 
   const generateScript = useCallback(async () => {
     const ctx = getLatestContext();
@@ -1406,6 +1435,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         onMessagesChangeRef.current?.(_withEditErr);
       } finally {
         setLoading(false);
+        window.dispatchEvent(new Event("credits-updated"));
       }
       return;
     }
@@ -1433,6 +1463,39 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
       // Build full context for the AI assistant — read from parent ref for always-fresh value
       const cc = getLatestContext();
+      // Detect if user is asking about competitor transcriptions → expand limit to full text
+      const lowerMsg = expandedText.toLowerCase();
+      const wantsFullTranscription = /transcri|what (do|did) they say|read the|full text|word for word|verbatim|lyrics|spoken|what (is|was) said/.test(lowerMsg);
+
+      // Auto-transcribe a competitor post if the user asks to analyze/copy/replicate it
+      let autoTranscribedSection: string | null = null;
+      const isAutoTranscribeIntent = /copy (that|their|this)|replicate|recreate|break.?down|analyze (that|their|this) (video|reel|post|content)|study (that|their)|transcribe/.test(lowerMsg);
+      if (isAutoTranscribeIntent && (cc.competitor_profiles?.length ?? 0) > 0) {
+        const transcribeFn = (window as any).__canvasTranscribeCompetitorPost;
+        if (transcribeFn) {
+          // Parse post index: "post #2", "second video", "#3", "2nd" → 0-based
+          const numMatch = expandedText.match(/(?:post|video|reel)\s*#?(\d)|#(\d)|(\d+)(?:st|nd|rd|th)/i);
+          const autoPostIndex = numMatch ? Math.max(0, parseInt(numMatch[1] || numMatch[2] || numMatch[3]) - 1) : 0;
+          // Parse username: "@handle" in message, fuzzy-match against profiles, else first profile
+          const atMatch = expandedText.match(/@([\w.]+)/);
+          let autoUsername: string | null = atMatch ? atMatch[1] : null;
+          if (!autoUsername && cc.competitor_profiles!.length > 0) {
+            // Try to find a name mentioned in the message that matches a profile username
+            const words = expandedText.toLowerCase().split(/\s+/);
+            const matched = cc.competitor_profiles!.find((p: any) =>
+              words.some(w => w.length >= 3 && (p.username || "").toLowerCase().includes(w))
+            );
+            autoUsername = matched?.username ?? cc.competitor_profiles![0]?.username ?? null;
+          }
+          if (autoUsername) {
+            const transcription: string | null = await transcribeFn(autoUsername, autoPostIndex);
+            if (transcription) {
+              autoTranscribedSection = `FRESHLY TRANSCRIBED — Post #${autoPostIndex + 1} from @${autoUsername}:\n"${transcription}"\n(The user asked you to analyze this video. Use this transcript to break it down, replicate its structure, or extract patterns as requested.)`;
+            }
+          }
+        }
+      }
+
       console.log("[CanvasAI] Building context. transcriptions:", cc.transcriptions.length, "connected_nodes:", cc.connected_nodes?.length, "structures:", cc.structures.length, "video_analyses:", cc.video_analyses?.length);
       if (cc.transcriptions.length > 0) {
         console.log("[CanvasAI] First transcription (200 chars):", String(cc.transcriptions[0]).slice(0, 200));
@@ -1469,13 +1532,26 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         : null;
 
       const rawCompetitorProfiles = (cc.competitor_profiles?.length ?? 0) > 0
-        ? `COMPETITOR ANALYSIS (for strategy comparison):\n${
-            cc.competitor_profiles!.map(cp => {
-              const topPosts = cp.top_posts
-                .sort((a, b) => (b.outlier_score ?? 0) - (a.outlier_score ?? 0))
-                .slice(0, 5);
-              const best = topPosts[0];
-              return `@${cp.username}\n- Top hook patterns: ${cp.hook_patterns.join(", ") || "not yet analyzed"}\n- Top content themes: ${cp.content_themes.join(", ") || "not yet analyzed"}${best ? `\n- Best post (${best.outlier_score?.toFixed?.(1) ?? best.outlier_score}x outlier, ${best.views?.toLocaleString()} views): "${best.caption?.slice(0, 100)}"` : ""}`;
+        ? `COMPETITOR ANALYSIS:\n${
+            cc.competitor_profiles!.map((cp: any) => {
+              const posts = [...cp.top_posts].sort((a: any, b: any) => (b.outlier_score ?? 0) - (a.outlier_score ?? 0)).slice(0, 10);
+              const hooksSeen = cp.hook_patterns.length > 0 ? cp.hook_patterns.join(", ") : "not yet analyzed";
+              const postLines = posts.map((p: any, i: number) => {
+                const score = typeof p.outlier_score === "number" ? p.outlier_score.toFixed(1) : p.outlier_score ?? "?";
+                const views = p.viewsFormatted || (p.views ? p.views.toLocaleString() : "unknown");
+                let line = `  #${i + 1} (${score}x, ${views} views): "${(p.caption || "(no caption)").slice(0, 120)}"`;
+                if (p.url) line += `\n    URL: ${p.url}`;
+                if (p.hookType) line += `\n    Hook type: ${p.hookType}`;
+                if (p.whyItWorked) line += `\n    Why it worked: ${p.whyItWorked}`;
+                if (p.pattern) line += `\n    Reusable pattern: ${p.pattern}`;
+                if (p.applyToClient) line += `\n    Apply to client: ${p.applyToClient}`;
+                if (p.transcription) {
+                  const limit = wantsFullTranscription ? p.transcription.length : 600;
+                  line += `\n    Transcription: "${p.transcription.slice(0, limit)}${p.transcription.length > limit ? "..." : ""}"`;}
+
+                return line;
+              }).join("\n");
+              return `@${cp.username} (${cp.platform || "instagram"}):\n- Hook types seen: ${hooksSeen}\n- Top posts:\n${postLines}`;
             }).join("\n\n")
           }`
         : null;
@@ -1529,12 +1605,15 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         cc.selected_cta
           ? `REQUIRED CTA (end script with this verbatim):\n"${cc.selected_cta}"`
           : null,
+        // Competitor profiles are strategy-critical — always include in full
+        rawCompetitorProfiles,
+        // Freshly auto-transcribed post (if user asked to analyze/copy a competitor video)
+        autoTranscribedSection,
       ].filter(Boolean);
 
       // SECONDARY SECTIONS — budget-allocated only if total exceeds limit
       const secondarySections: Record<string, string | null> = {
         video_analyses: rawVideoAnalyses,
-        competitor_profiles: rawCompetitorProfiles,
         media_transcriptions: rawMediaFiles,
       };
       const priorityTotal = prioritySections.join("\n\n").length;
@@ -1566,7 +1645,24 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
       // Claude API requires messages to start with a user role — strip any leading assistant messages
       const firstUserIdx = updated.findIndex(m => m.role === "user");
-      const apiMessages = firstUserIdx >= 0 ? updated.slice(firstUserIdx) : updated;
+      // Convert script_preview messages to readable text so Claude can see what it generated
+      const apiMessages = (firstUserIdx >= 0 ? updated.slice(firstUserIdx) : updated).map(m => {
+        if (m.type === "script_preview" && m.script_data) {
+          const s = m.script_data;
+          const lines = (s.lines || []).map((l: any) => {
+            const section = (l.section || "body").toUpperCase();
+            const actor = l.actor_text || l.text || "";
+            const tos = l.text_on_screen ? ` | TEXT ON SCREEN: "${l.text_on_screen}"` : "";
+            const visual = l.visual_cue ? ` | Visual: ${l.visual_cue}` : "";
+            return `  [${section}] ${actor}${tos}${visual}`;
+          }).join("\n");
+          return {
+            role: m.role,
+            content: `[GENERATED SCRIPT: "${s.idea_ganadora}"]\n${lines}`,
+          };
+        }
+        return { role: m.role, content: m.content };
+      });
 
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
@@ -1737,6 +1833,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       onMessagesChangeRef.current?.(_withCatch);
     } finally {
       setLoading(false);
+      window.dispatchEvent(new Event("credits-updated"));
     }
   }, [loading, authToken, clientInfo, imageMode, generateScript]);
 
@@ -1748,6 +1845,10 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       const msg = (window as any).__canvasAutoMessage;
       if (!msg) return;
       delete (window as any).__canvasAutoMessage;
+      if (msg === "[voice_input]") {
+        toggleVoice();
+        return;
+      }
       clearInterval(id);
       sendMessage(msg);
     }, 500);
@@ -1809,6 +1910,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-3 py-3 space-y-4 min-h-0 nodrag nowheel canvas-ai-scroll relative"
         style={{ userSelect: "text", cursor: "auto" }}
+        onMouseDown={(e) => e.stopPropagation()}
         onScroll={(e) => {
           const el = e.currentTarget;
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
@@ -2047,49 +2149,9 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
             <span className="text-[10px] text-primary/80 font-medium">Deep Research mode · 100 credits per query</span>
           </div>
         )}
-        {/* Context-aware chips — float above Generate Script */}
-        <div className="flex flex-wrap gap-1 mb-2">
-          {getDynamicChips(messages, getLatestContext()).map((chip) => (
-            <button
-              key={chip}
-              onClick={() => sendMessage(chip)}
-              disabled={loading || generating}
-              className="px-2 py-1 rounded-lg text-[10px] text-muted-foreground/80 border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground transition-colors disabled:opacity-40"
-            >
-              {chip}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            console.log("[GenerateScript] pointerDown! generating:", generating);
-            if (!generating) {
-              toast.info("Generating script...");
-              generateScript();
-            }
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log("[GenerateScript] onClick! generating:", generating);
-            if (!generating) {
-              toast.info("Generating script...");
-              generateScript();
-            }
-          }}
-          type="button"
-          className="w-full flex items-center justify-center gap-2 text-sm mb-2 py-2.5 px-4 rounded-lg font-semibold tracking-wide cursor-pointer select-none"
-          style={{ opacity: generating ? 0.5 : 1, position: "relative", zIndex: 100, background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", color: "#22d3ee" }}
-        >
-          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-          {generating ? "Generating..." : "Generate Script"}
-        </button>
-
-        {/* Pasted image preview */}
+        {/* Pasted image preview — above chips */}
         {pastedImage && (
-          <div className="flex items-center gap-2 mb-1.5 px-1">
+          <div className="flex items-center gap-2 mb-2 px-1">
             <div className="relative flex-shrink-0">
               <img src={pastedImage.dataUrl} alt="Pasted" className="w-12 h-12 rounded-lg object-cover border border-border" />
               <button
@@ -2103,131 +2165,30 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
           </div>
         )}
 
-        {/* Input row: model selector + image toggle + textarea + presets + send */}
-        <div
-          className="relative flex gap-1.5 items-end"
-          ref={presetsRef}
-        >
-          {/* Model selector */}
-          <div className="relative" ref={modelDropdownRef}>
+        {/* CONTEXT CHIPS ROW — scrollable, above the input box */}
+        <div style={{ display:"flex", gap:5, overflowX:"auto", scrollbarWidth:"none", WebkitOverflowScrolling:"touch" as any, marginBottom:6, paddingBottom:2, alignItems:"center" }}>
+          {getDynamicChips(messages, getLatestContext()).map((chip) => (
             <button
-              ref={modelBtnRef}
-              type="button"
-              onClick={() => setModelDropdownOpen(v => !v)}
-              className={`h-9 px-2 flex-shrink-0 rounded-xl border flex items-center gap-1.5 transition-colors ${
-                modelDropdownOpen
-                  ? "bg-primary/20 border-primary/40 text-primary"
-                  : "bg-muted/30 border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-              }`}
-              title="Change AI model"
+              key={chip}
+              onClick={() => sendMessage(chip)}
+              disabled={loading || generating}
+              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", borderRadius:8, padding:"4px 9px", fontSize:10, whiteSpace:"nowrap", flexShrink:0, cursor:"pointer", opacity: (loading || generating) ? 0.4 : 1 }}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-semibold whitespace-nowrap">{MODEL_LABEL[selectedModel] || "Haiku"}</span>
-              <ChevronUp className={`w-2.5 h-2.5 transition-transform ${modelDropdownOpen ? "" : "rotate-180"}`} />
+              {chip}
             </button>
+          ))}
+        </div>
 
-            {modelDropdownOpen && createPortal(
-              <>
-                <div
-                  style={{ position: "fixed", inset: 0, zIndex: 99998 }}
-                  onClick={() => setModelDropdownOpen(false)}
-                />
-                <div
-                  ref={modelPortalRef}
-                  className="w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                  style={{
-                    position: "fixed",
-                    zIndex: 99999,
-                    ...(modelBtnRef.current ? {
-                      left: modelBtnRef.current.getBoundingClientRect().left,
-                      top: modelBtnRef.current.getBoundingClientRect().top - 8,
-                      transform: "translateY(-100%)",
-                    } : {}),
-                  }}
-                  onPointerDown={e => e.stopPropagation()}
-                  onMouseDown={e => e.stopPropagation()}
-                >
-                  {(["Anthropic", "OpenAI"] as const).map((provider) => (
-                    <div key={provider}>
-                      <div className="px-3 py-1.5">
-                        <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{provider}</p>
-                      </div>
-                      {AI_MODELS.filter(m => m.provider === provider).map((m) => (
-                        <button
-                          key={m.key}
-                          type="button"
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                            selectedModel === m.key
-                              ? "bg-primary/10 border-l-2 border-l-primary text-foreground"
-                              : "text-muted-foreground hover:bg-muted/60"
-                          }`}
-                          onClick={() => { setSelectedModel(m.key); onModelChange(m.key); setModelDropdownOpen(false); }}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m.color }} />
-                          <span className="text-xs font-medium">{m.label}</span>
-                          {selectedModel === m.key && <Check className="w-3 h-3 ml-auto text-primary" />}
-                          <span className={`text-[10px] ${selectedModel === m.key ? "" : "ml-auto"} opacity-50`}>{m.cost}</span>
-                        </button>
-                      ))}
-                      {provider === "Anthropic" && <div className="h-px bg-border mx-3" />}
-                    </div>
-                  ))}
-                </div>
-              </>,
-              document.body
-            )}
-          </div>
-
-          {/* Image toggle */}
-          <button
-            type="button"
-            onClick={() => setImageMode(v => !v)}
-            className={`h-9 w-9 p-0 flex-shrink-0 rounded-xl border flex items-center justify-center transition-colors relative ${
-              imageMode
-                ? "bg-purple-500/20 border-purple-500/40 text-purple-400"
-                : "bg-muted/30 border-border text-muted-foreground hover:text-foreground hover:border-purple-500/30"
-            }`}
-            title={imageMode ? "Image mode ON (DALL-E 3)" : "Toggle image generation"}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            {imageMode && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-purple-400 border border-background" />
-            )}
-          </button>
-
-          {/* Voice mic button */}
-          <button
-            type="button"
-            onClick={toggleVoice}
-            className={`h-9 w-9 p-0 flex-shrink-0 rounded-xl border relative flex items-center justify-center transition-colors ${
-              recognizing
-                ? "bg-red-500/20 border-red-500/40 text-red-400 animate-pulse"
-                : "bg-muted/30 border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            }`}
-            title={recognizing ? "Stop recording" : "Voice input"}
-          >
-            {recognizing ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-          </button>
-
-          {/* Research mode toggle */}
-          <button
-            type="button"
-            onClick={() => setIsResearchMode(v => !v)}
-            className={`h-9 w-9 p-0 flex-shrink-0 rounded-xl border relative flex items-center justify-center transition-colors ${
-              isResearchMode
-                ? "border-primary/50 text-primary"
-                : "bg-muted/30 border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            }`}
-            style={isResearchMode ? { background: "linear-gradient(135deg,rgba(34,211,238,0.2),rgba(14,165,233,0.15))" } : {}}
-            title={isResearchMode ? "Deep Research ON — 100 credits per query" : "Toggle deep research (web search)"}
-          >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
-            {isResearchMode && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-background" />
-            )}
-          </button>
-
-          {/* @ mention dropdown — triggers from typing @, anchored to textarea */}
+        {/* UNIFIED INPUT BOX — Claude style */}
+        <div
+          ref={presetsRef}
+          className="relative rounded-xl border"
+          style={{
+            background: imageMode ? "rgba(168,85,247,0.05)" : "rgba(255,255,255,0.04)",
+            borderColor: imageMode ? "rgba(168,85,247,0.25)" : "rgba(255,255,255,0.1)",
+          }}
+        >
+          {/* @ mention dropdown portal — keep existing code exactly as-is */}
           {atMentionQuery !== null && (() => {
             const rawNodes = (window as any).__canvasNodes as any[] | undefined;
             const AI_NODE = "ai-assistant";
@@ -2258,80 +2219,68 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
                 const iconEl = NODE_ICON_COMPONENTS[n.type] || <span className="w-3.5 h-3.5 rounded-full bg-muted-foreground/40 inline-block" />;
                 let detail = "";
                 if (n.type === "videoNode") detail = d.channel_username ? `@${d.channel_username}` : (d.url ? "linked" : "empty");
-                else if (n.type === "textNoteNode") detail = d.noteText ? d.noteText.slice(0, 40).replace(/\n/g, " ") : "empty";
-                else if (n.type === "researchNoteNode") detail = d.topic || "no topic";
-                else if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") detail = d.username ? `@${d.username}` : "empty";
-                else if (n.type === "mediaNode") detail = d.fileName || "unnamed";
-                else if (n.type === "groupNode") detail = d.label || "unnamed";
-                else if (n.type === "brandGuideNode") detail = d.tone || "";
-                else if (n.type === "ctaBuilderNode") detail = d.selectedCTA ? "selected" : "empty";
-                return { id: n.id, type: n.type, iconEl, typeLabel, detail, searchText: `${typeLabel} ${detail}`.toLowerCase() };
-              });
-            const filtered = allNodes.filter((n: any) => n.searchText.includes(atMentionQuery));
-            if (filtered.length === 0) return null;
-            const rect = textareaRef.current?.getBoundingClientRect();
-            if (!rect) return null;
+                else if (n.type === "textNoteNode" || n.type === "researchNoteNode") detail = (d.noteText || "").slice(0, 30);
+                else if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") detail = d.profileUrl || "";
+                else if (n.type === "brandGuideNode") detail = d.brandName || "";
+                else if (n.type === "hookGeneratorNode") detail = d.topic || "";
+                else if (n.type === "mediaNode") detail = d.fileName || "";
+                return { id: n.id, typeLabel, iconEl, detail };
+              })
+              .filter((n: any) => n.typeLabel.toLowerCase().includes(atMentionQuery) || n.detail.toLowerCase().includes(atMentionQuery));
+            if (allNodes.length === 0) return null;
             return createPortal(
-              <>
-                <div className="fixed inset-0 z-[9998]" onClick={() => setAtMentionQuery(null)} />
-                <div
-                  ref={mentionDropdownRef}
-                  className="fixed bg-card border border-border rounded-xl shadow-xl overflow-hidden z-[9999] max-h-[240px] overflow-y-auto"
-                  style={{ bottom: window.innerHeight - rect.top + 4, left: rect.left, width: 280 }}
-                >
-                  <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40">Reference a node</div>
-                  {filtered.slice(0, 10).map((node: any) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-[11px] text-foreground hover:bg-muted/60 transition-colors border-b border-border/40 last:border-0 flex items-center gap-2"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const atIdx = input.lastIndexOf("@");
-                        const before = input.slice(0, atIdx);
-                        setInput(before + `@${node.typeLabel}${node.detail ? "(" + node.detail.slice(0, 20) + ")" : ""} `);
-                        setAtMentionQuery(null);
-                        setTimeout(() => textareaRef.current?.focus(), 0);
-                      }}
-                    >
-                      <span className="text-primary/70">{node.iconEl}</span>
-                      <span className="flex-1 truncate">
-                        <span className="font-medium">{node.typeLabel}</span>
-                        {node.detail && <span className="text-muted-foreground ml-1">— {node.detail}</span>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>,
+              <div
+                className="rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+                style={{
+                  position: "fixed",
+                  zIndex: 99999,
+                  width: 240,
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  ...(textareaRef.current ? {
+                    left: textareaRef.current.getBoundingClientRect().left,
+                    bottom: window.innerHeight - textareaRef.current.getBoundingClientRect().top + 4,
+                  } : {}),
+                }}
+              >
+                {allNodes.map((node: any) => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const atIdx = input.lastIndexOf("@");
+                      const before = input.slice(0, atIdx);
+                      setInput(before + `@${node.typeLabel}${node.detail ? "(" + node.detail.slice(0, 20) + ")" : ""} `);
+                      setAtMentionQuery(null);
+                      setTimeout(() => textareaRef.current?.focus(), 0);
+                    }}
+                  >
+                    <span className="text-primary/70">{node.iconEl}</span>
+                    <span className="flex-1 truncate">
+                      <span className="font-medium text-xs">{node.typeLabel}</span>
+                      {node.detail && <span className="text-muted-foreground text-xs ml-1">— {node.detail}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>,
               document.body
             );
           })()}
 
-          {/* Textarea with @mention highlight overlay */}
-          <div
-            className={`relative flex-1 min-w-0 rounded-xl border flex flex-col ${
-              imageMode
-                ? "bg-purple-500/5 border-purple-500/20"
-                : "bg-muted/30 border-border"
-            }`}
-          >
-            {/* Highlight layer — renders @mentions in blue behind the transparent textarea */}
+          {/* Textarea — full width */}
+          <div className="relative">
             {/@\S+/.test(input) && (
               <div
                 aria-hidden
-                className="absolute inset-0 px-3 py-2 text-xs rounded-xl pointer-events-none overflow-hidden"
-                style={{
-                  fontFamily: "inherit",
-                  lineHeight: "1.5",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  zIndex: 0,
-                }}
+                className="absolute inset-0 px-3 pt-3 text-xs pointer-events-none overflow-hidden"
+                style={{ fontFamily:"inherit", lineHeight:"1.5", whiteSpace:"pre-wrap", wordBreak:"break-word", zIndex:0 }}
               >
                 {input.split(/(@\S+)/).map((part, i) =>
                   part.startsWith("@") && part.length > 1
-                    ? <span key={i} style={{ background: "rgba(59,130,246,0.18)", color: "#60a5fa", borderRadius: 3, padding: "0 1px" }}>{part}</span>
-                    : <span key={i} style={{ color: "transparent" }}>{part}</span>
+                    ? <span key={i} style={{ background:"rgba(59,130,246,0.18)", color:"#60a5fa", borderRadius:3, padding:"0 1px" }}>{part}</span>
+                    : <span key={i} style={{ color:"transparent" }}>{part}</span>
                 )}
               </div>
             )}
@@ -2341,6 +2290,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
               onChange={(e) => {
                 const val = e.target.value;
                 setInput(val);
+                (window as any).__canvasAIDraftInput = val;
                 adjustTextareaHeight();
                 const atIdx = val.lastIndexOf("@");
                 if (atIdx >= 0 && !val.slice(atIdx).includes(" ")) {
@@ -2356,13 +2306,11 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
               }}
               placeholder={imageMode ? "Describe the image..." : "Ask anything about your script..."}
               data-tutorial-target="ai-chat-input"
-              className={`relative resize-none text-xs rounded-xl placeholder:text-white/50 w-full px-3 py-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0 ${
-                imageMode ? "focus:shadow-[0_0_0_1px_rgba(168,85,247,0.4)]" : "focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3)]"
-              }`}
+              className="relative resize-none text-xs w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0"
               style={{
                 color: /@\S+/.test(input) ? "transparent" : "#e0e0e0",
                 caretColor: "#e0e0e0",
-                minHeight: 36,
+                minHeight: 44,
                 maxHeight: 160,
                 overflowY: "auto",
                 zIndex: 1,
@@ -2372,78 +2320,186 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
             />
           </div>
 
-          {/* Prompt presets button */}
-          <button
-            type="button"
-            onClick={() => setShowPresets(v => !v)}
-            className={`h-9 w-9 p-0 flex-shrink-0 rounded-xl border flex items-center justify-center transition-colors ${
-              showPresets
-                ? "bg-primary/20 border-primary/40 text-primary"
-                : "bg-muted/30 border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            }`}
-            title="Prompt presets"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-          </button>
+          {/* Inner divider */}
+          <div style={{ height:1, background:"rgba(255,255,255,0.06)", margin:"0 10px" }} />
 
-          {(loading || generating) ? (
+          {/* Inner toolbar */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px" }}>
+
+            {/* circle-+ — image mode, research, presets */}
+            <div className="relative" ref={plusMenuRef}>
+              <button
+                type="button"
+                onClick={() => setPlusMenuOpen(v => !v)}
+                style={{ width:26, height:26, border:"1.5px solid rgba(255,255,255,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:18, fontWeight:300, lineHeight:1, background:"none", cursor:"pointer", flexShrink:0 }}
+              >
+                +
+              </button>
+              {plusMenuOpen && (
+                <div
+                  className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+                  style={{ zIndex:99999 }}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${imageMode ? "text-purple-400 bg-purple-500/10" : "text-muted-foreground hover:bg-muted/60"}`}
+                    onClick={() => { setImageMode(v => !v); setPlusMenuOpen(false); }}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span className="text-xs">Image generation{imageMode ? " (ON)" : ""}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${isResearchMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted/60"}`}
+                    onClick={() => { setIsResearchMode(v => !v); setPlusMenuOpen(false); }}
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+                    <span className="text-xs">Deep research{isResearchMode ? " (ON · 100cr)" : ""}</span>
+                  </button>
+                  <div className="h-px bg-border mx-3" />
+                  <div className="px-3 py-1.5">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt Presets</p>
+                  </div>
+                  <div className="p-1.5 space-y-1 max-h-48 overflow-y-auto">
+                    {PROMPT_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/60 transition-colors group"
+                        onClick={() => { setInput(preset.prompt); (window as any).__canvasAIDraftInput = preset.prompt; setPlusMenuOpen(false); }}
+                      >
+                        <p className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{preset.name}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* spacer */}
+            <div style={{ flex:1 }} />
+
+            {/* Generate Script — teal text button in toolbar */}
             <button
               type="button"
-              onClick={() => {
-                abortControllerRef.current?.abort();
-                if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; }
-                setStreamingContent(null);
-                setLoading(false);
-                setGenerating(false);
-              }}
-              className="h-9 w-9 p-0 flex-shrink-0 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center justify-center transition-colors"
-              title="Stop generating"
+              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); if (!generating) { toast.info("Generating script..."); generateScript(); } }}
+              onClick={(e) => { e.stopPropagation(); if (!generating) { toast.info("Generating script..."); generateScript(); } }}
+              disabled={generating}
+              style={{ display:"flex", alignItems:"center", gap:4, color: generating ? "rgba(34,211,238,0.4)" : "#22d3ee", fontSize:11, fontWeight:600, background:"none", border:"none", cursor: generating ? "default" : "pointer", whiteSpace:"nowrap", flexShrink:0 }}
             >
-              <Square className="w-3.5 h-3.5 fill-current" />
+              {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+              {generating ? "Generating..." : "Generate Script"}
             </button>
-          ) : (
-            <Button
-              size="sm"
-              variant={imageMode ? "default" : "cta"}
-              className={`h-9 w-9 p-0 flex-shrink-0 rounded-xl ${imageMode ? "bg-purple-500 hover:bg-purple-600 text-white" : ""}`}
-              onClick={() => sendMessage(input)}
-              disabled={!input.trim()}
-            >
-              <Send className="w-3.5 h-3.5" />
-            </Button>
-          )}
 
-          {/* Presets dropdown */}
-          {showPresets && (
-            <div className="absolute bottom-full right-0 mb-2 w-72 rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden">
-              <div className="px-3 py-2 border-b border-border">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt Presets</p>
-              </div>
-              <div className="p-1.5 space-y-1">
-                {PROMPT_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors group"
-                    onClick={() => {
-                      setInput(preset.prompt);
-                      setShowPresets(false);
+            {/* separator */}
+            <span style={{ width:1, height:14, background:"rgba(255,255,255,0.1)", display:"inline-block", flexShrink:0 }} />
+
+            {/* Model selector — name + ChevronUp */}
+            <div className="relative" ref={modelDropdownRef}>
+              <button
+                ref={modelBtnRef}
+                type="button"
+                onClick={() => setModelDropdownOpen(v => !v)}
+                style={{ display:"flex", alignItems:"center", gap:3, color:"rgba(255,255,255,0.35)", fontSize:11, background:"none", border:"none", cursor:"pointer", whiteSpace:"nowrap" }}
+                title="Change AI model"
+              >
+                <span>{MODEL_LABEL[selectedModel] || "Haiku"}</span>
+                <ChevronUp style={{ width:10, height:10, transform: modelDropdownOpen ? "" : "rotate(180deg)", color:"rgba(255,255,255,0.35)" }} />
+              </button>
+              {modelDropdownOpen && createPortal(
+                <>
+                  <div style={{ position:"fixed", inset:0, zIndex:99998 }} onClick={() => setModelDropdownOpen(false)} />
+                  <div
+                    ref={modelPortalRef}
+                    className="w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+                    style={{
+                      position:"fixed",
+                      zIndex:99999,
+                      ...(modelBtnRef.current ? {
+                        left: modelBtnRef.current.getBoundingClientRect().left,
+                        top: modelBtnRef.current.getBoundingClientRect().top - 8,
+                        transform: "translateY(-100%)",
+                      } : {}),
                     }}
+                    onPointerDown={e => e.stopPropagation()}
+                    onMouseDown={e => e.stopPropagation()}
                   >
-                    <p className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{preset.name}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</p>
-                  </button>
-                ))}
-              </div>
+                    {(["Anthropic", "OpenAI"] as const).map((provider) => (
+                      <div key={provider}>
+                        <div className="px-3 py-1.5">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{provider}</p>
+                        </div>
+                        {AI_MODELS.filter(m => m.provider === provider).map((m) => (
+                          <button
+                            key={m.key}
+                            type="button"
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                              selectedModel === m.key
+                                ? "bg-primary/10 border-l-2 border-l-primary text-foreground"
+                                : "text-muted-foreground hover:bg-muted/60"
+                            }`}
+                            onClick={() => { setSelectedModel(m.key); onModelChange(m.key); setModelDropdownOpen(false); }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m.color }} />
+                            <span className="text-xs font-medium">{m.label}</span>
+                            {selectedModel === m.key && <Check className="w-3 h-3 ml-auto text-primary" />}
+                            <span className={`text-[10px] ${selectedModel === m.key ? "" : "ml-auto"} opacity-50`}>{m.cost}</span>
+                          </button>
+                        ))}
+                        {provider === "Anthropic" && <div className="h-px bg-border mx-3" />}
+                      </div>
+                    ))}
+                  </div>
+                </>,
+                document.body
+              )}
             </div>
-          )}
+
+            {/* Stop / Send circle / Mic */}
+            {(loading || generating) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  abortControllerRef.current?.abort();
+                  if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; }
+                  setStreamingContent(null);
+                  setLoading(false);
+                  setGenerating(false);
+                }}
+                style={{ width:28, height:28, borderRadius:"50%", border:"1.5px solid rgba(239,68,68,0.4)", background:"rgba(239,68,68,0.1)", color:"#f87171", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                title="Stop generating"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+              </button>
+            ) : input.trim() ? (
+              <button
+                type="button"
+                onClick={() => sendMessage(input)}
+                style={{ width:28, height:28, borderRadius:"50%", background: imageMode ? "#a855f7" : "#22d3ee", border:"none", color:"#000", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                title="Send"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleVoice}
+                style={{ width:28, height:28, borderRadius:"50%", border:"none", background:"none", color: recognizing ? "#f87171" : "rgba(255,255,255,0.35)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                title={recognizing ? "Stop recording" : "Voice input"}
+              >
+                {recognizing ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Image mode indicator */}
         {imageMode && (
           <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-purple-500/5 rounded-lg w-fit">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-            <span className="text-[10px] text-purple-400">Image mode &middot; DALL-E 3 &middot; ~150 cr</span>
+            <span className="text-[10px] text-purple-400">Image mode · DALL-E 3 · ~150 cr</span>
           </div>
         )}
       </div>
