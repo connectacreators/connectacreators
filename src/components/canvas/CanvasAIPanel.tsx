@@ -890,8 +890,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasTitledRef = useRef(false);
   const recognitionRef = useRef<any>(null);
-  const mentionDropdownRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+const bottomRef = useRef<HTMLDivElement>(null);
   const DEFAULT_WINDOW = 15;
   const [visibleCount, setVisibleCount] = useState(DEFAULT_WINDOW);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -2219,6 +2218,8 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
               .filter((n: any) => n.typeLabel.toLowerCase().includes(atMentionQuery) || n.detail.toLowerCase().includes(atMentionQuery));
             if (allNodes.length === 0) return null;
             return createPortal(
+              <>
+                <div style={{ position:"fixed", inset:0, zIndex:99998 }} onMouseDown={() => setAtMentionQuery(null)} />
               <div
                 className="rounded-xl border border-border bg-card shadow-xl overflow-hidden"
                 style={{
@@ -2254,7 +2255,8 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
                     </span>
                   </button>
                 ))}
-              </div>,
+              </div>
+              </>,
               document.body
             );
           })()}
