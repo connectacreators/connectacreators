@@ -773,7 +773,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
               onMessagesChange={handleMessagesChange}
               onSaveScript={onSaveScript}
               initialInput={initialDraftInput}
-              onInitialInputConsumed={() => {}}
+              onInitialInputConsumed={() => { (window as any).__canvasAIDraftInput = null; }}
             />
           )}
         </div>
