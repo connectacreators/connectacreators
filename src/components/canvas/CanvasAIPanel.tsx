@@ -1047,8 +1047,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   const modelPortalRef = useRef<HTMLDivElement>(null);
   const modelBtnRef = useRef<HTMLButtonElement>(null);
 
-  const [showPresets, setShowPresets] = useState(false);
-  const presetsRef = useRef<HTMLDivElement>(null);
+  const inputBoxRef = useRef<HTMLDivElement>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement>(null);
 
@@ -1118,17 +1117,6 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [modelDropdownOpen]);
-
-  useEffect(() => {
-    if (!showPresets) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (presetsRef.current && !presetsRef.current.contains(e.target as Node)) {
-        setShowPresets(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showPresets]);
 
   useEffect(() => {
     if (!plusMenuOpen) return;
@@ -2141,7 +2129,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       </div>
 
       {/* Generate Script button — v2 build marker */}
-      <div className="px-3 pt-2 pb-1 border-t border-border flex-shrink-0">
+      <div className="px-3 pt-2 pb-2 border-t border-border flex-shrink-0">
         {/* Research mode banner */}
         {isResearchMode && (
           <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg" style={{ background: "linear-gradient(90deg,rgba(34,211,238,0.12),rgba(14,165,233,0.08))", border: "1px solid rgba(34,211,238,0.2)" }}>
@@ -2155,6 +2143,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
             <div className="relative flex-shrink-0">
               <img src={pastedImage.dataUrl} alt="Pasted" className="w-12 h-12 rounded-lg object-cover border border-border" />
               <button
+                type="button"
                 onClick={() => setPastedImage(null)}
                 className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
               >
@@ -2169,6 +2158,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         <div style={{ display:"flex", gap:5, overflowX:"auto", scrollbarWidth:"none", WebkitOverflowScrolling:"touch" as any, marginBottom:6, paddingBottom:2, alignItems:"center" }}>
           {getDynamicChips(messages, getLatestContext()).map((chip) => (
             <button
+              type="button"
               key={chip}
               onClick={() => sendMessage(chip)}
               disabled={loading || generating}
@@ -2181,7 +2171,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
         {/* UNIFIED INPUT BOX — Claude style */}
         <div
-          ref={presetsRef}
+          ref={inputBoxRef}
           className="relative rounded-xl border"
           style={{
             background: imageMode ? "rgba(168,85,247,0.05)" : "rgba(255,255,255,0.04)",
@@ -2290,7 +2280,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
               onChange={(e) => {
                 const val = e.target.value;
                 setInput(val);
-                (window as any).__canvasAIDraftInput = val;
+                (window as any).__canvasAIDraftInput = val; // read by SuperPlanningCanvas when opening fullscreen view
                 adjustTextareaHeight();
                 const atIdx = val.lastIndexOf("@");
                 if (atIdx >= 0 && !val.slice(atIdx).includes(" ")) {
@@ -2385,7 +2375,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
             <button
               type="button"
               onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); if (!generating) { toast.info("Generating script..."); generateScript(); } }}
-              onClick={(e) => { e.stopPropagation(); if (!generating) { toast.info("Generating script..."); generateScript(); } }}
+              onClick={(e) => { e.stopPropagation(); }}
               disabled={generating}
               style={{ display:"flex", alignItems:"center", gap:4, color: generating ? "rgba(34,211,238,0.4)" : "#22d3ee", fontSize:11, fontWeight:600, background:"none", border:"none", cursor: generating ? "default" : "pointer", whiteSpace:"nowrap", flexShrink:0 }}
             >
