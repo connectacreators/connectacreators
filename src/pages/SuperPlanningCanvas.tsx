@@ -31,6 +31,8 @@ import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
 import AnnotationNode from "@/components/canvas/AnnotationNode";
 import OnboardingFormNode from "@/components/canvas/OnboardingFormNode";
+import MobileCanvasView from "@/components/canvas/MobileCanvasView";
+import FullscreenAIView from "@/components/canvas/FullscreenAIView";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
@@ -42,7 +44,7 @@ import { canvasMediaService } from "@/services/canvasMediaService";
 const AI_NODE_ID = "ai-assistant";
 
 // Keys to strip from node data before saving (non-serializable callbacks + heavy ephemeral data)
-const CALLBACK_KEYS = ["onUpdate", "onDelete", "onFormatChange", "onLanguageChange", "onModelChange", "onSaveScript"];
+const CALLBACK_KEYS = ["onUpdate", "onDelete", "onFormatChange", "onLanguageChange", "onModelChange", "onSaveScript", "onAddVideoNode"];
 // Keys stripped to reduce memory pressure — large objects re-fetched at runtime
 const HEAVY_DATA_KEYS = ["canvasContext", "canvasContextRef", "authToken", "signedUrl"];
 
@@ -206,7 +208,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [format, setFormat] = useState("talking_head");
   const [language, setLanguage] = useState<"en" | "es">("en");
-  const [aiModel, setAiModel] = useState("claude-haiku-4-5");
+  const [aiModel, setAiModel] = useState(() => {
+    try { return localStorage.getItem("cc_canvas_aiModel") || "claude-haiku-4-5"; } catch { return "claude-haiku-4-5"; }
+  });
   const [loaded, setLoaded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showViralPicker, setShowViralPicker] = useState(false);
@@ -336,7 +340,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   /** Re-attach callbacks to content nodes */
   const attachCallbacks = useCallback((nodeList: Node[]): Node[] => {
     return nodeList.map(n => {
-      if (n.id === AI_NODE_ID) return n;
+      // Always stamp current client + session onto the AI node when loading from DB
+      if (n.id === AI_NODE_ID) return {
+        ...n,
+        data: {
+          ...n.data,
+          clientId: selectedClient.id,
+          nodeId: activeSessionIdRef.current || AI_NODE_ID,
+        },
+      };
       const nodeId = n.id;
 
       // ── GroupNode: completely custom callbacks (no authToken/clientId needed) ──
@@ -372,6 +384,35 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       if (n.type === "mediaNode") {
         extra.sessionId = activeSessionIdRef.current;
         extra.nodeId = nodeId;
+      }
+      if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") {
+        extra.onAddVideoNode = (url: string) => {
+          const newId = `videoNode_${Date.now()}`;
+          const sourceNode = nodesRef.current.find(nd => nd.id === nodeId);
+          const pos = sourceNode
+            ? { x: sourceNode.position.x + (sourceNode.measured?.width ?? 480) + 48, y: sourceNode.position.y }
+            : getViewportCenter(viewportRef.current);
+          setNodes(ns => [...ns, {
+            id: newId,
+            type: "videoNode",
+            position: pos,
+            width: 240,
+            data: {
+              authToken,
+              clientId: selectedClient.id,
+              nodeId: newId,
+              sessionId: activeSessionIdRef.current,
+              url,
+              onUpdate: (updates: any) =>
+                setNodes(prev => prev.map(nd => nd.id === newId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
+              onDelete: () => {
+                setNodes(prev => prev.filter(nd => nd.id !== newId));
+                setEdges(es => es.filter(e => e.source !== newId && e.target !== newId));
+              },
+            },
+          }]);
+          toast.success("VideoNode added — click Analyze to transcribe it");
+        };
       }
       // MediaNode needs cleanup: delete storage file + canvas_media row on remove
       const onDeleteCb = n.type === "mediaNode"
@@ -539,7 +580,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   const handleFormatChange = useCallback((f: string) => setFormat(f), []);
   const handleLanguageChange = useCallback((l: "en" | "es") => setLanguage(l), []);
-  const handleModelChange = useCallback((m: string) => setAiModel(m), []);
+  const handleModelChange = useCallback((m: string) => {
+    setAiModel(m);
+    try { localStorage.setItem("cc_canvas_aiModel", m); } catch { /* ignore */ }
+  }, []);
 
   const handleSaveScript = useCallback(async (generatedScript: any) => {
     try {
@@ -590,6 +634,14 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   useEffect(() => {
     if (!authToken) return; // wait for auth to load
     const loadCanvas = async () => {
+      // Immediately wipe stale nodes/context from previous client so the AI panel
+      // never reads another client's video nodes during the async DB load window
+      setNodes([]);
+      setLoaded(false);
+      (window as any).__canvasNodes = [];
+      (window as any).__canvasEdges = [];
+      (window as any).__canvasContext = null;
+
       const userId = userIdRef.current;
       if (!userId) {
         setNodes([makeAiNode()]);
@@ -605,13 +657,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           .eq("user_id", userId)
           .order("updated_at", { ascending: false });
 
-        // Only consider explicitly active sessions. If none is active, create a new blank one.
-        const activeMeta = allSessions?.find(s => s.is_active) ?? null;
+        // Prefer the explicitly-active session; fall back to the most recent one
+        const activeMeta = allSessions?.find(s => s.is_active) ?? allSessions?.[0] ?? null;
 
         if (activeMeta) {
           // Store session id for all future saves
           activeSessionIdRef.current = activeMeta.id;
           setActiveSessionId(activeMeta.id);
+
+          // Ensure this session is marked active (may have been deactivated by a previous switch)
+          if (!activeMeta.is_active) {
+            await supabase.from("canvas_states").update({ is_active: true }).eq("id", activeMeta.id);
+          }
 
           // Fetch heavy data ONLY for the active session
           const { data: activeData } = await supabase
@@ -789,7 +846,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         canvasContextRef,
         clientInfo: { name: selectedClient.name, target: selectedClient.target },
         clientId: selectedClient.id,
-        nodeId: AI_NODE_ID,
+        nodeId: activeSessionIdRef.current || AI_NODE_ID,
         authToken,
         format,
         language,
@@ -840,6 +897,38 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     };
   }, [authToken, selectedClient.id, setNodes, setEdges]);
   useEffect(() => { drawPathsRef.current = drawPaths; }, [drawPaths]);
+
+  // Expose competitor post transcription for CanvasAIPanel auto-transcribe feature
+  useEffect(() => {
+    (window as any).__canvasTranscribeCompetitorPost = async (username: string, postIndex: number): Promise<string | null> => {
+      const node = nodesRef.current.find((n: any) =>
+        (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") &&
+        String(n.data?.username || "").toLowerCase() === String(username).toLowerCase()
+      );
+      if (!node) return null;
+      const posts: any[] = node.data?.posts || [];
+      const post = posts[postIndex];
+      if (!post?.url) return null;
+      // Skip if already transcribed
+      if (post.transcription) return post.transcription;
+      try {
+        const { data: result, error } = await supabase.functions.invoke("transcribe-video", {
+          body: { url: post.url },
+        });
+        if (error || !result?.transcription) return null;
+        const transcription: string = result.transcription;
+        // Persist into node state
+        setNodes((ns: any[]) => ns.map((n2: any) => {
+          if (n2.id !== node.id) return n2;
+          const updated = [...(n2.data?.posts || [])];
+          updated[postIndex] = { ...updated[postIndex], transcription };
+          return { ...n2, data: { ...n2.data, posts: updated } };
+        }));
+        window.dispatchEvent(new Event("credits-updated"));
+        return transcription;
+      } catch { return null; }
+    };
+  }, [setNodes]);
 
   // ─── Robust save system ───
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -1168,7 +1257,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             data: {
               ...n.data,
               clientId: selectedClient.id,
-              nodeId: AI_NODE_ID,
+              nodeId: activeSessionId || AI_NODE_ID,
               clientInfo: { name: selectedClient.name, target: selectedClient.target },
               canvasContextRef,
               authToken,
@@ -1189,7 +1278,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           }
         : n
     ));
-  }, [authToken, format, language, aiModel, remixVideo, handleFormatChange, handleLanguageChange, handleModelChange, stableSaveScript, setNodes, selectedClient.id, selectedClient.name, selectedClient.target]);
+  }, [authToken, format, language, aiModel, remixVideo, handleFormatChange, handleLanguageChange, handleModelChange, stableSaveScript, setNodes, selectedClient.id, selectedClient.name, selectedClient.target, activeSessionId]);
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges(eds => addEdge({
@@ -1726,6 +1815,48 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }, "") + ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
   };
 
+  // ─── Fullscreen AI overlay ───
+  const [showFullscreenAI, setShowFullscreenAI] = useState(false);
+
+  // ─── Mobile detection ───
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <MobileCanvasView
+        nodes={nodes}
+        selectedClient={selectedClient}
+        authToken={authToken}
+        format={format}
+        language={language}
+        aiModel={aiModel}
+        canvasContextRef={canvasContextRef}
+        onBack={handleBack}
+        onAddNode={addNode as any}
+        onFormatChange={handleFormatChange}
+        onLanguageChange={handleLanguageChange}
+        onModelChange={handleModelChange}
+        onSaveScript={stableSaveScript}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onNewSession={newChat}
+        onSwitchSession={(id: string) => {
+          const s = sessions.find(s => s.id === id);
+          if (s) switchSession(s);
+        }}
+        saveStatus={saveStatus}
+        draftScriptId={draftScriptId}
+        remixVideo={remixVideo}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "#131417" }}>
       {/* Canvas area — full width, sessions in toolbar */}
@@ -1760,6 +1891,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           onFitView={() => fitView({ padding: 0.15, duration: 300 })}
           onShowTutorial={() => setShowTutorial(true)}
           onOpenViralPicker={() => setShowViralPicker(true)}
+          onOpenFullscreenAI={() => setShowFullscreenAI(true)}
           drawingMode={drawingMode}
           onToggleDrawing={() => setDrawingMode(m => !m)}
           onClearDrawing={() => setDrawPaths([])}
@@ -1822,6 +1954,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           colorMode="dark"
           defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 } }}
           fitView={false}
+          minZoom={0.1}
+          maxZoom={4}
           panOnScroll
           zoomOnScroll
           panOnDrag={[1, 2]}
@@ -1900,6 +2034,26 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       </div>
 
       <CanvasTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+
+      {/* Fullscreen AI overlay */}
+      {showFullscreenAI && (
+        <FullscreenAIView
+          selectedClient={selectedClient}
+          activeSessionId={activeSessionId}
+          nodes={nodes}
+          authToken={authToken}
+          format={format}
+          language={language}
+          aiModel={aiModel}
+          canvasContextRef={canvasContextRef}
+          initialDraftInput={(window as any).__canvasAIDraftInput || null}
+          onClose={() => setShowFullscreenAI(false)}
+          onFormatChange={handleFormatChange}
+          onLanguageChange={handleLanguageChange}
+          onModelChange={handleModelChange}
+          onSaveScript={stableSaveScript}
+        />
+      )}
 
         {/* Context menu for Group/Ungroup */}
         {contextMenu && (
