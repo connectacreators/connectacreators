@@ -94,8 +94,8 @@ const TABS = [
 ];
 
 export default function ViralReelFeed() {
-  // v11 — translateY (proven) + 3-video + error UI + event-driven play
-  useEffect(() => { console.log("[ViralReelFeed] v11 — translateY + 3-video + error-UI"); }, []);
+  // v12 — data-ready on canPlay, stall-timeout marks ready to prevent restart loop
+  useEffect(() => { console.log("[ViralReelFeed] v12 — data-ready on canPlay + stall-timeout guard"); }, []);
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const { clients, loading: clientsLoading } = useClients(!!user);
@@ -112,7 +112,10 @@ export default function ViralReelFeed() {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   // ── Feed algorithm state ──
-  const [interactions, setInteractions] = useState<Map<string, { seen_count: number; clicked: boolean }>>(new Map());
+  // initialInteractions is the snapshot loaded from DB at mount — used for sorting/filtering.
+  // It NEVER changes during the session so the feed order stays stable (like TikTok/Instagram).
+  // seenThisSession still flushes to DB every 30s for future sessions, but doesn't re-sort the current feed.
+  const [initialInteractions, setInitialInteractions] = useState<Map<string, { seen_count: number; clicked: boolean }>>(new Map());
   const [interactionsReady, setInteractionsReady] = useState(false);
   const [nicheKeywords, setNicheKeywords] = useState<string[]>([]);
   const [userChannelIds, setUserChannelIds] = useState<Set<string>>(new Set());
@@ -205,11 +208,13 @@ export default function ViralReelFeed() {
   }, []);
 
   // ── Sorted videos using feed algorithm ──
+  // Uses initialInteractions (DB snapshot at mount), NOT live session data.
+  // This means the feed order is locked once loaded — no mid-session re-sorting or disappearing.
   const sortedVideos = useMemo(() => {
     const now = Date.now();
     return [...videos]
       .filter(v => {
-        const inter = interactions.get(v.id);
+        const inter = initialInteractions.get(v.id);
         return !inter || inter.seen_count < 4;
       })
       .sort((a, b) => {
@@ -223,21 +228,19 @@ export default function ViralReelFeed() {
             if (nicheKeywords.some(kw => text.includes(kw))) s += 40;
           }
           if ((v as any).channel_id && userChannelIds.has((v as any).channel_id)) s += 20;
-          const inter = interactions.get(v.id);
+          const inter = initialInteractions.get(v.id);
           if (inter) { s -= inter.seen_count * 15; if (inter.clicked) s -= 10; }
           return s;
         };
         return scoreFor(b) - scoreFor(a);
       });
-  }, [videos, interactions, nicheKeywords, userChannelIds]);
+  }, [videos, initialInteractions, nicheKeywords, userChannelIds]);
 
   const currentVideo = sortedVideos[activeIdx] ?? null;
 
   // ── Keep activeIdx anchored to the same video after re-sorts ──
-  // sortedVideos recomputes every 30s (when flushSeen updates interactions).
-  // Without this, the same numeric index now points to a different video — causing
-  // the "auto-switch" bug. We find the previously-displayed video in the new array
-  // and update activeIdx to match it, so the user always stays on the same video.
+  // Safety net: if sortedVideos recomputes (e.g. platform tab switch), keep the
+  // user on the same video by finding it in the new array and updating activeIdx.
   useEffect(() => {
     if (!sortedVideos.length) return;
     const pinnedId = currentVideoIdRef.current;
@@ -415,6 +418,9 @@ export default function ViralReelFeed() {
         vid.src = streamUrl;
         vid.load();
         vid.play().catch(() => {});
+        // Mark ready so this timeout won't re-fire for the same element.
+        // The video will set itself truly ready once onCanPlay / onPlaying fires on the new src.
+        vid.dataset.ready = "true";
       } else {
         setFailedVideoIds(prev => {
           const next = new Set([...prev, cv.id]);
@@ -514,7 +520,7 @@ export default function ViralReelFeed() {
       if (data) {
         const map = new Map<string, { seen_count: number; clicked: boolean }>();
         data.forEach((r: any) => map.set(r.video_id, { seen_count: r.seen_count, clicked: r.clicked }));
-        setInteractions(map);
+        setInitialInteractions(map);
       }
       setInteractionsReady(true); // unblock feed — both videos AND interactions are now loaded
     })();
@@ -538,21 +544,15 @@ export default function ViralReelFeed() {
     })();
   }, [user]);
 
-  // Flush seen to DB every 30s + on unmount
+  // Flush seen to DB every 30s + on unmount.
+  // Only writes to DB for future sessions — does NOT update local state,
+  // so the current feed order stays stable (no mid-session re-sorting).
   const flushSeen = useCallback(async () => {
     if (!user || seenThisSession.current.size === 0) return;
     const ids = Array.from(seenThisSession.current);
     seenThisSession.current.clear();
     try {
       await supabase.rpc("upsert_video_seen", { p_user_id: user.id, p_video_ids: ids });
-      setInteractions(prev => {
-        const next = new Map(prev);
-        ids.forEach(id => {
-          const ex = next.get(id);
-          next.set(id, { seen_count: (ex?.seen_count ?? 0) + 1, clicked: ex?.clicked ?? false });
-        });
-        return next;
-      });
     } catch (e) { console.error("[ReelFeed] flush seen failed:", e); }
   }, [user]);
 
@@ -807,7 +807,17 @@ export default function ViralReelFeed() {
                           loop
                           preload="auto"
                           onPlaying={(e) => { e.currentTarget.dataset.ready = "true"; if (isActive) setVideoReady(true); }}
+                          onTimeUpdate={(e) => {
+                            // Fallback: if onPlaying didn't fire but video is advancing, show it
+                            if (e.currentTarget.dataset.ready !== "true" && e.currentTarget.currentTime > 0) {
+                              e.currentTarget.dataset.ready = "true";
+                              if (isActive) setVideoReady(true);
+                            }
+                          }}
                           onCanPlay={(e) => {
+                            // Mark ready immediately so the stall timeout won't fire and restart the video.
+                            e.currentTarget.dataset.ready = "true";
+                            if (isActive) setVideoReady(true);
                             if (isActive && e.currentTarget.paused && !pausedRef.current) {
                               e.currentTarget.muted = mutedRef.current;
                               e.currentTarget.play().catch(() => {});
