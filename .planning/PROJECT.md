@@ -1,12 +1,24 @@
-# ConnectaCreators — AI Follow-Up Automation
+# ConnectaCreators
 
 ## What This Is
 
-ConnectaCreators is an agency management platform that helps marketing agencies manage clients, leads, scripts, and content. This project focuses on making the AI Follow-Up Automation system fully functional end-to-end — from when a new lead arrives to when an automated, AI-generated email sequence is sent using the client's own email credentials.
+ConnectaCreators is an agency management platform that helps marketing agencies manage clients, leads, scripts, and viral content discovery. The platform includes a Viral Today page with a TikTok-style Reels feed and a grid view for discovering high-performing content across Instagram, TikTok, and YouTube.
 
 ## Core Value
 
-When a new lead arrives, an AI-generated email sequence fires automatically and stops the moment the lead books — zero manual effort required.
+Agencies discover what's gone viral in their niche, understand why it worked, and turn it into client content — without manual research.
+
+## Current Milestone: v1.1 — Viral Reels Experience Fix
+
+**Goal:** Fix all playback, layout, autoplay, thumbnail, and seen-tracking bugs in the Viral Today page so the reels feed feels as smooth and reliable as TikTok/Instagram.
+
+**Target fixes:**
+- Black box on first video load (video plays audio but shows no visual)
+- Nav arrows drift position after scrolling past video 5
+- Active video auto-restarts after a few seconds without user interaction
+- Seen/unseen filter incorrectly applied to the grid view (should show all videos)
+- Random videos fail to autoplay
+- Thumbnails missing across all platforms (Instagram, TikTok, YouTube)
 
 ## Requirements
 
@@ -71,4 +83,4 @@ messageService.sendMessage() is a fake — logs to console only. Must wire to re
 | Supabase pg_cron for worker | Existing pattern in app (auto-scrape-channels uses cron) | — Pending |
 
 ---
-*Last updated: 2026-03-10 after initialization*
+*Last updated: 2026-04-05 after v1.1 milestone start (Viral Reels Experience Fix)*
