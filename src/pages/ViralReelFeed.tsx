@@ -702,7 +702,7 @@ export default function ViralReelFeed() {
             <div className="flex-1 flex justify-center overflow-hidden relative">
 
               {/* Nav arrows */}
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10 hidden lg:flex">
+              <div className="fixed left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[50] hidden lg:flex">
                 <button
                   onClick={() => navScroll(-1)}
                   className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-all disabled:opacity-30"
