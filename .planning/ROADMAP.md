@@ -103,7 +103,10 @@ Plans:
   2. Videos watched in the current reels session remain in the feed for the whole session — the list never shrinks or reorders while the user is scrolling
   3. On the next session, videos the user previously watched appear lower in the feed order but are still visible — they are never completely absent
   4. Every video card in the grid (Instagram, TikTok, and YouTube) shows either the real thumbnail image or a branded gradient placeholder — no blank or broken image slots
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 07-01-PLAN.md — Remove seen filter from reels feed, default grid to show-all, add gradient thumbnail fallback in ViralToday.tsx + deploy
 
 ## Progress
 
@@ -115,4 +118,4 @@ Plans:
 | 4. Triggers + Cron | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
 | 5. Settings UI | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
 | 6. Playback and Navigation | 1/1 | Complete    | 2026-04-06 | - |
-| 7. Seen Tracking and Thumbnails | v1.1 | 0/? | Not started | - |
+| 7. Seen Tracking and Thumbnails | v1.1 | 0/1 | Not started | - |
