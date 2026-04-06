@@ -1,95 +1,74 @@
-# Requirements: AI Follow-Up Automation
+# Requirements: Viral Reels Experience Fix (v1.1)
 
-**Defined:** 2026-03-10
-**Core Value:** When a new lead arrives, an AI-generated email sequence fires automatically and stops the moment the lead books.
+**Defined:** 2026-04-05
+**Core Value:** Agencies discover what's gone viral in their niche — the reels feed must feel smooth and reliable, like TikTok/Instagram.
 
 ## v1 Requirements
 
-### Database
+### Reels Playback
 
-- [x] **DB-01**: followup_workflows table exists (client_id, name, nodes JSONB, edges JSONB, viewport JSONB, is_active)
-- [x] **DB-02**: messages table exists (lead_id, direction, channel, subject, body, sent_at)
-- [x] **DB-03**: client_email_settings table exists (client_id, smtp_email, smtp_password, from_name)
+- [ ] **REEL-01**: First video displays visually (no black box) on initial page load — audio and video both present from the start
+- [ ] **REEL-02**: Active video loops normally but does NOT restart unexpectedly without user interaction after a few seconds of inactivity
+- [ ] **REEL-03**: All videos within scroll range autoplay when they become active — no random autoplay failures
+- [ ] **REEL-04**: Videos that fail to load degrade gracefully (placeholder shown, no crash or restart loop)
 
-### Canvas (AIFollowUpBuilder)
+### Layout & Navigation
 
-- [x] **CANVAS-01**: AIFollowUpBuilder page renders without crashing (TriggerNode, ActionNode, ConditionNode components exist)
-- [x] **CANVAS-02**: NodeConfigPanel renders when a node is selected (right panel)
-- [x] **CANVAS-03**: NodeToolbar renders (left sidebar with draggable node types)
-- [x] **CANVAS-04**: Canvas loads saved workflow from followup_workflows on page open
-- [x] **CANVAS-05**: Save button writes nodes/edges/viewport to followup_workflows
+- [ ] **NAV-01**: Up/down arrow buttons remain fixed to screen edges at all times — never drift or shift position as user scrolls
+- [ ] **NAV-02**: Reel card height and positioning remain consistent past the 5th video — no layout shift or positional drift
 
-### Email Sending
+### Seen / Session Tracking
 
-- [x] **EMAIL-01**: send-followup edge function generates AI email via Anthropic API (server-side, not browser)
-- [x] **EMAIL-02**: send-followup sends email via SMTP using client's credentials from client_email_settings
-- [x] **EMAIL-03**: send-followup logs the sent message to messages table
-- [x] **EMAIL-04**: send-followup updates lead: increments follow_up_step, sets last_contacted_at, sets next_follow_up_at per schedule
+- [ ] **SEEN-01**: Seen videos are NEVER removed from the reels feed during the current session — the full feed stays intact for the entire session (TikTok/Instagram model)
+- [ ] **SEEN-02**: Seen data (which videos the user watched) is only flushed to DB when the session ends (page close/navigate away) — NOT before
+- [ ] **SEEN-03**: On the NEXT session load, previously-seen videos may be deprioritized in ordering (pushed lower) but are still shown — not hidden
+- [ ] **SEEN-04**: Viral Today grid view shows ALL videos by default — no seen-based filtering applied to the grid at all
 
-### Triggers
+### Thumbnails
 
-- [ ] **TRIG-01**: facebook-webhook-receiver calls send-followup immediately after creating a new lead
-- [ ] **TRIG-02**: Any new lead created via leadService.createLead() queues for follow-up (sets next_follow_up_at = now)
+- [ ] **THUMB-01**: Instagram thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
+- [ ] **THUMB-02**: TikTok thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
+- [ ] **THUMB-03**: YouTube thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
 
-### Scheduling
+## Future Requirements
 
-- [ ] **SCHED-01**: process-followup-queue edge function finds leads where next_follow_up_at <= now AND not booked/stopped/replied AND follow_up_step < 5
-- [ ] **SCHED-02**: process-followup-queue calls send-followup for each due lead
-- [ ] **SCHED-03**: Supabase pg_cron runs process-followup-queue every 5 minutes
+### Advanced Feed Control
 
-### Settings UI
-
-- [ ] **UI-01**: SMTP settings panel in ClientFollowUpAutomation page (email field + app password field + from name)
-- [ ] **UI-02**: Settings save to client_email_settings table
-- [ ] **UI-03**: ClientFollowUpAutomation stats query fixed (remove deleted_at filter)
-
-## v2 Requirements
-
-### Future
-
-- SMS via Twilio (channel routing in send-followup)
-- Per-node prompt customization in canvas
-- Inbound reply detection (webhook to set replied=true)
-- Per-lead sequence override (different timing)
+- **FEED-01**: Per-user preference to completely hide seen videos in reels (opt-in toggle for power users)
+- **FEED-02**: Feed algorithm weighting adjustments based on engagement history
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| SMS sending | Email only for v1 |
-| Canvas controls actual sequence | Canvas is display-only; sequence is hardcoded |
-| Inbound reply detection | Requires email webhook; deferred |
-| Zoho SMTP | Using client's own email instead |
+| Redesigning the reels UI | Only fixing bugs, not visual redesign |
+| Adding new video sources | Not related to current playback issues |
+| Mobile-specific reels rewrite | Separate scope, tracked separately |
+| Removing seen tracking entirely | Still needed for next-session ordering |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | Phase 1 | Complete |
-| DB-02 | Phase 1 | Complete |
-| DB-03 | Phase 1 | Complete |
-| CANVAS-01 | Phase 2 | Complete |
-| CANVAS-02 | Phase 2 | Complete |
-| CANVAS-03 | Phase 2 | Complete |
-| CANVAS-04 | Phase 2 | Complete |
-| CANVAS-05 | Phase 2 | Complete |
-| EMAIL-01 | Phase 3 | Complete |
-| EMAIL-02 | Phase 3 | Complete |
-| EMAIL-03 | Phase 3 | Complete |
-| EMAIL-04 | Phase 3 | Complete |
-| TRIG-01 | Phase 4 | Pending |
-| TRIG-02 | Phase 4 | Pending |
-| SCHED-01 | Phase 4 | Pending |
-| SCHED-02 | Phase 4 | Pending |
-| SCHED-03 | Phase 4 | Pending |
-| UI-01 | Phase 5 | Pending |
-| UI-02 | Phase 5 | Pending |
-| UI-03 | Phase 5 | Pending |
+| REEL-01 | Phase 1 | Pending |
+| REEL-02 | Phase 1 | Pending |
+| REEL-03 | Phase 1 | Pending |
+| REEL-04 | Phase 1 | Pending |
+| NAV-01 | Phase 1 | Pending |
+| NAV-02 | Phase 1 | Pending |
+| SEEN-01 | Phase 2 | Pending |
+| SEEN-02 | Phase 2 | Pending |
+| SEEN-03 | Phase 2 | Pending |
+| SEEN-04 | Phase 2 | Pending |
+| THUMB-01 | Phase 2 | Pending |
+| THUMB-02 | Phase 2 | Pending |
+| THUMB-03 | Phase 2 | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
+- v1 requirements: 13 total
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-10*
+*Requirements defined: 2026-04-05*
+*Last updated: 2026-04-05 after initial definition*
