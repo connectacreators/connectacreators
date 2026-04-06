@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 const ViralReelFeed = lazy(() => import("./ViralReelFeed"));
 import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   Loader2, TrendingUp, Instagram, Search, ChevronDown, X,
-  Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio,
+  Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare,
 } from "lucide-react";
@@ -47,6 +47,7 @@ const TRANSLATIONS = {
     last3Months: "Last 3 months",
     last6Months: "Last 6 months",
     last12Months: "Last 12 months",
+    forYou: "For you",
     mostRecent: "Most recent",
     highestOutlier: "Highest outlier",
     mostViews: "Most views",
@@ -99,6 +100,7 @@ const TRANSLATIONS = {
     last3Months: "Últimos 3 meses",
     last6Months: "Últimos 6 meses",
     last12Months: "Últimos 12 meses",
+    forYou: "Para ti",
     mostRecent: "Más reciente",
     highestOutlier: "Mayor outlier",
     mostViews: "Más vistas",
@@ -144,6 +146,7 @@ interface ViralChannel {
   scrape_error: string | null;
   apify_run_id: string | null;
   created_at: string;
+  created_by: string | null;
 }
 
 interface ViralVideo {
@@ -192,15 +195,16 @@ function timeAgo(dateStr: string | null): string {
 }
 
 // Proxy Instagram CDN URLs through wsrv.nl to bypass hotlink/CORS restrictions
-function proxyImg(url: string | null): string | null {
+function proxyImg(url: string | null, videoUrl?: string): string | null {
   if (!url) return null;
-  // Already cached on VPS — serve directly
   if (url.includes("connectacreators.com/thumb-cache")) return url;
-  // Legacy CDN URL (during migration) — proxy as before
-  if (url.includes("cdninstagram.com") || url.includes("fbcdn.net") || url.includes("instagram.f")) {
+  if (url.includes("connectacreators.com")) return url;
+  // TikTok/YouTube CDN thumbnails expire — use resolve-thumb to get fresh URL + cache
+  if (url.includes("tiktokcdn") || url.includes("googlevideo") || url.includes("ytimg")) {
+    if (videoUrl) return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
     return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
   }
-  return url;
+  return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
 // Detect platform and extract clean username from full URL or @handle
@@ -271,11 +275,65 @@ function TikTokIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement> 
   );
 }
 
+// ── Feed score algorithm ─────────────────────────────────────────────────────
+// Used by "For You" sort. Higher = shown first.
+function buildFeedScorer(
+  interactions: Map<string, { seen_count: number; clicked: boolean }>,
+  nicheKeywords: string[],
+  userChannelIds: Set<string>,
+) {
+  return (v: ViralVideo, now: number): number => {
+    // 1. Outlier base (0–100+)
+    let score = v.outlier_score * 10;
+
+    // 2. Recency boost (0–30): 30 pts if today, 0 if 90+ days old
+    const ageMs = now - new Date(v.posted_at ?? v.scraped_at).getTime();
+    const ageDays = ageMs / 86_400_000;
+    score += Math.max(0, 30 - (ageDays / 90) * 30);
+
+    // 3. Niche relevance (+40)
+    if (nicheKeywords.length > 0) {
+      const text = ((v.caption || "") + " " + v.channel_username).toLowerCase();
+      if (nicheKeywords.some(kw => text.includes(kw))) {
+        score += 40;
+      }
+    }
+
+    // 4. Channel affinity (+20) — user added this channel
+    if (v.channel_id && userChannelIds.has(v.channel_id)) {
+      score += 20;
+    }
+
+    // 5. Seen penalty (-15 per view) + click penalty (-10)
+    const inter = interactions.get(v.id);
+    if (inter) {
+      score -= inter.seen_count * 15;
+      if (inter.clicked) score -= 10;
+    }
+
+    return score;
+  };
+}
+
 const PLATFORM_ICON: Record<string, React.ElementType> = {
   instagram: Instagram,
   tiktok: TikTokIcon,
   youtube: Youtube,
 };
+
+const GRID_PALETTES = [
+  ["#0f0c1e", "#3d1054"], ["#001624", "#003d5c"],
+  ["#0a0a14", "#1a3a5c"], ["#0c0c0c", "#1a0a2e"],
+  ["#001a10", "#003320"], ["#1a001a", "#3d0066"],
+  ["#1a0a00", "#3d2000"], ["#000d1a", "#001f3d"],
+];
+
+function gridGradientFor(name: string) {
+  let h = 0;
+  for (const c of name || "") h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  const p = GRID_PALETTES[h % GRID_PALETTES.length];
+  return `linear-gradient(160deg, ${p[0]} 0%, ${p[1]} 100%)`;
+}
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
@@ -442,19 +500,45 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
 
 // Video card
 function VideoCard({
-  video, isAdmin, onDelete, selected, onToggleSelect,
+  video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo,
 }: {
   video: ViralVideo;
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
   selected?: boolean;
   onToggleSelect?: (video: ViralVideo) => void;
+  onSeen?: (id: string) => void;
+  onClickVideo?: (id: string) => void;
 }) {
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? Instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
   const [imgError, setImgError] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver — report "seen" after 2s visible at 50%+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || !onSeen) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          timer = setTimeout(() => onSeen(video.id), 2000);
+        } else if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [video.id, onSeen]);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -472,11 +556,11 @@ function VideoCard({
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ duration: 0.25 }}
+      ref={cardRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       className={cn(
         "group relative flex flex-col rounded-xl overflow-hidden bg-card border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
         selected ? "border-cyan-500 ring-1 ring-cyan-500/30" : "border-border"
@@ -484,19 +568,24 @@ function VideoCard({
     >
       {/* Thumbnail — click navigates to detail page */}
       <div
-        onClick={() => navigate(`/viral-today/video/${video.id}`)}
+        onClick={() => { onClickVideo?.(video.id); navigate(`/viral-today/video/${video.id}`); }}
         className="block relative aspect-[4/5] bg-muted overflow-hidden cursor-pointer"
       >
+        {/* Gradient always renders as base layer — shows when image is absent or fails */}
+        <div
+          className="absolute inset-0"
+          style={{ background: gridGradientFor(video.channel_username) }}
+        />
         {video.thumbnail_url && !imgError ? (
           <img
-            src={proxyImg(video.thumbnail_url) ?? video.thumbnail_url}
+            src={proxyImg(video.thumbnail_url, video.video_url) ?? video.thumbnail_url}
             alt={video.caption?.slice(0, 60) ?? "video"}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <Play className="w-8 h-8 text-muted-foreground" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Play className="w-8 h-8 text-white/60" />
           </div>
         )}
 
@@ -509,7 +598,7 @@ function VideoCard({
                 "w-6 h-6 rounded-md flex items-center justify-center border transition-all",
                 selected
                   ? "bg-cyan-500 border-cyan-400"
-                  : "bg-black/60 backdrop-blur-sm border-white/10 opacity-0 group-hover:opacity-100"
+                  : "bg-black/60 backdrop-blur-sm border-white/20 hover:border-cyan-400/60"
               )}
             >
               {selected ? (
@@ -758,6 +847,7 @@ const getEngagementOpts = (t: any): DropdownOption[] => [
 ];
 
 const getSortOpts = (t: any): DropdownOption[] => [
+  { label: `✦ ${t.forYou}`, value: "foryou" },
   { label: t.mostRecent, value: "recent" },
   { label: t.highestOutlier, value: "outlier" },
   { label: t.mostViews, value: "views" },
@@ -805,10 +895,20 @@ export default function ViralToday() {
   const [filterEngagement, setFilterEngagement] = useState("0");
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [filterSource, setFilterSource] = useState("all"); // "all" | "channels" | "discovered"
-  const [filterSort, setFilterSort] = useState("recent");
+  const [filterSort, setFilterSort] = useState("foryou");
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const videosPerPage = 100;
+  const [showSeen, setShowSeen] = useState(true);
+
+  // ── Feed algorithm state ──────────────────────────────────────────────────
+  // initialInteractions is the snapshot from DB at mount — used for sorting/filtering.
+  // Never updated mid-session so videos don't disappear while browsing.
+  const [initialInteractions, setInitialInteractions] = useState<Map<string, { seen_count: number; clicked: boolean }>>(new Map());
+  const [nicheKeywords, setNicheKeywords] = useState<string[]>([]);
+  const [userChannelIds, setUserChannelIds] = useState<Set<string>>(new Set());
+  const seenThisSession = useRef<Set<string>>(new Set());
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
@@ -858,27 +958,53 @@ export default function ViralToday() {
     }
   }, []);
 
-  const fetchVideos = useCallback(async () => {
+  const fetchVideos = useCallback(async (opts?: {
+    platform?: string; date?: string; outlier?: string; views?: string; engagement?: string;
+  }) => {
     setLoadingVideos(true);
     try {
-      // Fetch up to 5000 most recent videos — covers all real usage without unbounded egress
       const PAGE_SIZE = 1000;
       const MAX_VIDEOS = 5000;
       let allVideos: ViralVideo[] = [];
       let page = 0;
 
       while (allVideos.length < MAX_VIDEOS) {
-        const { data, error } = await supabase
+        let q = supabase
           .from("viral_videos")
           .select("*")
-          .order("scraped_at", { ascending: false })
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+          .order("scraped_at", { ascending: false });
+
+        // ── Server-side filters (pushed to Postgres) ──────────────────────────
+        const p = opts?.platform ?? filterPlatform;
+        if (p && p !== "all") q = q.eq("platform", p);
+
+        const d = opts?.date ?? filterDate;
+        if (d && d !== "all") {
+          const daysMap: Record<string, number> = { "7days": 7, "30days": 30, "3months": 90, "6months": 180, "12months": 365 };
+          const days = daysMap[d];
+          if (days) {
+            const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+            q = q.gte("posted_at", cutoff);
+          }
+        }
+
+        const o = parseFloat(opts?.outlier ?? filterOutlier);
+        if (o > 0) q = q.gte("outlier_score", o);
+
+        const v = parseInt(opts?.views ?? filterViews);
+        if (v > 0) q = q.gte("views_count", v);
+
+        const e = parseFloat(opts?.engagement ?? filterEngagement);
+        if (e > 0) q = q.gte("engagement_rate", e);
+
+        q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        const { data, error } = await q;
 
         if (error) throw error;
         const batch = (data ?? []) as ViralVideo[];
         allVideos = [...allVideos, ...batch];
 
-        if (batch.length < PAGE_SIZE) break; // no more pages
+        if (batch.length < PAGE_SIZE) break;
         page++;
       }
 
@@ -889,13 +1015,124 @@ export default function ViralToday() {
     } finally {
       setLoadingVideos(false);
     }
-  }, []);
+  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement]);
 
   useEffect(() => {
     if (!user) return;
     fetchChannels();
     fetchVideos();
   }, [user, fetchChannels, fetchVideos]);
+
+  // ── Re-fetch from server when heavy filters change (debounced) ────────────
+  const filterGenRef = useRef(0);
+  useEffect(() => {
+    if (!user) return;
+    // Skip the initial mount (fetchVideos already called above)
+    const gen = ++filterGenRef.current;
+    if (gen === 1) return;
+    const timer = setTimeout(() => {
+      if (filterGenRef.current === gen) fetchVideos();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch user interactions for feed algorithm ────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("viral_video_interactions")
+        .select("video_id, seen_count, clicked")
+        .eq("user_id", user.id);
+      if (data) {
+        const map = new Map<string, { seen_count: number; clicked: boolean }>();
+        data.forEach((r: any) => map.set(r.video_id, { seen_count: r.seen_count, clicked: r.clicked }));
+        setInitialInteractions(map);
+      }
+    })();
+  }, [user]);
+
+  // ── Fetch niche keywords from selected client ─────────────────────────────
+  useEffect(() => {
+    const clientId = localStorage.getItem("dashboard_viewMode");
+    if (!clientId || clientId === "master" || clientId === "me") {
+      setNicheKeywords([]);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("niche_keywords, onboarding_data")
+        .eq("id", clientId)
+        .maybeSingle();
+      if (!data) return;
+      // Use stored keywords, or auto-extract from onboarding
+      let kws: string[] = data.niche_keywords ?? [];
+      if (kws.length === 0 && data.onboarding_data) {
+        const od = data.onboarding_data as Record<string, string>;
+        const fields = [od.industry, od.industryOther, od.niche, od.target_client, od.unique_offer].filter(Boolean);
+        const extracted = fields.join(" ").toLowerCase().split(/[\s,;|]+/).filter(w => w.length > 2);
+        kws = [...new Set(extracted)];
+        // Persist auto-extracted keywords
+        if (kws.length > 0) {
+          await supabase.from("clients").update({ niche_keywords: kws }).eq("id", clientId);
+        }
+      }
+      setNicheKeywords(kws);
+    })();
+  }, []);
+
+  // ── Track which channels the current user added (for affinity boost) ──────
+  useEffect(() => {
+    if (!user) return;
+    const owned = new Set(channels.filter(c => (c as any).created_by === user.id).map(c => c.id));
+    setUserChannelIds(owned);
+  }, [channels, user]);
+
+  // ── Flush seen videos to Supabase every 30s + on unmount ──────────────────
+  // Only writes to DB for future sessions — does NOT update local state,
+  // so videos don't disappear from the grid mid-session.
+  const flushSeen = useCallback(async () => {
+    if (!user || seenThisSession.current.size === 0) return;
+    const ids = Array.from(seenThisSession.current);
+    seenThisSession.current.clear();
+    try {
+      await supabase.rpc("upsert_video_seen", {
+        p_user_id: user.id,
+        p_video_ids: ids,
+      });
+    } catch (e) {
+      console.error("[ViralToday] flush seen failed:", e);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    flushTimerRef.current = setInterval(flushSeen, 30_000);
+    const handleUnload = () => flushSeen();
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      if (flushTimerRef.current) clearInterval(flushTimerRef.current);
+      window.removeEventListener("beforeunload", handleUnload);
+      flushSeen();
+    };
+  }, [flushSeen]);
+
+  // ── Callback for VideoCard to report seen ─────────────────────────────────
+  const reportSeen = useCallback((videoId: string) => {
+    seenThisSession.current.add(videoId);
+  }, []);
+
+  // ── Callback for VideoCard to report click ────────────────────────────────
+  // Only writes to DB for future sessions — no local state update so grid stays stable.
+  const reportClick = useCallback(async (videoId: string) => {
+    if (!user) return;
+    await supabase.from("viral_video_interactions").upsert({
+      user_id: user.id,
+      video_id: videoId,
+      clicked: true,
+      last_seen_at: new Date().toISOString(),
+    }, { onConflict: "user_id,video_id" });
+  }, [user]);
 
   // Keep channelsRef in sync so the poll interval always reads the latest channels
   useEffect(() => {
@@ -1127,6 +1364,12 @@ export default function ViralToday() {
     }
   };
 
+  // ── Feed score function (memoized) ─────────────────────────────────────────
+  const computeFeedScore = useMemo(
+    () => buildFeedScorer(initialInteractions, nicheKeywords, userChannelIds),
+    [initialInteractions, nicheKeywords, userChannelIds]
+  );
+
   // ── Filtered videos ──────────────────────────────────────────────────────────
 
   const filteredVideos = (() => {
@@ -1144,42 +1387,7 @@ export default function ViralToday() {
       result = result.filter((v) => v.channel_id === null);
     }
 
-    // Platform
-    if (filterPlatform !== "all") {
-      result = result.filter((v) => v.platform === filterPlatform);
-    }
-
-    // Date
-    if (filterDate !== "all") {
-      const daysMap: Record<string, number> = {
-        "7days": 7, "30days": 30, "3months": 90, "6months": 180, "12months": 365,
-      };
-      const days = daysMap[filterDate];
-      if (days) {
-        const cutoff = Date.now() - days * 86_400_000;
-        result = result.filter(
-          (v) => v.posted_at && new Date(v.posted_at).getTime() >= cutoff
-        );
-      }
-    }
-
-    // Outlier
-    const minOutlier = parseFloat(filterOutlier);
-    if (minOutlier > 0) {
-      result = result.filter((v) => v.outlier_score >= minOutlier);
-    }
-
-    // Views
-    const minViews = parseInt(filterViews);
-    if (minViews > 0) {
-      result = result.filter((v) => v.views_count >= minViews);
-    }
-
-    // Engagement
-    const minEngage = parseFloat(filterEngagement);
-    if (minEngage > 0) {
-      result = result.filter((v) => v.engagement_rate >= minEngage);
-    }
+    // Platform, date, outlier, views, engagement are filtered server-side in fetchVideos()
 
     // Smart search: hashtag_source match, strip #/@, partial words, joined words
     if (search.trim()) {
@@ -1202,8 +1410,25 @@ export default function ViralToday() {
       });
     }
 
+    // Hard hide: remove videos seen 4+ times (unless "Show seen" is on)
+    if (!showSeen) {
+      result = result.filter(v => {
+        const inter = initialInteractions.get(v.id);
+        return !inter || inter.seen_count < 4;
+      });
+    }
+
     // Sort
     switch (filterSort) {
+      case "foryou": {
+        const now = Date.now();
+        result.sort((a, b) => {
+          const scoreA = computeFeedScore(a, now);
+          const scoreB = computeFeedScore(b, now);
+          return scoreB - scoreA;
+        });
+        break;
+      }
       case "outlier":
         result.sort((a, b) => b.outlier_score - a.outlier_score);
         break;
@@ -1247,8 +1472,10 @@ export default function ViralToday() {
     setFilterViews("0");
     setFilterEngagement("0");
     setFilterSource("all");
+    setFilterSort("foryou");
     setSelectedChannelIds([]);
     setSearch("");
+    setShowSeen(false);
     setCurrentPage(0);
   };
 
@@ -1439,8 +1666,23 @@ export default function ViralToday() {
                     options={getSortOpts(t)}
                     value={filterSort}
                     onChange={setFilterSort}
-                    isActive={filterSort !== "recent"}
+                    isActive={filterSort !== "foryou"}
                   />
+
+                  {/* Show seen toggle */}
+                  <button
+                    onClick={() => setShowSeen(s => !s)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+                      showSeen
+                        ? "bg-primary/15 border-primary/30 text-primary"
+                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                    )}
+                    title={showSeen ? "All videos shown (click to hide seen videos)" : "Seen videos hidden (click to show all)"}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    {showSeen ? "All" : "Fresh"}
+                  </button>
                 </div>
 
                 {/* Filter chips */}
@@ -1560,7 +1802,6 @@ export default function ViralToday() {
                 ) : (
                   <div>
                     <motion.div
-                      layout
                       className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6"
                     >
                       <AnimatePresence>
@@ -1572,6 +1813,8 @@ export default function ViralToday() {
                             onDelete={(id) => setVideos((prev) => prev.filter((x) => x.id !== id))}
                             selected={selectedVideos.has(v.id)}
                             onToggleSelect={toggleVideoSelect}
+                            onSeen={reportSeen}
+                            onClickVideo={reportClick}
                           />
                         ))}
                       </AnimatePresence>
@@ -1805,7 +2048,7 @@ export default function ViralToday() {
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
               style={{ background: "#06b6d4", color: "#000" }}
             >
-              Generate Scripts →
+              Generate Scripts <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => setSelectedVideos(new Map())}

@@ -213,10 +213,6 @@ export default function ViralReelFeed() {
   const sortedVideos = useMemo(() => {
     const now = Date.now();
     return [...videos]
-      .filter(v => {
-        const inter = initialInteractions.get(v.id);
-        return !inter || inter.seen_count < 4;
-      })
       .sort((a, b) => {
         const scoreFor = (v: ViralVideo) => {
           let s = v.outlier_score * 10;
