@@ -89,7 +89,10 @@ Plans:
   3. Scrolling to any video in the feed starts playback automatically — no video sits silent and paused when it is the active reel
   4. A video that fails to load shows a placeholder and stops retrying — no crash, no restart loop
   5. The up and down arrow buttons are fixed to the same screen position no matter how many videos the user has scrolled through
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 06-01-PLAN.md — Fix data-ready black box, stall-timeout restart, autoplay readyState, and arrow fixed positioning in ViralReelFeed.tsx
 
 #### Phase 7: Seen Tracking and Thumbnails
 **Goal**: Seen-based filtering is removed from the grid, reels feed retains all videos for the full session, and every video card always shows a thumbnail
@@ -111,5 +114,5 @@ Plans:
 | 3. Email Edge Function | v1.0 | 1/1 | Complete | 2026-03-11 |
 | 4. Triggers + Cron | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
 | 5. Settings UI | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
-| 6. Playback and Navigation | v1.1 | 0/? | Not started | - |
+| 6. Playback and Navigation | v1.1 | 0/1 | Not started | - |
 | 7. Seen Tracking and Thumbnails | v1.1 | 0/? | Not started | - |
