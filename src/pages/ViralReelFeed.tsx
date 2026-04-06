@@ -383,7 +383,8 @@ export default function ViralReelFeed() {
       if (!video) return;
       if (idx === activeIdx) {
         video.muted = mutedRef.current;
-        if (video.paused && !pausedRef.current) {
+        if (!pausedRef.current && (video.paused || video.readyState >= 2)) {
+          video.muted = mutedRef.current;
           video.play().catch(() => {});
         }
       } else {
