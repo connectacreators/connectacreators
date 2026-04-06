@@ -7,15 +7,15 @@
 
 ### Reels Playback
 
-- [ ] **REEL-01**: First video displays visually (no black box) on initial page load — audio and video both present from the start
-- [ ] **REEL-02**: Active video loops normally but does NOT restart unexpectedly without user interaction after a few seconds of inactivity
-- [ ] **REEL-03**: All videos within scroll range autoplay when they become active — no random autoplay failures
-- [ ] **REEL-04**: Videos that fail to load degrade gracefully (placeholder shown, no crash or restart loop)
+- [x] **REEL-01**: First video displays visually (no black box) on initial page load — audio and video both present from the start
+- [x] **REEL-02**: Active video loops normally but does NOT restart unexpectedly without user interaction after a few seconds of inactivity
+- [x] **REEL-03**: All videos within scroll range autoplay when they become active — no random autoplay failures
+- [x] **REEL-04**: Videos that fail to load degrade gracefully (placeholder shown, no crash or restart loop)
 
 ### Layout & Navigation
 
-- [ ] **NAV-01**: Up/down arrow buttons remain fixed to screen edges at all times — never drift or shift position as user scrolls
-- [ ] **NAV-02**: Reel card height and positioning remain consistent past the 5th video — no layout shift or positional drift
+- [x] **NAV-01**: Up/down arrow buttons remain fixed to screen edges at all times — never drift or shift position as user scrolls
+- [x] **NAV-02**: Reel card height and positioning remain consistent past the 5th video — no layout shift or positional drift
 
 ### Seen / Session Tracking
 
@@ -50,12 +50,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REEL-01 | Phase 6 | Pending |
-| REEL-02 | Phase 6 | Pending |
-| REEL-03 | Phase 6 | Pending |
-| REEL-04 | Phase 6 | Pending |
-| NAV-01 | Phase 6 | Pending |
-| NAV-02 | Phase 6 | Pending |
+| REEL-01 | Phase 6 | Complete |
+| REEL-02 | Phase 6 | Complete |
+| REEL-03 | Phase 6 | Complete |
+| REEL-04 | Phase 6 | Complete |
+| NAV-01 | Phase 6 | Complete |
+| NAV-02 | Phase 6 | Complete |
 | SEEN-01 | Phase 7 | Pending |
 | SEEN-02 | Phase 7 | Pending |
 | SEEN-03 | Phase 7 | Pending |
