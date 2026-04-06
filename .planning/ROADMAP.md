@@ -79,7 +79,7 @@ Plans:
 
 **Milestone Goal:** Fix all playback, layout, autoplay, thumbnail, and seen-tracking bugs in the Viral Today page so the reels feed feels as smooth and reliable as TikTok/Instagram.
 
-#### Phase 1: Playback and Navigation
+#### Phase 6: Playback and Navigation
 **Goal**: Videos play reliably with no black box, no auto-restart, and nav arrows stay fixed to the screen at all times
 **Depends on**: Nothing (first phase of milestone)
 **Requirements**: REEL-01, REEL-02, REEL-03, REEL-04, NAV-01, NAV-02
@@ -91,9 +91,9 @@ Plans:
   5. The up and down arrow buttons are fixed to the same screen position no matter how many videos the user has scrolled through
 **Plans**: TBD
 
-#### Phase 2: Seen Tracking and Thumbnails
+#### Phase 7: Seen Tracking and Thumbnails
 **Goal**: Seen-based filtering is removed from the grid, reels feed retains all videos for the full session, and every video card always shows a thumbnail
-**Depends on**: Phase 1
+**Depends on**: Phase 6
 **Requirements**: SEEN-01, SEEN-02, SEEN-03, SEEN-04, THUMB-01, THUMB-02, THUMB-03
 **Success Criteria** (what must be TRUE):
   1. The Viral Today grid shows all videos on initial load — no videos are hidden because of prior viewing history
@@ -111,5 +111,5 @@ Plans:
 | 3. Email Edge Function | v1.0 | 1/1 | Complete | 2026-03-11 |
 | 4. Triggers + Cron | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
 | 5. Settings UI | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
-| 1. Playback and Navigation | v1.1 | 0/? | Not started | - |
-| 2. Seen Tracking and Thumbnails | v1.1 | 0/? | Not started | - |
+| 6. Playback and Navigation | v1.1 | 0/? | Not started | - |
+| 7. Seen Tracking and Thumbnails | v1.1 | 0/? | Not started | - |

@@ -50,19 +50,19 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REEL-01 | Phase 1 | Pending |
-| REEL-02 | Phase 1 | Pending |
-| REEL-03 | Phase 1 | Pending |
-| REEL-04 | Phase 1 | Pending |
-| NAV-01 | Phase 1 | Pending |
-| NAV-02 | Phase 1 | Pending |
-| SEEN-01 | Phase 2 | Pending |
-| SEEN-02 | Phase 2 | Pending |
-| SEEN-03 | Phase 2 | Pending |
-| SEEN-04 | Phase 2 | Pending |
-| THUMB-01 | Phase 2 | Pending |
-| THUMB-02 | Phase 2 | Pending |
-| THUMB-03 | Phase 2 | Pending |
+| REEL-01 | Phase 6 | Pending |
+| REEL-02 | Phase 6 | Pending |
+| REEL-03 | Phase 6 | Pending |
+| REEL-04 | Phase 6 | Pending |
+| NAV-01 | Phase 6 | Pending |
+| NAV-02 | Phase 6 | Pending |
+| SEEN-01 | Phase 7 | Pending |
+| SEEN-02 | Phase 7 | Pending |
+| SEEN-03 | Phase 7 | Pending |
+| SEEN-04 | Phase 7 | Pending |
+| THUMB-01 | Phase 7 | Pending |
+| THUMB-02 | Phase 7 | Pending |
+| THUMB-03 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
