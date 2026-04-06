@@ -1,18 +1,14 @@
-# Roadmap: AI Follow-Up Automation
+# Roadmap: ConnectaCreators
 
-## Overview
+## Milestones
 
-Five phases turn a partially-built follow-up system into a working end-to-end pipeline. Phase 1 creates the database tables everything depends on. Phase 2 fixes the broken visual canvas so developers can work without crashes. Phase 3 builds the core send-followup edge function that generates AI emails and sends them via SMTP. Phase 4 wires up the triggers (Facebook webhook + leadService) and the cron-driven queue processor. Phase 5 adds the settings UI so clients can enter their own SMTP credentials and view their stats.
+- ✅ **v1.0 AI Follow-Up Automation** - Phases 1-5 (shipped 2026-03-11)
+- 🚧 **v1.1 Viral Reels Experience Fix** - Phases 1-2 (in progress)
 
 ## Phases
 
-- [x] **Phase 1: DB Setup** - Create the three missing database tables
-- [x] **Phase 2: Canvas Fix** - Fix AIFollowUpBuilder so it renders without crashing (completed 2026-03-11)
-- [x] **Phase 3: Email Edge Function** - Build send-followup: AI generation + SMTP send + state updates (completed 2026-03-11)
-- [ ] **Phase 4: Triggers + Cron** - Wire new leads to send-followup, deploy queue processor with cron
-- [ ] **Phase 5: Settings UI** - SMTP settings panel, save to DB, fix stats query bug
-
-## Phase Details
+<details>
+<summary>✅ v1.0 AI Follow-Up Automation (Phases 1-5) - SHIPPED 2026-03-11</summary>
 
 ### Phase 1: DB Setup
 **Goal**: The three database tables required by the follow-up system exist and are accessible
@@ -34,7 +30,7 @@ Five phases turn a partially-built follow-up system into a working end-to-end pi
   3. The left sidebar NodeToolbar is visible with draggable node types
   4. On page load, any previously saved workflow loads automatically into the canvas
   5. Clicking Save writes the current nodes/edges/viewport to the followup_workflows table
-**Plans**: 1 plan
+**Plans**: 1/1 complete
 
 Plans:
 - [x] 02-01-PLAN.md — Install @xyflow/react on VPS and rebuild to fix canvas crash (complete 2026-03-11)
@@ -48,7 +44,7 @@ Plans:
   2. The generated email is delivered to the lead's email address via the client's SMTP credentials
   3. The sent message appears as a record in the messages table
   4. After sending, the lead's follow_up_step is incremented and next_follow_up_at is set to the correct scheduled time
-**Plans**: 1 plan
+**Plans**: 1/1 complete
 
 Plans:
 - [x] 03-01-PLAN.md — Fix schedule delays, set ANTHROPIC_API_KEY secret, deploy send-followup to Supabase cloud, and verify end-to-end (complete 2026-03-11)
@@ -66,7 +62,7 @@ Plans:
 **Plans**: TBD
 
 ### Phase 5: Settings UI
-**Goal**: Clients can configure their own SMTP credentials in the app and the automaton stats page loads without errors
+**Goal**: Clients can configure their own SMTP credentials in the app and the automation stats page loads without errors
 **Depends on**: Phase 4
 **Requirements**: UI-01, UI-02, UI-03
 **Success Criteria** (what must be TRUE):
@@ -75,12 +71,45 @@ Plans:
   3. The ClientFollowUpAutomation stats section loads without a query error (deleted_at bug fixed)
 **Plans**: TBD
 
+</details>
+
+---
+
+### 🚧 v1.1 Viral Reels Experience Fix (In Progress)
+
+**Milestone Goal:** Fix all playback, layout, autoplay, thumbnail, and seen-tracking bugs in the Viral Today page so the reels feed feels as smooth and reliable as TikTok/Instagram.
+
+#### Phase 1: Playback and Navigation
+**Goal**: Videos play reliably with no black box, no auto-restart, and nav arrows stay fixed to the screen at all times
+**Depends on**: Nothing (first phase of milestone)
+**Requirements**: REEL-01, REEL-02, REEL-03, REEL-04, NAV-01, NAV-02
+**Success Criteria** (what must be TRUE):
+  1. The first video in the reel feed shows a visible picture AND plays audio immediately on page load — no black box, no visible-only-after-interaction delay
+  2. An active video plays through its loop normally and never restarts itself after a few seconds of no user interaction
+  3. Scrolling to any video in the feed starts playback automatically — no video sits silent and paused when it is the active reel
+  4. A video that fails to load shows a placeholder and stops retrying — no crash, no restart loop
+  5. The up and down arrow buttons are fixed to the same screen position no matter how many videos the user has scrolled through
+**Plans**: TBD
+
+#### Phase 2: Seen Tracking and Thumbnails
+**Goal**: Seen-based filtering is removed from the grid, reels feed retains all videos for the full session, and every video card always shows a thumbnail
+**Depends on**: Phase 1
+**Requirements**: SEEN-01, SEEN-02, SEEN-03, SEEN-04, THUMB-01, THUMB-02, THUMB-03
+**Success Criteria** (what must be TRUE):
+  1. The Viral Today grid shows all videos on initial load — no videos are hidden because of prior viewing history
+  2. Videos watched in the current reels session remain in the feed for the whole session — the list never shrinks or reorders while the user is scrolling
+  3. On the next session, videos the user previously watched appear lower in the feed order but are still visible — they are never completely absent
+  4. Every video card in the grid (Instagram, TikTok, and YouTube) shows either the real thumbnail image or a branded gradient placeholder — no blank or broken image slots
+**Plans**: TBD
+
 ## Progress
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. DB Setup | 1/1 | Complete | 2026-03-11 |
-| 2. Canvas Fix | 1/1 | Complete    | 2026-03-11 |
-| 3. Email Edge Function | 1/1 | Complete    | 2026-03-11 |
-| 4. Triggers + Cron | 0/? | Not started | - |
-| 5. Settings UI | 0/? | Not started | - |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. DB Setup | v1.0 | 1/1 | Complete | 2026-03-11 |
+| 2. Canvas Fix | v1.0 | 1/1 | Complete | 2026-03-11 |
+| 3. Email Edge Function | v1.0 | 1/1 | Complete | 2026-03-11 |
+| 4. Triggers + Cron | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
+| 5. Settings UI | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
+| 1. Playback and Navigation | v1.1 | 0/? | Not started | - |
+| 2. Seen Tracking and Thumbnails | v1.1 | 0/? | Not started | - |

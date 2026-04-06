@@ -5,9 +5,9 @@ milestone_name: Viral Reels Experience Fix
 status: in_progress
 stopped_at: —
 last_updated: "2026-04-05T00:00:00.000Z"
-last_activity: 2026-04-05 — Milestone v1.1 started (Viral Reels Experience Fix)
+last_activity: 2026-04-05 — Roadmap created for v1.1 (2 phases, 13 requirements mapped)
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,26 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Agencies discover what's gone viral in their niche and turn it into client content — without manual research.
-**Current focus:** Milestone v1.1 — Viral Reels Experience Fix
+**Current focus:** Milestone v1.1 — Phase 1: Playback and Navigation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-05 — Milestone v1.1 started
-Last activity: 2026-03-11 — Phase 3 Plan 01 complete (send-followup deployed and verified)
+Phase: 1 of 2 (Playback and Navigation)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-04-05 — Roadmap written, requirements mapped, ready for plan-phase 1
 
-Progress: [██████░░░░] 60%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (v1.0 history):**
 - Total plans completed: 3
-- Average duration: 7 min
-- Total execution time: 0.37 hours
+- Average duration: 9 min
+- Total execution time: 0.45 hours
 
-**By Phase:**
+**By Phase (v1.0):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -49,7 +48,7 @@ Progress: [██████░░░░] 60%
 | 03-email-edge-function | 1 | 15 min | 15 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2 min), 02-01 (10 min), 03-01 (15 min)
+- Last 3 plans: 2 min, 10 min, 15 min
 - Trend: increasing (more complex plans)
 
 *Updated after each plan completion*
@@ -61,19 +60,10 @@ Progress: [██████░░░░] 60%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- SMTP (not transactional API): Clients use their own email account credentials
-- Server-side AI generation: Anthropic key must never appear in browser code
-- Hardcoded 5-step sequence: Canvas is display-only; timing is not canvas-driven
-- pg_cron for worker: Matches existing auto-scrape-channels cron pattern in this app
-- (01-01) UNIQUE constraint on client_id in followup_workflows and client_email_settings (one per client)
-- (01-01) Separate API calls for each DDL statement to avoid nested dollar-quoting in JSON
-- [Phase 02-canvas-fix]: @xyflow/react was already installed at ^12.10.1 on VPS — npm install was a no-op confirming package presence
-- [Phase 02-canvas-fix]: "Failed to load workflow" toast on first visit is expected — followup_workflows is empty until user saves
-- [Phase 02-canvas-fix]: Canvas human-verified APPROVED — all 3 panels visible (NodeToolbar, ReactFlow canvas, NodeConfigPanel)
-- [Phase 03-email-edge-function]: STEP_DELAYS_MS updated from [0, 10min, 1day, 2days, 3days] to spec [0, 1day, 3days, 7days, 14days]
-- [Phase 03-email-edge-function]: ANTHROPIC_API_KEY already set in Supabase secrets — no new secret action needed for send-followup
-- [Phase 03-email-edge-function]: Full SMTP end-to-end test deferred to Phase 5 — client_email_settings table is empty until settings UI built
-- [Phase 03-email-edge-function]: All EMAIL-01 through EMAIL-04 requirements implemented and verified in deployed function source code
+- Root cause (REEL-01/REEL-02): stall timeout fires because onPlaying never triggers on mount → reloads src → auto-restart loop
+- Root cause (NAV-01): arrows use position:absolute top-1/2 inside parent whose height changes as reel scrolls
+- Root cause (SEEN-01 to SEEN-04): ViralReelFeed.tsx has a .filter(seen_count < 4) on sortedVideos; ViralToday.tsx defaults showSeen to false
+- Root cause (THUMB-01 to THUMB-03): onError sets display:none only — no fallback placeholder rendered
 
 ### Pending Todos
 
@@ -85,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T18:20:00.000Z
-Stopped at: Completed 03-email-edge-function/03-01-PLAN.md — send-followup deployed, checkpoint human-verify APPROVED
+Last session: 2026-04-05
+Stopped at: Roadmap created — Phase 1 ready for /gsd:plan-phase 1
 Resume file: None
