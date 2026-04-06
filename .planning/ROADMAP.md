@@ -118,4 +118,4 @@ Plans:
 | 4. Triggers + Cron | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
 | 5. Settings UI | v1.0 | 0/? | Deferred (v1.0 shipped before completion) | - |
 | 6. Playback and Navigation | 1/1 | Complete    | 2026-04-06 | - |
-| 7. Seen Tracking and Thumbnails | v1.1 | 0/1 | Not started | - |
+| 7. Seen Tracking and Thumbnails | 1/1 | Complete   | 2026-04-06 | - |

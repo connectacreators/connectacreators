@@ -19,16 +19,16 @@
 
 ### Seen / Session Tracking
 
-- [ ] **SEEN-01**: Seen videos are NEVER removed from the reels feed during the current session — the full feed stays intact for the entire session (TikTok/Instagram model)
-- [ ] **SEEN-02**: Seen data (which videos the user watched) is only flushed to DB when the session ends (page close/navigate away) — NOT before
-- [ ] **SEEN-03**: On the NEXT session load, previously-seen videos may be deprioritized in ordering (pushed lower) but are still shown — not hidden
-- [ ] **SEEN-04**: Viral Today grid view shows ALL videos by default — no seen-based filtering applied to the grid at all
+- [x] **SEEN-01**: Seen videos are NEVER removed from the reels feed during the current session — the full feed stays intact for the entire session (TikTok/Instagram model)
+- [x] **SEEN-02**: Seen data (which videos the user watched) is only flushed to DB when the session ends (page close/navigate away) — NOT before
+- [x] **SEEN-03**: On the NEXT session load, previously-seen videos may be deprioritized in ordering (pushed lower) but are still shown — not hidden
+- [x] **SEEN-04**: Viral Today grid view shows ALL videos by default — no seen-based filtering applied to the grid at all
 
 ### Thumbnails
 
-- [ ] **THUMB-01**: Instagram thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
-- [ ] **THUMB-02**: TikTok thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
-- [ ] **THUMB-03**: YouTube thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
+- [x] **THUMB-01**: Instagram thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
+- [x] **THUMB-02**: TikTok thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
+- [x] **THUMB-03**: YouTube thumbnails ALWAYS show something on the Viral Today grid — real thumbnail if available, otherwise a branded gradient/placeholder. Blank thumbnail slots are never acceptable.
 
 ## Future Requirements
 
@@ -56,13 +56,13 @@
 | REEL-04 | Phase 6 | Complete |
 | NAV-01 | Phase 6 | Complete |
 | NAV-02 | Phase 6 | Complete |
-| SEEN-01 | Phase 7 | Pending |
-| SEEN-02 | Phase 7 | Pending |
-| SEEN-03 | Phase 7 | Pending |
-| SEEN-04 | Phase 7 | Pending |
-| THUMB-01 | Phase 7 | Pending |
-| THUMB-02 | Phase 7 | Pending |
-| THUMB-03 | Phase 7 | Pending |
+| SEEN-01 | Phase 7 | Complete |
+| SEEN-02 | Phase 7 | Complete |
+| SEEN-03 | Phase 7 | Complete |
+| SEEN-04 | Phase 7 | Complete |
+| THUMB-01 | Phase 7 | Complete |
+| THUMB-02 | Phase 7 | Complete |
+| THUMB-03 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total
