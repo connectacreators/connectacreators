@@ -833,6 +833,17 @@ export default function LandingPageBuilder() {
               {/* BOOKING */}
               {activeTab === "booking" && (
                 <div className="space-y-4">
+                  {/* Sticky Mobile CTA */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Sticky Mobile CTA</p>
+                      <p className="text-xs text-muted-foreground">Shows a fixed "Book Now" button at the bottom of mobile screens</p>
+                    </div>
+                    <Switch
+                      checked={page.show_sticky_cta ?? true}
+                      onCheckedChange={(v) => setPage({ ...page, show_sticky_cta: v })}
+                    />
+                  </div>
                   {/* Master toggle */}
                   <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                     <div>
@@ -1132,6 +1143,17 @@ export default function LandingPageBuilder() {
                     {page.og_image_url && (
                       <img src={page.og_image_url} alt="OG preview" className="mt-2 w-full rounded-lg object-cover" style={{ maxHeight: 100 }} />
                     )}
+                  </div>
+                  {/* Facebook Pixel */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Facebook Pixel ID</Label>
+                    <Input
+                      value={page.fb_pixel_id || ""}
+                      onChange={(e) => setPage({ ...page, fb_pixel_id: e.target.value.trim() })}
+                      placeholder="e.g. 942091105339252"
+                      className="h-10 font-mono text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">Paste your Pixel ID (numbers only). Used to track conversions from ads.</p>
                   </div>
                 </div>
               )}
