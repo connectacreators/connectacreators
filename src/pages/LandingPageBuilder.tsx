@@ -233,6 +233,16 @@ export default function LandingPageBuilder() {
       seo_description: page.seo_description || null,
       favicon_url: page.favicon_url || null,
       og_image_url: page.og_image_url || null,
+      hero_image_url: page.hero_image_url || null,
+      font_family: page.font_family || "Inter, sans-serif",
+      fb_pixel_id: page.fb_pixel_id || null,
+      show_sticky_cta: page.show_sticky_cta ?? true,
+      trust_stat_1_number: page.trust_stat_1_number || null,
+      trust_stat_1_label: page.trust_stat_1_label || null,
+      trust_stat_2_number: page.trust_stat_2_number || null,
+      trust_stat_2_label: page.trust_stat_2_label || null,
+      trust_stat_3_number: page.trust_stat_3_number || null,
+      trust_stat_3_label: page.trust_stat_3_label || null,
     };
     const upsertPayload = page.id ? { ...payload, id: page.id } : payload;
     const { data, error } = await supabase
