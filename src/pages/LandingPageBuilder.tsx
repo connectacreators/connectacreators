@@ -93,6 +93,7 @@ export default function LandingPageBuilder() {
   const [uploadingPhoto1, setUploadingPhoto1] = useState(false);
   const [uploadingPhoto2, setUploadingPhoto2] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
 
   const publicUrl = page?.slug ? `https://connectacreators.com/p/${page.slug}` : "";
 
@@ -318,6 +319,38 @@ export default function LandingPageBuilder() {
     e.target.value = "";
   };
 
+  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !clientId) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("File too large — max 10MB."); e.target.value = ""; return; }
+    setUploadingHeroImage(true);
+    await supabase.storage.from("booking-logos").remove([
+      `${clientId}/hero-image.webp`, `${clientId}/hero-image.png`,
+      `${clientId}/hero-image.jpg`, `${clientId}/hero-image.jpeg`,
+    ]);
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${clientId}/hero-image.${ext}`;
+    const { error } = await supabase.storage.from("booking-logos").upload(path, file, { upsert: true });
+    if (error) { toast.error("Upload failed: " + error.message); }
+    else {
+      const { data: { publicUrl: url } } = supabase.storage.from("booking-logos").getPublicUrl(path);
+      setPage((p) => p ? { ...p, hero_image_url: `${url}?t=${Date.now()}` } : p);
+      toast.success("Hero image uploaded — click Save to keep it.");
+    }
+    setUploadingHeroImage(false);
+    e.target.value = "";
+  };
+
+  const handleHeroImageRemove = async () => {
+    if (!page || !clientId) return;
+    if (page.hero_image_url) {
+      const ext = page.hero_image_url.split(".").pop()?.split("?")[0];
+      await supabase.storage.from("booking-logos").remove([`${clientId}/hero-image.${ext}`]);
+    }
+    setPage((p) => p ? { ...p, hero_image_url: null } : p);
+    toast.success("Hero image removed");
+  };
+
   const copyUrl = () => {
     navigator.clipboard.writeText(publicUrl);
     setCopied(true);
@@ -437,6 +470,28 @@ export default function LandingPageBuilder() {
                       </label>
                       {page.logo_url && (
                         <button onClick={handleLogoRemove} className="text-muted-foreground hover:text-destructive transition-colors" title="Remove logo">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Hero Image */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">
+                      Hero Background Image <span style={{ color: "#888", fontWeight: 400 }}>(optional — shows behind headline)</span>
+                    </Label>
+                    {page.hero_image_url && (
+                      <img src={page.hero_image_url} alt="Hero" className="w-full h-24 object-cover rounded-lg border border-border mb-2" />
+                    )}
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
+                        {uploadingHeroImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
+                        {page.hero_image_url ? "Change image" : "Upload hero image"}
+                        <input type="file" accept="image/*" className="hidden" onChange={handleHeroImageUpload} />
+                      </label>
+                      {page.hero_image_url && (
+                        <button onClick={handleHeroImageRemove} className="text-muted-foreground hover:text-destructive transition-colors" title="Remove hero image">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
