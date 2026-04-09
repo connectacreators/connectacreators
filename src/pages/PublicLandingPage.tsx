@@ -181,34 +181,32 @@ export default function PublicLandingPage() {
     setMeta("og:type", "website");
   }, [page]);
 
-  // Facebook Pixel — keyed by custom domain
+  // Facebook Pixel — keyed by page.fb_pixel_id (or legacy domain map)
   useEffect(() => {
-    const DOMAIN_PIXELS: Record<string, string> = {
+    if (!page) return;
+    const LEGACY_DOMAIN_PIXELS: Record<string, string> = {
       "saratogachiropracticutah.store": "942091105339252",
     };
-    const pixelId = DOMAIN_PIXELS[hostname];
+    const pixelId = page.fb_pixel_id || LEGACY_DOMAIN_PIXELS[hostname] || null;
     if (!pixelId || document.getElementById("fb-pixel-script")) return;
 
-    // inject fbevents.js
     const script = document.createElement("script");
     script.id = "fb-pixel-script";
     script.async = true;
     script.src = "https://connect.facebook.net/en_US/fbevents.js";
     document.head.appendChild(script);
 
-    // init + track
     const inline = document.createElement("script");
     inline.id = "fb-pixel-init";
     inline.textContent = `
-      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-      n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];}(window,document,'script','','','','');
-      fbq('init','${pixelId}');
-      fbq('track','PageView');
-    `;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];}(window,document,'script','','','','');
+    fbq('init','${pixelId}');
+    fbq('track','PageView');
+  `;
     document.head.appendChild(inline);
 
-    // noscript fallback
     const ns = document.createElement("noscript");
     ns.id = "fb-pixel-noscript";
     ns.innerHTML = `<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1" />`;
@@ -221,7 +219,7 @@ export default function PublicLandingPage() {
       delete (window as any).fbq;
       delete (window as any)._fbq;
     };
-  }, [hostname]);
+  }, [page, hostname]);
 
   // Load Google Font for selected font_family
   useEffect(() => {
@@ -295,7 +293,7 @@ export default function PublicLandingPage() {
   };
 
   return (
-    <div style={{ fontFamily: page.font_family || "Arial, sans-serif", background: bg1, minHeight: "100vh" }}>
+    <div style={{ fontFamily: page.font_family || "Arial, sans-serif", background: bg1, minHeight: "100vh", paddingBottom: (page.show_sticky_cta ?? true) ? 80 : 0 }}>
 
       {/* ── PREVIEW BANNER ─────────────────────── */}
       {isPreview && !usingCustomDomain && (
@@ -403,7 +401,7 @@ export default function PublicLandingPage() {
 
           // ── Calendar embed ─────────────────────
           if (btype === "calendar") return (
-            <div style={{ background: cardBg, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
+            <div id="booking-section" style={{ background: cardBg, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
               <iframe
                 src={`https://connectacreators.com/book/${page.client_id}`}
                 width="100%"
@@ -421,7 +419,7 @@ export default function PublicLandingPage() {
 
           // ── Vimeo video ────────────────────────
           if (btype === "vimeo" && page.vimeo_embed_url) return (
-            <div style={{ background: cardBg, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
+            <div id="booking-section" style={{ background: cardBg, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
               <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
                 <iframe
                   src={page.vimeo_embed_url}
@@ -435,7 +433,7 @@ export default function PublicLandingPage() {
 
           // ── CTA button ─────────────────────────
           if (btype === "cta" && page.booking_cta_url) return (
-            <div style={{ background: cardBg, borderRadius: 12, padding: "36px 24px", textAlign: "center", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
+            <div id="booking-section" style={{ background: cardBg, borderRadius: 12, padding: "36px 24px", textAlign: "center", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
               <a
                 href={page.booking_cta_url}
                 target="_blank"
@@ -634,6 +632,44 @@ export default function PublicLandingPage() {
       )}
 
       <div style={{ height: 48, background: bg2 }} />
+
+      {/* Sticky Mobile CTA */}
+      {(page.show_sticky_cta ?? true) && (
+        <>
+          <style>{`@media (min-width: 640px) { #sticky-cta-bar { display: none !important; } }`}</style>
+          <div id="sticky-cta-bar" style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            padding: "12px 16px",
+            background: bgBase,
+            borderTop: `1px solid ${cardBorder}`,
+          }}>
+            <button
+              onClick={() => document.getElementById("booking-section")?.scrollIntoView({ behavior: "smooth" })}
+              style={{
+                width: "100%",
+                background: safeAccent,
+                color: hexLuminance(safeAccent) > 0.35 ? "#1a1a1a" : "#ffffff",
+                fontFamily: page.font_family || "Arial, sans-serif",
+                fontWeight: 700,
+                fontSize: 16,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase" as const,
+                border: "none",
+                borderRadius: 10,
+                padding: "15px 24px",
+                cursor: "pointer",
+                boxShadow: `0 4px 16px ${safeAccent}44`,
+              }}
+            >
+              {page.cta_button_text || "Book Now"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
