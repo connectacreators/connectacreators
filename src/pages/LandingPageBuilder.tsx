@@ -80,6 +80,24 @@ const FONT_OPTIONS = [
   { label: "Bold & Direct", value: "Oswald, sans-serif", sample: "Book your appointment today" },
 ] as const;
 
+const HEADLINE_TEMPLATES = [
+  { label: "Outcome-Focused", formula: "Get [Result] in [Timeframe]", example: 'e.g. "Get Your Dream Smile in Just 2 Visits"' },
+  { label: "Loss-Aversion", formula: "Stop [Pain]. Start [Outcome].", example: 'e.g. "Stop Hiding Your Smile. Start Living Confidently."' },
+  { label: "Social Proof", formula: "Trusted by [X]+ [Clients]", example: 'e.g. "Trusted by 2,000+ Families Since 2005"' },
+  { label: "Question Hook", formula: "Ready to [Achieve Goal]?", example: 'e.g. "Ready to Transform Your Business?"' },
+  { label: "Direct Value", formula: "[Adjective] [Service] for [Audience]", example: 'e.g. "Premium Legal Counsel for Growing Businesses"' },
+] as const;
+
+const CTA_OPTIONS = [
+  "Book My Free Consultation",
+  "Reserve My Spot",
+  "Get My Free Assessment",
+  "Claim My Appointment",
+  "Start My Transformation",
+  "Schedule a Call",
+  "Get Started Today",
+] as const;
+
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 40);
 }
@@ -613,6 +631,23 @@ export default function LandingPageBuilder() {
               {/* HERO */}
               {activeTab === "hero" && (
                 <div className="space-y-4">
+                  {/* Headline Formula Picker */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Headline Formula <span style={{ color: "#888", fontWeight: 400 }}>(pick one to pre-fill, then edit)</span></Label>
+                    <select
+                      className="w-full rounded-lg border border-border bg-card text-foreground text-xs px-3 py-2 mb-1"
+                      value=""
+                      onChange={(e) => {
+                        const tpl = HEADLINE_TEMPLATES.find(t => t.formula === e.target.value);
+                        if (tpl) setPage({ ...page, hero_headline: tpl.formula });
+                      }}
+                    >
+                      <option value="">— Pick a formula to pre-fill —</option>
+                      {HEADLINE_TEMPLATES.map((t) => (
+                        <option key={t.formula} value={t.formula}>{t.label}: {t.example}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1 block">Headline</Label>
                     <Input value={page.hero_headline || ""} onChange={(e) => setPage({ ...page, hero_headline: e.target.value || null })}
@@ -623,10 +658,57 @@ export default function LandingPageBuilder() {
                     <Textarea value={page.hero_subheadline || ""} onChange={(e) => setPage({ ...page, hero_subheadline: e.target.value || null })}
                       placeholder="Expert care for your health and wellness. Schedule a consultation today." className="min-h-[80px]" />
                   </div>
+                  {/* Trust Stats */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">
+                      Trust Stats <span style={{ color: "#888", fontWeight: 400 }}>(shown below headline — leave blank to hide)</span>
+                    </Label>
+                    <div className="space-y-2">
+                      {([1, 2, 3] as const).map((n) => {
+                        const numKey = `trust_stat_${n}_number` as keyof typeof page;
+                        const lblKey = `trust_stat_${n}_label` as keyof typeof page;
+                        return (
+                          <div key={n} className="flex gap-2 items-center">
+                            <span className="text-xs text-muted-foreground w-4">{n}.</span>
+                            <Input
+                              value={(page[numKey] as string) || ""}
+                              onChange={(e) => setPage({ ...page, [numKey]: e.target.value })}
+                              placeholder='e.g. "4.9 ⭐" or "2,000+"'
+                              className="h-8 text-xs flex-1"
+                            />
+                            <Input
+                              value={(page[lblKey] as string) || ""}
+                              onChange={(e) => setPage({ ...page, [lblKey]: e.target.value })}
+                              placeholder='e.g. "Google Rating"'
+                              className="h-8 text-xs flex-1"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1 block">CTA Button Text</Label>
-                    <Input value={page.cta_button_text} onChange={(e) => setPage({ ...page, cta_button_text: e.target.value })}
-                      placeholder="Book Now" className="h-10" />
+                    <select
+                      className="w-full rounded-lg border border-border bg-card text-foreground text-xs px-3 py-2 mb-2"
+                      value={(CTA_OPTIONS as readonly string[]).includes(page.cta_button_text) ? page.cta_button_text : "__custom__"}
+                      onChange={(e) => {
+                        if (e.target.value !== "__custom__") setPage({ ...page, cta_button_text: e.target.value });
+                      }}
+                    >
+                      {CTA_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                      <option value="__custom__">Custom…</option>
+                    </select>
+                    {!(CTA_OPTIONS as readonly string[]).includes(page.cta_button_text) && (
+                      <Input
+                        value={page.cta_button_text}
+                        onChange={(e) => setPage({ ...page, cta_button_text: e.target.value })}
+                        placeholder="Type your custom CTA text"
+                        className="h-10 text-sm"
+                      />
+                    )}
                   </div>
                 </div>
               )}
