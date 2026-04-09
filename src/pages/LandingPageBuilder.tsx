@@ -327,6 +327,7 @@ export default function LandingPageBuilder() {
     await supabase.storage.from("booking-logos").remove([
       `${clientId}/hero-image.webp`, `${clientId}/hero-image.png`,
       `${clientId}/hero-image.jpg`, `${clientId}/hero-image.jpeg`,
+      `${clientId}/hero-image.gif`, `${clientId}/hero-image.svg`,
     ]);
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
     const path = `${clientId}/hero-image.${ext}`;
@@ -345,7 +346,9 @@ export default function LandingPageBuilder() {
     if (!page || !clientId) return;
     if (page.hero_image_url) {
       const ext = page.hero_image_url.split(".").pop()?.split("?")[0];
-      await supabase.storage.from("booking-logos").remove([`${clientId}/hero-image.${ext}`]);
+      if (ext) {
+        await supabase.storage.from("booking-logos").remove([`${clientId}/hero-image.${ext}`]);
+      }
     }
     setPage((p) => p ? { ...p, hero_image_url: null } : p);
     toast.success("Hero image removed");
