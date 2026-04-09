@@ -50,6 +50,16 @@ type LandingPageData = {
   seo_description?: string | null;
   favicon_url?: string | null;
   og_image_url?: string | null;
+  hero_image_url?: string | null;
+  font_family?: string | null;
+  fb_pixel_id?: string | null;
+  show_sticky_cta?: boolean;
+  trust_stat_1_number?: string | null;
+  trust_stat_1_label?: string | null;
+  trust_stat_2_number?: string | null;
+  trust_stat_2_label?: string | null;
+  trust_stat_3_number?: string | null;
+  trust_stat_3_label?: string | null;
 };
 
 const TABS = [
