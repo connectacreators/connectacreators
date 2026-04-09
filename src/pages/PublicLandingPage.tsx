@@ -223,6 +223,19 @@ export default function PublicLandingPage() {
     };
   }, [hostname]);
 
+  // Load Google Font for selected font_family
+  useEffect(() => {
+    if (!page?.font_family) return;
+    const id = "public-page-font";
+    const existing = document.getElementById(id);
+    if (existing) existing.remove();
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&family=Oswald:wght@400;700&display=swap";
+    document.head.appendChild(link);
+  }, [page?.font_family]);
+
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <Loader2 style={{ width: 32, height: 32, color: "#C4922A", animation: "spin 1s linear infinite" }} />
@@ -264,6 +277,9 @@ export default function PublicLandingPage() {
   const contrastRatio = (Math.max(accentLum, bgLum) + 0.05) / (Math.min(accentLum, bgLum) + 0.05);
   const safeAccent = contrastRatio >= 2.5 ? accent : (bgIsLight ? "#1a1a1a" : "#f0f0f0");
 
+  const heroTextColor = page.hero_image_url ? "#ffffff" : textPrimary;
+  const heroMutedColor = page.hero_image_url ? "rgba(255,255,255,0.85)" : textMuted;
+
   const services = page.services || [];
   const testimonials = page.testimonials || [];
   const hasServices = services.length > 0 || !!(page.about_title || page.about_description);
@@ -272,14 +288,14 @@ export default function PublicLandingPage() {
   const avatarColors = ["#e84393", "#6c5ce7", "#00b894", "#fd79a8", "#0984e3", "#e17055"];
 
   const headingStyle: React.CSSProperties = {
-    fontFamily: "Arial, sans-serif",
+    fontFamily: page.font_family || "Arial, sans-serif",
     fontWeight: 700,
     color: textPrimary,
     textAlign: "center",
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", background: bg1, minHeight: "100vh" }}>
+    <div style={{ fontFamily: page.font_family || "Arial, sans-serif", background: bg1, minHeight: "100vh" }}>
 
       {/* ── PREVIEW BANNER ─────────────────────── */}
       {isPreview && !usingCustomDomain && (
@@ -291,27 +307,94 @@ export default function PublicLandingPage() {
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px" }}>
 
         {/* ── HERO ─────────────────────────────── */}
-        <div style={{ paddingTop: 40, paddingBottom: 28, textAlign: "center" }}>
-          {page.logo_url && (
-            <img src={page.logo_url} alt="Logo" style={{ maxHeight: 80, maxWidth: 260, objectFit: "contain", margin: "0 auto 24px", display: "block" }} />
+        <div style={{
+          paddingTop: 40,
+          paddingBottom: 28,
+          textAlign: "center",
+          ...(page.hero_image_url ? {
+            backgroundImage: `url(${page.hero_image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            position: "relative" as const,
+            margin: "0 -16px",
+            padding: "40px 16px 28px",
+          } : {}),
+        }}>
+          {page.hero_image_url && (
+            <div style={{
+              position: "absolute" as const,
+              inset: 0,
+              background: "rgba(0,0,0,0.5)",
+            }} />
           )}
-          {page.hero_headline && (
-            <h1 style={{
-              ...headingStyle,
-              fontSize: "clamp(24px, 5.5vw, 40px)",
-              lineHeight: 1.15,
-              margin: "0 0 16px",
-              textTransform: "uppercase",
-              letterSpacing: "-0.01em",
-            }}>
-              {page.hero_headline}
-            </h1>
-          )}
-          {page.hero_subheadline && (
-            <p style={{ fontSize: 15, color: textMuted, lineHeight: 1.65, margin: 0, maxWidth: 560, marginLeft: "auto", marginRight: "auto", textAlign: "center" }}>
-              {page.hero_subheadline}
-            </p>
-          )}
+          <div style={{ position: "relative" as const, zIndex: 1 }}>
+            {page.logo_url && (
+              <img src={page.logo_url} alt="Logo" style={{ maxHeight: 80, maxWidth: 260, objectFit: "contain", margin: "0 auto 24px", display: "block" }} />
+            )}
+            {page.hero_headline && (
+              <h1 style={{
+                ...headingStyle,
+                fontSize: "clamp(24px, 5.5vw, 40px)",
+                lineHeight: 1.15,
+                margin: "0 0 16px",
+                textTransform: "uppercase",
+                letterSpacing: "-0.01em",
+                color: heroTextColor,
+              }}>
+                {page.hero_headline}
+              </h1>
+            )}
+            {page.hero_subheadline && (
+              <p style={{ fontSize: 15, color: heroMutedColor, lineHeight: 1.65, margin: 0, maxWidth: 560, marginLeft: "auto", marginRight: "auto", textAlign: "center" }}>
+                {page.hero_subheadline}
+              </p>
+            )}
+            {/* Trust Strip */}
+            {(page.trust_stat_1_number || page.trust_stat_2_number || page.trust_stat_3_number) && (
+              <div style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "stretch",
+                flexWrap: "wrap",
+                marginTop: 20,
+                marginBottom: 4,
+              }}>
+                {[
+                  { num: page.trust_stat_1_number, lbl: page.trust_stat_1_label },
+                  { num: page.trust_stat_2_number, lbl: page.trust_stat_2_label },
+                  { num: page.trust_stat_3_number, lbl: page.trust_stat_3_label },
+                ].filter(s => s.num).map((stat, i, arr) => (
+                  <div key={i} style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    padding: "8px 20px",
+                    borderRight: i < arr.length - 1 ? `1px solid ${page.hero_image_url ? "rgba(255,255,255,0.3)" : cardBorder}` : undefined,
+                  }}>
+                    <span style={{
+                      fontSize: 22,
+                      fontWeight: 800,
+                      color: page.hero_image_url ? "#ffffff" : safeAccent,
+                      fontFamily: page.font_family || "Arial, sans-serif",
+                      lineHeight: 1.1,
+                    }}>
+                      {stat.num}
+                    </span>
+                    {stat.lbl && (
+                      <span style={{
+                        fontSize: 11,
+                        color: page.hero_image_url ? "rgba(255,255,255,0.75)" : textMuted,
+                        marginTop: 2,
+                        textAlign: "center",
+                      }}>
+                        {stat.lbl}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── BOOKING SECTION ─────────────────── */}
