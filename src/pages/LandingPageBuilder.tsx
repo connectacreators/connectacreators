@@ -73,6 +73,13 @@ const TABS = [
   { id: "seo", label: "SEO", icon: Globe },
 ];
 
+const FONT_OPTIONS = [
+  { label: "Clean & Modern", value: "Inter, sans-serif", sample: "Book your appointment today" },
+  { label: "Trustworthy & Warm", value: "Lato, sans-serif", sample: "Book your appointment today" },
+  { label: "Premium & Elegant", value: "'Playfair Display', serif", sample: "Book your appointment today" },
+  { label: "Bold & Direct", value: "Oswald, sans-serif", sample: "Book your appointment today" },
+] as const;
+
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 40);
 }
@@ -133,6 +140,17 @@ export default function LandingPageBuilder() {
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/dashboard");
   }, [authLoading, isAdmin, navigate]);
+
+  // Load Google Fonts for font picker preview
+  useEffect(() => {
+    const id = "builder-google-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&family=Oswald:wght@400;700&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   const validateSlug = async (slug: string) => {
     if (!slug || slug.length < 2) { setSlugError("Slug must be at least 2 characters"); return false; }
@@ -543,6 +561,30 @@ export default function LandingPageBuilder() {
                           }}
                         >
                           {lang === "en" ? "🇺🇸 English" : "🇪🇸 Spanish"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Font Picker */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-2 block">Font Style</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FONT_OPTIONS.map((font) => (
+                        <button
+                          key={font.value}
+                          type="button"
+                          onClick={() => setPage({ ...page, font_family: font.value })}
+                          className={`p-3 rounded-lg border text-left transition-all ${
+                            (page.font_family || "Inter, sans-serif") === font.value
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/40"
+                          }`}
+                        >
+                          <p className="text-[10px] text-muted-foreground mb-1">{font.label}</p>
+                          <p style={{ fontFamily: font.value, fontSize: 13, color: "hsl(var(--foreground))", margin: 0 }}>
+                            {font.sample}
+                          </p>
                         </button>
                       ))}
                     </div>
