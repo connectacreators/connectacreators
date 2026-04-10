@@ -42,7 +42,8 @@ Replace the current 659-line VSL-heavy landing page with a simple, results-first
 - Side-by-side before/after images
   - Before: `src/assets/zigufit-before.png`
   - After: `src/assets/zigufit-after.png`
-- Stat: **+1,275% growth**
+- Profile screenshot (after state): `src/assets/zigufit-tiktok-after.png` — shows 17.4K live
+- Stat: **500 → 17.4K followers** (TikTok)
 - 1–2 lines of context
 - Gold accent (`#E8B458`)
 
@@ -102,6 +103,7 @@ Replace the current 659-line VSL-heavy landing page with a simple, results-first
 | Dr. Calvin after | `src/assets/dr-calvin-after.png` | Section ③ |
 | ZiguFit before | `src/assets/zigufit-before.png` | Section ④ |
 | ZiguFit after | `src/assets/zigufit-after.png` | Section ④ |
+| ZiguFit TikTok screenshot | `src/assets/zigufit-tiktok-after.png` | Section ④ (live proof) |
 | Jonathan Instagram | `src/assets/jonathan-instagram.png` | Section ⑤ |
 | Jonathan TikTok | `src/assets/jonathan-tiktok.png` | Section ⑤ |
 
