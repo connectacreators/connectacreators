@@ -21,11 +21,35 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        landing: path.resolve(__dirname, "landing.html"),
+      },
       output: {
         manualChunks(id) {
-          // All node_modules into a vendor chunk
-          if (id.includes('node_modules')) {
-            return 'vendor';
+          // Heavy 3D/WebGL libs get their own chunks to avoid vendor chunk bloat
+          if (id.includes('node_modules/three/')) return 'three';
+          if (id.includes('node_modules/ogl/')) return 'ogl';
+          if (id.includes('node_modules/gsap/')) return 'gsap';
+          // Isolate postgrest-js into its own chunk so the public landing
+          // entry can use it without dragging in auth/realtime/storage.
+          if (id.includes('node_modules/@supabase/postgrest-js/')) {
+            return 'postgrest';
+          }
+          // Force the heavy parts of Supabase (auth, realtime, storage,
+          // functions, the umbrella supabase-js) plus the main full client
+          // into a dedicated chunk. This is what the main app uses. The
+          // public landing entry uses postgrest-js directly via
+          // landing-client.ts, so this chunk is not loaded for landing.
+          if (
+            id.includes('node_modules/@supabase/supabase-js/') ||
+            id.includes('node_modules/@supabase/auth-js/') ||
+            id.includes('node_modules/@supabase/realtime-js/') ||
+            id.includes('node_modules/@supabase/storage-js/') ||
+            id.includes('node_modules/@supabase/functions-js/') ||
+            id.endsWith('/integrations/supabase/client.ts')
+          ) {
+            return 'supabase-client';
           }
           // Followup engine modules isolated to break circular init ordering
           if (
@@ -36,6 +60,9 @@ export default defineConfig(({ mode }) => ({
           ) {
             return 'followup';
           }
+          // Let Rollup auto-chunk everything else: shared deps used by both
+          // landing-main and main entries end up in a shared chunk; main-only
+          // deps end up in main-only chunks.
         },
       },
     },

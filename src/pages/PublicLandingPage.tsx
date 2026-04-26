@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { landingDb } from "@/integrations/supabase/landing-client";
 import { Loader2 } from "lucide-react";
 
 type Service = { emoji: string; title: string; description: string };
@@ -132,7 +132,7 @@ export default function PublicLandingPage() {
   const usingCustomDomain = isCustomDomain(hostname);
 
   useEffect(() => {
-    let query = supabase.from("landing_pages").select("*");
+    let query = landingDb.from("landing_pages").select("*");
     if (usingCustomDomain) {
       query = query.eq("custom_domain", hostname);
     } else {
@@ -310,24 +310,49 @@ export default function PublicLandingPage() {
           paddingBottom: 28,
           textAlign: "center",
           ...(page.hero_image_url ? {
-            backgroundImage: `url(${page.hero_image_url})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
             position: "relative" as const,
             margin: "0 -16px",
             padding: "40px 16px 28px",
+            overflow: "hidden",
           } : {}),
         }}>
           {page.hero_image_url && (
-            <div style={{
-              position: "absolute" as const,
-              inset: 0,
-              background: "rgba(0,0,0,0.5)",
-            }} />
+            <>
+              <img
+                src={page.hero_image_url}
+                alt=""
+                width={1200}
+                height={600}
+                fetchPriority="high"
+                decoding="async"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  zIndex: 0,
+                }}
+              />
+              <div style={{
+                position: "absolute" as const,
+                inset: 0,
+                background: "rgba(0,0,0,0.5)",
+                zIndex: 1,
+              }} />
+            </>
           )}
           <div style={{ position: "relative" as const, zIndex: 1 }}>
             {page.logo_url && (
-              <img src={page.logo_url} alt="Logo" style={{ maxHeight: 80, maxWidth: 260, objectFit: "contain", margin: "0 auto 24px", display: "block" }} />
+              <img
+                src={page.logo_url}
+                alt="Logo"
+                width={260}
+                height={80}
+                fetchPriority="high"
+                decoding="async"
+                style={{ maxHeight: 80, maxWidth: 260, width: "auto", height: "auto", objectFit: "contain", margin: "0 auto 24px", display: "block" }}
+              />
             )}
             {page.hero_headline && (
               <h1 style={{
@@ -519,6 +544,10 @@ export default function PublicLandingPage() {
                   <img
                     src={page.about_photo_1_url}
                     alt={tr.teamMember}
+                    width={120}
+                    height={120}
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: `3px solid ${safeAccent}` }}
                   />
                 )}
@@ -526,6 +555,10 @@ export default function PublicLandingPage() {
                   <img
                     src={page.about_photo_2_url}
                     alt={tr.teamMember}
+                    width={120}
+                    height={120}
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: `3px solid ${safeAccent}` }}
                   />
                 )}
@@ -586,8 +619,15 @@ export default function PublicLandingPage() {
         <div style={{ background: bg2, padding: "40px 0" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px" }}>
             {page.clinic_photo_url && (
-              <img src={page.clinic_photo_url} alt="Clinic"
-                style={{ width: "100%", borderRadius: 10, objectFit: "cover", maxHeight: 260, marginBottom: 16, display: "block" }} />
+              <img
+                src={page.clinic_photo_url}
+                alt="Clinic"
+                width={720}
+                height={260}
+                loading="lazy"
+                decoding="async"
+                style={{ width: "100%", height: "auto", borderRadius: 10, objectFit: "cover", maxHeight: 260, marginBottom: 16, display: "block" }}
+              />
             )}
             {hasContact && (
               <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "20px 18px", textAlign: "center" }}>
