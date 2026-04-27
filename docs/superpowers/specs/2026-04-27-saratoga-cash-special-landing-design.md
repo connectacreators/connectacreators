@@ -178,7 +178,7 @@ If `PublicLandingPage` itself doesn't currently meet these targets, that's a sep
 - Hero displays the approved $75 offer with the 4-item value stack visible without scroll on a 390px-wide viewport (iPhone 12 baseline)
 - Calendar renders at section #3, not at the bottom
 - Spanish version (`/es`) shows cash-special content, not auto-injury content
-- Page passes Lighthouse mobile performance ≥ 70 with LCP ≤ 2.5s
+- This redesign does not introduce LCP regressions vs the current page; if current Lighthouse mobile perf is below 70 or LCP exceeds 2.5s, that is addressed in a separate performance spec
 - FB Pixel `PageView` fires on load; calendar booking writes a row to the `leads` table
 
 ## 11. Open questions for user
