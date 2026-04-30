@@ -1,0 +1,42 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to VPS
+        env:
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          sudo apt-get install -y sshpass
+          cd dist
+          tar czf /tmp/deploy.tar.gz assets/ index.html landing.html
+          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz root@72.62.200.145:/tmp/deploy.tar.gz
+          sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no root@72.62.200.145 \
+            "cd /var/www/connectacreators && tar xzf /tmp/deploy.tar.gz && rm /tmp/deploy.tar.gz"
+
+      - name: Purge Cloudflare cache
+        run: |
+          curl -s -X POST "https://api.cloudflare.com/client/v4/zones/ba43e8ef9bfec0c8169170a87bde8d68/purge_cache" \
+            -H "X-Auth-Email: robertogaunaj@gmail.com" \
+            -H "X-Auth-Key: ${{ secrets.CF_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
