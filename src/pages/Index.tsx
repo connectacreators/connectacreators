@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import drCalvinAfter from "@/assets/dr-calvin-after.png";
 import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
@@ -148,6 +149,17 @@ const PROCESS = [
 ];
 
 export default function Index() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+
+  const handleUnmute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      videoRef.current.volume = 1;
+      setMuted(false);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -285,19 +297,47 @@ export default function Index() {
               margin: "0 auto 20px",
             }}
           >
-            CONVIÉRTETE EN EL #1 DE TU INDUSTRIA ENTRE LA COMUNIDAD HISPANA.
+            1.000.000 DE VISTAS O NO PAGAS.
           </div>
 
           {/* VSL Video */}
-          <div style={{ maxWidth: 760, margin: "0 auto 36px", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.35)" }}>
+          <div style={{ maxWidth: 760, margin: "0 auto 36px", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.35)", position: "relative" }}>
             <video
+              ref={videoRef}
               controls
+              autoPlay
+              muted
               playsInline
-              preload="metadata"
+              preload="auto"
               style={{ width: "100%", display: "block" }}
             >
-              <source src="/Roberto_Vsl-2-52-52.mp4" type="video/mp4" />
+              <source src="/VSL_ESPANOL_ROBERTO.mp4" type="video/mp4" />
             </video>
+            {muted && (
+              <button
+                onClick={handleUnmute}
+                style={{
+                  position: "absolute",
+                  bottom: 16,
+                  right: 16,
+                  background: "rgba(0,0,0,0.75)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  zIndex: 10,
+                }}
+              >
+                🔊 Activar sonido
+              </button>
+            )}
           </div>
 
           <div
@@ -310,7 +350,7 @@ export default function Index() {
               marginBottom: 44,
             }}
           >
-            1,000,000 de vistas garantizado, o te devolvemos tu dinero.
+            Contenido viral para negocios hispanos. Sin resultados, no pagas.
           </div>
           <ApplyBtn inverted />
 
