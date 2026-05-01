@@ -10,6 +10,34 @@ import {
 } from "lucide-react";
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
 import connectaHorseLogo from "@/assets/connecta-horse-logo.png";
+import BorderGlow from "@/components/ui/BorderGlow";
+
+const useIsMobile = () => {
+  const [m, setM] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return m;
+};
+
+const PARTICLES = [
+  { left: "6%",  dur: 7,   del: 0,   size: 4, color: "rgba(6,182,212,0.7)" },
+  { left: "18%", dur: 9,   del: 0.5, size: 3, color: "rgba(132,204,22,0.6)" },
+  { left: "30%", dur: 6.5, del: 1.8, size: 5, color: "rgba(34,211,238,0.55)" },
+  { left: "42%", dur: 10,  del: 0.3, size: 3, color: "rgba(6,182,212,0.6)" },
+  { left: "54%", dur: 7.5, del: 2.5, size: 4, color: "rgba(132,204,22,0.5)" },
+  { left: "66%", dur: 8,   del: 1,   size: 3, color: "rgba(34,211,238,0.6)" },
+  { left: "78%", dur: 11,  del: 3.5, size: 3, color: "rgba(6,182,212,0.5)" },
+  { left: "12%", dur: 8.5, del: 2,   size: 4, color: "rgba(132,204,22,0.45)" },
+  { left: "90%", dur: 9.5, del: 1.5, size: 4, color: "rgba(6,182,212,0.55)" },
+  { left: "48%", dur: 12,  del: 4,   size: 3, color: "rgba(34,211,238,0.5)" },
+  { left: "35%", dur: 6,   del: 0.8, size: 5, color: "rgba(6,182,212,0.5)" },
+  { left: "72%", dur: 10.5,del: 3,   size: 3, color: "rgba(132,204,22,0.55)" },
+  { left: "85%", dur: 7,   del: 2.2, size: 4, color: "rgba(34,211,238,0.45)" },
+  { left: "25%", dur: 13,  del: 5.5, size: 3, color: "rgba(6,182,212,0.4)" },
+];
 
 const gold = "#22d3ee";
 const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #84CC16 100%)";
@@ -580,7 +608,7 @@ function DemoPlayer() {
   }, []);
 
   return (
-    <section style={{ padding: "0 var(--lp-demo-px) 40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <section style={{ padding: "0 var(--lp-demo-px) 40px", display: "flex", flexDirection: "column", alignItems: "center", position: "relative" as const, zIndex: 1 }}>
 
 
 
@@ -604,6 +632,7 @@ function DemoPlayer() {
         <video
           ref={videoRef}
           src={DEMO_VIDEO_URL}
+          poster="/demo-poster.jpg"
           style={{ width: "100%", display: "block", maxHeight: fullscreen ? "100vh" : "none" }}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
@@ -675,6 +704,7 @@ function DemoPlayer() {
 export default function LandingPageNew() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -785,6 +815,7 @@ export default function LandingPageNew() {
             --lp-demo-px: 14px;
             --lp-horse-h: 80px;
           }
+          .cc-horse-wrap { display: none !important; }
           .cc-viral-overflow-chips { display: none !important; }
           .cc-viral-search { min-width: 0 !important; flex: 1 !important; }
           .cc-feature-mockup { max-width: 100% !important; overflow-x: hidden; }
@@ -800,6 +831,11 @@ export default function LandingPageNew() {
         @keyframes g1 { 0%,100%{opacity:.06;transform:scale(1) translate(0,0)} 50%{opacity:.09;transform:scale(1.05) translate(30px,-20px)} }
         @keyframes g2 { 0%,100%{opacity:.03;transform:translate(0,0)} 50%{opacity:.05;transform:translate(-25px,15px)} }
         @keyframes g3 { 0%,100%{opacity:.04;transform:scale(1)} 50%{opacity:.06;transform:scale(1.1) translate(-15px,10px)} }
+        video::-webkit-media-controls { display: none !important; }
+        video::-webkit-media-controls-panel { display: none !important; }
+        video::-webkit-media-controls-play-button { display: none !important; }
+        video::-webkit-media-controls-start-playback-button { display: none !important; }
+        video::-moz-media-controls { display: none !important; }
         @keyframes horse-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes horse-glow-pulse { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
       `}</style>
@@ -831,12 +867,11 @@ export default function LandingPageNew() {
               <img src={connectaLoginLogo} alt="ConnectaCreators" className="h-8 object-contain" />
             </motion.div>
             <div className="hidden md:flex items-center gap-6">
-              <Link
-                to="/scripts"
-                className="btn-primary-glass px-6 py-2.5 rounded-lg font-semibold text-sm transition duration-200 hover:scale-105 active:scale-95"
-              >
-                Try Connecta
-              </Link>
+              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95">
+                <Link to="/scripts" className="px-6 py-2.5 font-semibold text-sm text-white block" style={{ textDecoration: "none" }}>
+                  Try Connecta
+                </Link>
+              </BorderGlow>
             </div>
             <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ color: gold }}>
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -849,28 +884,59 @@ export default function LandingPageNew() {
               className="md:hidden px-6 py-4 border-t"
               style={{ backgroundColor: "rgba(6,9,12,0.95)", borderColor: "rgba(8,145,178,0.2)", backdropFilter: "blur(24px)" }}
             >
-              <Link to="/scripts" className="btn-primary-glass block px-6 py-2.5 rounded-lg font-semibold text-sm w-fit">
-                Try Connecta
-              </Link>
+              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="w-fit">
+                <Link to="/scripts" className="px-6 py-2.5 font-semibold text-sm text-white block" style={{ textDecoration: "none" }}>
+                  Try Connecta
+                </Link>
+              </BorderGlow>
             </motion.div>
           )}
         </nav>
 
+        {/* Hero + Demo wrapper with particles background */}
+        <div className="relative" style={{ zIndex: 2 }}>
+          {/* Background — floating particles + radial glow + noise */}
+          <div style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+            {/* Radial glow base */}
+            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.15) 0%, transparent 55%)" }} />
+            {/* Secondary glow */}
+            <div style={{ position: "absolute", top: "15%", left: "25%", width: "50%", height: "40%", background: "radial-gradient(ellipse at center, rgba(132,204,22,0.06) 0%, transparent 65%)" }} />
+            {/* Floating particles */}
+            {PARTICLES.map((p, i) => (
+              <div key={i} className="lp-particle" style={{
+                left: p.left, bottom: 0,
+                width: p.size, height: p.size,
+                background: p.color,
+                animationDuration: `${p.dur}s`,
+                animationDelay: `${p.del}s`,
+              }} />
+            ))}
+            {/* Noise grain overlay */}
+            <div className="lp-noise" style={{ position: "absolute", inset: 0, opacity: 0.06 }} />
+          </div>
+
         {/* HERO */}
-        <section className="relative flex flex-col items-center" style={{ padding: "var(--lp-hero-pt) var(--lp-hero-px) 48px" }}>
-          {/* Horse logo — prominently above pill */}
-          <div className="relative flex items-center justify-center mb-5">
+        <section className="relative flex flex-col items-center" style={{ padding: "var(--lp-hero-pt) var(--lp-hero-px) 48px", zIndex: 1 }}>
+          {/* Horse logo — hidden on mobile (iOS in-app browsers don't support mix-blend-mode) */}
+          <div className="cc-horse-wrap relative flex items-center justify-center mb-5">
             <video
               autoPlay loop muted playsInline
+              controls={false}
+              disablePictureInPicture
+              // @ts-ignore — webkit vendor attribute
+              webkit-playsinline=""
               style={{
                 height: "var(--lp-horse-h)", objectFit: "contain",
-                background: "none",
+                background: "transparent",
                 outline: "none",
                 border: "none",
-                mixBlendMode: "lighten" as any,
+                pointerEvents: "none",
+                mixBlendMode: "screen" as any,
                 animation: "horse-float 8s ease-in-out infinite",
+                filter: "brightness(1.1)",
               }}
             >
+              <source src="/assets/horse-hero.webm" type="video/webm" />
               <source src="/assets/horse-hero.mp4" type="video/mp4" />
             </video>
           </div>
@@ -899,19 +965,18 @@ export default function LandingPageNew() {
               Turn any viral video into a ready-to-edit asset, assign it to your team, and ship faster without the chaos.
             </p>
 
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center gap-2.5 hover:scale-[1.02] transition-transform"
-              style={{ padding: "14px 34px", borderRadius: 12, fontSize: 14, fontWeight: 600, color: "#fff", background: "linear-gradient(135deg, rgba(6,182,212,.12), rgba(132,204,22,.06))", border: "1px solid rgba(8,145,178,.25)", textDecoration: "none", letterSpacing: "0.02em" }}
-            >
-              <Play size={14} />
-              Try It Free
-            </Link>
+            <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="hover:scale-[1.02] transition-transform w-fit mx-auto">
+              <Link to="/dashboard" className="inline-flex items-center gap-2.5 px-8 py-3.5 text-white" style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.02em", textDecoration: "none" }}>
+                <Play size={14} />
+                Try It Free
+              </Link>
+            </BorderGlow>
           </motion.div>
         </section>
 
         {/* DEMO VIDEO */}
         <DemoPlayer />
+        </div>{/* end Hero + Demo wrapper */}
 
         {/* Ticker */}
         <div
@@ -1046,13 +1111,12 @@ export default function LandingPageNew() {
               <p className="text-lg mb-10" style={{ color: "#666" }}>
                 Join the creators already using Connecta to scale their personal brand.
               </p>
-              <Link
-                to="/dashboard"
-                className="cc-cta-btn btn-primary-glass inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-semibold text-base transition duration-200 hover:scale-105 active:scale-95"
-              >
-                Start Free Today
-                <ArrowRight size={18} />
-              </Link>
+              <BorderGlow borderRadius={16} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95 w-fit mx-auto">
+                <Link to="/dashboard" className="cc-cta-btn inline-flex items-center gap-3 px-10 py-5 font-semibold text-base text-white" style={{ textDecoration: "none" }}>
+                  Start Free Today
+                  <ArrowRight size={18} />
+                </Link>
+              </BorderGlow>
             </div>
           </div>
         </motion.section>

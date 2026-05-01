@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Zap, Sparkles, GitBranch, Calendar, BarChart3, Settings2, ChevronLeft, Bot } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Zap, Sparkles, Calendar, BarChart3, Settings2, ChevronLeft, Bot } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -177,14 +177,14 @@ export default function ClientDetail() {
     {
       key: "sales" as const,
       label: "Sales",
-      description: language === "en" ? "Lead Tracker · Lead Calendar · AI Follow-Up" : "Tracker · Calendario de Leads · Seguimiento IA",
+      description: language === "en" ? "Lead Tracker · Lead Calendar" : "Tracker · Calendario de Leads",
       icon: BarChart3,
       color: "text-emerald-400",
     },
     {
       key: "setup" as const,
       label: language === "en" ? "Client Set Up" : "Configuración",
-      description: language === "en" ? "Brand Setup · Public Booking · Database" : "Marca · Booking Público · Base de Datos",
+      description: language === "en" ? "Onboarding · Booking · Landing Page · Database" : "Onboarding · Booking · Landing Page · Base de Datos",
       icon: Settings2,
       color: "text-violet-400",
     },
@@ -201,8 +201,6 @@ export default function ClientDetail() {
     sales: [
       { label: "Lead Tracker", description: language === "en" ? "Track incoming leads" : "Seguimiento de leads", icon: Target, color: "text-emerald-400", path: `/clients/${clientId}/leads` },
       { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads", icon: CalendarDays, color: "text-violet-400", path: `/clients/${clientId}/lead-calendar` },
-      { label: language === "en" ? "AI Follow-Up Builder" : "Constructor IA de Seguimiento", description: language === "en" ? "Visual workflow canvas for lead follow-up sequences" : "Lienzo visual de flujo para secuencias de seguimiento", icon: GitBranch, color: "text-indigo-400", path: `/clients/${clientId}/followup-builder` },
-      { label: language === "en" ? "Follow-Up Automation" : "Automatización de Seguimiento", description: language === "en" ? "SMTP email settings, Facebook connection & email automation" : "Configuración SMTP, Facebook y automatización de emails", icon: Zap, color: "text-orange-400", path: `/clients/${clientId}/followup-automation` },
     ],
     setup: [
       { label: language === "en" ? "Brand Setup" : "Configuración de Marca", description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding", icon: Sparkles, color: "text-yellow-400", path: `/onboarding/${clientId}` },
@@ -235,7 +233,7 @@ export default function ClientDetail() {
                   onClick={() => setActiveFolder(null)}
                   className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <ChevronLeft className="w-4 h-4" /> {clientName}
+                  <ChevronLeft className="w-4 h-4" /> {isUser && !isAdmin ? (user?.user_metadata?.full_name || user?.email?.split("@")[0] || clientName) : clientName}
                 </button>
                 <span className="text-muted-foreground/30">/</span>
                 {activeFolderData && (
@@ -263,7 +261,7 @@ export default function ClientDetail() {
                     initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}
                   >
                     <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                      <tool.icon className={`w-6 h-6 ${tool.color} group-hover:text-primary transition-colors`} />
+                      <tool.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                     </div>
                     <div>
                       <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight">{tool.label}</h2>
@@ -278,52 +276,64 @@ export default function ClientDetail() {
           /* ===== MAIN VIEW: vertically centered, 3 folder cards ===== */
           <div className="flex-1 flex items-center justify-center px-4 sm:px-6">
           <div className="max-w-3xl w-full text-center">
-            <motion.button
-              onClick={() => navigate("/clients")}
-              className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
-              initial="hidden" animate="visible" custom={0} variants={fadeUp}
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              {language === "en" ? "Back to clients" : "Volver a clientes"}
-            </motion.button>
+            {isUser && !isAdmin ? (
+              /* Subscriber greeting — matches Dashboard style */
+              <>
+                <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
+                  👋 {language === "en" ? "Hi" : "Hola"}, {user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User"}
+                </motion.p>
+              </>
+            ) : (
+              /* Admin/videographer view — back button + client name + edit controls */
+              <>
+                <motion.button
+                  onClick={() => navigate("/clients")}
+                  className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+                  initial="hidden" animate="visible" custom={0} variants={fadeUp}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  {language === "en" ? "Back to clients" : "Volver a clientes"}
+                </motion.button>
 
-            <motion.div
-              className="flex items-center justify-center gap-2 mb-2"
-              initial="hidden" animate="visible" custom={1} variants={fadeUp}
-            >
-              <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">
-                {clientName}
-              </p>
-              {(isAdmin || isOwnedByUser) && (
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => { setEditName(clientName); setEditEmail(clientEmail); setShowEditDialog(true); }}
-                    className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                    title={language === "en" ? "Edit client" : "Editar cliente"}
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
-                  {isAdmin && (
-                    <button
-                      onClick={() => setShowNotionDialog(true)}
-                      className={`p-1 rounded-md transition-colors ${notionDbId ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
-                      title="Notion database settings"
-                    >
-                      <Database className="w-3 h-3" />
-                    </button>
+                <motion.div
+                  className="flex items-center justify-center gap-2 mb-2"
+                  initial="hidden" animate="visible" custom={1} variants={fadeUp}
+                >
+                  <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">
+                    {clientName}
+                  </p>
+                  {(isAdmin || isOwnedByUser) && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => { setEditName(clientName); setEditEmail(clientEmail); setShowEditDialog(true); }}
+                        className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                        title={language === "en" ? "Edit client" : "Editar cliente"}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setShowNotionDialog(true)}
+                          className={`p-1 rounded-md transition-colors ${notionDbId ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
+                          title="Notion database settings"
+                        >
+                          <Database className="w-3 h-3" />
+                        </button>
+                      )}
+                      {isOwnedByUser && (
+                        <button
+                          onClick={() => setShowDeleteAlert(true)}
+                          className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                          title={language === "en" ? "Delete client" : "Eliminar cliente"}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   )}
-                  {isOwnedByUser && (
-                    <button
-                      onClick={() => setShowDeleteAlert(true)}
-                      className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
-                      title={language === "en" ? "Delete client" : "Eliminar cliente"}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </motion.div>
+                </motion.div>
+              </>
+            )}
 
             {/* Main folder view */}
             <>
@@ -334,7 +344,7 @@ export default function ClientDetail() {
                   custom={2}
                   variants={fadeUp}
                 >
-                  {language === "en" ? "What do we want to do?" : "¿Qué queremos hacer?"}
+                  {language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?"}
                 </motion.h1>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -349,7 +359,7 @@ export default function ClientDetail() {
                       variants={fadeUp}
                     >
                       <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                        <folder.icon className={`w-5 h-5 ${folder.color} group-hover:text-primary transition-colors`} />
+                        <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                       </div>
                       <div>
                         <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight">{folder.label}</h2>

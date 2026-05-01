@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free Trial CTA — 3 Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'DM Sans',system-ui,sans-serif;
+    background:#060a0f;
+    color:#e2e8f0;
+    min-height:100vh;
+    padding:40px 20px;
+  }
+  .page-title{
+    text-align:center;
+    font-size:14px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:#64748b;
+    margin-bottom:60px;
+  }
+  .options-grid{
+    display:flex;
+    flex-direction:column;
+    gap:80px;
+    max-width:460px;
+    margin:0 auto;
+  }
+  .option-label{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#0891B2;
+    margin-bottom:16px;
+    font-weight:600;
+  }
+  .option-desc{
+    text-align:center;
+    font-size:12px;
+    color:#64748b;
+    margin-bottom:20px;
+    line-height:1.6;
+    max-width:380px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  /* ══════════════════════════════════════════
+     SHARED CARD STYLES
+     ══════════════════════════════════════════ */
+  .card{
+    background:rgba(15,20,30,0.85);
+    border:1px solid rgba(8,145,178,0.25);
+    border-radius:16px;
+    padding:28px 24px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 0 60px rgba(8,145,178,0.06),0 8px 32px rgba(0,0,0,0.4);
+  }
+  .card::before{
+    content:'';
+    position:absolute;
+    top:0;left:0;right:0;
+    height:1px;
+    background:linear-gradient(90deg,transparent,rgba(8,145,178,0.6),rgba(132,204,22,0.4),transparent);
+  }
+  .plan-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .plan-card{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 16px;
+    border-radius:10px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    cursor:pointer;
+    transition:all 0.2s;
+  }
+  .plan-card:hover{border-color:rgba(255,255,255,0.14)}
+  .plan-card.selected{
+    background:rgba(8,145,178,0.1);
+    border-color:rgba(8,145,178,0.4);
+    box-shadow:0 0 20px rgba(8,145,178,0.1);
+  }
+  .plan-card .name{font-weight:700;font-size:15px}
+  .plan-card .meta{font-size:11px;color:#64748b;margin-top:2px}
+  .plan-card .price{font-weight:700;font-size:18px;color:#0891B2}
+  .plan-card .price span{font-size:11px;color:#64748b;font-weight:400}
+  .popular-badge{
+    font-size:9px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    background:rgba(132,204,22,0.15);
+    color:#a3e635;
+    border:1px solid rgba(132,204,22,0.3);
+    padding:2px 8px;
+    border-radius:99px;
+    font-weight:700;
+    position:absolute;
+    top:-8px;right:12px;
+  }
+  .cta-btn{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#0891B2,#84CC16);
+    color:#fff;
+    font-family:inherit;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    box-shadow:0 4px 20px rgba(8,145,178,0.35);
+    transition:all 0.2s;
+    position:relative;
+    overflow:hidden;
+  }
+  .cta-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .cta-btn::after{
+    content:'';
+    position:absolute;
+    top:0;left:0;right:0;
+    height:50%;
+    background:linear-gradient(180deg,rgba(255,255,255,0.12),transparent);
+    pointer-events:none;
+  }
+  .back-link{
+    text-align:center;
+    font-size:12px;
+    color:#64748b;
+    margin-top:12px;
+    cursor:pointer;
+  }
+
+  /* ══════════════════════════════════════════
+     OPTION A — "Zero Today" Hero
+     Big $0 callout above plans, timeline below
+     ══════════════════════════════════════════ */
+  .zero-hero{
+    text-align:center;
+    margin-bottom:20px;
+    padding:20px 16px;
+    border-radius:12px;
+    background:linear-gradient(135deg,rgba(8,145,178,0.08),rgba(132,204,22,0.05));
+    border:1px solid rgba(8,145,178,0.15);
+  }
+  .zero-hero .amount{
+    font-size:52px;
+    font-weight:700;
+    background:linear-gradient(135deg,#22d3ee,#a3e635);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    line-height:1;
+  }
+  .zero-hero .label{
+    font-size:13px;
+    color:#94a3b8;
+    margin-top:4px;
+  }
+  .zero-hero .label strong{color:#22d3ee;font-weight:600}
+  .zero-hero .sub{
+    font-size:11px;
+    color:#64748b;
+    margin-top:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+  }
+  .zero-hero .sub .shield{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    background:rgba(132,204,22,0.1);
+    border:1px solid rgba(132,204,22,0.2);
+    border-radius:99px;
+    padding:2px 8px;
+    color:#a3e635;
+    font-weight:600;
+    font-size:10px;
+  }
+  .mini-timeline{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0;
+    margin-top:16px;
+    padding:0 8px;
+  }
+  .mini-timeline .step{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    position:relative;
+    z-index:1;
+  }
+  .mini-timeline .dot{
+    width:10px;height:10px;
+    border-radius:50%;
+    background:#0891B2;
+    border:2px solid rgba(8,145,178,0.4);
+  }
+  .mini-timeline .dot.future{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.15)}
+  .mini-timeline .step-label{
+    font-size:9px;
+    color:#64748b;
+    margin-top:6px;
+    text-align:center;
+    white-space:nowrap;
+  }
+  .mini-timeline .step-label strong{color:#22d3ee;display:block;font-size:10px}
+  .mini-timeline .line{
+    flex:1;
+    height:2px;
+    background:rgba(8,145,178,0.2);
+    min-width:40px;
+    margin:0 -2px;
+    margin-bottom:20px;
+  }
+  .mini-timeline .line.future{background:rgba(255,255,255,0.06)}
+
+  /* ══════════════════════════════════════════
+     OPTION B — Inline "What happens" Breakdown
+     Plan card + embedded timeline story
+     ══════════════════════════════════════════ */
+  .trial-story{
+    margin:16px 0;
+    padding:16px;
+    border-radius:12px;
+    background:rgba(8,145,178,0.06);
+    border:1px solid rgba(8,145,178,0.15);
+  }
+  .trial-story .story-title{
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:#0891B2;
+    font-weight:700;
+    margin-bottom:14px;
+  }
+  .trial-story .story-steps{
+    display:flex;
+    flex-direction:column;
+    gap:0;
+    position:relative;
+    padding-left:20px;
+  }
+  .trial-story .story-steps::before{
+    content:'';
+    position:absolute;
+    left:5px;
+    top:6px;
+    bottom:6px;
+    width:2px;
+    background:linear-gradient(180deg,#0891B2,rgba(132,204,22,0.3));
+    border-radius:2px;
+  }
+  .story-step{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:6px 0;
+    position:relative;
+  }
+  .story-step .s-dot{
+    width:12px;height:12px;
+    min-width:12px;
+    border-radius:50%;
+    position:absolute;
+    left:-20px;
+    top:8px;
+  }
+  .story-step .s-dot.now{
+    background:#0891B2;
+    box-shadow:0 0 8px rgba(8,145,178,0.5);
+  }
+  .story-step .s-dot.mid{
+    background:rgba(8,145,178,0.3);
+    border:2px solid rgba(8,145,178,0.5);
+  }
+  .story-step .s-dot.end{
+    background:rgba(255,255,255,0.1);
+    border:2px solid rgba(255,255,255,0.15);
+  }
+  .story-step .s-text{font-size:13px;line-height:1.4}
+  .story-step .s-text .day{
+    font-weight:700;
+    color:#22d3ee;
+    font-size:12px;
+    display:block;
+  }
+  .story-step .s-text .what{color:#94a3b8;font-size:12px}
+  .story-step .s-text .highlight{
+    color:#a3e635;
+    font-weight:600;
+  }
+  .b-cta-area{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+  .b-cta-area .price-line{
+    text-align:center;
+    font-size:13px;
+    color:#94a3b8;
+  }
+  .b-cta-area .price-line .zero{
+    font-size:22px;
+    font-weight:700;
+    color:#22d3ee;
+    margin:0 4px;
+  }
+
+  /* ══════════════════════════════════════════
+     OPTION C — Sticky Bottom Bar + Risk Reversal
+     Compact plan selection, bold CTA zone below
+     ══════════════════════════════════════════ */
+  .c-plans{display:flex;flex-direction:column;gap:8px;margin-bottom:0}
+  .c-cta-zone{
+    margin-top:16px;
+    padding:20px;
+    border-radius:14px;
+    background:linear-gradient(135deg,rgba(8,145,178,0.12),rgba(132,204,22,0.06));
+    border:1px solid rgba(8,145,178,0.2);
+    text-align:center;
+  }
+  .c-cta-zone .free-tag{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:rgba(8,145,178,0.15);
+    border:1px solid rgba(8,145,178,0.3);
+    border-radius:99px;
+    padding:4px 14px;
+    font-size:12px;
+    font-weight:700;
+    color:#22d3ee;
+    margin-bottom:12px;
+  }
+  .c-cta-zone .free-tag .icon{
+    width:16px;height:16px;
+    background:linear-gradient(135deg,#0891B2,#84CC16);
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;
+    color:#fff;
+  }
+  .c-cta-zone .headline{
+    font-size:22px;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .c-cta-zone .headline .gradient{
+    background:linear-gradient(135deg,#22d3ee,#a3e635);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .c-cta-zone .fine{
+    font-size:12px;
+    color:#64748b;
+    margin-bottom:16px;
+    line-height:1.5;
+  }
+  .c-cta-zone .fine strong{color:#94a3b8}
+  .c-guarantees{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .c-guarantees .g-item{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    font-size:11px;
+    color:#64748b;
+  }
+  .c-guarantees .g-item .g-icon{
+    color:#a3e635;
+    font-size:13px;
+  }
+
+  /* divider */
+  .section-divider{
+    height:1px;
+    background:linear-gradient(90deg,transparent,rgba(8,145,178,0.2),transparent);
+    margin:0;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">3 Trial Conversion Options</div>
+
+<div class="options-grid">
+
+<!-- ═══════════════════════════════════════════
+     OPTION A — "$0 Today" Hero
+     Strategy: Lead with the price anchor ($0),
+     then show the timeline so they know exactly
+     what happens. Reduces ambiguity = less anxiety.
+     ═══════════════════════════════════════════ -->
+<div>
+  <div class="option-label">Option A — "$0 Today" Price Anchor</div>
+  <div class="option-desc">Lead with the biggest objection killer: you pay nothing today. The timeline removes ambiguity about what happens next.</div>
+  <div class="card">
+    <div class="card-header" style="text-align:center;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:700;background:linear-gradient(135deg,#06B6D4,#84CC16);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:1px">CONNECTA CREATORS</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Choose your plan</div>
+    </div>
+
+    <!-- Big $0 callout -->
+    <div class="zero-hero">
+      <div class="amount">$0</div>
+      <div class="label">due today — <strong>7 days free</strong> on any plan</div>
+      <div class="sub">
+        <span class="shield">&#10003; Cancel anytime</span>
+        <span>No card charged until day 8</span>
+      </div>
+      <!-- Mini timeline -->
+      <div class="mini-timeline">
+        <div class="step">
+          <div class="dot"></div>
+          <div class="step-label"><strong>Today</strong>Full access<br>$0 charged</div>
+        </div>
+        <div class="line"></div>
+        <div class="step">
+          <div class="dot" style="background:rgba(8,145,178,0.4)"></div>
+          <div class="step-label"><strong>Day 5</strong>We remind<br>you by email</div>
+        </div>
+        <div class="line future"></div>
+        <div class="step">
+          <div class="dot future"></div>
+          <div class="step-label"><strong>Day 8</strong>Plan starts<br>Cancel = $0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plans -->
+    <div class="plan-cards">
+      <div class="plan-card">
+        <div><div class="name">Starter</div><div class="meta">10,000 credits · 5 scrapes · 75 scripts</div></div>
+        <div class="price">$39<span>/mo</span></div>
+      </div>
+      <div class="plan-card selected" style="position:relative">
+        <span class="popular-badge">POPULAR</span>
+        <div><div class="name">Growth</div><div class="meta">30,000 credits · 10 scrapes · 200 scripts</div></div>
+        <div class="price">$79<span>/mo</span></div>
+      </div>
+      <div class="plan-card">
+        <div><div class="name">Pro</div><div class="meta">75,000 credits · 15 scrapes · 500 scripts</div></div>
+        <div class="price">$139<span>/mo</span></div>
+      </div>
+    </div>
+
+    <button class="cta-btn">Start Free — $0 Today &rarr;</button>
+    <div class="back-link">&larr; Back</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ═══════════════════════════════════════════
+     OPTION B — "What Happens" Story
+     Strategy: Tell a 3-step story so the user
+     can visualize their journey. Storytelling
+     converts better than bullet points.
+     ═══════════════════════════════════════════ -->
+<div>
+  <div class="option-label">Option B — "What Happens Next" Story</div>
+  <div class="option-desc">Walk them through the journey step-by-step. Storytelling reduces uncertainty and builds trust. Users can see themselves in the flow.</div>
+  <div class="card">
+    <div class="card-header" style="text-align:center;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:700;background:linear-gradient(135deg,#06B6D4,#84CC16);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:1px">CONNECTA CREATORS</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Choose your plan</div>
+    </div>
+
+    <!-- Plans -->
+    <div class="plan-cards">
+      <div class="plan-card">
+        <div><div class="name">Starter</div><div class="meta">10,000 credits · 5 scrapes · 75 scripts</div></div>
+        <div class="price">$39<span>/mo</span></div>
+      </div>
+      <div class="plan-card selected" style="position:relative">
+        <span class="popular-badge">POPULAR</span>
+        <div><div class="name">Growth</div><div class="meta">30,000 credits · 10 scrapes · 200 scripts</div></div>
+        <div class="price">$79<span>/mo</span></div>
+      </div>
+      <div class="plan-card">
+        <div><div class="name">Pro</div><div class="meta">75,000 credits · 15 scrapes · 500 scripts</div></div>
+        <div class="price">$139<span>/mo</span></div>
+      </div>
+    </div>
+
+    <!-- Story timeline -->
+    <div class="trial-story">
+      <div class="story-title">Here's what happens</div>
+      <div class="story-steps">
+        <div class="story-step">
+          <div class="s-dot now"></div>
+          <div class="s-text">
+            <span class="day">Today — $0 charged</span>
+            <span class="what">Get instant access to <span class="highlight">all features</span>. Create scripts, scrape channels, plan content.</span>
+          </div>
+        </div>
+        <div class="story-step">
+          <div class="s-dot mid"></div>
+          <div class="s-text">
+            <span class="day">Day 5 — Reminder email</span>
+            <span class="what">We'll remind you before your trial ends. <span class="highlight">No surprises, ever.</span></span>
+          </div>
+        </div>
+        <div class="story-step">
+          <div class="s-dot end"></div>
+          <div class="s-text">
+            <span class="day">Day 8 — Your plan begins</span>
+            <span class="what">Love it? Your selected plan starts. Changed your mind? Cancel in 1 click — <span class="highlight">you pay $0</span>.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="b-cta-area">
+      <div class="price-line">You pay<span class="zero">$0</span>today</div>
+      <button class="cta-btn">Start My Free Trial &rarr;</button>
+    </div>
+    <div class="back-link">&larr; Back</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ═══════════════════════════════════════════
+     OPTION C — Risk Reversal CTA Zone
+     Strategy: Compact plans, then a dedicated
+     "why this is safe" zone with guarantees.
+     The CTA zone acts as a landing page within
+     the checkout.
+     ═══════════════════════════════════════════ -->
+<div>
+  <div class="option-label">Option C — Risk Reversal CTA Zone</div>
+  <div class="option-desc">Compact plan selection, then a bold dedicated CTA zone that stacks guarantees and social proof. The "landing page within checkout" approach.</div>
+  <div class="card">
+    <div class="card-header" style="text-align:center;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:700;background:linear-gradient(135deg,#06B6D4,#84CC16);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:1px">CONNECTA CREATORS</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Choose your plan</div>
+    </div>
+
+    <!-- Plans -->
+    <div class="c-plans">
+      <div class="plan-card">
+        <div><div class="name">Starter</div><div class="meta">10,000 credits · 5 scrapes · 75 scripts</div></div>
+        <div class="price">$39<span>/mo</span></div>
+      </div>
+      <div class="plan-card selected" style="position:relative">
+        <span class="popular-badge">POPULAR</span>
+        <div><div class="name">Growth</div><div class="meta">30,000 credits · 10 scrapes · 200 scripts</div></div>
+        <div class="price">$79<span>/mo</span></div>
+      </div>
+      <div class="plan-card">
+        <div><div class="name">Pro</div><div class="meta">75,000 credits · 15 scrapes · 500 scripts</div></div>
+        <div class="price">$139<span>/mo</span></div>
+      </div>
+    </div>
+
+    <!-- CTA Zone -->
+    <div class="c-cta-zone">
+      <div class="free-tag">
+        <span class="icon">&#10003;</span>
+        7-DAY FREE TRIAL
+      </div>
+      <div class="headline">Try everything for <span class="gradient">$0</span></div>
+      <div class="fine">
+        Your card won't be charged for <strong>7 full days</strong>.<br>
+        Cancel with one click if it's not for you.
+      </div>
+      <button class="cta-btn">Start Free — No Charge Today &rarr;</button>
+      <div class="c-guarantees">
+        <div class="g-item"><span class="g-icon">&#10003;</span> Cancel anytime</div>
+        <div class="g-item"><span class="g-icon">&#10003;</span> No hidden fees</div>
+        <div class="g-item"><span class="g-icon">&#10003;</span> Full access from day 1</div>
+      </div>
+    </div>
+
+    <div class="back-link">&larr; Back</div>
+  </div>
+</div>
+
+</div>
+
+<div style="text-align:center;padding:60px 20px;color:#334155;font-size:11px;line-height:1.8;max-width:400px;margin:0 auto">
+  <strong style="color:#64748b">CRO NOTES</strong><br>
+  Option A: Best for price-sensitive audiences. The $0 hero is the first thing they see.<br>
+  Option B: Best for skeptical users. The story format builds trust through transparency.<br>
+  Option C: Best for impulse converters. Stacked guarantees reduce friction at the point of action.
+</div>
+
+</body>
+</html>

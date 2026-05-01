@@ -1,33 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
-const APIFY_IG_TASK = "connectacreators~instagram-reel-scraper-task";
+const YTDLP_SERVER = "http://72.62.200.145:3099";
+const YTDLP_API_KEY = "ytdlp_connecta_2026_secret";
 
-function normalizeInstagramReelUrl(url: string): string {
-  return url.replace(/\/reels\/([A-Za-z0-9_-]+)/, "/reel/$1");
-}
-
-async function getInstagramThumbnailViaApify(reelUrl: string): Promise<string | null> {
+// ─── Instagram: get thumbnail via VPS Puppeteer (replaces Apify) ───
+async function getInstagramThumbnailViaVPS(reelUrl: string): Promise<string | null> {
   try {
-    const normalizedUrl = normalizeInstagramReelUrl(reelUrl);
-    console.log("Fetching IG thumbnail via Apify task:", normalizedUrl);
-    const taskUrl = `https://api.apify.com/v2/actor-tasks/${APIFY_IG_TASK}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=90`;
-    const res = await fetch(taskUrl, {
+    console.log("Fetching IG thumbnail via VPS /ig-thumbnail:", reelUrl);
+    const res = await fetch(`${YTDLP_SERVER}/ig-thumbnail`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: [normalizedUrl] }),
+      headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
+      body: JSON.stringify({ url: reelUrl }),
     });
-    if (!res.ok) { console.error("Apify IG task error:", res.status); return null; }
-    const items = await res.json();
-    if (!Array.isArray(items) || items.length === 0) return null;
-    const item = items[0];
-    const displayUrl = item.displayUrl || item.display_url || item.thumbnailUrl || item.thumbnail_url || null;
-    if (!displayUrl) return null;
-    console.log("Apify IG displayUrl:", displayUrl.slice(0, 80) + "...");
-    // Return raw CDN URL — browser will proxy it through VPS /proxy-image to avoid CORS block
-    return displayUrl;
+    if (!res.ok) { console.error("VPS ig-thumbnail error:", res.status); return null; }
+    const data = await res.json();
+    const thumbnailUrl = data.thumbnail_url || null;
+    if (thumbnailUrl) console.log("VPS IG thumbnail:", thumbnailUrl.slice(0, 80) + "...");
+    return thumbnailUrl;
   } catch (e) {
-    console.error("Apify IG task thumbnail error:", e);
+    console.error("VPS ig-thumbnail error:", e);
     return null;
   }
 }
@@ -89,9 +80,9 @@ serve(async (req) => {
     if (!thumbnailUrl && (url.includes("facebook.com") || url.includes("fb.watch"))) {
       try {
         console.log("Facebook URL — calling VPS /get-thumbnail (cached frame):", url);
-        const vpsRes = await fetch("http://72.62.200.145:3099/get-thumbnail", {
+        const vpsRes = await fetch(`${YTDLP_SERVER}/get-thumbnail`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": "ytdlp_connecta_2026_secret" },
+          headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
           body: JSON.stringify({ url }),
         });
         if (vpsRes.ok) {
@@ -104,27 +95,27 @@ serve(async (req) => {
       } catch (e) { console.error("Facebook VPS thumbnail error:", e); }
     }
 
-    // ---- Instagram — Apify task (displayUrl) first, VPS cobalt as fallback ----
+    // ---- Instagram — VPS Puppeteer first, VPS cobalt+ffmpeg as fallback ----
     if (!thumbnailUrl && url.includes("instagram.com")) {
-      thumbnailUrl = await getInstagramThumbnailViaApify(url);
+      thumbnailUrl = await getInstagramThumbnailViaVPS(url);
 
       // Fallback: VPS /get-thumbnail via cobalt + ffmpeg first frame
       if (!thumbnailUrl) {
         try {
-          console.log("Apify returned no thumbnail — trying VPS cobalt:", url);
-          const vpsRes = await fetch("http://72.62.200.145:3099/get-thumbnail", {
+          console.log("VPS Puppeteer returned no thumbnail — trying cobalt+ffmpeg:", url);
+          const vpsRes = await fetch(`${YTDLP_SERVER}/get-thumbnail`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "x-api-key": "ytdlp_connecta_2026_secret" },
+            headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
             body: JSON.stringify({ url }),
           });
           if (vpsRes.ok) {
             const vpsData = await vpsRes.json();
             if (vpsData.thumbnail_url) {
               thumbnailUrl = vpsData.thumbnail_url;
-              console.log("VPS IG thumbnail OK, size:", thumbnailUrl.length);
+              console.log("VPS cobalt thumbnail OK, size:", thumbnailUrl.length);
             }
           }
-        } catch (e) { console.error("VPS IG thumbnail error:", e); }
+        } catch (e) { console.error("VPS cobalt thumbnail error:", e); }
       }
     }
 

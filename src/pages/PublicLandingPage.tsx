@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { landingDb } from "@/integrations/supabase/landing-client";
 import { Loader2 } from "lucide-react";
@@ -51,6 +51,10 @@ type LandingPage = {
   trust_stat_2_label?: string | null;
   trust_stat_3_number?: string | null;
   trust_stat_3_label?: string | null;
+  hero_price_was?: string | null;
+  hero_price_now?: string | null;
+  gallery_images?: string[] | null;
+  logo_max_width?: number | null;
 };
 
 const PAGE_TRANSLATIONS = {
@@ -75,6 +79,37 @@ const PAGE_TRANSLATIONS = {
 };
 
 const KNOWN_HOSTS = ["connectacreators.com", "www.connectacreators.com", "connecta.so", "www.connecta.so", "localhost"];
+
+// Per-domain language overrides applied client-side when the URL is
+// "<custom_domain>/<lang>". The DB enforces UNIQUE(client_id) on
+// landing_pages, so we can't store a second row per language; instead the
+// English row loads and these fields are merged on top.
+const LANG_OVERRIDES: Record<string, Partial<LandingPage>> = {
+  "saratogachiropracticutah.store/es": {
+    hero_headline: "Agende su Cita por Lesión de Auto",
+    hero_subheadline: "Atención experta para su lesión de auto — cubierta por su seguro. Citas el mismo día.",
+    cta_button_text: "Agendar Mi Consulta Gratuita",
+    about_title: "Su Atención Está Cubierta. $0 De Su Bolsillo",
+    about_description:
+      "En Utah, las pólizas de seguro de auto incluyen Cobertura de Protección contra Lesiones Personales (PIP). Esto significa que su evaluación y tratamiento después de un accidente están cubiertos, sin importar quién tuvo la culpa. Lo que esto significa para usted:",
+    about_section_title: "Sobre Nosotros",
+    about_us_text:
+      "El Dr. Bell y el Dr. Davis tienen más de 20 años de experiencia tratando lesiones por accidentes automovilísticos. Trabajan juntos para brindar el tratamiento más efectivo a cada paciente — atención personalizada, profesional y especializada para su situación única.\n\nTratamos: latigazo cervical, dolor de cuello, dolores de cabeza y migrañas, hernias de disco, dolor de espalda baja, dolor de mandíbula, conmociones cerebrales, hormigueo y entumecimiento, y rango de movimiento reducido.",
+    services: [
+      { emoji: "🗣", title: "Consulta Inicial", description: "La evaluación y el tratamiento inicial están cubiertos. Nuestra oficina maneja la facturación y la documentación. Usted se enfoca en sanar — no en el papeleo." },
+      { emoji: "📄", title: "Examen Físico", description: "Evaluación física completa para identificar la causa raíz de su molestia." },
+      { emoji: "⚖️", title: "Manejamos Su Caso", description: "Trabajamos directamente con su seguro de auto. Manejamos toda la facturación y documentación con su aseguradora — usted se enfoca en sanar." },
+    ],
+    testimonials: [
+      { quote: "El Dr. Davis es un quiropráctico fenomenal. Personal increíble, excelente ambiente y precios muy razonables. Definitivamente regresaré con él. No puedo recomendar este lugar lo suficiente.", author: "Derek Smalls" },
+      { quote: "El Dr. Bell es un quiropráctico excepcional. Se toma el tiempo de escuchar, explica todo con claridad, y cada ajuste me deja sintiéndome renovado y sin dolor. Lo que realmente lo distingue son los ejercicios personalizados que me da para hacer en casa, los cuales ayudan a mantener el progreso entre visitas. Su atención es reflexiva, efectiva y duradera. Lo recomiendo altamente a cualquiera que busque resultados reales.", author: "Nancy Hernandez" },
+      { quote: "¡Experiencia increíble! Jaromy tiene una enorme experiencia tanto en quiropráctica como en terapia física. Quedé totalmente asombrado de lo que aprendí sobre mi cuerpo. Y de cómo me ayudó a aprender a estar de pie, caminar y correr de manera diferente. Su enfoque es muy completo. Mi quiropráctico favorito de muchos que he probado.", author: "Tyler Small" },
+    ],
+    contact_hours: "Lun - Vie: 9:30am - 6:30pm",
+    seo_title: "Saratoga Chiropractic — Cita por Lesión de Auto en Saratoga Springs",
+    seo_description: "Atención quiropráctica experta en Saratoga Springs para lesiones por accidentes de auto. $0 de su bolsillo en la consulta inicial.",
+  },
+};
 
 function isCustomDomain(hostname: string) {
   return !KNOWN_HOSTS.includes(hostname) && !hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
@@ -141,7 +176,18 @@ export default function PublicLandingPage() {
       if (!isPreview) query = query.eq("is_published", true);
     }
     query.maybeSingle().then(({ data }) => {
-      setPage(data ? { ...data, services: data.services || [], testimonials: data.testimonials || [] } : null);
+      if (!data) { setPage(null); setLoading(false); return; }
+      let merged: LandingPage = {
+        ...data,
+        services: data.services || [],
+        testimonials: data.testimonials || [],
+      };
+      // Apply per-domain translation overrides when on a language-prefixed path.
+      const langMatch = window.location.pathname.match(/^\/([a-z]{2})(?:\/.*)?$/);
+      const lang = langMatch?.[1];
+      const overrides = lang ? LANG_OVERRIDES[`${hostname}/${lang}`] : undefined;
+      if (overrides) merged = { ...merged, ...overrides, language: lang };
+      setPage(merged);
       setLoading(false);
     });
   }, [slug, isPreview, usingCustomDomain, hostname]);
@@ -150,10 +196,56 @@ export default function PublicLandingPage() {
     const fn = (e: MessageEvent) => {
       if (e.data?.type === "booking-height" && typeof e.data.height === "number")
         setIframeH(Math.max(680, e.data.height + 48));
+      // Fire conversion pixels when the booking iframe reports a successful booking.
+      // Meta Pixel "Lead" event: requires fbq to be loaded (handled by the FB pixel
+      // useEffect below if a fb_pixel_id is configured for this page).
+      if (e.data?.type === "booking-success") {
+        const w = window as unknown as { fbq?: (...args: unknown[]) => void };
+        if (typeof w.fbq === "function") {
+          w.fbq("track", "Lead");
+        }
+      }
     };
     window.addEventListener("message", fn);
     return () => window.removeEventListener("message", fn);
   }, []);
+
+  // Gallery marquee: continuous gradual auto-scroll, seamless loop. The row
+  // renders the cards twice; when scrollLeft passes the first set we subtract
+  // the set width, which is invisible because the duplicate set matches.
+  // Touch/wheel pauses for ~6s before drift resumes. Activates whenever the
+  // gallery row mounts (i.e. when gallery_images has entries).
+  const galleryRowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = galleryRowRef.current;
+    if (!row) return;
+    let pausedUntil = 0;
+    let raf = 0;
+    let lastTs = 0;
+    const PIXELS_PER_SECOND = 22;
+    const pause = () => { pausedUntil = Date.now() + 6000; };
+    row.addEventListener("touchstart", pause, { passive: true });
+    row.addEventListener("wheel", pause, { passive: true });
+
+    const tick = (ts: number) => {
+      const dt = lastTs ? ts - lastTs : 16;
+      lastTs = ts;
+      if (Date.now() >= pausedUntil && row.scrollWidth > row.clientWidth + 1) {
+        const halfWidth = row.scrollWidth / 2;
+        let next = row.scrollLeft + (PIXELS_PER_SECOND * dt) / 1000;
+        if (next >= halfWidth) next -= halfWidth;
+        row.scrollLeft = next;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      row.removeEventListener("touchstart", pause);
+      row.removeEventListener("wheel", pause);
+    };
+  }, [hostname, page]);
 
   useEffect(() => {
     if (!page) return;
@@ -343,17 +435,22 @@ export default function PublicLandingPage() {
             </>
           )}
           <div style={{ position: "relative" as const, zIndex: 1 }}>
-            {page.logo_url && (
-              <img
-                src={page.logo_url}
-                alt="Logo"
-                width={260}
-                height={80}
-                fetchPriority="high"
-                decoding="async"
-                style={{ maxHeight: 80, maxWidth: 260, width: "auto", height: "auto", objectFit: "contain", margin: "0 auto 24px", display: "block" }}
-              />
-            )}
+            {page.logo_url && (() => {
+              const maxW = Math.max(80, Math.min(600, page.logo_max_width || 260));
+              // Keep ~3.25:1 logo aspect ratio cap (matches the previous 260×80 baseline)
+              const maxH = Math.round(maxW / 3.25);
+              return (
+                <img
+                  src={page.logo_url}
+                  alt="Logo"
+                  width={maxW}
+                  height={maxH}
+                  fetchPriority="high"
+                  decoding="async"
+                  style={{ maxHeight: maxH, maxWidth: maxW, width: "auto", height: "auto", objectFit: "contain", margin: "0 auto 24px", display: "block" }}
+                />
+              );
+            })()}
             {page.hero_headline && (
               <h1 style={{
                 ...headingStyle,
@@ -371,6 +468,41 @@ export default function PublicLandingPage() {
               <p style={{ fontSize: 15, color: heroMutedColor, lineHeight: 1.65, margin: 0, maxWidth: 560, marginLeft: "auto", marginRight: "auto", textAlign: "center" }}>
                 {page.hero_subheadline}
               </p>
+            )}
+            {/* Hero price comparison — renders if either price field is set */}
+            {(page.hero_price_was || page.hero_price_now) && (
+              <div style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "center",
+                gap: 14,
+                marginTop: 20,
+                flexWrap: "wrap",
+              }}>
+                {page.hero_price_was && (
+                  <span style={{
+                    fontSize: 18,
+                    color: page.hero_image_url ? "rgba(255,255,255,0.6)" : textMuted,
+                    textDecoration: "line-through",
+                    textDecorationThickness: "2px",
+                    fontFamily: page.font_family || "Arial, sans-serif",
+                  }}>
+                    {page.hero_price_was}
+                  </span>
+                )}
+                {page.hero_price_now && (
+                  <span style={{
+                    fontSize: 36,
+                    fontWeight: 900,
+                    color: safeAccent,
+                    fontFamily: page.font_family || "Arial, sans-serif",
+                    lineHeight: 1,
+                    letterSpacing: "-0.02em",
+                  }}>
+                    {page.hero_price_now}
+                  </span>
+                )}
+              </div>
             )}
             {/* Trust Strip */}
             {(page.trust_stat_1_number || page.trust_stat_2_number || page.trust_stat_3_number) && (
@@ -428,13 +560,13 @@ export default function PublicLandingPage() {
           if (btype === "calendar") return (
             <div id="booking-section" style={{ background: cardBg, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.08)", marginBottom: 32 }}>
               <iframe
-                src={`https://connectacreators.com/book/${page.client_id}`}
+                src={`/book/${page.client_id}`}
                 width="100%"
                 style={{ border: "none", minHeight: iframeH, display: "block" }}
                 title="Booking Calendar"
               />
               <div style={{ textAlign: "center", padding: "10px 16px", borderTop: `1px solid ${cardBorder}` }}>
-                <a href={`https://connectacreators.com/book/${page.client_id}`} target="_blank" rel="noopener noreferrer"
+                <a href={`/book/${page.client_id}`} target="_blank" rel="noopener noreferrer"
                   style={{ color: safeAccent, fontFamily: "Arial, sans-serif", fontSize: 13, textDecoration: "none" }}>
                   {tr.calendarFallback}
                 </a>
@@ -528,6 +660,64 @@ export default function PublicLandingPage() {
           </div>
         </div>
       )}
+
+      {/* ── GALLERY (DB-driven; renders if gallery_images has any URLs) ─────── */}
+      {Array.isArray(page.gallery_images) && page.gallery_images.filter(Boolean).length > 0 && (() => {
+        const galleryImgs = page.gallery_images!.filter((url): url is string => Boolean(url));
+        // Duplicate the array on mobile to support the marquee auto-drift effect
+        const renderImgs = [...galleryImgs, ...galleryImgs];
+        return (
+          <div style={{ background: bg2, padding: "32px 0" }}>
+            <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px" }}>
+              <style>{`
+                .sg-row {
+                  display: flex;
+                  gap: 12px;
+                  overflow-x: auto;
+                  -webkit-overflow-scrolling: touch;
+                  padding: 4px 16px 12px;
+                  margin: 0 -16px;
+                  scrollbar-width: none;
+                }
+                .sg-row::-webkit-scrollbar { display: none; }
+                .sg-card {
+                  flex: 0 0 75%;
+                  aspect-ratio: 9 / 16;
+                  border-radius: 10px;
+                  overflow: hidden;
+                  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+                  background: #000;
+                }
+                .sg-card img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(1.15) contrast(1.05); }
+                @media (min-width: 720px) {
+                  .sg-row { display: grid; grid-template-columns: repeat(${galleryImgs.length}, 1fr); gap: 14px; overflow: visible; padding: 4px 0 0; margin: 0; }
+                  .sg-card { flex: initial; }
+                  .sg-dup { display: none; }
+                }
+              `}</style>
+              <div className="sg-row" ref={galleryRowRef}>
+                {renderImgs.map((url, idx) => (
+                  <div
+                    key={idx}
+                    className={`sg-card${idx >= galleryImgs.length ? " sg-dup" : ""}`}
+                    style={{ border: `1px solid ${cardBorder}` }}
+                    aria-hidden={idx >= galleryImgs.length}
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      width={720}
+                      height={1280}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── ABOUT / TEAM ─────────────────────── */}
       {(page.about_us_text || page.about_photo_1_url || page.about_photo_2_url) && (

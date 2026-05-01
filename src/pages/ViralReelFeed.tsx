@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Star, Play, ChevronUp, ChevronDown, Eye, Heart, MessageCircle, Zap,
+  Star, Play, ChevronDown, Eye, Heart, MessageCircle, Zap,
   Flame, Instagram, Music, Youtube,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,6 @@ import { useClients, type Client } from "@/hooks/useClients";
 import connectaLogoLight from "@/assets/connecta-logo-text-light.png";
 
 const VPS_API = "https://connectacreators.com/api";
-const VPS_API_KEY = "ytdlp_connecta_2026_secret";
 
 interface ViralVideo {
   id: string;
@@ -30,6 +29,7 @@ interface ViralVideo {
   scraped_at: string | null;
 }
 
+// ── Utility helpers ──
 const PALETTES = [
   ["#0f0c1e", "#3d1054"], ["#001624", "#003d5c"],
   ["#0a0a14", "#1a3a5c"], ["#0c0c0c", "#1a0a2e"],
@@ -71,19 +71,24 @@ function timeAgo(dateStr: string | null | undefined): string {
   if (days < 30) return `${days}d ago`;
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
-  const years = Math.floor(months / 12);
-  return `${years}y ago`;
+  return `${Math.floor(months / 12)}y ago`;
 }
 
 function proxyImg(url: string | null, videoUrl?: string): string | null {
   if (!url) return null;
   if (url.includes("connectacreators.com/thumb-cache")) return url;
   if (url.includes("connectacreators.com")) return url;
-  if (url.includes("tiktokcdn") || url.includes("googlevideo") || url.includes("ytimg")) {
-    if (videoUrl) return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
-    return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
+  if (videoUrl) return `${VPS_API}/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
+  return `${VPS_API}/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
+/** Get stream URL — always goes through VPS (which caches to disk) */
+function getStreamUrl(video: ViralVideo): string {
+  const url = video.video_url;
+  if (/cdninstagram\.com|fbcdn\.net/.test(url)) {
+    return `${VPS_API}/proxy-video?url=${encodeURIComponent(url)}`;
   }
-  return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
+  return `${VPS_API}/stream-reel?url=${encodeURIComponent(url)}`;
 }
 
 const TABS = [
@@ -93,36 +98,47 @@ const TABS = [
   { label: "YouTube", value: "youtube", Icon: Youtube },
 ];
 
+// ════════════════════════════════════════════════════════════════════════════
+// v14 — Single video element, lazy stream, no batch resolution
+// ════════════════════════════════════════════════════════════════════════════
 export default function ViralReelFeed() {
-  // v12 — data-ready on canPlay, stall-timeout marks ready to prevent restart loop
-  useEffect(() => { console.log("[ViralReelFeed] v12 — data-ready on canPlay + stall-timeout guard"); }, []);
+  useEffect(() => { console.log("[ViralReelFeed] v14 — single-video, lazy-stream"); }, []);
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const { clients, loading: clientsLoading } = useClients(!!user);
-  const [videos, setVideos] = useState<ViralVideo[]>([]);
+
+  // ── Core state ──
+  const [feedVideos, setFeedVideos] = useState<ViralVideo[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [platform, setPlatform] = useState("all");
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
-  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [paused, setPaused] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
-  const [useEmbed, setUseEmbed] = useState(false);
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [remixClientId, setRemixClientId] = useState("");
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
-  // ── Feed algorithm state ──
-  // initialInteractions is the snapshot loaded from DB at mount — used for sorting/filtering.
-  // It NEVER changes during the session so the feed order stays stable (like TikTok/Instagram).
-  // seenThisSession still flushes to DB every 30s for future sessions, but doesn't re-sort the current feed.
+  // ── Feed algorithm state (frozen on load) ──
+  const [videos, setVideos] = useState<ViralVideo[]>([]);
   const [initialInteractions, setInitialInteractions] = useState<Map<string, { seen_count: number; clicked: boolean }>>(new Map());
   const [interactionsReady, setInteractionsReady] = useState(false);
   const [nicheKeywords, setNicheKeywords] = useState<string[]>([]);
   const [userChannelIds, setUserChannelIds] = useState<Set<string>>(new Set());
   const seenThisSession = useRef<Set<string>>(new Set());
-  // Set true before any setActiveIdx that originates from algorithm re-sort (not user swipe)
-  // so the reset effect can skip playback disruption for the same physical video
-  const algorithmNavigating = useRef(false);
+
+  // ── Refs ──
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const colRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);   // SINGLE video element
+  const mutedRef = useRef(true);
+  const hasInteracted = useRef(false);
+  const activeIdxRef = useRef(0);
+  const pausedRef = useRef(false);
+  const scrollingRef = useRef(false);
+  const touchStartY = useRef(0);
+  const wheelAccum = useRef(0);
+  const failedIndices = useRef<Set<number>>(new Set());
 
   const clientOptions = isAdmin
     ? clients.map((c) => ({ id: c.id, name: c.name || c.id }))
@@ -135,69 +151,20 @@ export default function ViralReelFeed() {
     if (clientOptions.length === 1) setRemixClientId(clientOptions[0].id);
   }, [clientOptions.length]);
 
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const colRef = useRef<HTMLDivElement>(null);
-  const activeVideoRef = useRef<HTMLVideoElement | null>(null);
-  const mutedRef = useRef(true);
-  const hasInteracted = useRef(false);
-  const activeIdxRef = useRef(0);
-  const pausedRef = useRef(false);
-  const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set());
-  const failedVideoIdsRef = useRef<Set<string>>(new Set());
-  const scrollingRef = useRef(false);
-  const touchStartY = useRef(0);
-  const wheelAccum = useRef(0);
-  const [urlMap, setUrlMap] = useState<Map<string, string>>(new Map());
-  // Track current video by ID so re-sorts don't silently swap the displayed video
-  const currentVideoIdRef = useRef<string | null>(null);
-
-  const buildUrlMap = useCallback(async (vids: ViralVideo[]): Promise<Map<string, string>> => {
-    const map = new Map<string, string>();
-    const codeToVideo = new Map<string, ViralVideo>();
-    vids.forEach(v => {
-      const code = (v.video_url.match(/\/reel\/([^/?]+)/) ||
-                    v.video_url.match(/\/p\/([^/?]+)/) ||
-                    v.video_url.match(/\/video\/([^/?]+)/) ||
-                    v.video_url.match(/\/shorts\/([^/?]+)/))?.[1];
-      if (code) codeToVideo.set(code, v);
-    });
-    const codes = Array.from(codeToVideo.keys());
-    if (codes.length > 0) {
-      try {
-        const res = await fetch(`${VPS_API}/cache-status?ids=${codes.join(',')}`);
-        const status: Record<string, boolean> = await res.json();
-        codeToVideo.forEach((v, code) => {
-          const plat = v.platform === 'instagram' ? 'ig' : v.platform === 'tiktok' ? 'tt' : 'yt';
-          map.set(v.id, status[code]
-            ? `https://connectacreators.com/video-cache/${plat}_${code}.mp4`
-            : `${VPS_API}/stream-reel?url=${encodeURIComponent(v.video_url)}`
-          );
-        });
-      } catch {
-        // Fallback: all go through stream-reel
-      }
-    }
-    vids.forEach(v => {
-      if (!map.has(v.id)) {
-        map.set(v.id, `${VPS_API}/stream-reel?url=${encodeURIComponent(v.video_url)}`);
-      }
-    });
-    return map;
-  }, []);
-
   // Keep refs in sync
   useEffect(() => { activeIdxRef.current = activeIdx; }, [activeIdx]);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
 
-  // Unmute on first user interaction (autoplay policy requires muted start)
+  const currentVideo = feedVideos[activeIdx] ?? null;
+
+  // ── Unmute on first interaction ──
   useEffect(() => {
     const unmute = () => {
       if (hasInteracted.current) return;
       hasInteracted.current = true;
       mutedRef.current = false;
       setMuted(false);
-      const vid = activeVideoRef.current;
-      if (vid) vid.muted = false;
+      if (videoRef.current) videoRef.current.muted = false;
     };
     document.addEventListener("click", unmute, { once: true });
     document.addEventListener("touchstart", unmute, { once: true });
@@ -207,230 +174,64 @@ export default function ViralReelFeed() {
     };
   }, []);
 
-  // ── Sorted videos using feed algorithm ──
-  // Uses initialInteractions (DB snapshot at mount), NOT live session data.
-  // This means the feed order is locked once loaded — no mid-session re-sorting or disappearing.
-  const sortedVideos = useMemo(() => {
-    const now = Date.now();
-    return [...videos]
-      .sort((a, b) => {
-        const scoreFor = (v: ViralVideo) => {
-          let s = v.outlier_score * 10;
-          if (failedVideoIdsRef.current.has(v.id)) s -= 9999;
-          const ageDays = (now - new Date((v as any).posted_at ?? (v as any).scraped_at ?? now).getTime()) / 86_400_000;
-          s += Math.max(0, 30 - (ageDays / 90) * 30);
-          if (nicheKeywords.length > 0) {
-            const text = ((v.caption || "") + " " + v.channel_username).toLowerCase();
-            if (nicheKeywords.some(kw => text.includes(kw))) s += 40;
-          }
-          if ((v as any).channel_id && userChannelIds.has((v as any).channel_id)) s += 20;
-          const inter = initialInteractions.get(v.id);
-          if (inter) { s -= inter.seen_count * 15; if (inter.clicked) s -= 10; }
-          return s;
-        };
-        return scoreFor(b) - scoreFor(a);
-      });
-  }, [videos, initialInteractions, nicheKeywords, userChannelIds]);
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIDEO PLAYBACK — single element, swap src on navigation
+  // ══════════════════════════════════════════════════════════════════════════
 
-  const currentVideo = sortedVideos[activeIdx] ?? null;
-
-  // ── Keep activeIdx anchored to the same video after re-sorts ──
-  // Safety net: if sortedVideos recomputes (e.g. platform tab switch), keep the
-  // user on the same video by finding it in the new array and updating activeIdx.
+  // Load video when activeIdx changes
   useEffect(() => {
-    if (!sortedVideos.length) return;
-    const pinnedId = currentVideoIdRef.current;
-    if (!pinnedId) {
-      // First render: record the initial video
-      currentVideoIdRef.current = sortedVideos[0]?.id ?? null;
-      return;
-    }
-    const newIdx = sortedVideos.findIndex(v => v.id === pinnedId);
-    if (newIdx === -1) {
-      // Current video was filtered out — clamp to bounds only if position actually changes
-      const clampedIdx = Math.min(activeIdxRef.current, sortedVideos.length - 1);
-      if (clampedIdx !== activeIdxRef.current) {
-        algorithmNavigating.current = true;
-        activeIdxRef.current = clampedIdx;
-        setActiveIdx(clampedIdx);
-      }
-    } else if (newIdx !== activeIdxRef.current) {
-      // Video moved in the sort — silently repoint activeIdx without triggering playback reset
-      algorithmNavigating.current = true;
-      activeIdxRef.current = newIdx;
-      setActiveIdx(newIdx);
-      // Also update translateY directly to avoid flash
-      const wrapper = wrapperRef.current;
-      const col = colRef.current;
-      if (wrapper && col) {
-        const cardH = wrapper.clientHeight;
-        col.style.transform = `translateY(-${newIdx * cardH}px)`;
-      }
-    }
-  }, [sortedVideos]); // eslint-disable-line react-hooks/exhaustive-deps
+    const vid = videoRef.current;
+    const video = feedVideos[activeIdx];
+    if (!vid || !video) return;
 
-  // Update currentVideoIdRef whenever activeIdx changes (user scrolled)
-  useEffect(() => {
-    const vid = sortedVideos[activeIdx];
-    if (vid) currentVideoIdRef.current = vid.id;
-  }, [activeIdx, sortedVideos]);
-
-  // ── Measure container height via CSS custom property ──
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-    const measure = () => {
-      const h = wrapper.clientHeight;
-      if (h > 0) {
-        wrapper.style.setProperty("--card-h", `${h}px`);
-        if (colRef.current) {
-          colRef.current.style.transform = `translateY(-${activeIdx * h}px)`;
-        }
-      }
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(wrapper);
-    return () => ro.disconnect();
-  }, [activeIdx]);
-
-  const getStreamUrl = useCallback((video: ViralVideo): string => {
-    const url = video.video_url;
-    if (/cdninstagram\.com|fbcdn\.net/.test(url)) {
-      return `${VPS_API}/proxy-video?url=${encodeURIComponent(url)}`;
-    }
-    return `${VPS_API}/stream-reel?url=${encodeURIComponent(url)}`;
-  }, []);
-
-  // ── Controlled positioning via transform ──
-  const scrollToIdx = useCallback((idx: number) => {
-    const col = colRef.current;
-    const wrapper = wrapperRef.current;
-    if (!col || !wrapper) return;
-    const cardH = wrapper.clientHeight;
-    col.style.transform = `translateY(-${idx * cardH}px)`;
-  }, []);
-
-  useEffect(() => {
-    scrollToIdx(activeIdx);
-  }, [activeIdx, scrollToIdx]);
-
-  // Wheel handler: accumulate small deltas, navigate on threshold
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (scrollingRef.current) { wheelAccum.current = 0; return; }
-
-      wheelAccum.current += e.deltaY;
-      if (Math.abs(wheelAccum.current) < 150) return;
-
-      const dir = wheelAccum.current > 0 ? 1 : -1;
-      wheelAccum.current = 0;
-      scrollingRef.current = true;
-
-      setActiveIdx(prev => Math.max(0, Math.min(prev + dir, sortedVideos.length - 1)));
-
-      setTimeout(() => { scrollingRef.current = false; wheelAccum.current = 0; }, 1200);
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [sortedVideos.length]);
-
-  // Touch handler: swipe up/down to navigate
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-
-    const onTouchStart = (e: TouchEvent) => {
-      touchStartY.current = e.touches[0].clientY;
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (scrollingRef.current) return;
-      const delta = touchStartY.current - e.changedTouches[0].clientY;
-      if (Math.abs(delta) < 80) return;
-
-      scrollingRef.current = true;
-      const dir = delta > 0 ? 1 : -1;
-
-      setActiveIdx(prev => Math.max(0, Math.min(prev + dir, sortedVideos.length - 1)));
-
-      setTimeout(() => { scrollingRef.current = false; }, 400);
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [sortedVideos.length]);
-
-  // ── Manage play state across 3 video elements ──
-  // Only runs on activeIdx or paused change — never on sortedVideos ref change
-  useEffect(() => {
-    if (!colRef.current) return;
-    const cards = colRef.current.querySelectorAll(".reel-card");
-    cards.forEach((card, idx) => {
-      const video = card.querySelector("video");
-      if (!video) return;
-      if (idx === activeIdx) {
-        video.muted = mutedRef.current;
-        if (!pausedRef.current && (video.paused || video.readyState >= 2)) {
-          video.muted = mutedRef.current;
-          video.play().catch(() => {});
-        }
-      } else {
-        if (!video.paused) video.pause();
-        video.muted = true;
-      }
-    });
-  }, [activeIdx, paused]);
-
-  useEffect(() => {
-    // Algorithm re-sorts move the same playing video to a new index position.
-    // Don't reset playback state — the video is still physically playing.
-    if (algorithmNavigating.current) {
-      algorithmNavigating.current = false;
-      return;
-    }
-    setPaused(false);
-    setUseEmbed(false);
+    // Reset state
     setVideoReady(false);
-  }, [activeIdx]);
+    setPaused(false);
 
-  // ── Stall timeout: if active video hasn't started playing after 10s, fall back to stream-reel ──
+    // Set source — always stream through VPS
+    const src = getStreamUrl(video);
+    vid.src = src;
+    vid.muted = mutedRef.current;
+    vid.load();
+    vid.play().catch(() => {});
+  }, [activeIdx, feedVideos]);
+
+  // Polling: check readyState, try play when data arrives
   useEffect(() => {
-    if (useEmbed) return; // YouTube embed handles itself
-    const cv = sortedVideos[activeIdx];
-    if (!cv) return;
+    if (videoReady || feedVideos.length === 0) return;
+    const iv = setInterval(() => {
+      const vid = videoRef.current;
+      if (!vid) return;
+      if (vid.readyState >= 2 || vid.currentTime > 0) {
+        setVideoReady(true);
+        if (vid.paused && !pausedRef.current) {
+          vid.muted = mutedRef.current;
+          vid.play().catch(() => {});
+        }
+      }
+    }, 250);
+    return () => clearInterval(iv);
+  }, [activeIdx, videoReady, feedVideos.length]);
+
+  // Auto-skip if video stuck (readyState 0) after 6s
+  useEffect(() => {
+    if (feedVideos.length === 0 || videoReady || paused) return;
     const timer = setTimeout(() => {
-      const vid = activeVideoRef.current;
-      if (!vid || vid.dataset.ready === "true") return;
-      const streamUrl = getStreamUrl(cv);
-      if (!vid.src.includes('/stream-reel') && !vid.src.includes('/proxy-video')) {
-        vid.src = streamUrl;
-        vid.load();
-        vid.play().catch(() => {});
-        // Mark ready so this timeout won't re-fire for the same element.
-        // The video will set itself truly ready once onCanPlay / onPlaying fires on the new src.
-        vid.dataset.ready = "true";
-      } else {
-        setFailedVideoIds(prev => {
-          const next = new Set([...prev, cv.id]);
-          failedVideoIdsRef.current = next;
-          return next;
+      const vid = videoRef.current;
+      if (!vid || vid.readyState === 0) {
+        console.warn("[ViralReelFeed] Auto-skip: stuck at readyState 0");
+        failedIndices.current.add(activeIdx);
+        setActiveIdx(prev => {
+          const next = findNextValid(prev, 1);
+          return next !== prev ? next : prev;
         });
       }
-    }, 10000);
+    }, 6000);
     return () => clearTimeout(timer);
-  }, [activeIdx, useEmbed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeIdx, videoReady, feedVideos.length, paused]);
 
   const togglePlayPause = useCallback(() => {
-    const vid = activeVideoRef.current;
+    const vid = videoRef.current;
     if (!vid) return;
     if (vid.paused) {
       vid.muted = mutedRef.current;
@@ -442,84 +243,188 @@ export default function ViralReelFeed() {
     }
   }, []);
 
-  // ── Load avatars ──
+  // ══════════════════════════════════════════════════════════════════════════
+  // SCROLL NAVIGATION
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Measure container height
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const measure = () => {
+      const h = wrapper.clientHeight;
+      if (h > 0) {
+        wrapper.style.setProperty("--card-h", `${h}px`);
+        if (colRef.current) colRef.current.style.transform = `translateY(-${activeIdx * h}px)`;
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrapper);
+    return () => ro.disconnect();
+  }, [activeIdx]);
+
+  const findNextValid = useCallback((from: number, dir: 1 | -1): number => {
+    let idx = from + dir;
+    const max = feedVideos.length - 1;
+    while (idx >= 0 && idx <= max && failedIndices.current.has(idx)) idx += dir;
+    return Math.max(0, Math.min(idx, max));
+  }, [feedVideos.length]);
+
+  const scrollToIdx = useCallback((idx: number) => {
+    const col = colRef.current;
+    const wrapper = wrapperRef.current;
+    if (!col || !wrapper) return;
+    col.style.transform = `translateY(-${idx * wrapper.clientHeight}px)`;
+  }, []);
+
+  useEffect(() => { scrollToIdx(activeIdx); }, [activeIdx, scrollToIdx]);
+
+  // Navigation helper — always reads latest state via ref
+  const navigate1 = useCallback((dir: 1 | -1) => {
+    if (scrollingRef.current) return;
+    scrollingRef.current = true;
+    setActiveIdx(prev => {
+      const max = feedVideos.length - 1;
+      const next = Math.max(0, Math.min(max, prev + dir));
+      return next;
+    });
+    // Lock scroll for duration of CSS transition (400ms) + buffer
+    setTimeout(() => { scrollingRef.current = false; wheelAccum.current = 0; }, 500);
+  }, [feedVideos.length]);
+
+  // Wheel — simple: one scroll gesture = one video
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (scrollingRef.current) return; // locked during transition
+      wheelAccum.current += e.deltaY;
+      // Require a minimum delta to avoid accidental micro-scrolls
+      if (Math.abs(wheelAccum.current) < 60) return;
+      const dir = wheelAccum.current > 0 ? 1 : -1;
+      wheelAccum.current = 0;
+      navigate1(dir as 1 | -1);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [navigate1]);
+
+  // Touch — swipe up/down
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => { touchStartY.current = e.touches[0].clientY; };
+    const onTouchEnd = (e: TouchEvent) => {
+      const delta = touchStartY.current - e.changedTouches[0].clientY;
+      if (Math.abs(delta) < 60) return;
+      navigate1(delta > 0 ? 1 : -1);
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => { el.removeEventListener("touchstart", onTouchStart); el.removeEventListener("touchend", onTouchEnd); };
+  }, [navigate1]);
+
+  // Keyboard
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+        e.preventDefault();
+        navigate1(1);
+      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        navigate1(-1);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        togglePlayPause();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate1, togglePlayPause]);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // DATA LOADING
+  // ══════════════════════════════════════════════════════════════════════════
+
   const loadAvatars = useCallback(async (usernames: string[]) => {
     try {
       const uniq = [...new Set(usernames)].filter(Boolean);
       if (!uniq.length) return;
-      const { data } = await supabase
-        .from("viral_channels")
-        .select("username, avatar_url")
-        .in("username", uniq);
+      const { data } = await supabase.from("viral_channels").select("username, avatar_url").in("username", uniq);
       if (data) {
         const map: Record<string, string> = {};
-        (data as any[]).forEach((r) => {
-          if (r.avatar_url) map[r.username] = r.avatar_url;
-        });
+        (data as any[]).forEach((r) => { if (r.avatar_url) map[r.username] = r.avatar_url; });
         setAvatarMap(map);
       }
     } catch (_) {}
   }, []);
 
-  // ── Load videos from DB ──
-  const loadVideos = useCallback(
-    async (plat: string) => {
-      setLoading(true);
-
-      const PAGE_SIZE = 1000;
-      const MAX_VIDEOS = 3000;
-      let allVideos: ViralVideo[] = [];
-      let page = 0;
-
-      const threshold = parseFloat(localStorage.getItem('viral_outlier_threshold') ?? '5');
-      while (allVideos.length < MAX_VIDEOS) {
-        let query = supabase
-          .from("viral_videos")
-          .select(
-            "id, channel_id, channel_username, platform, video_url, thumbnail_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, scraped_at"
-          )
-          .gte("outlier_score", threshold)
-          .order("outlier_score", { ascending: false })
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-        if (plat !== "all") query = (query as any).eq("platform", plat);
-
-        const { data, error } = await query;
-        if (error) { toast.error("Failed to load videos"); setLoading(false); return; }
-
-        const batch = (data as ViralVideo[]) || [];
-        allVideos = [...allVideos, ...batch];
-        if (batch.length < PAGE_SIZE) break;
-        page++;
-      }
-
-      const map = await buildUrlMap(allVideos);
-      setUrlMap(map);
-      setVideos(allVideos);
-      setActiveIdx(0);
-      setLoading(false);
-
-      if (allVideos.length) loadAvatars(allVideos.map((v) => v.channel_username));
-    },
-    [loadAvatars, buildUrlMap]
-  );
+  const loadVideos = useCallback(async (plat: string) => {
+    setLoading(true);
+    const PAGE_SIZE = 1000;
+    const MAX_VIDEOS = 3000;
+    let allVideos: ViralVideo[] = [];
+    let page = 0;
+    const threshold = parseFloat(localStorage.getItem('viral_outlier_threshold') ?? '5');
+    while (allVideos.length < MAX_VIDEOS) {
+      let query = supabase
+        .from("viral_videos")
+        .select("id, channel_id, channel_username, platform, video_url, thumbnail_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, scraped_at")
+        .gte("outlier_score", threshold)
+        .order("outlier_score", { ascending: false })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      if (plat !== "all") query = (query as any).eq("platform", plat);
+      const { data, error } = await query;
+      if (error) { toast.error("Failed to load videos"); setLoading(false); return; }
+      const batch = (data as ViralVideo[]) || [];
+      allVideos = [...allVideos, ...batch];
+      if (batch.length < PAGE_SIZE) break;
+      page++;
+    }
+    setVideos(allVideos);
+    setLoading(false);
+    if (allVideos.length) loadAvatars(allVideos.map((v) => v.channel_username));
+  }, [loadAvatars]);
 
   useEffect(() => { loadVideos("all"); }, [loadVideos]);
 
-  // ── Feed algorithm: fetch interactions + niche keywords + channel affinity ──
+  // ── Feed algorithm ──
+  const buildFeed = useCallback((allVideos: ViralVideo[], interactions: Map<string, { seen_count: number; clicked: boolean }>) => {
+    const now = Date.now();
+    const filtered = allVideos.filter(v => {
+      const inter = interactions.get(v.id);
+      return !inter || inter.seen_count < 10;
+    });
+    const scored = filtered.map(v => {
+      let score = v.outlier_score * 10;
+      const ageDays = (now - new Date((v as any).posted_at ?? (v as any).scraped_at ?? now).getTime()) / 86_400_000;
+      score += Math.max(0, 30 - (ageDays / 90) * 30);
+      if (nicheKeywords.length > 0) {
+        const text = ((v.caption || "") + " " + v.channel_username).toLowerCase();
+        if (nicheKeywords.some(kw => text.includes(kw))) score += 40;
+      }
+      if ((v as any).channel_id && userChannelIds.has((v as any).channel_id)) score += 20;
+      const inter = interactions.get(v.id);
+      if (!inter) { score += 25; } else { score -= inter.seen_count * 15; }
+      return { video: v, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map(s => s.video);
+  }, [nicheKeywords, userChannelIds]);
+
+  // Interactions + niche
   useEffect(() => {
-    if (!user) { setInteractionsReady(true); return; } // no user = no personalization, unblock feed
+    if (!user) { setInteractionsReady(true); return; }
     (async () => {
-      const { data } = await supabase
-        .from("viral_video_interactions")
-        .select("video_id, seen_count, clicked")
-        .eq("user_id", user.id);
+      const { data } = await supabase.from("viral_video_interactions").select("video_id, seen_count, clicked").eq("user_id", user.id);
       if (data) {
         const map = new Map<string, { seen_count: number; clicked: boolean }>();
         data.forEach((r: any) => map.set(r.video_id, { seen_count: r.seen_count, clicked: r.clicked }));
         setInitialInteractions(map);
       }
-      setInteractionsReady(true); // unblock feed — both videos AND interactions are now loaded
+      setInteractionsReady(true);
     })();
     const clientId = localStorage.getItem("dashboard_viewMode");
     if (clientId && clientId !== "master" && clientId !== "me") {
@@ -541,16 +446,20 @@ export default function ViralReelFeed() {
     })();
   }, [user]);
 
-  // Flush seen to DB every 30s + on unmount.
-  // Only writes to DB for future sessions — does NOT update local state,
-  // so the current feed order stays stable (no mid-session re-sorting).
+  // Build frozen feed
+  useEffect(() => {
+    if (loading || !interactionsReady || videos.length === 0) return;
+    const feed = buildFeed(videos, initialInteractions);
+    setFeedVideos(feed);
+    setActiveIdx(0);
+  }, [loading, interactionsReady, videos, initialInteractions, buildFeed]);
+
+  // Flush seen
   const flushSeen = useCallback(async () => {
     if (!user || seenThisSession.current.size === 0) return;
     const ids = Array.from(seenThisSession.current);
     seenThisSession.current.clear();
-    try {
-      await supabase.rpc("upsert_video_seen", { p_user_id: user.id, p_video_ids: ids });
-    } catch (e) { console.error("[ReelFeed] flush seen failed:", e); }
+    try { await supabase.rpc("upsert_video_seen", { p_user_id: user.id, p_video_ids: ids }); } catch (e) { console.error("[ReelFeed] flush seen:", e); }
   }, [user]);
 
   useEffect(() => {
@@ -560,74 +469,38 @@ export default function ViralReelFeed() {
     return () => { clearInterval(timer); window.removeEventListener("beforeunload", handleUnload); flushSeen(); };
   }, [flushSeen]);
 
-  // Mark active reel as "seen" after 3s viewing.
-  // Depends only on activeIdx (not sortedVideos) so re-sorts don't reset the timer.
-  // currentVideoIdRef is set by the "update currentVideoIdRef" effect (declared above this one)
-  // which runs first whenever activeIdx changes, so the captured id is always correct.
+  // Mark seen after 3s
   useEffect(() => {
-    const id = currentVideoIdRef.current;
-    if (!id) return;
-    const timer = setTimeout(() => seenThisSession.current.add(id), 3000);
+    const vid = feedVideos[activeIdx];
+    if (!vid) return;
+    const timer = setTimeout(() => seenThisSession.current.add(vid.id), 3000);
     return () => clearTimeout(timer);
-  }, [activeIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeIdx, feedVideos]);
 
-  // Fire-and-forget prefetch for next 5 uncached videos
-  useEffect(() => {
-    if (!sortedVideos.length || !urlMap.size) return;
-    const uncached = sortedVideos
-      .slice(activeIdx + 1, activeIdx + 6)
-      .filter(v => (urlMap.get(v.id) ?? '').includes('/stream-reel'))
-      .map(v => ({ url: v.video_url, platform: v.platform }));
-    if (!uncached.length) return;
-    fetch(`${VPS_API}/prefetch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ videos: uncached }),
-    }).catch(() => {});
-  }, [activeIdx, sortedVideos, urlMap]);
-
-  useEffect(() => {
-    if (sortedVideos.length && colRef.current) colRef.current.style.transform = "translateY(0px)";
-  }, [videos]);
-
-  // ── Handlers ──
-
-  const navScroll = (dir: number) => {
-    const next = activeIdx + dir;
-    if (next >= 0 && next < sortedVideos.length) {
-      setActiveIdx(next);
-    }
-  };
-
+  // ── Inspire Script ──
   const handleInspireScript = () => {
-    if (!currentVideo || !remixClientId) {
-      toast.error("Select a client first");
-      return;
-    }
+    if (!currentVideo || !remixClientId) { toast.error("Select a client first"); return; }
     navigate(`/clients/${remixClientId}/scripts`, {
       state: {
         remixVideo: {
-          id: currentVideo.id,
-          url: currentVideo.video_url,
-          thumbnail_url: currentVideo.thumbnail_url,
-          caption: currentVideo.caption,
-          channel_username: currentVideo.channel_username,
-          platform: currentVideo.platform,
+          id: currentVideo.id, url: currentVideo.video_url,
+          thumbnail_url: currentVideo.thumbnail_url, caption: currentVideo.caption,
+          channel_username: currentVideo.channel_username, platform: currentVideo.platform,
         },
       },
     });
   };
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════════════
+
   return (
     <>
       <style>{`
-        .reel-col-wrapper {
-          overflow: hidden;
-          touch-action: none;
-        }
+        .reel-col-wrapper { overflow: hidden; touch-action: none; }
         .reel-col {
-          display: flex;
-          flex-direction: column;
+          display: flex; flex-direction: column;
           transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .reel-col::-webkit-scrollbar { display: none; }
@@ -636,33 +509,13 @@ export default function ViralReelFeed() {
           height: var(--card-h, 100%);
           flex: 0 0 var(--card-h, 100%);
         }
-        .reel-card video {
-          opacity: 0;
-          transition: opacity 0.4s;
-          object-fit: cover;
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 1;
-        }
-        .reel-card video[data-ready="true"],
-        .reel-card iframe[data-ready="true"] { opacity: 1; }
-        .reel-card iframe {
-          opacity: 1;
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 1;
-        }
         @keyframes reelSpin { to { transform: rotate(360deg) } }
         .reel-spin { animation: reelSpin 0.8s linear infinite; }
       `}</style>
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
 
-        {/* ── TABS (desktop only) ── */}
+        {/* ── TABS (desktop) ── */}
         <div className="hidden lg:flex items-center gap-1.5 px-5 py-2.5 border-b border-border flex-shrink-0">
           {TABS.map((tab) => (
             <button
@@ -683,13 +536,18 @@ export default function ViralReelFeed() {
 
         {/* ── FEED ── */}
         {(loading || !interactionsReady) ? (
-          <div className="flex-1 flex items-center justify-center gap-3">
+          <div className="flex-1 flex flex-col items-center justify-center gap-3">
             <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full reel-spin" />
             <span className="text-sm text-muted-foreground">Loading viral feed…</span>
           </div>
-        ) : !sortedVideos.length ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">No videos found for this filter</p>
+        ) : feedVideos.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+              <Eye className="w-7 h-7 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              You've seen all the top content! Check back later or explore the Grid view.
+            </p>
           </div>
         ) : (
           <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -697,39 +555,15 @@ export default function ViralReelFeed() {
             {/* ── VIDEO COLUMN ── */}
             <div className="flex-1 flex justify-center overflow-hidden relative">
 
-              {/* Nav arrows */}
-              <div className="fixed left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[50] hidden lg:flex">
-                <button
-                  onClick={() => navScroll(-1)}
-                  className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-all disabled:opacity-30"
-                  disabled={activeIdx === 0}
-                >
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <button
-                  onClick={() => navScroll(1)}
-                  className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-all disabled:opacity-30"
-                  disabled={activeIdx === sortedVideos.length - 1}
-                >
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-
               {/* Floating controls overlay */}
               <div className="w-full lg:w-[380px] absolute inset-0 mx-auto pointer-events-none z-20">
                 <div
                   className="absolute top-0 left-0 right-0 h-20 pointer-events-none lg:hidden"
                   style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%)" }}
                 />
-
                 <div className="absolute top-3 left-4 pointer-events-none">
-                  <img
-                    src={connectaLogoLight}
-                    alt="Connecta"
-                    className="h-5 object-contain opacity-80 drop-shadow-lg"
-                  />
+                  <img src={connectaLogoLight} alt="Connecta" className="h-5 object-contain opacity-80 drop-shadow-lg" />
                 </div>
-
                 <div className="absolute top-3 right-3 pointer-events-auto flex items-center gap-1 lg:hidden">
                   {TABS.map((tab) => (
                     <button
@@ -750,175 +584,109 @@ export default function ViralReelFeed() {
               </div>
 
               {/* Scroll container */}
-              <div
-                ref={wrapperRef}
-                className="reel-col-wrapper w-full lg:w-[380px] bg-black absolute inset-0 mx-auto"
-              >
-              <div
-                ref={colRef}
-                className="reel-col w-full"
-              >
-                {sortedVideos.map((v, idx) => {
-                  const avatarUrl = avatarMap[v.channel_username];
+              <div ref={wrapperRef} className="reel-col-wrapper w-full lg:w-[380px] bg-black absolute inset-0 mx-auto">
+
+              {/* PERSISTENT video element — sits ABOVE the scroll column, never unmounts */}
+              <video
+                ref={videoRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ zIndex: 5, opacity: videoReady ? 1 : 0, transition: "opacity 0.3s" }}
+                playsInline
+                muted={muted}
+                loop
+                preload="auto"
+                onClick={togglePlayPause}
+                onPlaying={() => setVideoReady(true)}
+                onTimeUpdate={(e) => {
+                  if (!videoReady && e.currentTarget.currentTime > 0) setVideoReady(true);
+                }}
+                onCanPlay={(e) => {
+                  if (e.currentTarget.paused && !pausedRef.current) {
+                    e.currentTarget.muted = mutedRef.current;
+                    e.currentTarget.play().catch(() => {});
+                  }
+                }}
+                onError={() => {
+                  const vid = videoRef.current;
+                  const video = feedVideos[activeIdxRef.current];
+                  if (!vid || !video) return;
+                  const streamUrl = `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}`;
+                  if (!vid.src.includes('/stream-reel')) {
+                    vid.src = streamUrl;
+                    vid.load();
+                    vid.play().catch(() => {});
+                  } else {
+                    failedIndices.current.add(activeIdxRef.current);
+                    setTimeout(() => {
+                      setActiveIdx(prev => {
+                        const next = findNextValid(prev, 1);
+                        return next !== prev ? next : prev;
+                      });
+                    }, 800);
+                  }
+                }}
+              />
+
+              {/* Loading spinner — above video */}
+              {!videoReady && !paused && feedVideos.length > 0 && (
+                <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
+                  <div className="w-10 h-10 border-2 border-white/20 border-t-white/60 rounded-full reel-spin" />
+                </div>
+              )}
+
+              {/* Paused indicator — above video */}
+              {paused && (
+                <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
+                  <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center animate-in fade-in zoom-in duration-200">
+                    <Play className="w-7 h-7 text-white fill-white ml-1" />
+                  </div>
+                </div>
+              )}
+
+              <div ref={colRef} className="reel-col w-full h-full" style={{ position: "relative", zIndex: 7 }}>
+                {feedVideos.map((v, idx) => {
                   const isActive = idx === activeIdx;
-                  const isAdjacent = Math.abs(idx - activeIdx) <= 1;
-                  const nearActive = Math.abs(idx - activeIdx) <= 4;
+                  const nearActive = Math.abs(idx - activeIdx) <= 3;
+
+                  // Virtualize — only render nearby cards
+                  if (!nearActive) return <div key={v.id} className="reel-card w-full" />;
+
+                  const avatarUrl = avatarMap[v.channel_username];
                   return (
                     <div
                       key={v.id}
                       className="reel-card relative w-full overflow-hidden cursor-pointer"
+                      style={{ pointerEvents: isActive ? "none" : "auto" }}
                       onClick={() => { if (isActive) togglePlayPause(); }}
                     >
-                      {/* Gradient bg */}
-                      <div className="absolute inset-0 z-0" style={{ background: gradientFor(v.channel_username) }} />
+                      {/* Gradient bg — hidden on active card when video plays */}
+                      <div
+                        className="absolute inset-0 z-0"
+                        style={{
+                          background: gradientFor(v.channel_username),
+                          opacity: isActive && videoReady ? 0 : 1,
+                          transition: "opacity 0.3s",
+                        }}
+                      />
 
-                      {/* Thumbnail */}
+                      {/* Thumbnail — fades when video plays on active card */}
                       {v.thumbnail_url && (
                         <img
                           src={nearActive ? (proxyImg(v.thumbnail_url, v.video_url) ?? v.thumbnail_url) : undefined}
                           alt=""
-                          className="absolute inset-0 w-full h-full object-cover z-[0]"
-                          style={nearActive ? undefined : { visibility: "hidden" }}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          className="absolute inset-0 w-full h-full object-cover z-[2]"
+                          style={{
+                            opacity: isActive && videoReady ? 0 : 1,
+                            transition: "opacity 0.3s",
+                            pointerEvents: "none",
+                          }}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
                         />
-                      )}
-
-                      {/* Video — 3-element: prev + active + next */}
-                      {isAdjacent && !failedVideoIds.has(v.id) && (
-                        (useEmbed && v.platform === "youtube" && isActive) ? (
-                        <iframe
-                          src={`https://www.youtube.com/embed/${(v.video_url.match(/\/shorts\/([^/?]+)/) || [])[1] || ""}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&playlist=${(v.video_url.match(/\/shorts\/([^/?]+)/) || [])[1] || ""}&playsinline=1&controls=0&modestbranding=1&rel=0`}
-                          className="absolute inset-0 w-full h-full z-[1]"
-                          style={{ border: "none" }}
-                          allow="autoplay; encrypted-media"
-                          allowFullScreen
-                          data-ready="true"
-                        />
-                      ) : (
-                        <video
-                          ref={isActive ? activeVideoRef : undefined}
-                          src={urlMap.get(v.id) ?? `${VPS_API}/stream-reel?url=${encodeURIComponent(v.video_url)}`}
-                          autoPlay={isActive}
-                          playsInline
-                          muted={isActive ? muted : true}
-                          loop
-                          preload="auto"
-                          onPlaying={(e) => { e.currentTarget.dataset.ready = "true"; if (isActive) setVideoReady(true); }}
-                          onTimeUpdate={(e) => {
-                            // Fallback: if onPlaying didn't fire but video is advancing, show it
-                            if (e.currentTarget.dataset.ready !== "true" && e.currentTarget.currentTime > 0) {
-                              e.currentTarget.dataset.ready = "true";
-                              if (isActive) setVideoReady(true);
-                            }
-                          }}
-                          onCanPlay={(e) => {
-                            // Mark ready immediately so the stall timeout won't fire and restart the video.
-                            e.currentTarget.dataset.ready = "true";
-                            if (isActive) setVideoReady(true);
-                            if (isActive && e.currentTarget.paused && !pausedRef.current) {
-                              e.currentTarget.muted = mutedRef.current;
-                              e.currentTarget.play().catch(() => {});
-                            }
-                          }}
-                          onLoadedData={(e) => {
-                            if (isActive && e.currentTarget.paused && !pausedRef.current) {
-                              e.currentTarget.muted = mutedRef.current;
-                              e.currentTarget.play().catch(() => {});
-                            }
-                          }}
-                          onError={() => {
-                            if (!isActive) return;
-                            const vid = activeVideoRef.current;
-                            if (!vid) return;
-
-                            if (v.platform === "youtube") {
-                              setUseEmbed(true);
-                              return;
-                            }
-
-                            const streamUrl = getStreamUrl(v);
-                            if (!vid.src.includes('/stream-reel') && !vid.src.includes('/proxy-video')) {
-                              vid.src = streamUrl;
-                              vid.load();
-                              vid.play().catch(() => {});
-                            } else {
-                              setFailedVideoIds(prev => {
-                                const next = new Set([...prev, v.id]);
-                                failedVideoIdsRef.current = next;
-                                return next;
-                              });
-                            }
-                          }}
-                        />
-                      ))}
-
-                      {/* Error state — retry button for failed videos */}
-                      {failedVideoIds.has(v.id) && isActive && (
-                        <div className="absolute inset-0 z-[3] flex flex-col items-center justify-center gap-4">
-                          <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center">
-                            <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <p className="text-white/80 text-sm font-medium">Video unavailable</p>
-                          <div className="flex gap-3">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFailedVideoIds(prev => {
-                                  const next = new Set(prev);
-                                  next.delete(v.id);
-                                  failedVideoIdsRef.current = next;
-                                  return next;
-                                });
-                              }}
-                              className="px-5 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium hover:bg-white/25 transition-all"
-                            >
-                              Retry
-                            </button>
-                            <a
-                              href={v.video_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="px-5 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium hover:bg-white/25 transition-all"
-                            >
-                              Open Original
-                            </a>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Small error badge for non-active failed cards */}
-                      {failedVideoIds.has(v.id) && !isActive && nearActive && (
-                        <div className="absolute top-3 right-3 z-[3]">
-                          <div className="w-8 h-8 rounded-full bg-red-500/30 backdrop-blur-sm flex items-center justify-center">
-                            <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01" />
-                            </svg>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Loading spinner — while video hasn't started playing */}
-                      {isActive && !videoReady && !paused && !failedVideoIds.has(v.id) && !useEmbed && (
-                        <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
-                          <div className="w-10 h-10 border-2 border-white/20 border-t-white/60 rounded-full reel-spin" />
-                        </div>
-                      )}
-
-                      {/* Paused indicator */}
-                      {isActive && paused && (
-                        <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none">
-                          <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center animate-in fade-in zoom-in duration-200">
-                            <Play className="w-7 h-7 text-white fill-white ml-1" />
-                          </div>
-                        </div>
                       )}
 
                       {/* Mobile right-side actions (TikTok-style) */}
                       {isActive && (
-                        <div className="absolute right-3 bottom-[140px] z-[6] flex flex-col items-center gap-5 lg:hidden">
+                        <div className="absolute right-3 bottom-[140px] z-[6] flex flex-col items-center gap-5 lg:hidden" style={{ pointerEvents: "auto" }}>
                           <div className="flex flex-col items-center gap-1">
                             <div className="w-11 h-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 flex items-center justify-center">
                               <Flame className="w-5 h-5 text-orange-400 fill-orange-400" />
@@ -949,9 +717,7 @@ export default function ViralReelFeed() {
                       {/* Bottom overlay */}
                       <div
                         className="absolute bottom-0 left-0 right-0 z-[5] p-4 pb-20 lg:pb-5 pr-16 lg:pr-4"
-                        style={{
-                          background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.2) 70%, transparent 100%)",
-                        }}
+                        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.2) 70%, transparent 100%)" }}
                       >
                         <div className="flex items-center gap-2 mb-1.5">
                           {avatarUrl ? (
@@ -985,7 +751,7 @@ export default function ViralReelFeed() {
               </div>
             </div>
 
-            {/* ── INFO PANEL (hidden on mobile) ── */}
+            {/* ── INFO PANEL (desktop) ── */}
             <div className="hidden lg:flex w-[300px] flex-shrink-0 flex-col border-l border-border bg-card overflow-hidden">
               {currentVideo ? (
                 <>
@@ -1018,34 +784,19 @@ export default function ViralReelFeed() {
                       </div>
                     </div>
                     {currentVideo.platform === "instagram" ? (
-                      <a
-                        href={currentVideo.video_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open on Instagram"
+                      <a href={currentVideo.video_url} target="_blank" rel="noopener noreferrer" title="Open on Instagram"
                         className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
-                        style={{ background: "linear-gradient(135deg, #e1306c, #fd1d1d, #fcb045)" }}
-                      >
+                        style={{ background: "linear-gradient(135deg, #e1306c, #fd1d1d, #fcb045)" }}>
                         <Instagram className="w-4 h-4 text-white" />
                       </a>
                     ) : currentVideo.platform === "tiktok" ? (
-                      <a
-                        href={currentVideo.video_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open on TikTok"
-                        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity bg-black"
-                      >
+                      <a href={currentVideo.video_url} target="_blank" rel="noopener noreferrer" title="Open on TikTok"
+                        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity bg-black">
                         <Music className="w-4 h-4 text-cyan-400" />
                       </a>
                     ) : (
-                      <a
-                        href={currentVideo.video_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open on YouTube"
-                        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity bg-[#ff0000]"
-                      >
+                      <a href={currentVideo.video_url} target="_blank" rel="noopener noreferrer" title="Open on YouTube"
+                        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity bg-[#ff0000]">
                         <Youtube className="w-4 h-4 text-white" />
                       </a>
                     )}
@@ -1067,18 +818,12 @@ export default function ViralReelFeed() {
 
                   <div className="grid grid-cols-2 gap-2 p-4 border-b border-border flex-shrink-0">
                     {[
-                      { icon: <Eye className="w-4 h-4 text-muted-foreground" />, val: fmtV(currentVideo.views_count), lbl: "Views", accent: false },
-                      { icon: <Heart className="w-4 h-4 text-red-400" />, val: fmtV(currentVideo.likes_count), lbl: "Likes", accent: false },
-                      { icon: <MessageCircle className="w-4 h-4 text-muted-foreground" />, val: fmtV(currentVideo.comments_count), lbl: "Comments", accent: false },
-                      { icon: <Zap className="w-4 h-4 text-primary" />, val: fmtEng(currentVideo.engagement_rate), lbl: "Engagement", accent: true },
+                      { icon: <Eye className="w-4 h-4 text-muted-foreground" />, val: fmtV(currentVideo.views_count), lbl: "Views" },
+                      { icon: <Heart className="w-4 h-4 text-red-400" />, val: fmtV(currentVideo.likes_count), lbl: "Likes" },
+                      { icon: <MessageCircle className="w-4 h-4 text-muted-foreground" />, val: fmtV(currentVideo.comments_count), lbl: "Comments" },
+                      { icon: <Zap className="w-4 h-4 text-primary" />, val: fmtEng(currentVideo.engagement_rate), lbl: "Engagement" },
                     ].map((s) => (
-                      <div
-                        key={s.lbl}
-                        className={cn(
-                          "rounded-xl p-3 border",
-                          s.accent ? "bg-primary/5 border-primary/15" : "bg-muted/40 border-border"
-                        )}
-                      >
+                      <div key={s.lbl} className={cn("rounded-xl p-3 border", s.lbl === "Engagement" ? "bg-primary/5 border-primary/15" : "bg-muted/40 border-border")}>
                         <div className="mb-1">{s.icon}</div>
                         <div className="text-[17px] font-bold text-foreground leading-tight">{s.val}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">{s.lbl}</div>
@@ -1099,15 +844,10 @@ export default function ViralReelFeed() {
 
                   <div className="p-4 pt-3 border-t border-border flex flex-col gap-2 flex-shrink-0">
                     {clientOptions.length > 1 && (
-                      <select
-                        value={remixClientId}
-                        onChange={(e) => setRemixClientId(e.target.value)}
-                        className="w-full h-9 rounded-lg border border-border bg-background text-sm px-3 text-foreground"
-                      >
+                      <select value={remixClientId} onChange={(e) => setRemixClientId(e.target.value)}
+                        className="w-full h-9 rounded-lg border border-border bg-background text-sm px-3 text-foreground">
                         <option value="">Select client…</option>
-                        {clientOptions.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
+                        {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     )}
                     <button
@@ -1115,8 +855,7 @@ export default function ViralReelFeed() {
                       disabled={!remixClientId || clientsLoading}
                       className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-background font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-50"
                     >
-                      <Star className="w-4 h-4 fill-current" />
-                      Inspire Script
+                      <Star className="w-4 h-4 fill-current" /> Inspire Script
                     </button>
                   </div>
                 </>
@@ -1133,10 +872,7 @@ export default function ViralReelFeed() {
       {/* Mobile Inspire Script bottom sheet */}
       {mobileSheetOpen && (
         <>
-          <div
-            className="fixed inset-0 z-[60] bg-black/60 lg:hidden"
-            onClick={() => setMobileSheetOpen(false)}
-          />
+          <div className="fixed inset-0 z-[60] bg-black/60 lg:hidden" onClick={() => setMobileSheetOpen(false)} />
           <div
             className="fixed bottom-0 left-0 right-0 z-[70] lg:hidden rounded-t-2xl bg-card border-t border-border p-5 pb-10 animate-in slide-in-from-bottom duration-300"
             onClick={(e) => e.stopPropagation()}
@@ -1144,20 +880,13 @@ export default function ViralReelFeed() {
             <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
             <p className="font-bold text-base text-foreground mb-0.5">Inspire a Script</p>
             {currentVideo && (
-              <p className="text-xs text-muted-foreground mb-4 truncate">
-                @{currentVideo.channel_username} · {currentVideo.platform}
-              </p>
+              <p className="text-xs text-muted-foreground mb-4 truncate">@{currentVideo.channel_username} · {currentVideo.platform}</p>
             )}
             {clientOptions.length > 1 && (
-              <select
-                value={remixClientId}
-                onChange={(e) => setRemixClientId(e.target.value)}
-                className="w-full h-11 rounded-xl border border-border bg-background text-sm px-3 text-foreground mb-3"
-              >
+              <select value={remixClientId} onChange={(e) => setRemixClientId(e.target.value)}
+                className="w-full h-11 rounded-xl border border-border bg-background text-sm px-3 text-foreground mb-3">
                 <option value="">Select client…</option>
-                {clientOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
             <button
@@ -1166,8 +895,7 @@ export default function ViralReelFeed() {
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition-all"
               style={{ background: "linear-gradient(135deg, #06b6d4, #8b5cf6)" }}
             >
-              <Star className="w-4 h-4 fill-current" />
-              Open Canvas
+              <Star className="w-4 h-4 fill-current" /> Open Canvas
             </button>
           </div>
         </>

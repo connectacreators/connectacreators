@@ -13,6 +13,9 @@ export interface CreditsData {
   plan_type: string | null;
   subscription_status: string | null;
   trial_ends_at: string | null;
+  pending_plan_type: string | null;
+  pending_plan_effective_date: string | null;
+  topup_credits_balance: number;
 }
 
 export interface CreditTransaction {
@@ -50,7 +53,7 @@ export function useCredits() {
       if (link?.client_id) {
         const result = await supabase
           .from("clients")
-          .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at")
+          .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at, pending_plan_type, pending_plan_effective_date, topup_credits_balance")
           .eq("id", link.client_id)
           .single();
         clientData = result.data;
@@ -59,7 +62,7 @@ export function useCredits() {
         // Fallback: direct user_id lookup
         const result = await supabase
           .from("clients")
-          .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at")
+          .select("id, credits_balance, credits_used, credits_monthly_cap, credits_reset_at, channel_scrapes_used, channel_scrapes_limit, plan_type, subscription_status, trial_ends_at, pending_plan_type, pending_plan_effective_date, topup_credits_balance")
           .eq("user_id", user.id)
           .maybeSingle();
         clientData = result.data;
@@ -78,6 +81,9 @@ export function useCredits() {
           plan_type: clientData.plan_type ?? null,
           subscription_status: clientData.subscription_status ?? null,
           trial_ends_at: clientData.trial_ends_at ?? null,
+          pending_plan_type: clientData.pending_plan_type ?? null,
+          pending_plan_effective_date: clientData.pending_plan_effective_date ?? null,
+          topup_credits_balance: clientData.topup_credits_balance ?? 0,
         });
         const { data: txData } = await supabase
           .from("credit_transactions")
@@ -97,6 +103,13 @@ export function useCredits() {
   };
 
   useEffect(() => { fetchCredits(); }, [user?.id]);
+
+  // Re-fetch when any component signals a credit deduction (e.g. VideoNode after transcription)
+  useEffect(() => {
+    const handler = () => { fetchCredits(); };
+    window.addEventListener("credits-updated", handler);
+    return () => window.removeEventListener("credits-updated", handler);
+  }, [user?.id]);
 
   const percentUsed = credits?.credits_monthly_cap
     ? Math.min(100, Math.round((credits.credits_used / credits.credits_monthly_cap) * 100))

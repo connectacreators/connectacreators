@@ -11,6 +11,7 @@ export interface RevisionComment {
   resolved: boolean;
   created_at: string;
   source_ref: string | null;
+  internal_only: boolean;
 }
 
 export interface CreateCommentInput {
@@ -21,6 +22,7 @@ export interface CreateCommentInput {
   author_role: 'admin' | 'editor' | 'client';
   author_id?: string | null;
   source_ref?: string | null;
+  internal_only?: boolean;
 }
 
 export const revisionCommentService = {
@@ -82,5 +84,17 @@ export const revisionCommentService = {
 
     if (error) throw error;
     return count || 0;
+  },
+
+  async getCommentSummary(videoEditId: string): Promise<{ total: number; unresolved: number }> {
+    const { data, error } = await supabase
+      .from('revision_comments')
+      .select('resolved')
+      .eq('video_edit_id', videoEditId);
+
+    if (error) throw error;
+    const total = data?.length ?? 0;
+    const unresolved = data?.filter(c => !c.resolved).length ?? 0;
+    return { total, unresolved };
   },
 };

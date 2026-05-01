@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Demo Video Placement Preview</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #06090c; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow-x: hidden; }
+
+  /* Background embers */
+  .ember { position: fixed; border-radius: 50%; pointer-events: none; filter: blur(160px); }
+  .ember-1 { top: -15%; left: 45%; width: 900px; height: 700px; background: radial-gradient(circle, rgba(6,182,212,1), transparent 70%); opacity: 0.10; animation: breathe 14s ease-in-out infinite; }
+  .ember-2 { bottom: -5%; left: -8%; width: 780px; height: 680px; background: radial-gradient(circle, rgba(132,204,22,1), transparent 70%); opacity: 0.05; animation: drift 18s ease-in-out infinite; }
+  @keyframes breathe { 0%,100%{opacity:.10;transform:scale(1)} 50%{opacity:.15;transform:scale(1.05)} }
+  @keyframes drift { 0%,100%{opacity:.05;transform:translate(0,0)} 50%{opacity:.07;transform:translate(-25px,15px)} }
+  @keyframes horse-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  @keyframes fade-up { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse-glow { 0%,100%{box-shadow:0 0 40px rgba(6,182,212,0.12),0 0 80px rgba(6,182,212,0.06)} 50%{box-shadow:0 0 60px rgba(6,182,212,0.18),0 0 120px rgba(6,182,212,0.10)} }
+  @keyframes play-pulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.06)} }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 16px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(24px); background: rgba(6,9,12,0.7);
+    border-bottom: 1px solid rgba(8,145,178,0.12);
+  }
+  .nav-logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: #fff; }
+  .nav-logo span { color: #22d3ee; }
+  .nav-btn {
+    padding: 10px 24px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(132,204,22,.06));
+    border: 1px solid rgba(8,145,178,.25); color: #fff; cursor: pointer;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 140px 48px 60px;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; position: relative;
+  }
+  .horse-wrap {
+    margin-bottom: 20px;
+    animation: horse-float 8s ease-in-out infinite;
+  }
+  .horse-wrap video { height: 180px; object-fit: contain; mix-blend-mode: lighten; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 16px; border-radius: 999px; margin-bottom: 24px;
+    border: 1px solid rgba(8,145,178,.15); background: rgba(8,145,178,.03);
+    font-size: 10px; color: rgba(34,211,238,.55); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; background: #c9a84c; opacity: .5; }
+  h1 { font-size: 52px; font-weight: 300; line-height: 1.08; margin-bottom: 18px; letter-spacing: -2px; color: rgba(255,255,255,.92); }
+  h1 b { font-weight: 700; background: linear-gradient(90deg,#c9a84c,#f0d080,#c9a84c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero-sub { font-size: 17px; color: rgba(255,255,255,.35); line-height: 1.7; margin-bottom: 36px; max-width: 520px; }
+  .hero-cta {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 34px; border-radius: 12px; font-size: 14px; font-weight: 600; color: #fff;
+    background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(132,204,22,.06));
+    border: 1px solid rgba(8,145,178,.25); text-decoration: none; letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+
+  /* ── DEMO VIDEO SECTION ── */
+  .demo-section {
+    position: relative;
+    padding: 20px 48px 80px;
+    display: flex; flex-direction: column; align-items: center;
+    overflow: hidden;
+  }
+
+  /* Horse background watermark */
+  .demo-horse-bg {
+    position: absolute;
+    left: 50%; top: -200px;
+    transform: translateX(-50%);
+    height: 600px;
+    object-fit: contain;
+    opacity: 0.08;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 2;
+    -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 20%, transparent 70%);
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 20%, transparent 70%);
+    animation: horse-float 10s ease-in-out infinite;
+  }
+
+  .demo-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(34,211,238,0.45); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+    position: relative; z-index: 3;
+  }
+  .demo-label::before, .demo-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(8,145,178,0.2), transparent);
+    width: 60px;
+  }
+
+  .demo-headline {
+    font-size: 15px; font-weight: 300; color: rgba(255,255,255,0.45);
+    margin-bottom: 36px; letter-spacing: -0.01em;
+    position: relative; z-index: 3;
+  }
+  .demo-headline em { font-style: normal; color: rgba(255,255,255,0.75); font-weight: 500; }
+
+  /* Video container */
+  .video-container {
+    position: relative;
+    width: 100%; max-width: 900px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(8,145,178,0.18);
+    animation: pulse-glow 6s ease-in-out infinite;
+    background: #0a0d10;
+    z-index: 3;
+  }
+
+  /* Browser chrome bar */
+  .browser-chrome {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .chrome-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .chrome-dot-1 { background: rgba(255,59,48,0.5); }
+  .chrome-dot-2 { background: rgba(255,149,0,0.5); }
+  .chrome-dot-3 { background: rgba(40,205,65,0.5); }
+  .chrome-url {
+    margin-left: 12px; flex: 1; max-width: 260px;
+    padding: 4px 12px; border-radius: 6px; font-size: 11px;
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* Video placeholder */
+  .video-placeholder {
+    position: relative;
+    width: 100%; aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #0d1117 0%, #0a1520 50%, #0d1117 100%);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  /* Simulated app screenshot inside placeholder */
+  .app-preview {
+    position: absolute; inset: 0;
+    display: flex;
+    opacity: 0.6;
+  }
+  .app-sidebar {
+    width: 56px; background: #080808;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px 0; gap: 16px;
+  }
+  .sidebar-dot { width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.06); }
+  .sidebar-dot.active { background: rgba(8,145,178,0.2); }
+  .app-main { flex: 1; background: #0f1114; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .app-header { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.08); width: 140px; }
+  .app-card { border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); padding: 10px; }
+  .app-card-line { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06); margin-bottom: 6px; }
+  .app-card-line.short { width: 60%; }
+  .app-card-line.med { width: 80%; }
+
+  /* Play button */
+  .play-btn {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 2;
+    animation: play-pulse 3s ease-in-out infinite;
+    transition: background 0.2s;
+  }
+  .play-btn:hover { background: rgba(255,255,255,0.22); }
+  .play-icon { width: 0; height: 0; border-top: 11px solid transparent; border-bottom: 11px solid transparent; border-left: 18px solid rgba(255,255,255,0.9); margin-left: 4px; }
+
+  /* Gradient overlay on video */
+  .video-gradient {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(6,9,12,0.4) 100%);
+  }
+
+  /* Caption below video */
+  .video-caption {
+    margin-top: 20px;
+    font-size: 12px; color: rgba(255,255,255,0.25);
+    letter-spacing: 0.01em;
+  }
+
+  /* Divider into mockup */
+  .section-divider {
+    width: 1px; height: 60px;
+    background: linear-gradient(180deg, rgba(8,145,178,0.3), transparent);
+    margin: 0 auto 0;
+  }
+
+  /* CANVAS MOCKUP PLACEHOLDER */
+  .mockup-section {
+    padding: 0 48px 80px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .mockup-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(255,255,255,0.2); margin-bottom: 24px;
+  }
+  .mockup-placeholder {
+    width: 100%; max-width: 1000px; height: 500px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.1); font-size: 13px;
+  }
+
+  /* Layout note callout */
+  .callout {
+    position: fixed; bottom: 24px; right: 24px;
+    background: rgba(8,145,178,0.1); border: 1px solid rgba(8,145,178,0.25);
+    border-radius: 12px; padding: 14px 18px; max-width: 280px;
+    font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.5;
+    backdrop-filter: blur(12px);
+  }
+  .callout strong { color: #22d3ee; display: block; margin-bottom: 4px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<div class="ember ember-1"></div>
+<div class="ember ember-2"></div>
+
+<nav>
+  <div class="nav-logo">Connecta<span>Creators</span></div>
+  <button class="nav-btn">Try Connecta</button>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="pill">
+    <span class="pill-dot"></span>
+    AI-Powered Creator Platform
+  </div>
+
+  <h1>
+    Create viral short-form<br>
+    <b>videos in seconds</b>
+  </h1>
+
+  <p class="hero-sub">
+    Research viral outliers, remix them into scripts, and publish — all from one AI-powered canvas.
+  </p>
+
+  <a class="hero-cta">
+    ▶ &nbsp;Try It Free
+  </a>
+</section>
+
+<!-- ── DEMO VIDEO SECTION ── -->
+<section class="demo-section">
+
+  <div class="demo-label">See It In Action</div>
+
+  <p class="demo-headline">
+    From <em>research to published script</em> — in under 3 minutes
+  </p>
+
+  <div class="video-container">
+    <!-- Browser chrome -->
+    <div class="browser-chrome">
+      <div class="chrome-dot chrome-dot-1"></div>
+      <div class="chrome-dot chrome-dot-2"></div>
+      <div class="chrome-dot chrome-dot-3"></div>
+      <div class="chrome-url">app.connectacreators.com</div>
+    </div>
+
+    <!-- Video placeholder (your demo-video.mov goes here) -->
+    <div class="video-placeholder">
+      <div class="app-preview">
+        <div class="app-sidebar">
+          <div class="sidebar-dot active"></div>
+          <div class="sidebar-dot"></div>
+          <div class="sidebar-dot"></div>
+          <div class="sidebar-dot"></div>
+        </div>
+        <div class="app-main">
+          <div class="app-header"></div>
+          <div class="app-card">
+            <div class="app-card-line med"></div>
+            <div class="app-card-line short"></div>
+          </div>
+          <div class="app-card">
+            <div class="app-card-line"></div>
+            <div class="app-card-line med"></div>
+            <div class="app-card-line short"></div>
+          </div>
+          <div class="app-card">
+            <div class="app-card-line med"></div>
+            <div class="app-card-line short"></div>
+          </div>
+        </div>
+      </div>
+      <div class="video-gradient"></div>
+      <div class="play-btn">
+        <div class="play-icon"></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- Divider into mockup -->
+<div class="section-divider"></div>
+
+<!-- CANVAS MOCKUP (existing) -->
+<section class="mockup-section">
+  <div class="mockup-label">The Planning Canvas</div>
+  <div class="mockup-placeholder">
+    ↑ CanvasHeroMockup component goes here (unchanged)
+  </div>
+</section>
+
+<!-- Callout -->
+<div class="callout">
+  <strong>Layout Preview</strong>
+  Horse animation sits at ~3.5% opacity behind the video. Browser chrome frame gives it an "app demo" feel. Play button pulses gently.
+</div>
+
+</body>
+</html>

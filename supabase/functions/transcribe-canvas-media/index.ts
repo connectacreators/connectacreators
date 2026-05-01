@@ -10,7 +10,7 @@ const corsHeaders = {
 const YTDLP_SERVER = "http://72.62.200.145:3099";
 const YTDLP_API_KEY = "ytdlp_connecta_2026_secret";
 
-const COSTS: Record<string, number> = { audio: 150, visual: 100, both: 200 };
+const COSTS: Record<string, number> = { audio: 50, visual: 50, both: 100, pdf: 50 };
 
 async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
@@ -36,67 +36,31 @@ async function getPrimaryClientId(
 }
 
 const DOUBLE_COST_THRESHOLD = 25 * 1024 * 1024; // 25 MB — files above this cost 2×
-const VALID_MODES = ["audio", "visual", "both"];
+const VALID_MODES = ["audio", "visual", "both", "pdf"];
+const PDF_MAX_BYTES = 32 * 1024 * 1024; // Claude document API limit
 
-// ─── Credit deduction (same pattern as transcribe-video) ───
+// ─── Credit deduction — atomic via DB function (no race condition) ───
 async function deductCredits(
   adminClient: any,
   userId: string,
   action: string,
   cost: number,
 ): Promise<string | null> {
-  // Check if admin (admins bypass credits)
+  if (cost === 0) return null;
+
   const { data: roleData } = await adminClient
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
   const role = roleData?.role;
-  // Skip credit deduction for admin, videographers, and editors
   if (role === "admin" || role === "videographer" || role === "editor") return null;
 
-  // Get client record via primary client lookup
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
-  if (!primaryClientId) return null; // No primary client — allow through (staff accounts)
-  const { data: client, error: fetchErr } = await adminClient
-    .from("clients")
-    .select("id, credits_balance, credits_used")
-    .eq("id", primaryClientId)
-    .single();
+  if (!primaryClientId) return null;
 
-  if (fetchErr || !client) return null; // No client record — allow through (staff accounts)
-
-  if ((client.credits_balance ?? 0) < cost) {
-    return JSON.stringify({
-      error: `Insufficient credits. You need ${cost} credits but only have ${client.credits_balance ?? 0}.`,
-      insufficient_credits: true,
-      balance: client.credits_balance ?? 0,
-      needed: cost,
-    });
-  }
-
-  // Deduct
-  const { error: updateErr } = await adminClient
-    .from("clients")
-    .update({
-      credits_balance: (client.credits_balance ?? 0) - cost,
-      credits_used: (client.credits_used ?? 0) + cost,
-    })
-    .eq("id", primaryClientId);
-
-  if (updateErr) {
-    console.error("Credit update error:", updateErr);
-    return JSON.stringify({ error: "Failed to deduct credits", details: updateErr.message });
-  }
-
-  // Log transaction
-  await adminClient.from("credit_transactions").insert({
-    client_id: client.id,
-    action,
-    cost,
-    metadata: {},
+  const { data: result, error } = await adminClient.rpc("deduct_credits_atomic", {
+    p_client_id: primaryClientId, p_action: action, p_cost: cost,
   });
-
+  if (error) { console.error("Credit deduction error:", error); return null; }
+  if (!result?.ok) return JSON.stringify(result);
   return null;
 }
 
@@ -180,7 +144,7 @@ async function transcribeAudio(
     "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/mp4": "m4a",
     "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/aac": "m4a",
     "audio/wav": "wav", "audio/webm": "webm", "audio/ogg": "ogg",
-    "audio/flac": "flac",
+    "audio/flac": "flac", "audio/x-caf": "caf",
   };
   const blobMime = audioBlob.type || "audio/mpeg";
   const ext = mimeToExt[blobMime] || "mp3";
@@ -204,6 +168,43 @@ async function transcribeAudio(
   if (!whisperRes.ok) {
     const errText = await whisperRes.text();
     console.error("Whisper error:", whisperRes.status, errText);
+
+    // If Whisper rejects the file format (e.g. a document renamed to .mp3),
+    // fall back to VPS FFmpeg re-encoding and retry once.
+    if (whisperRes.status === 400 && errText.includes("Invalid file format")) {
+      console.log("Whisper rejected format — falling back to VPS FFmpeg re-encode...");
+      const { data: signedData, error: signErr } = await adminClient.storage
+        .from("canvas-media")
+        .createSignedUrl(storagePath, 300);
+      if (signErr || !signedData?.signedUrl) {
+        throw new Error("Whisper rejected file format and signed URL creation failed for fallback re-encode.");
+      }
+      const reencodeRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
+        body: JSON.stringify({ url: signedData.signedUrl }),
+      });
+      if (!reencodeRes.ok) {
+        throw new Error("Whisper rejected file format and VPS re-encode also failed. The file may not contain audio.");
+      }
+      const reencoded = await reencodeRes.blob();
+      const retryForm = new FormData();
+      retryForm.append("file", new Blob([await reencoded.arrayBuffer()], { type: "audio/mpeg" }), "audio.mp3");
+      retryForm.append("model", "whisper-1");
+      const retryRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openaiKey}` },
+        body: retryForm,
+      });
+      if (!retryRes.ok) {
+        const retryErr = await retryRes.text();
+        throw new Error(`Whisper transcription failed after re-encode [${retryRes.status}]: ${retryErr}`);
+      }
+      const retryResult = await retryRes.json();
+      console.log("Audio transcription complete (after re-encode), length:", retryResult.text?.length, "chars");
+      return retryResult.text;
+    }
+
     throw new Error(`Whisper transcription failed [${whisperRes.status}]: ${errText}`);
   }
 
@@ -402,6 +403,68 @@ function estimateAudioFeatures(
   };
 }
 
+// ─── PDF text extraction: download → Claude document API ───
+async function extractPdfText(
+  adminClient: any,
+  storagePath: string,
+  fileSize: number,
+  anthropicKey: string,
+): Promise<string> {
+  if (fileSize > PDF_MAX_BYTES) {
+    throw new Error(`PDF too large for extraction (${(fileSize / 1024 / 1024).toFixed(1)} MB). Maximum is 32 MB.`);
+  }
+
+  console.log("PDF extraction: downloading from storage...");
+  const { data: fileData, error: downloadErr } = await adminClient.storage
+    .from("canvas-media")
+    .download(storagePath);
+
+  if (downloadErr || !fileData) {
+    throw new Error(`Failed to download PDF: ${downloadErr?.message || "no data"}`);
+  }
+
+  const arrayBuffer = await fileData.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+  console.log("Sending PDF to Claude for text extraction...");
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "anthropic-beta": "pdfs-2024-09-25",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 4096,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: base64 },
+          },
+          {
+            type: "text",
+            text: "Extract all text content from this document. Return only the extracted text, preserving the structure (headings, paragraphs, lists) as plain text. Do not add commentary or descriptions.",
+          },
+        ],
+      }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Claude PDF extraction failed [${response.status}]: ${err}`);
+  }
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text?.trim() || "";
+  console.log("PDF extraction complete, length:", text.length, "chars");
+  return text;
+}
+
 // ==================== MAIN HANDLER ====================
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -484,6 +547,18 @@ serve(async (req) => {
     }
 
     // Validate mode vs file type
+    if (mode === "pdf" && media.file_type !== "pdf") {
+      return new Response(
+        JSON.stringify({ error: "PDF extraction is only available for PDF files" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (media.file_type === "pdf" && mode !== "pdf") {
+      return new Response(
+        JSON.stringify({ error: "Use mode=pdf for PDF files" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     if (mode === "visual" && media.file_type !== "video") {
       return new Response(
         JSON.stringify({ error: "Visual transcription is only available for video files" }),
@@ -510,7 +585,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if ((mode === "visual" || mode === "both") && !ANTHROPIC_API_KEY) {
+    if ((mode === "visual" || mode === "both" || mode === "pdf") && !ANTHROPIC_API_KEY) {
       return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -539,7 +614,14 @@ serve(async (req) => {
     let audioTranscription: string | null = null;
     let visualTranscription: any | null = null;
 
-    if (mode === "audio") {
+    if (mode === "pdf") {
+      audioTranscription = await extractPdfText(
+        adminClient,
+        media.storage_path,
+        media.file_size_bytes,
+        ANTHROPIC_API_KEY!,
+      );
+    } else if (mode === "audio") {
       audioTranscription = await transcribeAudio(
         adminClient,
         media.storage_path,

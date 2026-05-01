@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Connecta — Landing Mockup (Reto Style)</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Montserrat', sans-serif; background: #fff; color: #0a0a0a; }
+
+  /* --- Shared --- */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  .sec { padding: 80px 0; }
+  .sec-gray { background: #f5f5f5; }
+  .sec-cyan { background: #0891B2; }
+  .title {
+    font-weight: 900; font-size: clamp(24px, 4vw, 40px);
+    text-transform: uppercase; letter-spacing: -0.01em;
+    line-height: 1.08; text-align: center; margin-bottom: 8px;
+  }
+  .title-white { color: #fff; }
+  .sub {
+    font-size: 14px; font-weight: 500; color: #666;
+    text-align: center; margin-bottom: 48px;
+  }
+  .sub-white { color: rgba(255,255,255,0.8); }
+  .eyebrow {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #0891B2;
+    text-align: center; margin-bottom: 12px;
+  }
+  .eyebrow-white { color: rgba(255,255,255,0.7); }
+  .btn {
+    display: inline-block; background: #0891B2; color: #fff;
+    font-family: 'Montserrat', sans-serif; font-weight: 700;
+    font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+    text-decoration: none; padding: 15px 36px; border-radius: 2px;
+    cursor: pointer;
+  }
+  .btn-white { background: #fff; color: #0891B2; }
+  .btn-outline { background: transparent; color: #0891B2; border: 2px solid #0891B2; }
+
+  /* --- Nav --- */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: #fff; border-bottom: 1px solid #eee;
+    padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 100%;
+  }
+  .nav-logo {
+    font-weight: 900; font-size: 18px; color: #0891B2;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* --- Hero --- */
+  .hero {
+    background: #0891B2;
+    padding: 100px 24px 80px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-weight: 900; font-size: clamp(32px, 6vw, 60px);
+    text-transform: uppercase; letter-spacing: -0.02em;
+    line-height: 1.05; color: #fff;
+    max-width: 820px; margin: 0 auto 20px;
+  }
+  .hero h1 span { color: rgba(255,255,255,0.6); font-weight: 400; }
+  .hero p {
+    font-size: 16px; color: rgba(255,255,255,0.85);
+    margin-bottom: 44px; max-width: 500px; margin-left: auto; margin-right: auto;
+    line-height: 1.7;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.12); border-radius: 100px;
+    padding: 6px 16px; margin-bottom: 24px;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5); }
+
+  /* --- Ticker --- */
+  .ticker-wrap {
+    overflow: hidden; background: #f0f0f0;
+    padding: 14px 0; border-top: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8;
+  }
+  .ticker-inner {
+    display: flex; width: max-content;
+    animation: ticker 30s linear infinite;
+  }
+  .ticker-group { display: flex; align-items: center; gap: 36px; padding: 0 36px; }
+  .ticker-item { font-size: 11px; font-weight: 700; color: #0891B2; letter-spacing: 0.06em; white-space: nowrap; text-transform: uppercase; }
+  .ticker-dot { color: #ccc; font-size: 18px; line-height: 1; }
+  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* --- Feature Sections --- */
+  .feature {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 64px; align-items: center;
+    max-width: 1080px; margin: 0 auto; padding: 80px 24px;
+  }
+  .feature.reverse .feature-text { order: 2; }
+  .feature.reverse .feature-mock { order: 1; }
+  .feature-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #0891B2; margin-bottom: 14px;
+  }
+  .feature h2 {
+    font-weight: 900; font-size: clamp(22px, 3vw, 32px);
+    line-height: 1.1; margin-bottom: 16px; letter-spacing: -0.01em;
+  }
+  .feature p { font-size: 14px; color: #555; line-height: 1.75; margin-bottom: 24px; }
+  .feature ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .feature ul li {
+    font-size: 13px; color: #444; display: flex; align-items: flex-start; gap: 10px;
+  }
+  .check { color: #0891B2; font-weight: 900; flex-shrink: 0; }
+  .feature-mock {
+    background: #f5f5f5; border-radius: 8px;
+    padding: 28px 24px; min-height: 260px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .mock-header {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #0891B2; margin-bottom: 4px;
+  }
+  .mock-row {
+    background: #fff; border-radius: 6px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .mock-icon {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: #e8f4f8; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .mock-title { font-size: 12px; font-weight: 700; color: #0a0a0a; margin-bottom: 2px; }
+  .mock-sub { font-size: 10px; color: #999; }
+  .mock-badge {
+    margin-left: auto; font-size: 10px; font-weight: 700;
+    color: #0891B2; background: #e8f4f8;
+    padding: 3px 8px; border-radius: 4px; white-space: nowrap;
+  }
+  .mock-badge-orange { color: #ea580c; background: #fff7ed; }
+  .mock-script {
+    background: #fff; border-radius: 6px; padding: 14px;
+  }
+  .mock-script-line {
+    font-size: 11px; color: #333; line-height: 1.6;
+    padding: 3px 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .mock-script-line:last-child { border-bottom: none; }
+  .mock-tag {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #0891B2;
+    display: inline-block; margin-bottom: 2px;
+  }
+
+  /* --- Stats --- */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 32px; text-align: center; max-width: 800px; margin: 0 auto;
+  }
+  .stat-num {
+    font-size: 56px; font-weight: 900; color: #0891B2;
+    line-height: 1; margin-bottom: 8px;
+  }
+  .stat-label { font-size: 13px; color: #666; line-height: 1.5; max-width: 160px; margin: 0 auto; }
+
+  /* --- Steps --- */
+  .steps-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 24px; max-width: 900px; margin: 0 auto;
+  }
+  .step-card {
+    background: #f5f5f5; border-radius: 4px; padding: 32px 24px; text-align: center;
+  }
+  .step-num {
+    font-size: 48px; font-weight: 900; color: #0891B2;
+    line-height: 1; margin-bottom: 16px;
+  }
+  .step-title { font-weight: 700; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .step-desc { font-size: 13px; color: #666; line-height: 1.7; }
+
+  /* --- Footer --- */
+  footer {
+    background: #f0f0f0; padding: 28px 24px; text-align: center;
+    font-size: 12px; color: #888;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 720px) {
+    .feature { grid-template-columns: 1fr; gap: 32px; }
+    .feature.reverse .feature-text { order: 1; }
+    .feature.reverse .feature-mock { order: 2; }
+    .stats-grid { grid-template-columns: 1fr; gap: 24px; }
+    .steps-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Connecta</div>
+  <a href="#" class="btn" style="font-size:11px; padding:10px 24px;">Try It Free</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="badge-dot"></span> AI-Powered Creator Platform</div>
+  <h1>Create Viral Short-Form <span>Videos</span> in Seconds</h1>
+  <p>Turn any viral video into a ready-to-edit asset, assign it to your team, and ship faster without the chaos.</p>
+  <a href="#" class="btn btn-white">Try It Free →</a>
+</div>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-inner">
+    <div class="ticker-group">
+      <span class="ticker-item">AI Script Wizard</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Teleprompter</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Video Transcription</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Lead Tracker</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Content Calendar</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Editing Queue</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Script Vault</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Workflow Automation</span><span class="ticker-dot">·</span>
+    </div>
+    <div class="ticker-group" aria-hidden="true">
+      <span class="ticker-item">AI Script Wizard</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Teleprompter</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Video Transcription</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Lead Tracker</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Content Calendar</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Editing Queue</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Script Vault</span><span class="ticker-dot">·</span>
+      <span class="ticker-item">Workflow Automation</span><span class="ticker-dot">·</span>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURE 1 — Script Generation -->
+<div class="feature">
+  <div class="feature-text">
+    <div class="feature-label">Content Creation</div>
+    <h2>Write Viral Scripts in Minutes, Not Hours</h2>
+    <p>AI generates research-backed, platform-optimized scripts for Instagram, TikTok, and YouTube — complete with hook styles, story structure, and scroll-stopping CTAs.</p>
+    <ul>
+      <li><span class="check">✓</span> 5 hook styles: Shocking Fact, Story, Bold Claim & more</li>
+      <li><span class="check">✓</span> Research-backed structure per platform</li>
+      <li><span class="check">✓</span> One-click generation from topic to full script</li>
+    </ul>
+  </div>
+  <div class="feature-mock">
+    <div class="mock-header">AI Script Output</div>
+    <div class="mock-script">
+      <div class="mock-tag">Hook</div>
+      <div class="mock-script-line">Did you know 90% of creators waste 3 hours on a script that flops?</div>
+      <div class="mock-tag" style="margin-top:10px">Story</div>
+      <div class="mock-script-line">I used to do the same — until I built a system that writes the hook before I open my camera...</div>
+      <div class="mock-tag" style="margin-top:10px">CTA</div>
+      <div class="mock-script-line">Comment "SCRIPT" and I'll send you the exact template I use every week.</div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:4px;">
+      <div style="flex:1; background:#e8f4f8; border-radius:4px; padding:8px 12px; font-size:11px; font-weight:700; color:#0891B2; text-align:center;">Save to Vault</div>
+      <div style="flex:1; background:#0891B2; border-radius:4px; padding:8px 12px; font-size:11px; font-weight:700; color:#fff; text-align:center;">Open Teleprompter</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURE 2 — Teleprompter (reversed) -->
+<div style="background:#f5f5f5;">
+<div class="feature reverse">
+  <div class="feature-text">
+    <div class="feature-label">Delivery</div>
+    <h2>Read Your Script. Never Stumble On Camera Again.</h2>
+    <p>Full-screen teleprompter built for creators shooting their own content. Adjustable speed, font size, mirror mode — works beautifully on any device.</p>
+    <ul>
+      <li><span class="check">✓</span> Mirror mode for front-facing camera</li>
+      <li><span class="check">✓</span> Variable speed from 0.5x to 3x</li>
+      <li><span class="check">✓</span> Mobile-optimized for on-the-go recording</li>
+    </ul>
+  </div>
+  <div class="feature-mock" style="background:#0891B2; align-items:center; justify-content:center;">
+    <div style="font-size:13px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:16px;">TELEPROMPTER</div>
+    <div style="font-size:18px; font-weight:400; color:#fff; line-height:1.7; text-align:center; max-width:280px;">
+      Did you know 90% of creators waste 3 hours on a script that flops? I used to do the same...
+    </div>
+    <div style="display:flex; gap:16px; margin-top:24px; justify-content:center;">
+      <div style="background:rgba(255,255,255,0.15); border-radius:100px; padding:8px 20px; font-size:11px; font-weight:700; color:#fff;">0.5x</div>
+      <div style="background:rgba(255,255,255,0.9); border-radius:100px; padding:8px 20px; font-size:11px; font-weight:700; color:#0891B2;">1x</div>
+      <div style="background:rgba(255,255,255,0.15); border-radius:100px; padding:8px 20px; font-size:11px; font-weight:700; color:#fff;">2x</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- FEATURE 3 — Viral Intelligence -->
+<div class="feature">
+  <div class="feature-text">
+    <div class="feature-label">Viral Intelligence</div>
+    <h2>Find Viral Videos From Creators in Your Niche</h2>
+    <p>Discover what's already working before you create anything. Spot viral outliers — videos that dramatically outperform a channel's average — and remix them into your next script.</p>
+    <ul>
+      <li><span class="check">✓</span> Filter by niche, platform, date, and outlier score</li>
+      <li><span class="check">✓</span> Spot 10x outliers — videos that beat the channel average</li>
+      <li><span class="check">✓</span> One-click remix: turn any viral video into your script</li>
+    </ul>
+  </div>
+  <div class="feature-mock">
+    <div class="mock-header">Viral Today</div>
+    <div class="mock-row">
+      <div class="mock-icon">▶</div>
+      <div>
+        <div class="mock-title">Morning routine for busy dads</div>
+        <div class="mock-sub">@fitnessmindset · 2.3M views</div>
+      </div>
+      <div class="mock-badge mock-badge-orange">🔥 12x</div>
+    </div>
+    <div class="mock-row">
+      <div class="mock-icon">▶</div>
+      <div>
+        <div class="mock-title">You've been eating protein wrong</div>
+        <div class="mock-sub">@drnutrition · 847K views</div>
+      </div>
+      <div class="mock-badge mock-badge-orange">🔥 7x</div>
+    </div>
+    <div class="mock-row">
+      <div class="mock-icon">▶</div>
+      <div>
+        <div class="mock-title">The hook formula that never fails</div>
+        <div class="mock-sub">@contentstrategy · 1.1M views</div>
+      </div>
+      <div class="mock-badge mock-badge-orange">🔥 9x</div>
+    </div>
+    <div style="background:#0891B2; border-radius:4px; padding:10px; font-size:11px; font-weight:700; color:#fff; text-align:center; margin-top:4px;">Remix into my script →</div>
+  </div>
+</div>
+
+<!-- FEATURE 4 — Lead Tracker (reversed) -->
+<div style="background:#f5f5f5;">
+<div class="feature reverse">
+  <div class="feature-text">
+    <div class="feature-label">Growth</div>
+    <h2>Never Lose a Lead Again</h2>
+    <p>Track every lead from Instagram DMs, TikTok comments, website forms, and Facebook Ads — all in one unified, filterable pipeline.</p>
+    <ul>
+      <li><span class="check">✓</span> Kanban and table view with one click</li>
+      <li><span class="check">✓</span> Source tracking: IG, TikTok, FB, YouTube</li>
+      <li><span class="check">✓</span> Automated follow-up workflow triggers</li>
+    </ul>
+  </div>
+  <div class="feature-mock">
+    <div class="mock-header">Lead Tracker</div>
+    <div class="mock-row"><div class="mock-icon">👤</div><div><div class="mock-title">Carlos M.</div><div class="mock-sub">Instagram DM · 2h ago</div></div><div class="mock-badge">New</div></div>
+    <div class="mock-row"><div class="mock-icon">👤</div><div><div class="mock-title">Sarah K.</div><div class="mock-sub">TikTok Comment · 5h ago</div></div><div class="mock-badge" style="background:#fef9c3;color:#854d0e;">In Talk</div></div>
+    <div class="mock-row"><div class="mock-icon">👤</div><div><div class="mock-title">Marcus T.</div><div class="mock-sub">Facebook Ad · 1d ago</div></div><div class="mock-badge" style="background:#dcfce7;color:#166534;">Closed</div></div>
+  </div>
+</div>
+</div>
+
+<!-- STATS -->
+<div class="sec" style="background:#fff;">
+  <div class="wrap" style="text-align:center;">
+    <div class="eyebrow">By the numbers</div>
+    <div class="title" style="margin-bottom:48px;">Results That Speak for Themselves</div>
+    <div class="stats-grid">
+      <div>
+        <div class="stat-num">10x</div>
+        <div class="stat-label">Faster script creation with AI</div>
+      </div>
+      <div>
+        <div class="stat-num">3hrs</div>
+        <div class="stat-label">Saved per video on average</div>
+      </div>
+      <div>
+        <div class="stat-num">47%</div>
+        <div class="stat-label">More leads captured vs manual tracking</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="sec sec-gray">
+  <div class="wrap" style="text-align:center;">
+    <div class="eyebrow">How It Works</div>
+    <div class="title" style="margin-bottom: 8px;">Up and Running in Minutes</div>
+    <div class="sub">No setup headaches. No learning curve.</div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">01</div>
+        <div class="step-title">Onboard Your Brand</div>
+        <div class="step-desc">Fill in your niche, audience, tone, and goals. Connecta learns your brand voice in minutes.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">02</div>
+        <div class="step-title">Generate & Deliver</div>
+        <div class="step-desc">AI writes scripts, your calendar syncs, editing queue updates — everything connected automatically.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">03</div>
+        <div class="step-title">Track & Grow</div>
+        <div class="step-desc">Monitor leads, bookings, and analytics from one dashboard. Scale what's already working.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FINAL CTA -->
+<div class="sec sec-cyan">
+  <div class="wrap" style="text-align:center;">
+    <div class="eyebrow eyebrow-white">Get Started Today</div>
+    <div class="title title-white" style="margin-bottom:16px;">
+      Ready to Create Content That Converts?
+    </div>
+    <p style="font-size:15px; color:rgba(255,255,255,0.8); margin-bottom:40px; max-width:500px; margin-left:auto; margin-right:auto; line-height:1.7;">
+      Join the creators already using Connecta to scale their personal brand.
+    </p>
+    <a href="#" class="btn btn-white">Start Free Today →</a>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  © 2026 ConnectaCreators · <a href="mailto:admin@connectacreators.com" style="color:#0891B2;">admin@connectacreators.com</a>
+</footer>
+
+</body>
+</html>

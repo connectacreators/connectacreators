@@ -13,6 +13,7 @@ import {
   type Node,
   type Edge,
   type Connection,
+  type EdgeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 import VideoNode from "@/components/canvas/VideoNode";
+import CompetitorFolderNode from "@/components/canvas/CompetitorFolderNode";
 import TextNoteNode from "@/components/canvas/TextNoteNode";
 import ResearchNoteNode from "@/components/canvas/ResearchNoteNode";
 import AIAssistantNode from "@/components/canvas/AIAssistantNode";
@@ -31,20 +33,24 @@ import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
 import AnnotationNode from "@/components/canvas/AnnotationNode";
 import OnboardingFormNode from "@/components/canvas/OnboardingFormNode";
+import EditableEdge from "@/components/canvas/EditableEdge";
 import MobileCanvasView from "@/components/canvas/MobileCanvasView";
 import FullscreenAIView from "@/components/canvas/FullscreenAIView";
 import ViralVideoPickerModal from "@/components/canvas/ViralVideoPickerModal";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import CanvasTutorial from "@/components/canvas/CanvasTutorial";
+import RemoteCursors from "@/components/canvas/RemoteCursors";
 import { type SessionItem } from "@/components/canvas/CanvasToolbar";
 import { useScripts } from "@/hooks/useScripts";
 import { useTheme } from "@/hooks/useTheme";
+import { useRealtimePresence } from "@/hooks/useRealtimePresence";
+import { useRealtimeCanvasSync } from "@/hooks/useRealtimeCanvasSync";
 import { canvasMediaService } from "@/services/canvasMediaService";
 
 const AI_NODE_ID = "ai-assistant";
 
 // Keys to strip from node data before saving (non-serializable callbacks + heavy ephemeral data)
-const CALLBACK_KEYS = ["onUpdate", "onDelete", "onFormatChange", "onLanguageChange", "onModelChange", "onSaveScript", "onAddVideoNode"];
+const CALLBACK_KEYS = ["onUpdate", "onDelete", "onFormatChange", "onLanguageChange", "onModelChange", "onSaveScript", "onAddVideoNode", "onTransform", "onCollapseToggle"];
 // Keys stripped to reduce memory pressure — large objects re-fetched at runtime
 const HEAVY_DATA_KEYS = ["canvasContext", "canvasContextRef", "authToken", "signedUrl"];
 
@@ -91,8 +97,27 @@ interface Props {
 const CANVAS_ACCEPTED_MIME = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif",
   "video/mp4", "video/quicktime", "video/webm",
-  "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac", "audio/wav", "audio/webm", "audio/ogg",
+  "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac", "audio/wav", "audio/webm", "audio/ogg", "audio/x-caf",
 ]);
+
+/** Fallback: resolve MIME from file extension when browser reports empty type (e.g. .caf on macOS) */
+const EXT_MIME_MAP: Record<string, string> = {
+  ".caf": "audio/x-caf",
+  ".m4a": "audio/x-m4a",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".aac": "audio/aac",
+  ".ogg": "audio/ogg",
+  ".webm": "audio/webm",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+};
+
+function resolveFileMime(file: File): string {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+  const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  return EXT_MIME_MAP[ext] || file.type;
+}
 
 const nodeTypes = {
   videoNode: VideoNode,
@@ -108,6 +133,11 @@ const nodeTypes = {
   groupNode: GroupNode,
   annotationNode: AnnotationNode,
   onboardingFormNode: OnboardingFormNode,
+  competitorFolderNode: CompetitorFolderNode,
+};
+
+const edgeTypes: EdgeTypes = {
+  default: EditableEdge,
 };
 
 function getInitialPosition(existingCount: number) {
@@ -146,6 +176,7 @@ function serializeNodes(nodes: Node[]): any[] {
       deletable: n.deletable,
       parentId: n.parentId,
       expandParent: n.expandParent,
+      ...(n.style ? { style: n.style } : {}),
       data: filtered,
     };
   });
@@ -153,8 +184,9 @@ function serializeNodes(nodes: Node[]): any[] {
 
 /** Reorder nodes so parent group nodes always precede their children (ReactFlow requirement) */
 function ensureParentOrder(nodes: Node[]): Node[] {
-  const groups = nodes.filter(n => n.type === "groupNode");
-  const others = nodes.filter(n => n.type !== "groupNode");
+  const parentTypes = new Set(["groupNode", "competitorFolderNode"]);
+  const groups = nodes.filter(n => parentTypes.has(n.type!));
+  const others = nodes.filter(n => !parentTypes.has(n.type!));
   return [...groups, ...others];
 }
 
@@ -195,11 +227,14 @@ export default function SuperPlanningCanvas(props: Props) {
 }
 
 // ─── Drawing path type ───
+type DrawTool = "freeform" | "rect" | "ellipse" | "triangle" | "line" | "arrow" | "dottedLine";
 interface DrawPath {
   id: string;
   points: [number, number][];
   color: string;
   width: number;
+  shape?: DrawTool; // undefined/"freeform" = freeform line
+  fill?: string; // fill color or "none"
 }
 
 function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onIncomingConsumed }: Props) {
@@ -223,10 +258,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   // ─── Drawing state ───
   const [drawingMode, setDrawingMode] = useState(false);
+  const [eraserMode, setEraserMode] = useState(false);
+  const [drawTool, setDrawTool] = useState<DrawTool>("freeform");
+  const [drawFill, setDrawFill] = useState(false);
   const [drawPaths, setDrawPaths] = useState<DrawPath[]>([]);
   const [currentPath, setCurrentPath] = useState<[number, number][] | null>(null);
   const [drawColor, setDrawColor] = useState("hsl(210, 8%, 10%)");
   const [drawWidth, setDrawWidth] = useState(3);
+  const [hoveredPathId, setHoveredPathId] = useState<string | null>(null);
+  const erasingRef = useRef(false);
   // ─── Context menu for group/ungroup ───
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "selection" | "group"; groupId?: string } | null>(null);
   const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
@@ -241,18 +281,67 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
   const clientIdRef = useRef(selectedClient.id);
+
+  // ─── Undo / Redo history ───
+  const historyRef = useRef<{ nodes: Node[]; edges: Edge[]; drawPaths: DrawPath[] }[]>([]);
+  const historyIdxRef = useRef(-1);
+  const historyPauseRef = useRef(false);
+  const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_HISTORY = 50;
+
+  const pushHistory = useCallback(() => {
+    if (historyPauseRef.current) return;
+    try {
+      // Strip functions from node data before cloning (they can't be cloned)
+      const cleanNodes = nodesRef.current.map(n => ({
+        ...n,
+        data: Object.fromEntries(Object.entries(n.data).filter(([_, v]) => typeof v !== "function")),
+      }));
+      const snap = {
+        nodes: JSON.parse(JSON.stringify(cleanNodes)),
+        edges: JSON.parse(JSON.stringify(edgesRef.current)),
+        drawPaths: JSON.parse(JSON.stringify(drawPathsRef.current)),
+      };
+      // Skip if identical to last snapshot
+      const lastSnap = historyRef.current[historyIdxRef.current];
+      if (lastSnap) {
+        const same = JSON.stringify(lastSnap) === JSON.stringify(snap);
+        if (same) return;
+      }
+      const idx = historyIdxRef.current;
+      historyRef.current = historyRef.current.slice(0, idx + 1);
+      historyRef.current.push(snap);
+      if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift();
+      historyIdxRef.current = historyRef.current.length - 1;
+    } catch (err) {
+      console.warn("History push failed:", err);
+    }
+  }, []);
+
+  // Debounced history push — called after node/edge changes settle
+  const schedulePushHistory = useCallback(() => {
+    if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
+    historyTimerRef.current = setTimeout(pushHistory, 500);
+  }, [pushHistory]);
   useEffect(() => { clientIdRef.current = selectedClient.id; }, [selectedClient.id]);
   const draftIdRef = useRef<string | null>(null);
   const remixInjectedRef = useRef(false);
   const incomingInjectedRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
   const isSwitchingSessionRef = useRef(false);
+  const broadcastNodeDataUpdateRef = useRef<((nodeId: string, data: Record<string, any>) => void) | null>(null);
 
+  // Keep auth token fresh — listen for token refreshes so long sessions never go stale
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthToken(session?.access_token || null);
       userIdRef.current = session?.user?.id || null;
     });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthToken(session?.access_token || null);
+      userIdRef.current = session?.user?.id || null;
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // ─── Auto-create or load draft script ───
@@ -413,7 +502,116 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           }]);
           toast.success("VideoNode added — click Analyze to transcribe it");
         };
+
+        // onTransform: CompetitorProfileNode → CompetitorFolderNode + 10 VideoNodes
+        extra.onTransform = (profileData: any, analyzedPosts: any[]) => {
+          const sourceNode = nodesRef.current.find(nd => nd.id === nodeId);
+          if (!sourceNode) return;
+          const ts = Date.now();
+          const folderId = `competitorFolder_${ts}`;
+
+          const top10 = [...analyzedPosts]
+            .sort((a, b) => (b.outlier_score ?? 0) - (a.outlier_score ?? 0))
+            .slice(0, 10);
+          const avgOutlier = top10.length > 0
+            ? parseFloat((top10.reduce((s, p) => s + (p.outlier_score ?? 0), 0) / top10.length).toFixed(1))
+            : 0;
+          const topOutlier = parseFloat((top10[0]?.outlier_score ?? 0).toFixed(1));
+
+          // 5x2 horizontal grid — smaller cards
+          const COLS = 5;
+          const VIDEO_W = 200;
+          const VIDEO_H = 340;
+          const GAP = 12;
+          const HEADER_H = 100;
+          const PAD = 16;
+          const rows = Math.ceil(top10.length / COLS);
+          const folderWidth = PAD * 2 + COLS * VIDEO_W + (COLS - 1) * GAP;
+          const folderHeight = HEADER_H + PAD + rows * VIDEO_H + (rows - 1) * GAP + PAD;
+
+          const folderNode: Node = {
+            id: folderId,
+            type: "competitorFolderNode",
+            position: sourceNode.position,
+            width: folderWidth,
+            height: folderHeight,
+            data: {
+              username: profileData.username,
+              profilePicUrl: profileData.profilePicUrl,
+              profilePicB64: profileData.profilePicB64,
+              platform: profileData.platform,
+              posts: top10,
+              avgOutlierScore: avgOutlier,
+              topOutlierScore: topOutlier,
+              collapsed: false,
+              _expandedWidth: folderWidth,
+              _expandedHeight: folderHeight,
+            },
+          };
+
+          const videoNodes: Node[] = top10.map((post, i) => {
+            const col = i % COLS;
+            const row = Math.floor(i / COLS);
+            const vId = `videoNode_cf_${ts}_${i}`;
+            return {
+              id: vId,
+              type: "videoNode",
+              position: {
+                x: PAD + col * (VIDEO_W + GAP),
+                y: HEADER_H + PAD + row * (VIDEO_H + GAP),
+              },
+              width: VIDEO_W,
+              parentId: folderId,
+              data: {
+                url: post.url,
+                // Auto-transcribe only — visual analysis remains manual per-node
+                autoTranscribe: true,
+                // Pre-populate transcription if already done (avoids re-transcribe)
+                transcription: post.transcription || undefined,
+                channel_username: profileData.username,
+                caption: post.caption,
+                platform: profileData.platform,
+                thumbnailUrl: post.thumbnail,
+                outlierScore: post.outlier_score,
+                authToken,
+                clientId: selectedClient.id,
+              },
+            };
+          });
+
+          // Remove source node, add folder + videos (folder must come first)
+          setNodes(ns => [
+            ...ns.filter(n => n.id !== nodeId),
+            folderNode,
+            ...videoNodes,
+          ]);
+          setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+          toast.success(`Competitor profile exploded → ${top10.length} video nodes`);
+        };
       }
+
+      // onCollapseToggle: CompetitorFolderNode collapsed ↔ expanded
+      if (n.type === "competitorFolderNode") {
+        extra.onCollapseToggle = (collapsed: boolean) => {
+          setNodes(ns => ns.map(nd => {
+            if (nd.id === nodeId) {
+              const expandedW = (nd.data as any)._expandedWidth ?? 640;
+              const expandedH = (nd.data as any)._expandedHeight ?? 800;
+              return {
+                ...nd,
+                width: collapsed ? 340 : expandedW,
+                height: collapsed ? undefined : expandedH,
+                data: { ...nd.data, collapsed },
+              };
+            }
+            if (nd.parentId === nodeId) {
+              return { ...nd, hidden: collapsed };
+            }
+            return nd;
+          }));
+        };
+      }
+
       // MediaNode needs cleanup: delete storage file + canvas_media row on remove
       const onDeleteCb = n.type === "mediaNode"
         ? () => {
@@ -437,8 +635,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           authToken,
           clientId: selectedClient.id,
           ...extra,
-          onUpdate: (updates: any) =>
-            setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd)),
+          onUpdate: (updates: any) => {
+            setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd));
+            // Broadcast data changes to other tabs for real-time sync
+            broadcastNodeDataUpdateRef.current?.(nodeId, updates);
+          },
           onDelete: onDeleteCb,
         },
       };
@@ -591,7 +792,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       const inspirationUrl = canvasContextRef.current?.video_sources?.[0]?.url || undefined;
       const saved = await directSave({
         clientId: selectedClient.id,
-        existingScriptId: draftIdRef.current || undefined,
         lines: generatedScript.lines.map((l: any, i: number) => ({
           line_number: i + 1,
           line_type: l.line_type,
@@ -861,9 +1061,106 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   // ─── Keep refs in sync for unmount save ───
   // Also expose on window so CanvasAIPanel can build fresh context at send-time
-  useEffect(() => { nodesRef.current = nodes; (window as any).__canvasNodes = nodes; }, [nodes]);
-  useEffect(() => { edgesRef.current = edges; (window as any).__canvasEdges = edges; }, [edges]);
+  useEffect(() => {
+    nodesRef.current = nodes; (window as any).__canvasNodes = nodes; schedulePushHistory();
+    // Broadcast node positions to other tabs (skip if this was a remote update)
+    if (loaded && !isRemoteCanvasUpdateRef.current && nodes.length > 0) {
+      broadcastNodePositions(nodes);
+    }
+  }, [nodes]);
+  useEffect(() => {
+    edgesRef.current = edges; (window as any).__canvasEdges = edges; schedulePushHistory();
+    // Broadcast edge changes to other tabs (skip if this was a remote update)
+    if (loaded && !isRemoteCanvasUpdateRef.current) {
+      broadcastEdgeChanges(edges);
+    }
+  }, [edges]);
   useEffect(() => { (window as any).__canvasSaveScript = stableSaveScript; }, [stableSaveScript]);
+
+  // Push initial history snapshot once canvas is loaded
+  useEffect(() => {
+    if (loaded && historyRef.current.length === 0) {
+      setTimeout(pushHistory, 100);
+    }
+  }, [loaded, pushHistory]);
+
+  // ─── Undo / Redo keyboard handler ───
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+      // Don't intercept if user is typing in an input/textarea/contenteditable
+      const el = e.target as HTMLElement;
+      if (el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.isContentEditable) return;
+      if (el?.closest?.("[contenteditable], input, textarea")) return;
+      e.preventDefault();
+      const hist = historyRef.current;
+      const restore = (idx: number) => {
+        const snap = hist[idx];
+        if (!snap) return;
+        historyPauseRef.current = true;
+        setNodes(attachCallbacks(snap.nodes as Node[]));
+        setEdges(snap.edges as Edge[]);
+        setDrawPaths(snap.drawPaths);
+        setTimeout(() => { historyPauseRef.current = false; }, 600);
+      };
+      if (e.shiftKey) {
+        // Redo
+        if (historyIdxRef.current < hist.length - 1) {
+          historyIdxRef.current++;
+          restore(historyIdxRef.current);
+        }
+      } else {
+        // Undo
+        if (historyIdxRef.current > 0) {
+          historyIdxRef.current--;
+          restore(historyIdxRef.current);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setNodes, setEdges, attachCallbacks]);
+
+  // ─── Copy / Cut keyboard handler (keydown) ───
+  const clipboardRef = useRef<{ nodes: any[]; edges: any[] } | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key !== "c" && key !== "x") return;
+      const el = e.target as HTMLElement;
+      if (el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.isContentEditable) return;
+      if (el?.closest?.("[contenteditable], input, textarea")) return;
+      // If user has text selected anywhere, let native copy work
+      const textSel = window.getSelection();
+      if (textSel && textSel.toString().trim().length > 0) return;
+
+      const selected = nodesRef.current.filter(
+        (n: Node) => n.selected && n.id !== AI_NODE_ID && n.type !== "aiAssistantNode"
+      );
+      if (selected.length === 0) return;
+      e.preventDefault();
+
+      const selectedIds = new Set(selected.map((n: Node) => n.id));
+      const connectedEdges = edgesRef.current.filter(
+        (edge: Edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target)
+      );
+
+      clipboardRef.current = {
+        nodes: serializeNodes(selected),
+        edges: connectedEdges.map((edge: Edge) => ({ ...edge })),
+      };
+
+      if (key === "x") {
+        setNodes(ns => ns.filter(n => !selectedIds.has(n.id)));
+        setEdges(es => es.filter(e => !selectedIds.has(e.source) || !selectedIds.has(e.target)));
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setNodes, setEdges]);
 
   // Expose research node creation for CanvasAIPanel "Save to Canvas" button
   useEffect(() => {
@@ -896,7 +1193,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       setNodes((prev: any[]) => [...prev, newNode]);
     };
   }, [authToken, selectedClient.id, setNodes, setEdges]);
-  useEffect(() => { drawPathsRef.current = drawPaths; }, [drawPaths]);
+  useEffect(() => { drawPathsRef.current = drawPaths; schedulePushHistory(); }, [drawPaths]);
 
   // Expose competitor post transcription for CanvasAIPanel auto-transcribe feature
   useEffect(() => {
@@ -935,6 +1232,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const pendingSaveRef = useRef(false);
   const lastSavedJsonRef = useRef<string>("");
   const isDirtyRef = useRef(false);
+  const lastSaveAtRef = useRef(0); // timestamp of our last successful save — used to ignore our own postgres_changes events
+  // Exact `updated_at` ms of recent saves we've issued. Used to identify our own postgres_changes echoes
+  // even when delivery is delayed past the lastSaveAtRef wall-clock window. Entries auto-expire.
+  const recentSaveUpdatedAtsRef = useRef<Set<number>>(new Set());
   const IDLE_TIMEOUT = 60_000; // 60 seconds
   const lastActivityRef = useRef(Date.now());
 
@@ -954,6 +1255,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     pendingSaveRef.current = true;
     setSaveStatus("saving");
     try {
+      const updatedAt = new Date().toISOString();
+      const updatedAtMs = Date.parse(updatedAt);
       await supabase.from("canvas_states").upsert({
         id: activeSessionIdRef.current,
         client_id: clientIdRef.current,
@@ -961,9 +1264,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         nodes: serializedNodes,
         edges: edgesRef.current,
         draw_paths: drawPathsRef.current,
-        updated_at: new Date().toISOString(),
+        updated_at: updatedAt,
       }, { onConflict: "id" });
       lastSavedJsonRef.current = snapshotHash; // store hash, not full snapshot
+      lastSaveAtRef.current = Date.now(); // mark our own save so we can ignore the resulting postgres_changes event
+      // Track the exact updated_at so we can identify our own echo even if delivery is delayed past the 3s window
+      recentSaveUpdatedAtsRef.current.add(updatedAtMs);
+      setTimeout(() => recentSaveUpdatedAtsRef.current.delete(updatedAtMs), 60_000);
       pendingSaveRef.current = false;
       isDirtyRef.current = false;
       setSaveStatus("saved");
@@ -1096,6 +1403,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       ((n.data as any).posts?.length ?? 0) > 0
     );
     const mediaNodes = contextNodes.filter(n => n.type === "mediaNode" && !!(n.data as any).mediaId);
+    const competitorFolderNodes = contextNodes.filter(
+      n => n.type === "competitorFolderNode" && ((n.data as any).posts?.length ?? 0) > 0
+    );
     const onboardingNodes = contextNodes.filter(
       n => n.type === "onboardingFormNode" && (n.data as any).status === "done"
     );
@@ -1109,7 +1419,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       const node = nodes.find(nd => nd.id === nodeId);
       if (!node?.parentId) return "";
       const group = nodes.find(nd => nd.id === node.parentId);
-      const label = (group?.data as any)?.label;
+      const label = (group?.data as any)?.label
+        || (group?.type === "competitorFolderNode" ? `@${(group.data as any)?.username || "competitor"} folder` : null);
       return label ? ` [in group: "${label}"]` : "";
     };
 
@@ -1139,6 +1450,14 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         return label + groupSuffix(n.id);
       }),
       ...onboardingNodes.map(n => `OnboardingFormNode(status=loaded)${groupSuffix(n.id)}`),
+      ...competitorFolderNodes.map(n => {
+        const d = n.data as any;
+        const posts: any[] = d.posts || [];
+        const hookCounts: Record<string, number> = {};
+        posts.forEach((p: any) => { if (p.hookType) hookCounts[p.hookType] = (hookCounts[p.hookType] || 0) + 1; });
+        const hookStr = Object.entries(hookCounts).map(([k, v]) => `${k}:${v}`).join(", ");
+        return `CompetitorFolder(@${d.username || "unknown"}, platform=${d.platform || "unknown"}, posts=${posts.length}, avg_outlier=${d.avgOutlierScore || 0}x, top_outlier=${d.topOutlierScore || 0}x, hooks=[${hookStr}])`;
+      }),
     ];
 
     return {
@@ -1191,6 +1510,16 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         tagline: (brandNodes[0].data as any).tagline ?? null,
       } : null,
       selected_cta: (ctaNodes[0]?.data as any)?.selectedCTA ?? null,
+      competitor_folders: competitorFolderNodes.length > 0
+        ? competitorFolderNodes.slice(0, 4).map(n => {
+            const d = n.data as any;
+            const posts: any[] = d.posts || [];
+            const hookPatterns = [...new Set(posts.map((p: any) => p.hookType).filter(Boolean))].slice(0, 10) as string[];
+            const contentThemes = [...new Set(posts.map((p: any) => p.contentTheme).filter(Boolean))].slice(0, 10) as string[];
+            const topPosts = posts.slice(0, 3);
+            return { username: d.username || "unknown", platform: d.platform || "unknown", avg_outlier: d.avgOutlierScore, top_outlier: d.topOutlierScore, top_posts: topPosts, hook_patterns: hookPatterns, content_themes: contentThemes };
+          })
+        : null,
       competitor_profiles: instagramProfileNodes.length > 0
         ? instagramProfileNodes.slice(0, 4).map(n => { // Cap at 4 competitor profiles
             const d = n.data as any;
@@ -1364,9 +1693,14 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     if (isGroup) {
       setNodes(prev => [newNode, ...prev]);
     } else {
-      setNodes(prev => [...prev, newNode]);
+      // Competitor/Instagram profile nodes need extra callbacks (onTransform, onAddVideoNode)
+      // that are normally only injected by attachCallbacks on DB load
+      const finalNode = (type === "competitorProfileNode" || type === "instagramProfileNode")
+        ? attachCallbacks([newNode])[0]
+        : newNode;
+      setNodes(prev => [...prev, finalNode]);
     }
-  }, [nodes, authToken, selectedClient.id, setNodes, setEdges]);
+  }, [nodes, authToken, selectedClient.id, setNodes, setEdges, attachCallbacks]);
 
   const { zoomIn, zoomOut, fitView, screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow();
 
@@ -1377,8 +1711,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     // Ignore if dropping onto an existing node (let the node handle it)
     if ((e.target as HTMLElement).closest('.react-flow__node')) return;
 
-    const file = Array.from(e.dataTransfer.files)[0];
-    if (!file || !CANVAS_ACCEPTED_MIME.has(file.type)) return;
+    const rawFile = Array.from(e.dataTransfer.files)[0];
+    if (!rawFile) return;
+    const mime = resolveFileMime(rawFile);
+    // Wrap with resolved MIME if browser reported empty/generic
+    const file = mime !== rawFile.type ? new File([rawFile], rawFile.name, { type: mime }) : rawFile;
+    if (!CANVAS_ACCEPTED_MIME.has(file.type)) return;
 
     if (!activeSessionIdRef.current) {
       toast.error("No active session — save the canvas first.");
@@ -1704,7 +2042,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     return () => { window.removeEventListener("click", handleClick); window.removeEventListener("keydown", handleKey); };
   }, [contextMenu]);
 
-  // ─── Paste URL → auto-create VideoNode ───
+  // ─── Paste: URL → VideoNode, or internal clipboard → duplicate nodes ───
   useEffect(() => {
     const isVideoUrl = (text: string): boolean => {
       try {
@@ -1716,36 +2054,75 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     const handlePaste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      // Also check if any ancestor is contenteditable or is an input/textarea (for nested elements)
+      if (target.closest?.("[contenteditable=\"true\"], [contenteditable=\"\"], input, textarea")) return;
       const text = e.clipboardData?.getData("text") || "";
-      if (!isVideoUrl(text)) return;
-      e.preventDefault();
-      const nodeId = `videoNode_${Date.now()}`;
-      const position = getViewportCenter(viewportRef.current);
-      const newNode: Node = {
-        id: nodeId,
-        type: "videoNode",
-        position,
-        width: 240,
-        data: {
-          url: text.trim(),
-          autoTranscribe: true,
-          authToken,
-          clientId: selectedClient.id,
-          onUpdate: (updates: any) =>
-            setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
-          onDelete: () => {
-            setNodes(ns => ns.filter(n => n.id !== nodeId));
-            setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+
+      // Priority 1: URL paste → create VideoNode
+      if (isVideoUrl(text)) {
+        e.preventDefault();
+        const nodeId = `videoNode_${Date.now()}`;
+        const position = getViewportCenter(viewportRef.current);
+        const newNode: Node = {
+          id: nodeId,
+          type: "videoNode",
+          position,
+          width: 240,
+          data: {
+            url: text.trim(),
+            autoTranscribe: true,
+            authToken,
+            clientId: selectedClient.id,
+            onUpdate: (updates: any) =>
+              setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+            onDelete: () => {
+              setNodes(ns => ns.filter(n => n.id !== nodeId));
+              setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+            },
           },
-        },
-      };
-      setNodes(prev => [...prev, newNode]);
-      toast.success("Video added — transcribing...");
+        };
+        setNodes(prev => [...prev, newNode]);
+        toast.success("Video added — transcribing...");
+        return;
+      }
+
+      // Priority 2: Internal node clipboard → duplicate nodes
+      if (clipboardRef.current && clipboardRef.current.nodes.length > 0) {
+        e.preventDefault();
+        const { nodes: clipNodes, edges: clipEdges } = clipboardRef.current;
+        const idMap = new Map<string, string>();
+        const offset = 40;
+
+        const newNodes: Node[] = clipNodes.map((n: any) => {
+          const newId = `${n.type || "node"}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          idMap.set(n.id, newId);
+          return {
+            ...n,
+            id: newId,
+            selected: true,
+            position: { x: (n.position?.x ?? 0) + offset, y: (n.position?.y ?? 0) + offset },
+            ...(n.parentId && idMap.has(n.parentId) ? { parentId: idMap.get(n.parentId) } : { parentId: undefined }),
+          };
+        });
+
+        const newEdges: Edge[] = clipEdges
+          .filter((edge: any) => idMap.has(edge.source) && idMap.has(edge.target))
+          .map((edge: any) => ({
+            ...edge,
+            id: `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            source: idMap.get(edge.source)!,
+            target: idMap.get(edge.target)!,
+          }));
+
+        const withCallbacks = attachCallbacks(newNodes);
+        setNodes(ns => [...ns.map(n => ({ ...n, selected: false })), ...withCallbacks]);
+        setEdges(es => [...es, ...newEdges]);
+      }
     };
 
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [authToken, selectedClient.id, setNodes, setEdges]);
+  }, [authToken, selectedClient.id, setNodes, setEdges, attachCallbacks]);
 
   // ─── Fit view to nodes after loading a session ───
   const fitViewDoneRef = useRef(false);
@@ -1782,26 +2159,46 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     e.stopPropagation();
     (e.target as SVGSVGElement).setPointerCapture(e.pointerId);
     const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    setCurrentPath([[pt.x, pt.y]]);
-  }, [drawingMode, screenToFlowPosition]);
+    if (drawTool === "freeform") {
+      setCurrentPath([[pt.x, pt.y]]);
+    } else {
+      // For shapes, store [start, current] — two corners of bounding box
+      setCurrentPath([[pt.x, pt.y], [pt.x, pt.y]]);
+    }
+  }, [drawingMode, drawTool, screenToFlowPosition]);
 
   const handleDrawPointerMove = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     if (!currentPath) return;
     const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    setCurrentPath(prev => prev ? [...prev, [pt.x, pt.y]] : null);
-  }, [currentPath, screenToFlowPosition]);
+    if (drawTool === "freeform") {
+      setCurrentPath(prev => prev ? [...prev, [pt.x, pt.y]] : null);
+    } else {
+      // Update second point (current drag position)
+      setCurrentPath(prev => prev ? [prev[0], [pt.x, pt.y]] : null);
+    }
+  }, [currentPath, drawTool, screenToFlowPosition]);
 
   const handleDrawPointerUp = useCallback(() => {
     if (!currentPath || currentPath.length < 2) { setCurrentPath(null); return; }
+    if (drawTool !== "freeform") {
+      const [start, end] = currentPath;
+      // Require minimum drag size (5px in flow space)
+      if (Math.abs(end[0] - start[0]) < 5 && Math.abs(end[1] - start[1]) < 5) {
+        setCurrentPath(null);
+        return;
+      }
+    }
     const newPath: DrawPath = {
       id: `draw_${Date.now()}`,
       points: currentPath,
       color: drawColor,
       width: drawWidth,
+      shape: drawTool,
+      fill: drawTool !== "freeform" && drawTool !== "line" && drawTool !== "arrow" && drawTool !== "dottedLine" && drawFill ? drawColor : "none",
     };
     setDrawPaths(prev => [...prev, newPath]);
     setCurrentPath(null);
-  }, [currentPath, drawColor, drawWidth]);
+  }, [currentPath, drawColor, drawWidth, drawTool, drawFill]);
 
   const pathToSvgD = (points: [number, number][]) => {
     if (points.length < 2) return "";
@@ -1815,8 +2212,208 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }, "") + ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
   };
 
+  // ─── Shape SVG rendering helper ───
+  const renderShapeSvg = useCallback((points: [number, number][], shape: DrawTool | undefined, color: string, width: number, fill: string, opacity: number, extraStroke?: string, extraStrokeWidth?: number) => {
+    if (!shape || shape === "freeform") return null;
+    const [start, end] = points;
+    if (!start || !end) return null;
+    const sw = width / (viewportRef.current?.zoom || 1);
+    const commonProps = {
+      stroke: extraStroke || color,
+      strokeWidth: extraStrokeWidth ? extraStrokeWidth / (viewportRef.current?.zoom || 1) : sw,
+      fill: fill === "none" ? "none" : fill,
+      fillOpacity: fill !== "none" ? (opacity * 0.3) : 0,
+      opacity,
+      strokeLinejoin: "round" as const,
+      strokeLinecap: "round" as const,
+    };
+
+    // ── Line / Arrow / Dotted Line ──
+    if (shape === "line" || shape === "arrow" || shape === "dottedLine") {
+      const markerId = shape === "arrow" ? `arrow-${(extraStroke || color).replace('#', '')}` : undefined;
+      return (
+        <>
+          {markerId && (
+            <defs>
+              <marker id={markerId} markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                <path d="M0,0 L10,4 L0,8 L2,4 Z" fill={extraStroke || color} opacity={opacity} />
+              </marker>
+            </defs>
+          )}
+          <line
+            x1={start[0]} y1={start[1]} x2={end[0]} y2={end[1]}
+            {...commonProps}
+            fill="none"
+            strokeDasharray={shape === "dottedLine" ? `${sw * 3},${sw * 3}` : undefined}
+            markerEnd={markerId ? `url(#${markerId})` : undefined}
+          />
+        </>
+      );
+    }
+
+    // ── Existing shapes ──
+    const x = Math.min(start[0], end[0]);
+    const y = Math.min(start[1], end[1]);
+    const w = Math.abs(end[0] - start[0]);
+    const h = Math.abs(end[1] - start[1]);
+    if (shape === "rect") return <rect x={x} y={y} width={w} height={h} rx={2} {...commonProps} />;
+    if (shape === "ellipse") return <ellipse cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} {...commonProps} />;
+    if (shape === "triangle") {
+      const triD = `M ${x + w / 2} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+      return <path d={triD} {...commonProps} />;
+    }
+    return null;
+  }, []);
+
+  // ─── Eraser: point-to-segment distance for hit testing ───
+  const distToSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
+    const dx = bx - ax, dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  };
+
+  const findPathAtPoint = useCallback((flowX: number, flowY: number): string | null => {
+    const hitRadius = 12 / (viewportRef.current?.zoom || 1);
+    for (let i = drawPaths.length - 1; i >= 0; i--) {
+      const p = drawPaths[i];
+      if (p.shape && p.shape !== "freeform" && p.points.length >= 2) {
+        // Shape hit test — check if point is near border or inside filled shape
+        const [start, end] = p.points;
+        const x = Math.min(start[0], end[0]) - hitRadius;
+        const y = Math.min(start[1], end[1]) - hitRadius;
+        const w = Math.abs(end[0] - start[0]) + hitRadius * 2;
+        const h = Math.abs(end[1] - start[1]) + hitRadius * 2;
+        if (flowX >= x && flowX <= x + w && flowY >= y && flowY <= y + h) return p.id;
+      } else {
+        for (let j = 1; j < p.points.length; j++) {
+          const [ax, ay] = p.points[j - 1];
+          const [bx, by] = p.points[j];
+          if (distToSegment(flowX, flowY, ax, ay, bx, by) < hitRadius + p.width / 2) {
+            return p.id;
+          }
+        }
+      }
+    }
+    return null;
+  }, [drawPaths]);
+
+  const handleEraserPointerDown = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as SVGSVGElement).setPointerCapture(e.pointerId);
+    erasingRef.current = true;
+    const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const hitId = findPathAtPoint(pt.x, pt.y);
+    if (hitId) setDrawPaths(prev => prev.filter(p => p.id !== hitId));
+  }, [findPathAtPoint, screenToFlowPosition]);
+
+  const handleEraserPointerMove = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
+    const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    if (erasingRef.current) {
+      // Erase on swipe
+      const hitId = findPathAtPoint(pt.x, pt.y);
+      if (hitId) setDrawPaths(prev => prev.filter(p => p.id !== hitId));
+      setHoveredPathId(null);
+    } else {
+      // Hover highlight
+      setHoveredPathId(findPathAtPoint(pt.x, pt.y));
+    }
+  }, [findPathAtPoint, screenToFlowPosition]);
+
+  const handleEraserPointerUp = useCallback(() => {
+    erasingRef.current = false;
+  }, []);
+
   // ─── Fullscreen AI overlay ───
   const [showFullscreenAI, setShowFullscreenAI] = useState(false);
+
+  // ─── Real-time presence ───
+  const canvasRoomId = `canvas:${selectedClient.id}:${activeSessionId || "default"}`;
+  const { others: presenceOthers, myAnimalName, myColor } = useRealtimePresence({
+    roomId: canvasRoomId,
+    userId: userIdRef.current || "anon",
+    currentView: showFullscreenAI ? "fullscreen-ai" : "canvas",
+  });
+
+  // ─── Real-time canvas sync (node moves, edge changes, cursors) ───
+  const isRemoteCanvasUpdateRef = useRef(false);
+  const { broadcastNodePositions, broadcastEdgeChanges, broadcastNodeDataUpdate, broadcastCursorPosition, remoteCursors } = useRealtimeCanvasSync({
+    roomId: canvasRoomId,
+    onRemoteNodeChanges: useCallback((remoteNodes) => {
+      isRemoteCanvasUpdateRef.current = true;
+      setNodes(currentNodes => {
+        const updated = currentNodes.map(n => {
+          const remote = remoteNodes.find(r => r.id === n.id);
+          if (remote) {
+            return {
+              ...n,
+              position: remote.position,
+              parentId: remote.parentId,
+              hidden: remote.hidden,
+            };
+          }
+          return n;
+        });
+        return updated;
+      });
+      setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
+    }, [setNodes]),
+    onRemoteEdgeChanges: useCallback((remoteEdges) => {
+      isRemoteCanvasUpdateRef.current = true;
+      setEdges(remoteEdges);
+      setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
+    }, [setEdges]),
+    onRemoteNodeDataUpdate: useCallback(({ nodeId, data }) => {
+      isRemoteCanvasUpdateRef.current = true;
+      setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n));
+      setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
+    }, [setNodes]),
+  });
+  broadcastNodeDataUpdateRef.current = broadcastNodeDataUpdate;
+
+  // ─── DB-level full-state sync: reload canvas when another tab saves ───
+  // The broadcast sync only handles positions/edges of *existing* nodes.
+  // New nodes, deletions, and draw paths are only in the DB — so we subscribe
+  // to postgres_changes on canvas_states and reload the full state when another tab saves.
+  useEffect(() => {
+    if (!activeSessionId) return;
+
+    const channel = supabase
+      .channel(`canvas-db:${activeSessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "canvas_states", filter: `id=eq.${activeSessionId}` },
+        (payload) => {
+          // Identify our own echo by exact `updated_at` (handles late delivery past the 3s window).
+          // Without this, a delayed echo from save N can re-hydrate stale DB state and clobber
+          // local edits made between save N and save N+1 (e.g. transcription completing mid-save-cycle).
+          const echoUpdatedAt = (payload.new as any)?.updated_at;
+          if (echoUpdatedAt) {
+            const echoMs = Date.parse(echoUpdatedAt);
+            if (!isNaN(echoMs) && recentSaveUpdatedAtsRef.current.has(echoMs)) return;
+          }
+          // Ignore if we were the ones who just saved (within 3s window) — fallback for races where echo arrives before lastSaveAtRef tracking
+          if (Date.now() - lastSaveAtRef.current < 3000) return;
+          // Ignore if a session switch is in progress
+          if (isSwitchingSessionRef.current) return;
+
+          const { nodes: rawNodes, edges: rawEdges, draw_paths } = payload.new as any;
+          if (!Array.isArray(rawNodes)) return;
+
+          isRemoteCanvasUpdateRef.current = true;
+          const hydrated = ensureParentOrder(attachCallbacks(rawNodes as Node[]));
+          setNodes(hydrated);
+          if (Array.isArray(rawEdges)) setEdges(rawEdges as Edge[]);
+          if (Array.isArray(draw_paths)) setDrawPaths(draw_paths);
+          setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 300);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [activeSessionId, attachCallbacks, setNodes, setEdges]);
 
   // ─── Mobile detection ───
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -1864,10 +2461,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         className="flex-1 relative min-w-0"
         style={{ background: "#131417" }}
         onDragOver={(e) => {
-          const hasSupported = Array.from(e.dataTransfer.items).some(
-            i => i.kind === "file" && CANVAS_ACCEPTED_MIME.has(i.type)
+          const hasFile = Array.from(e.dataTransfer.items).some(
+            i => i.kind === "file" && (CANVAS_ACCEPTED_MIME.has(i.type) || !i.type)
           );
-          if (!hasSupported) return;
+          if (!hasFile) return;
           e.preventDefault();
           setIsDragOverCanvas(true);
           // Auto-clear if dragover stops firing (e.g. moved into AI node which stops propagation)
@@ -1893,10 +2490,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           onOpenViralPicker={() => setShowViralPicker(true)}
           onOpenFullscreenAI={() => setShowFullscreenAI(true)}
           drawingMode={drawingMode}
-          onToggleDrawing={() => setDrawingMode(m => !m)}
+          onToggleDrawing={() => { setDrawingMode(m => !m); setEraserMode(false); }}
+          eraserMode={eraserMode}
+          onToggleEraser={() => setEraserMode(m => !m)}
           onClearDrawing={() => setDrawPaths([])}
           drawColor={drawColor}
           onDrawColorChange={setDrawColor}
+          drawTool={drawTool}
+          onDrawToolChange={(t) => { setDrawTool(t); setEraserMode(false); }}
+          drawFill={drawFill}
+          onDrawFillToggle={() => setDrawFill(f => !f)}
+          drawWidth={drawWidth}
+          onDrawWidthChange={setDrawWidth}
           saveStatus={saveStatus}
           sessions={sessions}
           activeSessionId={activeSessionId}
@@ -1905,6 +2510,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           onRenameSession={renameSession}
           onDeleteSession={deleteSession}
           sessionStorageUsed={sessionStorageUsed}
+          presenceOthers={presenceOthers}
+          myAnimalName={myAnimalName}
+          myColor={myColor}
         />
 
         {showViralPicker && (
@@ -1946,24 +2554,32 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          edgesFocusable
+          edgesReconnectable
           onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
           onSelectionContextMenu={handleSelectionContextMenu}
           onNodeContextMenu={handleNodeContextMenu}
           colorMode="dark"
-          defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 } }}
+          defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 }, data: { arrow: false } }}
           fitView={false}
           minZoom={0.1}
           maxZoom={4}
           panOnScroll
           zoomOnScroll
           panOnDrag={[1, 2]}
-          deleteKeyCode={null}
+          deleteKeyCode={["Delete", "Backspace"]}
           connectOnClick
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
-          style={{ background: "#131417" }}
+          style={{ background: "#131417", position: "absolute", inset: 0 }}
+          onMouseMove={(e) => {
+            // Broadcast cursor position in flow coordinates (throttled inside hook)
+            const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+            broadcastCursorPosition(flowPos.x, flowPos.y);
+          }}
         >
           <Background
             variant={BackgroundVariant.Dots}
@@ -1974,6 +2590,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           />
         </ReactFlow>
 
+        {/* Remote user cursors */}
+        <RemoteCursors cursors={remoteCursors} viewport={viewport} />
+
         {/* Drawing SVG layer — rendered paths (always visible, follows viewport) */}
         {(drawPaths.length > 0 || currentPath) && (
           <svg
@@ -1982,34 +2601,32 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           >
             <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
               {drawPaths.map(p => (
-                <path
-                  key={p.id}
-                  d={pathToSvgD(p.points)}
-                  stroke={p.color}
-                  strokeWidth={p.width / viewport.zoom}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity={0.85}
-                />
+                <g key={p.id}>
+                  {/* Eraser hover highlight */}
+                  {eraserMode && hoveredPathId === p.id && (
+                    p.shape && p.shape !== "freeform"
+                      ? renderShapeSvg(p.points, p.shape, p.color, p.width, "none", 0.4, "#ef4444", p.width + 8)
+                      : <path d={pathToSvgD(p.points)} stroke="#ef4444" strokeWidth={(p.width + 8) / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.4} />
+                  )}
+                  {/* Actual path or shape */}
+                  {p.shape && p.shape !== "freeform"
+                    ? renderShapeSvg(p.points, p.shape, p.color, p.width, p.fill || "none", eraserMode && hoveredPathId === p.id ? 0.5 : 0.85)
+                    : <path d={pathToSvgD(p.points)} stroke={p.color} strokeWidth={p.width / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={eraserMode && hoveredPathId === p.id ? 0.5 : 0.85} />
+                  }
+                </g>
               ))}
+              {/* Current in-progress drawing */}
               {currentPath && currentPath.length > 1 && (
-                <path
-                  d={pathToSvgD(currentPath)}
-                  stroke={drawColor}
-                  strokeWidth={drawWidth / viewport.zoom}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity={0.85}
-                />
+                drawTool !== "freeform"
+                  ? renderShapeSvg(currentPath, drawTool, drawColor, drawWidth, drawFill ? drawColor : "none", 0.7)
+                  : <path d={pathToSvgD(currentPath)} stroke={drawColor} strokeWidth={drawWidth / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
               )}
             </g>
           </svg>
         )}
 
         {/* Drawing interaction layer — captures pointer when drawing mode active */}
-        {drawingMode && (
+        {drawingMode && !eraserMode && (
           <svg
             className="absolute inset-0 w-full h-full"
             style={{ zIndex: 5, cursor: "crosshair" }}
@@ -2017,6 +2634,19 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             onPointerMove={handleDrawPointerMove}
             onPointerUp={handleDrawPointerUp}
             onPointerCancel={handleDrawPointerUp}
+          />
+        )}
+
+        {/* Eraser interaction layer — click/swipe to delete individual lines */}
+        {eraserMode && (
+          <svg
+            className="absolute inset-0 w-full h-full"
+            style={{ zIndex: 5, cursor: "pointer" }}
+            onPointerDown={handleEraserPointerDown}
+            onPointerMove={handleEraserPointerMove}
+            onPointerUp={handleEraserPointerUp}
+            onPointerCancel={handleEraserPointerUp}
+            onPointerLeave={() => setHoveredPathId(null)}
           />
         )}
 

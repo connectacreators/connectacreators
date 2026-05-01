@@ -18,13 +18,13 @@ const PRODUCT_PLAN_MAP: Record<string, {
   channel_scrapes_limit: number;
 }> = {
   // Current products (new pricing: $39/$79/$139)
-  "prod_U8CMY29gkbO85Y": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 50000,  channel_scrapes_limit: 8  },
-  "prod_U8CMTfvyn4lvgv": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 100000, channel_scrapes_limit: 15 },
-  "prod_U8CMxSv9ZoV1PF": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 175000, channel_scrapes_limit: 25 },
+  "prod_U8CMY29gkbO85Y": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 10000,  channel_scrapes_limit: 8  },
+  "prod_U8CMTfvyn4lvgv": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 30000,  channel_scrapes_limit: 15 },
+  "prod_U8CMxSv9ZoV1PF": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 75000,  channel_scrapes_limit: 25 },
   // Legacy products (grandfathered subscribers)
-  "prod_Tzx3VOK8V8gI11": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 50000,  channel_scrapes_limit: 8  },
-  "prod_Tzx4et0Y0iv6LI": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 100000, channel_scrapes_limit: 15 },
-  "prod_Tzx4OBg3PpYuES": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 175000, channel_scrapes_limit: 25 },
+  "prod_Tzx3VOK8V8gI11": { plan_type: "starter",    script_limit: 75,  lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 10000,  channel_scrapes_limit: 8  },
+  "prod_Tzx4et0Y0iv6LI": { plan_type: "growth",     script_limit: 200, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 30000,  channel_scrapes_limit: 15 },
+  "prod_Tzx4OBg3PpYuES": { plan_type: "enterprise", script_limit: 500, lead_tracker_enabled: true, facebook_integration_enabled: true, credits_monthly_cap: 75000,  channel_scrapes_limit: 25 },
 };
 
 const logStep = (step: string, details?: any) => {
@@ -189,7 +189,9 @@ serve(async (req) => {
       }
 
       if (planData) {
-        const subscriptionStatus = subscription.status === "trialing" ? "trialing" : "active";
+        const subscriptionStatus = subscription.cancel_at_period_end
+          ? "canceling"
+          : subscription.status === "trialing" ? "trialing" : "active";
         const TRIAL_CREDITS = 1000;
 
         // Check current credits state FIRST

@@ -83,8 +83,8 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === " ") { e.preventDefault(); setPlaying((p) => !p); }
-      if (e.key === "ArrowUp") setSpeed((s) => Math.min(s + 10, 200));
-      if (e.key === "ArrowDown") setSpeed((s) => Math.max(s - 10, 10));
+      if (e.key === "ArrowUp") setSpeed((s) => Math.min(s + 5, 200));
+      if (e.key === "ArrowDown") setSpeed((s) => Math.max(s - 5, 10));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -185,7 +185,7 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
               onValueChange={([v]) => setSpeed(v)}
               min={10}
               max={200}
-              step={5}
+              step={1}
               className="flex-1"
             />
             <span className="text-white text-xs sm:text-sm font-bold w-8 sm:w-10 text-right">{speed}</span>

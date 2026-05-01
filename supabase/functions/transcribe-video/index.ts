@@ -9,12 +9,29 @@ const corsHeaders = {
 
 const YTDLP_SERVER = "http://72.62.200.145:3099";
 const YTDLP_API_KEY = "ytdlp_connecta_2026_secret";
-const CREDIT_COST = 150;
+const CREDIT_COST = 50;
 
-// ─── Apify ───
-const APIFY_TOKEN = "apify_api_XcMx5KAjTPY1wBow3wgTaA3Y4wdiwL0MbbI2";
-const APIFY_YT_ACTOR = "streamers~youtube-scraper";
-const APIFY_IG_TASK = "connectacreators~instagram-reel-scraper-task";
+// ─── VPS cobalt-proxy: resolve social media URL to cached video ───
+async function resolveVideoUrlViaCobalt(pageUrl: string): Promise<{ url: string | null; thumbnail: string | null; title: string | null }> {
+  try {
+    console.log("Resolving video URL via VPS /cobalt-proxy:", pageUrl);
+    const res = await fetch(`${YTDLP_SERVER}/cobalt-proxy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
+      body: JSON.stringify({ url: pageUrl }),
+    });
+    if (!res.ok) { console.error("VPS cobalt-proxy error:", res.status); return { url: null, thumbnail: null, title: null }; }
+    const data = await res.json();
+    return {
+      url: data.url || null,
+      thumbnail: data.thumbnail || null,
+      title: data.title || null,
+    };
+  } catch (e) {
+    console.error("VPS cobalt-proxy resolve error:", e);
+    return { url: null, thumbnail: null, title: null };
+  }
+}
 
 async function getPrimaryClientId(
   adminClient: ReturnType<typeof createClient>,
@@ -39,156 +56,29 @@ async function getPrimaryClientId(
   return client?.id ?? null;
 }
 
-function normalizeInstagramReelUrl(url: string): string {
-  return url.replace(/\/reels\/([A-Za-z0-9_-]+)/, "/reel/$1");
-}
 
-// ─── Instagram: get CDN video URL via Apify task (same as fetch-thumbnail & analyze-video) ───
-async function extractInstagramVideoUrl(pageUrl: string): Promise<string | null> {
-  try {
-    const normalizedUrl = normalizeInstagramReelUrl(pageUrl);
-    console.log("Fetching IG video URL via Apify task:", normalizedUrl);
-
-    const taskUrl = `https://api.apify.com/v2/actor-tasks/${APIFY_IG_TASK}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=90`;
-    const res = await fetch(taskUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: [normalizedUrl] }),
-    });
-
-    if (!res.ok) {
-      console.error("Apify IG task error:", res.status, await res.text().catch(() => ""));
-      return null;
-    }
-
-    const items = await res.json();
-    console.log("Apify IG task response: items count =", Array.isArray(items) ? items.length : 0);
-    if (!Array.isArray(items) || items.length === 0) return null;
-
-    const item = items[0];
-    console.log("Apify IG item keys:", Object.keys(item).join(", "));
-    const videoUrl = item.videoUrl || item.video_url || item.videoPlaybackUrl || item.download_url || null;
-    console.log("Apify IG videoUrl:", videoUrl ? videoUrl.slice(0, 100) + "..." : "null");
-    return videoUrl;
-  } catch (e) {
-    console.error("Apify IG task extraction error:", e);
-    return null;
-  }
-}
-
-// ─── YouTube: extract transcript from captions ───
-async function extractYouTubeTranscript(videoUrl: string): Promise<{ transcript: string | null; title: string | null; thumbnailUrl: string | null }> {
-  const ytMatch = videoUrl.match(
-    /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
-  );
-  if (!ytMatch) return { transcript: null, title: null, thumbnailUrl: null };
-
-  console.log("Extracting YouTube transcript via Apify for:", ytMatch[1]);
-
-  try {
-    const apifyUrl = `https://api.apify.com/v2/acts/${APIFY_YT_ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=50`;
-    const res = await fetch(apifyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startUrls: [{ url: videoUrl }],
-        maxResults: 1,
-        downloadSubtitles: true,
-        subtitlesLanguage: "en",
-        subtitlesFormat: "plaintext",
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("Apify YouTube error:", res.status, await res.text().catch(() => ""));
-      return { transcript: null, title: null, thumbnailUrl: null };
-    }
-
-    const items = await res.json();
-    if (!Array.isArray(items) || items.length === 0) {
-      console.log("Apify returned no items");
-      return { transcript: null, title: null, thumbnailUrl: null };
-    }
-
-    const item = items[0];
-    const title: string | null = item.title ?? null;
-    const thumbnailUrl: string | null = item.thumbnailUrl ?? null;
-    const subtitles = item.subtitles;
-
-    if (Array.isArray(subtitles) && subtitles.length > 0) {
-      const enSub = subtitles.find((s: any) => s.language === "en") || subtitles[0];
-      if (enSub?.plaintext) {
-        const transcript = enSub.plaintext.replace(/\n/g, " ").trim();
-        console.log(`YouTube transcript extracted (${enSub.language}): ${transcript.length} chars`);
-        return { transcript, title, thumbnailUrl };
-      }
-    }
-
-    console.log("No subtitles in Apify response");
-    return { transcript: null, title, thumbnailUrl };
-  } catch (e) {
-    console.error("Apify YouTube transcript error:", e);
-    return { transcript: null, title: null, thumbnailUrl: null };
-  }
-}
-
-// Deduct credits atomically. Returns null on success, error string on failure.
+// Deduct credits — atomic via DB function (no race condition).
 async function deductCredits(
   adminClient: any,
   userId: string,
   action: string,
   cost: number,
 ): Promise<string | null> {
+  if (cost === 0) return null;
+
   const { data: roleData } = await adminClient
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
   const role = roleData?.role;
-  // Skip credit deduction for admin, videographers, and editors (they use assigned client credits)
   if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
-  if (!primaryClientId) {
-    return JSON.stringify({ error: "No client record found" });
-  }
-  const { data: client, error: fetchErr } = await adminClient
-    .from("clients")
-    .select("id, credits_balance, credits_used")
-    .eq("id", primaryClientId)
-    .single();
+  if (!primaryClientId) return null;
 
-  if (fetchErr || !client) return null;
-
-  if ((client.credits_balance ?? 0) < cost) {
-    return JSON.stringify({
-      error: `Insufficient credits. You need ${cost} credits but only have ${client.credits_balance ?? 0}.`,
-      insufficient_credits: true,
-      balance: client.credits_balance ?? 0,
-      needed: cost,
-    });
-  }
-
-  const { error: updateErr } = await adminClient
-    .from("clients")
-    .update({
-      credits_balance: (client.credits_balance ?? 0) - cost,
-      credits_used: (client.credits_used ?? 0) + cost,
-    })
-    .eq("id", client.id);
-
-  if (updateErr) {
-    console.error("Credit update error:", updateErr);
-    return JSON.stringify({ error: "Failed to deduct credits", details: updateErr.message });
-  }
-
-  await adminClient.from("credit_transactions").insert({
-    client_id: client.id,
-    action,
-    cost,
-    metadata: {},
+  const { data: result, error } = await adminClient.rpc("deduct_credits_atomic", {
+    p_client_id: primaryClientId, p_action: action, p_cost: cost,
   });
-
+  if (error) { console.error("Credit deduction error:", error); return null; }
+  if (!result?.ok) return JSON.stringify(result);
   return null;
 }
 
@@ -232,7 +122,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const { url, source } = await req.json();
     if (!url || typeof url !== "string") {
       return new Response(JSON.stringify({ error: "url is required" }), {
         status: 400,
@@ -240,7 +130,8 @@ serve(async (req) => {
       });
     }
 
-    const creditErr = await deductCredits(adminClient, user.id, "add_video_to_vault", CREDIT_COST);
+    const action = source === "competitor" ? "transcribe_competitor_post" : "add_video_to_vault";
+    const creditErr = await deductCredits(adminClient, user.id, action, CREDIT_COST);
     if (creditErr) {
       return new Response(creditErr, {
         status: 402,
@@ -248,154 +139,181 @@ serve(async (req) => {
       });
     }
 
-    console.log("Transcribing video URL:", url);
-
-    let transcription: string | null = null;
-    const isYouTube = /(?:youtube\.com\/|youtu\.be\/)/.test(url);
-    const isInstagram = /instagram\.com/.test(url);
-
-    // ─── YouTube: try caption extraction first (fast, free) ───
-    let ytTitle: string | null = null;
-    let ytApifyThumbnail: string | null = null;
-    if (isYouTube) {
-      console.log("YouTube URL detected — trying Apify transcript extraction...");
-      const ytResult = await extractYouTubeTranscript(url);
-      transcription = ytResult.transcript;
-      ytTitle = ytResult.title;
-      ytApifyThumbnail = ytResult.thumbnailUrl;
-      if (transcription) {
-        console.log("YouTube transcript extracted successfully, length:", transcription.length);
-      } else {
-        console.log("No YouTube transcript available, falling back to audio extraction...");
-      }
+    // Normalize Instagram /p/ URLs to /reel/ format (yt-dlp + cobalt prefer /reel/)
+    let normalizedUrl = url;
+    const igPostMatch = url.match(/instagram\.com\/p\/([^/?]+)/);
+    if (igPostMatch) {
+      normalizedUrl = `https://www.instagram.com/reel/${igPostMatch[1]}/`;
+      console.log("Normalized IG /p/ → /reel/:", normalizedUrl);
     }
 
-    // ─── YouTube: use Apify thumbnail (already fetched above), fall back to CDN URL ───
-    let youtubeThumbnailUrl: string | null = null;
-    if (isYouTube) {
-      if (ytApifyThumbnail) {
-        youtubeThumbnailUrl = ytApifyThumbnail;
-        console.log("Using Apify thumbnail for YouTube:", youtubeThumbnailUrl);
-      } else {
-        const ytIdMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-        if (ytIdMatch) {
-          const videoId = ytIdMatch[1];
-          const maxresUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-          try {
-            const thumbCheck = await fetch(maxresUrl, { method: "HEAD" });
-            const cLen = thumbCheck.headers.get("content-length");
-            youtubeThumbnailUrl = (thumbCheck.ok && cLen !== "1403")
-              ? maxresUrl
-              : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          } catch {
-            youtubeThumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          }
+    console.log("Transcribing video URL:", normalizedUrl);
+
+    let transcription: string | null = null;
+    const isYouTube = /(?:youtube\.com\/|youtu\.be\/)/.test(normalizedUrl);
+
+    // ─── Step 1: Resolve video URL via VPS cobalt-proxy (all platforms) ───
+    // This caches the video on VPS and returns the cached URL + metadata
+    console.log("Resolving video via VPS cobalt-proxy...");
+    const cobaltResult = await resolveVideoUrlViaCobalt(url);
+    const cachedVideoUrl = cobaltResult.url;
+    let videoTitle = cobaltResult.title;
+    let thumbnailUrl = cobaltResult.thumbnail;
+
+    if (cachedVideoUrl) {
+      console.log("VPS cobalt-proxy cached URL:", cachedVideoUrl.slice(0, 80) + "...");
+    } else {
+      console.log("VPS cobalt-proxy returned no cached URL — will pass original URL to /extract-audio");
+    }
+
+    // ─── Step 2: YouTube thumbnail fallback (free CDN) ───
+    if (isYouTube && !thumbnailUrl) {
+      const ytIdMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (ytIdMatch) {
+        const videoId = ytIdMatch[1];
+        const maxresUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        try {
+          const thumbCheck = await fetch(maxresUrl, { method: "HEAD" });
+          const cLen = thumbCheck.headers.get("content-length");
+          thumbnailUrl = (thumbCheck.ok && cLen !== "1403")
+            ? maxresUrl
+            : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        } catch {
+          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         }
       }
     }
 
-    // ─── Instagram: get CDN video URL via Apify, then pass to VPS ───
-    let igCdnVideoUrl: string | null = null;
-    if (isInstagram) {
-      console.log("Instagram URL detected — calling Apify reel scraper for CDN URL...");
-      igCdnVideoUrl = await extractInstagramVideoUrl(url);
-      if (igCdnVideoUrl) {
-        console.log("Got Instagram CDN video URL, will pass to VPS for extraction");
-      } else {
-        console.log("No CDN URL from Apify — will try page URL with VPS cobalt");
+    // ─── Step 2.5: YouTube captions fast-path (free, instant) ───
+    if (isYouTube) {
+      console.log("YouTube detected — trying captions fast-path...");
+      try {
+        const captionsRes = await fetch(`${YTDLP_SERVER}/youtube-captions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
+          body: JSON.stringify({ url }),
+        });
+        if (captionsRes.ok) {
+          const captionsData = await captionsRes.json();
+          if (captionsData.captions && captionsData.captions.length > 50) {
+            console.log(`YouTube captions found! Length: ${captionsData.captions.length} chars`);
+            transcription = captionsData.captions;
+          } else {
+            console.log("YouTube captions empty or too short, falling back to Whisper");
+          }
+        }
+      } catch (e) {
+        console.log("YouTube captions fetch failed, falling back to Whisper:", e.message);
       }
     }
 
-    // ─── Extract audio via VPS (uses CDN URL for IG if available, page URL otherwise) ───
-    let videoCacheUrl: string | null = null;
-    if (!transcription && !isYouTube) {
-      // For Instagram: prefer CDN URL from Apify (direct download on VPS)
-      // Fallback: original page URL (VPS uses cobalt to resolve)
-      const extractionUrl = igCdnVideoUrl || url;
-      console.log("Calling VPS /extract-audio with:", extractionUrl.slice(0, 100) + "...");
+    // ─── Step 3: Extract audio via VPS and transcribe with Whisper ───
+    // Only if captions weren't found (non-YouTube or no captions available)
+    let videoCacheUrl: string | null = cachedVideoUrl || null;
+    if (!transcription) {
+    // VPS /extract-audio handles all platforms (cobalt for IG/TikTok, yt-dlp+WARP for YouTube, Puppeteer for FB)
+    const extractionUrl = cachedVideoUrl || url;
+    console.log("Calling VPS /extract-audio with:", extractionUrl.slice(0, 100) + "...");
 
-      const ytdlpRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": YTDLP_API_KEY,
-        },
-        body: JSON.stringify({ url: extractionUrl, original_url: url }),
-      });
+    const ytdlpRes = await fetch(`${YTDLP_SERVER}/extract-audio`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": YTDLP_API_KEY,
+      },
+      body: JSON.stringify({ url: extractionUrl, original_url: url }),
+    });
 
-      if (!ytdlpRes.ok) {
-        const err = await ytdlpRes.json().catch(() => ({ error: "Audio extraction failed" }));
-        console.error("yt-dlp server error:", ytdlpRes.status, err);
-        throw new Error(err.error || `Audio extraction failed (${ytdlpRes.status})`);
-      }
-
-      videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || null;
-      const vpsContentType = ytdlpRes.headers.get("Content-Type") || "unknown";
-      const vpsContentLength = ytdlpRes.headers.get("Content-Length") || "unknown";
-      console.log("VPS response — Content-Type:", vpsContentType, "Content-Length:", vpsContentLength);
-      if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
-
-      const rawBytes = new Uint8Array(await ytdlpRes.arrayBuffer());
-
-      if (rawBytes.byteLength === 0) {
-        throw new Error("Received empty audio from extraction server");
-      }
-
-      if (rawBytes.byteLength > 25 * 1024 * 1024) {
-        throw new Error("Video is too long for transcription (max ~25MB audio). Try a shorter clip.");
-      }
-
-      // Log header bytes for MP3 verification
-      const hexHeader = Array.from(rawBytes.slice(0, 16)).map(b => b.toString(16).padStart(2, "0")).join(" ");
-      console.log(`Audio: ${rawBytes.byteLength} bytes, header: [${hexHeader}]`);
-
-      const audioBlob = new Blob([rawBytes.buffer], { type: "audio/mpeg" });
-      const formData = new FormData();
-      formData.append("file", audioBlob, "audio.mp3");
-      formData.append("model", "whisper-1");
-
-      console.log("Sending", audioBlob.size, "bytes to Whisper...");
-      const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` },
-        body: formData,
-      });
-
-      const whisperBody = await whisperRes.text();
-      console.log("Whisper status:", whisperRes.status, "body:", whisperBody.slice(0, 500));
-
-      if (!whisperRes.ok) {
-        throw new Error(`Transcription failed [${whisperRes.status}]: ${whisperBody}`);
-      }
-
-      const result = JSON.parse(whisperBody);
-      transcription = result.text;
-      console.log("Whisper text length:", transcription?.length ?? 0);
+    if (!ytdlpRes.ok) {
+      const err = await ytdlpRes.json().catch(() => ({ error: "Audio extraction failed" }));
+      console.error("VPS /extract-audio error:", ytdlpRes.status, err);
+      throw new Error(err.error || `Audio extraction failed (${ytdlpRes.status})`);
     }
 
-    // YouTube with no captions: don't throw, return a graceful message
-    if (isYouTube && !transcription) {
-      transcription = "(No captions available for this video)";
+    videoCacheUrl = ytdlpRes.headers.get("X-Video-Cache") || cachedVideoUrl || null;
+    const vpsContentType = ytdlpRes.headers.get("Content-Type") || "unknown";
+    const vpsContentLength = ytdlpRes.headers.get("Content-Length") || "unknown";
+    console.log("VPS response — Content-Type:", vpsContentType, "Content-Length:", vpsContentLength);
+    if (videoCacheUrl) console.log("VPS cached video at:", videoCacheUrl);
+
+    const rawBytes = new Uint8Array(await ytdlpRes.arrayBuffer());
+
+    if (rawBytes.byteLength === 0) {
+      throw new Error("Received empty audio from extraction server");
     }
+
+    if (rawBytes.byteLength > 25 * 1024 * 1024) {
+      throw new Error("Video is too long for transcription (max ~25MB audio). Try a shorter clip.");
+    }
+
+    // Log header bytes for MP3 verification
+    const hexHeader = Array.from(rawBytes.slice(0, 16)).map(b => b.toString(16).padStart(2, "0")).join(" ");
+    console.log(`Audio: ${rawBytes.byteLength} bytes, header: [${hexHeader}]`);
+
+    const audioBlob = new Blob([rawBytes.buffer], { type: "audio/mpeg" });
+    const formData = new FormData();
+    formData.append("file", audioBlob, "audio.mp3");
+    formData.append("model", "whisper-1");
+
+    console.log("Sending", audioBlob.size, "bytes to Whisper...");
+    const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` },
+      body: formData,
+    });
+
+    const whisperBody = await whisperRes.text();
+    console.log("Whisper status:", whisperRes.status, "body:", whisperBody.slice(0, 500));
+
+    if (!whisperRes.ok) {
+      throw new Error(`Transcription failed [${whisperRes.status}]: ${whisperBody}`);
+    }
+
+    const result = JSON.parse(whisperBody);
+    transcription = result.text;
+    console.log("Whisper text length:", transcription?.length ?? 0);
+
+    if (transcription === "") {
+      transcription = "(No speech detected in this video)";
+    }
+    } // end if (!transcription) — Whisper fallback block
 
     if (transcription === null || transcription === undefined) {
       throw new Error("Could not transcribe video — audio extraction or transcription failed");
     }
-    if (transcription === "") {
-      transcription = "(No speech detected in this video)";
+
+    console.log("Transcription complete, length:", transcription!.length, "chars");
+
+    // Facebook thumbnail fallback: now that /extract-audio has cached the video,
+    // /get-thumbnail can extract a frame from the cached file
+    const isFacebook = /facebook\.com|fb\.watch/.test(url);
+    if (!thumbnailUrl && isFacebook && videoCacheUrl) {
+      try {
+        console.log("Facebook: calling /get-thumbnail now that video is cached");
+        const thumbRes = await fetch(`${YTDLP_SERVER}/get-thumbnail`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": YTDLP_API_KEY },
+          body: JSON.stringify({ url }),
+        });
+        if (thumbRes.ok) {
+          const thumbData = await thumbRes.json();
+          if (thumbData.thumbnail_url) {
+            thumbnailUrl = thumbData.thumbnail_url;
+            console.log("Facebook thumbnail extracted, size:", thumbnailUrl!.length);
+          }
+        }
+      } catch (e) {
+        console.error("Facebook thumbnail fallback failed:", e);
+      }
     }
 
-    console.log("Transcription complete, length:", transcription.length, "chars");
-
-    // For Instagram: return CDN URL so frontend can proxy via /proxy-video (supports Range/seeking)
-    // For others: return VPS cache URL
-    const finalVideoUrl = igCdnVideoUrl || videoCacheUrl || null;
-    const thumbnailUrl = youtubeThumbnailUrl || null;
+    // Return cached video URL for frontend playback + metadata
+    const finalVideoUrl = videoCacheUrl || null;
     return new Response(JSON.stringify({
       transcription,
       videoUrl: finalVideoUrl,
-      thumbnail_url: thumbnailUrl,
-      video_title: ytTitle ?? null,
+      thumbnail_url: thumbnailUrl ?? null,
+      video_title: videoTitle ?? null,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Splash Preview — Connecting...</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #06090c; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
+
+  .splash {
+    position: fixed; inset: 0;
+    background: #06090c;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .decrypt-text {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    white-space: pre;
+    display: inline-block;
+  }
+
+  .char { display: inline-block; }
+  .encrypted { color: rgba(34,211,238,0.5); }
+  .revealed { color: rgba(255,255,255,0.9); }
+
+  .restart-btn {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    z-index: 10000;
+    background: rgba(34,211,238,0.15);
+    border: 1px solid rgba(34,211,238,0.3);
+    color: rgba(255,255,255,0.7);
+    padding: 10px 24px; border-radius: 8px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .restart-btn:hover { background: rgba(34,211,238,0.25); color: white; }
+</style>
+</head>
+<body>
+
+<div class="splash">
+  <div class="decrypt-text" id="decryptText"></div>
+</div>
+
+<button class="restart-btn" onclick="restart()">Restart Animation</button>
+
+<script>
+const TARGET = "Connecting...";
+const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()";
+const SPEED = 40;
+
+function runDecrypt() {
+  const el = document.getElementById("decryptText");
+  const len = TARGET.length;
+  const revealed = new Set();
+
+  el.innerHTML = renderText(TARGET, revealed);
+
+  const interval = setInterval(() => {
+    for (let i = 0; i < len; i++) {
+      if (!revealed.has(i) && TARGET[i] !== ' ' && TARGET[i] !== '.') {
+        revealed.add(i);
+        break;
+      }
+    }
+    for (let i = 0; i < len; i++) {
+      if (TARGET[i] === ' ' || TARGET[i] === '.') revealed.add(i);
+    }
+
+    el.innerHTML = renderText(TARGET, revealed);
+
+    if (revealed.size >= len) {
+      clearInterval(interval);
+      const all = new Set();
+      for (let i = 0; i < len; i++) all.add(i);
+      el.innerHTML = renderText(TARGET, all);
+    }
+  }, SPEED);
+}
+
+function renderText(text, revealedSet) {
+  return text.split('').map((char, i) => {
+    if (revealedSet.has(i)) return `<span class="char revealed">${char}</span>`;
+    const r = CHARS[Math.floor(Math.random() * CHARS.length)];
+    return `<span class="char encrypted">${r}</span>`;
+  }).join('');
+}
+
+function restart() { runDecrypt(); }
+runDecrypt();
+</script>
+</body>
+</html>

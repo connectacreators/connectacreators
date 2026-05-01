@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,6 +60,10 @@ type LandingPageData = {
   trust_stat_2_label?: string | null;
   trust_stat_3_number?: string | null;
   trust_stat_3_label?: string | null;
+  hero_price_was?: string | null;
+  hero_price_now?: string | null;
+  gallery_images?: string[] | null;
+  logo_max_width?: number | null;
 };
 
 const TABS = [
@@ -109,6 +113,10 @@ export default function LandingPageBuilder() {
 
   const [clientName, setClientName] = useState("");
   const [page, setPage] = useState<LandingPageData | null>(null);
+  // Tracks the custom_domain that was last loaded/saved from the DB — used to detect when the
+  // user has edited the domain (so we can show DNS-setup steps even if ssl_provisioned_at is
+  // still set from the previous domain, and clear ssl_provisioned_at on save to trigger re-provisioning).
+  const originalCustomDomainRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("branding");
@@ -117,6 +125,7 @@ export default function LandingPageBuilder() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingPhoto1, setUploadingPhoto1] = useState(false);
   const [uploadingPhoto2, setUploadingPhoto2] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState<number | null>(null);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
 
@@ -134,6 +143,7 @@ export default function LandingPageBuilder() {
     const existing = pageRes.data?.[0];
     if (existing) {
       setPage({ ...existing, services: existing.services || [], testimonials: existing.testimonials || [] });
+      originalCustomDomainRef.current = existing.custom_domain ?? null;
     } else {
       setPage({
         client_id: clientId,
@@ -147,13 +157,17 @@ export default function LandingPageBuilder() {
         testimonials: [],
         language: "en",
       });
+      originalCustomDomainRef.current = null;
     }
     setLoading(false);
   }, [clientId]);
 
   useEffect(() => {
     if (!authLoading && user) fetchData();
-  }, [authLoading, user, fetchData]);
+    // `user` is intentionally omitted: Supabase replaces the user object on token refresh
+    // and on tab refocus, which would otherwise refetch and clobber unsaved edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, clientId]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/dashboard");
@@ -243,8 +257,18 @@ export default function LandingPageBuilder() {
       trust_stat_2_label: page.trust_stat_2_label || null,
       trust_stat_3_number: page.trust_stat_3_number || null,
       trust_stat_3_label: page.trust_stat_3_label || null,
+      hero_price_was: page.hero_price_was || null,
+      hero_price_now: page.hero_price_now || null,
+      gallery_images: Array.isArray(page.gallery_images) ? page.gallery_images.filter(Boolean) : [],
+      logo_max_width: page.logo_max_width || null,
     };
-    const upsertPayload = page.id ? { ...payload, id: page.id } : payload;
+    // If the user changed the domain, clear ssl_provisioned_at so the VPS auto-provisioner
+    // re-issues a cert for the new domain (and the UI stops claiming "SSL Active" for the old one).
+    const domainChanged = (page.custom_domain || null) !== (originalCustomDomainRef.current || null);
+    const finalPayload: Record<string, unknown> = domainChanged
+      ? { ...payload, ssl_provisioned_at: null }
+      : payload;
+    const upsertPayload = page.id ? { ...finalPayload, id: page.id } : finalPayload;
     const { data, error } = await supabase
       .from("landing_pages")
       .upsert(upsertPayload, { onConflict: "client_id" })
@@ -253,6 +277,9 @@ export default function LandingPageBuilder() {
     if (error) { toast.error("Failed to save: " + error.message); }
     else {
       if (data?.id && !page.id) setPage((p) => p ? { ...p, id: data.id } : p);
+      // Sync local SSL state with what we just persisted, and remember the new "saved" domain.
+      if (domainChanged) setPage((p) => p ? { ...p, ssl_provisioned_at: null } : p);
+      originalCustomDomainRef.current = page.custom_domain || null;
       toast.success(page.is_published ? "Page saved & published!" : "Page saved (not published)");
     }
     setSaving(false);
@@ -297,6 +324,18 @@ export default function LandingPageBuilder() {
       const path = `${clientId}/landing-logo.${page.logo_url.split(".").pop()?.split("?")[0]}`;
       await supabase.storage.from("booking-logos").remove([path]);
     }
+    // Persist immediately so the trash click actually clears it from the DB,
+    // not just from local state pending a Save click.
+    if (page.id) {
+      const { error } = await supabase
+        .from("landing_pages")
+        .update({ logo_url: null })
+        .eq("id", page.id);
+      if (error) {
+        toast.error("Failed to remove logo: " + error.message);
+        return;
+      }
+    }
     setPage((p) => p ? { ...p, logo_url: null } : p);
     toast.success("Logo removed");
   };
@@ -330,6 +369,51 @@ export default function LandingPageBuilder() {
     }
     setUploading(false);
     e.target.value = "";
+  };
+
+  const handleGalleryUpload = async (slot: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !clientId) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File too large — max 10MB.");
+      e.target.value = "";
+      return;
+    }
+    setUploadingGallery(slot);
+    await supabase.storage.from("booking-logos").remove([
+      `${clientId}/gallery-${slot}.webp`,
+      `${clientId}/gallery-${slot}.png`,
+      `${clientId}/gallery-${slot}.jpg`,
+      `${clientId}/gallery-${slot}.jpeg`,
+    ]);
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${clientId}/gallery-${slot}.${ext}`;
+    const { error } = await supabase.storage.from("booking-logos").upload(path, file, { upsert: true });
+    if (error) {
+      toast.error("Upload failed: " + error.message);
+    } else {
+      const { data: { publicUrl: url } } = supabase.storage.from("booking-logos").getPublicUrl(path);
+      const finalUrl = `${url}?t=${Date.now()}`;
+      setPage((p) => {
+        if (!p) return p;
+        const arr = Array.isArray(p.gallery_images) ? [...p.gallery_images] : [];
+        while (arr.length <= slot) arr.push("");
+        arr[slot] = finalUrl;
+        return { ...p, gallery_images: arr };
+      });
+      toast.success(`Gallery image ${slot + 1} uploaded — click Save to keep it.`);
+    }
+    setUploadingGallery(null);
+    e.target.value = "";
+  };
+
+  const handleGalleryRemove = (slot: number) => {
+    setPage((p) => {
+      if (!p) return p;
+      const arr = Array.isArray(p.gallery_images) ? [...p.gallery_images] : [];
+      arr[slot] = "";
+      return { ...p, gallery_images: arr };
+    });
   };
 
   const handleAboutPhotoRemove = async (slot: 1 | 2) => {
@@ -523,6 +607,25 @@ export default function LandingPageBuilder() {
                         </button>
                       )}
                     </div>
+                    {page.logo_url && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                          Logo size
+                        </Label>
+                        <input
+                          type="range"
+                          min={80}
+                          max={600}
+                          step={10}
+                          value={page.logo_max_width || 260}
+                          onChange={(e) => setPage({ ...page, logo_max_width: parseInt(e.target.value, 10) })}
+                          className="flex-1 accent-primary"
+                        />
+                        <span className="text-xs text-muted-foreground w-14 text-right">
+                          {page.logo_max_width || 260}px
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Hero Image */}
@@ -668,6 +771,26 @@ export default function LandingPageBuilder() {
                     <Textarea value={page.hero_subheadline || ""} onChange={(e) => setPage({ ...page, hero_subheadline: e.target.value || null })}
                       placeholder="Expert care for your health and wellness. Schedule a consultation today." className="min-h-[80px]" />
                   </div>
+                  {/* Price comparison */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">
+                      Price Comparison <span style={{ color: "#888", fontWeight: 400 }}>(strikethrough "was" vs accented "now" — leave blank to hide)</span>
+                    </Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        value={page.hero_price_was || ""}
+                        onChange={(e) => setPage({ ...page, hero_price_was: e.target.value || null })}
+                        placeholder='e.g. "Reg. $250"'
+                        className="h-9 text-sm flex-1"
+                      />
+                      <Input
+                        value={page.hero_price_now || ""}
+                        onChange={(e) => setPage({ ...page, hero_price_now: e.target.value || null })}
+                        placeholder='e.g. "Today $79"'
+                        className="h-9 text-sm flex-1"
+                      />
+                    </div>
+                  </div>
                   {/* Trust Stats */}
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1 block">
@@ -787,6 +910,45 @@ export default function LandingPageBuilder() {
                           </button>
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Gallery (up to 4 images, 9:16 aspect, marquee on mobile / grid on desktop) */}
+                  <div className="pt-4 border-t border-border">
+                    <Label className="text-xs text-muted-foreground mb-1 block">
+                      Gallery <span style={{ color: "#888", fontWeight: 400 }}>(up to 4 vertical 9:16 images — leave all empty to hide)</span>
+                    </Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                      {[0, 1, 2, 3].map((slot) => {
+                        const url = page.gallery_images?.[slot] || "";
+                        return (
+                          <div key={slot} className="flex flex-col gap-1.5">
+                            <div className="relative bg-muted/40 rounded-lg overflow-hidden border border-border" style={{ aspectRatio: "9/16" }}>
+                              {url ? (
+                                <img src={url} alt={`Gallery ${slot + 1}`} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
+                                  Empty
+                                </div>
+                              )}
+                              {url && (
+                                <button
+                                  onClick={() => handleGalleryRemove(slot)}
+                                  className="absolute top-1 right-1 bg-background/90 hover:bg-destructive/20 text-muted-foreground hover:text-destructive rounded p-1 transition-colors"
+                                  title="Remove image"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                            <label className="cursor-pointer flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border border-border text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
+                              {uploadingGallery === slot ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                              {url ? "Change" : "Upload"}
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleGalleryUpload(slot, e)} />
+                            </label>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1013,41 +1175,54 @@ export default function LandingPageBuilder() {
               {activeTab === "contact" && (
                 <div className="space-y-4">
                   {/* Custom Domain */}
-                  <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-foreground">Custom Domain</Label>
-                      {page.custom_domain && (
-                        page.ssl_provisioned_at
-                          ? <span className="text-xs font-medium text-green-400 flex items-center gap-1">✓ SSL Active</span>
-                          : <span className="text-xs text-amber-400 flex items-center gap-1">⏳ SSL Pending</span>
-                      )}
-                    </div>
-                    <Input
-                      value={page.custom_domain || ""}
-                      onChange={(e) => setPage({ ...page, custom_domain: e.target.value || null })}
-                      placeholder="www.yourclinic.com"
-                      className="h-10 font-mono"
-                    />
-                    {page.custom_domain && !page.ssl_provisioned_at && (
-                      <div className="text-xs text-muted-foreground space-y-1.5 border-t border-border/40 pt-3">
-                        <p className="font-medium text-foreground/80">Only 1 manual step required:</p>
-                        <div className="bg-muted rounded-lg p-2 space-y-1">
-                          <p>Go to your domain registrar → DNS settings</p>
-                          <p>Add an <strong>A record</strong>:</p>
-                          <code className="block bg-background px-2 py-1 rounded font-mono text-[11px]">
-                            Name: @ (or www) → Value: 72.62.200.145
-                          </code>
+                  {(() => {
+                    // The domain has changed if the field value differs from what's saved in DB.
+                    // ssl_provisioned_at is for the *previously* saved domain, so a changed domain
+                    // is effectively un-provisioned until the user saves and re-provisioning runs.
+                    const domainChanged = !!page.custom_domain && page.custom_domain !== originalCustomDomainRef.current;
+                    const showSslActive = !!page.custom_domain && !!page.ssl_provisioned_at && !domainChanged;
+                    const showDnsSteps = !!page.custom_domain && !showSslActive;
+                    return (
+                      <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-foreground">Custom Domain</Label>
+                          {page.custom_domain && (
+                            showSslActive
+                              ? <span className="text-xs font-medium text-green-400 flex items-center gap-1">✓ SSL Active</span>
+                              : <span className="text-xs text-amber-400 flex items-center gap-1">⏳ SSL Pending</span>
+                          )}
                         </div>
-                        <p className="text-muted-foreground/70">After DNS propagates (~5–30 min), SSL is provisioned <strong>automatically</strong>. No other action needed.</p>
+                        <Input
+                          value={page.custom_domain || ""}
+                          onChange={(e) => setPage({ ...page, custom_domain: e.target.value || null })}
+                          placeholder="www.yourclinic.com"
+                          className="h-10 font-mono"
+                        />
+                        {showDnsSteps && (
+                          <div className="text-xs text-muted-foreground space-y-1.5 border-t border-border/40 pt-3">
+                            {domainChanged && (
+                              <p className="text-amber-400/90 text-[11px]">Domain changed — save, then point DNS to our server.</p>
+                            )}
+                            <p className="font-medium text-foreground/80">Only 1 manual step required:</p>
+                            <div className="bg-muted rounded-lg p-2 space-y-1">
+                              <p>Go to your domain registrar → DNS settings</p>
+                              <p>Add an <strong>A record</strong>:</p>
+                              <code className="block bg-background px-2 py-1 rounded font-mono text-[11px]">
+                                Name: @ (or www) → Value: 72.62.200.145
+                              </code>
+                            </div>
+                            <p className="text-muted-foreground/70">After DNS propagates (~5–30 min), SSL is provisioned <strong>automatically</strong>. No other action needed.</p>
+                          </div>
+                        )}
+                        {showSslActive && page.ssl_provisioned_at && (
+                          <div className="text-xs text-green-400/80 border-t border-border/40 pt-2">
+                            SSL active since {new Date(page.ssl_provisioned_at).toLocaleDateString()}.
+                            Your page is live at <strong>https://{page.custom_domain}</strong>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {page.custom_domain && page.ssl_provisioned_at && (
-                      <div className="text-xs text-green-400/80 border-t border-border/40 pt-2">
-                        SSL active since {new Date(page.ssl_provisioned_at).toLocaleDateString()}.
-                        Your page is live at <strong>https://{page.custom_domain}</strong>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1 block">Phone</Label>
                     <Input value={page.contact_phone || ""} onChange={(e) => setPage({ ...page, contact_phone: e.target.value || null })}

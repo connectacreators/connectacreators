@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B Variations — Cyan Monochrome</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; padding: 30px 20px; }
+  h1 { text-align: center; font-size: 22px; margin-bottom: 8px; color: #94a3b8; font-weight: 500; }
+  h2 { text-align: center; font-size: 11px; margin-bottom: 30px; color: #475569; font-weight: 400; }
+  .row { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+  .option { width: 380px; }
+  .option-label { text-align: center; font-size: 13px; font-weight: 600; color: #22d3ee; margin-bottom: 5px; letter-spacing: 0.04em; }
+  .option-desc { text-align: center; font-size: 10px; color: #64748b; margin-bottom: 12px; line-height: 1.5; }
+  .preview { display: flex; border-radius: 12px; overflow: hidden; height: 500px; border: 1px solid rgba(255,255,255,0.04); }
+
+  .sidebar { width: 170px; flex-shrink: 0; padding: 14px 7px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+  .sidebar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 0; }
+  .sidebar::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; pointer-events: none; z-index: 0; }
+
+  .logo { font-size: 10px; font-weight: 700; color: #e2e8f0; padding: 4px 8px 14px; margin-bottom: 10px; letter-spacing: 0.02em; position: relative; z-index: 1; }
+  .selector { padding: 7px 9px; border-radius: 7px; margin-bottom: 10px; font-size: 10px; font-weight: 500; display: flex; align-items: center; gap: 5px; position: relative; z-index: 1; }
+  .selector .dot { width: 5px; height: 5px; border-radius: 50%; background: #22d3ee; }
+  .selector .arrow { margin-left: auto; font-size: 7px; opacity: 0.5; }
+
+  .nav { flex: 1; display: flex; flex-direction: column; gap: 1px; position: relative; z-index: 1; }
+  .nav-item { padding: 7px 9px; border-radius: 5px; font-size: 10px; display: flex; align-items: center; gap: 7px; position: relative; }
+  .nav-item .icon { width: 12px; height: 12px; border-radius: 3px; background: currentColor; opacity: 0.35; }
+  .nav-item.active { color: #a3e635; }
+  .nav-item.active::before { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 3px; border-radius: 0 3px 3px 0; background: #a3e635; box-shadow: 0 0 8px rgba(163,230,53,0.4); }
+
+  .dashboard { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .dashboard .orb1 { position: absolute; width: 280px; height: 280px; border-radius: 50%; filter: blur(70px); top: -70px; right: -50px; }
+  .dashboard .orb2 { position: absolute; width: 180px; height: 180px; border-radius: 50%; filter: blur(55px); bottom: -30px; left: -30px; }
+  .dashboard .dots { position: absolute; inset: 0; opacity: 0.03; background-image: radial-gradient(circle at 1px 1px, #e2e8f0 0.5px, transparent 0); background-size: 22px 22px; }
+  .greeting { font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 5px; position: relative; z-index: 1; }
+  .question { font-size: 14px; font-weight: 700; margin-bottom: 16px; position: relative; z-index: 1; }
+
+  .cards { display: flex; gap: 8px; position: relative; z-index: 1; }
+  .card { width: 80px; height: 70px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+  .card .card-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+  .card .card-label { font-size: 7px; font-weight: 600; color: #e2e8f0; }
+  .card .card-desc { font-size: 5.5px; color: #64748b; text-align: center; padding: 0 3px; }
+
+  /* ========= B1: Cyan Monochrome — Bright ========= */
+  /* All cyan gradients, brighter glow, sidebar top→bottom cyan wash */
+  .b1 .sidebar {
+    background: linear-gradient(180deg, #091822 0%, #07141c 40%, #060e16 100%);
+    border-right: 1px solid rgba(8,145,178,0.16);
+  }
+  .b1 .sidebar::before { height: 70%; background: linear-gradient(180deg, rgba(8,145,178,0.12) 0%, rgba(6,182,212,0.04) 60%, transparent 100%); }
+  .b1 .sidebar::after { height: 40%; background: linear-gradient(0deg, rgba(8,145,178,0.06) 0%, transparent 100%); }
+  .b1 .logo { border-bottom: 1px solid rgba(8,145,178,0.12); }
+  .b1 .selector { background: rgba(8,145,178,0.08); border: 1px solid rgba(8,145,178,0.16); color: #70b0c4; }
+  .b1 .nav-item.inactive { color: #4e7a8e; }
+  .b1 .nav-item.active { background: linear-gradient(90deg, rgba(163,230,53,0.10) 0%, rgba(8,145,178,0.04) 80%, transparent 100%); }
+  .b1 .dashboard { background: #070f18; }
+  .b1 .dashboard .orb1 { background: rgba(6,182,212,0.20); }
+  .b1 .dashboard .orb2 { background: rgba(8,145,178,0.12); }
+  .b1 .card { background: rgba(8,145,178,0.04); border: 1px solid rgba(8,145,178,0.12); }
+  .b1 .card .card-icon { background: rgba(8,145,178,0.10); border: 1px solid rgba(8,145,178,0.22); }
+  .b1 .greeting { color: #4a8898; }
+  .b1 .question { color: #e2e8f0; }
+
+  /* ========= B2: Cyan Monochrome — Muted ========= */
+  /* Softer cyan, more navy base, quieter glow */
+  .b2 .sidebar {
+    background: linear-gradient(180deg, #0a1620 0%, #081420 40%, #06101a 100%);
+    border-right: 1px solid rgba(8,145,178,0.10);
+  }
+  .b2 .sidebar::before { height: 60%; background: linear-gradient(180deg, rgba(8,145,178,0.07) 0%, transparent 100%); }
+  .b2 .sidebar::after { height: 30%; background: linear-gradient(0deg, rgba(8,145,178,0.03) 0%, transparent 100%); }
+  .b2 .logo { border-bottom: 1px solid rgba(8,145,178,0.08); }
+  .b2 .selector { background: rgba(8,145,178,0.05); border: 1px solid rgba(8,145,178,0.10); color: #608aa0; }
+  .b2 .nav-item.inactive { color: #406878; }
+  .b2 .nav-item.active { background: linear-gradient(90deg, rgba(163,230,53,0.08) 0%, transparent 50%); }
+  .b2 .dashboard { background: #06101a; }
+  .b2 .dashboard .orb1 { background: rgba(8,145,178,0.14); }
+  .b2 .dashboard .orb2 { background: rgba(3,105,161,0.10); }
+  .b2 .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(8,145,178,0.08); }
+  .b2 .card .card-icon { background: rgba(8,145,178,0.06); border: 1px solid rgba(8,145,178,0.14); }
+  .b2 .greeting { color: #3e6878; }
+  .b2 .question { color: #c8d8e4; }
+
+  /* ========= B3: Cyan Deep — Double Orb ========= */
+  /* Both orbs are cyan (light + dark), stronger top glow, deeper base */
+  .b3 .sidebar {
+    background: linear-gradient(180deg, #0b1a26 0%, #08161e 40%, #051014 100%);
+    border-right: 1px solid rgba(6,182,212,0.14);
+  }
+  .b3 .sidebar::before { height: 75%; background: linear-gradient(180deg, rgba(6,182,212,0.10) 0%, rgba(3,105,161,0.04) 60%, transparent 100%); }
+  .b3 .sidebar::after { height: 35%; background: linear-gradient(0deg, rgba(3,105,161,0.05) 0%, transparent 100%); }
+  .b3 .logo { border-bottom: 1px solid rgba(6,182,212,0.10); }
+  .b3 .selector { background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.14); color: #60a8c0; }
+  .b3 .nav-item.inactive { color: #4a7888; }
+  .b3 .nav-item.active { background: linear-gradient(90deg, rgba(163,230,53,0.10) 0%, transparent 60%); }
+  .b3 .dashboard { background: #060e18; }
+  .b3 .dashboard .orb1 { background: rgba(6,182,212,0.22); }
+  .b3 .dashboard .orb2 { background: rgba(3,105,161,0.16); }
+  .b3 .card { background: rgba(6,182,212,0.03); border: 1px solid rgba(6,182,212,0.10); }
+  .b3 .card .card-icon { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.20); }
+  .b3 .greeting { color: #3e7888; }
+  .b3 .question { background: linear-gradient(90deg, #e2e8f0, #67e8f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* ========= B4: Cyan Ice — Lighter Sidebar ========= */
+  /* Sidebar slightly lighter than dashboard, creates depth separation */
+  .b4 .sidebar {
+    background: linear-gradient(180deg, #0e1e2c 0%, #0b1a26 40%, #081420 100%);
+    border-right: 1px solid rgba(8,145,178,0.18);
+  }
+  .b4 .sidebar::before { height: 80%; background: linear-gradient(180deg, rgba(34,211,238,0.08) 0%, rgba(8,145,178,0.03) 60%, transparent 100%); }
+  .b4 .sidebar::after { height: 30%; background: linear-gradient(0deg, rgba(8,145,178,0.04) 0%, transparent 100%); }
+  .b4 .logo { border-bottom: 1px solid rgba(34,211,238,0.10); }
+  .b4 .selector { background: rgba(34,211,238,0.06); border: 1px solid rgba(34,211,238,0.14); color: #78b8cc; }
+  .b4 .nav-item.inactive { color: #5088a0; }
+  .b4 .nav-item.active { background: linear-gradient(90deg, rgba(163,230,53,0.10) 0%, transparent 60%); }
+  .b4 .dashboard { background: #060c14; }
+  .b4 .dashboard .orb1 { background: rgba(34,211,238,0.16); }
+  .b4 .dashboard .orb2 { background: rgba(8,145,178,0.10); }
+  .b4 .card { background: rgba(255,255,255,0.025); border: 1px solid rgba(34,211,238,0.10); }
+  .b4 .card .card-icon { background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.18); }
+  .b4 .greeting { color: #4a90a8; }
+  .b4 .question { color: #e2e8f0; }
+
+  /* ========= B6: Horse Page — Near-Black + Gradient Accents ========= */
+  /* Matches the horse/knight landing page: near-black bg, barely-there dark green undertone,
+     cyan-to-lime gradient only on key accents (active bar, selector dot, heading) */
+  .b6 .sidebar {
+    background: linear-gradient(180deg, #0a100e 0%, #080c0a 40%, #060a08 100%);
+    border-right: 1px solid rgba(34,211,238,0.08);
+  }
+  .b6 .sidebar::before { height: 50%; background: linear-gradient(180deg, rgba(34,211,238,0.05) 0%, transparent 100%); }
+  .b6 .sidebar::after { height: 0; }
+  .b6 .logo { border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .b6 .selector { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); color: #68807a; }
+  .b6 .selector .dot { background: linear-gradient(135deg, #22d3ee, #a3e635); }
+  .b6 .nav-item.inactive { color: #3e5850; }
+  .b6 .nav-item.active { background: linear-gradient(90deg, rgba(163,230,53,0.07) 0%, transparent 40%); }
+  .b6 .nav-item.active::before { background: linear-gradient(180deg, #22d3ee, #a3e635) !important; box-shadow: 0 0 8px rgba(34,211,238,0.3), 0 0 8px rgba(163,230,53,0.2) !important; }
+  .b6 .dashboard { background: #060a08; }
+  .b6 .dashboard .orb1 { background: rgba(34,211,238,0.08); }
+  .b6 .dashboard .orb2 { background: rgba(163,230,53,0.04); }
+  .b6 .card { background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); }
+  .b6 .card .card-icon { background: rgba(34,211,238,0.05); border: 1px solid rgba(34,211,238,0.10); }
+  .b6 .greeting { color: #3a5048; }
+  .b6 .question { background: linear-gradient(90deg, #e2e8f0 50%, #22d3ee 75%, #a3e635); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* ========= B5: Cyan Abyss — Darkest ========= */
+  /* Ultra dark, barely-there cyan, maximum depth */
+  .b5 .sidebar {
+    background: linear-gradient(180deg, #08121a 0%, #061014 40%, #040c10 100%);
+    border-right: 1px solid rgba(8,145,178,0.10);
+  }
+  .b5 .sidebar::before { height: 55%; background: linear-gradient(180deg, rgba(8,145,178,0.07) 0%, transparent 100%); }
+  .b5 .sidebar::after { height: 0; }
+  .b5 .logo { border-bottom: 1px solid rgba(8,145,178,0.08); }
+  .b5 .selector { background: rgba(8,145,178,0.04); border: 1px solid rgba(8,145,178,0.08); color: #507888; }
+  .b5 .nav-item.inactive { color: #38586a; }
+  .b5 .nav-item.active { background: linear-gradient(90deg, rgba(163,230,53,0.08) 0%, transparent 40%); }
+  .b5 .dashboard { background: #040a10; }
+  .b5 .dashboard .orb1 { background: rgba(8,145,178,0.12); }
+  .b5 .dashboard .orb2 { background: rgba(8,145,178,0.06); }
+  .b5 .card { background: rgba(255,255,255,0.015); border: 1px solid rgba(8,145,178,0.06); }
+  .b5 .card .card-icon { background: rgba(8,145,178,0.05); border: 1px solid rgba(8,145,178,0.12); }
+  .b5 .greeting { color: #305868; }
+  .b5 .question { color: #b0c4d0; }
+</style>
+</head>
+<body>
+  <h1>Option B Variations — Cyan Monochrome</h1>
+  <h2>All cyan gradients · no green in background · deeper + darker base · lime only on active nav</h2>
+
+  <div class="row">
+    <div class="option b1">
+      <div class="option-label">B1 — Bright Cyan</div>
+      <div class="option-desc">Stronger cyan wash top + bottom<br>Brighter orbs · visible card borders</div>
+      <div class="preview">
+        <div class="sidebar">
+          <div class="logo">CONNECTA CREATORS</div>
+          <div class="selector"><span class="dot"></span> Boby <span class="arrow">▼</span></div>
+          <div class="nav">
+            <div class="nav-item active"><span class="icon"></span> Home</div>
+            <div class="nav-item inactive"><span class="icon"></span> Connecta AI</div>
+            <div class="nav-item inactive"><span class="icon"></span> Clients</div>
+            <div class="nav-item inactive"><span class="icon"></span> Vault</div>
+            <div class="nav-item inactive"><span class="icon"></span> Editing Queue</div>
+            <div class="nav-item inactive"><span class="icon"></span> Content Calendar</div>
+            <div class="nav-item inactive"><span class="icon"></span> Viral Today</div>
+            <div class="nav-item inactive"><span class="icon"></span> Team Members</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscribers</div>
+            <div class="nav-item inactive"><span class="icon"></span> Trainings</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscription</div>
+            <div class="nav-item inactive"><span class="icon"></span> Settings</div>
+          </div>
+        </div>
+        <div class="dashboard">
+          <div class="orb1"></div><div class="orb2"></div><div class="dots"></div>
+          <div class="greeting">👋 Welcome, Roberto</div>
+          <div class="question">What do you want to work on?</div>
+          <div class="cards">
+            <div class="card"><div class="card-icon">✦</div><div class="card-label">Content</div><div class="card-desc">Scripts · Vault</div></div>
+            <div class="card"><div class="card-icon">📊</div><div class="card-label">Sales</div><div class="card-desc">Leads · Calendar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option b2">
+      <div class="option-label">B2 — Muted Navy</div>
+      <div class="option-desc">Softer cyan · more navy base · quiet glow<br>Understated, professional</div>
+      <div class="preview">
+        <div class="sidebar">
+          <div class="logo">CONNECTA CREATORS</div>
+          <div class="selector"><span class="dot"></span> Boby <span class="arrow">▼</span></div>
+          <div class="nav">
+            <div class="nav-item active"><span class="icon"></span> Home</div>
+            <div class="nav-item inactive"><span class="icon"></span> Connecta AI</div>
+            <div class="nav-item inactive"><span class="icon"></span> Clients</div>
+            <div class="nav-item inactive"><span class="icon"></span> Vault</div>
+            <div class="nav-item inactive"><span class="icon"></span> Editing Queue</div>
+            <div class="nav-item inactive"><span class="icon"></span> Content Calendar</div>
+            <div class="nav-item inactive"><span class="icon"></span> Viral Today</div>
+            <div class="nav-item inactive"><span class="icon"></span> Team Members</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscribers</div>
+            <div class="nav-item inactive"><span class="icon"></span> Trainings</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscription</div>
+            <div class="nav-item inactive"><span class="icon"></span> Settings</div>
+          </div>
+        </div>
+        <div class="dashboard">
+          <div class="orb1"></div><div class="orb2"></div><div class="dots"></div>
+          <div class="greeting">👋 Welcome, Roberto</div>
+          <div class="question">What do you want to work on?</div>
+          <div class="cards">
+            <div class="card"><div class="card-icon">✦</div><div class="card-label">Content</div><div class="card-desc">Scripts · Vault</div></div>
+            <div class="card"><div class="card-icon">📊</div><div class="card-label">Sales</div><div class="card-desc">Leads · Calendar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option b3">
+      <div class="option-label">B3 — Deep Double Orb</div>
+      <div class="option-desc">Two cyan orbs (light #06B6D4 + dark #0369A1)<br>Gradient heading fades to ice cyan</div>
+      <div class="preview">
+        <div class="sidebar">
+          <div class="logo">CONNECTA CREATORS</div>
+          <div class="selector"><span class="dot"></span> Boby <span class="arrow">▼</span></div>
+          <div class="nav">
+            <div class="nav-item active"><span class="icon"></span> Home</div>
+            <div class="nav-item inactive"><span class="icon"></span> Connecta AI</div>
+            <div class="nav-item inactive"><span class="icon"></span> Clients</div>
+            <div class="nav-item inactive"><span class="icon"></span> Vault</div>
+            <div class="nav-item inactive"><span class="icon"></span> Editing Queue</div>
+            <div class="nav-item inactive"><span class="icon"></span> Content Calendar</div>
+            <div class="nav-item inactive"><span class="icon"></span> Viral Today</div>
+            <div class="nav-item inactive"><span class="icon"></span> Team Members</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscribers</div>
+            <div class="nav-item inactive"><span class="icon"></span> Trainings</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscription</div>
+            <div class="nav-item inactive"><span class="icon"></span> Settings</div>
+          </div>
+        </div>
+        <div class="dashboard">
+          <div class="orb1"></div><div class="orb2"></div><div class="dots"></div>
+          <div class="greeting">👋 Welcome, Roberto</div>
+          <div class="question">What do you want to work on?</div>
+          <div class="cards">
+            <div class="card"><div class="card-icon">✦</div><div class="card-label">Content</div><div class="card-desc">Scripts · Vault</div></div>
+            <div class="card"><div class="card-icon">📊</div><div class="card-label">Sales</div><div class="card-desc">Leads · Calendar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="option b4">
+      <div class="option-label">B4 — Ice Depth</div>
+      <div class="option-desc">Sidebar lighter than dashboard · depth separation<br>Brighter #22d3ee accents · more presence</div>
+      <div class="preview">
+        <div class="sidebar">
+          <div class="logo">CONNECTA CREATORS</div>
+          <div class="selector"><span class="dot"></span> Boby <span class="arrow">▼</span></div>
+          <div class="nav">
+            <div class="nav-item active"><span class="icon"></span> Home</div>
+            <div class="nav-item inactive"><span class="icon"></span> Connecta AI</div>
+            <div class="nav-item inactive"><span class="icon"></span> Clients</div>
+            <div class="nav-item inactive"><span class="icon"></span> Vault</div>
+            <div class="nav-item inactive"><span class="icon"></span> Editing Queue</div>
+            <div class="nav-item inactive"><span class="icon"></span> Content Calendar</div>
+            <div class="nav-item inactive"><span class="icon"></span> Viral Today</div>
+            <div class="nav-item inactive"><span class="icon"></span> Team Members</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscribers</div>
+            <div class="nav-item inactive"><span class="icon"></span> Trainings</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscription</div>
+            <div class="nav-item inactive"><span class="icon"></span> Settings</div>
+          </div>
+        </div>
+        <div class="dashboard">
+          <div class="orb1"></div><div class="orb2"></div><div class="dots"></div>
+          <div class="greeting">👋 Welcome, Roberto</div>
+          <div class="question">What do you want to work on?</div>
+          <div class="cards">
+            <div class="card"><div class="card-icon">✦</div><div class="card-label">Content</div><div class="card-desc">Scripts · Vault</div></div>
+            <div class="card"><div class="card-icon">📊</div><div class="card-label">Sales</div><div class="card-desc">Leads · Calendar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option b6">
+      <div class="option-label">B6 — Horse Page Dark</div>
+      <div class="option-desc">Near-black with dark green undertone<br>Cyan→lime gradient only on accent bar + dot + heading</div>
+      <div class="preview">
+        <div class="sidebar">
+          <div class="logo">CONNECTA CREATORS</div>
+          <div class="selector"><span class="dot"></span> Boby <span class="arrow">▼</span></div>
+          <div class="nav">
+            <div class="nav-item active"><span class="icon"></span> Home</div>
+            <div class="nav-item inactive"><span class="icon"></span> Connecta AI</div>
+            <div class="nav-item inactive"><span class="icon"></span> Clients</div>
+            <div class="nav-item inactive"><span class="icon"></span> Vault</div>
+            <div class="nav-item inactive"><span class="icon"></span> Editing Queue</div>
+            <div class="nav-item inactive"><span class="icon"></span> Content Calendar</div>
+            <div class="nav-item inactive"><span class="icon"></span> Viral Today</div>
+            <div class="nav-item inactive"><span class="icon"></span> Team Members</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscribers</div>
+            <div class="nav-item inactive"><span class="icon"></span> Trainings</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscription</div>
+            <div class="nav-item inactive"><span class="icon"></span> Settings</div>
+          </div>
+        </div>
+        <div class="dashboard">
+          <div class="orb1"></div><div class="orb2"></div><div class="dots"></div>
+          <div class="greeting">👋 Welcome, Roberto</div>
+          <div class="question">What do you want to work on?</div>
+          <div class="cards">
+            <div class="card"><div class="card-icon">✦</div><div class="card-label">Content</div><div class="card-desc">Scripts · Vault</div></div>
+            <div class="card"><div class="card-icon">📊</div><div class="card-label">Sales</div><div class="card-desc">Leads · Calendar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option b5">
+      <div class="option-label">B5 — Cyan Abyss</div>
+      <div class="option-desc">Ultra dark · barely-there cyan whisper<br>Deepest black with just enough color to breathe</div>
+      <div class="preview">
+        <div class="sidebar">
+          <div class="logo">CONNECTA CREATORS</div>
+          <div class="selector"><span class="dot"></span> Boby <span class="arrow">▼</span></div>
+          <div class="nav">
+            <div class="nav-item active"><span class="icon"></span> Home</div>
+            <div class="nav-item inactive"><span class="icon"></span> Connecta AI</div>
+            <div class="nav-item inactive"><span class="icon"></span> Clients</div>
+            <div class="nav-item inactive"><span class="icon"></span> Vault</div>
+            <div class="nav-item inactive"><span class="icon"></span> Editing Queue</div>
+            <div class="nav-item inactive"><span class="icon"></span> Content Calendar</div>
+            <div class="nav-item inactive"><span class="icon"></span> Viral Today</div>
+            <div class="nav-item inactive"><span class="icon"></span> Team Members</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscribers</div>
+            <div class="nav-item inactive"><span class="icon"></span> Trainings</div>
+            <div class="nav-item inactive"><span class="icon"></span> Subscription</div>
+            <div class="nav-item inactive"><span class="icon"></span> Settings</div>
+          </div>
+        </div>
+        <div class="dashboard">
+          <div class="orb1"></div><div class="orb2"></div><div class="dots"></div>
+          <div class="greeting">👋 Welcome, Roberto</div>
+          <div class="question">What do you want to work on?</div>
+          <div class="cards">
+            <div class="card"><div class="card-icon">✦</div><div class="card-label">Content</div><div class="card-desc">Scripts · Vault</div></div>
+            <div class="card"><div class="card-icon">📊</div><div class="card-label">Sales</div><div class="card-desc">Leads · Calendar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

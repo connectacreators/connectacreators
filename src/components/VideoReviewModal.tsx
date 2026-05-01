@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
 import { videoUploadService } from '@/services/videoUploadService';
 import { toast } from 'sonner';
-import { Check, CheckCheck, Download, Loader2, Send, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, Clock, Download, Loader2, Lock, Send, Trash2, X } from 'lucide-react';
 import ThemedVideoPlayer from './ThemedVideoPlayer';
 
 interface VideoReviewModalProps {
@@ -88,7 +88,8 @@ export default function VideoReviewModal({
   onCommentsChanged,
   onStatusChanged,
 }: VideoReviewModalProps) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isVideographer, isEditor } = useAuth();
+  const canResolve = isAdmin || isVideographer || isEditor;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [comments, setComments] = useState<RevisionComment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -100,6 +101,7 @@ export default function VideoReviewModal({
   const [downloading, setDownloading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [internalOnly, setInternalOnly] = useState(false);
 
   // Multi-source
   const [sources, setSources] = useState<VideoSource[]>([]);
@@ -115,16 +117,17 @@ export default function VideoReviewModal({
     // Parse links/paths from file_submission
     const links = parseLinks(fileSubmissionUrl);
     const addedPaths = new Set<string>();
+    let versionCount = 0;
     links.forEach((url, i) => {
       if (!url.startsWith('http')) {
-        // Raw Supabase storage path stored in file_submission (set by videoUploadService for submission uploads)
-        const filename = url.split('/').pop() || 'Upload';
-        list.push({ id: `sub-${i}`, label: shortLabel(filename), type: 'supabase', rawUrl: url });
+        versionCount++;
+        list.push({ id: `sub-${i}`, label: `V${versionCount}`, type: 'supabase', rawUrl: url });
         addedPaths.add(url);
       } else {
         const driveId = extractGoogleDriveFileId(url);
         if (driveId) {
-          list.push({ id: `drive-${i}`, label: `Link ${i + 1}`, type: 'drive', rawUrl: url, driveId });
+          versionCount++;
+          list.push({ id: `drive-${i}`, label: `V${versionCount}`, type: 'drive', rawUrl: url, driveId });
         } else {
           list.push({ id: `ext-${i}`, label: `Link ${i + 1}`, type: 'external', rawUrl: url });
         }
@@ -133,8 +136,8 @@ export default function VideoReviewModal({
 
     // Supabase storage file from storage_path (avoid duplicate if already added via file_submission)
     if (storagePath && !addedPaths.has(storagePath)) {
-      const filename = storagePath.split('/').pop() || 'Upload';
-      list.push({ id: 'supabase', label: shortLabel(filename), type: 'supabase', rawUrl: storagePath });
+      const vIdx = list.filter(s => s.type === 'supabase' || s.type === 'drive').length + 1;
+      list.push({ id: 'supabase', label: `V${vIdx}`, type: 'supabase', rawUrl: storagePath });
     }
 
     setSources(list);
@@ -220,11 +223,30 @@ export default function VideoReviewModal({
     if (!newComment.trim()) return;
 
     let timestampSeconds: number | null = null;
+    let commentBody = newComment.trim();
+
     if (canSeek) {
       timestampSeconds = isPaused ? Math.floor(currentTime) : null;
-    } else if (manualTimestamp.trim()) {
-      timestampSeconds = parseTimestamp(manualTimestamp);
+    } else {
+      // First try the dedicated timestamp input.
+      if (manualTimestamp.trim()) {
+        timestampSeconds = parseTimestamp(manualTimestamp);
+      }
+      // If no explicit timestamp but the comment STARTS with a time token,
+      // extract it. Supported: "1:23", "@1:23", "at 1:23", "01:23:45".
+      if (timestampSeconds == null) {
+        const leading = commentBody.match(/^\s*(?:@|at\s+)?(\d{1,2}(?::\d{2}){1,2})\b[\s\-—:,.]*/i);
+        if (leading) {
+          const parsed = parseTimestamp(leading[1]);
+          if (parsed != null) {
+            timestampSeconds = parsed;
+            commentBody = commentBody.slice(leading[0].length).trim();
+          }
+        }
+      }
     }
+
+    if (!commentBody) commentBody = newComment.trim();
 
     const authorName = user?.user_metadata?.full_name || user?.email || 'Admin';
     // Tag with source only when multiple sources exist
@@ -234,15 +256,17 @@ export default function VideoReviewModal({
       const created = await revisionCommentService.createComment({
         video_edit_id: videoEditId,
         timestamp_seconds: timestampSeconds,
-        comment: newComment.trim(),
+        comment: commentBody,
         author_name: authorName,
         author_role: 'admin',
         author_id: user?.id || null,
         source_ref: sourceRef,
+        internal_only: isAdmin ? internalOnly : false,
       });
       setComments(prev => [...prev, created]);
       setNewComment('');
       setManualTimestamp('');
+      setInternalOnly(false);
       await supabase.from('video_edits').update({ status: 'Needs Revision' }).eq('id', videoEditId);
       onStatusChanged?.('Needs Revision');
       onCommentsChanged?.();
@@ -304,15 +328,16 @@ export default function VideoReviewModal({
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
-  // Comments for active source (if multi-source, filter; otherwise show all)
+  // Comments for active source — filter internal for non-admins
   const visibleComments = useMemo(() => {
-    if (sources.length <= 1) return sortedComments;
-    return sortedComments.filter(c => !c.source_ref || c.source_ref === activeSource?.label);
-  }, [sortedComments, sources.length, activeSource]);
+    let filtered = isAdmin ? sortedComments : sortedComments.filter(c => !c.internal_only);
+    if (sources.length <= 1) return filtered;
+    return filtered.filter(c => !c.source_ref || c.source_ref === activeSource?.label);
+  }, [sortedComments, sources.length, activeSource, isAdmin]);
 
   const progressOverlay = duration > 0 ? (
     <>
-      {visibleComments.filter(c => c.timestamp_seconds !== null).map(c => (
+      {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={c.id}
           style={{
@@ -422,24 +447,44 @@ export default function VideoReviewModal({
                 </span>
               )}
               {(!canSeek) && (
-                <Input
-                  placeholder="0:00"
-                  value={manualTimestamp}
-                  onChange={(e) => setManualTimestamp(e.target.value)}
-                  className="w-16 h-8 text-xs font-mono"
-                />
+                <div className="relative">
+                  <Clock className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-primary pointer-events-none" />
+                  <Input
+                    placeholder="1:23"
+                    value={manualTimestamp}
+                    onChange={(e) => setManualTimestamp(e.target.value)}
+                    className="w-20 h-8 text-xs font-mono pl-6"
+                    title="Optional — type the time from the Drive player (MM:SS). You can also prefix your note with 1:23."
+                  />
+                </div>
               )}
               <Input
                 placeholder={
                   canSeek && isPaused
                     ? `Add note at ${formatTimestamp(currentTime)}...`
-                    : 'Add revision note...'
+                    : !canSeek
+                      ? `Add revision note (prefix with 1:23 to set a time)`
+                      : 'Add revision note...'
                 }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
                 className="flex-1 h-8 text-sm"
               />
+              {isAdmin && (
+                <button
+                  type="button"
+                  title={internalOnly ? 'Internal only — clients cannot see this' : 'Visible to all — click to make internal'}
+                  onClick={() => setInternalOnly(v => !v)}
+                  className={`h-8 w-8 flex items-center justify-center rounded border transition-colors flex-shrink-0 ${
+                    internalOnly
+                      ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
+                      : 'border-border text-muted-foreground hover:border-amber-500/40 hover:text-amber-400'
+                  }`}
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                </button>
+              )}
               <Button size="sm" className="h-8" onClick={handleAddComment} disabled={!newComment.trim()}>
                 <Send className="h-3.5 w-3.5 mr-1" /> Add
               </Button>
@@ -457,7 +502,7 @@ export default function VideoReviewModal({
               </span>
               <div className="flex items-center gap-2">
                 {resolvedCount > 0 && <span className="text-xs text-green-500">{resolvedCount} resolved</span>}
-                {isAdmin && unresolvedCount > 0 && (
+                {canResolve && unresolvedCount > 0 && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 gap-1 border-green-500 text-green-500 hover:bg-green-500/10" onClick={handleResolveAll}>
                     <CheckCheck className="h-3 w-3" /> Mark All Complete
                   </Button>
@@ -474,11 +519,16 @@ export default function VideoReviewModal({
                 {visibleComments.map((c) => (
                   <div
                     key={c.id}
-                    className={`rounded-lg p-3 border-l-[3px] ${c.resolved ? 'opacity-40 bg-muted/20' : 'bg-card border border-border/60 shadow-sm'}`}
-                    style={{ borderLeftColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888') }}
+                    className={`rounded-lg p-3 border-l-[3px] ${c.resolved ? 'opacity-40 bg-muted/20' : c.internal_only ? 'bg-amber-500/5 border border-amber-500/20 shadow-sm' : 'bg-card border border-border/60 shadow-sm'}`}
+                    style={{ borderLeftColor: c.resolved ? '#10b981' : c.internal_only ? '#f59e0b' : (ROLE_COLORS[c.author_role] || '#888') }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 min-w-0">
+                        {c.internal_only && (
+                          <span className="flex items-center gap-0.5 text-[9px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                            <Lock className="h-2.5 w-2.5" /> Internal
+                          </span>
+                        )}
                         {c.timestamp_seconds !== null ? (
                           <button
                             className="text-xs font-semibold font-mono hover:underline whitespace-nowrap"
@@ -495,14 +545,14 @@ export default function VideoReviewModal({
                         )}
                       </div>
                       {c.resolved ? (
-                        isAdmin ? (
+                        canResolve ? (
                           <button className="text-xs text-green-500 flex items-center gap-1 hover:text-amber-500 transition-colors whitespace-nowrap" onClick={() => handleResolve(c.id, false)}>
                             <Check className="h-3 w-3" /> Resolved
                           </button>
                         ) : (
                           <span className="text-xs text-green-500 flex items-center gap-1 whitespace-nowrap"><Check className="h-3 w-3" /> Resolved</span>
                         )
-                      ) : isAdmin ? (
+                      ) : canResolve ? (
                         <Button variant="ghost" size="sm" className="h-5 text-[10px] px-2 whitespace-nowrap" onClick={() => handleResolve(c.id, true)}>Mark Resolved</Button>
                       ) : null}
                     </div>

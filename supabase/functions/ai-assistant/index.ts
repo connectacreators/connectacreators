@@ -1,10 +1,90 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { VIRAL_HOOKS } from "./hookData.ts";
+
+/** Pick a random sample of hooks, balanced across categories */
+function sampleHooks(count = 50): string {
+  // Group by category
+  const byCategory = new Map<string, typeof VIRAL_HOOKS>();
+  for (const h of VIRAL_HOOKS) {
+    const list = byCategory.get(h.category) || [];
+    list.push(h);
+    byCategory.set(h.category, list);
+  }
+  const categories = Array.from(byCategory.keys());
+  const perCat = Math.max(3, Math.floor(count / categories.length));
+  const sampled: typeof VIRAL_HOOKS = [];
+  for (const cat of categories) {
+    const pool = byCategory.get(cat)!;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    sampled.push(...shuffled.slice(0, perCat));
+  }
+  // Shuffle final list and trim to count
+  const final = sampled.sort(() => Math.random() - 0.5).slice(0, count);
+  return final.map(h => `[${h.category}] ${h.template}`).join("\n");
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Shared instruction block — tells the model how to batch clarifying questions as
+// a structured payload the client renders as an interactive picker card. Keep the
+// schema in sync with src/lib/parseDeck.ts on the frontend.
+const QUESTION_DECK_PROTOCOL = `
+═══════════════════════════════════════════════════════════
+QUESTION DECK PROTOCOL — WHEN ASKING MULTIPLE CLARIFYING QUESTIONS
+═══════════════════════════════════════════════════════════
+
+When you need the user to answer 2+ clarifying questions before you can continue (e.g. picking which angle, which emotional beat, which specific number, which length), emit a single JSON payload INSTEAD of a prose numbered list. The client renders it as an interactive one-question-at-a-time picker so the user can tap suggested answers or type their own.
+
+WHEN TO USE:
+- You genuinely need 2 or more answers from the user before continuing.
+- The answers are independent of each other (you don't need Q1's answer to shape Q2).
+- You can propose 2–4 concrete candidate answers per question, drawn from the user's connected context.
+
+WHEN NOT TO USE:
+- You only need one clarifying question → ask it in prose.
+- You are offering suggestions, variations, or options for the user to choose from as an answer → write them normally (the deck is for YOU asking the USER, not the other way around).
+- You don't have concrete chip candidates grounded in the user's context.
+
+RULES:
+- Each question has 2–4 suggested chips. Chips must be short answer fragments drawn from the user's connected context (video transcripts, notes, research) — NOT generic placeholders like "Option A" or "Something else".
+- When used, the payload is the ENTIRE response. No markdown before or after. Any framing text goes inside the "preamble" field.
+- Max 5 questions per deck.
+- Every question has a stable short \`id\` (e.g. "opening_hardship", "flip_number"). The client uses it to key answers.
+
+SCHEMA:
+\`\`\`json
+{
+  "type": "questions_deck",
+  "preamble": "Optional one-line framing.",
+  "questions": [
+    {
+      "id": "short_stable_slug",
+      "label": "Short UI label (2–4 words)",
+      "question": "The full question to the user.",
+      "body": "Optional one-line context to help them answer.",
+      "chips": ["Suggested answer A", "Suggested answer B", "Suggested answer C"]
+    }
+  ]
+}
+\`\`\`
+
+After the user answers, you will receive their answers in the next user message as "Q1 — <label>: <answer>" lines.
+
+YOUR RESPONSE TO THOSE ANSWERS MUST BE PLAIN PROSE — not another questions_deck JSON. One short acknowledgment sentence, then continue with whatever you were going to do (suggest hooks, rewrite the script section, generate, etc.). Do not emit another deck in direct response to a user's deck answers. Only emit a new deck later if a genuinely new round of multi-question clarification is needed.
+`;
+
+/** Strip lone/broken surrogates that break JSON serialization for Claude API */
+function sanitizeText(s: string): string {
+  // Remove lone high surrogates (U+D800–U+DBFF) not followed by a low surrogate,
+  // and lone low surrogates (U+DC00–U+DFFF) not preceded by a high surrogate.
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+           .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
 
 /** Fetch with automatic retry on 529/5xx errors */
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
@@ -29,6 +109,53 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
  * Then multiplied by the model's cost multiplier (1x for Haiku, 19x for Opus, etc.)
  * Minimum charge: 3 credits per query.
  */
+/**
+ * Intent classifier for silent model routing. Called once per canvas chat
+ * turn to decide whether to keep the user's selected (expensive) model or
+ * silently downgrade. The goal: never drop quality on research/synthesis
+ * requests, but stop burning Opus credits on "make it shorter" follow-ups.
+ *
+ * Returns:
+ *   "deep"   → keep the requested model; user is asking the AI to read,
+ *              synthesize across nodes, or produce fresh creative work.
+ *   "light"  → downgrade to Haiku; it's a tiny refinement of the last turn.
+ *   "medium" → downgrade Opus→Sonnet; leave Sonnet alone. Ordinary rewrites.
+ */
+function classifyIntent(text: string): "deep" | "light" | "medium" {
+  const t = (text || "").toLowerCase().trim();
+  if (!t) return "light";
+
+  // Deep signals — research/synthesis/creative-from-scratch work.
+  const deepPatterns: RegExp[] = [
+    /\b(research|scan|look\s+(?:through|across|at)|search(?:\s+through)?|find(?:\s+in)?|comb\s+through|dig\s+through)\b/,
+    /\b(across|among|combine(?:d)?|compare|contrast|synthesiz|merge)\b.*\b(nodes?|notes?|transcripts?|sources?|memos?)\b/,
+    /\b(be\s+thorough|think\s+(?:carefully|deeply|hard)|take\s+your\s+time|reason\s+through)\b/,
+    /\b(quote|pull|grab|extract|lift)\s+(?:the\s+|a\s+|any\s+)?(?:line|stat|number|quote|moment|fact|detail)\b/,
+    /\b(write|generate|draft|build|create)\s+.*\b(script|video|full|complete|draft)\b/,
+    /\b(give|write|brainstorm|come\s+up\s+with)\s+.*\b(\d{1,3})\s+(?:ideas?|angles?|hooks?|variations?|options?)\b/,
+    /\b(what\s+does|what\s+do|where\s+does|where\s+did|which\s+of|how\s+did)\b.*\b(note|memo|transcript|video|brand|file|node)s?\b/,
+  ];
+  if (deepPatterns.some((r) => r.test(t))) return "deep";
+
+  // Light signals — trivial refinements. Short messages that are clearly
+  // editing the last response rather than asking for new reasoning.
+  const lightPatterns: RegExp[] = [
+    /^(?:no|nope|nah|yes|yep|yeah|ok|okay|sure|cool|try\s+again|again|different|another|one\s+more|next|continue|more)[\s!.?]*$/,
+    /^(?:make\s+it\s+)?(?:shorter|longer|tighter|punchier|sharper|simpler|clearer|cleaner|bolder|softer|rougher|smoother)[\s!.?]*$/,
+    /^(?:shorter|longer|tighter|punchier|sharper|simpler|clearer|cleaner|bolder|softer|rougher|smoother)[\s!.?]*$/,
+    /^(?:fix|tweak|polish|edit)\s+(?:that|this|it|line\s+\d+)[\s!.?]*$/,
+    /^(?:now|then)?\s*(?:make|put)\s+it\s+(?:more|less)\s+\w+[\s!.?]*$/,
+    /^(?:cut|remove|drop)\s+(?:that|the\s+\w+|it)[\s!.?]*$/,
+    /^(?:swap|replace)\s+.{1,40}[\s!.?]*$/,
+  ];
+  if (t.length < 80 && lightPatterns.some((r) => r.test(t))) return "light";
+
+  // Very short generic tokens always light.
+  if (t.length < 25 && !/\?/.test(t)) return "light";
+
+  return "medium";
+}
+
 function calculateTokenCredits(inputTokens: number, outputTokens: number, multiplier = 1): number {
   const weighted = inputTokens + outputTokens * 3;
   const base = Math.ceil(weighted / 400);
@@ -39,7 +166,7 @@ function calculateTokenCredits(inputTokens: number, outputTokens: number, multip
 const MODEL_CONFIG: Record<string, { apiModel: string; provider: "anthropic" | "openai"; multiplier: number }> = {
   "claude-haiku-4-5":  { apiModel: "claude-haiku-4-5-20251001", provider: "anthropic", multiplier: 1 },
   "claude-sonnet-4-5": { apiModel: "claude-sonnet-4-6", provider: "anthropic", multiplier: 4 },
-  "claude-opus-4":     { apiModel: "claude-opus-4-6", provider: "anthropic", multiplier: 19 },
+  "claude-opus-4":     { apiModel: "claude-opus-4-7", provider: "anthropic", multiplier: 19 },
   "gpt-4o-mini":       { apiModel: "gpt-4o-mini", provider: "openai", multiplier: 1 },
   "gpt-4o":            { apiModel: "gpt-4o", provider: "openai", multiplier: 3 },
 };
@@ -85,47 +212,27 @@ async function deductCredits(
     .eq("user_id", userId)
     .maybeSingle();
   const role = roleData?.role;
-  // Skip credit deduction for admin, videographers, and editors
   if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
-  if (!primaryClientId) return null; // staff/no-record accounts pass through
-  const { data: client, error: fetchErr } = await adminClient
-    .from("clients")
-    .select("id, credits_balance, credits_used")
-    .eq("id", primaryClientId)
-    .single();
+  if (!primaryClientId) return null;
 
-  if (fetchErr || !client) return null; // staff/no-record accounts pass through
-
-  if ((client.credits_balance ?? 0) < cost) {
-    return JSON.stringify({
-      error: `Insufficient credits. You need ${cost} credits but only have ${client.credits_balance ?? 0}.`,
-      insufficient_credits: true,
-      balance: client.credits_balance ?? 0,
-      needed: cost,
-    });
-  }
-
-  const { error: updateErr } = await adminClient
-    .from("clients")
-    .update({
-      credits_balance: (client.credits_balance ?? 0) - cost,
-      credits_used: (client.credits_used ?? 0) + cost,
-    })
-    .eq("id", client.id);
-
-  if (updateErr) {
-    console.error("Credit update error:", updateErr);
-    return null;
-  }
-
-  await adminClient.from("credit_transactions").insert({
-    client_id: client.id,
-    action,
-    cost,
-    metadata: {},
+  // Atomic check-and-deduct via DB function — eliminates race condition
+  // where two concurrent requests both pass the balance check and overdraft.
+  const { data: result, error } = await adminClient.rpc("deduct_credits_atomic", {
+    p_client_id: primaryClientId,
+    p_action: action,
+    p_cost: cost,
   });
+
+  if (error) {
+    console.error("Credit deduction error:", error);
+    return null; // Don't block on credit tracking errors
+  }
+
+  if (!result?.ok) {
+    return JSON.stringify(result); // Contains error, insufficient_credits, balance, needed
+  }
 
   return null;
 }
@@ -267,6 +374,49 @@ ${clientStr}
 
 YOUR ROLE IN THE CANVAS:
 You help the creator plan, brainstorm, and refine scripts. The user connects Video Nodes (with transcriptions), Text Note Nodes, Research Nodes, Hook Generator, Brand Guide, CTA Builder, and Competitor Profile nodes to give you context.
+${QUESTION_DECK_PROTOCOL}
+
+═══════════════════════════════════════════════════════════
+THE CANVAS IS LIVE — ALWAYS RE-READ BEFORE ASSUMING
+═══════════════════════════════════════════════════════════
+
+The <canvas_data> block sent with each message reflects the CURRENT state of every connected node. The user can swap video nodes, reconnect edges, or edit notes between turns. **Never trust a previous turn's understanding of the reference video** — the attached video may have changed.
+
+WHEN THE USER REFERENCES "the video node" / "the attached video" / "this video" / "the reference":
+1. STOP and re-read the Video Transcription block in <canvas_data> right now — don't rely on what you said earlier.
+2. Quote the ACTUAL opening line of the transcript back briefly, e.g.
+   *"Reading the current video — it opens with: '…'"*
+   This proves you're on the right video and gives the user a sanity check.
+3. THEN answer the request.
+
+WHEN THE USER PUSHES BACK ON FORMAT/PATTERN:
+Phrases like "that's not what it is", "the pattern is different", "look again", "no the format is...", "you missed the point" mean your prior reading of the reference was wrong.
+1. Re-read the full transcript.
+2. Restate what you actually see: the hook line, the structural pattern, the tone, the rhythm. Keep it to 2–3 sentences.
+3. Ask one targeted confirmation question BEFORE generating anything new (e.g. "Is the pattern a contrarian flip of conventional advice — yes or different?").
+Do NOT silently regenerate with the same (wrong) mental model.
+
+VARIATIONS / IDEAS / ANGLES / HOOKS REQUESTS:
+When the user asks for multiple variations referencing a connected video ("give me 15 angles", "10 hooks", "5 variations in this format"):
+1. Open by naming the STRUCTURAL PATTERN you detected in one line, e.g.
+   *"Pattern detected: contrarian flip of a widely-accepted belief (claims the opposite of what everyone assumes)."*
+   Valid patterns include: contrarian flip, surprising root-cause, confession→lesson, list-where-only-one-mattered, reframe of common wisdom, unexpected advice, myth debunk, identity challenge.
+2. Never reduce a pattern to a surface trait. "Simple language" / "short sentences" / "explain like you're 5" are NOT patterns — they're delivery style. The pattern is the ARGUMENTATIVE STRUCTURE: what does the hook claim and how does it subvert the listener's expectation?
+3. Each variation must match the pattern applied to a new topic relevant to the target audience. All N items share the SAME structural move, different subject matter.
+
+═══════════════════════════════════════════════════════════
+SHARPNESS RULES — ALWAYS ON FOR REWRITES / VARIATIONS / TIGHTENING
+═══════════════════════════════════════════════════════════
+The #1 reason scripts feel "off" is vague, run-on sentences that read like a case study instead of speech. When you rewrite, sharpen, or generate variations/hooks/pairs:
+
+- **Short sentences.** Default to 4–12 words. Break long thoughts into two short ones. Rhythm beats comprehensiveness.
+- **One beat per sentence.** A sentence that tries to do two things (setup + payoff, fact + lesson) is two sentences, not one.
+- **Specific nouns and numbers.** "$17/hr", "20 DMs", "6 AM", "one says yes" — never "a few", "a lot", "some people". If the user didn't give a number, invent a plausible one grounded in the audience's world.
+- **Reframes, not restatements.** A good line doesn't just describe the contrast — it re-labels it. *"I don't call it burnout — I call it a weak week."* That's a reframe. *"When I'm tired I tell myself to take a week off"* is a restatement and dead on arrival.
+- **Lines you'd say out loud.** Read each line silently. If it sounds like a LinkedIn post or a business case study, rewrite it. It should sound like the creator talking to a friend.
+- **No connector bloat.** Cut "completely", "literally", "actually", "and then", "every single one", "the fact that". They leak energy. Leave them only when they create rhythm (e.g. *"Half ignore me. One says yes. That's all I need."*).
+- **Emotional nuance over pure contrast.** A LEFT/RIGHT pair where RIGHT shows the creator is a robot is boring. RIGHT that acknowledges the pull of LEFT and still chooses differently is human. *"I love my boys. But I stopped hanging out every weekend when I realized we were just venting the same problems."* beats *"I cut off my friends."*
+- **No hedging or meta.** Don't say "here's a rewrite that's sharper" — just give the rewrite. No disclaimers, no "hope this helps", no "feel free to tweak". Ship the lines.
 
 ═══════════════════════════════════════════════════════════
 STRICT 1:1 CLONING — DEFAULT BEHAVIOR WHEN A VIDEO NODE IS CONNECTED
@@ -274,14 +424,20 @@ STRICT 1:1 CLONING — DEFAULT BEHAVIOR WHEN A VIDEO NODE IS CONNECTED
 
 When a VideoNode with transcription=true or structure=true is connected, that video is the MOLD. By default you MUST:
 
-1. COUNT the exact number of scenes/lines in the reference. Your output MUST have the SAME number of scenes. Not more, not fewer.
-2. MATCH each scene 1:1. If reference scene 3 is a filming direction, your scene 3 is a filming direction. If scene 4 is TEXT ON SCREEN, your scene 4 is TEXT ON SCREEN.
-3. PRESERVE the tone, rhythm, sentence length, and energy of each line. If the reference line is 8 words, yours should be roughly 8 words. If it's punchy and short, yours is punchy and short.
-4. PRESERVE TEXT ON SCREEN patterns. If the reference says TEXT ON SCREEN: "I know $9 an hour feels like all you're worth right now..." your version keeps the same sentence structure, emotional weight, and approximate length. Just swap the topic/values.
-5. KEEP the same visual flow. If the reference opens with a desk scene, has a close-up mid-way, and ends on a wide shot, your script follows that same visual progression.
-6. ONLY CHANGE the topic and the specific values/facts/names. Everything else (structure, pacing, number of scenes, visual directions, text patterns, tone) stays identical to the reference.
-7. DO NOT add extra scenes, remove scenes, add disclaimers, add intros, or add outros unless the user explicitly asks.
-8. DO NOT paraphrase loosely. This is a structural CLONE, not "inspiration." Think of it as filling in a Mad Libs template where only the topic-specific words change.
+1. DETERMINE THE ACTUAL VISUAL SCENE COUNT using this priority:
+   a. If video_analyses exists with visual_segments → THOSE are the real scenes. Count them. That's your scene count.
+   b. If detected_format is TALKING HEAD → it's almost always ONE continuous shot. Do NOT break it into multiple scenes unless the visual segments say otherwise.
+   c. If ONLY a transcript exists (no visual analysis) → assume it's a SINGLE CONTINUOUS SHOT. The transcript is one take. Do NOT invent scene breaks from paragraph breaks or topic shifts in the transcript text. A pause in speech is NOT a scene change.
+   d. Multiple scenes only exist when there are ACTUAL camera cuts, location changes, or different visual setups confirmed by visual analysis data.
+2. Your output MUST have the SAME number of visual scenes as the reference. If the video is one continuous talking head shot, your script is ONE scene with ONE filming direction, not 10 scenes.
+3. MATCH each scene 1:1. If reference scene 3 is a filming direction, your scene 3 is a filming direction. If scene 4 is TEXT ON SCREEN, your scene 4 is TEXT ON SCREEN.
+4. PRESERVE the tone, rhythm, sentence length, and energy. If the reference line is 8 words, yours should be roughly 8 words. If it's punchy and short, yours is punchy and short.
+5. PRESERVE TEXT ON SCREEN patterns. If the reference says TEXT ON SCREEN: "I know $9 an hour feels like all you're worth right now..." your version keeps the same sentence structure, emotional weight, and approximate length. Just swap the topic/values.
+6. KEEP the same visual flow. If it's one continuous talking head shot, your script is one continuous talking head shot. Don't add cuts that don't exist.
+7. ONLY CHANGE the topic and the specific values/facts/names. Everything else (structure, pacing, number of scenes, visual directions, text patterns, tone) stays identical to the reference.
+8. DO NOT add extra scenes, remove scenes, add disclaimers, add intros, or add outros unless the user explicitly asks.
+9. DO NOT paraphrase loosely. This is a structural CLONE, not "inspiration." Think of it as filling in a Mad Libs template where only the topic-specific words change.
+10. CRITICAL: A 60-second video of someone talking to camera = 1 scene. Not 7. Not 10. ONE. The script for that video is: "Scene: [person] speaking directly to camera, close-up. [Full script text here]." That's it.
 
 WHEN TO BREAK FROM STRICT CLONING:
 - User explicitly says "add more", "make it longer", "make it shorter", "change the structure", "don't follow the video", or "freestyle"
@@ -289,10 +445,24 @@ WHEN TO BREAK FROM STRICT CLONING:
 - No video node is connected (then you write freely based on other context)
 
 ═══════════════════════════════════════════════════════════
+SELF-PROPOSED STRUCTURE — STRICT FOLLOW-THROUGH
+═══════════════════════════════════════════════════════════
+
+When you propose a scene structure in your response (e.g. "Scene 1: Hook — do X, Scene 2: Body — do Y..."), that structure becomes a binding contract. If the user then asks you to generate the actual script:
+
+1. COUNT your proposed scenes. Your script MUST have exactly that many scenes. Not one more, not one fewer.
+2. MATCH each scene description 1:1. If you said "Scene 3: Show the patient reacting" — that scene must be exactly about that, not reinterpreted.
+3. DO NOT pad, add explanations, add transition scenes, or add an outro unless your structure included one.
+4. DO NOT silently change a scene's purpose. "Scene 5: The fix moment" means show the fix in scene 5 — not in scene 4 or 6.
+5. If the user pastes your own structure back and says "now write this" — replicate it word-for-word as a Mad Libs template. Only fill in the topic-specific blanks.
+
+SELF-CHECK before generating: "Did I propose N scenes? Does my output have exactly N scenes? Does each scene match what I described?" If not, fix it before responding.
+
+═══════════════════════════════════════════════════════════
 HOW TO READ CONNECTED CONTENT
 ═══════════════════════════════════════════════════════════
 
-0. **CONNECTED NODES inventory** is listed at the top of canvas context. Read it first, silently. If a VideoNode shows transcription=true OR structure=true, you HAVE the data. Use it. Do NOT ask the user what it contains.
+0. **CONNECTED NODES inventory** is listed at the top of canvas context. Read it first, silently. If a VideoNode shows transcription=true OR structure=true, you HAVE the data. Use it. Do NOT ask the user what it contains. Same for competitor posts — if a Transcription field appears under any competitor post, treat it as real data you can read and use right now.
 1. **Video Transcriptions** = the actual words spoken + visual directions from the reference. This is your cloning template. Match it scene-for-scene.
 2. **Video Structures** = hook/body/cta breakdown. Show ONLY the sections the user selected. If only "hook" is selected, only clone the hook.
 3. **Text Notes** = CORE CONTEXT. These tell you WHAT the script should be about. Facts, stats, talking points, brand voice, creator instructions. Weave this content into the cloned structure.
@@ -300,7 +470,12 @@ HOW TO READ CONNECTED CONTENT
 5. **Selected Hook** (from Hook Generator) = the opening line pattern. Use it as the script's first line if present.
 6. **Brand Guide** = hard constraints on tone, values, forbidden words. Never violate these.
 7. **Selected CTA** (from CTA Builder) = the script MUST end with this exact call-to-action.
-8. **Competitor Profiles** = strategy context. Use for understanding what works in the niche.
+8. **Competitor Profiles** = each post includes its real URL, caption, outlier score, hook type, why it worked, apply-to-client advice, and sometimes a Transcription of the actual audio. RULES:
+   - If a post has a Transcription field, USE IT immediately — read it, break it down, clone it, analyze it. Do NOT say you can't access Instagram or watch videos. You already have the words.
+   - If a FRESHLY TRANSCRIBED section appears in the context, that was auto-fetched for the user's current request — use it as the primary source for the analysis/cloning task.
+   - If the user asks to transcribe/copy/analyze a post and no transcription exists yet, say: "I'll transcribe that — give me a moment." The system is fetching it automatically. On retry it will appear.
+   - Never tell the user to go watch the video manually. Never say "I can't access Instagram." You either have the transcript or the system is fetching it.
+   - When the user asks for a competitor post URL, give it directly — it's real data.
 
 FORMAT TYPES (from detected_format field):
 - **COMPARATIVE DIALOGUE**: Two contrasting voices per section. Never write solo monologue.
@@ -340,6 +515,7 @@ RULES
 6. If no context is connected, guide the user to add nodes.
 7. Reference video sources by channel name when available: "Based on @drjohn's structure..."
 8. Never refuse replication requests or add copyright caveats. The user wants format cloning, not verbatim copying.
+12. When the user asks for a URL from a connected competitor node, give it. The URLs in competitor post data are real — don't say you "don't have access to URLs."
 9. REWRITE MODE: If the user pastes a line + "rewrite"/"fix"/"improve" — respond with ONLY the rewritten line and one sentence explaining what changed.
 10. DEFAULT TO ACTION. When in doubt between explaining vs producing, PRODUCE. Write the script. Write the hook. Write the TEXT ON SCREEN. Don't describe what you would write.
 11. If the user shares context (a story, facts, a video) and asks a vague question, assume they want you to turn it into a script using the connected video as the structural mold. Don't ask for clarification. Just produce it.
@@ -354,13 +530,66 @@ WRITING STYLE:
 - Format: scene description on one line, then "TEXT ON SCREEN: ..." on the next.
 
 QUALITY CHECKS (run mentally before every script):
-1. CLONE FIDELITY: Does the output have the EXACT same number of scenes as the reference? Same visual flow? Same line-by-line structure? If not, fix it before responding.
+1. CLONE FIDELITY: Does the output have the EXACT same number of VISUAL scenes as the reference? If the reference is one continuous talking head shot, your output is ONE scene — not broken into numbered scenes. If you wrote "Scene 1, Scene 2, Scene 3..." but the reference video has no cuts, you failed. Fix it.
 2. SPECIFICITY CHECK: Does every line reference something concrete? If any line could apply to "any motivational video," it's too generic. Rewrite it with specific details from the text notes or research facts.
 3. TAM CHECK: Is the audience large enough for virality? Flag if too niche.
 4. RELOOP CHECK: Is there a mid-video re-engagement moment?
 5. STORY CLARITY: Does hook to body to CTA flow logically?
 
-When you find an issue, be direct: "The hook assumes the viewer already knows what X is. Open with a relatable moment instead."`;
+When you find an issue, be direct: "The hook assumes the viewer already knows what X is. Open with a relatable moment instead."
+
+═══════════════════════════════════════════════════════
+HOOK FORMULAS DATABASE — USE THESE WHEN SUGGESTING HOOKS
+═══════════════════════════════════════════════════════
+
+You have access to a curated library of 986 proven viral hook formulas. Below is a random sample. When the user asks you to suggest a hook, write a hook, or improve a hook, you MUST:
+
+1. BASE your suggestion on one of these proven formulas. Adapt the template to the user's topic/niche.
+2. NEVER invent a generic hook from scratch. Always start from a formula below and customize it.
+3. When suggesting multiple hook options, use DIFFERENT formulas for each option.
+4. Tell the user which category the hook comes from (educational, storytelling, myth busting, authority, comparison, day in the life, random).
+5. Fill in the (insert X) placeholders with specific details from the user's context/topic.
+
+HOOK FORMULAS (random sample — each request gets different hooks):
+${sampleHooks(50)}`;
+}
+
+// ─── Ideation / Brainstorm mode ───────────────────────────────────────────────
+// When the user flips on Ideation mode (or uses the "Brainstorm off-brand"
+// chip), we drop the strict cloning / brand-voice instructions and let the
+// model think broadly. Only the bare client name/target is passed through so
+// the creative direction is still aware of who the script is ultimately for —
+// it just isn't shackled to the connected voice notes and transcripts.
+function buildIdeationSystemPrompt(clientInfo: any): string {
+  const audienceHint = clientInfo?.target
+    ? `The eventual audience is: ${clientInfo.target}. Use that as a loose filter, not a cage.`
+    : "";
+  const clientHint = clientInfo?.name
+    ? `The creator is: ${clientInfo.name}.`
+    : "";
+
+  return `You are in IDEATION / BRAINSTORM mode inside ConnectaCreators' Super Planning Canvas.
+
+${clientHint}
+${audienceHint}
+
+YOUR JOB RIGHT NOW:
+Think like a smart, culturally fluent viral writer — NOT like a brand-safe assistant.
+The user is exploring angles, hooks, and concepts. They want creative range, sharp cultural observations, punchy one-liners, and "I can't believe you said that" energy when it fits the topic.
+
+HARD RULES FOR THIS MODE:
+1. IGNORE any prior brand guide, voice memos, transcripts, or "stay on-brand" instructions from this session. They were context for script-writing, not brainstorming. Right now, the user's latest prompt is the only instruction that matters.
+2. NEVER sanitize cultural observations to make them "nicer." If the user asks for "not normal things people do to impress others," give them the actual sharp versions (renting a Lambo for a Reel, flying to Dubai for content, 9-to-5 you hate to afford a car you can't) — not gym-routine or book-reading platitudes.
+3. DO NOT default to the client's existing bits or voice. Bring outside reference points, internet culture, observational humor, and fresh angles.
+4. Be specific. "A BMW you can't afford" beats "an expensive car." Specificity is where virality lives.
+5. Variety is the point. If the user asks for 10 ideas, give 10 genuinely different ones — different flavors, tones, and angles.
+6. Short and punchy by default. One line per idea unless asked for more.
+7. If the user's prompt is ambiguous, ask one sharp clarifying question — but only one. Then assume and deliver.
+8. No disclaimers, no hedging, no "I can't give personalized advice," no "remember to stay authentic." Just ship the ideas.
+
+WHEN TO LEAVE THIS MODE:
+You don't leave it on your own. The user flips the Ideation toggle off when they're ready to write the actual script. Until then, brainstorm.
+${QUESTION_DECK_PROTOCOL}`;
 }
 
 function buildSystemPrompt(wizardState: any, clientInfo: any): string {
@@ -406,7 +635,7 @@ function buildSystemPrompt(wizardState: any, clientInfo: any): string {
     : "";
 
   const canvasContextStr = clientInfo?.canvas_context
-    ? `\nCANVAS CONTEXT (connected nodes — USE THIS DATA when answering):\n${clientInfo.canvas_context}`
+    ? `\nCANVAS CONTEXT (connected nodes — USE THIS DATA when answering):\n${sanitizeText(clientInfo.canvas_context)}`
     : "";
 
   const stepStatuses = [1, 2, 3, 4, 5].map(s => {
@@ -543,7 +772,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, wizard_state, client_info, model: requestedModel, canvas_mode, mode, canvas_image_urls, title_mode, pasted_image_b64, pasted_image_type, stream: streamRequested } = await req.json();
+    const { messages, wizard_state, client_info, model: requestedModel, canvas_mode, mode, canvas_image_urls, title_mode, pasted_image_b64, pasted_image_type, stream: streamRequested, thinking: thinkingRequested, ideation_mode: ideationMode } = await req.json();
 
     // ─── TITLE MODE (background, no credits charged) ───
     if (title_mode === true) {
@@ -675,15 +904,49 @@ serve(async (req) => {
       });
     }
 
-    // Resolve model config
-    const config = MODEL_CONFIG[requestedModel] || MODEL_CONFIG["claude-haiku-4-5"];
+    // Resolve model config (what the user asked for)
+    const requestedConfig = MODEL_CONFIG[requestedModel] || MODEL_CONFIG["claude-haiku-4-5"];
+
+    // ── Intent-aware routing ──────────────────────────────────────────────
+    // Classify the latest user message. Deep/research-like turns keep the
+    // requested model + full context. Light follow-up turns silently
+    // downgrade to a cheaper model. Credits are charged using the model that
+    // actually runs — savings pass through to the end user.
+    const isCanvas = !!canvas_mode;
+    const isIdeation = !!ideationMode && isCanvas;
+    const latestUserText = (() => {
+      const last = [...messages].reverse().find((m: any) => m.role === "user");
+      if (!last) return "";
+      if (typeof last.content === "string") return last.content;
+      if (Array.isArray(last.content)) return last.content.map((c: any) => c?.text ?? "").join(" ");
+      return String(last.content ?? "");
+    })();
+    const routedModelKey = (() => {
+      // Don't re-route when the user's already on the cheapest tier or
+      // using OpenAI (different cost curve).
+      if (requestedConfig.provider !== "anthropic") return requestedModel;
+      if (requestedModel === "claude-haiku-4-5") return requestedModel;
+      // Generation-style endpoints always honor the requested model.
+      if (!isCanvas) return requestedModel;
+      // Ideation is creative — keep the full-powered model.
+      if (isIdeation) return requestedModel;
+      const intent = classifyIntent(latestUserText);
+      if (intent === "deep") return requestedModel;                 // keep Opus/Sonnet
+      if (intent === "light") return "claude-haiku-4-5";            // downgrade all the way
+      return requestedModel === "claude-opus-4"
+        ? "claude-sonnet-4-5"                                       // medium → Sonnet from Opus
+        : requestedModel;                                           // Sonnet requested → keep Sonnet
+    })();
+    const config = MODEL_CONFIG[routedModelKey] || requestedConfig;
     const model = config.apiModel;
     const provider = config.provider;
     const multiplier = config.multiplier;
+    const wasDowngraded = routedModelKey !== requestedModel;
 
     // Canvas mode: simpler prompt, no wizard tools
-    const isCanvas = !!canvas_mode;
-    const systemPrompt = isCanvas
+    const systemPrompt = isIdeation
+      ? buildIdeationSystemPrompt(client_info)
+      : isCanvas
       ? buildCanvasSystemPrompt(client_info)
       : buildSystemPrompt(wizard_state, client_info);
 
@@ -743,7 +1006,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[ai-assistant] mode=${isCanvas ? "canvas" : "wizard"} provider=${provider} model=${model} multiplier=${multiplier}x messages=${messages.length} systemPromptLen=${systemPrompt.length} canvasContext=${client_info?.canvas_context?.length ?? 0}`);
+    console.log(`[ai-assistant] mode=${isCanvas ? "canvas" : "wizard"} provider=${provider} requested=${requestedModel} routed=${routedModelKey}${wasDowngraded ? ` (DOWNGRADED)` : ""} multiplier=${multiplier}x messages=${messages.length} systemPromptLen=${systemPrompt.length} canvasContext=${client_info?.canvas_context?.length ?? 0}${thinkingRequested ? " thinking=on" : ""}`);
     if (isCanvas && client_info?.canvas_context) {
       console.log(`[ai-assistant] canvas_context first 500 chars: ${client_info.canvas_context.slice(0, 500)}`);
     }
@@ -792,9 +1055,29 @@ serve(async (req) => {
 
     } else {
       // ─── Anthropic Messages API (existing path) ───
+      // Disable extended thinking on light follow-up turns (Haiku doesn't
+      // support it anyway, but this also kills ~10k thinking tokens per turn
+      // on Opus/Sonnet when the user is just tightening the last reply).
+      const isLightTurn = classifyIntent(latestUserText) === "light";
+      const isThinking = !!thinkingRequested && !isLightTurn && (model.includes("sonnet") || model.includes("opus"));
+      const thinkingBudget = model.includes("opus") ? 10000 : 5000;
+      // Canvas chat max_tokens is lower than generation — most replies are
+      // conversational, not full scripts. Keep 4096 for non-canvas paths.
+      const baseMaxTokens = isCanvas
+        ? (model.includes("opus") ? 1536 : model.includes("sonnet") ? 1024 : 1024)
+        : (model.includes("opus") ? 4096 : model.includes("sonnet") ? 2048 : 1024);
+      // Opus 4.7+ deprecates thinking.type=enabled in favor of adaptive thinking + output_config.effort.
+      // Detect the new generation by model ID.
+      const usesAdaptiveThinking = /opus-4-7|opus-5|sonnet-4-7|sonnet-5/.test(model);
+      const thinkingBlock = isThinking
+        ? (usesAdaptiveThinking
+            ? { thinking: { type: "adaptive" as const }, output_config: { effort: "high" as const } }
+            : { thinking: { type: "enabled" as const, budget_tokens: thinkingBudget } })
+        : {};
       const claudeBody: any = {
         model,
-        max_tokens: model.includes("opus") ? 4096 : model.includes("sonnet") ? 2048 : 1024,
+        max_tokens: isThinking ? baseMaxTokens + thinkingBudget : baseMaxTokens,
+        ...thinkingBlock,
         system: (isCanvas && client_info?.canvas_context)
           ? [
               {
@@ -804,7 +1087,7 @@ serve(async (req) => {
               },
               {
                 type: "text",
-                text: `<canvas_data>\n${client_info.canvas_context}\n</canvas_data>\n\nAbove is the LIVE data from all nodes currently connected on the canvas. Use it. Do NOT say you cannot see data included above.`,
+                text: `<canvas_data>\n${sanitizeText(client_info.canvas_context)}\n</canvas_data>\n\nAbove is the LIVE data from all nodes currently connected on the canvas. Use it. Do NOT say you cannot see data included above.`,
                 cache_control: { type: "ephemeral" },
               },
             ]
@@ -855,6 +1138,8 @@ serve(async (req) => {
                     const ev = JSON.parse(line.slice(6));
                     if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: ev.delta.text })}\n\n`));
+                    } else if (ev.type === "content_block_delta" && ev.delta?.type === "thinking_delta") {
+                      // Extended thinking block — skip (don't send to client)
                     } else if (ev.type === "message_start" && ev.message?.usage) {
                       streamInputTokens = ev.message.usage.input_tokens ?? 0;
                       const cacheCreate = ev.message.usage.cache_creation_input_tokens ?? 0;
@@ -873,7 +1158,7 @@ serve(async (req) => {
             }
             const creditCost = calculateTokenCredits(streamInputTokens, streamOutputTokens, multiplier);
             await deductCredits(adminClient, userId, "ai_chat", creditCost);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, credits_used: creditCost })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, credits_used: creditCost, actual_model: routedModelKey, requested_model: requestedModel, downgraded: wasDowngraded })}\n\n`));
             controller.close();
           },
         });
@@ -942,7 +1227,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: displayMessage, action, credits_used: creditCost }),
+      JSON.stringify({ message: displayMessage, action, credits_used: creditCost, actual_model: routedModelKey, requested_model: requestedModel, downgraded: wasDowngraded }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {

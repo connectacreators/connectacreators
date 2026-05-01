@@ -7,8 +7,9 @@ import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
-  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload,
+  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2,
 } from "lucide-react";
+import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
 const Teleprompter = lazy(() => import("@/components/Teleprompter"));
 const AIScriptWizard = lazy(() => import("@/components/AIScriptWizard"));
@@ -25,8 +26,7 @@ import { useScripts, type ScriptLine, type Script, type ScriptMetadata } from "@
 import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { toast } from "sonner";
-import FootageUploadDialog from "@/components/FootageUploadDialog";
-import FootageViewerModal from "@/components/FootageViewerModal";
+import FootagePanel from "@/components/FootagePanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -39,8 +39,40 @@ import ScriptDocEditor from "@/components/ScriptDocEditor";
 import { checkResourceLimit } from "@/utils/planLimits";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
+import BorderGlow from "@/components/ui/BorderGlow";
 
 // Droppable folder card for drag-to-folder
+const EDITOR_TARGET_TRUNCATE_CHARS = 40;
+
+function EditorTargetChip({ target, label }: { target: string; label: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const needsTruncation = target.length > EDITOR_TARGET_TRUNCATE_CHARS;
+  const display = !needsTruncation || expanded
+    ? target
+    : `${target.slice(0, EDITOR_TARGET_TRUNCATE_CHARS).trimEnd()}…`;
+  return (
+    <button
+      type="button"
+      onClick={() => needsTruncation && setExpanded((v) => !v)}
+      title={needsTruncation && !expanded ? target : undefined}
+      aria-expanded={needsTruncation ? expanded : undefined}
+      aria-label={needsTruncation ? `${label}: ${target}` : undefined}
+      className="inline-flex items-start gap-1 text-[10px] px-2 py-0.5 rounded-full text-left"
+      style={{
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        color: "rgba(255,255,255,0.75)",
+        cursor: needsTruncation ? "pointer" : "default",
+        whiteSpace: expanded ? "normal" : "nowrap",
+        lineHeight: 1.5,
+      }}
+    >
+      <span style={{ color: "rgba(255,255,255,0.5)", fontWeight: 500, flexShrink: 0 }}>{label}</span>
+      <span>{display}</span>
+    </button>
+  );
+}
+
 function DroppableFolder({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: `folder-${id}` });
   return (
@@ -243,7 +275,6 @@ function SortableLineItem({
                 if (viewingScriptId && trimmed && trimmed !== line.text) {
                   const ok = await updateScriptLine(viewingScriptId, line.line_number, trimmed);
                   if (ok) {
-                    pushUndo();
                     setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, text: trimmed } : l));
                   }
                 }
@@ -259,7 +290,6 @@ function SortableLineItem({
               if (viewingScriptId && trimmed && trimmed !== line.text) {
                 const ok = await updateScriptLine(viewingScriptId, line.line_number, trimmed);
                 if (ok) {
-                  pushUndo();
                   setParsedLines((prev) => prev.map((l) => l.line_number === line.line_number ? { ...l, text: trimmed } : l));
                 }
               }
@@ -273,7 +303,7 @@ function SortableLineItem({
         ) : (
           <p
             className={`mt-1 text-sm leading-relaxed cursor-pointer ${isPlaceholder ? "text-muted-foreground/60 italic" : "text-foreground"}`}
-            onDoubleClick={() => { setEditingLineKey(lineKey); setEditLineText(line.text); }}
+            onDoubleClick={() => { pushUndo(); setEditingLineKey(lineKey); setEditLineText(line.text); }}
           >
             {isPlaceholder && !line.text ? "Doble clic para escribir..." : line.text}
           </p>
@@ -303,7 +333,33 @@ function SortableLineItem({
   );
 }
 
-// (SortableSection removed — replaced by single flat DndContext in the render below)
+// Droppable zone for empty sections — allows dragging lines into empty Hook/Body/CTA
+function SectionDropZone({ section, onClick }: { section: string; onClick: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `drop-${section}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border bg-gradient-to-br transition-smooth cursor-pointer group ${
+        isOver
+          ? "from-primary/10 to-primary/5 border-primary/40 ring-1 ring-primary/30"
+          : "from-muted/30 to-muted/10 border-muted-foreground/20"
+      }`}
+      onClick={onClick}
+    >
+      <div className="mt-0.5 p-1.5 rounded-xl bg-muted/30">
+        <Plus className="w-4 h-4 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {isOver ? "Drop here" : "Nueva línea"}
+        </span>
+        <p className="text-muted-foreground/60 mt-1 text-sm italic">
+          {isOver ? `Move to ${section}` : "Haz clic para agregar una línea..."}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function ScriptsSkeleton() {
   return (
@@ -348,6 +404,8 @@ export default function Scripts() {
   // Inline editing script lines
   const [editingLineKey, setEditingLineKey] = useState<string | null>(null);
   const [editLineText, setEditLineText] = useState("");
+  // Tracks unsaved structural changes (reorder/delete) in card view
+  const [isDirty, setIsDirty] = useState(false);
 
   const [grabadoFilter, setGrabadoFilter] = useState<"all" | "grabado" | "no-grabado">("all");
 
@@ -395,6 +453,8 @@ export default function Scripts() {
 
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
+  const [renamingScriptId, setRenamingScriptId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -443,6 +503,7 @@ export default function Scripts() {
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [sharingFolder, setSharingFolder] = useState<{ id: string; name: string } | null>(null);
   const [selectedScriptIds, setSelectedScriptIds] = useState<Set<string>>(new Set());
   const [draggingScriptId, setDraggingScriptId] = useState<string | null>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
@@ -604,7 +665,7 @@ export default function Scripts() {
   const [autoOpenScriptTitle, setAutoOpenScriptTitle] = useState<string | null>(null);
 
   useEffect(() => {
-    if (clientsLoading || clients.length === 0 || selectedClient) return;
+    if (clientsLoading || selectedClient) return;
 
     // If URL has a clientId param, auto-select that client
     if (urlClientId) {
@@ -612,28 +673,77 @@ export default function Scripts() {
       if (target) {
         setSelectedClient(target);
         fetchScriptsByClient(target.id);
-        // Check for view=canvas param to auto-open Connecta AI
         const viewParam = searchParams.get("view");
         if (viewParam === "canvas") {
           setView("super-planning");
         } else {
           setView("client-detail");
         }
-        // Check for scriptTitle query param to auto-open
         const scriptTitleParam = searchParams.get("scriptTitle");
         if (scriptTitleParam) {
           setAutoOpenScriptTitle(scriptTitleParam);
           searchParams.delete("scriptTitle");
           setSearchParams(searchParams, { replace: true });
         }
+      } else if (user) {
+        // Client not in useClients result — try junction table, then fall back to primary client
+        (async () => {
+          // First try: this specific client via junction
+          const { data: link } = await supabase
+            .from("subscriber_clients")
+            .select("client_id, clients(id, name, email, user_id, created_at, notion_lead_name)")
+            .eq("client_id", urlClientId)
+            .eq("subscriber_user_id", user.id)
+            .maybeSingle();
+          let c = (link as any)?.clients;
+
+          // Second try: user's primary client (urlClientId might belong to another user)
+          if (!c) {
+            const { data: primary } = await supabase
+              .from("subscriber_clients")
+              .select("client_id, clients(id, name, email, user_id, created_at, notion_lead_name)")
+              .eq("subscriber_user_id", user.id)
+              .eq("is_primary", true)
+              .maybeSingle();
+            c = (primary as any)?.clients;
+          }
+
+          if (c) {
+            setSelectedClient(c);
+            fetchScriptsByClient(c.id);
+            const viewParam = searchParams.get("view");
+            setView(viewParam === "canvas" ? "super-planning" : "client-detail");
+          }
+        })();
       }
       return;
     }
 
+    if (clients.length === 0) return;
     if (isAdmin || isVideographer) return; // Staff see the client list
 
     const myClient = clients.find((c) => c.user_id === user?.id);
-    if (!myClient) return;
+    if (!myClient) {
+      // Fallback: fetch primary client via junction table
+      if (user) {
+        (async () => {
+          const { data: link } = await supabase
+            .from("subscriber_clients")
+            .select("client_id, clients(id, name, email, user_id, created_at, notion_lead_name)")
+            .eq("subscriber_user_id", user.id)
+            .eq("is_primary", true)
+            .maybeSingle();
+          const c = (link as any)?.clients;
+          if (c) {
+            setSelectedClient(c);
+            fetchScriptsByClient(c.id);
+            const viewParam = searchParams.get("view");
+            setView(viewParam === "canvas" ? "super-planning" : "client-detail");
+          }
+        })();
+      }
+      return;
+    }
     setSelectedClient(myClient);
     fetchScriptsByClient(myClient.id);
     setView("client-detail");
@@ -647,7 +757,9 @@ export default function Scripts() {
     if (target) {
       setSelectedClient(target);
       fetchScriptsByClient(target.id);
-      setView("client-detail");
+      // Respect view=canvas URL param (e.g. when navigating from BatchScriptModal)
+      const viewParam = searchParams.get("view");
+      setView(viewParam === "canvas" ? "super-planning" : "client-detail");
     }
   }, [urlClientId, clientsLoading, clients]);
 
@@ -816,9 +928,9 @@ export default function Scripts() {
       const isUndo = (e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey;
       if (!isUndo) return;
 
-      // Don't intercept if focused in a text input/textarea
-      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      // Don't intercept if focused in a text input, textarea, or contentEditable (TipTap doc editor)
+      const activeEl = document.activeElement as HTMLElement;
+      if (activeEl?.tagName?.toLowerCase() === 'input' || activeEl?.tagName?.toLowerCase() === 'textarea' || activeEl?.isContentEditable) return;
 
       if (undoStack.current.length === 0 || !viewingScriptId) return;
 
@@ -836,13 +948,13 @@ export default function Scripts() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewingScriptId, reorderAllLines]);
 
-  // Warn browser when user edits a line and tries to close/refresh the tab
+  // Warn browser when there are unsaved changes (active edit or dirty structural changes)
   useEffect(() => {
-    if (editingLineKey === null) return;
+    if (editingLineKey === null && !isDirty) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [editingLineKey]);
+  }, [editingLineKey, isDirty]);
 
   // Fetch script versions
   const fetchVersions = useCallback(async () => {
@@ -940,6 +1052,30 @@ export default function Scripts() {
       setFootageStorageFiles([]);
       setSubmissionStorageFiles([]);
     }
+  }, [linkedVideoEdit?.id]);
+
+  // Realtime sync: update linkedVideoEdit state when the DB row changes (e.g. upload from another tab)
+  useEffect(() => {
+    if (!linkedVideoEdit?.id) return;
+    const veId = linkedVideoEdit.id;
+    const veClientId = linkedVideoEdit.client_id;
+    const channel = supabase
+      .channel(`scripts_ve_${veId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_edits', filter: `id=eq.${veId}` }, (payload) => {
+        const row = payload.new as any;
+        setLinkedVideoEdit(prev => prev ? {
+          ...prev,
+          footage: row.footage,
+          file_submission: row.file_submission,
+          upload_source: row.upload_source,
+          storage_path: row.storage_path,
+          storage_url: row.storage_url,
+          file_size_bytes: row.file_size_bytes,
+        } : prev);
+        loadStorageFiles(veClientId, veId);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [linkedVideoEdit?.id]);
 
   // Auth loading
@@ -1073,12 +1209,14 @@ export default function Scripts() {
     setViewingInspirationUrl(script.inspiration_url);
     setViewingCaption(script.caption ?? "");
     setViewingMetadata({
-      idea_ganadora: script.idea_ganadora,
+      idea_ganadora: script.idea_ganadora || script.title,
       target: script.target,
       formato: script.formato,
       google_drive_link: script.google_drive_link,
     });
     setViewingScriptId(script.id);
+    setIsDirty(false);
+    setEditingLineKey(null);
     // Load file_submission and linked video_edit record
     try {
       const { data: videoData } = await supabase.from("video_edits").select("id, client_id, file_submission, footage, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", script.id).maybeSingle();
@@ -1119,7 +1257,7 @@ export default function Scripts() {
 
   const handleEditScript = (script: Script) => {
     setEditingScript(script);
-    setScriptTitle(script.title);
+    setScriptTitle(script.idea_ganadora || script.title);
     setScriptInput(script.raw_content);
     setInspirationUrl(script.inspiration_url || "");
     setFormato(script.formato || "");
@@ -1722,6 +1860,8 @@ export default function Scripts() {
                   </button>
                   <button
                     onClick={(e) => {
+                      // If user is actively renaming this row, let the input own the interaction.
+                      if (renamingScriptId === s.id) { e.preventDefault(); e.stopPropagation(); return; }
                       // Cmd/Ctrl+click on row body = toggle selection (like Finder)
                       if (e.metaKey || e.ctrlKey) {
                         e.preventDefault();
@@ -1738,7 +1878,65 @@ export default function Scripts() {
                     )}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-2">
-                        <p className={`font-semibold truncate max-w-full ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>{s.title}</p>
+                        {renamingScriptId === s.id ? (
+                          <input
+                            className="font-semibold text-foreground bg-muted/50 border border-primary/40 rounded-lg px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            autoFocus
+                            onFocus={(e) => e.currentTarget.select()}
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onKeyUp={(e) => e.stopPropagation()}
+                            onKeyDown={async (e) => {
+                              // Stop bubbling so the parent button never sees the key.
+                              e.stopPropagation();
+                              // Cmd/Ctrl+A → select text in the input (defeat window-level select-all shortcut).
+                              if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+                                e.preventDefault();
+                                e.currentTarget.select();
+                                return;
+                              }
+                              if (e.key === "Enter" && renameValue.trim()) {
+                                e.preventDefault();
+                                const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
+                                if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
+                                setRenamingScriptId(null);
+                                return;
+                              }
+                              if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
+                            }}
+                            onBlur={async () => {
+                              if (renameValue.trim() && renameValue !== s.title) {
+                                const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
+                                if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
+                              }
+                              setRenamingScriptId(null);
+                            }}
+                          />
+                        ) : (
+                          (() => {
+                            const ideaOrTitle = s.idea_ganadora || s.title;
+                            const hasIdea = !!s.idea_ganadora;
+                            const labelText = hasIdea ? (s.formato?.trim().toUpperCase() || "SCRIPT") : "SCRIPT";
+                            return (
+                              <div className="min-w-0 flex-1">
+                                <span
+                                  className="block text-[9px] font-bold uppercase tracking-[1.5px] mb-0.5"
+                                  style={{ color: "rgba(34,211,238,0.7)" }}
+                                >
+                                  {labelText}
+                                </span>
+                                <p className={`font-semibold leading-snug ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                                  {ideaOrTitle}
+                                </p>
+                                {hasIdea && s.title && s.title !== s.idea_ganadora && (
+                                  <p className="text-[10px] text-muted-foreground/60 truncate">{s.title}</p>
+                                )}
+                              </div>
+                            );
+                          })()
+                        )}
                         {(s as any).status === "draft" && (
                           <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">In Progress</span>
                         )}
@@ -1768,9 +1966,12 @@ export default function Scripts() {
                               {!isBulk && (
                                 <button
                                   className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
-                                  onClick={() => handleEditScript(s)}
+                                  onClick={() => {
+                                    setRenamingScriptId(s.id);
+                                    setRenameValue(s.title);
+                                  }}
                                 >
-                                  <Pencil className="w-4 h-4" /> Edit
+                                  <Pencil className="w-4 h-4" /> Rename
                                 </button>
                               )}
                               {/* Move to folder submenu */}
@@ -1821,7 +2022,7 @@ export default function Scripts() {
                                 }
                                 {bulkHint}
                               </button>
-                              {/* Review (admin only) */}
+                              {/* Review (admin) — full review actions */}
                               {isAdmin && !isBulk && (
                                 <button
                                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${
@@ -1833,6 +2034,15 @@ export default function Scripts() {
                                 >
                                   {s.review_status === 'needs_revision' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                                   {s.review_status === 'approved' ? 'Approved' : s.review_status === 'needs_revision' ? 'Needs Revision' : 'Review'}
+                                </button>
+                              )}
+                              {/* View revision notes (non-admin, only when notes exist) */}
+                              {!isAdmin && !isBulk && s.review_status === 'needs_revision' && s.revision_notes && (
+                                <button
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-red-400 transition-colors hover:bg-muted"
+                                  onClick={() => setReviewingScript(s)}
+                                >
+                                  <AlertTriangle className="w-4 h-4" /> View revision notes
                                 </button>
                               )}
                               <button
@@ -1881,6 +2091,20 @@ export default function Scripts() {
                           )}
                         </span>
                       ))}
+                      {(() => {
+                        const current = folders.find((f) => f.id === viewingFolderId);
+                        if (!current) return null;
+                        return (
+                          <button
+                            onClick={() => setSharingFolder({ id: current.id, name: current.name })}
+                            className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border/60 bg-background/60 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors"
+                            title="Share this folder"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                            Share
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1893,20 +2117,29 @@ export default function Scripts() {
                         const subCount = folders.filter(sf => sf.parent_id === f.id).length;
                         return (
                           <DroppableFolder key={f.id} id={f.id}>
-                            <button
-                              onClick={() => setViewingFolderId(f.id)}
-                              className="w-full relative flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-all text-left group overflow-hidden"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                              <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
-                              <div className="relative z-10 w-full min-w-0">
-                                <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {count} script{count !== 1 ? "s" : ""}
-                                  {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
-                                </p>
-                              </div>
-                            </button>
+                            <div className="relative group">
+                              <button
+                                onClick={() => setViewingFolderId(f.id)}
+                                className="w-full relative flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-all text-left overflow-hidden"
+                              >
+                                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                                <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
+                                <div className="relative z-10 w-full min-w-0 pr-7">
+                                  <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {count} script{count !== 1 ? "s" : ""}
+                                    {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
+                                  </p>
+                                </div>
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
+                                className="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-background/70 backdrop-blur-sm border border-border/60 opacity-0 group-hover:opacity-100 hover:bg-primary/15 hover:border-primary/40 hover:text-primary transition-all"
+                                title="Share folder"
+                              >
+                                <Share2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </DroppableFolder>
                         );
                       })}
@@ -2249,6 +2482,17 @@ export default function Scripts() {
           </>
         )}
 
+        {/* ===== VIEW SCRIPT RESULT — empty state when all lines deleted ===== */}
+        {view === "view-script" && parsedLines.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <FileText className="w-10 h-10 text-muted-foreground/30" />
+            <p className="text-muted-foreground text-sm">This script has no lines yet.</p>
+            <Button variant="outline" size="sm" onClick={() => setView("edit-script")}>
+              Add lines
+            </Button>
+          </div>
+        )}
+
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-3 animate-fade-in">
@@ -2281,43 +2525,112 @@ export default function Scripts() {
             {/* Card View content */}
             {scriptEditorTab === "cards" && (
             <>
-            {/* Metadata inline */}
+            {/* Winning Idea block — promoted above metadata (soft-glow card) */}
             {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
-              <div className="mb-4 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
-                {viewingMetadata.idea_ganadora && (
-                  <p className="text-sm text-foreground">
-                    <span className="font-semibold text-[#22d3ee]">{tr(t.scripts.winningIdea, language)}:</span>{" "}
-                    {viewingMetadata.idea_ganadora}
-                  </p>
-                )}
-                {viewingMetadata.target && (
-                  <p className="text-sm text-foreground">
-                    <span className="font-semibold text-orange-400">{tr(t.scripts.target, language)}:</span>{" "}
-                    {viewingMetadata.target}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 text-sm text-foreground">
-                  <span className="font-semibold text-[#22d3ee]">{tr(t.scripts.format, language)}:</span>
-                  <Select
-                    value={viewingMetadata.formato || ""}
-                    onValueChange={async (val) => {
-                      if (viewingScriptId) {
-                        await supabase.from("scripts").update({ formato: val }).eq("id", viewingScriptId);
-                        setViewingMetadata((prev) => prev ? { ...prev, formato: val } : prev);
-                      }
+              <div
+                className="mb-4"
+                style={{
+                  padding: "18px 20px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(34,211,238,0.35)",
+                  background: "radial-gradient(ellipse at top left, rgba(34,211,238,0.12), rgba(34,211,238,0.02) 60%)",
+                  boxShadow: "inset 0 0 40px rgba(34,211,238,0.05)",
+                }}
+              >
+                {/* Label — doubles as the format editor */}
+                <Select
+                  value={viewingMetadata.formato || ""}
+                  onValueChange={async (val) => {
+                    if (viewingScriptId) {
+                      await supabase.from("scripts").update({ formato: val }).eq("id", viewingScriptId);
+                      setViewingMetadata((prev) => prev ? { ...prev, formato: val } : prev);
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    className="h-auto w-auto border-0 p-0 bg-transparent shadow-none focus:ring-0 focus:ring-offset-0 hover:opacity-80 transition-opacity gap-1 mb-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:opacity-50"
+                    style={{
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: 1.5,
+                      color: "rgba(34,211,238,0.7)",
+                      fontWeight: 700,
                     }}
                   >
-                    <SelectTrigger className="h-7 w-auto min-w-[140px] max-w-[200px] border-violet-500/30 bg-transparent text-foreground text-sm px-2 py-0">
-                      <SelectValue placeholder={tr(t.scripts.selectPlaceholder, language)} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TALKING HEAD">TALKING HEAD</SelectItem>
-                      <SelectItem value="B-ROLL CAPTION">B-ROLL CAPTION</SelectItem>
-                       <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
-                       <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <SelectValue placeholder={tr(t.scripts.selectPlaceholder, language)}>
+                      {viewingMetadata.idea_ganadora
+                        ? (viewingMetadata.formato?.trim().toUpperCase() || "SCRIPT")
+                        : "SCRIPT"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TALKING HEAD">TALKING HEAD</SelectItem>
+                    <SelectItem value="B-ROLL CAPTION">B-ROLL CAPTION</SelectItem>
+                    <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
+                    <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Idea — primary headline, inline-editable */}
+                {renamingScriptId === viewingScriptId ? (
+                  <input
+                    className="w-full bg-transparent text-foreground font-bold text-lg leading-snug border-b border-primary/40 focus:outline-none focus:border-primary/80 pb-1"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    autoFocus
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={async (e) => {
+                      e.stopPropagation();
+                      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+                        e.preventDefault();
+                        e.currentTarget.select();
+                        return;
+                      }
+                      if (e.key === "Enter" && renameValue.trim() && viewingScriptId) {
+                        e.preventDefault();
+                        const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
+                        if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
+                        setRenamingScriptId(null);
+                        return;
+                      }
+                      if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
+                    }}
+                    onBlur={async () => {
+                      if (renameValue.trim() && renameValue !== viewingMetadata.idea_ganadora && viewingScriptId) {
+                        const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
+                        if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
+                      }
+                      setRenamingScriptId(null);
+                    }}
+                  />
+                ) : (
+                  <h2
+                    className="text-foreground font-bold leading-snug cursor-pointer hover:text-primary/90 transition-colors m-0"
+                    style={{ fontSize: 17, lineHeight: 1.3 }}
+                    onClick={() => {
+                      if (viewingScriptId) {
+                        setRenamingScriptId(viewingScriptId);
+                        setRenameValue(viewingMetadata.idea_ganadora || viewingMetadata.title || "");
+                      }
+                    }}
+                    title="Click to rename"
+                  >
+                    {viewingMetadata.idea_ganadora || viewingMetadata.title || "Untitled"}
+                  </h2>
+                )}
+
+                {/* Target chip — truncates long audience strings, click to expand */}
+                {viewingMetadata.target && (
+                  <div
+                    className="flex flex-wrap items-start gap-2 mt-3 pt-3"
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <EditorTargetChip
+                      target={viewingMetadata.target}
+                      label={tr(t.scripts.target, language)}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -2463,9 +2776,17 @@ export default function Scripts() {
                   onClick={async () => {
                     if (!viewingScriptId || savingScript) return;
                     setSavingScript(true);
+                    // Merge any in-progress inline edit so Save never overwrites unsaved text
+                    const editingLineNum = editingLineKey ? parseInt(editingLineKey.replace("line-", "")) : null;
+                    const linesToSave = parsedLines.map((l) =>
+                      editingLineNum && l.line_number === editingLineNum && editLineText.trim()
+                        ? { ...l, text: editLineText.trim() }
+                        : l
+                    );
+                    if (editingLineKey) setEditingLineKey(null);
                     try {
                       await supabase.from("script_lines").delete().eq("script_id", viewingScriptId);
-                      const rows = parsedLines.map((l, i) => ({
+                      const rows = linesToSave.map((l, i) => ({
                         script_id: viewingScriptId,
                         line_number: i + 1,
                         line_type: l.line_type,
@@ -2482,6 +2803,7 @@ export default function Scripts() {
                       await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", viewingScriptId);
                       const fresh = await getScriptLines(viewingScriptId);
                       setParsedLines(fresh);
+                      setIsDirty(false);
                       toast.success(tr({ en: "Script saved!", es: "¡Script guardado!" }, language));
                     } catch {
                       toast.error(tr({ en: "Error saving script", es: "Error al guardar" }, language));
@@ -2534,9 +2856,34 @@ export default function Scripts() {
               const { active, over } = event;
               if (!over || active.id === over.id || !viewingScriptId) return;
 
+              const overId = over.id as string;
+
+              // Handle drop onto empty section placeholder (e.g. "drop-hook", "drop-body", "drop-cta")
+              if (overId.startsWith("drop-")) {
+                const targetSection = overId.replace("drop-", "") as "hook" | "body" | "cta";
+                const lineIdx = parsedLines.findIndex((l) => `line-${l.line_number}` === active.id);
+                if (lineIdx === -1) return;
+                pushUndo();
+                // Move line to the target section — place at start of that section
+                const line = { ...parsedLines[lineIdx], section: targetSection };
+                const rest = parsedLines.filter((_, i) => i !== lineIdx);
+                // Insert at the position of first line in that section, or at section boundary
+                const sectionOrder = ["hook", "body", "cta"];
+                const targetPos = rest.findIndex((l) => sectionOrder.indexOf(l.section) > sectionOrder.indexOf(targetSection));
+                const insertAt = targetPos === -1 ? rest.length : targetPos;
+                const updated = [...rest.slice(0, insertAt), line, ...rest.slice(insertAt)];
+                setParsedLines(updated);
+                setIsDirty(true);
+                await reorderAllLines(viewingScriptId, updated);
+                const fresh = await getScriptLines(viewingScriptId);
+                if (fresh.length > 0) setParsedLines(fresh);
+                setIsDirty(false);
+                return;
+              }
+
               const allItemIds = parsedLines.map((l) => `line-${l.line_number}`);
               const oldIndex = allItemIds.indexOf(active.id as string);
-              const newIndex = allItemIds.indexOf(over.id as string);
+              const newIndex = allItemIds.indexOf(overId);
               if (oldIndex === -1 || newIndex === -1) return;
 
               pushUndo();
@@ -2551,9 +2898,11 @@ export default function Scripts() {
               });
 
               setParsedLines(withSections);
+              setIsDirty(true);
               await reorderAllLines(viewingScriptId, withSections);
               const fresh = await getScriptLines(viewingScriptId);
               if (fresh.length > 0) setParsedLines(fresh);
+              setIsDirty(false);
             }}>
               <SortableContext items={parsedLines.map((l) => `line-${l.line_number}`)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
@@ -2580,18 +2929,7 @@ export default function Scripts() {
                           <div className="flex-1 h-px bg-border" />
                         </div>
                         {sectionLines.length === 0 ? (
-                          <div
-                            className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border bg-gradient-to-br from-muted/30 to-muted/10 border-muted-foreground/20 transition-smooth cursor-pointer group"
-                            onClick={handleAddPlaceholder}
-                          >
-                            <div className="mt-0.5 p-1.5 rounded-xl bg-muted/30">
-                              <Plus className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nueva línea</span>
-                              <p className="text-muted-foreground/60 mt-1 text-sm italic">Haz clic para agregar una línea...</p>
-                            </div>
-                          </div>
+                          <SectionDropZone section={section} onClick={handleAddPlaceholder} />
                         ) : (
                           <div className="space-y-3">
                             {sectionLines.map((line) => {
@@ -2640,11 +2978,13 @@ export default function Scripts() {
               const createVideoEdit = async (_subfolder: 'footage' | 'submission') => {
                 if (!selectedClient || !viewingScriptId) return;
                 const footageLink = viewingMetadata?.google_drive_link || null;
-                // Check for existing record to avoid duplicates
-                const { data: existing } = await supabase.from("video_edits").select("id").eq("script_id", viewingScriptId).is("deleted_at", null).maybeSingle();
+                // Check for ANY existing record (including soft-deleted) to avoid unique constraint conflicts
+                const { data: existing } = await supabase.from("video_edits").select("id, deleted_at").eq("script_id", viewingScriptId).maybeSingle();
                 let data: any;
                 if (existing) {
+                  // Restore if soft-deleted, and update fields
                   const { data: updated, error } = await supabase.from("video_edits").update({
+                    deleted_at: null,
                     reel_title: viewingMetadata?.idea_ganadora || "Untitled",
                     script_url: `${window.location.origin}/s/${viewingScriptId}`,
                     footage: footageLink,
@@ -2653,7 +2993,7 @@ export default function Scripts() {
                   if (error) { toast.error("Failed to update video edit record"); return; }
                   data = updated;
                 } else {
-                  const { data: inserted, error } = await supabase.from("video_edits").upsert({
+                  const { data: inserted, error } = await supabase.from("video_edits").insert({
                     client_id: selectedClient.id,
                     script_id: viewingScriptId,
                     reel_title: viewingMetadata?.idea_ganadora || "Untitled",
@@ -2663,7 +3003,7 @@ export default function Scripts() {
                     footage: footageLink,
                     upload_source: footageLink ? 'gdrive' : null,
                     post_status: "Unpublished",
-                  }, { onConflict: "script_id", ignoreDuplicates: true }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                  }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
                   if (error) { toast.error("Failed to create video edit record"); return; }
                   data = inserted;
                 }
@@ -2773,13 +3113,9 @@ export default function Scripts() {
                   </div>
                 )}
                 {linkedVideoEdit ? (
-                  <FootageUploadDialog
-                    videoEditId={linkedVideoEdit.id}
-                    clientId={linkedVideoEdit.client_id}
-                    onComplete={async () => { if (viewingScriptId) await refreshLinkedVideoEdit(viewingScriptId); }}
-                    onDriveLinkSaved={async (url) => { if (viewingScriptId) { await updateGoogleDriveLink(viewingScriptId, url); await refreshLinkedVideoEdit(viewingScriptId); setViewingMetadata(prev => prev ? { ...prev, google_drive_link: url } : prev); } }}
-                    currentFootageUrl={linkedVideoEdit.footage}
-                  />
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => { setFootageViewerSubfolder(undefined); setFootageViewerOpen(true); }}>
+                    <Plus className="h-3 w-3" />{language === "en" ? "View / Add" : "Ver / Agregar"}
+                  </Button>
                 ) : selectedClient && viewingScriptId && (
                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => createVideoEdit('footage')}>
                     <Plus className="h-3 w-3" />{language === "en" ? "Add Footage" : "Agregar Footage"}
@@ -2811,9 +3147,23 @@ export default function Scripts() {
                           await supabase.storage.from('footage').remove([f.path]);
                           await loadStorageFiles(linkedVideoEdit.client_id, linkedVideoEdit.id);
                           if (submissionStorageFiles.length === 1) {
-                            await supabase.from("video_edits").update({ file_submission: null }).eq("id", linkedVideoEdit.id);
+                            const dbClear: Record<string, null> = { file_submission: null };
+                            // Also clear storage metadata if it was pointing to this submission file
+                            if (linkedVideoEdit.storage_path?.includes('/submission/')) {
+                              dbClear.storage_path = null;
+                              dbClear.storage_url = null;
+                            }
+                            await supabase.from("video_edits").update(dbClear).eq("id", linkedVideoEdit.id);
                             setFileSubmission(null);
-                            setLinkedVideoEdit(prev => prev ? { ...prev, file_submission: null } : prev);
+                            setLinkedVideoEdit(prev => {
+                              if (!prev) return prev;
+                              const update: typeof prev = { ...prev, file_submission: null };
+                              if (prev.storage_path?.includes('/submission/')) {
+                                update.storage_path = null;
+                                update.storage_url = null;
+                              }
+                              return update;
+                            });
                           }
                         }}
                       />
@@ -2842,13 +3192,9 @@ export default function Scripts() {
                   </div>
                 )}
                 {linkedVideoEdit ? (
-                  <FootageUploadDialog
-                    videoEditId={linkedVideoEdit.id}
-                    clientId={linkedVideoEdit.client_id}
-                    onComplete={async () => { if (viewingScriptId) await refreshLinkedVideoEdit(viewingScriptId); }}
-                    currentFileSubmissionUrl={linkedVideoEdit.file_submission}
-                    subfolder="submission"
-                  />
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => { setFootageViewerSubfolder('submission'); setFootageViewerOpen(true); }}>
+                    <Plus className="h-3 w-3" />{language === "en" ? "View / Add" : "Ver / Agregar"}
+                  </Button>
                 ) : selectedClient && viewingScriptId && (
                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => createVideoEdit('submission')}>
                     <Plus className="h-3 w-3" />{language === "en" ? "Add File" : "Agregar Archivo"}
@@ -2858,7 +3204,7 @@ export default function Scripts() {
 
               {/* Footage viewer modal */}
               {linkedVideoEdit && (
-                <FootageViewerModal
+                <FootagePanel
                   open={footageViewerOpen}
                   onClose={() => setFootageViewerOpen(false)}
                   title={viewingMetadata?.idea_ganadora ?? ""}
@@ -2907,6 +3253,20 @@ export default function Scripts() {
                     if (rows.length > 0) await supabase.from("script_lines").insert(rows);
                     const fresh = await getScriptLines(sid);
                     setParsedLines(fresh);
+                    // Auto-save Google Drive link to footage if present and not yet linked
+                    const gdriveLink = viewingMetadata?.google_drive_link;
+                    if (gdriveLink && selectedClient && (!linkedVideoEdit?.footage || linkedVideoEdit?.upload_source !== 'supabase')) {
+                      const { data: existing } = await supabase.from("video_edits").select("id, deleted_at").eq("script_id", sid).maybeSingle();
+                      let veData: any;
+                      if (existing) {
+                        const { data: updated } = await supabase.from("video_edits").update({ deleted_at: null, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, footage: gdriveLink, upload_source: 'gdrive' }).eq("id", existing.id).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                        veData = updated;
+                      } else {
+                        const { data: inserted } = await supabase.from("video_edits").insert({ client_id: selectedClient.id, script_id: sid, reel_title: viewingMetadata?.idea_ganadora || "Untitled", status: "Not started", script_url: `${window.location.origin}/s/${sid}`, file_url: gdriveLink, footage: gdriveLink, upload_source: 'gdrive', post_status: "Unpublished" }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                        veData = inserted;
+                      }
+                      if (veData) setLinkedVideoEdit({ id: veData.id, client_id: veData.client_id, footage: veData.footage, file_submission: veData.file_submission, upload_source: veData.upload_source, storage_path: veData.storage_path, storage_url: veData.storage_url, file_size_bytes: veData.file_size_bytes });
+                    }
                     toast.success(tr({ en: "Script saved!", es: "¡Script guardado!" }, language));
                   } catch {
                     toast.error(tr({ en: "Error saving script", es: "Error al guardar" }, language));
@@ -2914,7 +3274,53 @@ export default function Scripts() {
                     setSavingDocEditor(false);
                   }
                 }}
-                onExportPDF={() => window.print()}
+                onExportPDF={() => {
+                  const typeColors: Record<string, string> = {
+                    filming: '#f97316',
+                    actor: '#0891b2',
+                    editor: '#84cc16',
+                    text_on_screen: '#475569',
+                  };
+                  const sectionOrder = ['hook', 'body', 'cta'] as const;
+                  const sectionLabels: Record<string, string> = { hook: 'HOOK', body: 'BODY', cta: 'CTA' };
+                  const grouped: Record<string, typeof parsedLines> = { hook: [], body: [], cta: [] };
+                  parsedLines.forEach(l => { const s = l.section || 'body'; if (grouped[s]) grouped[s].push(l); else grouped['body'].push(l); });
+
+                  const linesHtml = (ls: typeof parsedLines) => ls.map(l => {
+                    const content = l.rich_text || l.text || '';
+                    return `<div style="display:flex;align-items:stretch;margin-bottom:3px;page-break-inside:avoid;">
+                      <div style="width:4px;flex-shrink:0;background:${typeColors[l.line_type] || '#475569'};border-radius:2px;margin-right:10px;"></div>
+                      <div style="flex:1;font-size:13px;line-height:1.6;color:#1e293b;">${content}</div>
+                    </div>`;
+                  }).join('');
+
+                  const sectionsHtml = sectionOrder.filter(s => grouped[s].length > 0).map(s => `
+                    <div style="margin-bottom:16px;">
+                      <div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px;">
+                        <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                        <span style="font-size:9px;font-weight:700;letter-spacing:3px;color:#94a3b8;">${sectionLabels[s]}</span>
+                        <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                      </div>
+                      ${linesHtml(grouped[s])}
+                    </div>
+                  `).join('');
+
+                  const title = viewingMetadata?.idea_ganadora || 'Script';
+                  const meta = [viewingMetadata?.target, viewingMetadata?.formato].filter(Boolean).join(' · ');
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+                    <style>body{margin:0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:white;}@media print{body{padding:20px;}@page{margin:15mm;}}</style>
+                  </head><body>
+                    <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 4px;">${title}</h1>
+                    <p style="font-size:11px;color:#94a3b8;margin:0 0 28px;">${meta}</p>
+                    ${sectionsHtml}
+                  </body></html>`;
+
+                  const w = window.open('', '_blank', 'width=800,height=700');
+                  if (!w) { window.print(); return; }
+                  w.document.write(html);
+                  w.document.close();
+                  w.onload = () => w.print();
+                }}
                 saving={savingDocEditor}
               />
             )}
@@ -2985,16 +3391,16 @@ export default function Scripts() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-primary" />
-              Review Script
+              {isAdmin ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
+              {isAdmin ? "Review Script" : "Revision Notes"}
             </DialogTitle>
-            <DialogDescription className="truncate text-sm text-muted-foreground">
+            <DialogDescription className="text-sm text-muted-foreground line-clamp-2 break-words">
               {reviewingScript?.idea_ganadora || reviewingScript?.title}
             </DialogDescription>
           </DialogHeader>
 
           {/* Revision notes input — shown when needs revision is clicked or already set */}
-          {showRevisionInput && (
+          {isAdmin && showRevisionInput && (
             <div className="space-y-2">
               <Textarea
                 placeholder="Describe the revisions needed (e.g. change the hook, shorten the CTA...)"
@@ -3036,6 +3442,7 @@ export default function Scripts() {
                   <p className="whitespace-pre-wrap">{reviewingScript.revision_notes}</p>
                 </div>
               )}
+              {isAdmin && (
               <div className="flex gap-3 py-2">
                 <Button
                   className="flex-1 bg-green-600 hover:bg-green-500 text-white gap-2"
@@ -3063,7 +3470,8 @@ export default function Scripts() {
                   <AlertTriangle className="w-4 h-4" /> Needs Revision
                 </Button>
               </div>
-              {reviewingScript?.review_status && (
+              )}
+              {isAdmin && reviewingScript?.review_status && (
                 <Button
                   variant="ghost" size="sm"
                   className="w-full text-muted-foreground text-xs"
@@ -3150,6 +3558,8 @@ export default function Scripts() {
           }}
         />
       )}
+
+      <ShareFolderDialog folder={sharingFolder} onClose={() => setSharingFolder(null)} />
 
       </>
       )}

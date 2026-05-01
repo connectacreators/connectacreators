@@ -106,6 +106,21 @@ const saveVersionSnapshot = async (scriptId: string) => {
   }
 };
 
+export async function resolveUniqueTitle(clientId: string, baseTitle: string): Promise<string> {
+  const clean = baseTitle.replace(/\s*\(\d+\)$/, '').trim();
+  const { data } = await supabase
+    .from('scripts')
+    .select('title')
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+    .ilike('title', `${clean}%`);
+  const existing = new Set((data || []).map((s: any) => (s.title as string).trim()));
+  if (!existing.has(clean)) return clean;
+  let n = 1;
+  while (existing.has(`${clean} (${n})`)) n++;
+  return `${clean} (${n})`;
+}
+
 export function useScripts() {
   const [loading, setLoading] = useState(false);
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -130,13 +145,19 @@ export function useScripts() {
     if (data && data.length > 0) {
       try {
         const scriptIds = data.map((s: any) => s.id);
+        // Include all records (even soft-deleted) to avoid unique constraint conflicts
         const { data: existingEdits } = await supabase
           .from("video_edits")
-          .select("script_id")
-          .in("script_id", scriptIds)
-          .is("deleted_at", null);
+          .select("script_id, deleted_at")
+          .in("script_id", scriptIds);
         const existingSet = new Set((existingEdits || []).map((e: any) => e.script_id));
+        const softDeleted = (existingEdits || []).filter((e: any) => e.deleted_at).map((e: any) => e.script_id);
         const missing = data.filter((s: any) => !existingSet.has(s.id));
+        // Restore any soft-deleted records
+        if (softDeleted.length > 0) {
+          await supabase.from("video_edits").update({ deleted_at: null }).in("script_id", softDeleted);
+          console.log(`[useScripts] Restored ${softDeleted.length} soft-deleted video_edits`);
+        }
         if (missing.length > 0) {
           const rows = missing.map((s: any) => ({
             client_id: clientId,
@@ -148,8 +169,7 @@ export function useScripts() {
             file_url: s.google_drive_link || "",
             post_status: "Unpublished",
           }));
-          // onConflict on the partial unique index prevents duplicates if two calls race
-          await supabase.from("video_edits").upsert(rows, { onConflict: "script_id", ignoreDuplicates: true });
+          await supabase.from("video_edits").insert(rows);
           console.log(`[useScripts] Backfilled ${missing.length} video_edits rows`);
         }
       } catch (e) {
@@ -198,6 +218,7 @@ export function useScripts() {
       const rawContent = params.lines.map((l) => l.text).join("\n");
 
       let script: any;
+      let renamedTo: string | null = null;
       if (params.existingScriptId) {
         // Promote existing draft to complete
         const { data, error } = await supabase
@@ -222,14 +243,20 @@ export function useScripts() {
         // Delete old lines if any
         await supabase.from("script_lines").delete().eq("script_id", script.id);
       } else {
+        // Resolve unique title — auto-rename to "Title (1)" etc. if a duplicate exists
+        const resolvedTitle = await resolveUniqueTitle(params.clientId, params.ideaGanadora);
+        if (resolvedTitle !== params.ideaGanadora.replace(/\s*\(\d+\)$/, '').trim()) {
+          renamedTo = resolvedTitle;
+        }
+
         const { data, error: scriptErr } = await supabase
           .from("scripts")
           .insert({
             client_id: params.clientId,
-            title: params.ideaGanadora,
+            title: resolvedTitle,
             raw_content: rawContent,
             inspiration_url: params.inspirationUrl || null,
-            idea_ganadora: params.ideaGanadora || null,
+            idea_ganadora: resolvedTitle,
             target: params.target || null,
             formato: params.formato || null,
             google_drive_link: params.googleDriveLink || null,
@@ -238,6 +265,8 @@ export function useScripts() {
           .single();
         if (scriptErr) throw scriptErr;
         script = data;
+        // Update ideaGanadora so video_edits gets the resolved title too
+        params = { ...params, ideaGanadora: resolvedTitle };
       }
 
       const lineRows = params.lines.map((l, i) => ({
@@ -250,26 +279,30 @@ export function useScripts() {
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
       if (linesErr) throw linesErr;
 
-      toast.success("Script saved");
+      if (renamedTo) {
+        toast.info(`A script with this name already exists — saved as "${renamedTo}"`);
+      } else {
+        toast.success("Script saved");
+      }
       setScripts((prev) => [script, ...prev]);
 
       // Auto-create or sync video_edits record for this script (upsert by script_id)
       try {
         const { data: existingEdit } = await supabase
           .from("video_edits")
-          .select("id")
+          .select("id, deleted_at")
           .eq("script_id", script.id)
-          .is("deleted_at", null)
           .maybeSingle();
         if (existingEdit) {
+          // Restore if soft-deleted, and update fields
           await supabase.from("video_edits").update({
+            deleted_at: null,
             reel_title: params.ideaGanadora || "Untitled",
             script_url: `${window.location.origin}/s/${script.id}`,
             footage: params.googleDriveLink || null,
           }).eq("id", existingEdit.id);
         } else {
-          // upsert with ignoreDuplicates to prevent race condition duplicates
-          await supabase.from("video_edits").upsert({
+          await supabase.from("video_edits").insert({
             client_id: params.clientId,
             script_id: script.id,
             reel_title: params.ideaGanadora || "Untitled",
@@ -278,7 +311,7 @@ export function useScripts() {
             footage: params.googleDriveLink || null,
             file_url: params.googleDriveLink || "",
             post_status: "Unpublished",
-          }, { onConflict: "script_id", ignoreDuplicates: true });
+          });
         }
       } catch (videoErr) {
         console.error("Auto-create/sync video_edits failed (non-fatal):", videoErr);

@@ -107,7 +107,7 @@ export default function PaymentSuccess() {
         {status === "checking" && (
           <>
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-foreground mb-2">Verifying your payment...</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Verifying...</h1>
             <p className="text-muted-foreground">
               Please wait while we confirm your subscription.
               {attempt > 0 && ` (${attempt + 1}/${MAX_POLLS + 1})`}
@@ -117,15 +117,15 @@ export default function PaymentSuccess() {
         {status === "success" && (
           <>
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-foreground mb-2">Payment Successful!</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">You're all set!</h1>
             <p className="text-muted-foreground">Your subscription is active. Redirecting to dashboard...</p>
           </>
         )}
         {status === "proceeding" && (
           <>
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-foreground mb-2">Payment Received!</h1>
-            <p className="text-muted-foreground">Your payment was processed. Taking you to your dashboard now...</p>
+            <h1 className="text-2xl font-bold text-foreground mb-2">You're all set!</h1>
+            <p className="text-muted-foreground">Taking you to your dashboard now...</p>
           </>
         )}
       </motion.div>

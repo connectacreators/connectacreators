@@ -16,6 +16,7 @@ import SplashScreen from "@/components/SplashScreen";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
+import BorderGlow from "@/components/ui/BorderGlow";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -188,60 +189,36 @@ export default function Dashboard() {
         }
       });
     } else {
-      // Auto-initialize free tier for new users (no paywall)
-      const initFreeTier = async () => {
-        // Check for existing client row first to avoid duplicates
-        // Use ownClientId if already resolved, otherwise look up
+      // No valid subscription: check if client exists with a plan, otherwise redirect to signup.
+      // This path only fires when the user has no Stripe subscription AND is not a special role.
+      // No more auto-creating fake "trial" client records — users must sign up via Stripe.
+      const checkExisting = async () => {
         let existing: any = null;
         if (ownClientId) {
           const { data } = await supabase
             .from("clients")
-            .select("id, plan_type")
+            .select("id, plan_type, subscription_status")
             .eq("id", ownClientId)
             .maybeSingle();
           existing = data;
         } else {
           const { data } = await supabase
             .from("clients")
-            .select("id, plan_type")
+            .select("id, plan_type, subscription_status")
             .eq("user_id", user.id)
             .maybeSingle();
           existing = data;
         }
 
-        if (existing) {
-          setUserPlanType(existing.plan_type || "free");
+        if (existing?.plan_type && ["active", "trialing", "canceling"].includes(existing.subscription_status || "")) {
+          setUserPlanType(existing.plan_type);
           return;
         }
 
-        const { error } = await supabase.from("clients").insert({
-          user_id: user.id,
-          name: user.user_metadata?.full_name || user.email,
-          email: user.email,
-          plan_type: "free",
-          subscription_status: "active",
-          credits_balance: 250,
-          credits_monthly_cap: 250,
-          credits_used: 0,
-          channel_scrapes_limit: 1,
-          channel_scrapes_used: 0,
-          lead_tracker_enabled: true,
-          facebook_integration_enabled: true,
-        });
-        if (!error) {
-          setUserPlanType("free");
-        } else if (error.code === "23505") {
-          // Row already exists (race condition) — just fetch and use it
-          const { data: raceExisting } = ownClientId
-            ? await supabase.from("clients").select("plan_type").eq("id", ownClientId).maybeSingle()
-            : await supabase.from("clients").select("plan_type").eq("user_id", user.id).maybeSingle();
-          setUserPlanType(raceExisting?.plan_type || "free");
-        } else {
-          console.error("Failed to initialize free tier:", error);
-          setUserPlanType("free");
-        }
+        // No valid subscription — redirect to signup
+        navigate("/signup");
       };
-      initFreeTier();
+      checkExisting();
     }
   }, [subscriptionChecking, subscriptionData, user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, navigate, welcomePlan, ownClientId]);
 
@@ -254,6 +231,7 @@ export default function Dashboard() {
     viewMode === "master" ? null
     : viewMode === "me" ? ownClientId
     : viewMode; // it's a client UUID
+
 
   const selectedClientName =
     viewMode === "master" ? "Master"
@@ -272,14 +250,14 @@ export default function Dashboard() {
     {
       key: "sales" as FolderKey,
       label: "Sales",
-      description: "Lead Tracker · Lead Calendar · AI Follow Up Builder",
+      description: "Lead Tracker · Lead Calendar",
       icon: BarChart3,
       color: "#999999",
     },
     {
       key: "setup" as FolderKey,
       label: "Client Set Up",
-      description: "Onboarding · Public Booking · Landing Page · Master Database",
+      description: "Onboarding · Booking · Landing Page · Database",
       icon: Settings2,
       color: "#999999",
     },
@@ -288,16 +266,15 @@ export default function Dashboard() {
   // Sub-cards with optional clientId for context-specific routes
   const getClientSubCards = (clientId: string | null) => ({
     content: [
-      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
-      { label: "Scripts", description: language === "en" ? "Write and manage your scripts" : "Escribe y gestiona tus guiones", icon: FileText, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
-      { label: "Vault", description: language === "en" ? "Save and reuse video templates" : "Guarda y reutiliza plantillas de video", icon: Archive, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
-      { label: "Editing Queue", description: language === "en" ? "Track your video editing tasks" : "Rastrea tus tareas de edición", icon: Clapperboard, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
-      { label: "Content Calendar", description: language === "en" ? "Plan and schedule your content" : "Planifica y programa tu contenido", icon: Calendar, color: "#22d3ee", path: clientId ? `/clients/${clientId}/content-calendar` : "/content-calendar" },
+      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "#fb923c", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Scripts", description: language === "en" ? "View and manage scripts" : "Ver y gestionar guiones", icon: FileText, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
+      { label: "Vault", description: language === "en" ? "Script templates from viral videos" : "Plantillas de scripts de videos virales", icon: Archive, color: "#fbbf24", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
+      { label: "Editing Queue", description: language === "en" ? "Track video production status" : "Estado de producción de videos", icon: Clapperboard, color: "#fb7185", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
+      { label: language === "en" ? "Content Calendar" : "Calendario de Contenido", description: language === "en" ? "Schedule & approve posts" : "Programar y aprobar publicaciones", icon: Calendar, color: "#e879f9", path: clientId ? `/clients/${clientId}/content-calendar` : "/content-calendar" },
     ],
     sales: [
-      { label: "Lead Tracker", description: language === "en" ? "Track and manage your leads" : "Rastrea y gestiona tus leads", icon: Target, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/leads` : "/leads" },
-      { label: "Lead Calendar", description: language === "en" ? "Schedule and view lead activity" : "Programa y ve la actividad de leads", icon: CalendarDays, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/lead-calendar` : "/lead-calendar" },
-      { label: "AI Follow Up Builder", description: language === "en" ? "Build automated follow-up flows" : "Crea flujos de seguimiento automatizados", icon: Zap, color: "#22d3ee", path: clientId ? `/clients/${clientId}/workflow` : "/leads" },
+      { label: "Lead Tracker", description: language === "en" ? "Track incoming leads" : "Seguimiento de leads", icon: Target, color: "#34d399", path: clientId ? `/clients/${clientId}/leads` : "/leads" },
+      { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads", icon: CalendarDays, color: "#a78bfa", path: clientId ? `/clients/${clientId}/lead-calendar` : "/lead-calendar" },
     ],
     setup: [
       { label: "Onboarding", description: language === "en" ? "Complete your account setup" : "Completa la configuración de tu cuenta", icon: UserPlus, color: "#bbbbbb", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
@@ -475,28 +452,27 @@ export default function Dashboard() {
                     {activeFolderData?.label}
                   </motion.h1>
 
-                  <div className={`grid grid-cols-1 ${activeSubCards.length <= 2 ? 'sm:grid-cols-2 max-w-xl mx-auto' : activeSubCards.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-6`}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {activeSubCards.map((card, i) => (
-                      <motion.button
-                        key={card.path}
-                        onClick={() => !(card as any).disabled && navigate(card.path)}
-                        className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        initial="hidden"
-                        animate="visible"
-                        custom={i + 1}
-                        variants={fadeUp}
-                      >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
-                          <card.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
-                        </div>
-                        <div>
-                          <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{card.label}</h2>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
-                          {(card as any).disabled && (
-                            <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
-                          )}
-                        </div>
-                      </motion.button>
+                      <motion.div key={card.path} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}>
+                        <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                          <button
+                            onClick={() => !(card as any).disabled && navigate(card.path)}
+                            className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          >
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                              <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                            </div>
+                            <div>
+                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight">{card.label}</h2>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
+                              {(card as any).disabled && (
+                                <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
+                              )}
+                            </div>
+                          </button>
+                        </BorderGlow>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
@@ -511,23 +487,22 @@ export default function Dashboard() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (
-                      <motion.button
-                        key={folder.key}
-                        onClick={() => setActiveFolder(folder.key)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500"
-                        initial="hidden"
-                        animate="visible"
-                        custom={i + 2}
-                        variants={fadeUp}
-                      >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
-                          <folder.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
-                        </div>
-                        <div>
-                          <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
-                        </div>
-                      </motion.button>
+                      <motion.div key={folder.key} initial="hidden" animate="visible" custom={i + 2} variants={fadeUp}>
+                        <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                          <button
+                            onClick={() => setActiveFolder(folder.key)}
+                            className="group flex flex-col items-center gap-5 p-8 text-center w-full"
+                          >
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                              <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                            </div>
+                            <div>
+                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
+                            </div>
+                          </button>
+                        </BorderGlow>
+                      </motion.div>
                     ))}
                   </div>
                 </>
@@ -544,23 +519,22 @@ export default function Dashboard() {
 
                 <div className={`grid grid-cols-1 ${toolCards.length === 1 ? 'max-w-sm mx-auto' : toolCards.length === 2 ? 'sm:grid-cols-2 max-w-xl mx-auto' : 'sm:grid-cols-3'} gap-6`}>
                   {toolCards.map((tool, i) => (
-                    <motion.button
-                      key={tool.path}
-                      onClick={() => navigate(tool.path)}
-                      className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500"
-                      initial="hidden"
-                      animate="visible"
-                      custom={i + 2}
-                      variants={fadeUp}
-                    >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
-                        <tool.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: tool.color.startsWith('#') ? tool.color : undefined }} />
-                      </div>
-                      <div>
-                        <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{tool.label}</h2>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
-                      </div>
-                    </motion.button>
+                    <motion.div key={tool.path} initial="hidden" animate="visible" custom={i + 2} variants={fadeUp}>
+                      <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                        <button
+                          onClick={() => navigate(tool.path)}
+                          className="group flex flex-col items-center gap-5 p-8 text-center w-full"
+                        >
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                            <tool.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                          </div>
+                          <div>
+                            <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{tool.label}</h2>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
+                          </div>
+                        </button>
+                      </BorderGlow>
+                    </motion.div>
                   ))}
                 </div>
               </>
@@ -599,28 +573,27 @@ export default function Dashboard() {
                   {!selectedClientId ? (
                     <p className="text-sm text-muted-foreground">No client account found for your user.</p>
                   ) : (
-                    <div className={`grid grid-cols-1 ${activeSubCards.length <= 2 ? 'sm:grid-cols-2 max-w-xl mx-auto' : activeSubCards.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-6`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {activeSubCards.map((card, i) => (
-                        <motion.button
-                          key={card.path}
-                          onClick={() => !(card as any).disabled && navigate(card.path)}
-                          className={`group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500 ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                          initial="hidden"
-                          animate="visible"
-                          custom={i + 1}
-                          variants={fadeUp}
-                        >
-                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
-                            <card.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: card.color.startsWith('#') ? card.color : undefined }} />
-                          </div>
-                          <div>
-                            <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{card.label}</h2>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
-                            {(card as any).disabled && (
-                              <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
-                            )}
-                          </div>
-                        </motion.button>
+                        <motion.div key={card.path} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}>
+                          <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                            <button
+                              onClick={() => !(card as any).disabled && navigate(card.path)}
+                              className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                            >
+                              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                                <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                              </div>
+                              <div>
+                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight">{card.label}</h2>
+                                <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
+                                {(card as any).disabled && (
+                                  <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
+                                )}
+                              </div>
+                            </button>
+                          </BorderGlow>
+                        </motion.div>
                       ))}
                     </div>
                   )}
@@ -631,36 +604,28 @@ export default function Dashboard() {
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
                   <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95]" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
-                    {viewMode === "me"
-                      ? (language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?")
-                      : selectedClientName}
+                    {language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?"}
                   </motion.h1>
-                  {viewMode !== "me" && (
-                  <motion.p className="text-xs text-muted-foreground mb-10" initial="hidden" animate="visible" custom={2} variants={fadeUp}>
-                    {language === "en" ? "What do you want to work on?" : "¿En qué quieres trabajar?"}
-                  </motion.p>
-                  )}
-                  {viewMode === "me" && <div className="mb-10" />}
+                  <div className="mb-10" />
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (
-                      <motion.button
-                        key={folder.key}
-                        onClick={() => setActiveFolder(folder.key)}
-                        className="group flex flex-col items-center gap-5 p-8 text-center glass-card rounded-xl border-[rgba(255,255,255,0.06)] hover:border-[rgba(34,211,238,0.20)] hover:bg-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] transition-all duration-500"
-                        initial="hidden"
-                        animate="visible"
-                        custom={i + 3}
-                        variants={fadeUp}
-                      >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
-                          <folder.icon className="w-5 h-5 group-hover:!text-[#22d3ee] transition-colors" style={{ color: folder.color.startsWith('#') ? folder.color : undefined }} />
-                        </div>
-                        <div>
-                          <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
-                        </div>
-                      </motion.button>
+                      <motion.div key={folder.key} initial="hidden" animate="visible" custom={i + 3} variants={fadeUp}>
+                        <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                          <button
+                            onClick={() => setActiveFolder(folder.key)}
+                            className="group flex flex-col items-center gap-5 p-8 text-center w-full"
+                          >
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                              <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                            </div>
+                            <div>
+                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
+                            </div>
+                          </button>
+                        </BorderGlow>
+                      </motion.div>
                     ))}
                   </div>
                 </>

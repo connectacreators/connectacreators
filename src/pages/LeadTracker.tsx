@@ -32,6 +32,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   ArrowLeft,
   Loader2,
   RefreshCw,
@@ -39,6 +44,7 @@ import {
   Phone,
   Mail,
   Calendar,
+  SlidersHorizontal,
   ExternalLink,
   Users,
   Save,
@@ -48,6 +54,7 @@ import {
   Clock,
   Trash2,
   Plus,
+  ArrowUpDown,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -76,14 +83,28 @@ type Lead = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  "New Lead":    "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
-  "Follow-up 1": "bg-[rgba(132,204,22,0.15)] text-[#84CC16] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2": "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
-  "Follow-up 3": "bg-pink-500/15 text-pink-400 border-pink-500/30",
-  "Booked":      "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
-  "Closed":      "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
-  "Won":         "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
-  "Canceled":    "bg-red-500/15 text-red-400 border-red-500/30",
+  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[#84CC16] border-[rgba(132,204,22,0.30)]",
+  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
+  "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
+  "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
+  "Closed":              "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
+  "Won":                 "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
+  "Canceled":            "bg-red-500/15 text-red-400 border-red-500/30",
+};
+
+// A lead counts as "booked" when it has a booking slot (appointmentDate set) OR
+// when its status string matches either the canonical "Booked" or the legacy
+// Notion label "Appointment Booked". The appointmentDate signal is the reliable
+// one — it's set when public-booking creates the slot — so it catches legacy
+// leads whose status never synced. Canceled leads are excluded.
+const BOOKED_STATUSES = new Set(["Booked", "Appointment Booked"]);
+const CANCELED_STATUSES = new Set(["Canceled"]);
+const isCanceledStatus = (status?: string) => !!status && CANCELED_STATUSES.has(status);
+const isBookedLead = (lead: { leadStatus?: string; appointmentDate?: string; booked?: boolean }) => {
+  if (isCanceledStatus(lead.leadStatus)) return false;
+  return !!lead.appointmentDate || !!lead.booked || (!!lead.leadStatus && BOOKED_STATUSES.has(lead.leadStatus));
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -154,6 +175,7 @@ export default function LeadTracker() {
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month" | "custom">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortMode, setSortMode] = useState<"recent" | "oldest" | "name" | "booked">("recent");
 
   // Auto-select client from URL param
   useEffect(() => {
@@ -607,6 +629,20 @@ export default function LeadTracker() {
     const matchesStatus = statusFilter === "all" || lead.leadStatus === statusFilter;
     const matchesSource = sourceFilter === "all" || lead.leadSource === sourceFilter;
     return matchesSearch && matchesStatus && matchesSource && matchesDate(lead.createdDate);
+  }).sort((a, b) => {
+    if (sortMode === "name") return a.fullName.localeCompare(b.fullName);
+    if (sortMode === "booked") {
+      const aBooked = isBookedLead(a) ? 1 : 0;
+      const bBooked = isBookedLead(b) ? 1 : 0;
+      if (aBooked !== bBooked) return bBooked - aBooked;
+      // tie-break by recency
+      const aT = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+      const bT = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+      return bT - aT;
+    }
+    const aT = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+    const bT = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+    return sortMode === "oldest" ? aT - bT : bT - aT;
   });
 
   const statuses = statusOptions.length > 0 ? statusOptions : [...new Set(leads.map((l) => l.leadStatus).filter(Boolean))];
@@ -614,8 +650,8 @@ export default function LeadTracker() {
 
   // Stats — reflect active filters (date + search + status + source)
   const totalLeads = filtered.length;
-  const bookedCount = filtered.filter((l) => l.leadStatus === "Booked").length;
-  const pendingCount = filtered.filter((l) => l.leadStatus !== "Booked" && l.leadStatus !== "Canceled").length;
+  const bookedCount = filtered.filter((l) => isBookedLead(l)).length;
+  const pendingCount = filtered.filter((l) => !isBookedLead(l) && !isCanceledStatus(l.leadStatus)).length;
   const conversionRate = totalLeads > 0 ? ((bookedCount / totalLeads) * 100).toFixed(1) : "0.0";
 
   // Month-over-month deltas
@@ -634,12 +670,12 @@ export default function LeadTracker() {
   const totalDelta = lastMonthLeads > 0 ? Math.round(((thisMonthLeads - lastMonthLeads) / lastMonthLeads) * 100) : (thisMonthLeads > 0 ? 100 : 0);
 
   const thisMonthBooked = leads.filter((l) => {
-    if (!l.createdDate || l.leadStatus !== "Booked") return false;
+    if (!l.createdDate || !isBookedLead(l)) return false;
     const d = new Date(l.createdDate);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
   const lastMonthBooked = leads.filter((l) => {
-    if (!l.createdDate || l.leadStatus !== "Booked") return false;
+    if (!l.createdDate || !isBookedLead(l)) return false;
     const d = new Date(l.createdDate);
     const prev = new Date(now.getFullYear(), now.getMonth() - 1);
     return d.getMonth() === prev.getMonth() && d.getFullYear() === prev.getFullYear();
@@ -777,67 +813,124 @@ export default function LeadTracker() {
               />
             </div>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[140px] sm:flex-shrink-0 bg-background/50 border-border/50">
-                <SelectValue placeholder="Status" />
+            {/* Combined Filters popover (status + source + date) */}
+            {(() => {
+              const activeCount =
+                (statusFilter !== "all" ? 1 : 0) +
+                (sourceFilter !== "all" ? 1 : 0) +
+                (dateFilter !== "all" ? 1 : 0);
+              return (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-background/50 border-border/50 h-10 gap-2 flex-shrink-0"
+                    >
+                      <SlidersHorizontal className="w-4 h-4" />
+                      <span>{language === "en" ? "Filters" : "Filtros"}</span>
+                      {activeCount > 0 && (
+                        <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold w-5 h-5">
+                          {activeCount}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3 space-y-3" align="end">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">{tr(t.leadDetail.status, language)}</p>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="h-9 bg-background/50 border-border/50">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{tr(t.leadTracker.allStatuses, language)}</SelectItem>
+                          {statuses.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">{tr(t.leadDetail.source, language)}</p>
+                      <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                        <SelectTrigger className="h-9 bg-background/50 border-border/50">
+                          <SelectValue placeholder={tr(t.leadDetail.source, language)} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{tr(t.leadTracker.allSources, language)}</SelectItem>
+                          {sources.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">{language === "en" ? "Date" : "Fecha"}</p>
+                      <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as typeof dateFilter)}>
+                        <SelectTrigger className="h-9 bg-background/50 border-border/50">
+                          <Calendar className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                          <SelectValue placeholder="Date" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{language === "en" ? "All time" : "Todo el tiempo"}</SelectItem>
+                          <SelectItem value="today">{language === "en" ? "Today" : "Hoy"}</SelectItem>
+                          <SelectItem value="week">{language === "en" ? "Last 7 days" : "Últimos 7 días"}</SelectItem>
+                          <SelectItem value="month">{language === "en" ? "This month" : "Este mes"}</SelectItem>
+                          <SelectItem value="custom">{language === "en" ? "Custom range" : "Rango personalizado"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {dateFilter === "custom" && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <Input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="h-9 bg-background/50 border-border/50 text-xs"
+                            placeholder="From"
+                          />
+                          <Input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="h-9 bg-background/50 border-border/50 text-xs"
+                            placeholder="To"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {activeCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setStatusFilter("all");
+                          setSourceFilter("all");
+                          setDateFilter("all");
+                          setDateFrom("");
+                          setDateTo("");
+                        }}
+                        className="w-full text-xs text-muted-foreground hover:text-foreground py-1 transition-colors"
+                      >
+                        {language === "en" ? "Clear all filters" : "Limpiar filtros"}
+                      </button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              );
+            })()}
+
+            {/* Sort */}
+            <Select value={sortMode} onValueChange={(v) => setSortMode(v as typeof sortMode)}>
+              <SelectTrigger className="w-full sm:w-[150px] sm:flex-shrink-0 bg-background/50 border-border/50">
+                <ArrowUpDown className="w-4 h-4 mr-1.5 flex-shrink-0" />
+                <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{tr(t.leadTracker.allStatuses, language)}</SelectItem>
-                {statuses.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
+                <SelectItem value="recent">{language === "en" ? "Most recent" : "Más recientes"}</SelectItem>
+                <SelectItem value="oldest">{language === "en" ? "Oldest first" : "Más antiguos"}</SelectItem>
+                <SelectItem value="name">{language === "en" ? "Name (A–Z)" : "Nombre (A–Z)"}</SelectItem>
+                <SelectItem value="booked">{language === "en" ? "Booked first" : "Reservados primero"}</SelectItem>
               </SelectContent>
             </Select>
-
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-full sm:w-[130px] sm:flex-shrink-0 bg-background/50 border-border/50">
-                <SelectValue placeholder={tr(t.leadDetail.source, language)} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{tr(t.leadTracker.allSources, language)}</SelectItem>
-                {sources.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Date filter */}
-            <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as typeof dateFilter)}>
-              <SelectTrigger className="w-full sm:w-[130px] sm:flex-shrink-0 bg-background/50 border-border/50">
-                <Calendar className="w-4 h-4 mr-1.5 flex-shrink-0" />
-                <SelectValue placeholder="Date" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{language === "en" ? "All time" : "Todo el tiempo"}</SelectItem>
-                <SelectItem value="today">{language === "en" ? "Today" : "Hoy"}</SelectItem>
-                <SelectItem value="week">{language === "en" ? "Last 7 days" : "Últimos 7 días"}</SelectItem>
-                <SelectItem value="month">{language === "en" ? "This month" : "Este mes"}</SelectItem>
-                <SelectItem value="custom">{language === "en" ? "Custom range" : "Rango personalizado"}</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {dateFilter === "custom" && (
-              <>
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full sm:w-[130px] sm:flex-shrink-0 bg-background/50 border-border/50 text-xs"
-                  placeholder="From"
-                />
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full sm:w-[130px] sm:flex-shrink-0 bg-background/50 border-border/50 text-xs"
-                  placeholder="To"
-                />
-              </>
-            )}
 
             {(isSubscriber || isAdmin) && (
               <Button
@@ -1025,7 +1118,7 @@ export default function LeadTracker() {
             const lineData = days.map((date) => ({
               date: date.slice(5),
               leads: leads.filter((l) => l.createdDate?.startsWith(date)).length,
-              booked: leads.filter((l) => l.createdDate?.startsWith(date) && l.leadStatus === "Booked").length,
+              booked: leads.filter((l) => l.createdDate?.startsWith(date) && isBookedLead(l)).length,
             }));
 
             // Source breakdown
@@ -1226,6 +1319,33 @@ export default function LeadTracker() {
                     {selectedLead.lastContacted ? new Date(selectedLead.lastContacted).toLocaleDateString() : na}
                   </p>
                 </div>
+                {selectedLead.appointmentDate && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs">{language === "en" ? "Booking" : "Reserva"}</p>
+                    <p className="font-medium text-foreground flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-primary" />
+                      {(() => {
+                        const [yr, mo, dy] = selectedLead.appointmentDate.split("-").map(Number);
+                        const d = new Date(yr, (mo || 1) - 1, dy || 1);
+                        const dateStr = d.toLocaleDateString(language === "en" ? "en-US" : "es-ES", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        });
+                        if (selectedLead.bookingTime) {
+                          // Format time as h:MM AM/PM
+                          const [h, m] = selectedLead.bookingTime.split(":").map(Number);
+                          const hour12 = h % 12 || 12;
+                          const ampm = h >= 12 ? "PM" : "AM";
+                          const timeStr = `${hour12}:${String(m || 0).padStart(2, "0")} ${ampm}`;
+                          return `${dateStr} · ${timeStr}`;
+                        }
+                        return dateStr;
+                      })()}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Booking date/time — editable for subscribers */}

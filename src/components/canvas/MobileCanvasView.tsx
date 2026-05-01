@@ -24,6 +24,9 @@ import {
   ClipboardList,
   MessageSquare,
   Video,
+  Film,
+  Mic,
+  Zap,
 } from "lucide-react";
 import { Node } from "@xyflow/react";
 import CanvasAIPanel from "./CanvasAIPanel";
@@ -641,7 +644,10 @@ const MODEL_LABELS: Record<string, string> = {
 
 const FORMAT_LABELS: Record<string, string> = {
   "talking_head": "Talking Head",
+  "broll_caption": "B-Roll Caption",
   "voiceover": "Voiceover",
+  "entrevista": "Entrevista",
+  "variado": "Variado",
   "text_on_screen": "Text on Screen",
   "mixed": "Mixed",
 };
@@ -898,28 +904,28 @@ const PlusSheet = memo((props: PlusSheetProps) => {
           {/* Action items */}
           <div style={{ paddingTop: 4 }}>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onGenerateScript)}>
-              <span style={iconStyle}>🎬</span>
+              <span style={iconStyle}><Film size={18} style={{ color: "#22d3ee" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Generate script</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Build from canvas context</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onImageMode)}>
-              <span style={iconStyle}>🖼</span>
+              <span style={iconStyle}><Image size={18} style={{ color: "#a855f7" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Create image</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Visualize with DALL-E 3</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onResearch)}>
-              <span style={iconStyle}>🔍</span>
+              <span style={iconStyle}><Search size={18} style={{ color: "#22d3ee" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Deep research</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Search the web for trends</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onVoiceInput)}>
-              <span style={iconStyle}>🎤</span>
+              <span style={iconStyle}><Mic size={18} style={{ color: "#22d3ee" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Voice input</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Speak your message</div>
@@ -932,21 +938,21 @@ const PlusSheet = memo((props: PlusSheetProps) => {
           {/* Settings items */}
           <div style={{ paddingTop: 4 }}>
             <button style={menuItemStyle} onClick={() => setSubPicker("model")}>
-              <span style={iconStyle}>⚡</span>
+              <span style={iconStyle}><Zap size={18} style={{ color: "#22d3ee" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>AI Model</div>
               </div>
               <span style={{ color: "#22d3ee", fontSize: 12 }}>{MODEL_LABELS[aiModel] ?? aiModel} ›</span>
             </button>
             <button style={menuItemStyle} onClick={() => setSubPicker("format")}>
-              <span style={iconStyle}>📝</span>
+              <span style={iconStyle}><FileText size={18} style={{ color: "#22d3ee" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Script format</div>
               </div>
               <span style={{ color: "#22d3ee", fontSize: 12 }}>{FORMAT_LABELS[format] ?? format} ›</span>
             </button>
             <button style={menuItemStyle} onClick={() => setSubPicker("language")}>
-              <span style={iconStyle}>🌐</span>
+              <span style={iconStyle}><Globe size={18} style={{ color: "#22d3ee" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Language</div>
               </div>
@@ -959,6 +965,80 @@ const PlusSheet = memo((props: PlusSheetProps) => {
   );
 });
 PlusSheet.displayName = "PlusSheet";
+
+// ── NodePickerSheet (add canvas nodes from top-right "+") ────────────────
+
+const NODE_PICKER_ITEMS: { type: string; label: string; desc: string; Icon: React.ComponentType<any>; color: string }[] = [
+  { type: "videoNode", label: "Video", desc: "Add a video to analyze", Icon: Video, color: "#f97316" },
+  { type: "textNoteNode", label: "Text Note", desc: "Add a text note", Icon: StickyNote, color: "#a78bfa" },
+  { type: "researchNoteNode", label: "Research Note", desc: "Write research notes", Icon: Search, color: "#34d399" },
+  { type: "competitorProfileNode", label: "Competitor Profile", desc: "Analyze a competitor", Icon: Globe, color: "#818cf8" },
+  { type: "instagramProfileNode", label: "Instagram Profile", desc: "Browse IG posts", Icon: Globe, color: "#e879f9" },
+  { type: "mediaNode", label: "Media", desc: "Upload image or video", Icon: Image, color: "#22d3ee" },
+  { type: "hookGeneratorNode", label: "Hook Generator", desc: "Generate viral hooks", Icon: Sparkles, color: "#facc15" },
+  { type: "brandGuideNode", label: "Brand Guide", desc: "Define brand voice", Icon: Palette, color: "#f472b6" },
+  { type: "ctaBuilderNode", label: "CTA Builder", desc: "Build calls to action", Icon: Megaphone, color: "#fb923c" },
+  { type: "onboardingFormNode", label: "Onboarding Form", desc: "View client onboarding", Icon: ClipboardList, color: "#22d3ee" },
+  { type: "annotationNode", label: "Annotation", desc: "Add annotation tag", Icon: Hash, color: "#94a3b8" },
+];
+
+const NodePickerSheet = memo(({ open, onClose, onAddNode }: { open: boolean; onClose: () => void; onAddNode: (type: string) => void }) => {
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50"
+        style={{ background: "rgba(0,0,0,0.5)" }}
+        onClick={onClose}
+      />
+      <div
+        className="fixed left-0 right-0 bottom-0 z-50"
+        style={{
+          background: "#1a1a2e",
+          borderRadius: "20px 20px 0 0",
+          maxHeight: "75vh",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
+          <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+        </div>
+        <div style={{ padding: "0 16px 8px" }}>
+          <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>Add Node</span>
+        </div>
+        <div style={{ padding: "0 16px 24px" }}>
+          {NODE_PICKER_ITEMS.map((item) => (
+            <button
+              key={item.type}
+              onClick={() => { onAddNode(item.type); onClose(); }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "13px 4px",
+                width: "100%",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{ width: 28, textAlign: "center" }}>
+                <item.Icon size={18} style={{ color: item.color }} />
+              </span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>{item.label}</div>
+                <div style={{ color: "#666", fontSize: 11 }}>{item.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+});
+NodePickerSheet.displayName = "NodePickerSheet";
 
 // ── Main Component ────────────────────────────────────────────────────────
 
@@ -979,6 +1059,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
     activeSessionId,
     onNewSession,
     onSwitchSession,
+    onAddNode,
     remixVideo,
   } = props;
 
@@ -995,9 +1076,12 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
   const [generatedScript, setGeneratedScript] = useState<any>(null);
   const [refinementInput, setRefinementInput] = useState<string | null>(null);
 
-  // Sidebar & plus-sheet state
+  // Sidebar, plus-sheet, node-picker state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [plusSheetOpen, setPlusSheetOpen] = useState(false);
+  const [nodeSheetOpen, setNodeSheetOpen] = useState(false);
+  const [mobileInput, setMobileInput] = useState("");
+  const mobileTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeChatIdRef = useRef<string | null>(null);
   const activeMessagesRef = useRef<ChatMessage[]>([]);
@@ -1134,6 +1218,16 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
     [activeChatId, persistMessages]
   );
 
+  const handleMobileSend = useCallback(() => {
+    const text = mobileInput.trim();
+    if (!text) return;
+    (window as any).__canvasAutoMessage = text;
+    setMobileInput("");
+    if (mobileTextareaRef.current) {
+      mobileTextareaRef.current.style.height = "auto";
+    }
+  }, [mobileInput]);
+
   const handleNodeTap = useCallback((node: Node) => {
     setSelectedNode(node);
   }, []);
@@ -1174,15 +1268,17 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           scrollbar-width: thin;
           scrollbar-color: transparent transparent;
         }
+        /* Hide CanvasAIPanel top toolbar (format dropdown + language toggle) */
+        .mobile-canvas-root .border-b.border-border.flex.flex-shrink-0 {
+          display: none !important;
+        }
+        /* Hide CanvasAIPanel bottom bar (chips + Generate Script + input toolbar) */
         .mobile-canvas-root .border-t.border-border.flex-shrink-0 {
           display: none !important;
         }
         .mobile-canvas-root textarea {
           min-height: 32px !important;
           font-size: 14px !important;
-        }
-        .mobile-canvas-root .relative.flex.items-end {
-          padding-left: 32px !important;
         }
       `}</style>
 
@@ -1218,9 +1314,9 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           <span style={{ color: "#666", fontSize: 11 }}>▾</span>
         </span>
 
-        {/* New chat */}
+        {/* Add node */}
         <button
-          onClick={onNewSession}
+          onClick={() => setNodeSheetOpen(true)}
           className="flex items-center justify-center"
           style={{
             width: 32,
@@ -1275,25 +1371,114 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
         )}
       </div>
 
-      {/* Floating "+" trigger for Plus Sheet */}
-      <button
-        onClick={() => setPlusSheetOpen(true)}
-        className="fixed z-40 flex items-center justify-center"
+      {/* ChatGPT-style input bar */}
+      <div
+        className="flex-shrink-0"
         style={{
-          left: 20,
-          bottom: 18,
-          width: 28,
-          height: 28,
-          background: "none",
-          border: "none",
-          color: "#22d3ee",
-          fontSize: 22,
-          fontWeight: 700,
-          lineHeight: 1,
+          padding: "10px 16px 16px",
+          background: "#0f0f1e",
         }}
       >
-        +
-      </button>
+        <div
+          className="flex items-end gap-2"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 24,
+            padding: "10px 14px",
+          }}
+        >
+          {/* "+" button */}
+          <button
+            onClick={() => setPlusSheetOpen(true)}
+            style={{
+              color: "#22d3ee",
+              fontSize: 20,
+              fontWeight: 700,
+              lineHeight: 1,
+              background: "none",
+              border: "none",
+              flexShrink: 0,
+              width: 24,
+              height: 24,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            +
+          </button>
+
+          {/* Auto-grow textarea */}
+          <textarea
+            ref={mobileTextareaRef}
+            value={mobileInput}
+            onChange={(e) => {
+              setMobileInput(e.target.value);
+              // Auto-grow
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleMobileSend();
+              }
+            }}
+            placeholder="Ask anything"
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "#fff",
+              fontSize: 14,
+              resize: "none",
+              minHeight: 20,
+              maxHeight: 120,
+              lineHeight: "20px",
+              padding: 0,
+            }}
+            rows={1}
+          />
+
+          {/* Mic or Send button */}
+          {mobileInput.trim() ? (
+            <button
+              onClick={handleMobileSend}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                background: "#22d3ee",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ color: "#000", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>▲</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                (window as any).__canvasAutoMessage = "[voice_input]";
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Mic size={20} style={{ color: "#888" }} />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Node Detail Sheet */}
       {selectedNode && (
@@ -1312,6 +1497,13 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
       />
 
       {/* Plus Sheet */}
+      {/* Node Picker Sheet */}
+      <NodePickerSheet
+        open={nodeSheetOpen}
+        onClose={() => setNodeSheetOpen(false)}
+        onAddNode={onAddNode}
+      />
+
       <PlusSheet
         open={plusSheetOpen}
         onClose={() => setPlusSheetOpen(false)}

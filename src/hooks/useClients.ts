@@ -35,6 +35,19 @@ export function useClients(enabled: boolean, ownerScoped?: boolean) {
   }, [enabled]);
 
   const addClient = async (name: string, email?: string) => {
+    // Check for existing client with same name + email to prevent duplicates
+    let dupQuery = supabase.from("clients").select("id, name, email").eq("name", name);
+    if (email) {
+      dupQuery = dupQuery.eq("email", email);
+    } else {
+      dupQuery = dupQuery.is("email", null);
+    }
+    const { data: existing } = await dupQuery.maybeSingle();
+    if (existing) {
+      toast.info("Client already exists");
+      return existing as Client;
+    }
+
     const { data, error } = await supabase
       .from("clients")
       .insert({ name, email: email || null })

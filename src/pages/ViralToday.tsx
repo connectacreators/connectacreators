@@ -194,16 +194,17 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(d / 365)}y ago`;
 }
 
-// Proxy Instagram CDN URLs through wsrv.nl to bypass hotlink/CORS restrictions
+// Resolve thumbnails via yt-dlp cache when a video URL is available, else proxy the CDN URL
 function proxyImg(url: string | null, videoUrl?: string): string | null {
   if (!url) return null;
   if (url.includes("connectacreators.com/thumb-cache")) return url;
   if (url.includes("connectacreators.com")) return url;
-  // TikTok/YouTube CDN thumbnails expire — use resolve-thumb to get fresh URL + cache
-  if (url.includes("tiktokcdn") || url.includes("googlevideo") || url.includes("ytimg")) {
-    if (videoUrl) return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
-    return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
+  // If we have the original video URL, always prefer resolve-thumb (yt-dlp + disk cache).
+  // This works for Instagram, TikTok, YouTube — avoids expired CDN URLs entirely.
+  if (videoUrl) {
+    return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
   }
+  // Fallback: proxy the raw CDN URL (may 403 if expired)
   return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
@@ -304,11 +305,10 @@ function buildFeedScorer(
       score += 20;
     }
 
-    // 5. Seen penalty (-15 per view) + click penalty (-10)
+    // 5. Unseen bonus (+25) — reward videos the user hasn't seen
     const inter = interactions.get(v.id);
-    if (inter) {
-      score -= inter.seen_count * 15;
-      if (inter.clicked) score -= 10;
+    if (!inter) {
+      score += 25;
     }
 
     return score;
@@ -578,7 +578,7 @@ function VideoCard({
         />
         {video.thumbnail_url && !imgError ? (
           <img
-            src={proxyImg(video.thumbnail_url, video.video_url) ?? video.thumbnail_url}
+            src={proxyImg(video.thumbnail_url) ?? video.thumbnail_url}
             alt={video.caption?.slice(0, 60) ?? "video"}
             className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImgError(true)}
@@ -869,16 +869,18 @@ export default function ViralToday() {
     credits.subscription_status === "canceling" ||
     credits.subscription_status === "connecta_plus"
   );
-  const scrapesRemaining = credits ? Math.max(0, credits.channel_scrapes_limit - credits.channel_scrapes_used) : 0;
+  // Ensure all subscribers have at least 8 scrapes (starter default) even if DB value is 0
+  const effectiveScrapeLimit = credits ? Math.max(credits.channel_scrapes_limit, hasSubscription ? 8 : 0) : 0;
+  const scrapesRemaining = credits ? Math.max(0, effectiveScrapeLimit - credits.channel_scrapes_used) : 0;
   const canScrape = isAdmin || isVideographer || (!!hasSubscription && scrapesRemaining > 0);
   const scrapeDisabledReason = !hasSubscription
     ? "Active subscription required"
     : scrapesRemaining <= 0
-    ? `Scrape limit reached (${credits?.channel_scrapes_limit ?? 0}/${credits?.channel_scrapes_limit ?? 0})`
+    ? `Scrape limit reached (${credits?.channel_scrapes_used ?? 0}/${effectiveScrapeLimit})`
     : undefined;
 
   // View: videos | channels
-  const [view, setView] = useState<"videos" | "channels" | "reels">("reels");
+  const [view, setView] = useState<"videos" | "channels" | "reels">(isAdmin ? "reels" : "videos");
 
   // Data
   const [videos, setVideos] = useState<ViralVideo[]>([]);
@@ -899,16 +901,13 @@ export default function ViralToday() {
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const videosPerPage = 100;
-  const [showSeen, setShowSeen] = useState(true);
 
   // ── Feed algorithm state ──────────────────────────────────────────────────
-  // initialInteractions is the snapshot from DB at mount — used for sorting/filtering.
-  // Never updated mid-session so videos don't disappear while browsing.
+  // initialInteractions is the snapshot from DB at mount — used for "For You" sort's unseen_bonus.
+  // Read-only: no session tracking, no flush, no mid-session updates.
   const [initialInteractions, setInitialInteractions] = useState<Map<string, { seen_count: number; clicked: boolean }>>(new Map());
   const [nicheKeywords, setNicheKeywords] = useState<string[]>([]);
   const [userChannelIds, setUserChannelIds] = useState<Set<string>>(new Set());
-  const seenThisSession = useRef<Set<string>>(new Set());
-  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
@@ -1017,11 +1016,14 @@ export default function ViralToday() {
     }
   }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement]);
 
+  // Mount-only: load channels + videos once when user becomes available
+  const didMount = useRef(false);
   useEffect(() => {
-    if (!user) return;
+    if (!user || didMount.current) return;
+    didMount.current = true;
     fetchChannels();
     fetchVideos();
-  }, [user, fetchChannels, fetchVideos]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Re-fetch from server when heavy filters change (debounced) ────────────
   const filterGenRef = useRef(0);
@@ -1088,39 +1090,6 @@ export default function ViralToday() {
     const owned = new Set(channels.filter(c => (c as any).created_by === user.id).map(c => c.id));
     setUserChannelIds(owned);
   }, [channels, user]);
-
-  // ── Flush seen videos to Supabase every 30s + on unmount ──────────────────
-  // Only writes to DB for future sessions — does NOT update local state,
-  // so videos don't disappear from the grid mid-session.
-  const flushSeen = useCallback(async () => {
-    if (!user || seenThisSession.current.size === 0) return;
-    const ids = Array.from(seenThisSession.current);
-    seenThisSession.current.clear();
-    try {
-      await supabase.rpc("upsert_video_seen", {
-        p_user_id: user.id,
-        p_video_ids: ids,
-      });
-    } catch (e) {
-      console.error("[ViralToday] flush seen failed:", e);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    flushTimerRef.current = setInterval(flushSeen, 30_000);
-    const handleUnload = () => flushSeen();
-    window.addEventListener("beforeunload", handleUnload);
-    return () => {
-      if (flushTimerRef.current) clearInterval(flushTimerRef.current);
-      window.removeEventListener("beforeunload", handleUnload);
-      flushSeen();
-    };
-  }, [flushSeen]);
-
-  // ── Callback for VideoCard to report seen ─────────────────────────────────
-  const reportSeen = useCallback((videoId: string) => {
-    seenThisSession.current.add(videoId);
-  }, []);
 
   // ── Callback for VideoCard to report click ────────────────────────────────
   // Only writes to DB for future sessions — no local state update so grid stays stable.
@@ -1195,7 +1164,7 @@ export default function ViralToday() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [channels, fetchChannels, fetchVideos]);
+  }, [channels, fetchChannels]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -1251,6 +1220,12 @@ export default function ViralToday() {
 
       if (scrapeError) throw scrapeError;
 
+      if (scrapeResult?.server_busy) {
+        toast.warning("Server busy — please try again in ~30 seconds");
+        fetchChannels();
+        return;
+      }
+
       if (scrapeResult?.status === "done") {
         toast.success(`@${username} scraped — ${scrapeResult.videosStored ?? 0} videos added`);
         fetchVideos();
@@ -1294,6 +1269,12 @@ export default function ViralToday() {
       });
 
       if (error) throw error;
+
+      if (data?.server_busy) {
+        toast.warning("Server busy — please try again in ~30 seconds");
+        fetchChannels();
+        return;
+      }
 
       if (data?.status === "done") {
         toast.success(`@${ch.username} scraped — ${data.videosStored ?? 0} videos`);
@@ -1344,6 +1325,10 @@ export default function ViralToday() {
           const body = data ?? (error as any).context ? await (error as any).context?.json?.() : null;
           msg = body?.error || error.message || msg;
         } catch { msg = error.message || msg; }
+        // Friendly messages for known IG errors
+        if (msg.includes("challenge_required") || msg.includes("login_required")) {
+          msg = "Instagram search is temporarily unavailable. Please try again in a few minutes.";
+        }
         throw new Error(msg);
       }
       if (data?.cached) {
@@ -1407,14 +1392,6 @@ export default function ViralToday() {
         // 4. Any single word partial match on hashtags (so "sales" finds "#saleslife")
         if (words.some((w) => clean.includes(w))) return true;
         return false;
-      });
-    }
-
-    // Hard hide: remove videos seen 4+ times (unless "Show seen" is on)
-    if (!showSeen) {
-      result = result.filter(v => {
-        const inter = initialInteractions.get(v.id);
-        return !inter || inter.seen_count < 4;
       });
     }
 
@@ -1491,8 +1468,8 @@ export default function ViralToday() {
 
   const runningChannels = channels.filter((c) => c.scrape_status === "running");
 
-  // ── Reels view — full-height, own scroll context ──────────────────────────
-  if (view === "reels") {
+  // ── Reels view — admin only, full-height, own scroll context ────────────
+  if (view === "reels" && isAdmin) {
     return (
       <PageTransition className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Compact header */}
@@ -1579,18 +1556,26 @@ export default function ViralToday() {
                       </span>
                     )}
                   </button>
-                  <button
-                    onClick={() => setView("reels")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                      view === "reels"
-                        ? "bg-card text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    Reels
-                  </button>
+                  {isAdmin ? (
+                    <button
+                      onClick={() => setView("reels")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                        view === "reels"
+                          ? "bg-card text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      Reels
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground/50 cursor-default" title="Coming soon">
+                      <Play className="w-3.5 h-3.5" />
+                      Reels
+                      <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded-full">Soon</span>
+                    </span>
+                  )}
                   <button
                     onClick={() => setView("channels")}
                     className={cn(
@@ -1669,20 +1654,6 @@ export default function ViralToday() {
                     isActive={filterSort !== "foryou"}
                   />
 
-                  {/* Show seen toggle */}
-                  <button
-                    onClick={() => setShowSeen(s => !s)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-                      showSeen
-                        ? "bg-primary/15 border-primary/30 text-primary"
-                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
-                    )}
-                    title={showSeen ? "All videos shown (click to hide seen videos)" : "Seen videos hidden (click to show all)"}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    {showSeen ? "All" : "Fresh"}
-                  </button>
                 </div>
 
                 {/* Filter chips */}
@@ -1813,7 +1784,6 @@ export default function ViralToday() {
                             onDelete={(id) => setVideos((prev) => prev.filter((x) => x.id !== id))}
                             selected={selectedVideos.has(v.id)}
                             onToggleSelect={toggleVideoSelect}
-                            onSeen={reportSeen}
                             onClickVideo={reportClick}
                           />
                         ))}

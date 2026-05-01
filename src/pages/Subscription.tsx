@@ -24,7 +24,7 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const CREDIT_COSTS = [
-  { en: "Transcribe video (Vault)", es: "Transcribir video (Vault)", cost: 150 },
+  { en: "Transcribe video (Vault)", es: "Transcribir video (Vault)", cost: 50 },
   { en: "AI Research + Script",     es: "Investigación AI + Guión",  cost: 50  },
   { en: "Refine / Translate script", es: "Refinar / Traducir guión", cost: 25  },
   { en: "Templatize / Extract facts", es: "Plantilla / Extraer hechos", cost: 50 },
@@ -56,7 +56,7 @@ const fadeUp = {
 
 export default function Subscription() {
   const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
-  const { credits, loading, percentUsed, scrapePercentUsed } = useCredits();
+  const { credits, loading, percentUsed, scrapePercentUsed, refetch: refetchCredits } = useCredits();
   const { language } = useLanguage();
   const en = language === "en";
 
@@ -67,12 +67,15 @@ export default function Subscription() {
     cancel_at_period_end: boolean;
     current_period_end: number;
     canceled_at: number | null;
+    cancel_at: number | null;
     plan_name: string | null;
     amount: number | null;
     currency: string;
     interval: string | null;
     trial_end: number | null;
     trial_start: number | null;
+    pending_plan_type: string | null;
+    pending_plan_effective_date: string | null;
   } | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
@@ -101,23 +104,91 @@ export default function Subscription() {
   };
 
   const handleChangePlan = async (targetPlan: string) => {
+    // If subscription is canceled, open billing portal (can resubscribe from there)
+    const isSubCanceled = stripeStatus?.status === "canceled";
+    if (isSubCanceled) {
+      setPortalLoading(targetPlan);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
+        const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
+          body: { action: "portal" },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (error) throw error;
+        if (data?.url) window.location.href = data.url;
+      } catch (err: any) {
+        toast.error(err.message || "Failed to open billing portal");
+      } finally {
+        setPortalLoading(false);
+      }
+      return;
+    }
+
+    // Active subscription: use change-plan API directly
+    const targetOpt = PLAN_OPTIONS.find((p) => p.key === targetPlan);
+    const isUpgrade = (targetOpt?.amount ?? 0) > currentAmount;
+    const confirmMsg = isUpgrade
+      ? (en
+        ? `Upgrade to ${targetOpt?.name}? You'll be charged the prorated difference immediately.`
+        : `¿Mejorar a ${targetOpt?.name}? Se te cobrará la diferencia prorrateada de inmediato.`)
+      : (en
+        ? `Downgrade to ${targetOpt?.name}? Your current plan and credits stay active until the next billing date.`
+        : `¿Degradar a ${targetOpt?.name}? Tu plan y créditos actuales se mantienen hasta la próxima fecha de facturación.`);
+
+    if (!confirm(confirmMsg)) return;
+
     setPortalLoading(targetPlan);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
-      const { data, error } = await supabase.functions.invoke("stripe-billing-portal", {
-        body: { action: "portal-upgrade", target_plan: targetPlan },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No portal URL returned");
-      }
+      const res = await fetch(
+        "https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1/stripe-billing-portal",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: "change-plan", new_plan: targetPlan }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Plan change failed");
+      toast.success(data?.message || (en ? "Plan changed!" : "¡Plan cambiado!"));
+      // Refresh all data to show new plan + credits
+      fetchStripeStatus();
+      window.dispatchEvent(new Event("credits-updated"));
     } catch (err: any) {
-      toast.error(err.message || "Failed to open plan change");
+      toast.error(err.message || (en ? "Failed to change plan" : "Error al cambiar plan"));
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const handleCancelDowngrade = async () => {
+    setPortalLoading("cancel-downgrade");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const res = await fetch(
+        "https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1/stripe-billing-portal",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: "cancel-downgrade" }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to cancel downgrade");
+      toast.success(data?.message || (en ? "Downgrade canceled!" : "Degradación cancelada!"));
+      fetchStripeStatus();
+      window.dispatchEvent(new Event("credits-updated"));
+    } catch (err: any) {
+      toast.error(err.message || (en ? "Failed to cancel downgrade" : "Error al cancelar"));
     } finally {
       setPortalLoading(false);
     }
@@ -133,7 +204,11 @@ export default function Subscription() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error) throw error;
-      if (data?.subscription) setStripeStatus(data.subscription);
+      if (data?.subscription) {
+        setStripeStatus(data.subscription);
+        // Status endpoint syncs plan from Stripe → DB; refetch credits to pick up any changes
+        refetchCredits();
+      }
     } catch (err: any) {
       console.error("Failed to fetch Stripe status:", err);
     } finally {
@@ -235,8 +310,12 @@ export default function Subscription() {
   const currentOpt = PLAN_OPTIONS.find((p) => p.key === planKey);
   const currentAmount = currentOpt?.amount ?? 0;
 
-  const renewalDate = stripeStatus?.current_period_end
-    ? new Date(stripeStatus.current_period_end * 1000).toLocaleDateString(undefined, {
+  // Prefer cancel_at for canceled subs, then current_period_end from Stripe, then DB fallback
+  const periodEndTs = stripeStatus?.cancel_at_period_end && stripeStatus?.cancel_at
+    ? stripeStatus.cancel_at
+    : stripeStatus?.current_period_end || null;
+  const renewalDate = periodEndTs
+    ? new Date(periodEndTs * 1000).toLocaleDateString(undefined, {
         month: "long", day: "numeric", year: "numeric",
       })
     : credits.credits_reset_at
@@ -264,25 +343,41 @@ export default function Subscription() {
     features.push({ label: en ? "Unlimited leads & scripts" : "Leads y guiones ilimitados", included: true });
   }
 
+  // A subscription is fully canceled if Stripe says "canceled" (period already ended)
+  const isCanceled = stripeStatus?.status === "canceled";
+  // Still active but scheduled to cancel at end of current period
+  const isCanceling = !isCanceled && stripeStatus?.cancel_at_period_end;
+
+  const isPendingDowngrade = !!credits.pending_plan_type;
+  const pendingPlanLabel = credits.pending_plan_type ? (PLAN_LABELS[credits.pending_plan_type] ?? credits.pending_plan_type) : null;
+  const pendingEffectiveDate = credits.pending_plan_effective_date
+    ? new Date(credits.pending_plan_effective_date).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
+    : renewalDate;
+
   const showStatusBadge = stripeStatus && (
     stripeStatus.status === "trialing" ||
-    stripeStatus.cancel_at_period_end ||
+    isCanceling ||
     stripeStatus.status === "past_due" ||
-    stripeStatus.status === "canceled"
+    isCanceled ||
+    isPendingDowngrade
   );
 
-  const statusBadgeText = stripeStatus?.cancel_at_period_end
+  const statusBadgeText = isPendingDowngrade
+    ? (en ? `Downgrades to ${pendingPlanLabel} on ${pendingEffectiveDate}` : `Cambia a ${pendingPlanLabel} el ${pendingEffectiveDate}`)
+    : isCanceled
+    ? (en ? "Canceled" : "Cancelada")
+    : isCanceling
     ? (en ? "Cancels at period end" : "Se cancela al final del período")
     : stripeStatus?.status === "trialing"
     ? (en ? "Trialing" : "Prueba")
     : stripeStatus?.status === "past_due"
     ? (en ? "Past due" : "Pago pendiente")
-    : stripeStatus?.status === "canceled"
-    ? (en ? "Canceled" : "Cancelada")
     : "";
 
-  const statusBadgeClass = stripeStatus?.status === "canceled" || stripeStatus?.status === "past_due"
+  const statusBadgeClass = isCanceled || stripeStatus?.status === "past_due"
     ? "bg-red-500/15 text-red-400"
+    : isPendingDowngrade
+    ? "bg-amber-500/15 text-amber-400"
     : "bg-amber-500/15 text-amber-400";
 
   /* ── Render ──────────────────────────────────────────────────────── */
@@ -314,16 +409,34 @@ export default function Subscription() {
             >
               {showPlans
                 ? (en ? "Hide plans" : "Ocultar planes")
+                : isCanceled
+                ? (en ? "Resubscribe" : "Reactivar plan")
+                : isPendingDowngrade
+                ? (en ? "Change plan" : "Cambiar plan")
                 : (en ? "Upgrade plan" : "Mejorar plan")}
             </button>
           </div>
 
           {renewalDate && (
             <p className="text-sm text-muted-foreground mb-5">
-              {stripeStatus?.cancel_at_period_end
+              {isCanceled
+                ? (en ? `Ended on ${renewalDate}` : `Finalizó el ${renewalDate}`)
+                : isCanceling
                 ? (en ? `Active until ${renewalDate}` : `Activa hasta ${renewalDate}`)
                 : (en ? `Your plan renews ${renewalDate}` : `Tu plan se renueva el ${renewalDate}`)}
             </p>
+          )}
+
+          {isPendingDowngrade && (
+            <button
+              onClick={handleCancelDowngrade}
+              disabled={!!portalLoading}
+              className="text-xs font-medium text-amber-400 hover:text-amber-300 underline underline-offset-2 mb-3"
+            >
+              {portalLoading === "cancel-downgrade"
+                ? (en ? "Canceling..." : "Cancelando...")
+                : (en ? "Cancel downgrade" : "Cancelar degradación")}
+            </button>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -420,30 +533,37 @@ export default function Subscription() {
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {PLAN_OPTIONS.map((plan, i) => {
-              const isCurrent = planKey === plan.key;
-              const isUpgrade = plan.amount > currentAmount;
-              const isDowngrade = plan.amount < currentAmount;
+              // If subscription is canceled, no plan is "current" — let them resubscribe to any
+              const isActiveCurrent = !isCanceled && !isPendingDowngrade && planKey === plan.key;
+              const isPendingTarget = isPendingDowngrade && plan.key === credits.pending_plan_type;
+              const isUpgrade = isCanceled || plan.amount > currentAmount;
+              const isDowngrade = !isCanceled && plan.amount < currentAmount && !isPendingTarget;
 
               return (
                 <motion.div key={plan.key} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}
                   className={`glass-card rounded-xl p-5 flex flex-col justify-between overflow-hidden ${
-                    isCurrent ? "!border-primary/40" : ""
+                    isActiveCurrent ? "!border-primary/40" : ""
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-bold text-base">{plan.name}</span>
-                      {isCurrent && (
+                      {isActiveCurrent && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/20 text-primary">
                           {en ? "Current" : "Actual"}
                         </span>
                       )}
-                      {!isCurrent && isUpgrade && (
+                      {!isActiveCurrent && isUpgrade && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
-                          {en ? "Upgrade" : "Mejora"}
+                          {isCanceled ? (en ? "Subscribe" : "Suscribir") : (en ? "Upgrade" : "Mejora")}
                         </span>
                       )}
-                      {!isCurrent && isDowngrade && (
+                      {isPendingTarget && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
+                          {en ? "Scheduled" : "Programado"}
+                        </span>
+                      )}
+                      {!isActiveCurrent && !isPendingTarget && isDowngrade && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
                           {en ? "Downgrade" : "Degradar"}
                         </span>
@@ -468,7 +588,15 @@ export default function Subscription() {
                     </ul>
                   </div>
 
-                  {isCurrent ? (
+                  {isPendingTarget ? (
+                    <button
+                      disabled
+                      className="w-full text-sm font-medium py-2 rounded-lg border border-amber-500/20 text-amber-400/60 cursor-not-allowed"
+                      style={{ background: "rgba(245,158,11,.05)" }}
+                    >
+                      {en ? `Starts ${pendingEffectiveDate}` : `Inicia ${pendingEffectiveDate}`}
+                    </button>
+                  ) : isActiveCurrent ? (
                     <button
                       disabled
                       className="w-full text-sm font-medium py-2 rounded-lg border border-white/[.06] text-muted-foreground cursor-not-allowed"
@@ -484,7 +612,7 @@ export default function Subscription() {
                     >
                       {portalLoading === plan.key
                         ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                        : (en ? "Upgrade" : "Mejorar")}
+                        : isCanceled ? (en ? "Subscribe" : "Suscribir") : (en ? "Upgrade" : "Mejorar")}
                     </button>
                   ) : (
                     <button

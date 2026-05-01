@@ -68,6 +68,9 @@ function ScriptLineEditor({
   useEffect(() => { onEnterRef.current = onEnter; }, [onEnter]);
   const onBackspaceEmptyRef = useRef(onBackspaceEmpty);
   useEffect(() => { onBackspaceEmptyRef.current = onBackspaceEmpty; }, [onBackspaceEmpty]);
+  // Same pattern for onBlur — prevents stale `lines` closure when handleBlur is recreated
+  const onBlurRef = useRef(onBlur);
+  useEffect(() => { onBlurRef.current = onBlur; }, [onBlur]);
 
   const initialContent = line.rich_text
     ? DOMPurify.sanitize(line.rich_text)
@@ -119,7 +122,7 @@ function ScriptLineEditor({
     onFocus: () => onFocus(idx),
     onBlur: ({ editor: e }) => {
       const html = DOMPurify.sanitize(e.getHTML());
-      onBlur(idx, html);
+      onBlurRef.current(idx, html);
     },
   });
 

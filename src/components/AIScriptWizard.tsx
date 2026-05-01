@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
+import BorderGlow from "@/components/ui/BorderGlow";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Client } from "@/hooks/useClients";
@@ -1972,29 +1973,31 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </div>
 
           {/* Generate button */}
-          <Button
-            onClick={handleGenerateScript}
-            disabled={loading || vaultSaving}
-            className="btn-primary-glass w-full h-14 text-base font-semibold rounded-xl gap-3 transition-all"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                {tr({ en: "Generating script...", es: "Generando script..." }, language)}
-              </>
-            ) : vaultSaving ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                {tr({ en: "Analyzing video structure...", es: "Analizando estructura del video..." }, language)}
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                {tr({ en: "Generate Script", es: "Generar Script" }, language)}
-                <ArrowRight className="w-5 h-5 ml-auto" />
-              </>
-            )}
-          </Button>
+          <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+            <Button
+              onClick={handleGenerateScript}
+              disabled={loading || vaultSaving}
+              className="w-full h-14 text-base font-semibold rounded-xl gap-3 transition-all bg-transparent border-0 hover:bg-white/5"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {tr({ en: "Generating script...", es: "Generando script..." }, language)}
+                </>
+              ) : vaultSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {tr({ en: "Analyzing video structure...", es: "Analizando estructura del video..." }, language)}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  {tr({ en: "Generate Script", es: "Generar Script" }, language)}
+                  <ArrowRight className="w-5 h-5 ml-auto" />
+                </>
+              )}
+            </Button>
+          </BorderGlow>
 
           {loading && (
             <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-4">

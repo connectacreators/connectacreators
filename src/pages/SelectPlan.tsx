@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Loader2, Crown, LogOut, Zap, Info } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import BorderGlow from "@/components/ui/BorderGlow";
 
 const plans = [
   {
@@ -14,7 +15,7 @@ const plans = [
     name: "Starter",
     price: 39,
     description: "Perfect for creators getting started with Connecta.",
-    credits: "50,000",
+    credits: "10,000",
     badge: null as string | null,
     limits: [] as { label: string; value: string }[],
     features: [
@@ -33,7 +34,7 @@ const plans = [
     name: "Growth",
     price: 79,
     description: "Best for active creators and growing businesses.",
-    credits: "100,000",
+    credits: "30,000",
     badge: "Most Popular",
     limits: [] as { label: string; value: string }[],
     features: [
@@ -52,7 +53,7 @@ const plans = [
     name: "Pro",
     price: 139,
     description: "For power users who need unlimited capacity.",
-    credits: "175,000",
+    credits: "75,000",
     badge: null as string | null,
     limits: [] as { label: string; value: string }[],
     features: [
@@ -265,22 +266,6 @@ export default function SelectPlan() {
           </p>
         </motion.div>
 
-        {/* Free plan notice */}
-        {isFreePlan && !isUpgrade && (
-          <motion.div
-            className="max-w-2xl mx-auto mb-8"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-          >
-            <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-5 py-3.5">
-              <Info className="w-5 h-5 text-primary shrink-0" />
-              <p className="text-sm text-foreground">
-                You're on the <span className="font-semibold">Free plan</span> (250 credits/month). Upgrade for more power.
-              </p>
-            </div>
-          </motion.div>
-        )}
 
         <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${!isUpgrade ? "xl:grid-cols-5" : ""} gap-6`}>
           {visiblePlans.map((plan, i) => {
@@ -374,16 +359,27 @@ export default function SelectPlan() {
                         Current Plan
                       </Button>
                     ) : (
-                      <Button
-                        className="w-full btn-primary-glass"
-                        disabled={selecting !== null}
-                        onClick={() => handleSelect(plan)}
+                      <BorderGlow
+                        borderRadius={10}
+                        backgroundColor="#141416"
+                        glowColor="187 80 70"
+                        colors={['#06B6D4', '#22d3ee', '#84CC16']}
+                        edgeSensitivity={25}
+                        glowRadius={50}
+                        coneSpread={10}
+                        fillOpacity={0}
                       >
-                        {selecting === plan.key ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : null}
-                        {isUpgrade && plan.isStripe ? `Upgrade to ${plan.name}` : plan.cta}
-                      </Button>
+                        <Button
+                          className="w-full"
+                          disabled={selecting !== null}
+                          onClick={() => handleSelect(plan)}
+                        >
+                          {selecting === plan.key ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : null}
+                          {isUpgrade && plan.isStripe ? `Upgrade to ${plan.name}` : plan.cta}
+                        </Button>
+                      </BorderGlow>
                     )}
                   </CardFooter>
                 </Card>

@@ -240,7 +240,9 @@ export default function PublicBooking() {
     if (!selectedDate || !selectedTime || !clientId) return;
     setSubmitting(true);
     try {
-      const fullPhone = `${countryCode} ${formData.phone}`;
+      // Strip all non-digit characters from phone, then concat with country code (no space)
+      const cleanPhone = formData.phone.replace(/\D/g, "");
+      const fullPhone = `${countryCode}${cleanPhone}`;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/public-booking?client_id=${clientId}`, {
         method: "POST",
         headers: {
@@ -259,6 +261,13 @@ export default function PublicBooking() {
       const data = await res.json();
       if (data.success) {
         setStep("confirmed");
+        // Notify any parent frame (e.g. landing page hosting this booking iframe)
+        // so it can fire conversion pixels (Meta Lead, Google Ads, etc.).
+        if (window.parent && window.parent !== window) {
+          try {
+            window.parent.postMessage({ type: "booking-success" }, "*");
+          } catch { /* parent may be cross-origin and unreachable — ignore */ }
+        }
       } else {
         setError(data.error || "Error creating booking");
       }

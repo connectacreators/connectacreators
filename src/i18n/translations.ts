@@ -272,7 +272,7 @@ export const t = {
     alreadyAccount: { en: "Already have an account?", es: "¿Ya tienes una cuenta?" },
     signInLink: { en: "Sign in", es: "Iniciar sesión" },
     popular: { en: "POPULAR", es: "POPULAR" },
-    trialBanner: { en: "7-day free trial · 250 credits · Cancel anytime", es: "Prueba gratuita de 7 días · 250 créditos · Cancela cuando quieras" },
+    trialBanner: { en: "7-day free trial · 1,000 credits · Cancel anytime", es: "Prueba gratuita de 7 días · 1,000 créditos · Cancela cuando quieras" },
     orderSummary: { en: "Order Summary", es: "Resumen del Pedido" },
     freeTrial: { en: "7-day free trial", es: "Prueba gratuita de 7 días" },
     todayCharge: { en: "Today's charge", es: "Cargo de hoy" },

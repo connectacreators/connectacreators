@@ -123,17 +123,18 @@ function InstagramIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <defs>
-        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#f09433"/>
-          <stop offset="25%" stopColor="#e6683c"/>
-          <stop offset="50%" stopColor="#dc2743"/>
-          <stop offset="75%" stopColor="#cc2366"/>
-          <stop offset="100%" stopColor="#bc1888"/>
-        </linearGradient>
+        <radialGradient id="ig-rad" cx="30%" cy="107%" r="150%">
+          <stop offset="0%" stopColor="#fdf497"/>
+          <stop offset="5%" stopColor="#fdf497"/>
+          <stop offset="45%" stopColor="#fd5949"/>
+          <stop offset="60%" stopColor="#d6249f"/>
+          <stop offset="90%" stopColor="#285AEB"/>
+        </radialGradient>
       </defs>
-      <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig-grad)"/>
-      <circle cx="12" cy="12" r="4.5" stroke="white" strokeWidth="1.8" fill="none"/>
-      <circle cx="17.5" cy="6.5" r="1.2" fill="white"/>
+      <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#ig-rad)"/>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4" stroke="white" strokeWidth="1.5" fill="none"/>
+      <circle cx="12" cy="12" r="4" stroke="white" strokeWidth="1.5" fill="none"/>
+      <circle cx="17.2" cy="6.8" r="1.1" fill="white"/>
     </svg>
   );
 }
@@ -198,6 +199,7 @@ interface VideoData {
   channel_username?: string;
   thumbnailUrl?: string | null;
   videoTitle?: string | null;        // ← add this line
+  videoLabel?: string | null;
   videoFileUrl?: string | null;
   cdnVideoUrl?: string | null;
   selectedSections?: string[];
@@ -220,7 +222,7 @@ const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string
 };
 
 // ── Custom Video Player ─────────────────────────────────────────────
-function CanvasVideoPlayer({ src, aspectRatio, onClose }: { src: string; aspectRatio: string; onClose: () => void }) {
+function CanvasVideoPlayer({ src, aspectRatio, onClose, onAspectDetected }: { src: string; aspectRatio: string; onClose: () => void; onAspectDetected?: (ratio: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -231,6 +233,7 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose }: { src: string; aspectR
   const [currentTime, setCurrentTime] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [detectedRatio, setDetectedRatio] = useState<string | null>(null);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fmt = (s: number) => {
@@ -308,7 +311,7 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose }: { src: string; aspectR
       ref={containerRef}
       className="nodrag relative w-full overflow-hidden"
       style={{
-        aspectRatio,
+        aspectRatio: detectedRatio || aspectRatio,
         background: "#000",
         borderRadius: fullscreen ? 0 : undefined,
         cursor: "pointer",
@@ -322,10 +325,18 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose }: { src: string; aspectR
         src={src}
         autoPlay
         playsInline
-        crossOrigin="anonymous"
         className="w-full h-full object-contain"
         onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+        onLoadedMetadata={() => {
+          const v = videoRef.current;
+          if (!v) return;
+          setDuration(v.duration ?? 0);
+          if (v.videoWidth && v.videoHeight) {
+            const ratio = v.videoWidth < v.videoHeight ? "9 / 16" : "16 / 9";
+            setDetectedRatio(ratio);
+            onAspectDetected?.(ratio);
+          }
+        }}
         onEnded={() => { setPlaying(false); setShowControls(true); }}
         onError={(e) => {
           console.error("[CanvasVideoPlayer] Video load error:", (e.target as HTMLVideoElement).error);
@@ -431,6 +442,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const [thumbError, setThumbError] = useState<string | null>(null);
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(d.videoFileUrl || null);
   const [videoTitle, setVideoTitle] = useState<string | null>(d.videoTitle ?? null);
+  const [videoLabel, setVideoLabel] = useState<string | null>(d.videoLabel ?? null);
   const [playingVideo, setPlayingVideo] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
 
@@ -443,22 +455,35 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const [visualProgress, setVisualProgress] = useState<"idle"|"running"|"done"|"error">("idle");
 
   // ─── Step 1: Transcribe (fires thumbnail fetch in parallel) ───
+  const deriveVideoLabel = (title?: string | null, caption?: string | null, transcription?: string | null, username?: string | null): string => {
+    if (title) return title.slice(0, 50);
+    if (caption) return caption.split(/[\n.!?]/)[0].trim().slice(0, 50);
+    if (transcription) return transcription.split(/[.!?\n]/)[0].trim().slice(0, 50);
+    if (username) return `@${username}`;
+    return "Video";
+  };
+
   const transcribe = async () => {
     if (!urlInput.trim()) { toast.error("Paste a video URL first."); return; }
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Prefer fresh session token over prop (prop can go stale in long sessions)
+      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
       setStage("transcribing");
       setThumbStatus("loading");
       setThumbError(null);
 
-      // Download video MP4 — fire-and-forget for playback (non-IG and non-YT only)
+      // Download video MP4 — fire-and-forget for playback
+      // YouTube Shorts are treated like TikTok (downloadable short-form), regular YT is not
       const isIg = /instagram\.com/.test(urlInput);
       const isYtUrl = /youtube\.com|youtu\.be/.test(urlInput);
-      if (!isIg && !isYtUrl) downloadVideoFile(urlInput.trim());
+      const isYtShort = /youtube\.com\/shorts\//.test(urlInput);
+      const isLongYt = isYtUrl && !isYtShort;
+      if (!isIg && !isLongYt) downloadVideoFile(urlInput.trim());
 
       // Thumbnail — fire-and-forget for non-YouTube (YouTube thumbnail comes back in transcribe-video response)
+      // YouTube Shorts also get thumbnails from transcribe-video response, so skip fetch
       const thumbUrl = `${SUPABASE_URL}/functions/v1/fetch-thumbnail`;
       const skipThumbFetch = isYtUrl;
       console.log("[VideoNode] Fetching thumbnail from:", thumbUrl);
@@ -514,13 +539,20 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         updates.videoTitle = json.video_title;
       }
 
+      // Auto-label: derive a short readable name from available data
+      if (!videoLabel) {
+        const label = deriveVideoLabel(json.video_title, d.caption, json.transcription, d.channel_username);
+        setVideoLabel(label);
+        updates.videoLabel = label;
+      }
+
       // Store CDN video URL for later visual analysis (Instagram CDN URLs expire, so use ASAP)
       if (json.videoUrl) {
         updates.cdnVideoUrl = json.videoUrl;
       }
 
-      // Use thumbnail from transcription response if fetch-thumbnail hasn't resolved yet
-      if (json.thumbnail_url && !thumbnailUrl) {
+      // Use thumbnail from transcription response if fetch-thumbnail hasn't resolved or failed
+      if (json.thumbnail_url && (!thumbnailUrl || thumbStatus === "error")) {
         const proxied = proxyInstagramUrl(json.thumbnail_url);
         console.log("[VideoNode] Setting thumbnail from transcription response:", proxied.slice(0, 100));
         setThumbnailUrl(proxied);
@@ -540,6 +572,9 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
       d.onUpdate?.(updates);
       setStage("transcribed");
+
+      // Signal credits change so FloatingCredits updates without page refresh
+      window.dispatchEvent(new Event("credits-updated"));
     } catch (e: any) {
       toast.error(e.message || "Processing failed");
       setStage("idle");
@@ -571,7 +606,18 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
       return;
     }
 
-    // For page URLs — download via VPS cobalt, cache as MP4
+    // For Instagram/TikTok page URLs — use /stream-reel (Cobalt) which works reliably
+    const isIgOrTt = /instagram\.com|tiktok\.com/.test(videoUrl);
+    if (isIgOrTt) {
+      const streamUrl = `${VPS_API_URL}/stream-reel?url=${encodeURIComponent(videoUrl)}`;
+      console.log("[VideoNode] Using /stream-reel for IG/TT page URL");
+      setVideoFileUrl(streamUrl);
+      d.onUpdate?.({ videoFileUrl: streamUrl });
+      if (autoPlay) setPlayingVideo(true);
+      return;
+    }
+
+    // For other page URLs (YouTube, etc.) — download via VPS, cache as MP4
     setDownloadingVideo(true);
     toast.info("Preparing video for playback...");
     try {
@@ -602,23 +648,36 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     if (!d.transcription) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Prefer fresh session token over prop (prop can go stale in long sessions)
+      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       setStage("analyzing");
       setStructureProgress("running");
-      setVisualProgress("running");
 
-      const [structureRes, visualRes] = await Promise.allSettled([
-        fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
-          method: "POST", headers,
-          body: JSON.stringify({ step: "analyze-structure", transcription: d.transcription, caption: d.caption }),
-        }).then(r => r.json()),
-        fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
-          method: "POST", headers,
-          body: JSON.stringify({ url: d.cdnVideoUrl || d.url || urlInput, original_url: d.url || urlInput, transcript: d.transcription }),
-        }).then(r => r.json()),
-      ]);
+      // Skip visual analysis for long YouTube videos (too large to download/analyze)
+      const videoUrl = d.url || urlInput;
+      const isLongYouTube = /(?:youtube\.com\/watch|youtu\.be\/)/.test(videoUrl) && !/youtube\.com\/shorts\//.test(videoUrl);
+
+      if (isLongYouTube) {
+        setVisualProgress("done"); // No visual for long YT
+      } else {
+        setVisualProgress("running");
+      }
+
+      const structurePromise = fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
+        method: "POST", headers,
+        body: JSON.stringify({ step: "analyze-structure", transcription: d.transcription, caption: d.caption }),
+      }).then(r => r.json());
+
+      const visualPromise = isLongYouTube
+        ? Promise.resolve({ skipped: true })
+        : fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
+            method: "POST", headers,
+            body: JSON.stringify({ url: d.cdnVideoUrl || videoUrl, original_url: videoUrl, transcript: d.transcription }),
+          }).then(r => r.json());
+
+      const [structureRes, visualRes] = await Promise.allSettled([structurePromise, visualPromise]);
 
       let structureOk = false;
       let visualOk = false;
@@ -662,10 +721,12 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         setStructureProgress("error");
       }
 
-      if (visualRes.status === "fulfilled" && !visualRes.value.error) {
+      if (visualRes.status === "fulfilled" && !visualRes.value.error && !visualRes.value.skipped) {
         updates.videoAnalysis = visualRes.value;
         setVisualProgress("done");
         visualOk = true;
+      } else if (visualRes.status === "fulfilled" && visualRes.value.skipped) {
+        setVisualProgress("done"); // Skipped for long YouTube — not an error
       } else {
         setVisualProgress("error");
       }
@@ -688,7 +749,8 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const reAnalyzeVisual = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Prefer fresh session token over prop (prop can go stale in long sessions)
+      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       setVisualProgress("running");
@@ -741,7 +803,8 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     setSavingVault(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Prefer fresh session token over prop (prop can go stale in long sessions)
+      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
         method: "POST",
@@ -768,6 +831,16 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     }
   };
 
+  // Seed label from caption for nodes that already have one but no label yet
+  useEffect(() => {
+    if (!videoLabel && (d.caption || d.channel_username)) {
+      const label = deriveVideoLabel(d.videoTitle, d.caption, d.transcription, d.channel_username);
+      setVideoLabel(label);
+      d.onUpdate?.({ videoLabel: label });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-transcribe when node is created with a pre-set URL (from paste handler)
   const autoTranscribedRef = useRef(false);
   useEffect(() => {
@@ -783,12 +856,19 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const hasTranscript = !!d.transcription;
   const hasStructure = !!d.structure;
 
-  // Detect platform for aspect ratio: Instagram/TikTok = 9:19 (vertical), YouTube = 16:9
+  // Detect platform — YouTube Shorts are treated as short-form (like TikTok)
   const isYt = /youtube\.com|youtu\.be/.test(d.url || urlInput);
+  const isYtShort = /youtube\.com\/shorts\//.test(d.url || urlInput);
+  const isLongYt = isYt && !isYtShort;
   const platform = detectPlatform(d.url || urlInput);
   const theme = PLATFORM_THEME[platform];
-  const isVertical = urlInput.includes("instagram.com") || urlInput.includes("tiktok.com");
-  const aspectRatio = isVertical ? "9 / 19" : "16 / 9";
+  const urlForDetect = d.url || urlInput;
+  const isYouTubeShort = /youtube\.com\/shorts\//.test(urlForDetect);
+  const isFbReel = /facebook\.com\/reel/.test(urlForDetect);
+  const isVertical = urlForDetect.includes("instagram.com") || urlForDetect.includes("tiktok.com") || isYouTubeShort || isFbReel;
+  const [detectedAspect, setDetectedAspect] = useState<string | null>(null);
+  // Force vertical for known short-form platforms — don't let thumbnail detection override
+  const aspectRatio = isVertical ? "9 / 16" : (detectedAspect || "16 / 9");
 
   return (
     <div
@@ -856,12 +936,16 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         <>
           {/* Drag handle header — always draggable, shows delete */}
           <div className="flex items-center justify-between px-3 py-1.5" style={{ background: theme.headerBg, borderBottom: `1px solid ${theme.headerBorder}`, cursor: "grab" }}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <PlatformIcon platform={platform} />
-              <span className="text-[10px] font-semibold" style={theme.labelStyle ?? { color: theme.btnPrimaryText }}>{theme.label}</span>
+              {videoLabel ? (
+                <span className="text-[10px] font-medium text-white/75 truncate">{videoLabel}</span>
+              ) : (
+                <span className="text-[10px] font-semibold" style={theme.labelStyle ?? { color: theme.btnPrimaryText }}>{theme.label}</span>
+              )}
             </div>
             {d.onDelete && (
-              <button onClick={d.onDelete} className="nodrag p-0.5 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors">
+              <button onClick={d.onDelete} className="nodrag p-0.5 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors flex-shrink-0">
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -874,10 +958,11 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 src={videoFileUrl}
                 aspectRatio={aspectRatio}
                 onClose={() => setPlayingVideo(false)}
+                onAspectDetected={setDetectedAspect}
               />
             ) : thumbnailUrl ? (
-              <div className={`relative group ${isYt ? "cursor-default" : "cursor-pointer"}`} onClick={() => {
-                if (isYt) return;  // YouTube has no playback
+              <div className={`relative group ${isLongYt ? "cursor-default" : "cursor-pointer"}`} onClick={() => {
+                if (isLongYt) return;  // Long YouTube has no playback (Shorts do)
                 if (videoFileUrl) { setPlayingVideo(true); return; }
                 if (downloadingVideo) return;
                 if (d.url) downloadVideoFile(d.cdnVideoUrl || d.url, true);
@@ -887,6 +972,12 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   alt="Video thumbnail"
                   className="w-full object-cover"
                   style={{ aspectRatio }}
+                  onLoad={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    if (img.naturalWidth && img.naturalHeight && !detectedAspect) {
+                      setDetectedAspect(img.naturalWidth < img.naturalHeight ? "9 / 16" : "16 / 9");
+                    }
+                  }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -897,8 +988,8 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                     <p className="text-[11px] font-medium text-white/90 leading-snug line-clamp-2">{videoTitle}</p>
                   </div>
                 )}
-                {/* Play button overlay — hidden for YouTube (no playback) */}
-                {d.url && !isYt && (
+                {/* Play button overlay — hidden for long YouTube (Shorts get playback) */}
+                {d.url && !isLongYt && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
                     {downloadingVideo ? (
                       <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center">
@@ -996,8 +1087,8 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* ── "Generate Visual Breakdown" button — hidden for YouTube ── */}
-            {hasTranscript && !hasStructure && !isYt && (
+            {/* ── "Generate Visual Breakdown" button — hidden for long YouTube ── */}
+            {hasTranscript && !hasStructure && !isLongYt && (
               <div className="px-3 py-2">
                 {stage !== "analyzing" ? (
                   <button

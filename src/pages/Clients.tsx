@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
+import BorderGlow from "@/components/ui/BorderGlow";
 
 type ClientRow = {
   id: string;
@@ -83,10 +84,24 @@ export default function Clients() {
       });
       error = rpcError;
     } else {
-      // Admin/videographer: direct insert
+      // Admin/videographer: check for existing client first to prevent duplicates
+      let dupQuery = supabase.from("clients").select("id").eq("name", newClientName.trim());
+      const emailVal = newClientEmail.trim() || null;
+      if (emailVal) {
+        dupQuery = dupQuery.eq("email", emailVal);
+      } else {
+        dupQuery = dupQuery.is("email", null);
+      }
+      const { data: existingDup } = await dupQuery.maybeSingle();
+      if (existingDup) {
+        toast.info(language === "en" ? "Client already exists" : "El cliente ya existe");
+        setAdding(false);
+        return;
+      }
+
       const { error: insertError } = await supabase.from("clients").insert({
         name: newClientName.trim(),
-        email: newClientEmail.trim() || null,
+        email: emailVal,
       });
       error = insertError;
     }
@@ -177,6 +192,13 @@ export default function Clients() {
       navigate("/dashboard");
     }
   }, [loading, user, canManageClients, fetchClients, navigate]);
+
+  // Re-fetch when sidebar creates a client
+  useEffect(() => {
+    const handler = () => fetchClients();
+    window.addEventListener("clients-changed", handler);
+    return () => window.removeEventListener("clients-changed", handler);
+  }, [fetchClients]);
 
   // Fetch client limit from subscriptions table
   useEffect(() => {

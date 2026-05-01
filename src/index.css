@@ -212,17 +212,11 @@ All colors MUST be HSL for consistency and theming.
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     position: relative;
   }
   .glass-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 40%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
-    pointer-events: none;
-    border-radius: inherit;
+    display: none;
   }
   /* Modifier variants — must be composed with .glass-card (which provides backdrop-filter) */
   .glass-card-cyan {
@@ -300,23 +294,32 @@ All colors MUST be HSL for consistency and theming.
   .badge-amber   { background: rgba(245,158,11,0.10); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
   .badge-neutral { background: rgba(255,255,255,0.06);color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); }
 
-  /* ── Ocean Surge Button System ── */
+  /* ── Ocean Surge Button System (GlassSurface-inspired) ── */
   .btn-primary-glass {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.10);
     color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(12px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255,255,255,0.20),
+      inset 0 -1px 0 0 rgba(255,255,255,0.10),
+      0 8px 32px 0 rgba(31, 38, 135, 0.15);
     position: relative; overflow: hidden;
+    transition: all 0.26s ease-out;
   }
   .btn-primary-glass:hover {
-    background: rgba(255, 255, 255, 0.10);
-    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.30);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255,255,255,0.25),
+      inset 0 -1px 0 0 rgba(255,255,255,0.12),
+      0 8px 32px 0 rgba(31, 38, 135, 0.25);
   }
   .btn-primary-glass::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0; height: 50%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
     pointer-events: none;
   }
   .btn-secondary-glass {
@@ -335,23 +338,24 @@ All colors MUST be HSL for consistency and theming.
     color: #94a3b8;
   }
 
-  /* Clean checkbox — border only, no fill */
+  /* Clean checkbox — no fill, cyan outline */
   .checkbox-clean {
     appearance: none;
     -webkit-appearance: none;
     width: 15px;
     height: 15px;
     min-width: 15px;
-    border: 1.5px solid hsl(var(--border));
+    border: 1.5px solid hsl(var(--primary));
     border-radius: 3px;
     background: transparent;
     cursor: pointer;
     position: relative;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, opacity 0.15s;
     flex-shrink: 0;
   }
   .checkbox-clean:hover {
     border-color: hsl(var(--primary));
+    opacity: 0.8;
   }
   .checkbox-clean:checked {
     background: transparent;
@@ -448,6 +452,28 @@ All colors MUST be HSL for consistency and theming.
   scrollbar-color: rgba(8, 145, 178, 0.4) transparent;
 }
 
+/* ── Global scrollbar — cyan outline, no fill ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 1.5px solid rgba(34, 211, 238, 0.4);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.65);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.4) transparent;
+}
+
 /* Canvas scrollbars — cyan outline, no fill (AI panel + all nodes) */
 .canvas-ai-scroll::-webkit-scrollbar,
 .react-flow__node ::-webkit-scrollbar,
@@ -480,6 +506,27 @@ All colors MUST be HSL for consistency and theming.
   scrollbar-color: rgba(34, 211, 238, 0.4) transparent;
 }
 
+/* Landing page floating particles + noise */
+@keyframes lp-particle-float {
+  0%   { opacity: 0; transform: translateY(0) scale(0.8); }
+  8%   { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-700px) scale(1.2); }
+}
+.lp-particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: lp-particle-float linear infinite;
+  opacity: 0;
+  pointer-events: none;
+}
+.lp-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+  mix-blend-mode: overlay;
+}
+
 /* ReactFlow — rounded node wrappers + selection glow */
 .react-flow__node {
   border-radius: 1rem !important;
@@ -490,6 +537,17 @@ All colors MUST be HSL for consistency and theming.
   outline: none !important;
   box-shadow: none !important;
   border-radius: 1rem !important;
+}
+/* Annotation nodes use their own dotted border — strip ReactFlow's selection chrome */
+.react-flow__node-annotationNode,
+.react-flow__node-annotationNode.selected,
+.react-flow__node-annotationNode:focus,
+.react-flow__node-annotationNode:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
 }
 
 /* ReactFlow — Allow text selection + copy inside all canvas nodes */
@@ -635,6 +693,6 @@ All colors MUST be HSL for consistency and theming.
 .glass-ios { background: rgba(255,255,255,0.035); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.3); position: relative; }
 .glass-ios-strong { background: rgba(8,145,178,0.07); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(8,145,178,0.2); box-shadow: inset 0 1px 0 rgba(8,145,178,0.15), 0 4px 20px rgba(0,0,0,0.3), 0 0 30px rgba(8,145,178,0.06); position: relative; }
 .sidebar-glass { background: rgba(8,145,178,0.04); backdrop-filter: blur(72px) saturate(180%) brightness(1.04); -webkit-backdrop-filter: blur(72px) saturate(180%) brightness(1.04); border-right: 1px solid rgba(8,145,178,0.12); position: relative; }
-.btn-17-primary { background: linear-gradient(135deg, #0891B2, #84CC16); color: #fff; box-shadow: 0 4px 20px rgba(8,145,178,0.35), inset 0 1px 0 rgba(255,255,255,0.15); position: relative; overflow: hidden; }
+.btn-17-primary { background: linear-gradient(135deg, #0891B2, #84CC16); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15); position: relative; overflow: hidden; }
 .btn-17-secondary { background: rgba(8,145,178,0.1); border: 1px solid rgba(8,145,178,0.25); color: #22d3ee; }
 .btn-17 { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; }

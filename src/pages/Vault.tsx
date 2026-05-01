@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X, FileText,
 } from "lucide-react";
@@ -371,32 +372,32 @@ function VaultContent({
             </Button>
           </div>
 
-          {/* ── Master mode: client filter chips ── */}
+          {/* ── Master mode: client filter dropdown ── */}
           {isMasterMode && allClients && allClients.length > 0 && (
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                onClick={() => onFilterClient?.(null)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                  !filterClientId
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
-                    : "bg-primary/10 text-primary/70 border-primary/20 hover:border-primary/40 hover:text-primary"
-                }`}
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium shrink-0">Filter:</span>
+              <Select
+                value={filterClientId ?? "__all__"}
+                onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}
               >
-                {tr({ en: "All Clients", es: "Todos los Clientes" }, language)}
-              </button>
-              {allClients.map(client => (
+                <SelectTrigger className="h-8 text-xs w-48 border-border/60 bg-muted/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">{tr({ en: "All Clients", es: "Todos los Clientes" }, language)}</SelectItem>
+                  {allClients.map(client => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filterClientId && (
                 <button
-                  key={client.id}
-                  onClick={() => onFilterClient?.(client.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                    filterClientId === client.id
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
-                      : "bg-muted/40 text-muted-foreground border-border/60 hover:border-primary/30 hover:text-foreground"
-                  }`}
+                  onClick={() => onFilterClient?.(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {client.name}
+                  Clear
                 </button>
-              ))}
+              )}
             </div>
           )}
         </div>

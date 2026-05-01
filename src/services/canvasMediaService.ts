@@ -14,7 +14,8 @@ const SIGNED_URL_EXPIRY = 3600; // 1 hour
 const ACCEPTED_TYPES: Record<string, string[]> = {
   image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
   video: ['video/mp4', 'video/quicktime', 'video/webm'],
-  voice: ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/webm', 'audio/ogg'],
+  voice: ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/webm', 'audio/ogg', 'audio/x-caf'],
+  pdf:   ['application/pdf'],
 };
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,19 @@ function sanitizeFilename(filename: string): string {
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '');
   return (sanitized || 'file') + ext.toLowerCase();
+}
+
+/** Fallback MIME from extension when browser reports empty/generic type */
+const EXT_MIME: Record<string, string> = {
+  ".caf": "audio/x-caf", ".m4a": "audio/x-m4a", ".mp3": "audio/mpeg",
+  ".wav": "audio/wav", ".aac": "audio/aac", ".ogg": "audio/ogg",
+  ".webm": "audio/webm", ".mp4": "video/mp4", ".mov": "video/quicktime",
+};
+
+function resolveMime(file: File): string {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+  const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  return EXT_MIME[ext] || file.type;
 }
 
 function resolveFileType(mimeType: string): string {
@@ -204,8 +218,13 @@ export const canvasMediaService = {
     nodeId: string,
     onProgress: (pct: number) => void,
   ): Promise<CanvasMediaRecord> {
-    // 1. Validate MIME type
-    const fileType = resolveFileType(file.type); // throws if unsupported
+    // 1. Validate MIME type (with extension fallback for .caf etc.)
+    const mime = resolveMime(file);
+    const fileType = resolveFileType(mime); // throws if unsupported
+    // Re-wrap file with correct MIME if browser reported empty/generic
+    if (mime !== file.type) {
+      file = new File([file], file.name, { type: mime });
+    }
 
     // 2. Validate individual file size
     if (file.size > MAX_FILE_BYTES) {

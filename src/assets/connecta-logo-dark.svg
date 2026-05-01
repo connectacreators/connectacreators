@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="knightGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c0c0d8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#a8a8c0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8888a8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shineDark" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.4" />
+      <stop offset="40%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </linearGradient>
+  </defs>
+  <!-- Chess Knight - light/silver logo for dark backgrounds -->
+  <g transform="translate(52, 30) scale(0.55)">
+    <!-- Head and neck -->
+    <path d="M140 40 C130 25, 105 15, 85 20 C65 25, 50 45, 45 65 L40 80 C38 88, 42 92, 48 90 L55 86 C50 100, 48 115, 50 130 C42 135, 35 140, 35 150 L35 160 C35 170, 38 175, 45 178 L50 180 C55 190, 60 200, 65 210 L60 220 C58 228, 55 235, 55 245 L55 260 C55 268, 60 275, 70 278 L105 285 C130 290, 150 288, 165 280 L175 275 C182 272, 185 265, 185 258 L185 245 C185 230, 178 218, 168 210 L158 202 C155 195, 152 185, 152 175 L152 160 C152 145, 158 130, 168 120 C178 110, 182 95, 178 80 C175 68, 165 55, 150 45 Z" fill="url(#knightGradDark)"/>
+    <path d="M140 40 C130 25, 105 15, 85 20 C65 25, 50 45, 45 65 L40 80 C38 88, 42 92, 48 90 L55 86 C50 100, 48 115, 50 130 C42 135, 35 140, 35 150 L35 160 C35 170, 38 175, 45 178 L50 180 C55 190, 60 200, 65 210 L60 220 C58 228, 55 235, 55 245 L55 260 C55 268, 60 275, 70 278 L105 285 C130 290, 150 288, 165 280 L175 275 C182 272, 185 265, 185 258 L185 245 C185 230, 178 218, 168 210 L158 202 C155 195, 152 185, 152 175 L152 160 C152 145, 158 130, 168 120 C178 110, 182 95, 178 80 C175 68, 165 55, 150 45 Z" fill="url(#shineDark)"/>
+    <!-- Eye -->
+    <circle cx="105" cy="75" r="10" fill="#2a2a3e"/>
+    <circle cx="107" cy="73" r="4" fill="#d0d0e0"/>
+    <!-- Nostril -->
+    <ellipse cx="58" cy="82" rx="5" ry="4" fill="#2a2a3e" opacity="0.5"/>
+    <!-- Mane detail lines -->
+    <path d="M130 45 C135 55, 138 65, 140 78" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.2"/>
+    <path d="M125 50 C130 62, 133 72, 135 85" stroke="#ffffff" stroke-width="2.5" fill="none" opacity="0.15"/>
+    <path d="M120 55 C125 68, 128 78, 130 92" stroke="#ffffff" stroke-width="2" fill="none" opacity="0.1"/>
+    <!-- Base/pedestal -->
+    <rect x="50" y="278" width="130" height="12" rx="6" fill="url(#knightGradDark)"/>
+    <rect x="42" y="290" width="146" height="14" rx="7" fill="url(#knightGradDark)"/>
+  </g>
+</svg>

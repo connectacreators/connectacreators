@@ -241,7 +241,7 @@ serve(async (req) => {
                 client: props["Client"]?.select?.name || clientName || "",
                 campaignName: props["Campaign Name"]?.rich_text?.[0]?.plain_text || "",
                 notes: props["Notes"]?.rich_text?.[0]?.plain_text || "",
-                createdDate: props["Date"]?.date?.start || "",
+                createdDate: props["Date"]?.date?.start || page.created_time || "",
                 lastContacted: props["Last Contacted"]?.date?.start || "",
                 appointmentDate: props["Date"]?.date?.start || "",
                 notionUrl: page.url,

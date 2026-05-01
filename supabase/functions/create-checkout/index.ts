@@ -82,7 +82,25 @@ serve(async (req) => {
       .update({ stripe_customer_id: customerId })
       .eq("user_id", user.id);
 
+    // Prevent duplicate subscriptions — cancel any existing active/trialing subs
+    const existingSubs = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 10,
+    });
+    for (const sub of existingSubs.data) {
+      if (sub.status === "active" || sub.status === "trialing") {
+        await stripe.subscriptions.cancel(sub.id);
+        logStep("Canceled existing subscription to prevent double-charge", { subId: sub.id, status: sub.status });
+      }
+    }
+
     const origin = "https://connectacreators.com";
+
+    // Only grant trial if user never had a subscription before (prevent trial abuse)
+    const hadPreviousSub = existingSubs.data.length > 0;
+    const trialDays = hadPreviousSub ? undefined : 7;
+    logStep("Trial eligibility", { hadPreviousSub, trialDays });
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -93,7 +111,7 @@ serve(async (req) => {
       return_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { plan_type, supabase_user_id: user.id },
       subscription_data: {
-        trial_period_days: 7,
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: { plan_type, supabase_user_id: user.id },
       },
     });

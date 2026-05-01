@@ -1,8 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2 } from "lucide-react";
+import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,7 +26,7 @@ import TableHeaderComponent from "@/components/tables/TableHeader";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exportToCSV } from "@/utils/csvExport";
 import FootageUploadDialog from '@/components/FootageUploadDialog';
-import FootageViewerModal from '@/components/FootageViewerModal';
+import FootagePanel from '@/components/FootagePanel';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
 
@@ -51,6 +53,7 @@ interface EditingQueueItem {
   uploadSource?: string | null;
   storagePath?: string | null;
   storageUrl?: string | null;
+  deadline: string | null;
 }
 
 
@@ -87,6 +90,21 @@ function getStatusDotColor(status: string): string {
   if (lower.includes("revision")) return "bg-destructive";
   if (lower.includes("progress")) return "bg-amber-400";
   return "bg-muted-foreground";
+}
+
+function getRowStatusBorderColor(status: string): string {
+  const lower = status.toLowerCase();
+  if (lower === "done" || lower === "complete") return "#10b981";
+  if (lower.includes("revision")) return "#ef4444";
+  if (lower.includes("progress")) return "#f59e0b";
+  return "#334155";
+}
+
+const ASSIGNEE_COLORS = ['#0891b2','#7c3aed','#d97706','#059669','#e11d48','#4f46e5','#0d9488','#c026d3'];
+function getAssigneeColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return ASSIGNEE_COLORS[Math.abs(hash) % ASSIGNEE_COLORS.length];
 }
 
 function EditingQueueSkeleton() {
@@ -138,6 +156,7 @@ export default function EditingQueue() {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState<EditingQueueItem | null>(null);
   const [unresolvedCounts, setUnresolvedCounts] = useState<Record<string, number>>({});
+  const [totalCommentCounts, setTotalCommentCounts] = useState<Record<string, number>>({});
 
   const [footageViewerItem, setFootageViewerItem] = useState<EditingQueueItem | null>(null);
   const [viewerSubfolder, setViewerSubfolder] = useState<string | undefined>(undefined);
@@ -147,6 +166,47 @@ export default function EditingQueue() {
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const lastCheckedIndexRef = useRef<number>(-1);
+
+  // Caption edit dialog
+  const [captionEditItem, setCaptionEditItem] = useState<EditingQueueItem | null>(null);
+  const [captionEditValue, setCaptionEditValue] = useState('');
+
+  // Inline deadline picker
+  const [deadlineOpenId, setDeadlineOpenId] = useState<string | null>(null);
+  const [savingDeadline, setSavingDeadline] = useState(false);
+
+  // Column sort
+  const [sortCol, setSortCol] = useState<string | null>(() => {
+    try { return JSON.parse(localStorage.getItem('eq_sort') || 'null')?.col ?? null; } catch { return null; }
+  });
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(() => {
+    try { return JSON.parse(localStorage.getItem('eq_sort') || 'null')?.dir ?? 'asc'; } catch { return 'asc'; }
+  });
+
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      if (sortDir === 'asc') {
+        setSortDir('desc');
+        localStorage.setItem('eq_sort', JSON.stringify({ col, dir: 'desc' }));
+      } else {
+        setSortCol(null);
+        setSortDir('asc');
+        localStorage.removeItem('eq_sort');
+      }
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+      localStorage.setItem('eq_sort', JSON.stringify({ col, dir: 'asc' }));
+    }
+  }
+
+  function SortIcon({ col }: { col: string }) {
+    if (sortCol !== col) return <ChevronsUpDown className="inline ml-1 w-3 h-3 opacity-30" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="inline ml-1 w-3 h-3 text-primary" />
+      : <ChevronDown className="inline ml-1 w-3 h-3 text-primary" />;
+  }
 
   // Filtered items based on search
   const filteredItems = useMemo(() => {
@@ -158,6 +218,25 @@ export default function EditingQueue() {
       item.status.toLowerCase().includes(query)
     );
   }, [items, searchQuery]);
+
+  // Sorted items
+  const sortedItems = useMemo(() => {
+    if (!sortCol) return filteredItems;
+    return [...filteredItems].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      if (sortCol === 'title') { aVal = a.title ?? ''; bVal = b.title ?? ''; }
+      else if (sortCol === 'status') { aVal = a.status ?? ''; bVal = b.status ?? ''; }
+      else if (sortCol === 'post_status') { aVal = a.postStatus ?? ''; bVal = b.postStatus ?? ''; }
+      else if (sortCol === 'assignee') { aVal = a.assignee ?? ''; bVal = b.assignee ?? ''; }
+      else if (sortCol === 'revisions') { aVal = unresolvedCounts[a.id] ?? 0; bVal = unresolvedCounts[b.id] ?? 0; }
+      else if (sortCol === 'deadline') { aVal = a.deadline ?? '9999'; bVal = b.deadline ?? '9999'; }
+      const cmp = typeof aVal === 'number'
+        ? aVal - bVal
+        : aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filteredItems, sortCol, sortDir, unresolvedCounts]);
 
   useEffect(() => {
     if (!clientId || !user) return;
@@ -171,6 +250,24 @@ export default function EditingQueue() {
       });
   }, [clientId, user]);
 
+  function getDeadlineColor(deadline: string | null): string {
+    if (!deadline) return 'text-muted-foreground';
+    const diff = new Date(deadline).getTime() - Date.now();
+    if (diff < 0) return 'text-red-500';
+    if (diff < 48 * 60 * 60 * 1000) return 'text-yellow-500';
+    return 'text-foreground';
+  }
+
+  async function handleDeadlineSave(item: EditingQueueItem, date: Date | undefined) {
+    const value = date ? date.toISOString() : null;
+    setDeadlineOpenId(null);
+    setSavingDeadline(true);
+    const { error } = await supabase.from("video_edits").update({ deadline: value }).eq("id", item.id);
+    setSavingDeadline(false);
+    if (error) { toast.error("Failed to save deadline"); return; }
+    setItems(prev => prev.map(i => i.id === item.id ? { ...i, deadline: value } : i));
+  }
+
   const fetchQueue = async () => {
     if (!clientId || !user) return;
     setFetching(true);
@@ -178,7 +275,7 @@ export default function EditingQueue() {
     try {
       const { data, error: videoErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, file_submission, script_url, assignee, assignee_user_id, revisions, post_status, schedule_date, created_at, footage, caption, script_id, upload_source, storage_path, storage_url")
+        .select("id, reel_title, status, file_submission, script_url, assignee, assignee_user_id, revisions, post_status, schedule_date, deadline, created_at, footage, caption, script_id, upload_source, storage_path, storage_url, scripts(title, idea_ganadora)")
         .eq("client_id", clientId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -187,7 +284,9 @@ export default function EditingQueue() {
 
       const mappedVideos: EditingQueueItem[] = (data || []).map((v: any) => ({
         id: v.id,
-        title: v.reel_title || "Untitled",
+        title: v.reel_title && v.reel_title !== "Sin titulo" && v.reel_title !== "Sin título"
+          ? v.reel_title
+          : (v.scripts?.idea_ganadora || v.scripts?.title || v.reel_title || "Untitled"),
         status: v.status || "Not started",
         statusColor: "",
         fileSubmissionUrl: v.file_submission,
@@ -208,6 +307,7 @@ export default function EditingQueue() {
         uploadSource: v.upload_source || null,
         storagePath: v.storage_path || null,
         storageUrl: v.storage_url || null,
+        deadline: v.deadline || null,
       }));
 
       setItems(mappedVideos);
@@ -223,6 +323,18 @@ export default function EditingQueue() {
     fetchQueue();
   }, [clientId, user]);
 
+  // Realtime sync: refresh queue whenever any video_edit for this client changes
+  useEffect(() => {
+    if (!clientId || !user) return;
+    const channel = supabase
+      .channel(`eq_video_edits_${clientId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_edits', filter: `client_id=eq.${clientId}` }, () => {
+        fetchQueue();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [clientId, user]);
+
   useEffect(() => {
     if (!user) return;
     supabase
@@ -236,15 +348,22 @@ export default function EditingQueue() {
   useEffect(() => {
     if (!items.length) return;
     const loadCounts = async () => {
-      const counts: Record<string, number> = {};
+      const unresolved: Record<string, number> = {};
+      const totals: Record<string, number> = {};
       await Promise.all(
         items.map(async (item) => {
           try {
-            counts[item.id] = await revisionCommentService.getUnresolvedCount(item.id);
-          } catch { counts[item.id] = 0; }
+            const summary = await revisionCommentService.getCommentSummary(item.id);
+            unresolved[item.id] = summary.unresolved;
+            totals[item.id] = summary.total;
+          } catch {
+            unresolved[item.id] = 0;
+            totals[item.id] = 0;
+          }
         })
       );
-      setUnresolvedCounts(counts);
+      setUnresolvedCounts(unresolved);
+      setTotalCommentCounts(totals);
     };
     loadCounts();
   }, [items]);
@@ -403,19 +522,28 @@ export default function EditingQueue() {
   const handleSaveInline = async () => {
     if (!inlineEdit) return;
     setSavingInline(true);
-    const dbField = 'caption';
-    const stateField = 'caption';
     try {
-      const { error } = await supabase.from("video_edits").update({
-        [dbField]: inlineEdit.value || null,
-      }).eq("id", inlineEdit.itemId);
+      const { error } = await supabase.from("video_edits").update({ caption: inlineEdit.value || null }).eq("id", inlineEdit.itemId);
       if (error) throw error;
-      setItems((prev) => prev.map((i) => i.id === inlineEdit.itemId ? { ...i, [stateField]: inlineEdit.value || null } : i));
+      setItems((prev) => prev.map((i) => i.id === inlineEdit.itemId ? { ...i, caption: inlineEdit.value || null } : i));
       setInlineEdit(null);
     } catch {
       toast.error("Failed to save");
     } finally {
       setSavingInline(false);
+    }
+  };
+
+  const handleSaveCaptionEdit = async () => {
+    if (!captionEditItem) return;
+    try {
+      const { error } = await supabase.from("video_edits").update({ caption: captionEditValue || null }).eq("id", captionEditItem.id);
+      if (error) throw error;
+      setItems(prev => prev.map(i => i.id === captionEditItem.id ? { ...i, caption: captionEditValue || null } : i));
+      setCaptionEditItem(null);
+      toast.success("Caption saved");
+    } catch {
+      toast.error("Failed to save caption");
     }
   };
 
@@ -447,25 +575,42 @@ export default function EditingQueue() {
   };
 
   const renderAssigneeCell = (item: EditingQueueItem) => {
-    // Fallback: show legacy text assignee as placeholder if no UUID yet
     const hasLegacyAssignee = !item.assignee_user_id && item.assignee;
+    const displayName = item.assignee || (hasLegacyAssignee ? item.assignee! : null);
+    const initial = displayName ? displayName.trim().charAt(0).toUpperCase() : null;
+    const avatarColor = displayName ? getAssigneeColor(displayName) : '#334155';
     return (
-      <Select
-        value={item.assignee_user_id || "__none__"}
-        onValueChange={(val) => handleAssigneeUpdate(item.id, val === "__none__" ? null : val)}
-      >
-        <SelectTrigger className="h-7 text-xs min-w-[120px] bg-transparent border-none shadow-none px-1">
-          <SelectValue placeholder={hasLegacyAssignee ? item.assignee! : (language === "en" ? "Unassigned" : "Sin asignar")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
-          {teamMembers.map((m) => (
-            <SelectItem key={m.user_id} value={m.user_id}>
-              {m.display_name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-2">
+        {initial ? (
+          <div
+            className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+            style={{ background: avatarColor }}
+            title={displayName!}
+          >
+            {initial}
+          </div>
+        ) : (
+          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted border border-border/50 flex items-center justify-center">
+            <UserCircle className="w-3.5 h-3.5 text-muted-foreground/50" />
+          </div>
+        )}
+        <Select
+          value={item.assignee_user_id || "__none__"}
+          onValueChange={(val) => handleAssigneeUpdate(item.id, val === "__none__" ? null : val)}
+        >
+          <SelectTrigger className="h-7 text-xs min-w-[90px] max-w-[110px] bg-transparent border-none shadow-none px-0">
+            <SelectValue placeholder={hasLegacyAssignee ? item.assignee! : (language === "en" ? "Unassigned" : "Sin asignar")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
+            {teamMembers.map((m) => (
+              <SelectItem key={m.user_id} value={m.user_id}>
+                {m.display_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     );
   };
 
@@ -541,232 +686,285 @@ export default function EditingQueue() {
                             onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredItems.map(i => i.id)) : new Set())}
                           />
                         </TableHead>
-                        <TableHead className="font-semibold">{language === "en" ? "Title" : "Título"}</TableHead>
-                        <TableHead className="font-semibold">Status</TableHead>
-                        <TableHead className="font-semibold">{language === "en" ? "Post Status" : "Estado Post"}</TableHead>
-                        <TableHead className="font-semibold">{language === "en" ? "Assignee" : "Asignado"}</TableHead>
-                        <TableHead className="font-semibold">{language === "en" ? "Revisions" : "Revisiones"}</TableHead>
-                        <TableHead className="font-semibold">Footage</TableHead>
-                        <TableHead className="font-semibold">File Submission</TableHead>
-                        <TableHead className="font-semibold">Script</TableHead>
-                        <TableHead className="font-semibold">{language === "en" ? "Schedule" : "Fecha"}</TableHead>
-                        <TableHead className="font-semibold">Caption</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('title')}>{language === "en" ? "Title" : "Título"}<SortIcon col="title" /></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('status')}>Status<SortIcon col="status" /></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('post_status')}>{language === "en" ? "Post Status" : "Estado Post"}<SortIcon col="post_status" /></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('assignee')}>{language === "en" ? "Assignee" : "Asignado"}<SortIcon col="assignee" /></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground whitespace-nowrap" onClick={() => handleSort('revisions')}>{language === "en" ? "Revisions" : "Revisiones"}<SortIcon col="revisions" /></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground whitespace-nowrap" onClick={() => handleSort('deadline')}>Deadline<SortIcon col="deadline" /></TableHead>
+                        <TableHead className="font-semibold">Files</TableHead>
+                        <TableHead className="w-[40px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredItems.map((item) => {
-                    return (
-                      <TableRow key={item.id} className="group">
-                        <TableCell className="w-[40px] pr-0" onClick={(e) => e.stopPropagation()}>
-                          {item.source !== 'script' && (
-                            <input
-                              type="checkbox"
-                              className={`checkbox-clean transition-opacity ${selectedIds.has(item.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                              checked={selectedIds.has(item.id)}
-                              onChange={(e) => {
-                                setSelectedIds(prev => {
-                                  const next = new Set(prev);
-                                  if (e.target.checked) next.add(item.id); else next.delete(item.id);
-                                  return next;
-                                });
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium text-foreground max-w-xs truncate">{item.title}</TableCell>
-                        {/* Status */}
-                        <TableCell>
-                          {item.source === 'script' ? (
-                            <StatusBadge status={item.status} />
-                          ) : (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  className="inline-flex items-center gap-1 focus:outline-none"
-                                  disabled={updatingStatus === item.id}
-                                >
-                                  <StatusBadge status={item.status} />
-                                  {updatingStatus !== item.id && <ChevronDown className="w-3 h-3 opacity-60" />}
-                                  {updatingStatus === item.id && <Loader2 className="w-3 h-3 animate-spin" />}
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                                {STATUS_OPTIONS.map((s) => (
-                                  <DropdownMenuItem
-                                    key={s}
-                                    onClick={() => handleStatusChange(item.id, s)}
-                                    className={item.status === s ? "font-bold" : ""}
-                                  >
-                                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
-                                    {s}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </TableCell>
-                        {/* Post Status */}
-                        <TableCell>
-                          {item.source === 'script' ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingPostStatus === item.id}>
-                                  {updatingPostStatus === item.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                                  ) : item.postStatus ? (
-                                    <div className="flex items-center gap-1">
-                                      <StatusBadge status={item.postStatus} />
-                                      <ChevronDown className="w-3 h-3 opacity-60" />
-                                    </div>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
-                                      {language === "en" ? "Set status" : "Establecer estado"}
-                                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-                                    </span>
-                                  )}
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                                {POST_STATUS_OPTIONS.map((s) => (
-                                  <DropdownMenuItem key={s} onClick={() => handlePostStatusChange(item.id, s)} className={`text-xs ${item.postStatus === s ? "font-bold" : ""}`}>
-                                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s === "Published" ? "bg-emerald-400" : s === "Needs Revision" ? "bg-destructive" : s === "Scheduled" ? "bg-primary" : "bg-muted-foreground"}`} />
-                                    {s}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </TableCell>
-                        {/* Assignee */}
-                        <TableCell>
-                          {item.source === 'script' ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : renderAssigneeCell(item)}
-                        </TableCell>
-                        {/* Revisions */}
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-6 text-xs px-2.5 gap-1 ${
-                              unresolvedCounts[item.id] > 0
-                                ? "border-destructive text-destructive hover:bg-destructive/10"
-                                : "border-green-500 text-green-500 hover:bg-green-500/10"
-                            }`}
+                      {sortedItems.map((item, itemIndex) => {
+                        const unresolvedCount = unresolvedCounts[item.id] ?? 0;
+                        const totalCount = totalCommentCounts[item.id] ?? 0;
+                        const countLoaded = unresolvedCounts[item.id] !== undefined;
+                        return (
+                          <TableRow
+                            key={item.id}
+                            className="group cursor-pointer hover:bg-primary/[0.025] transition-colors"
                             onClick={() => { setReviewItem(item); setReviewModalOpen(true); }}
                           >
-                            <MessageSquare className="w-3 h-3" />
-                            {language === "en" ? "Revisions" : "Revisiones"}
-                          </Button>
-                        </TableCell>
-                        {/* Footage */}
-                        <TableCell>
-                          {item.source === 'script' ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (item.footageUrl || item.storageUrl) ? (
-                            <button
-                              onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
-                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
-                            >
-                              <Play className="w-3 h-3" />
-                              View
-                            </button>
-                          ) : (
-                            <FootageUploadDialog
-                              videoEditId={item.id}
-                              clientId={clientId || ''}
-                              onComplete={() => fetchQueue()}
-                              currentFootageUrl={item.footageUrl}
-                              currentFileSubmissionUrl={item.fileSubmissionUrl}
-                              uploadSource={item.uploadSource}
-                            />
-                          )}
-                        </TableCell>
-                        {/* File Submission */}
-                        <TableCell>
-                          {item.source === 'script' ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : item.fileSubmissionUrl ? (
-                            <button
-                              onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
-                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25 transition-colors"
-                            >
-                              <Play className="w-3 h-3" />
-                              View
-                            </button>
-                          ) : (
-                            <FootageUploadDialog
-                              videoEditId={item.id}
-                              clientId={clientId || ''}
-                              onComplete={() => fetchQueue()}
-                              currentFootageUrl={item.footageUrl}
-                              currentFileSubmissionUrl={item.fileSubmissionUrl}
-                              uploadSource={item.uploadSource}
-                              subfolder="submission"
-                            />
-                          )}
-                        </TableCell>
-                        {/* Script */}
-                        <TableCell>
-                          {item.scriptUrl ? (
-                            <a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                              <ExternalLink className="w-3 h-3" />
-                              {language === "en" ? "View" : "Ver"}
-                            </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        {/* Schedule */}
-                        <TableCell>
-                          {item.source === 'script' ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
-                            <Button
-                              variant="ghost" size="sm"
-                              className={`gap-1.5 text-xs ${item.scheduledDate ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-primary"}`}
-                              onClick={() => { setScheduleItem(item); setScheduleDate(item.scheduledDate || ""); }}
-                            >
-                              {item.scheduledDate ? (
-                                <><Calendar className="w-3 h-3" />{item.scheduledDate}</>
-                              ) : (
-                                <><CalendarPlus className="w-3.5 h-3.5" />{language === "en" ? "Schedule" : "Programar"}</>
+                            {/* Checkbox */}
+                            <TableCell className="w-[40px] pr-0" onClick={e => e.stopPropagation()}>
+                              {item.source !== 'script' && (
+                                <input
+                                  type="checkbox"
+                                  className={`checkbox-clean transition-opacity ${selectedIds.has(item.id) ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`}
+                                  checked={selectedIds.has(item.id)}
+                                  onChange={(e) => {
+                                    const checking = e.target.checked;
+                                    if (e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey && lastCheckedIndexRef.current >= 0) {
+                                      const from = Math.min(lastCheckedIndexRef.current, itemIndex);
+                                      const to = Math.max(lastCheckedIndexRef.current, itemIndex);
+                                      const rangeIds = sortedItems.slice(from, to + 1).filter(i => i.source !== 'script').map(i => i.id);
+                                      setSelectedIds(prev => {
+                                        const next = new Set(prev);
+                                        rangeIds.forEach(id => checking ? next.add(id) : next.delete(id));
+                                        return next;
+                                      });
+                                    } else {
+                                      setSelectedIds(prev => {
+                                        const next = new Set(prev);
+                                        if (checking) next.add(item.id); else next.delete(item.id);
+                                        return next;
+                                      });
+                                    }
+                                    lastCheckedIndexRef.current = itemIndex;
+                                  }}
+                                />
                               )}
-                            </Button>
-                          )}
-                        </TableCell>
-                        {/* Caption */}
-                        <TableCell>
-                          {inlineEdit?.itemId === item.id ? (
-                            <textarea
-                              autoFocus
-                              className="text-xs border rounded px-1.5 py-0.5 w-full max-w-[160px] bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
-                              value={inlineEdit.value}
-                              placeholder="Post caption..."
-                              rows={2}
-                              onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                              onBlur={handleSaveInline}
-                              onKeyDown={(e) => { if (e.key === 'Escape') setInlineEdit(null); }}
-                            />
-                          ) : item.caption ? (
-                            <button onClick={() => setInlineEdit({ itemId: item.id, value: item.caption || '' })} className="text-xs text-muted-foreground max-w-[120px] truncate block text-left hover:text-foreground transition-colors">
-                              {item.caption}
-                            </button>
-                          ) : item.source !== 'script' ? (
-                            <button onClick={() => setInlineEdit({ itemId: item.id, value: '' })} className="text-xs text-muted-foreground/50 hover:text-primary transition-colors border border-dashed border-muted-foreground/20 hover:border-primary/40 rounded px-1.5 py-0.5">Add caption</button>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell>
-                          {item.source !== 'script' && (
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 p-1.5" onClick={() => setDeleteConfirmItem(item)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                            </TableCell>
+
+                            {/* Title — left border colored by status */}
+                            <TableCell
+                              className="font-medium text-foreground max-w-xs"
+                              style={{ borderLeft: `3px solid ${getRowStatusBorderColor(item.status)}`, paddingLeft: '13px' }}
+                            >
+                              <span className="truncate block max-w-[200px]">{item.title}</span>
+                            </TableCell>
+
+                            {/* Status */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              {item.source === 'script' ? (
+                                <StatusBadge status={item.status} />
+                              ) : (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === item.id}>
+                                      <StatusBadge status={item.status} />
+                                      {updatingStatus !== item.id && <ChevronDown className="w-3 h-3 opacity-60" />}
+                                      {updatingStatus === item.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
+                                    {STATUS_OPTIONS.map((s) => (
+                                      <DropdownMenuItem key={s} onClick={() => handleStatusChange(item.id, s)} className={item.status === s ? "font-bold" : ""}>
+                                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
+                                        {s}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </TableCell>
+
+                            {/* Post Status */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              {item.source === 'script' ? (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              ) : (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingPostStatus === item.id}>
+                                      {updatingPostStatus === item.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                                      ) : item.postStatus ? (
+                                        <div className="flex items-center gap-1">
+                                          <StatusBadge status={item.postStatus} />
+                                          <ChevronDown className="w-3 h-3 opacity-60" />
+                                        </div>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
+                                          {language === "en" ? "Set status" : "Establecer estado"}
+                                          <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                                        </span>
+                                      )}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
+                                    {POST_STATUS_OPTIONS.map((s) => (
+                                      <DropdownMenuItem key={s} onClick={() => handlePostStatusChange(item.id, s)} className={`text-xs ${item.postStatus === s ? "font-bold" : ""}`}>
+                                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s === "Published" ? "bg-emerald-400" : s === "Needs Revision" ? "bg-destructive" : s === "Scheduled" ? "bg-primary" : "bg-muted-foreground"}`} />
+                                        {s}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </TableCell>
+
+                            {/* Assignee with avatar */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              {item.source === 'script' ? (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              ) : renderAssigneeCell(item)}
+                            </TableCell>
+
+                            {/* Revisions with count badge */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <button
+                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md border transition-colors ${
+                                  unresolvedCount > 0
+                                    ? 'border-destructive/40 text-destructive hover:bg-destructive/10'
+                                    : countLoaded && totalCount > 0
+                                    ? 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                                    : 'border-border text-muted-foreground'
+                                }`}
+                                onClick={e => { e.stopPropagation(); setReviewItem(item); setReviewModalOpen(true); }}
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                {unresolvedCount > 0 ? (
+                                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 rounded-full bg-destructive text-[10px] font-bold text-white px-1">
+                                    {unresolvedCount}
+                                  </span>
+                                ) : countLoaded && totalCount > 0 ? (
+                                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-[9px] font-bold text-white">✓</span>
+                                ) : null}
+                              </button>
+                            </TableCell>
+
+                            {/* Deadline */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              {item.source === 'script' ? (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              ) : (
+                                <Popover open={deadlineOpenId === item.id} onOpenChange={open => setDeadlineOpenId(open ? item.id : null)}>
+                                  <PopoverTrigger asChild>
+                                    <button className={`text-xs font-medium hover:opacity-70 transition-opacity whitespace-nowrap ${getDeadlineColor(item.deadline)}`}>
+                                      {item.deadline
+                                        ? new Date(item.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                        : <span className="text-muted-foreground/50">+ Add deadline</span>}
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <CalendarPicker
+                                      mode="single"
+                                      selected={item.deadline ? new Date(item.deadline) : undefined}
+                                      onSelect={date => handleDeadlineSave(item, date)}
+                                      initialFocus
+                                    />
+                                    {item.deadline && (
+                                      <div className="border-t p-2 flex justify-end">
+                                        <button
+                                          className="text-xs text-destructive hover:underline"
+                                          onClick={() => handleDeadlineSave(item, undefined)}
+                                        >
+                                          Clear deadline
+                                        </button>
+                                      </div>
+                                    )}
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </TableCell>
+
+                            {/* Files — merged Footage + File Submission */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              {item.source === 'script' ? (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              ) : (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {(item.footageUrl || item.storageUrl) ? (
+                                    <button
+                                      onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
+                                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-green-500/10 text-green-500 border border-green-500/25 hover:bg-green-500/20 transition-colors"
+                                      title="View footage"
+                                    >
+                                      <Play className="w-2.5 h-2.5" /> Footage
+                                    </button>
+                                  ) : (
+                                    <FootageUploadDialog
+                                      videoEditId={item.id}
+                                      clientId={clientId || ''}
+                                      onComplete={() => fetchQueue()}
+                                      currentFootageUrl={item.footageUrl}
+                                      currentFileSubmissionUrl={item.fileSubmissionUrl}
+                                      uploadSource={item.uploadSource}
+                                    />
+                                  )}
+                                  {item.fileSubmissionUrl ? (
+                                    <button
+                                      onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
+                                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 transition-colors"
+                                      title="View submitted edit"
+                                    >
+                                      <Play className="w-2.5 h-2.5" /> Edit
+                                    </button>
+                                  ) : (
+                                    <FootageUploadDialog
+                                      videoEditId={item.id}
+                                      clientId={clientId || ''}
+                                      onComplete={() => fetchQueue()}
+                                      currentFootageUrl={item.footageUrl}
+                                      currentFileSubmissionUrl={item.fileSubmissionUrl}
+                                      uploadSource={item.uploadSource}
+                                      subfolder="submission"
+                                    />
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* ••• actions menu */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              {item.source !== 'script' && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="bg-popover border border-border z-50 w-44">
+                                    {item.scriptUrl ? (
+                                      <DropdownMenuItem asChild>
+                                        <a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs">
+                                          <ExternalLink className="w-3.5 h-3.5" /> View Script
+                                        </a>
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem disabled className="text-xs text-muted-foreground/50">
+                                        <ExternalLink className="w-3.5 h-3.5 mr-2" /> No Script
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      onClick={() => { setScheduleItem(item); setScheduleDate(item.scheduledDate || ""); }}
+                                      className="text-xs"
+                                    >
+                                      <Calendar className="w-3.5 h-3.5 mr-2" />
+                                      {item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Add Schedule"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => { setCaptionEditItem(item); setCaptionEditValue(item.caption || ''); }}
+                                      className="text-xs"
+                                    >
+                                      <Save className="w-3.5 h-3.5 mr-2" />
+                                      {item.caption ? "Edit Caption" : "Add Caption"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => setDeleteConfirmItem(item)}
+                                      className="text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
                     </TableBody>
@@ -802,6 +1000,30 @@ export default function EditingQueue() {
           </Button>
         </div>
       )}
+
+      {/* Caption Edit Dialog */}
+      <Dialog open={!!captionEditItem} onOpenChange={(v) => !v && setCaptionEditItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">{captionEditItem?.caption ? "Edit Caption" : "Add Caption"}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground truncate">{captionEditItem?.title}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={captionEditValue}
+            onChange={e => setCaptionEditValue(e.target.value)}
+            placeholder="Write the post caption..."
+            rows={5}
+            className="resize-none text-sm"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setCaptionEditItem(null)}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveCaptionEdit} className="gap-1.5">
+              <Save className="w-3.5 h-3.5" /> Save Caption
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Video Preview Modal */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
@@ -1056,7 +1278,7 @@ export default function EditingQueue() {
       )}
 
       {footageViewerItem && (
-        <FootageViewerModal
+        <FootagePanel
           open={!!footageViewerItem}
           onClose={() => setFootageViewerItem(null)}
           title={footageViewerItem.title}

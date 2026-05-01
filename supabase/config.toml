@@ -184,3 +184,35 @@ verify_jwt = false
 # Instagram keyword search — admin-only (JWT checked in function code)
 [functions.scrape-reels-search]
 verify_jwt = false
+
+# Convert a SaaS subscriber to an agency client (admin-only, JWT checked in function)
+[functions.convert-to-agency-client]
+verify_jwt = false
+
+# Create Stripe one-time checkout session for credit top-up packs
+[functions.create-topup-checkout]
+verify_jwt = false
+
+# One-off subscription sync against Stripe (cron secret protected)
+[functions.sync-all-subscriptions]
+verify_jwt = false
+
+# Public read of a single script by id (anon)
+[functions.get-public-script]
+verify_jwt = false
+
+# Public read of a shared folder subtree by opaque token (anon)
+[functions.get-shared-folder]
+verify_jwt = false
+
+# Public HTML page with OG tags for link previews of shared folders (anon)
+[functions.render-shared-folder-og]
+verify_jwt = false
+
+# Finance AI parser — admin-only (JWT checked in function code)
+[functions.finance-parse-entry]
+verify_jwt = false
+
+# Website lead form notification — public endpoint, no JWT required
+[functions.send-lead-notification]
+verify_jwt = false

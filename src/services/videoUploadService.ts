@@ -36,25 +36,19 @@ function buildExpiryDates() {
 async function standardUpload(
   file: File,
   storagePath: string,
-  onProgress: (percent: number) => void
+  onProgress: (percent: number) => void,
+  onAbortReady?: (abort: () => void) => void
 ): Promise<string> {
-  onProgress(0);
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, file, {
-      cacheControl: '3600',
-      upsert: true,
-    });
-
-  if (error) throw error;
-  onProgress(100);
-  return data.path;
+  // Use TUS for all sizes so progress is reported in real-time via chunks
+  return tusUpload(file, storagePath, onProgress, Math.min(5 * 1024 * 1024, file.size), onAbortReady);
 }
 
 async function tusUpload(
   file: File,
   storagePath: string,
-  onProgress: (percent: number) => void
+  onProgress: (percent: number) => void,
+  chunkSize = 6 * 1024 * 1024,
+  onAbortReady?: (abort: () => void) => void
 ): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
@@ -77,7 +71,7 @@ async function tusUpload(
         contentType: file.type,
         cacheControl: '3600',
       },
-      chunkSize: 6 * 1024 * 1024, // 6MB chunks
+      chunkSize,
       onError: (err) => reject(err),
       onProgress: (bytesUploaded, bytesTotal) => {
         const pct = Math.round((bytesUploaded / bytesTotal) * 100);
@@ -92,6 +86,7 @@ async function tusUpload(
         upload.resumeFromPreviousUpload(previousUploads[0]);
       }
       upload.start();
+      onAbortReady?.(() => upload.abort(true));
     });
   });
 }
@@ -102,35 +97,37 @@ export const videoUploadService = {
     clientId: string,
     videoEditId: string,
     onProgress: (percent: number) => void,
-    subfolder?: string
+    subfolder?: string,
+    onAbortReady?: (abort: () => void) => void
   ): Promise<{ storagePath: string; storageUrl: string }> {
     const storagePath = buildStoragePath(clientId, videoEditId, file.name, subfolder);
 
     // Route by file size
     if (file.size <= FIVE_GB) {
-      await standardUpload(file, storagePath, onProgress);
+      await standardUpload(file, storagePath, onProgress, onAbortReady);
     } else {
-      await tusUpload(file, storagePath, onProgress);
+      await tusUpload(file, storagePath, onProgress, 6 * 1024 * 1024, onAbortReady);
     }
 
-    // Get signed URL
-    const storageUrl = await this.getSignedVideoUrl(storagePath);
+    if (subfolder) {
+      // Submission upload: only write file_submission — never overwrite main footage metadata
+      await videoService.updateVideo(videoEditId, {
+        file_submission: storagePath,
+      });
+      return { storagePath, storageUrl: '' };
+    }
 
-    // Update video_edits row
+    // Main footage upload: get signed URL and update all metadata fields
+    const storageUrl = await this.getSignedVideoUrl(storagePath);
     const expiry = buildExpiryDates();
-    const dbUpdate: UpdateVideoInput = {
+    await videoService.updateVideo(videoEditId, {
       storage_path: storagePath,
       storage_url: storageUrl,
       upload_source: 'supabase',
       file_size_bytes: file.size,
       file_expires_at: expiry.file_expires_at,
       record_expires_at: expiry.record_expires_at,
-    };
-    // Submission uploads also populate file_submission so the UI "View" button appears
-    if (subfolder) {
-      dbUpdate.file_submission = storagePath;
-    }
-    await videoService.updateVideo(videoEditId, dbUpdate);
+    });
 
     return { storagePath, storageUrl };
   },

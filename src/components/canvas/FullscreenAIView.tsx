@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { Node } from "@xyflow/react";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import CanvasAIPanel from "./CanvasAIPanel";
+import ScriptOutputPanel from "./ScriptOutputPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useRealtimeChatSync } from "@/hooks/useRealtimeChatSync";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -149,16 +151,62 @@ const FullscreenAIView = memo(function FullscreenAIView({
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingChatName, setEditingChatName] = useState("");
 
+  const [generatedScript, setGeneratedScript] = useState<any>(null);
+
   // Right panel collapsed state
   const [contextPanelCollapsed, setContextPanelCollapsed] = useState(false);
+
+  // ─── Live chat sync (broadcast-based) ───
+  const isRemoteUpdateRef = useRef(false);
+  // Streaming content from a remote collaborator (live typewriter from another user/tab).
+  const [remoteStreamingContent, setRemoteStreamingContent] = useState<string | null>(null);
+  // Forward decl for activeChatIdRef (assigned below) so onRemoteActiveChat can read it
+  const activeChatIdRefForRoom = useRef<string | null>(null);
+  const aiRoomId = (selectedClient.id && chatNodeId) ? `${selectedClient.id}:${chatNodeId}` : null;
+  const { broadcastMessages, broadcastStreaming, broadcastActiveChat } = useRealtimeChatSync({
+    chatId: activeChatId,
+    onRemoteMessages: useCallback((messages) => {
+      // Another tab sent updated messages — REPLACE our state entirely
+      isRemoteUpdateRef.current = true;
+      setActiveMessages(messages.length > MAX_MESSAGES ? messages.slice(-MAX_MESSAGES) : messages);
+      setTimeout(() => { isRemoteUpdateRef.current = false; }, 100);
+    }, []),
+    onRemoteStreaming: useCallback((content) => {
+      setRemoteStreamingContent(content);
+    }, []),
+    roomId: aiRoomId,
+    onRemoteActiveChat: useCallback((remoteChatId) => {
+      if (!remoteChatId) { setActiveChatId(null); setActiveMessages([]); return; }
+      if (remoteChatId === activeChatIdRefForRoom.current) return;
+      isRemoteUpdateRef.current = true;
+      setActiveChatId(remoteChatId);
+      supabase.from("canvas_ai_chats").select("messages").eq("id", remoteChatId).single()
+        .then(({ data }) => {
+          const msgs = (data?.messages as ChatMessage[]) || [];
+          setActiveMessages(msgs.length > MAX_MESSAGES ? msgs.slice(-MAX_MESSAGES) : msgs);
+          setTimeout(() => { isRemoteUpdateRef.current = false; }, 100);
+        });
+    }, []),
+  });
+  const broadcastStreamingRef = useRef(broadcastStreaming);
+  broadcastStreamingRef.current = broadcastStreaming;
+  const broadcastActiveChatRef = useRef(broadcastActiveChat);
+  broadcastActiveChatRef.current = broadcastActiveChat;
 
   // Refs for unmount flush
   const activeChatIdRef = useRef<string | null>(null);
   const activeMessagesRef = useRef<ChatMessage[]>([]);
   const sessionTokenRef = useRef<string | null>(null);
+  // In-flight streaming response from CanvasAIPanel (null when no stream is active).
+  // Persisted along with messages on unmount/visibility-hidden so a refresh during
+  // streaming doesn't lose the response that was being typed.
+  const streamingPartialRef = useRef<string | null>(null);
 
   // Keep refs in sync
-  useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+    activeChatIdRefForRoom.current = activeChatId;
+  }, [activeChatId]);
   useEffect(() => { activeMessagesRef.current = activeMessages; }, [activeMessages]);
 
   // Track session token for beacon saves
@@ -181,10 +229,10 @@ const FullscreenAIView = memo(function FullscreenAIView({
     setChatsLoaded(false);
     (async () => {
       try {
+        // Chats are shared across the team for this client+node — RLS gates per-client access.
         const { data: rows } = await supabase
           .from("canvas_ai_chats")
           .select("id, name, updated_at")
-          .eq("user_id", user.id)
           .eq("client_id", selectedClient.id)
           .eq("node_id", chatNodeId)
           .order("updated_at", { ascending: false });
@@ -248,10 +296,10 @@ const FullscreenAIView = memo(function FullscreenAIView({
   // Refresh just the chat list metadata (sidebar) without touching active messages
   const refreshChatList = useCallback(async () => {
     if (!user || !selectedClient.id) return;
+    // Chats are shared across the team for this client+node — RLS gates per-client access.
     const { data: rows } = await supabase
       .from("canvas_ai_chats")
       .select("id, name, updated_at")
-      .eq("user_id", user.id)
       .eq("client_id", selectedClient.id)
       .eq("node_id", chatNodeId)
       .order("updated_at", { ascending: false });
@@ -263,6 +311,31 @@ const FullscreenAIView = memo(function FullscreenAIView({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, selectedClient.id, chatNodeId]);
+
+  // Cross-user sync: subscribe to canvas_ai_chats inserts/renames/deletes for this client+node.
+  // Refreshes the sidebar list when another collaborator creates, renames, or deletes a chat.
+  // Filtered by client_id only (Supabase realtime supports a single filter); node_id is checked
+  // client-side. Switches active chat if the active one is deleted.
+  useEffect(() => {
+    if (!selectedClient.id || !chatNodeId) return;
+    const channel = supabase
+      .channel(`canvas-ai-chats-list:${selectedClient.id}:${chatNodeId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "canvas_ai_chats", filter: `client_id=eq.${selectedClient.id}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as { node_id?: string; id?: string } | null;
+          if (!row || row.node_id !== chatNodeId) return;
+          refreshChatList();
+          if (payload.eventType === "DELETE" && row.id && row.id === activeChatIdRef.current) {
+            setActiveChatId(null);
+            setActiveMessages([]);
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedClient.id, chatNodeId, refreshChatList]);
 
   // Listen for cross-view chat changes (canvas node ↔ fullscreen live sync)
   useEffect(() => {
@@ -299,35 +372,60 @@ const FullscreenAIView = memo(function FullscreenAIView({
     );
   }, []);
 
+  // Beacon save (keepalive fetch) — used for unmount, page unload, and tab-hidden recovery.
+  // Includes any in-flight streaming response so a refresh mid-stream doesn't lose the reply.
+  const beaconSaveChat = useCallback(() => {
+    const chatId = activeChatIdRef.current;
+    if (!chatId) return;
+    let msgs = activeMessagesRef.current;
+    const partial = streamingPartialRef.current;
+    if (partial && partial.length > 0) {
+      msgs = [...msgs, { role: "assistant" as const, content: partial }];
+    }
+    if (msgs.length === 0) return;
+    const firstUserMsg = msgs.find((m) => m.role === "user");
+    const autoName = firstUserMsg
+      ? firstUserMsg.content.slice(0, 40) + (firstUserMsg.content.length > 40 ? "..." : "")
+      : undefined;
+    const safeMsgs = stripImagesForPersistence(msgs);
+    const updateData: any = { messages: safeMsgs, updated_at: new Date().toISOString() };
+    if (autoName) updateData.name = autoName;
+    const token = sessionTokenRef.current || SUPABASE_ANON_KEY;
+    try {
+      fetch(`${SUPABASE_URL}/rest/v1/canvas_ai_chats?id=eq.${chatId}`, {
+        method: "PATCH",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify(updateData),
+      });
+    } catch { /* best effort */ }
+  }, []);
+
   // Beacon save on unmount
   useEffect(() => {
+    return beaconSaveChat;
+  }, [beaconSaveChat]);
+
+  // Beacon save on tab hidden / page hide — covers tab discard and refresh while streaming
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") beaconSaveChat(); };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", beaconSaveChat);
     return () => {
-      const chatId = activeChatIdRef.current;
-      const msgs = activeMessagesRef.current;
-      if (!chatId || msgs.length === 0) return;
-      const firstUserMsg = msgs.find((m) => m.role === "user");
-      const autoName = firstUserMsg
-        ? firstUserMsg.content.slice(0, 40) + (firstUserMsg.content.length > 40 ? "..." : "")
-        : undefined;
-      const safeMsgs = stripImagesForPersistence(msgs);
-      const updateData: any = { messages: safeMsgs, updated_at: new Date().toISOString() };
-      if (autoName) updateData.name = autoName;
-      const token = sessionTokenRef.current || SUPABASE_ANON_KEY;
-      try {
-        fetch(`${SUPABASE_URL}/rest/v1/canvas_ai_chats?id=eq.${chatId}`, {
-          method: "PATCH",
-          keepalive: true,
-          headers: {
-            "Content-Type": "application/json",
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${token}`,
-            Prefer: "return=minimal",
-          },
-          body: JSON.stringify(updateData),
-        });
-      } catch { /* best effort */ }
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", beaconSaveChat);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beaconSaveChat]);
+
+  // Track in-flight streaming response from CanvasAIPanel and broadcast it to collaborators.
+  const handleStreamingPartial = useCallback((content: string | null) => {
+    streamingPartialRef.current = content;
+    broadcastStreamingRef.current?.(content);
   }, []);
 
   // Create new chat
@@ -347,6 +445,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
     if (row && !error) {
       setChats((prev) => [row as ChatSession, ...prev]);
       setActiveChatId(row.id);
+      broadcastActiveChatRef.current?.(row.id);
       setActiveMessages([]);
       window.dispatchEvent(new CustomEvent("canvas-ai-chat-changed", { detail: { clientId: selectedClient.id, nodeId: chatNodeId } }));
     }
@@ -360,7 +459,9 @@ const FullscreenAIView = memo(function FullscreenAIView({
     setChats((prev) => prev.filter((c) => c.id !== chatId));
     if (activeChatId === chatId) {
       const remaining = chats.filter((c) => c.id !== chatId);
-      setActiveChatId(remaining.length > 0 ? remaining[0].id : null);
+      const next = remaining.length > 0 ? remaining[0].id : null;
+      setActiveChatId(next);
+      broadcastActiveChatRef.current?.(next);
       setActiveMessages([]);
     }
     window.dispatchEvent(new CustomEvent("canvas-ai-chat-changed", { detail: { clientId: selectedClient.id, nodeId: chatNodeId } }));
@@ -390,6 +491,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
         persistMessages(activeChatId, activeMessages);
       }
       setActiveChatId(chat.id);
+      broadcastActiveChatRef.current?.(chat.id); // collaborators follow this switch
       setActiveMessages([]);
 
       const { data: chatData } = await supabase
@@ -424,14 +526,18 @@ const FullscreenAIView = memo(function FullscreenAIView({
           );
         } catch { /* ignore */ }
         persistMessages(activeChatId, capped);
+
+        // Broadcast full messages to other tabs (only if this is a local change, not a remote echo)
+        if (!isRemoteUpdateRef.current && capped.length > 0) {
+          broadcastMessages(capped);
+        }
       }
     },
-    [activeChatId, persistMessages]
+    [activeChatId, persistMessages, broadcastMessages]
   );
 
-  // Handle script generation (no separate output panel — stays in CanvasAIPanel)
-  const handleGenerateScript = useCallback((_script: any) => {
-    // No-op: CanvasAIPanel shows inline script preview in chat
+  const handleGenerateScript = useCallback((script: any) => {
+    setGeneratedScript(script);
   }, []);
 
   // Filtered nodes for context panel
@@ -755,6 +861,18 @@ const FullscreenAIView = memo(function FullscreenAIView({
             >
               Loading...
             </div>
+          ) : generatedScript ? (
+            <ScriptOutputPanel
+              script={generatedScript}
+              onSave={(editedScript) => {
+                if (onSaveScript) return onSaveScript(editedScript);
+              }}
+              onClear={() => setGeneratedScript(null)}
+              onRefine={(feedback) => {
+                setGeneratedScript(null);
+                // TODO: could pipe feedback back to AI panel
+              }}
+            />
           ) : (
             <CanvasAIPanel
               key={activeChatId ?? "no-chat"}
@@ -771,9 +889,12 @@ const FullscreenAIView = memo(function FullscreenAIView({
               onModelChange={onModelChange}
               initialMessages={activeMessages}
               onMessagesChange={handleMessagesChange}
+              onStreamingPartial={handleStreamingPartial}
+              remoteStreamingContent={remoteStreamingContent}
               onSaveScript={onSaveScript}
               initialInput={initialDraftInput}
               onInitialInputConsumed={() => { (window as any).__canvasAIDraftInput = null; }}
+              fullscreen
             />
           )}
         </div>

@@ -14,6 +14,29 @@ function isValidStatus(status: string | null): boolean {
   return status !== null && VALID_STATUSES.includes(status);
 }
 
+// ── Subscription cache (5 min TTL) — eliminates repeated DB + Stripe calls ──
+const SUB_CACHE_TTL = 5 * 60 * 1000;
+
+function getCachedSub(userId: string): { hasValid: boolean; data: SubscriptionData } | null {
+  try {
+    const raw = sessionStorage.getItem(`sub_cache_${userId}`);
+    if (!raw) return null;
+    const { ts, hasValid, data } = JSON.parse(raw);
+    if (Date.now() - ts > SUB_CACHE_TTL) { sessionStorage.removeItem(`sub_cache_${userId}`); return null; }
+    return { hasValid, data };
+  } catch { return null; }
+}
+
+function setCachedSub(userId: string, hasValid: boolean, data: SubscriptionData) {
+  try {
+    sessionStorage.setItem(`sub_cache_${userId}`, JSON.stringify({ ts: Date.now(), hasValid, data }));
+  } catch { /* ignore quota errors */ }
+}
+
+export function invalidateSubCache(userId: string) {
+  try { sessionStorage.removeItem(`sub_cache_${userId}`); } catch { /* ignore */ }
+}
+
 /**
  * Hook that checks subscription_status from the clients table.
  * If the DB shows no valid subscription, reconciles with Stripe via check-subscription
@@ -45,6 +68,16 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
     }
 
     const checkAndReconcile = async () => {
+      // Cache hit: skip all DB + Stripe calls for 5 minutes
+      const cached = getCachedSub(user.id);
+      if (cached) {
+        setHasValidSubscription(cached.hasValid);
+        setSubscriptionData(cached.data);
+        setChecking(false);
+        if (!cached.hasValid && !options?.skipRedirect) navigate("/signup");
+        return;
+      }
+
       // Step 1: Query primary client via junction table
       let data: { subscription_status: string | null; plan_type: string | null } | null = null;
       let error: any = null;
@@ -59,7 +92,7 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
       if (link?.client_id) {
         const result = await supabase
           .from("clients")
-          .select("subscription_status, plan_type")
+          .select("subscription_status, plan_type, credits_balance")
           .eq("id", link.client_id)
           .single();
         data = result.data;
@@ -68,7 +101,7 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
         // Fallback: direct user_id lookup
         const result = await supabase
           .from("clients")
-          .select("subscription_status, plan_type")
+          .select("subscription_status, plan_type, credits_balance")
           .eq("user_id", user.id)
           .maybeSingle();
         data = result.data;
@@ -83,9 +116,11 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
 
       const statusOk = isValidStatus(data?.subscription_status ?? null);
       const planOk = !!data?.plan_type;
+      const hasCredits = (data?.credits_balance ?? 0) > 0;
 
-      if (data && statusOk && planOk) {
-        // Happy path: DB shows active subscription
+      if (data && planOk && (statusOk || hasCredits)) {
+        // Happy path: valid subscription OR user still has credits remaining
+        setCachedSub(user.id, true, data);
         setHasValidSubscription(true);
         setSubscriptionData(data);
         setChecking(false);
@@ -103,16 +138,18 @@ export function useSubscriptionGuard(options?: { skipRedirect?: boolean; skipRec
             });
 
             // Step 3: Re-query after reconciliation (use same primary client lookup)
-            let refreshed: { subscription_status: string | null; plan_type: string | null } | null = null;
+            let refreshed: { subscription_status: string | null; plan_type: string | null; credits_balance: number | null } | null = null;
             if (link?.client_id) {
-              const r = await supabase.from("clients").select("subscription_status, plan_type").eq("id", link.client_id).single();
+              const r = await supabase.from("clients").select("subscription_status, plan_type, credits_balance").eq("id", link.client_id).single();
               refreshed = r.data;
             } else {
-              const r = await supabase.from("clients").select("subscription_status, plan_type").eq("user_id", user.id).maybeSingle();
+              const r = await supabase.from("clients").select("subscription_status, plan_type, credits_balance").eq("user_id", user.id).maybeSingle();
               refreshed = r.data;
             }
 
-            if (refreshed && isValidStatus(refreshed.subscription_status) && refreshed.plan_type) {
+            const refreshedHasCredits = (refreshed?.credits_balance ?? 0) > 0;
+            if (refreshed && refreshed.plan_type && (isValidStatus(refreshed.subscription_status) || refreshedHasCredits)) {
+              setCachedSub(user.id, true, refreshed);
               setHasValidSubscription(true);
               setSubscriptionData(refreshed);
               setChecking(false);

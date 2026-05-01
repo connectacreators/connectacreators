@@ -126,7 +126,7 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
   ],
 };
 
-// Deduct credits. Returns error JSON string on failure, null on success.
+// Deduct credits atomically via DB function — eliminates race condition.
 async function deductCredits(
   adminClient: any,
   userId: string,
@@ -135,7 +135,6 @@ async function deductCredits(
 ): Promise<string | null> {
   if (cost === 0) return null;
 
-  // Skip credit deduction for admin, videographers, and editors
   const { data: roleData } = await adminClient
     .from("user_roles")
     .select("role")
@@ -144,42 +143,28 @@ async function deductCredits(
   const role = roleData?.role;
   if (role === "admin" || role === "videographer" || role === "editor") return null;
 
-  const { data: client, error: fetchErr } = await adminClient
+  const { data: client } = await adminClient
     .from("clients")
-    .select("id, credits_balance, credits_used")
+    .select("id")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (fetchErr || !client) return null; // staff/no-record accounts pass through
+  if (!client) return null;
 
-  if ((client.credits_balance ?? 0) < cost) {
-    return JSON.stringify({
-      error: `Insufficient credits. You need ${cost} credits but only have ${client.credits_balance ?? 0}.`,
-      insufficient_credits: true,
-      balance: client.credits_balance ?? 0,
-      needed: cost,
-    });
-  }
-
-  const { error: updateErr } = await adminClient
-    .from("clients")
-    .update({
-      credits_balance: (client.credits_balance ?? 0) - cost,
-      credits_used: (client.credits_used ?? 0) + cost,
-    })
-    .eq("id", client.id);
-
-  if (updateErr) {
-    console.error("Credit update error:", updateErr);
-    return null; // Don't block on credit tracking errors
-  }
-
-  await adminClient.from("credit_transactions").insert({
-    client_id: client.id,
-    action,
-    cost,
-    metadata: {},
+  const { data: result, error } = await adminClient.rpc("deduct_credits_atomic", {
+    p_client_id: client.id,
+    p_action: action,
+    p_cost: cost,
   });
+
+  if (error) {
+    console.error("Credit deduction error:", error);
+    return null;
+  }
+
+  if (!result?.ok) {
+    return JSON.stringify(result);
+  }
 
   return null;
 }
@@ -1520,9 +1505,15 @@ Return a JSON tool call only — no prose.`;
           }\n</competitor_analysis>`
         : "";
 
-      const conversationSection = Array.isArray(conversationMessages) && conversationMessages.length > 0
-        ? `\n<approved_direction>\n⚠️ CRITICAL: The creator already discussed and APPROVED a specific script direction in this chat. Your generated script MUST follow this approved direction exactly. Do NOT deviate:\n${(conversationMessages as any[]).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n")}\n</approved_direction>`
-        : "";
+      let conversationSection = "";
+      if (Array.isArray(conversationMessages) && conversationMessages.length > 0) {
+        // Find the last substantial AI message — this is the approved outline to follow
+        const lastAiMsg = [...conversationMessages].reverse().find(
+          (m: any) => m.role === "assistant" && (m.content?.length ?? 0) > 100 && !/^(Script generated|Generation failed)/.test(m.content || "")
+        );
+        const chatLog = (conversationMessages as any[]).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n");
+        conversationSection = `\n<approved_direction>\n⚠️ CRITICAL: The creator discussed and APPROVED a specific script direction. Generate EXACTLY this structure — same scenes, same headings, same characters, same flow. Do NOT deviate or invent your own structure.\n\nChat log:\n${chatLog}${lastAiMsg ? `\n\n══ APPROVED OUTLINE (follow this EXACTLY) ══\n${lastAiMsg.content}` : ""}\n</approved_direction>`;
+      }
 
       const visualSection = Array.isArray(video_analyses) && video_analyses.length > 0
         ? `\n<visual_analysis>\nThese are the actual visual scenes extracted from the reference video(s) using AI frame analysis. Use them as the scene-by-scene VISUAL TEMPLATE for the new script:\n${
@@ -1581,6 +1572,7 @@ Before finalizing the script, check every item below and adjust until ALL pass:
 5. TEMPLATE MATCH: If reference video structures are provided, the section count, rhythm, and pacing match exactly.
 6. STORY MAKES SENSE: Hook → Body → CTA flows logically with no confusing jumps.
 7. AUDIENCE CAN FOLLOW: No assumed knowledge. Concepts are explained simply on first mention.
+8. CONVERSATION MATCH: If an <approved_direction> section exists, your script MUST follow the EXACT structure, objections, scenes, and flow described in the LAST AI message there. That is the approved outline — generate it faithfully. Match every scene, every heading, every character label. Do not invent a different structure.
 </quality_checklist>
 
 Return a virality_score (1-10) averaging: TAM, explosivity, emotional resonance, novelty, value tease, curiosity hook, absorption, rehook, stickiness, template_fidelity (how well the script follows reference video structure), story_clarity (logical flow hook→body→CTA).
@@ -1588,10 +1580,10 @@ Return a virality_score (1-10) averaging: TAM, explosivity, emotional resonance,
 Write in ${langLabel}. Format: ${formatLabel}.
 For idea_ganadora: STRICT MAXIMUM 3-5 words — short punchy title only.`;
 
-      const canvasUserPrompt = `<task>Write a compelling viral short-form video script (~45 seconds / 90-120 words) based on all the context below. ${refSectionCount > 0 ? `YOUR SCRIPT MUST MATCH THE REFERENCE STRUCTURE — same sections, same tempo, same size.` : ""}</task>
+      const canvasUserPrompt = `<task>Write a compelling viral short-form video script (~45 seconds / 90-120 words) based on all the context below.${refSectionCount > 0 ? ` YOUR SCRIPT MUST MATCH THE REFERENCE STRUCTURE — same sections, same tempo, same size.` : ""}${conversationSection ? " AN APPROVED OUTLINE FROM THE CHAT IS PROVIDED AT THE END — FOLLOW IT EXACTLY." : ""}</task>
 
 <topic>${primary_topic || "Based on the provided context"}</topic>
-${conversationSection}${structureSection}${transcriptSection}${notesSection}${mediaFilesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}`;
+${structureSection}${transcriptSection}${notesSection}${mediaFilesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}${conversationSection}`;
 
       const canvasScriptTools = [{
         name: "return_script",
@@ -1774,9 +1766,10 @@ Apply the edit instruction to the existing script. Return the COMPLETE modified 
 
     // ==================== STEP: ANALYZE COMPETITOR POST ====================
     if (step === "analyze-competitor-post") {
-      const { caption, views, engagement_rate, outlier_score } = body;
+      const { caption, views, engagement_rate, outlier_score, clientName } = body;
 
-      const systemPrompt = `You are a viral content strategist. Analyze this Instagram reel's caption and performance metrics and explain why it performed well. Be direct, plain, and specific. No jargon.`;
+      const clientLine = clientName ? ` The agency's client is "${clientName}" — tailor the apply_to_client field specifically to their niche.` : "";
+      const systemPrompt = `You are a viral content strategist. Analyze this social media reel's caption and performance metrics and explain why it performed well. Be direct, plain, and specific. No jargon.${clientLine}`;
 
       const captionText = caption || "(no caption)";
       const userPrompt = `Caption: "${captionText}"
@@ -1813,8 +1806,14 @@ Analyze this post and return structured insights.`;
                 type: "string",
                 description: "The reusable structural pattern, e.g. 'Specific number + timeframe + result'",
               },
+              apply_to_client: {
+                type: "string",
+                description: clientName
+                  ? `1-2 sentences: a specific, actionable idea for how "${clientName}" could adapt this exact content format for their audience.`
+                  : "1-2 sentences: a specific, actionable idea for how the client could adapt this content format for their audience.",
+              },
             },
-            required: ["hook_type", "content_theme", "why_it_worked", "pattern"],
+            required: ["hook_type", "content_theme", "why_it_worked", "pattern", "apply_to_client"],
           },
         }],
         { type: "tool", name: "return_analysis" },

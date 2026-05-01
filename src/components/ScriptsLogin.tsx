@@ -12,6 +12,7 @@ import { t, tr } from "@/i18n/translations";
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
 import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
 import { AnimatePresence, motion } from "framer-motion";
+import BorderGlow from "@/components/ui/BorderGlow";
 
 type Props = {
   onSignIn: () => void;
@@ -132,10 +133,12 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
                 onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
               />
-              <Button onClick={handleForgotPassword} className="w-full gap-2 btn-primary-glass" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4 text-[#94a3b8]" />}
-                {tr(t.login.sendResetLink, language)}
-              </Button>
+              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                <Button onClick={handleForgotPassword} className="w-full gap-2" disabled={loading}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4 text-[#94a3b8]" />}
+                  {tr(t.login.sendResetLink, language)}
+                </Button>
+              </BorderGlow>
               <button onClick={() => setIsForgot(false)} className="text-sm text-primary hover:underline w-full text-center">
                 {tr(t.login.backToLogin, language)}
               </button>
@@ -155,10 +158,12 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
               />
-              <Button onClick={handleEmailAuth} className="w-full gap-2 btn-primary-glass" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4 text-[#94a3b8]" />}
-                {tr(t.login.signIn, language)}
-              </Button>
+              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                <Button onClick={handleEmailAuth} className="w-full gap-2" disabled={loading}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4 text-[#94a3b8]" />}
+                  {tr(t.login.signIn, language)}
+                </Button>
+              </BorderGlow>
               <button onClick={() => setIsForgot(true)} className="text-sm text-muted-foreground hover:text-primary hover:underline w-full text-center">
                 {tr(t.login.forgotPassword, language)}
               </button>

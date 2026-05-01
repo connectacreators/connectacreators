@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Film, Mic, Scissors, Loader2, FileText, MonitorPlay } from "lucide-react";
+import { WinningIdeaBlock } from "@/components/scripts/WinningIdeaBlock";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t, tr } from "@/i18n/translations";
 
 type ScriptLine = {
   line_type: "filming" | "actor" | "editor" | "text_on_screen";
@@ -18,14 +21,15 @@ type ScriptData = {
 };
 
 const typeConfig = {
-  filming: { label: "Instrucciones de Filmación", icon: Film, color: "text-orange-400", bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5", border: "border-orange-500/25" },
-  actor: { label: "Voiceover / Diálogo", icon: Mic, color: "text-[#22d3ee]", bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
-  editor: { label: "Instrucciones de Edición", icon: Scissors, color: "text-[#a3e635]", bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
-  text_on_screen: { label: "Texto en Pantalla", icon: MonitorPlay, color: "text-[#94a3b8]", bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]", border: "border-[rgba(148,163,184,0.15)]" },
+  filming: { labelKey: t.scripts.filmingInstructions, icon: Film, color: "text-orange-400", bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5", border: "border-orange-500/25" },
+  actor: { labelKey: t.scripts.voiceoverDialogue, icon: Mic, color: "text-[#22d3ee]", bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
+  editor: { labelKey: t.scripts.editingInstructions, icon: Scissors, color: "text-[#a3e635]", bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
+  text_on_screen: { labelKey: t.scripts.textOnScreen, icon: MonitorPlay, color: "text-[#94a3b8]", bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]", border: "border-[rgba(148,163,184,0.15)]" },
 };
 
 export default function PublicScript() {
   const { id } = useParams<{ id: string }>();
+  const { language } = useLanguage();
   const [script, setScript] = useState<ScriptData | null>(null);
   const [lines, setLines] = useState<ScriptLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,25 +37,16 @@ export default function PublicScript() {
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
-    const fetch = async () => {
-      const { data: s, error: sErr } = await supabase
-        .from("scripts")
-        .select("title, idea_ganadora, target, formato, inspiration_url")
-        .eq("id", id)
-        .is("deleted_at", null)
-        .maybeSingle();
-      if (sErr || !s) { setNotFound(true); setLoading(false); return; }
-      setScript(s);
-
-      const { data: l } = await supabase
-        .from("script_lines")
-        .select("line_type, text, section")
-        .eq("script_id", id)
-        .order("line_number");
-      setLines((l || []) as ScriptLine[]);
+    const run = async () => {
+      const { data, error } = await supabase.functions.invoke("get-public-script", {
+        body: { id },
+      });
+      if (error || !data || data.error) { setNotFound(true); setLoading(false); return; }
+      setScript(data.script as ScriptData);
+      setLines((data.lines || []) as ScriptLine[]);
       setLoading(false);
     };
-    fetch();
+    run();
   }, [id]);
 
   if (loading) {
@@ -67,8 +62,8 @@ export default function PublicScript() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-2">
           <FileText className="w-12 h-12 text-muted-foreground mx-auto" />
-          <h1 className="text-xl font-bold text-foreground">Script no encontrado</h1>
-          <p className="text-muted-foreground text-sm">Este script no existe o fue eliminado.</p>
+          <h1 className="text-xl font-bold text-foreground">{tr(t.scripts.scriptNotFound, language)}</h1>
+          <p className="text-muted-foreground text-sm">{tr(t.scripts.scriptNotFoundDesc, language)}</p>
         </div>
       </div>
     );
@@ -82,35 +77,25 @@ export default function PublicScript() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
-            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Script (Solo lectura)</span>
+            <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.readOnly, language)}</span>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Metadata */}
-        <div className="mb-6 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
-          {script.idea_ganadora && (
-            <p className="text-sm text-foreground">
-              <span className="font-semibold text-[#22d3ee]">Idea Ganadora:</span> {script.idea_ganadora}
-            </p>
-          )}
-          {script.target && (
-            <p className="text-sm text-foreground">
-              <span className="font-semibold text-orange-400">Target:</span> {script.target}
-            </p>
-          )}
-          {script.formato && (
-            <p className="text-sm text-foreground">
-              <span className="font-semibold text-[#22d3ee]">Formato:</span> {script.formato}
-            </p>
-          )}
-          {script.inspiration_url && (
-            <p className="text-sm text-foreground">
-              <span className="font-semibold text-[#22d3ee]">Inspiración:</span>{" "}
-              <a href={script.inspiration_url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
-                {script.inspiration_url}
-              </a>
+        {/* Winning Idea block — promoted as the header */}
+        <div className="mb-6">
+          <WinningIdeaBlock
+            idea={script.idea_ganadora || script.title}
+            hasIdea={!!script.idea_ganadora}
+            target={script.target}
+            format={script.formato}
+            inspirationUrl={script.inspiration_url}
+            variant="detail"
+          />
+          {script.idea_ganadora && script.title && script.title !== script.idea_ganadora && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {script.title}
             </p>
           )}
         </div>
@@ -135,7 +120,7 @@ export default function PublicScript() {
                         <Icon className={`w-4 h-4 ${cfg.color}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+                        <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{tr(cfg.labelKey, language)}</span>
                         <p className="mt-1 text-sm leading-relaxed text-foreground">{line.text}</p>
                       </div>
                     </div>

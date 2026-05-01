@@ -6,6 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
+import { parseDeck, composeDeckAnswers, type DeckPayload, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
+import { QuestionDeckCard } from "./QuestionDeckCard";
+import { DeckSummaryBubble } from "./DeckSummaryBubble";
 
 /** Render a single line with inline markdown: **bold**, *italic*, `code`, URLs */
 function renderInline(line: string): React.ReactNode[] {
@@ -116,6 +119,7 @@ function InlineScriptPreview({ script, onSave, onExpand, saving }: {
   saving?: boolean;
 }) {
   const [saved, setSaved] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const grouped = useMemo(() => {
     const map: Record<string, typeof script.lines> = { hook: [], body: [], cta: [] };
     for (const line of script.lines) {
@@ -196,8 +200,9 @@ function InlineScriptPreview({ script, onSave, onExpand, saving }: {
           const totalLines = script.lines.length;
           return SECTION_ORDER.map((section) => {
             const lines = grouped[section] || [];
-            if (lines.length === 0 || used >= MAX_PREVIEW_LINES) return null;
-            const remaining = MAX_PREVIEW_LINES - used;
+            const limit = expanded ? 9999 : MAX_PREVIEW_LINES;
+            if (lines.length === 0 || used >= limit) return null;
+            const remaining = limit - used;
             const visible = lines.slice(0, remaining);
             used += visible.length;
             const sectionColor = SECTION_COLORS[section] || "#22d3ee";
@@ -248,9 +253,7 @@ function InlineScriptPreview({ script, onSave, onExpand, saving }: {
                               fontSize: 11,
                               lineHeight: 1.35,
                               color: "rgba(255,255,255,0.85)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
+                              ...(expanded ? {} : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }),
                             }}
                           >
                             {line.text}
@@ -263,8 +266,8 @@ function InlineScriptPreview({ script, onSave, onExpand, saving }: {
               </div>
             );
           }).concat(
-            totalLines > MAX_PREVIEW_LINES ? (
-              <div key="more" style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "center", padding: "2px 0 4px" }}>
+            !expanded && totalLines > MAX_PREVIEW_LINES ? (
+              <div key="more" onClick={() => setExpanded(true)} style={{ fontSize: 10, color: "rgba(34,211,238,0.5)", textAlign: "center", padding: "2px 0 4px", cursor: "pointer" }}>
                 +{totalLines - MAX_PREVIEW_LINES} more lines
               </div>
             ) : null
@@ -337,7 +340,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const AI_MODELS = [
   { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "#3fb950", cost: "~3-8 cr" },
   { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "#0891b2", cost: "~15-25 cr" },
-  { key: "claude-opus-4", label: "Opus 4", provider: "Anthropic", tier: "power", color: "#a371f7", cost: "~60-100 cr" },
+  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "#a371f7", cost: "~60-100 cr" },
   { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "#3fb950", cost: "~3-8 cr" },
   { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "#f0883e", cost: "~10-20 cr" },
 ] as const;
@@ -517,13 +520,47 @@ interface Props {
   /** Seed messages on mount (from DB). CanvasAIPanel owns display state — no round-trip updates. */
   initialMessages?: Message[];
   onMessagesChange?: (messages: Message[]) => void;
+  /** Reports in-flight streaming content (or null when stream finishes) so the parent can persist
+   *  the partial response if the page is closed or the tab is discarded mid-stream, and can also
+   *  broadcast the partial to collaborators for live typewriter display. */
+  onStreamingPartial?: (content: string | null) => void;
+  /** Streaming content from a remote collaborator (live typewriter from another tab/user).
+   *  When set and no local stream is active, renders as the streaming bubble. */
+  remoteStreamingContent?: string | null;
   onSaveScript?: (script: ScriptResult) => Promise<void>;
   onSessionTitle?: (title: string) => void;
   /** Image dropped onto the parent AI node — applied as pastedImage */
   externalDroppedImage?: { dataUrl: string; mimeType: string } | null;
+  /** When true, centers content with max-width like Claude's chat UI */
+  fullscreen?: boolean;
 }
 
-interface Message { role: "user" | "assistant"; content: string; type?: "text" | "image" | "script_preview"; image_b64?: string; _blobUrl?: string; revised_prompt?: string; credits_used?: number; script_data?: ScriptResult; _imagePreview?: string; is_research?: boolean; source_count?: number; research_topic?: string; }
+interface DeckMeta { deck_questions: DeckQuestion[]; deck_answers: DeckAnswer[]; }
+interface Message { role: "user" | "assistant"; content: string; type?: "text" | "image" | "script_preview"; image_b64?: string; _blobUrl?: string; revised_prompt?: string; credits_used?: number; script_data?: ScriptResult; _imagePreview?: string; is_research?: boolean; source_count?: number; research_topic?: string; actual_model?: string; downgraded?: boolean; meta?: DeckMeta; }
+
+// Detects when the user is asking the AI to brainstorm without the
+// client/canvas context. Matches natural phrasings like "no context",
+// "without my notes", "off-brand", "brainstorm freely", "forget the client".
+// Intentionally conservative — only fires on clear intent.
+function detectIdeationIntent(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  const patterns: RegExp[] = [
+    /\b(no|without|w\/o|ignore|forget|drop|skip)\s+(the\s+|my\s+|any\s+)?(context|notes?|client|brand|voice|transcripts?|memos?|script)\b/,
+    /\bdon'?t\s+(use|pull|read|consider)\s+(the\s+|my\s+|any\s+)?(context|notes?|client|brand|voice|transcripts?|memos?)\b/,
+    /\boff[- ]brand\b/,
+    /\bbrainstorm\s+(freely|openly|broadly|off[- ]brand|without)\b/,
+    /\bfree[- ]?brainstorm\b/,
+    /\bfrom\s+scratch\b/,
+    /\bignore\s+(everything|all|what('?| i)s?\s+connected)\b/,
+    /\bjust\s+brainstorm\b/,
+    /\bthink\s+(broadly|wider|outside)\b/,
+    /\bnot\s+from\s+(my|the)\s+(notes?|context|client|brand)\b/,
+    /\bpure(ly)?\s+creative\b/,
+    /\bfresh\s+angles?\s+\(not\s+from\s+/,
+  ];
+  return patterns.some((p) => p.test(t));
+}
 
 const CHIP_PROMPTS: Record<string, string> = {
   "Check my TAM": "Look at my script topic and all connected context. Is the total addressable market large enough for this to go viral? Be specific — who exactly is the audience, how large is that group, and is the angle broad enough?",
@@ -654,7 +691,7 @@ const hasContext = (ctx: CanvasContext) =>
   !!ctx.selected_hook || !!ctx.brand_guide || !!ctx.selected_cta ||
   (ctx.competitor_profiles?.length ?? 0) > 0 || (ctx.media_files?.length ?? 0) > 0;
 
-export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvasContextRef: parentContextRef, clientInfo, onGenerateScript, authToken, format, language: scriptLang, aiModel, onFormatChange, onLanguageChange, onModelChange, remixMode = false, remixContext = null, initialInput = null, onInitialInputConsumed, initialMessages, onMessagesChange, onSaveScript, onSessionTitle, externalDroppedImage }: Props) {
+export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvasContextRef: parentContextRef, clientInfo, onGenerateScript, authToken, format, language: scriptLang, aiModel, onFormatChange, onLanguageChange, onModelChange, remixMode = false, remixContext = null, initialInput = null, onInitialInputConsumed, initialMessages, onMessagesChange, onStreamingPartial, remoteStreamingContent = null, onSaveScript, onSessionTitle, externalDroppedImage, fullscreen = false }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
   // Keep a ref to always read the latest canvasContext in callbacks (avoids stale closures)
@@ -757,9 +794,9 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       connected_nodes: nodeInventory,
       transcriptions: videoNodesWithTranscript.slice(0, 8).map((n: any) => {
         const d = n.data || {};
-        if (d.transcription) return (d.transcription as string).slice(0, 6000);
+        if (d.transcription) return (d.transcription as string).slice(0, 15000);
         if (d.structure?.sections?.length) {
-          return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n").slice(0, 6000);
+          return d.structure.sections.map((s: any) => `[${s.section?.toUpperCase()}] ${s.actor_text || ""}`).join("\n").slice(0, 15000);
         }
         return "";
       }),
@@ -780,7 +817,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
           const va = n.data.videoAnalysis;
           return {
             detected_format: n.data?.structure?.detected_format ?? null,
-            visual_segments: (va.visual_segments || []).slice(0, 10),
+            visual_segments: (va.visual_segments || []).slice(0, 30),
             audio: va.audio || null,
           };
         }),
@@ -865,11 +902,45 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   messagesRef.current = messages; // always current on every render
   const onMessagesChangeRef = useRef(onMessagesChange);
   onMessagesChangeRef.current = onMessagesChange;
+  const onStreamingPartialRef = useRef(onStreamingPartial);
+  onStreamingPartialRef.current = onStreamingPartial;
+  // Throttle in-flight partial reports — last wall-clock ms a partial was emitted
+  const lastPartialReportAtRef = useRef(0);
+
+  // ─── Sync from parent when initialMessages changes (remote broadcast / chat switch) ───
+  const lastExternalLenRef = useRef(initialMessages?.length ?? 0);
+  useEffect(() => {
+    if (!initialMessages) return;
+    const externalLen = initialMessages.length;
+    // Handle empty → empty (no change needed)
+    if (externalLen === 0 && messagesRef.current.length === 0) return;
+    // If external is empty but local has messages, clear them (chat switch to empty chat)
+    if (externalLen === 0 && messagesRef.current.length > 0) {
+      lastExternalLenRef.current = 0;
+      messagesRef.current = [];
+      setMessages([]);
+      return;
+    }
+    // Only sync if the external data actually changed (different length or different last message)
+    const currentLen = messagesRef.current.length;
+    const lastExternal = initialMessages[externalLen - 1];
+    const lastCurrent = messagesRef.current[currentLen - 1];
+    const changed = externalLen !== lastExternalLenRef.current ||
+      (lastExternal && lastCurrent && lastExternal.content !== lastCurrent.content);
+    if (changed) {
+      lastExternalLenRef.current = externalLen;
+      messagesRef.current = initialMessages;
+      setMessages(initialMessages);
+    }
+  }, [initialMessages]);
   // Local model state — initialized from prop, updated immediately on selection
   // Avoids relying on prop propagation back through ReactFlow node data
   const [selectedModel, setSelectedModel] = useState(aiModel);
   const aiModelRef = useRef(aiModel);
   aiModelRef.current = selectedModel; // always current — avoids stale closure in sendMessage
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const thinkingRef = useRef(false);
+  thinkingRef.current = thinkingEnabled;
   // Parent is notified via direct calls in sendMessage/generateScript — no useEffect timing dependency
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -885,6 +956,8 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   pastedImageRef.current = pastedImage; // always current — avoids stale closure in sendMessage
   const [isDragOver, setIsDragOver] = useState(false);
   const [isResearchMode, setIsResearchMode] = useState(false);
+  const isResearchModeRef = useRef(false);
+  isResearchModeRef.current = isResearchMode;
   const abortControllerRef = useRef<AbortController | null>(null);
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -973,7 +1046,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const token = authToken || session?.access_token;
+        const token = session?.access_token || authToken;
         if (!token) return;
         const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-assistant`, {
           method: "POST",
@@ -1136,7 +1209,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
     }
     setGenerating(true);
     const { data: { session } } = await supabase.auth.getSession();
-    const token = authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const token = session?.access_token || authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     try {
       // Strip leading assistant messages (Claude API requires user-first), and trim to last 20 messages to avoid token bloat
       const currentMsgs = messagesRef.current;
@@ -1195,7 +1268,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
-    setInput(""); if (textareaRef.current) { textareaRef.current.style.height = "36px"; }
+    setInput(""); (window as any).__canvasAIDraftInput = null; if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
 
     const userMsg: Message = { role: "user", content: trimmed };
     const updatedMsgs = capMessages([...messagesRef.current, userMsg]);
@@ -1210,13 +1283,16 @@ const bottomRef = useRef<HTMLDivElement>(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = session?.access_token || authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const cc = getLatestContext();
       const contextParts: string[] = [];
       if (cc.primary_topic) contextParts.push(`Topic: ${cc.primary_topic}`);
       if (cc.text_notes) contextParts.push(`Notes: ${cc.text_notes.slice(0, 400)}`);
       if (cc.brand_guide?.tone) contextParts.push(`Brand tone: ${cc.brand_guide.tone}`);
-      const cappedContext = contextParts.join("\n").slice(0, 800);
+      // Include recent conversation history so research has full context
+      const recentMsgs = messagesRef.current.slice(-10).map(m => `${m.role}: ${m.content?.slice(0, 300)}`).join("\n");
+      if (recentMsgs) contextParts.push(`Conversation history:\n${recentMsgs}`);
+      const cappedContext = contextParts.join("\n").slice(0, 2000);
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/deep-research`, {
         method: "POST",
@@ -1319,7 +1395,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
     }
   }, [authToken, loading]);
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, opts?: { deckMeta?: DeckMeta }) => {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
@@ -1333,10 +1409,9 @@ const bottomRef = useRef<HTMLDivElement>(null);
 
     const lower = trimmed.toLowerCase();
 
-    // ─── Deep research routing ───
-    // Only match if message STARTS with a research keyword (not just contains it)
-    const isResearchIntent = isResearchMode || RESEARCH_KEYWORDS.some(kw => lower.startsWith(kw));
-    if (isResearchIntent && !CHIP_PROMPTS[trimmed]) {
+    // ─── Deep research routing — ONLY when explicitly toggled ON ───
+    if (isResearchModeRef.current && !CHIP_PROMPTS[trimmed]) {
+      setIsResearchMode(false);   // auto-turn off after sending
       await sendResearchMessage(trimmed);
       return;
     }
@@ -1347,7 +1422,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
       lower.includes("create the script") || lower.includes("build the script") ||
       (lower.includes("generate") && lower.length < 20);
     if (isGenerateRequest) {
-      setInput(""); if (textareaRef.current) { textareaRef.current.style.height = "36px"; }
+      setInput(""); (window as any).__canvasAIDraftInput = null; if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
       const _genUserMsg = { role: "user" as const, content: trimmed };
       const _genUpdated = capMessages([...messagesRef.current, _genUserMsg]);
       messagesRef.current = _genUpdated;
@@ -1367,7 +1442,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
       return explicitUpdate.test(l) || explicitEditPart.test(l) || chipEdits.test(l);
     })();
     if (isEditIntent) {
-      setInput(""); if (textareaRef.current) { textareaRef.current.style.height = "36px"; }
+      setInput(""); (window as any).__canvasAIDraftInput = null; if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
       const _editUserMsg: Message = { role: "user", content: trimmed };
       const _editUpdated = capMessages([...messagesRef.current, _editUserMsg]);
       messagesRef.current = _editUpdated;
@@ -1376,7 +1451,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
       setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const token = authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const token = session?.access_token || authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         // Build conversation context (last 10 non-script messages for context)
         const convMsgs = _editUpdated
           .filter(m => m.type !== "script_preview" && m.type !== "image")
@@ -1433,6 +1508,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
       role: "user",
       content: expandedText,
       ...(capturedPastedImage ? { _imagePreview: capturedPastedImage.dataUrl } : {}),
+      ...(opts?.deckMeta ? { meta: opts.deckMeta } : {}),
     };
     // Build updated list from ref (always current) and update state
     const updated = capMessages([...messagesRef.current, userMsg]);
@@ -1440,13 +1516,13 @@ const bottomRef = useRef<HTMLDivElement>(null);
     setMessages(updated);
     console.log("[chat] sendMessage: notifying parent, ref:", typeof onMessagesChangeRef.current, "msgs:", updated.length);
     onMessagesChangeRef.current?.(updated); // persist user message immediately
-    setInput(""); if (textareaRef.current) { textareaRef.current.style.height = "36px"; }
+    setInput(""); (window as any).__canvasAIDraftInput = null; if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
     setAtMentionQuery(null);
     setLoading(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = session?.access_token || authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
       // Build full context for the AI assistant — read from parent ref for always-fresh value
       const cc = getLatestContext();
@@ -1592,6 +1668,8 @@ const bottomRef = useRef<HTMLDivElement>(null);
         cc.selected_cta
           ? `REQUIRED CTA (end script with this verbatim):\n"${cc.selected_cta}"`
           : null,
+        // Video analyses are the visual breakdown — users expect AI to see all frames
+        rawVideoAnalyses,
         // Competitor profiles are strategy-critical — always include in full
         rawCompetitorProfiles,
         // Freshly auto-transcribed post (if user asked to analyze/copy a competitor video)
@@ -1600,7 +1678,6 @@ const bottomRef = useRef<HTMLDivElement>(null);
 
       // SECONDARY SECTIONS — budget-allocated only if total exceeds limit
       const secondarySections: Record<string, string | null> = {
-        video_analyses: rawVideoAnalyses,
         media_transcriptions: rawMediaFiles,
       };
       const priorityTotal = prioritySections.join("\n\n").length;
@@ -1634,6 +1711,21 @@ const bottomRef = useRef<HTMLDivElement>(null);
       const firstUserIdx = updated.findIndex(m => m.role === "user");
       // Convert script_preview messages to readable text so Claude can see what it generated
       const apiMessages = (firstUserIdx >= 0 ? updated.slice(firstUserIdx) : updated).map(m => {
+        // Rewrite prior deck-JSON assistant messages as a readable summary so the
+        // model doesn't see its own raw JSON and try to emit another deck.
+        if (m.role === "assistant") {
+          const deck = parseDeck(m.content);
+          if (deck) {
+            const qlist = deck.questions
+              .map((q, idx) => `Q${idx + 1} (${q.label || q.id}): ${q.question}`)
+              .join("\n");
+            const preamble = deck.preamble ? `${deck.preamble}\n\n` : "";
+            return {
+              role: m.role,
+              content: `${preamble}[I asked the user a question deck. They'll answer in the next message. Questions I asked:\n${qlist}]`,
+            };
+          }
+        }
         if (m.type === "script_preview" && m.script_data) {
           const s = m.script_data;
           const lines = (s.lines || []).map((l: any) => {
@@ -1646,6 +1738,18 @@ const bottomRef = useRef<HTMLDivElement>(null);
           return {
             role: m.role,
             content: `[GENERATED SCRIPT: "${s.idea_ganadora}"]\n${lines}`,
+          };
+        }
+        // Re-include pasted images in history so Claude can reference them in follow-up messages
+        if (m._imagePreview && m.role === "user") {
+          const b64 = m._imagePreview.replace(/^data:[^;]+;base64,/, "");
+          const mime = (m._imagePreview.match(/^data:([^;]+)/) || [])[1] || "image/png";
+          return {
+            role: m.role,
+            content: [
+              { type: "image", source: { type: "base64", media_type: mime, data: b64 } },
+              { type: "text", text: m.content },
+            ],
           };
         }
         return { role: m.role, content: m.content };
@@ -1705,14 +1809,31 @@ const bottomRef = useRef<HTMLDivElement>(null);
           .filter((m: any) => m.file_type === "image" && m.signed_url)
           .map((m: any) => m.signed_url as string);
 
+        // Subtle ideation detection: if the latest user message asks for
+        // context-free brainstorming, we silently drop the heavy canvas
+        // context for this turn only. No visible UI — the user just says
+        // what they want ("no context", "brainstorm freely", "off-brand",
+        // "forget my notes") and the system does the right thing.
+        const lastUserText = [...apiMessages].reverse().find((m: any) => m.role === "user")?.content;
+        const lastUserStr = typeof lastUserText === "string"
+          ? lastUserText
+          : Array.isArray(lastUserText)
+            ? lastUserText.map((c: any) => c?.text ?? "").join(" ")
+            : "";
+        const ideating = detectIdeationIntent(lastUserStr);
+
         const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-assistant`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             messages: apiMessages,
             canvas_mode: true,
-            client_info: { ...clientInfo, canvas_context: cappedContext },
+            client_info: ideating
+              ? { name: clientInfo?.name, target: clientInfo?.target }
+              : { ...clientInfo, canvas_context: cappedContext },
+            ideation_mode: ideating,
             model: aiModelRef.current,
+            thinking: thinkingRef.current || undefined,
             canvas_image_urls: connectedImageUrls.length > 0 ? connectedImageUrls : undefined,
             pasted_image_b64: capturedPastedImage?.dataUrl ?? undefined,
             pasted_image_type: capturedPastedImage?.mimeType ?? undefined,
@@ -1731,6 +1852,9 @@ const bottomRef = useRef<HTMLDivElement>(null);
           let displayedLen = 0;
           let sseFinished = false;
           let finalContent = "";
+          let finalActualModel: string | null = null;
+          let finalDowngraded = false;
+          let finalCreditsUsed: number | null = null;
 
           setStreamingContent("");
 
@@ -1749,7 +1873,15 @@ const bottomRef = useRef<HTMLDivElement>(null);
               clearInterval(tid);
               typewriterRef.current = null;
               setStreamingContent(null);
-              const _aiMsg = { role: "assistant" as const, content: finalContent || "I couldn't generate a response." };
+              // Stream done — clear partial so unmount/visibility hooks don't double-write
+              onStreamingPartialRef.current?.(null);
+              const _aiMsg = {
+                role: "assistant" as const,
+                content: finalContent || "I couldn't generate a response.",
+                ...(finalActualModel ? { actual_model: finalActualModel } : {}),
+                ...(finalDowngraded ? { downgraded: true } : {}),
+                ...(finalCreditsUsed != null ? { credits_used: finalCreditsUsed } : {}),
+              };
               const _withAI = capMessages([...messagesRef.current, _aiMsg]);
               messagesRef.current = _withAI;
               setMessages(_withAI);
@@ -1772,8 +1904,18 @@ const bottomRef = useRef<HTMLDivElement>(null);
                   const ev = JSON.parse(line.slice(6));
                   if (ev.delta) {
                     targetRef.current += ev.delta;
+                    // Mirror to parent (throttled ~500ms) so the partial is recoverable
+                    // if the tab is discarded or the page is refreshed mid-stream.
+                    const _now = Date.now();
+                    if (_now - lastPartialReportAtRef.current > 500) {
+                      lastPartialReportAtRef.current = _now;
+                      onStreamingPartialRef.current?.(targetRef.current);
+                    }
                   } else if (ev.done) {
                     finalContent = targetRef.current;
+                    finalActualModel = ev.actual_model ?? null;
+                    finalDowngraded = !!ev.downgraded;
+                    finalCreditsUsed = typeof ev.credits_used === "number" ? ev.credits_used : null;
                     sseFinished = true;
                   }
                 } catch { /* ignore parse errors */ }
@@ -1811,6 +1953,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
       if (e?.name === "AbortError") {
         if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; }
         setStreamingContent(null);
+        onStreamingPartialRef.current?.(null);
         return;
       }
       const _catchMsg = { role: "assistant" as const, content: "Sorry, something went wrong." };
@@ -1818,6 +1961,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
       messagesRef.current = _withCatch;
       setMessages(_withCatch);
       onMessagesChangeRef.current?.(_withCatch);
+      onStreamingPartialRef.current?.(null);
     } finally {
       setLoading(false);
       window.dispatchEvent(new Event("credits-updated"));
@@ -1865,37 +2009,12 @@ const bottomRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Format + Language row */}
-      <div className="px-3 py-2 border-b border-border flex flex-shrink-0">
-        <div className="flex items-center gap-2 w-full">
-          <select
-            value={format}
-            onChange={(e) => onFormatChange(e.target.value)}
-            className="flex-1 py-1.5 px-2 text-[11px] rounded-lg border border-border/50 bg-transparent text-muted-foreground focus:outline-none focus:border-primary/50 hover:bg-muted/40 transition-colors cursor-pointer"
-          >
-            <option value="talking_head">Talking Head</option>
-            <option value="broll_caption">B-Roll Caption</option>
-            <option value="entrevista">Entrevista</option>
-            <option value="variado">Variado</option>
-          </select>
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            {(["en", "es"] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => onLanguageChange(l)}
-                className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors ${scriptLang === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* Format + Language row — hidden, format/language still passed via props */}
 
       {/* Messages */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-3 py-3 space-y-4 min-h-0 nodrag nowheel canvas-ai-scroll relative"
+        className={`flex-1 overflow-y-auto ${fullscreen ? "px-4 py-6" : "px-3 py-3"} min-h-0 nodrag nowheel canvas-ai-scroll relative`}
         style={{ userSelect: "text", cursor: "auto" }}
         onMouseDown={(e) => e.stopPropagation()}
         onScroll={(e) => {
@@ -1905,13 +2024,14 @@ const bottomRef = useRef<HTMLDivElement>(null);
           if (atBottom) setUnreadCount(0);
         }}
       >
+        <div className={fullscreen ? "max-w-3xl mx-auto w-full space-y-4" : "space-y-4"}>
         {/* Centered greeting when no messages */}
         {messages.length === 0 && !loading && !generating && !remixMode && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3 px-3" style={{ animation: "greetingFadeIn 0.5s ease both" }}>
+          <div className={`flex flex-col items-center justify-center flex-1 ${fullscreen ? "min-h-[60vh]" : "min-h-[200px]"} gap-3 px-3`} style={{ animation: "greetingFadeIn 0.5s ease both" }}>
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Bot className="w-5 h-5 text-primary" />
             </div>
-            <p className="text-base font-light text-foreground/60 text-center leading-snug" style={{ letterSpacing: "-0.01em" }}>
+            <p className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug`} style={{ letterSpacing: "-0.01em" }}>
               {language === "es" ? (
                 <>¿Qué hacemos <strong className="font-bold text-foreground/80">hoy</strong>{displayName ? `, ${displayName}` : ""}?</>
               ) : (
@@ -2008,7 +2128,28 @@ const bottomRef = useRef<HTMLDivElement>(null);
                 <div className="flex gap-2 items-start group/msg">
                   <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
                   <div className="text-foreground min-w-0 flex-1 relative pr-8">
-                    <MarkdownText text={msg.content} />
+                    {(() => {
+                      const deck = parseDeck(msg.content);
+                      if (!deck) return <MarkdownText text={msg.content} />;
+                      const alreadyAnswered = visibleMessages
+                        .slice(i + 1)
+                        .some((later) => later.role === "user" && !!later.meta?.deck_questions);
+                      if (alreadyAnswered) {
+                        return deck.preamble ? <MarkdownText text={deck.preamble} /> : null;
+                      }
+                      return (
+                        <>
+                          {deck.preamble && <div className="mb-2"><MarkdownText text={deck.preamble} /></div>}
+                          <QuestionDeckCard
+                            deck={deck}
+                            onSubmit={(answers) => {
+                              const composed = composeDeckAnswers(deck.questions, answers);
+                              sendMessage(composed, { deckMeta: { deck_questions: deck.questions, deck_answers: answers } });
+                            }}
+                          />
+                        </>
+                      );
+                    })()}
                     <div className="absolute top-0 right-0 flex flex-col gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity">
                       <button
                         onClick={() => {
@@ -2031,6 +2172,14 @@ const bottomRef = useRef<HTMLDivElement>(null);
                       >
                         <RotateCcw className="w-3 h-3" />
                       </button>
+                      {msg.downgraded && msg.actual_model && (
+                        <span
+                          title={`This turn was automatically routed to ${MODEL_LABEL[msg.actual_model] || msg.actual_model} to save credits. Ask for "search", "look through", or "research" to keep your selected model.`}
+                          className="text-[9px] text-muted-foreground/60 ml-1 px-1.5 py-0 rounded border border-border/40"
+                        >
+                          {MODEL_LABEL[msg.actual_model] || msg.actual_model}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2045,7 +2194,14 @@ const bottomRef = useRef<HTMLDivElement>(null);
                       className="w-full max-h-40 object-cover rounded-xl rounded-br-sm mb-1 border border-border/40"
                     />
                   )}
-                  <div className="px-3 py-2 rounded-2xl rounded-tr-sm bg-muted text-xs text-foreground">{msg.content}</div>
+                  {msg.meta?.deck_questions ? (
+                    <DeckSummaryBubble
+                      questions={msg.meta.deck_questions}
+                      answers={msg.meta.deck_answers}
+                    />
+                  ) : (
+                    <div className={`px-3 py-2 rounded-2xl rounded-tr-sm bg-muted ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}>{msg.content}</div>
+                  )}
                   <button
                     onClick={() => {
                       const allMsgs = messagesRef.current;
@@ -2111,24 +2267,34 @@ const bottomRef = useRef<HTMLDivElement>(null);
             </button>
           </div>
         )}
-        {/* Streaming bubble — shown while tokens arrive */}
-        {streamingContent !== null && (
-          <div className="flex gap-2 items-start px-1 py-1">
-            {isResearchMode || RESEARCH_KEYWORDS.some(kw => messagesRef.current[messagesRef.current.length - 1]?.content?.toLowerCase().includes(kw)) ? (
-              <svg className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
-            ) : (
-              <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-            )}
-            <div className="text-foreground min-w-0 flex-1">
-              <MarkdownText text={streamingContent + "\u200b▋"} />
+        {/* Streaming bubble — shown while tokens arrive (locally or from a collaborator) */}
+        {(() => {
+          const liveText = streamingContent ?? remoteStreamingContent;
+          if (liveText === null) return null;
+          return (
+            <div className="flex gap-2 items-start px-1 py-1">
+              {isResearchMode || RESEARCH_KEYWORDS.some(kw => messagesRef.current[messagesRef.current.length - 1]?.content?.toLowerCase().includes(kw)) ? (
+                <svg className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+              ) : (
+                <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+              )}
+              <div className="text-foreground min-w-0 flex-1">
+                {liveText.includes("questions_deck") ? (
+                  <div className="text-xs text-muted-foreground italic">Preparing questions…</div>
+                ) : (
+                  <MarkdownText text={liveText + "\u200b▋"} />
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         <div ref={bottomRef} />
+        </div>{/* end max-w wrapper */}
       </div>
 
       {/* Generate Script button — v2 build marker */}
-      <div className="px-3 pt-2 pb-2 border-t border-border flex-shrink-0">
+      <div className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} border-t border-border flex-shrink-0`}>
+        <div className={fullscreen ? "max-w-3xl mx-auto w-full" : ""}>
         {/* Research mode banner */}
         {isResearchMode && (
           <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg" style={{ background: "linear-gradient(90deg,rgba(34,211,238,0.12),rgba(14,165,233,0.08))", border: "1px solid rgba(34,211,238,0.2)" }}>
@@ -2298,12 +2464,12 @@ const bottomRef = useRef<HTMLDivElement>(null);
               }}
               placeholder={imageMode ? "Describe the image..." : "Ask anything about your script..."}
               data-tutorial-target="ai-chat-input"
-              className="relative resize-none text-xs w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0"
+              className={`relative resize-none canvas-ai-scroll ${fullscreen ? "text-sm" : "text-xs"} w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0`}
               style={{
                 color: /@\S+/.test(input) ? "transparent" : "#e0e0e0",
                 caretColor: "#e0e0e0",
-                minHeight: 44,
-                maxHeight: 160,
+                minHeight: fullscreen ? 64 : 44,
+                maxHeight: fullscreen ? 200 : 160,
                 overflowY: "auto",
                 zIndex: 1,
               }}
@@ -2397,7 +2563,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
                 style={{ display:"flex", alignItems:"center", gap:3, color:"rgba(255,255,255,0.35)", fontSize:11, background:"none", border:"none", cursor:"pointer", whiteSpace:"nowrap" }}
                 title="Change AI model"
               >
-                <span>{MODEL_LABEL[selectedModel] || "Haiku"}</span>
+                <span>{MODEL_LABEL[selectedModel] || "Haiku"}{thinkingEnabled ? " \u2726" : ""}</span>
                 <ChevronUp style={{ width:10, height:10, transform: modelDropdownOpen ? "" : "rotate(180deg)", color:"rgba(255,255,255,0.35)" }} />
               </button>
               {modelDropdownOpen && createPortal(
@@ -2432,7 +2598,12 @@ const bottomRef = useRef<HTMLDivElement>(null);
                                 ? "bg-primary/10 border-l-2 border-l-primary text-foreground"
                                 : "text-muted-foreground hover:bg-muted/60"
                             }`}
-                            onClick={() => { setSelectedModel(m.key); onModelChange(m.key); setModelDropdownOpen(false); }}
+                            onClick={() => {
+                              setSelectedModel(m.key);
+                              onModelChange(m.key);
+                              if (!m.key.includes("sonnet") && !m.key.includes("opus")) setThinkingEnabled(false);
+                              setModelDropdownOpen(false);
+                            }}
                           >
                             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m.color }} />
                             <span className="text-xs font-medium">{m.label}</span>
@@ -2443,14 +2614,54 @@ const bottomRef = useRef<HTMLDivElement>(null);
                         {provider === "Anthropic" && <div className="h-px bg-border mx-3" />}
                       </div>
                     ))}
+                    {/* Extended thinking toggle */}
+                    <div className="h-px bg-border mx-3" />
+                    <button
+                      type="button"
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                        selectedModel.includes("sonnet") || selectedModel.includes("opus")
+                          ? "text-muted-foreground hover:bg-muted/60"
+                          : "text-muted-foreground/40 cursor-not-allowed"
+                      }`}
+                      onClick={() => {
+                        if (selectedModel.includes("sonnet") || selectedModel.includes("opus")) {
+                          setThinkingEnabled(v => !v);
+                        }
+                      }}
+                    >
+                      <span style={{ fontSize: 12, opacity: 0.7 }}>{"\u2726"}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium">Extended thinking</span>
+                        <p className="text-[9px] opacity-50 mt-0.5">Better answers, slower</p>
+                      </div>
+                      <div
+                        className="relative flex-shrink-0"
+                        style={{
+                          width: 28, height: 16, borderRadius: 8,
+                          background: thinkingEnabled ? "#0891b2" : "rgba(255,255,255,0.15)",
+                          transition: "background 0.2s",
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: "absolute", top: 2, width: 12, height: 12, borderRadius: 6,
+                            background: "#fff",
+                            left: thinkingEnabled ? 14 : 2,
+                            transition: "left 0.2s",
+                          }}
+                        />
+                      </div>
+                    </button>
+
                   </div>
                 </>,
                 document.body
               )}
             </div>
 
-            {/* Stop / Send circle / Mic */}
-            {(loading || generating) ? (
+            {/* Stop / Send circle / Mic — crossfade transitions */}
+            <div style={{ position:"relative", width:28, height:28, flexShrink:0 }}>
+              {/* Stop button */}
               <button
                 type="button"
                 onClick={() => {
@@ -2460,30 +2671,51 @@ const bottomRef = useRef<HTMLDivElement>(null);
                   setLoading(false);
                   setGenerating(false);
                 }}
-                style={{ width:28, height:28, borderRadius:"50%", border:"1.5px solid rgba(239,68,68,0.4)", background:"rgba(239,68,68,0.1)", color:"#f87171", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                style={{
+                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
+                  border:"1.5px solid rgba(239,68,68,0.4)", background:"rgba(239,68,68,0.1)", color:"#f87171",
+                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+                  opacity: (loading || generating) ? 1 : 0,
+                  pointerEvents: (loading || generating) ? "auto" : "none",
+                  transition: "opacity 200ms ease",
+                }}
                 title="Stop generating"
               >
                 <Square className="w-3.5 h-3.5 fill-current" />
               </button>
-            ) : input.trim() ? (
+              {/* Send button */}
               <button
                 type="button"
                 onClick={() => sendMessage(input)}
-                style={{ width:28, height:28, borderRadius:"50%", background: imageMode ? "#a855f7" : "#22d3ee", border:"none", color:"#000", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                style={{
+                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
+                  background:"transparent", border:"1.5px solid #22d3ee", color:"#22d3ee",
+                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+                  opacity: (!loading && !generating && input.trim()) ? 1 : 0,
+                  pointerEvents: (!loading && !generating && input.trim()) ? "auto" : "none",
+                  transition: "opacity 200ms ease",
+                }}
                 title="Send"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
-            ) : (
+              {/* Mic button */}
               <button
                 type="button"
                 onClick={toggleVoice}
-                style={{ width:28, height:28, borderRadius:"50%", border:"none", background:"none", color: recognizing ? "#f87171" : "rgba(255,255,255,0.35)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                style={{
+                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
+                  border:"none", background:"none", color: recognizing ? "#f87171" : "rgba(255,255,255,0.35)",
+                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+                  opacity: (!loading && !generating && !input.trim()) ? 1 : 0,
+                  pointerEvents: (!loading && !generating && !input.trim()) ? "auto" : "none",
+                  transition: "opacity 200ms ease",
+                }}
                 title={recognizing ? "Stop recording" : "Voice input"}
               >
                 {recognizing ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
               </button>
-            )}
+            </div>
           </div>
         </div>
 
@@ -2494,6 +2726,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
             <span className="text-[10px] text-purple-400">Image mode · DALL-E 3 · ~150 cr</span>
           </div>
         )}
+        </div>{/* end max-w input wrapper */}
       </div>
     </div>
   );

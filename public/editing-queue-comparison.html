@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Editing Queue — Before vs After</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; font-size: 13px; }
+
+  .page { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .subtitle { color: #64748b; font-size: 13px; margin-bottom: 40px; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .col-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+  .col-label.before { color: #64748b; }
+  .col-label.after { color: #22d3ee; }
+
+  /* Glass card */
+  .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* Badges */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+  .badge-done { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.25); }
+  .badge-revision { background: rgba(239,68,68,.12); color: #f87171; border-color: rgba(239,68,68,.25); }
+  .badge-progress { background: rgba(245,158,11,.12); color: #fbbf24; border-color: rgba(245,158,11,.25); }
+  .badge-pending { background: rgba(100,116,139,.12); color: #94a3b8; border-color: rgba(100,116,139,.2); }
+  .badge-published { background: rgba(34,211,238,.12); color: #22d3ee; border-color: rgba(34,211,238,.25); }
+  .badge-scheduled { background: rgba(139,92,246,.12); color: #a78bfa; border-color: rgba(139,92,246,.25); }
+  .badge-approved { background: rgba(16,185,129,.15); color: #10b981; border-color: rgba(16,185,129,.3); }
+  .badge-round { background: rgba(245,158,11,.1); color: #f59e0b; border-color: rgba(245,158,11,.2); font-size: 10px; }
+  .badge-internal { background: rgba(139,92,246,.1); color: #a78bfa; border-color: rgba(139,92,246,.2); font-size: 10px; }
+  .badge-reels { background: rgba(236,72,153,.1); color: #f472b6; border-color: rgba(236,72,153,.2); font-size: 10px; }
+  .badge-tiktok { background: rgba(0,0,0,.3); color: #e2e8f0; border-color: rgba(255,255,255,.15); font-size: 10px; }
+  .badge-shorts { background: rgba(239,68,68,.1); color: #f87171; border-color: rgba(239,68,68,.2); font-size: 10px; }
+
+  /* Icon buttons */
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; color: #94a3b8; font-size: 13px; transition: all .15s; }
+  .icon-btn:hover { background: rgba(34,211,238,.1); color: #22d3ee; border-color: rgba(34,211,238,.3); }
+
+  /* Revision comment chip */
+  .rev-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 20px; font-size: 11px; background: rgba(239,68,68,.1); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+  .rev-chip-done { background: rgba(16,185,129,.08); color: #6ee7b7; border-color: rgba(16,185,129,.2); }
+
+  /* Old revision — just text */
+  .revision-text { color: #64748b; font-size: 11px; font-style: italic; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Action buttons old */
+  .btn-old { padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #94a3b8; font-size: 11px; cursor: pointer; }
+
+  /* New approve/reject buttons */
+  .btn-approve { padding: 5px 12px; border-radius: 7px; background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3); color: #34d399; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .btn-request { padding: 5px 12px; border-radius: 7px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); color: #f87171; font-size: 11px; font-weight: 600; cursor: pointer; }
+
+  /* Review modal */
+  .modal-bg { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; margin-top: 24px; }
+  .modal-title { font-size: 13px; font-weight: 600; color: #f1f5f9; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .timeline { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; position: relative; margin: 12px 0; }
+  .timeline-fill { height: 100%; width: 38%; background: #22d3ee; border-radius: 3px; }
+  .timeline-marker { position: absolute; top: -3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid; transform: translateX(-50%); }
+  .marker-admin { background: #3b82f6; border-color: #60a5fa; left: 22%; }
+  .marker-client { background: #f59e0b; border-color: #fbbf24; left: 55%; }
+  .marker-internal { background: #8b5cf6; border-color: #a78bfa; left: 72%; }
+
+  .comment { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 8px 10px; margin-bottom: 7px; }
+  .comment-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .comment-author { font-size: 11px; font-weight: 600; }
+  .comment-time { font-size: 10px; color: #64748b; }
+  .comment-timestamp { font-size: 10px; background: rgba(34,211,238,.1); color: #22d3ee; border: 1px solid rgba(34,211,238,.2); border-radius: 4px; padding: 1px 5px; }
+  .comment-body { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+  .comment-resolved { opacity: 0.45; }
+  .comment-resolved .comment-body { text-decoration: line-through; }
+  .resolve-btn { font-size: 10px; color: #22d3ee; cursor: pointer; margin-left: auto; }
+
+  /* Version pill */
+  .version-pill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: rgba(34,211,238,.08); color: #22d3ee; border: 1px solid rgba(34,211,238,.2); cursor: pointer; }
+  .version-pill.active { background: rgba(34,211,238,.2); }
+  .version-pill.old { background: rgba(100,116,139,.08); color: #64748b; border-color: rgba(100,116,139,.2); }
+
+  /* Section divider */
+  .section { margin-top: 40px; }
+  .section-title { font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+  .section-sub { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .dot-done { background: #34d399; }
+  .dot-revision { background: #f87171; }
+  .dot-progress { background: #fbbf24; }
+  .dot-pending { background: #475569; }
+
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+
+  .improvement-list { list-style: none; padding: 0; margin-top: 32px; }
+  .improvement-list li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .improvement-list li:last-child { border: none; }
+  .imp-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .imp-title { font-size: 12px; font-weight: 600; color: #f1f5f9; margin-bottom: 2px; }
+  .imp-desc { font-size: 11px; color: #64748b; line-height: 1.5; }
+
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+  .status-flow { display: flex; align-items: center; gap: 0; margin: 16px 0; }
+  .sf-step { padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 0; border: 1px solid; }
+  .sf-step:first-child { border-radius: 7px 0 0 7px; }
+  .sf-step:last-child { border-radius: 0 7px 7px 0; }
+  .sf-arrow { color: #475569; font-size: 14px; padding: 0 2px; }
+  .sf-new { background: rgba(34,211,238,.08); color: #22d3ee; border-color: rgba(34,211,238,.2); }
+  .sf-old { background: rgba(100,116,139,.08); color: #94a3b8; border-color: rgba(100,116,139,.15); }
+  .sf-added { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.25); position: relative; }
+  .sf-added::after { content: 'NEW'; position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 800; color: #34d399; letter-spacing: .05em; }
+
+  .scrollable { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Editing Queue — Before vs. After</h1>
+  <p class="subtitle">Visual comparison of current state vs. proposed upgrades</p>
+
+  <!-- ═══ SECTION 1: ROW COLUMNS ═══ -->
+  <div class="section">
+    <div class="section-title">1. Queue Row — What columns each video shows</div>
+    <div class="section-sub">Current has generic text fields. Upgraded adds structured, actionable data per row.</div>
+    <div class="cols">
+      <!-- BEFORE -->
+      <div>
+        <div class="col-label before">Current</div>
+        <div class="card scrollable">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Post Status</th>
+                <th>Assignee</th>
+                <th>Revisions</th>
+                <th>Footage</th>
+                <th>Script</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:#f1f5f9;font-weight:600;max-width:130px;">Day in the Life Reel</td>
+                <td><span class="badge badge-revision">Needs Revision</span></td>
+                <td><span class="badge badge-pending">Unpublished</span></td>
+                <td><span style="color:#94a3b8;font-size:11px;">Sarah M.</span></td>
+                <td><span class="revision-text">Please fix the intro cut and add music fade</span></td>
+                <td><span class="icon-btn">📎</span></td>
+                <td><span class="icon-btn">📄</span></td>
+              </tr>
+              <tr>
+                <td style="color:#f1f5f9;font-weight:600;max-width:130px;">Product Showcase #4</td>
+                <td><span class="badge badge-progress">In progress</span></td>
+                <td><span class="badge badge-pending">Unpublished</span></td>
+                <td><span style="color:#94a3b8;font-size:11px;">Mike T.</span></td>
+                <td><span class="revision-text">—</span></td>
+                <td><span class="icon-btn">📎</span></td>
+                <td><span class="icon-btn">📄</span></td>
+              </tr>
+              <tr>
+                <td style="color:#f1f5f9;font-weight:600;max-width:130px;">Brand Story V2</td>
+                <td><span class="badge badge-done">Done</span></td>
+                <td><span class="badge badge-scheduled">Scheduled</span></td>
+                <td><span style="color:#94a3b8;font-size:11px;">Sarah M.</span></td>
+                <td><span class="revision-text">—</span></td>
+                <td><span class="icon-btn">📎</span></td>
+                <td><span class="icon-btn">📄</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div>
+        <div class="col-label after">Upgraded</div>
+        <div class="card scrollable">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Platform</th>
+                <th>Status</th>
+                <th>Round</th>
+                <th>Comments</th>
+                <th>Assignee</th>
+                <th>Post Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:#f1f5f9;font-weight:600;max-width:110px;">Day in the Life Reel</td>
+                <td><span class="badge badge-reels">Reels</span></td>
+                <td><span class="badge badge-revision">Needs Revision</span></td>
+                <td><span class="badge badge-round">Round 2</span></td>
+                <td><span class="rev-chip">💬 3 open</span></td>
+                <td><span style="color:#94a3b8;font-size:11px;">Sarah M.</span></td>
+                <td><span class="badge badge-pending">Unpublished</span></td>
+                <td style="display:flex;gap:4px;"><button class="btn-approve">✓ Approve</button><button class="btn-request">↩ Changes</button></td>
+              </tr>
+              <tr>
+                <td style="color:#f1f5f9;font-weight:600;max-width:110px;">Product Showcase #4</td>
+                <td><span class="badge badge-tiktok">TikTok</span></td>
+                <td><span class="badge badge-progress">In progress</span></td>
+                <td><span style="color:#475569;font-size:11px;">Round 1</span></td>
+                <td><span class="rev-chip-done rev-chip">✓ 0 open</span></td>
+                <td><span style="color:#94a3b8;font-size:11px;">Mike T.</span></td>
+                <td><span class="badge badge-pending">Unpublished</span></td>
+                <td style="display:flex;gap:4px;"><button class="btn-approve">✓ Approve</button><button class="btn-request">↩ Changes</button></td>
+              </tr>
+              <tr>
+                <td style="color:#f1f5f9;font-weight:600;max-width:110px;">Brand Story V2</td>
+                <td><span class="badge badge-shorts">YT Shorts</span></td>
+                <td><span class="badge badge-done">Done</span></td>
+                <td><span style="color:#475569;font-size:11px;">Round 1</span></td>
+                <td><span class="rev-chip-done rev-chip">✓ All resolved</span></td>
+                <td><span style="color:#94a3b8;font-size:11px;">Sarah M.</span></td>
+                <td><span class="badge badge-scheduled">Scheduled Apr 5</span></td>
+                <td><span class="badge badge-approved">✓ Approved</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 2: REVISION COMMENTS IN REVIEW MODAL ═══ -->
+  <div class="section">
+    <div class="section-title">2. Review Modal — How revision feedback looks</div>
+    <div class="section-sub">Current has a plain text box. Upgraded has timestamped, threaded, internal-vs-client comments pinned to the timeline.</div>
+    <div class="cols">
+      <!-- BEFORE -->
+      <div>
+        <div class="col-label before">Current</div>
+        <div class="card modal-bg" style="margin-top:0;">
+          <div class="modal-title">📹 Day in the Life Reel</div>
+          <!-- timeline -->
+          <div class="timeline"><div class="timeline-fill"></div></div>
+          <div style="display:flex;justify-content:space-between;color:#475569;font-size:10px;margin-bottom:12px;"><span>0:00</span><span>1:23</span></div>
+
+          <div style="color:#64748b;font-size:11px;margin-bottom:8px;font-weight:600;">REVISION NOTES</div>
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:10px;color:#94a3b8;font-size:12px;line-height:1.6;">
+            Please fix the intro cut and add music fade. The color grading on the outdoor shots looks washed out. Also the text overlay in the middle section needs to be bigger.
+          </div>
+          <div style="margin-top:10px;">
+            <textarea style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:8px;color:#e2e8f0;font-size:11px;resize:none;height:60px;" placeholder="Add a revision note..."></textarea>
+            <button class="btn-old" style="margin-top:6px;">Save note</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div>
+        <div class="col-label after">Upgraded</div>
+        <div class="card modal-bg" style="margin-top:0;">
+          <div class="modal-title">
+            📹 Day in the Life Reel
+            <span style="margin-left:auto;display:flex;gap:6px;">
+              <span class="version-pill active">V2</span>
+              <span class="version-pill old">V1</span>
+            </span>
+          </div>
+
+          <!-- timeline with markers -->
+          <div class="timeline">
+            <div class="timeline-fill"></div>
+            <div class="timeline-marker marker-admin" title="Admin comment at 0:18"></div>
+            <div class="timeline-marker marker-client" title="Client comment at 0:45"></div>
+            <div class="timeline-marker marker-internal" title="Internal note at 0:59"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:#475569;font-size:10px;margin-bottom:12px;"><span>0:00</span><span>0:31 / 1:23</span></div>
+
+          <!-- Filter row -->
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <span class="badge" style="font-size:10px;background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.25);cursor:pointer;">● Admin</span>
+            <span class="badge" style="font-size:10px;background:rgba(245,158,11,.1);color:#fbbf24;border-color:rgba(245,158,11,.25);cursor:pointer;">● Client</span>
+            <span class="badge" style="font-size:10px;background:rgba(139,92,246,.08);color:#a78bfa;border-color:rgba(139,92,246,.2);cursor:pointer;">🔒 Internal</span>
+            <span style="margin-left:auto;font-size:10px;color:#64748b;align-self:center;">3 open · 1 resolved</span>
+          </div>
+
+          <!-- Comments -->
+          <div class="comment">
+            <div class="comment-header">
+              <span class="comment-author" style="color:#60a5fa;">Roberto (Admin)</span>
+              <span class="comment-timestamp">0:18</span>
+              <span class="comment-time">2h ago</span>
+              <span class="resolve-btn">Mark resolved</span>
+            </div>
+            <div class="comment-body">Intro cut is too abrupt — needs a 0.5s dissolve. Jump to this moment to see exactly what I mean.</div>
+          </div>
+
+          <div class="comment">
+            <div class="comment-header">
+              <span class="comment-author" style="color:#fbbf24;">Client</span>
+              <span class="comment-timestamp">0:45</span>
+              <span class="comment-time">5h ago</span>
+              <span class="resolve-btn">Mark resolved</span>
+            </div>
+            <div class="comment-body">The color here looks washed out compared to the reference video I sent. Can we add more contrast?</div>
+          </div>
+
+          <div class="comment">
+            <div class="comment-header">
+              <span class="comment-author" style="color:#a78bfa;">Sarah (Editor)</span>
+              <span class="badge badge-internal">🔒 Internal only</span>
+              <span class="comment-time">1h ago</span>
+            </div>
+            <div class="comment-body">Note to self: the LUT I used doesn't work with this lighting. Switching to Kodachrome preset for V3.</div>
+          </div>
+
+          <div class="comment comment-resolved">
+            <div class="comment-header">
+              <span class="comment-author" style="color:#60a5fa;">Roberto (Admin)</span>
+              <span class="comment-timestamp">0:08</span>
+              <span class="comment-time">Yesterday</span>
+              <span style="font-size:10px;color:#34d399;margin-left:auto;">✓ Resolved</span>
+            </div>
+            <div class="comment-body">Add logo watermark bottom-right</div>
+          </div>
+
+          <div style="margin-top:10px;display:flex;gap:6px;">
+            <input style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-size:11px;" placeholder="Leave a comment at 0:31..." />
+            <button class="btn-approve" style="padding:6px 10px;">Post</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <label style="font-size:10px;color:#64748b;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" style="accent-color:#8b5cf6;" /> Internal only (hidden from client)</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 3: STATUS FLOW ═══ -->
+  <div class="section">
+    <div class="section-title">3. Status Pipeline — Stages a video moves through</div>
+    <div class="section-sub">Current has 4 generic statuses. Upgraded maps to the real production flow with clear handoffs.</div>
+    <div class="cols">
+      <div>
+        <div class="col-label before">Current (4 stages)</div>
+        <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;gap:4px 0;">
+          <div class="sf-step sf-old">Not started</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-old">In progress</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-old">Needs Revision</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-old">Done</div>
+        </div>
+        <p style="color:#475569;font-size:11px;margin-top:10px;">No distinction between "waiting for footage", "in editing", "waiting for client review" — all collapse into vague stages.</p>
+      </div>
+      <div>
+        <div class="col-label after">Upgraded (7 stages)</div>
+        <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;gap:8px 0;">
+          <div class="sf-step sf-old" style="font-size:10px;">Needs Footage</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-old" style="font-size:10px;">In Editing</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-added" style="font-size:10px;padding:6px 10px;">Internal Review</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-added" style="font-size:10px;padding:6px 10px;">Awaiting Approval</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-old" style="font-size:10px;">Revision Requested</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-added" style="font-size:10px;padding:6px 10px;">Approved</div>
+          <div class="sf-arrow">›</div>
+          <div class="sf-step sf-old" style="font-size:10px;">Published</div>
+        </div>
+        <p style="color:#475569;font-size:11px;margin-top:10px;"><span style="color:#34d399;">3 new stages</span> added: Internal Review (team-only), Awaiting Approval (sent to client), Approved (locked — ready to schedule).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 4: VERSION STACKING ═══ -->
+  <div class="section">
+    <div class="section-title">4. Version History — What happens when editor uploads a new cut</div>
+    <div class="section-sub">Currently the old file is overwritten. Upgraded keeps all versions accessible.</div>
+    <div class="cols">
+      <div>
+        <div class="col-label before">Current</div>
+        <div class="card" style="padding:16px;">
+          <div style="color:#94a3b8;font-size:12px;line-height:1.8;">
+            <div>📹 <strong style="color:#f1f5f9;">File Submission</strong></div>
+            <div style="color:#64748b;font-size:11px;margin:6px 0 4px;">Only the latest upload is shown.</div>
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;">day-in-the-life-v2.mp4</span>
+              <div style="display:flex;gap:6px;">
+                <span class="icon-btn">▶</span>
+                <span class="icon-btn">⬇</span>
+              </div>
+            </div>
+            <div style="color:#f87171;font-size:10px;margin-top:8px;">⚠ Previous version was overwritten and is gone</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="col-label after">Upgraded</div>
+        <div class="card" style="padding:16px;">
+          <div style="color:#94a3b8;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <div>📹 <strong style="color:#f1f5f9;">Version History</strong></div>
+              <span class="version-pill active">V3 — Latest</span>
+              <span class="version-pill old">V2</span>
+              <span class="version-pill old">V1</span>
+            </div>
+            <div style="background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.15);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:11px;color:#f1f5f9;">day-in-the-life-v3.mp4</div>
+                <div style="font-size:10px;color:#64748b;">Uploaded 2h ago by Sarah M. · 47MB</div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <span class="icon-btn" style="color:#22d3ee;border-color:rgba(34,211,238,.3);">▶</span>
+                <span class="icon-btn">⬇</span>
+              </div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;margin-top:6px;opacity:.6;">
+              <div>
+                <div style="font-size:11px;color:#94a3b8;">day-in-the-life-v2.mp4</div>
+                <div style="font-size:10px;color:#475569;">Uploaded Yesterday · 45MB</div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <span class="icon-btn">▶</span>
+                <span class="icon-btn">⬇</span>
+              </div>
+            </div>
+            <div style="color:#34d399;font-size:10px;margin-top:8px;">✓ All versions preserved — compare V2 vs V3 side by side</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 5: PUBLIC REVIEW LINK ═══ -->
+  <div class="section">
+    <div class="section-title">5. Client Review Link — What the client sees</div>
+    <div class="section-sub">Currently a raw URL with no protection. Upgraded has expiry, optional password, and binary Approve / Request Changes.</div>
+    <div class="cols">
+      <div>
+        <div class="col-label before">Current</div>
+        <div class="card" style="padding:16px;">
+          <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Share link for client:</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:7px;padding:8px 10px;font-size:10px;color:#94a3b8;font-family:monospace;">connectacreators.com/public/edit-queue/a3f82...</div>
+          <div style="color:#f87171;font-size:10px;margin-top:8px;">⚠ Link never expires, no password, anyone with it can edit all rows</div>
+        </div>
+      </div>
+      <div>
+        <div class="col-label after">Upgraded</div>
+        <div class="card" style="padding:16px;">
+          <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Review link settings:</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:#94a3b8;">Expires</span>
+              <span class="badge badge-scheduled">Apr 9, 2026</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:#94a3b8;">Password</span>
+              <span class="badge badge-pending">••••••</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:#94a3b8;">Can download</span>
+              <span class="badge badge-done">Enabled</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;">
+            <div style="font-size:10px;color:#64748b;margin-bottom:8px;">What client sees at the bottom of the review page:</div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-approve" style="flex:1;padding:8px;">✓ Approve this video</button>
+              <button class="btn-request" style="flex:1;padding:8px;">↩ Request Changes</button>
+            </div>
+          </div>
+          <div style="color:#34d399;font-size:10px;margin-top:8px;">✓ No login required for client · Approval logged with timestamp</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SUMMARY LIST ═══ -->
+  <div class="section">
+    <div class="section-title">Summary of changes</div>
+    <div class="section-sub">What gets built, in priority order.</div>
+    <ul class="improvement-list">
+      <li>
+        <span class="imp-icon">🔴</span>
+        <div>
+          <div class="imp-title">Fix source_ref migration [1 SQL line, fixes broken comments now]</div>
+          <div class="imp-desc">Revision comments silently fail on multi-source videos. Adding the missing column unblocks existing functionality immediately.</div>
+        </div>
+      </li>
+      <li>
+        <span class="imp-icon">🟡</span>
+        <div>
+          <div class="imp-title">Platform field per video (Reels / TikTok / Shorts / Other)</div>
+          <div class="imp-desc">One dropdown per row. Drives aspect ratio expectations, caption limits, and hashtag strategy downstream.</div>
+        </div>
+      </li>
+      <li>
+        <span class="imp-icon">🟡</span>
+        <div>
+          <div class="imp-title">Revision round counter + Approve / Request Changes buttons</div>
+          <div class="imp-desc">Auto-increment round number when status is set back to revision. Replace status dropdown in review modal with two big buttons — the most impactful UX change vs. competitors.</div>
+        </div>
+      </li>
+      <li>
+        <span class="imp-icon">🟡</span>
+        <div>
+          <div class="imp-title">Internal-only comments (hidden from client)</div>
+          <div class="imp-desc">Add visibility toggle on each comment. Internal comments show with a lock badge to team, completely hidden on public review page. Essential for agency workflows.</div>
+        </div>
+      </li>
+      <li>
+        <span class="imp-icon">🟢</span>
+        <div>
+          <div class="imp-title">Version stacking (V1/V2/V3 history)</div>
+          <div class="imp-desc">Upload new cut as a version instead of overwriting. All versions stay accessible. Version picker in review modal. Adds version_number + parent_id columns.</div>
+        </div>
+      </li>
+      <li>
+        <span class="imp-icon">🟢</span>
+        <div>
+          <div class="imp-title">Expanded status pipeline (7 stages)</div>
+          <div class="imp-desc">Add Internal Review, Awaiting Approval, and Approved as distinct stages between editing and publishing. Makes the handoff visible to everyone.</div>
+        </div>
+      </li>
+      <li>
+        <span class="imp-icon">🟢</span>
+        <div>
+          <div class="imp-title">Review link expiry + password</div>
+          <div class="imp-desc">Generate time-limited signed links for client review. Optional password. Audit log of who approved and when.</div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

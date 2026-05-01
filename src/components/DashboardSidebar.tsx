@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign,
 } from "lucide-react";
 
 import connectaTextLogo from "@/assets/connecta-logo-text-light.png";
@@ -29,6 +29,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const { user, signOut, isAdmin, isUser, isVideographer, isEditor, role } = useAuth();
   const { credits } = useCredits();
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
+  const [ownClientName, setOwnClientName] = useState<string | null>(null);
 
   // Client selector state
   const showClientSelector = isAdmin || isVideographer || isUser;
@@ -67,16 +68,17 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (!user) return;
     supabase
       .from("subscriber_clients")
-      .select("client_id")
+      .select("client_id, clients(id, name)")
       .eq("subscriber_user_id", user.id)
       .eq("is_primary", true)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.client_id) {
           setOwnClientId(data.client_id);
+          setOwnClientName((data as any).clients?.name ?? null);
         } else {
-          supabase.from("clients").select("id").eq("user_id", user.id).maybeSingle()
-            .then(({ data: fb }) => { if (fb) setOwnClientId(fb.id); });
+          supabase.from("clients").select("id, name").eq("user_id", user.id).maybeSingle()
+            .then(({ data: fb }) => { if (fb) { setOwnClientId(fb.id); setOwnClientName(fb.name); } });
         }
       });
   }, [user]);
@@ -86,7 +88,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (!user || !showClientSelector) return;
 
     if (isUser) {
-      // Only fetch non-primary clients — primary is shown as the "Me" button
+      // Fetch non-primary subscriber clients (primary is shown as "My Brand" separately)
       supabase
         .from("subscriber_clients")
         .select("client_id, is_primary, clients(id, name)")
@@ -176,8 +178,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
 
   const selectedClientName =
     viewMode === "master" ? "Master"
-    : viewMode === "me" ? "Me"
-    : clients.find(c => c.id === viewMode)?.name ?? "Client";
+    : viewMode === "me" ? (ownClientName || clients.find(c => c.id === ownClientId)?.name || "My Brand")
+    : (clients.find(c => c.id === viewMode)?.name ?? ownClientName ?? "Client");
 
   const getInitials = (name: string) =>
     name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
@@ -204,6 +206,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: language === "en" ? "Team Members" : "Equipo", icon: Video, path: "/videographers" },
         { label: "Subscribers", icon: UserCheck, path: "/subscribers" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { label: "Finances", icon: DollarSign, path: "/finances" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
@@ -506,6 +509,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                       handleViewModeChange(clientId);
                       setNewClientName("");
                       setAddingClient(false);
+                      window.dispatchEvent(new Event("clients-changed"));
                       supabase
                         .from("subscriber_clients")
                         .select("client_id, is_primary, clients(id, name)")
@@ -535,6 +539,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                       handleViewModeChange(clientId);
                       setNewClientName("");
                       setAddingClient(false);
+                      window.dispatchEvent(new Event("clients-changed"));
                       supabase
                         .from("subscriber_clients")
                         .select("client_id, is_primary, clients(id, name)")

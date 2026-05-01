@@ -10,12 +10,15 @@ import {
   FileImage,
   FileVideo,
   FileAudio,
+  FileText,
   Loader2,
   X,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import {
   canvasMediaService,
@@ -32,7 +35,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 interface MediaNodeData {
   mediaId?: string;
   fileName?: string;
-  fileType?: "image" | "video" | "voice";
+  fileType?: "image" | "video" | "voice" | "pdf";
   mimeType?: string;
   fileSizeBytes?: number;
   storagePath?: string;
@@ -76,6 +79,7 @@ const FILE_TYPE_ICON: Record<string, typeof FileImage> = {
   image: FileImage,
   video: FileVideo,
   voice: FileAudio,
+  pdf:   FileText,
 };
 
 // Signed URLs expire after 1 hour; consider stale at 55 minutes
@@ -119,7 +123,58 @@ const MediaNode = memo(({ data }: NodeProps) => {
 
   // ─── Audio/video play state ───
   const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
+  const seekBarRef = useRef<HTMLDivElement | null>(null);
+  const isDragging = useRef(false);
+
+  const formatTime = (s: number) => {
+    if (!isFinite(s) || isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const setSpeed = (speed: number) => {
+    setPlaybackRate(speed);
+    if (mediaRef.current) mediaRef.current.playbackRate = speed;
+  };
+
+  const seekFromEvent = useCallback((clientX: number) => {
+    if (!mediaRef.current || !duration || !seekBarRef.current) return;
+    const rect = seekBarRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    mediaRef.current.currentTime = pct * duration;
+    setCurrentTime(pct * duration);
+  }, [duration]);
+
+  const handleSeekMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    isDragging.current = true;
+    seekFromEvent(e.clientX);
+  }, [seekFromEvent]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (isDragging.current) seekFromEvent(e.clientX);
+    };
+    const onMouseUp = () => { isDragging.current = false; };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [seekFromEvent]);
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!mediaRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    mediaRef.current.currentTime = pct * duration;
+    setCurrentTime(pct * duration);
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -266,8 +321,8 @@ const MediaNode = memo(({ data }: NodeProps) => {
   const triggerTranscription = async (
     mode: "audio" | "visual" | "both"
   ) => {
-    if (!d.mediaId || !d.authToken) {
-      toast.error("Cannot transcribe — missing media info or auth.");
+    if (!d.mediaId) {
+      toast.error("Cannot transcribe — missing media info.");
       return;
     }
 
@@ -275,13 +330,18 @@ const MediaNode = memo(({ data }: NodeProps) => {
     d.onUpdate?.({ transcriptionStatus: "processing" });
 
     try {
+      // Always get a fresh token to avoid stale-session "Unauthorized" errors
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || d.authToken;
+      if (!token) { toast.error("Not authenticated — please refresh."); setTranscribing(false); return; }
+
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/transcribe-canvas-media`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${d.authToken}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ media_id: d.mediaId, mode }),
         }
@@ -394,12 +454,12 @@ const MediaNode = memo(({ data }: NodeProps) => {
                 Drop file here or click to browse
               </span>
               <span className="text-[10px] text-muted-foreground/40">
-                Images &middot; Videos &middot; Voice Notes
+                Images &middot; Videos &middot; Audio &middot; PDF
               </span>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*,audio/*"
+                accept="image/*,video/*,audio/*,application/pdf"
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files?.length) handleFiles(e.target.files);
@@ -620,17 +680,17 @@ const MediaNode = memo(({ data }: NodeProps) => {
           {/* ─── VOICE NOTE ─── */}
           {fileType === "voice" && (
             <>
-              {/* Header */}
+              {/* Header — file name instead of "Voice Note" */}
               <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
-                <div className="flex items-center gap-2">
-                  <FileAudio className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-semibold text-primary/80">
-                    Voice Note
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <FileAudio className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="text-xs font-semibold text-primary/80 truncate">
+                    {d.fileName || "Voice Note"}
                   </span>
                 </div>
                 <button
                   onClick={handleDelete}
-                  className={`nodrag p-0.5 rounded transition-colors ${
+                  className={`nodrag p-0.5 rounded transition-colors flex-shrink-0 ml-2 ${
                     confirmDelete
                       ? "bg-red-500/80 text-white"
                       : "hover:bg-red-500/20 text-muted-foreground hover:text-red-400"
@@ -640,41 +700,71 @@ const MediaNode = memo(({ data }: NodeProps) => {
                 </button>
               </div>
 
-              {/* Audio player */}
-              <div className="px-3 py-3 space-y-2.5">
+              {/* Audio player — single row */}
+              <div className="px-3 py-3">
                 {signedUrl ? (
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      onClick={togglePlay}
-                      className="nodrag flex-shrink-0 w-8 h-8 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary hover:bg-primary/25 transition-colors"
-                    >
-                      {playing ? (
-                        <Pause className="w-3.5 h-3.5" />
-                      ) : (
-                        <Play className="w-3.5 h-3.5 ml-0.5" />
-                      )}
-                    </button>
+                  <div>
+                    {/* One row: play + bar + speed */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={togglePlay}
+                        className="nodrag flex-shrink-0 w-[30px] h-[30px] rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary hover:bg-primary/25 transition-colors"
+                      >
+                        {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+                      </button>
+                      {/* Seek bar with drag support */}
+                      <div
+                        ref={seekBarRef}
+                        className="nodrag flex-1 h-[18px] flex items-center cursor-pointer relative group"
+                        onMouseDown={handleSeekMouseDown}
+                      >
+                        {/* Track */}
+                        <div className="w-full h-[3px] rounded-full bg-[rgba(255,255,255,0.08)] relative overflow-hidden">
+                          <div
+                            className="absolute left-0 top-0 h-full rounded-full bg-primary transition-none"
+                            style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }}
+                          />
+                        </div>
+                        {/* Thumb */}
+                        <div
+                          className="absolute w-2.5 h-2.5 rounded-full bg-primary transition-transform duration-100 group-hover:scale-125"
+                          style={{
+                            left: duration ? `${(currentTime / duration) * 100}%` : "0%",
+                            transform: "translateX(-50%)",
+                            boxShadow: "0 0 6px rgba(8,145,178,0.5)",
+                          }}
+                        />
+                      </div>
+                      {/* Speed — cycles on click */}
+                      <button
+                        onClick={() => {
+                          const speeds = [0.5, 1, 1.5, 2];
+                          const idx = speeds.indexOf(playbackRate);
+                          const next = speeds[(idx + 1) % speeds.length];
+                          setSpeed(next);
+                        }}
+                        className="nodrag flex-shrink-0 text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors"
+                      >
+                        {playbackRate === 1 ? "1x" : `${playbackRate}x`}
+                      </button>
+                    </div>
+                    {/* Time below bar, subtle */}
+                    <div className="flex justify-between px-[38px] mt-1">
+                      <span className="text-[9px] text-muted-foreground/30 tabular-nums">{formatTime(currentTime)}</span>
+                      <span className="text-[9px] text-muted-foreground/30 tabular-nums">{formatTime(duration)}</span>
+                    </div>
+
                     <audio
-                      ref={(el) => {
-                        mediaRef.current = el;
-                      }}
+                      ref={(el) => { mediaRef.current = el; }}
                       src={signedUrl}
                       onPlay={() => setPlaying(true)}
                       onPause={() => setPlaying(false)}
-                      onEnded={() => setPlaying(false)}
+                      onEnded={() => { setPlaying(false); setCurrentTime(0); }}
                       onError={() => refreshSignedUrl()}
+                      onTimeUpdate={(e) => setCurrentTime((e.target as HTMLAudioElement).currentTime)}
+                      onLoadedMetadata={(e) => setDuration((e.target as HTMLAudioElement).duration)}
                       className="hidden"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-foreground/70 truncate">
-                        {d.fileName}
-                      </p>
-                      {d.fileSizeBytes && (
-                        <p className="text-[10px] text-muted-foreground/50">
-                          {formatFileSize(d.fileSizeBytes)}
-                        </p>
-                      )}
-                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-4">
@@ -717,6 +807,76 @@ const MediaNode = memo(({ data }: NodeProps) => {
                   setShowTranscript={setShowTranscript}
                 />
               )}
+            </>
+          )}
+
+          {/* ─── PDF ─── */}
+          {fileType === "pdf" && (
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary/80">PDF Document</span>
+                </div>
+                <button
+                  onClick={handleDelete}
+                  className={`nodrag p-0.5 rounded transition-colors ${
+                    confirmDelete
+                      ? "bg-red-500/80 text-white"
+                      : "hover:bg-red-500/20 text-muted-foreground hover:text-red-400"
+                  }`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+
+              <div className="px-3 py-3 space-y-2.5">
+                {/* File info */}
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-foreground/80 truncate">{d.fileName}</p>
+                    {d.fileSizeBytes && (
+                      <p className="text-[10px] text-muted-foreground/50">{formatFileSize(d.fileSizeBytes)}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status / action */}
+                {d.transcriptionStatus === "none" && !isProcessing && (
+                  <button
+                    onClick={() => triggerTranscription("audio")}
+                    className="nodrag w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[11px] font-medium"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Extract for AI — 50 credits
+                  </button>
+                )}
+
+                {isProcessing && (
+                  <div className="flex items-center gap-2 py-1">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary/70" />
+                    <span className="text-[11px] text-primary/70">Extracting text…</span>
+                  </div>
+                )}
+
+                {d.transcriptionStatus === "done" && !isProcessing && (
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span className="text-[11px] text-emerald-400 font-medium">Ready for AI</span>
+                  </div>
+                )}
+
+                {d.transcriptionStatus === "error" && !isProcessing && (
+                  <button
+                    onClick={() => triggerTranscription("audio")}
+                    className="nodrag w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[11px] font-medium"
+                  >
+                    Extraction failed — Retry
+                  </button>
+                )}
+              </div>
             </>
           )}
 

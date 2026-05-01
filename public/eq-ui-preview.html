@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Editing Queue — UI Upgrade Previews</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d0d0f;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+  .page { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 48px; }
+
+  .section { margin-bottom: 60px; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .section-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, #0891b2, #0e7490);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+  }
+  .section-title { font-size: 16px; font-weight: 600; color: #f1f5f9; }
+  .section-desc { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .compare { grid-template-columns: 1fr; } }
+
+  .panel { background: #141416; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
+  .panel-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    padding: 8px 14px; border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; gap-6px;
+  }
+  .label-before { color: #64748b; background: #0f0f11; }
+  .label-after  { color: #0891b2; background: #0c1929; }
+  .panel-body { padding: 14px; }
+
+  /* ── Shared table styles ── */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: #475569; padding: 6px 10px; border-bottom: 1px solid #1e293b;
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid #0f172a; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+
+  /* status badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 99px; border: 1px solid;
+    white-space: nowrap;
+  }
+  .badge-done    { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.25); }
+  .badge-prog    { background: rgba(245,158,11,.12);  color: #fbbf24; border-color: rgba(245,158,11,.25); }
+  .badge-rev     { background: rgba(239,68,68,.12);   color: #f87171; border-color: rgba(239,68,68,.25); }
+  .badge-notst   { background: rgba(100,116,139,.12); color: #94a3b8; border-color: rgba(100,116,139,.25); }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dot-done { background: #34d399; }
+  .dot-prog { background: #fbbf24; }
+  .dot-rev  { background: #f87171; }
+  .dot-ns   { background: #475569; }
+
+  .btn-rev {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+    border: 1px solid; cursor: pointer; transition: all .15s;
+  }
+  .btn-rev-clean { border-color: #1e3a5f; color: #64748b; background: transparent; }
+  .btn-rev-red   { border-color: rgba(239,68,68,.4); color: #f87171; background: rgba(239,68,68,.07); }
+  .btn-rev-green { border-color: rgba(16,185,129,.4); color: #34d399; background: rgba(16,185,129,.07); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 99px; border: 1px solid;
+  }
+  .pill-green { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.25); }
+  .pill-blue  { background: rgba(8,145,178,.1);  color: #22d3ee; border-color: rgba(8,145,178,.25); }
+  .pill-muted { background: rgba(100,116,139,.08); color: #94a3b8; border-color: rgba(100,116,139,.2); }
+
+  /* ── #1 Badge ── */
+  .badge-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 16px; height: 16px; border-radius: 99px; font-size: 10px; font-weight: 700;
+    padding: 0 4px;
+  }
+  .badge-count-red   { background: #ef4444; color: white; }
+  .badge-count-green { background: #10b981; color: white; }
+
+  /* ── #2 Left border rows ── */
+  .tr-done  td:first-child { border-left: 3px solid #10b981; padding-left: 7px; }
+  .tr-prog  td:first-child { border-left: 3px solid #f59e0b; padding-left: 7px; }
+  .tr-rev   td:first-child { border-left: 3px solid #ef4444; padding-left: 7px; }
+  .tr-notst td:first-child { border-left: 3px solid #334155; padding-left: 7px; }
+  .tr-done  { background: rgba(16,185,129,.02); }
+  .tr-prog  { background: rgba(245,158,11,.02); }
+  .tr-rev   { background: rgba(239,68,68,.03); }
+
+  /* ── #3 Files column merged ── */
+  .files-group { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  /* ── #4 Collapsed actions ── */
+  .actions-popover {
+    position: relative; display: inline-block;
+  }
+  .popover-btn {
+    width: 26px; height: 26px; border-radius: 6px; border: 1px solid #1e293b;
+    background: transparent; color: #64748b; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    transition: all .15s;
+  }
+  .popover-btn:hover { background: #1e293b; color: #94a3b8; }
+  .popover-menu {
+    position: absolute; right: 0; top: 30px; z-index: 10;
+    background: #1a1d27; border: 1px solid #1e293b; border-radius: 10px;
+    padding: 6px; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    display: none;
+  }
+  .actions-popover:hover .popover-menu,
+  .actions-popover:focus-within .popover-menu { display: block; }
+  .menu-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border-radius: 6px; font-size: 11px; color: #94a3b8; cursor: pointer;
+    transition: all .12s;
+  }
+  .menu-item:hover { background: #252836; color: #e2e8f0; }
+  .menu-icon { font-size: 13px; width: 16px; text-align: center; }
+
+  /* ── #5 Row click ── */
+  .row-clickable { cursor: pointer; transition: background .12s; }
+  .row-clickable:hover td { background: rgba(8,145,178,.04); }
+  .row-clickable:hover .title-link { color: #22d3ee; text-decoration: underline; }
+  .title-link { transition: color .12s; font-weight: 500; }
+  .click-hint {
+    font-size: 10px; color: #0891b2; opacity: 0;
+    display: inline-flex; align-items: center; gap: 3px;
+    transition: opacity .15s; white-space: nowrap;
+  }
+  .row-clickable:hover .click-hint { opacity: 1; }
+
+  .muted { color: #334155; font-size: 11px; }
+  .assignee-chip {
+    display: inline-flex; align-items: center; gap-5px;
+    font-size: 11px; color: #94a3b8;
+  }
+  .av {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: white; flex-shrink: 0;
+    margin-right: 5px;
+  }
+  .av-b { background: #7c3aed; }
+  .av-j { background: #0891b2; }
+  .av-m { background: #d97706; }
+
+  .divider { height: 1px; background: #1e293b; margin: 40px 0; }
+
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .tag-new { background: rgba(8,145,178,.15); color: #22d3ee; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Editing Queue — UI Upgrades Preview</h1>
+  <p class="subtitle">5 frontend improvements · hover over rows to see interactions</p>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- #1 Revision count badge -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div>
+        <div class="section-title">Unresolved revision count badge</div>
+        <div class="section-desc">Button shows the actual number — no more guessing which rows need attention</div>
+      </div>
+    </div>
+    <div class="compare">
+      <div class="panel">
+        <div class="panel-label label-before">● Before</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Revisions</th></tr></thead>
+            <tbody>
+              <tr><td>Is Neuropathy Reversible?</td><td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td><td><button class="btn-rev btn-rev-red">💬 Revisions</button></td></tr>
+              <tr><td>Top 5 Causes of Sciatica</td><td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td><td><button class="btn-rev btn-rev-clean">💬 Revisions</button></td></tr>
+              <tr><td>How To Sleep With Back Pain</td><td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td><td><button class="btn-rev btn-rev-green">💬 Revisions</button></td></tr>
+              <tr><td>Shoulder Pain Explained</td><td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td><td><button class="btn-rev btn-rev-clean">💬 Revisions</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label label-after">✦ After</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Revisions</th></tr></thead>
+            <tbody>
+              <tr><td>Is Neuropathy Reversible?</td><td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+                <td><button class="btn-rev btn-rev-red">💬 Revisions <span class="badge-count badge-count-red">3</span></button></td></tr>
+              <tr><td>Top 5 Causes of Sciatica</td><td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+                <td><button class="btn-rev btn-rev-clean">💬 Revisions <span class="badge-count badge-count-red">1</span></button></td></tr>
+              <tr><td>How To Sleep With Back Pain</td><td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+                <td><button class="btn-rev btn-rev-green">💬 Revisions <span class="badge-count badge-count-green">✓</span></button></td></tr>
+              <tr><td>Shoulder Pain Explained</td><td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td>
+                <td><button class="btn-rev btn-rev-clean">💬 Revisions</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- #2 Left border color rows -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div>
+        <div class="section-title">Status-colored left border per row</div>
+        <div class="section-desc">Scan the full queue in under 2 seconds without reading a single status label</div>
+      </div>
+    </div>
+    <div class="compare">
+      <div class="panel">
+        <div class="panel-label label-before">● Before</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Assignee</th></tr></thead>
+            <tbody>
+              <tr><td>Is Neuropathy Reversible?</td><td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td><td><span class="av av-b">B</span>Brandon</td></tr>
+              <tr><td>Top 5 Causes of Sciatica</td><td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td><td><span class="av av-j">J</span>Jordan</td></tr>
+              <tr><td>How To Sleep With Back Pain</td><td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td><td><span class="av av-j">J</span>Jordan</td></tr>
+              <tr><td>Shoulder Pain Explained</td><td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td><td class="muted">Unassigned</td></tr>
+              <tr><td>Knee Pain: Full Guide</td><td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td><td><span class="av av-m">M</span>Maria</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label label-after">✦ After</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Assignee</th></tr></thead>
+            <tbody>
+              <tr class="tr-rev"><td>Is Neuropathy Reversible?</td><td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td><td><span class="av av-b">B</span>Brandon</td></tr>
+              <tr class="tr-prog"><td>Top 5 Causes of Sciatica</td><td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td><td><span class="av av-j">J</span>Jordan</td></tr>
+              <tr class="tr-done"><td>How To Sleep With Back Pain</td><td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td><td><span class="av av-j">J</span>Jordan</td></tr>
+              <tr class="tr-notst"><td>Shoulder Pain Explained</td><td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td><td class="muted">Unassigned</td></tr>
+              <tr class="tr-rev"><td>Knee Pain: Full Guide</td><td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td><td><span class="av av-m">M</span>Maria</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- #3 Merged Files column -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div>
+        <div class="section-title">Merge Footage + File Submission → "Files" column</div>
+        <div class="section-desc">One column instead of two. Saves space, less visual clutter</div>
+      </div>
+    </div>
+    <div class="compare">
+      <div class="panel">
+        <div class="panel-label label-before">● Before — 2 columns</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Footage</th><th>File Submission</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Is Neuropathy Reversible?</td>
+                <td><span class="pill pill-green">▶ View</span></td>
+                <td><span class="pill pill-green">▶ View</span></td>
+                <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+              </tr>
+              <tr>
+                <td>Top 5 Causes of Sciatica</td>
+                <td><span class="pill pill-green">▶ View</span></td>
+                <td class="muted">— Add file</td>
+                <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+              </tr>
+              <tr>
+                <td>How To Sleep With Back Pain</td>
+                <td class="muted">— Add footage</td>
+                <td><span class="pill pill-green">▶ View</span></td>
+                <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+              </tr>
+              <tr>
+                <td>Shoulder Pain Explained</td>
+                <td class="muted">— Add footage</td>
+                <td class="muted">— Add file</td>
+                <td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label label-after">✦ After — 1 column</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Files</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Is Neuropathy Reversible?</td>
+                <td><div class="files-group"><span class="pill pill-green">📹 Footage</span><span class="pill pill-blue">🎬 Edit</span></div></td>
+                <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+              </tr>
+              <tr>
+                <td>Top 5 Causes of Sciatica</td>
+                <td><div class="files-group"><span class="pill pill-green">📹 Footage</span><span class="pill pill-muted">+ Add edit</span></div></td>
+                <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+              </tr>
+              <tr>
+                <td>How To Sleep With Back Pain</td>
+                <td><div class="files-group"><span class="pill pill-muted">+ Add footage</span><span class="pill pill-blue">🎬 Edit</span></div></td>
+                <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+              </tr>
+              <tr>
+                <td>Shoulder Pain Explained</td>
+                <td><div class="files-group"><span class="pill pill-muted">+ Add footage</span><span class="pill pill-muted">+ Add edit</span></div></td>
+                <td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- #4 Collapsed actions popover -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <div>
+        <div class="section-title">Collapse Script + Schedule + Caption behind ••• menu</div>
+        <div class="section-desc">Rarely-used columns disappear into a hover popover — hover the ••• to see it</div>
+      </div>
+    </div>
+    <div class="compare">
+      <div class="panel">
+        <div class="panel-label label-before">● Before — 3 extra columns</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Script</th><th>Schedule</th><th>Caption</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Is Neuropathy Reversible?</td>
+                <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+                <td><span style="color:#0891b2;font-size:11px">↗ View</span></td>
+                <td style="font-size:11px;color:#94a3b8">Apr 10</td>
+                <td style="font-size:11px;color:#64748b;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Is neuropathy something you can actually reverse? In this video...</td>
+              </tr>
+              <tr>
+                <td>Top 5 Causes of Sciatica</td>
+                <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+                <td><span style="color:#0891b2;font-size:11px">↗ View</span></td>
+                <td style="font-size:11px;color:#94a3b8">—</td>
+                <td style="font-size:11px;color:#64748b">—</td>
+              </tr>
+              <tr>
+                <td>How To Sleep With Back Pain</td>
+                <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+                <td class="muted">—</td>
+                <td style="font-size:11px;color:#0891b2">Apr 12</td>
+                <td style="font-size:11px;color:#64748b;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Struggling to get a good night sleep? Here are 5 positions that...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label label-after">✦ After — hover ••• to see actions</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Assignee</th><th style="width:40px"></th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Is Neuropathy Reversible?</td>
+                <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+                <td><span class="av av-b">B</span>Brandon</td>
+                <td>
+                  <div class="actions-popover">
+                    <button class="popover-btn">•••</button>
+                    <div class="popover-menu">
+                      <div class="menu-item"><span class="menu-icon">📄</span>View Script</div>
+                      <div class="menu-item"><span class="menu-icon">📅</span>Schedule: Apr 10</div>
+                      <div class="menu-item"><span class="menu-icon">✏️</span>Edit Caption</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Top 5 Causes of Sciatica</td>
+                <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+                <td><span class="av av-j">J</span>Jordan</td>
+                <td>
+                  <div class="actions-popover">
+                    <button class="popover-btn">•••</button>
+                    <div class="popover-menu">
+                      <div class="menu-item"><span class="menu-icon">📄</span>View Script</div>
+                      <div class="menu-item"><span class="menu-icon">📅</span>Add Schedule</div>
+                      <div class="menu-item"><span class="menu-icon">✏️</span>Add Caption</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>How To Sleep With Back Pain</td>
+                <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+                <td><span class="av av-j">J</span>Jordan</td>
+                <td>
+                  <div class="actions-popover">
+                    <button class="popover-btn">•••</button>
+                    <div class="popover-menu">
+                      <div class="menu-item"><span class="menu-icon">📄</span>No Script</div>
+                      <div class="menu-item"><span class="menu-icon">📅</span>Schedule: Apr 12</div>
+                      <div class="menu-item"><span class="menu-icon">✏️</span>Edit Caption</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- #5 Row click to open review -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <div>
+        <div class="section-title">Click anywhere on the row to open the review modal</div>
+        <div class="section-desc">Hover a row below to see the interaction — currently you must find the small button</div>
+      </div>
+    </div>
+    <div class="compare">
+      <div class="panel">
+        <div class="panel-label label-before">● Before — must find the button</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Revisions</th><th>Files</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:500">Is Neuropathy Reversible?</td>
+                <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+                <td><button class="btn-rev btn-rev-red">💬 Revisions <span class="badge-count badge-count-red">3</span></button></td>
+                <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-blue">🎬</span></div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:500">Top 5 Causes of Sciatica</td>
+                <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+                <td><button class="btn-rev btn-rev-red">💬 Revisions <span class="badge-count badge-count-red">1</span></button></td>
+                <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-muted">+</span></div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:500">How To Sleep With Back Pain</td>
+                <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+                <td><button class="btn-rev btn-rev-green">💬 Revisions <span class="badge-count badge-count-green">✓</span></button></td>
+                <td><div class="files-group"><span class="pill pill-muted">+</span><span class="pill pill-blue">🎬</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label label-after">✦ After — hover any row to see</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Title</th><th>Status</th><th>Revisions</th><th>Files</th></tr></thead>
+            <tbody>
+              <tr class="row-clickable tr-rev" title="Click to open review modal">
+                <td><span class="title-link">Is Neuropathy Reversible?</span> <span class="click-hint">▶ Open Review</span></td>
+                <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+                <td><span class="badge-count badge-count-red" style="font-size:11px;padding:2px 6px">3 open</span></td>
+                <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-blue">🎬</span></div></td>
+              </tr>
+              <tr class="row-clickable tr-prog" title="Click to open review modal">
+                <td><span class="title-link">Top 5 Causes of Sciatica</span> <span class="click-hint">▶ Open Review</span></td>
+                <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+                <td><span class="badge-count badge-count-red" style="font-size:11px;padding:2px 6px">1 open</span></td>
+                <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-muted">+</span></div></td>
+              </tr>
+              <tr class="row-clickable tr-done" title="Click to open review modal">
+                <td><span class="title-link">How To Sleep With Back Pain</span> <span class="click-hint">▶ Open Review</span></td>
+                <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+                <td><span class="badge-count badge-count-green" style="font-size:11px;padding:2px 6px">✓ all resolved</span></td>
+                <td><div class="files-group"><span class="pill pill-muted">+</span><span class="pill pill-blue">🎬</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- All 5 combined -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num" style="background:linear-gradient(135deg,#7c3aed,#0891b2)">★</div>
+      <div>
+        <div class="section-title">All 5 combined <span class="tag tag-new">Full upgrade</span></div>
+        <div class="section-desc">What the editing queue looks like with every improvement applied — hover rows</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-label label-after">✦ Full upgrade preview</div>
+      <div class="panel-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Status</th>
+              <th>Post Status</th>
+              <th>Assignee</th>
+              <th>Revisions</th>
+              <th>Files</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-clickable tr-rev">
+              <td><span class="title-link">Is Neuropathy Reversible?</span> <span class="click-hint">▶ Open Review</span></td>
+              <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+              <td><span class="badge badge-notst"><span class="dot dot-ns"></span>Unpublished</span></td>
+              <td><span class="av av-b">B</span>Brandon</td>
+              <td><button class="btn-rev btn-rev-red">💬 <span class="badge-count badge-count-red">3</span></button></td>
+              <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-blue">🎬</span></div></td>
+              <td><div class="actions-popover"><button class="popover-btn">•••</button><div class="popover-menu"><div class="menu-item"><span class="menu-icon">📄</span>View Script</div><div class="menu-item"><span class="menu-icon">📅</span>Schedule</div><div class="menu-item"><span class="menu-icon">✏️</span>Caption</div></div></div></td>
+            </tr>
+            <tr class="row-clickable tr-prog">
+              <td><span class="title-link">Top 5 Causes of Sciatica</span> <span class="click-hint">▶ Open Review</span></td>
+              <td><span class="badge badge-prog"><span class="dot dot-prog"></span>In Progress</span></td>
+              <td><span class="badge badge-notst"><span class="dot dot-ns"></span>Unpublished</span></td>
+              <td><span class="av av-j">J</span>Jordan</td>
+              <td><button class="btn-rev btn-rev-red">💬 <span class="badge-count badge-count-red">1</span></button></td>
+              <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-muted">+ Add</span></div></td>
+              <td><div class="actions-popover"><button class="popover-btn">•••</button><div class="popover-menu"><div class="menu-item"><span class="menu-icon">📄</span>View Script</div><div class="menu-item"><span class="menu-icon">📅</span>Schedule</div><div class="menu-item"><span class="menu-icon">✏️</span>Caption</div></div></div></td>
+            </tr>
+            <tr class="row-clickable tr-done">
+              <td><span class="title-link">How To Sleep With Back Pain</span> <span class="click-hint">▶ Open Review</span></td>
+              <td><span class="badge badge-done"><span class="dot dot-done"></span>Done</span></td>
+              <td><span class="badge badge-prog"><span class="dot dot-prog"></span>Scheduled</span></td>
+              <td><span class="av av-j">J</span>Jordan</td>
+              <td><button class="btn-rev btn-rev-green">💬 <span class="badge-count badge-count-green">✓</span></button></td>
+              <td><div class="files-group"><span class="pill pill-muted">+ Add</span><span class="pill pill-blue">🎬</span></div></td>
+              <td><div class="actions-popover"><button class="popover-btn">•••</button><div class="popover-menu"><div class="menu-item"><span class="menu-icon">📄</span>No Script</div><div class="menu-item"><span class="menu-icon">📅</span>Apr 12</div><div class="menu-item"><span class="menu-icon">✏️</span>Edit Caption</div></div></div></td>
+            </tr>
+            <tr class="row-clickable tr-notst">
+              <td><span class="title-link">Shoulder Pain Explained</span> <span class="click-hint">▶ Open Review</span></td>
+              <td><span class="badge badge-notst"><span class="dot dot-ns"></span>Not Started</span></td>
+              <td class="muted">—</td>
+              <td class="muted">Unassigned</td>
+              <td><button class="btn-rev btn-rev-clean">💬</button></td>
+              <td><div class="files-group"><span class="pill pill-muted">+ Add</span><span class="pill pill-muted">+ Add</span></div></td>
+              <td><div class="actions-popover"><button class="popover-btn">•••</button><div class="popover-menu"><div class="menu-item"><span class="menu-icon">📄</span>View Script</div><div class="menu-item"><span class="menu-icon">📅</span>Schedule</div><div class="menu-item"><span class="menu-icon">✏️</span>Caption</div></div></div></td>
+            </tr>
+            <tr class="row-clickable tr-rev">
+              <td><span class="title-link">Knee Pain: Full Guide</span> <span class="click-hint">▶ Open Review</span></td>
+              <td><span class="badge badge-rev"><span class="dot dot-rev"></span>Needs Revision</span></td>
+              <td><span class="badge badge-notst"><span class="dot dot-ns"></span>Unpublished</span></td>
+              <td><span class="av av-m">M</span>Maria</td>
+              <td><button class="btn-rev btn-rev-red">💬 <span class="badge-count badge-count-red">2</span></button></td>
+              <td><div class="files-group"><span class="pill pill-green">📹</span><span class="pill pill-blue">🎬</span></div></td>
+              <td><div class="actions-popover"><button class="popover-btn">•••</button><div class="popover-menu"><div class="menu-item"><span class="menu-icon">📄</span>View Script</div><div class="menu-item"><span class="menu-icon">📅</span>Schedule</div><div class="menu-item"><span class="menu-icon">✏️</span>Edit Caption</div></div></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

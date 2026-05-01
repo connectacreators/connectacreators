@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C Variations — Risk Reversal CTA Zone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'DM Sans',system-ui,sans-serif;
+    background:#060a0f;
+    color:#e2e8f0;
+    min-height:100vh;
+    padding:40px 20px;
+  }
+  .page-title{
+    text-align:center;
+    font-size:14px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:#64748b;
+    margin-bottom:12px;
+  }
+  .page-sub{
+    text-align:center;
+    font-size:12px;
+    color:#475569;
+    margin-bottom:60px;
+  }
+  .options-grid{
+    display:flex;
+    flex-direction:column;
+    gap:80px;
+    max-width:460px;
+    margin:0 auto;
+  }
+  .option-label{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#0891B2;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  .option-desc{
+    text-align:center;
+    font-size:12px;
+    color:#64748b;
+    margin-bottom:20px;
+    line-height:1.6;
+    max-width:400px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  .section-divider{
+    height:1px;
+    background:linear-gradient(90deg,transparent,rgba(8,145,178,0.2),transparent);
+    border:none;
+    margin:0;
+  }
+
+  /* ══════════════════════════════════════════ */
+  /*  SHARED                                    */
+  /* ══════════════════════════════════════════ */
+  .card{
+    background:rgba(15,20,30,0.85);
+    border:1px solid rgba(8,145,178,0.25);
+    border-radius:16px;
+    padding:28px 24px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 0 60px rgba(8,145,178,0.06),0 8px 32px rgba(0,0,0,0.4);
+  }
+  .card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(8,145,178,0.6),rgba(132,204,22,0.4),transparent);
+  }
+  .card-header{text-align:center;margin-bottom:16px}
+  .brand{
+    font-size:18px;font-weight:700;letter-spacing:1px;
+    background:linear-gradient(135deg,#06B6D4,#84CC16);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+  .subtitle{font-size:13px;color:#64748b;margin-top:4px}
+
+  .plan-cards{display:flex;flex-direction:column;gap:8px}
+  .plan-card{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border-radius:10px;
+    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+    cursor:pointer;transition:all 0.2s;
+  }
+  .plan-card:hover{border-color:rgba(255,255,255,0.14)}
+  .plan-card.selected{
+    background:rgba(8,145,178,0.1);border-color:rgba(8,145,178,0.4);
+    box-shadow:0 0 20px rgba(8,145,178,0.1);
+  }
+  .plan-card .name{font-weight:700;font-size:15px}
+  .plan-card .meta{font-size:11px;color:#64748b;margin-top:2px}
+  .plan-card .price{font-weight:700;font-size:18px;color:#0891B2}
+  .plan-card .price span{font-size:11px;color:#64748b;font-weight:400}
+  .popular-badge{
+    font-size:9px;letter-spacing:1px;text-transform:uppercase;
+    background:rgba(132,204,22,0.15);color:#a3e635;
+    border:1px solid rgba(132,204,22,0.3);padding:2px 8px;
+    border-radius:99px;font-weight:700;position:absolute;top:-8px;right:12px;
+  }
+  .cta-btn{
+    width:100%;padding:14px;border:none;border-radius:12px;
+    background:linear-gradient(135deg,#0891B2,#84CC16);
+    color:#fff;font-family:inherit;font-weight:700;font-size:15px;
+    cursor:pointer;box-shadow:0 4px 20px rgba(8,145,178,0.35);
+    transition:all 0.2s;position:relative;overflow:hidden;
+  }
+  .cta-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .cta-btn::after{
+    content:'';position:absolute;top:0;left:0;right:0;height:50%;
+    background:linear-gradient(180deg,rgba(255,255,255,0.12),transparent);pointer-events:none;
+  }
+  .cta-btn.outline{
+    background:transparent;
+    border:1px solid rgba(8,145,178,0.4);
+    color:#22d3ee;
+    box-shadow:none;
+    font-size:13px;
+    padding:10px;
+  }
+  .cta-btn.outline:hover{background:rgba(8,145,178,0.08);border-color:rgba(8,145,178,0.6)}
+  .cta-btn.outline::after{display:none}
+  .back-link{text-align:center;font-size:12px;color:#64748b;margin-top:12px;cursor:pointer}
+  .grad{
+    background:linear-gradient(135deg,#22d3ee,#a3e635);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+
+  /* ══════════════════════════════════════════ */
+  /*  C1 — SPLIT COMPARISON                    */
+  /* ══════════════════════════════════════════ */
+  .c1-zone{
+    margin-top:16px;padding:20px;border-radius:14px;text-align:center;
+    background:linear-gradient(135deg,rgba(8,145,178,0.1),rgba(132,204,22,0.04));
+    border:1px solid rgba(8,145,178,0.2);
+  }
+  .c1-split{
+    display:grid;grid-template-columns:1fr auto 1fr;gap:0;
+    margin-bottom:16px;align-items:stretch;
+  }
+  .c1-col{
+    padding:16px 12px;border-radius:10px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .c1-col.today{background:rgba(8,145,178,0.08);border:1px solid rgba(8,145,178,0.2)}
+  .c1-col.after{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+  .c1-col .col-label{
+    font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+    color:#64748b;font-weight:600;margin-bottom:8px;
+  }
+  .c1-col.today .col-label{color:#0891B2}
+  .c1-col .col-price{font-size:36px;font-weight:700;line-height:1}
+  .c1-col.today .col-price{color:#22d3ee}
+  .c1-col.after .col-price{color:#94a3b8;font-size:22px}
+  .c1-col .col-note{font-size:11px;color:#64748b;margin-top:6px;line-height:1.4}
+  .c1-col.today .col-note{color:#94a3b8}
+  .c1-arrow{
+    display:flex;align-items:center;justify-content:center;
+    padding:0 8px;color:#334155;font-size:20px;
+  }
+  .c1-guarantees{
+    display:flex;justify-content:center;gap:14px;margin-top:14px;flex-wrap:wrap;
+  }
+  .c1-guarantees .gi{
+    display:flex;align-items:center;gap:4px;
+    font-size:11px;color:#64748b;
+  }
+  .c1-guarantees .gi .tick{color:#a3e635;font-weight:700;font-size:12px}
+
+  /* ══════════════════════════════════════════ */
+  /*  C2 — URGENCY COUNTDOWN                   */
+  /* ══════════════════════════════════════════ */
+  .c2-zone{
+    margin-top:16px;padding:20px;border-radius:14px;text-align:center;
+    background:linear-gradient(180deg,rgba(8,145,178,0.08) 0%,rgba(15,20,30,0.5) 100%);
+    border:1px solid rgba(8,145,178,0.18);
+  }
+  .c2-countdown{
+    display:flex;justify-content:center;gap:8px;margin-bottom:16px;
+  }
+  .c2-countdown .c2-block{
+    display:flex;flex-direction:column;align-items:center;
+    min-width:52px;
+  }
+  .c2-countdown .c2-num{
+    font-size:32px;font-weight:700;color:#22d3ee;line-height:1;
+    font-family:'JetBrains Mono','DM Sans',monospace;
+    background:rgba(8,145,178,0.1);
+    border:1px solid rgba(8,145,178,0.25);
+    border-radius:8px;
+    padding:6px 10px;
+    min-width:52px;
+  }
+  .c2-countdown .c2-unit{
+    font-size:9px;letter-spacing:1px;text-transform:uppercase;
+    color:#64748b;margin-top:4px;font-weight:600;
+  }
+  .c2-countdown .c2-sep{
+    font-size:28px;color:#334155;font-weight:300;padding-top:4px;
+  }
+  .c2-headline{font-size:15px;font-weight:600;color:#e2e8f0;margin-bottom:4px}
+  .c2-sub{font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5}
+  .c2-sub strong{color:#94a3b8}
+  .c2-perks{
+    display:flex;flex-direction:column;gap:6px;
+    margin-bottom:16px;text-align:left;
+    padding:0 8px;
+  }
+  .c2-perks .perk{
+    display:flex;align-items:center;gap:8px;font-size:12px;color:#94a3b8;
+  }
+  .c2-perks .perk .p-icon{
+    width:20px;height:20px;min-width:20px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;
+  }
+  .c2-perks .perk .p-icon.cyan{background:rgba(8,145,178,0.15);color:#22d3ee;border:1px solid rgba(8,145,178,0.25)}
+  .c2-perks .perk .p-icon.lime{background:rgba(132,204,22,0.12);color:#a3e635;border:1px solid rgba(132,204,22,0.2)}
+  .c2-fine{font-size:10px;color:#475569;margin-top:10px}
+
+  /* ══════════════════════════════════════════ */
+  /*  C3 — MINIMAL CONFIDENCE                  */
+  /* ══════════════════════════════════════════ */
+  .c3-zone{
+    margin-top:16px;text-align:center;
+  }
+  .c3-price-row{
+    display:flex;align-items:baseline;justify-content:center;gap:8px;
+    margin-bottom:4px;
+  }
+  .c3-price-row .old{
+    font-size:18px;color:#475569;text-decoration:line-through;font-weight:500;
+  }
+  .c3-price-row .new{
+    font-size:40px;font-weight:700;
+    background:linear-gradient(135deg,#22d3ee,#a3e635);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    line-height:1;
+  }
+  .c3-price-row .tag{
+    font-size:10px;letter-spacing:1px;text-transform:uppercase;
+    background:rgba(132,204,22,0.12);color:#a3e635;
+    border:1px solid rgba(132,204,22,0.2);
+    padding:3px 8px;border-radius:99px;font-weight:700;
+    align-self:center;
+  }
+  .c3-when{font-size:12px;color:#64748b;margin-bottom:20px}
+  .c3-when strong{color:#94a3b8}
+  .c3-bar{
+    display:flex;align-items:center;gap:0;
+    margin-bottom:20px;border-radius:8px;overflow:hidden;
+    height:6px;background:rgba(255,255,255,0.06);
+  }
+  .c3-bar .filled{
+    height:100%;
+    background:linear-gradient(90deg,#0891B2,#22d3ee);
+    border-radius:8px;
+    position:relative;
+  }
+  .c3-bar .filled::after{
+    content:'';position:absolute;right:-1px;top:-3px;
+    width:12px;height:12px;border-radius:50%;
+    background:#22d3ee;border:2px solid rgba(15,20,30,0.9);
+    box-shadow:0 0 8px rgba(34,211,238,0.4);
+  }
+  .c3-days{
+    display:flex;justify-content:space-between;
+    margin-top:-4px;margin-bottom:16px;padding:0 2px;
+  }
+  .c3-days span{font-size:10px;color:#475569}
+  .c3-days span:first-child{color:#22d3ee;font-weight:600}
+  .c3-trust{
+    display:flex;flex-direction:column;gap:0;
+    margin-bottom:16px;
+  }
+  .c3-trust .t-row{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 0;
+    border-bottom:1px solid rgba(255,255,255,0.04);
+    font-size:12px;color:#94a3b8;
+  }
+  .c3-trust .t-row:last-child{border-bottom:none}
+  .c3-trust .t-row .t-icon{
+    font-size:14px;min-width:20px;text-align:center;
+  }
+  .c3-trust .t-row .t-icon.cyan{color:#22d3ee}
+  .c3-trust .t-row .t-icon.lime{color:#a3e635}
+  .c3-trust .t-row .t-icon.amber{color:#fbbf24}
+  .c3-trust .t-row strong{color:#e2e8f0}
+
+  /* notes */
+  .notes{
+    text-align:center;padding:60px 20px;
+    color:#334155;font-size:11px;line-height:1.8;
+    max-width:440px;margin:0 auto;
+  }
+  .notes strong{color:#64748b}
+</style>
+</head>
+<body>
+
+<div class="page-title">Option C — 3 Variations</div>
+<div class="page-sub">Risk Reversal CTA Zone: compact plans + bold conversion zone below</div>
+
+<div class="options-grid">
+
+<!-- ═══════════════════════════════════════════
+     C1 — SPLIT COMPARISON: "Today vs After"
+     Show side-by-side what they pay now ($0)
+     vs what they'll pay later. The contrast
+     makes $0 feel like a no-brainer.
+     ═══════════════════════════════════════════ -->
+<div>
+  <div class="option-label">C1 — "Today vs After" Split</div>
+  <div class="option-desc">Side-by-side price comparison. The visual contrast between $0 and the plan price makes starting feel like a no-brainer. Anchoring psychology at work.</div>
+  <div class="card">
+    <div class="card-header"><div class="brand">CONNECTA CREATORS</div><div class="subtitle">Choose your plan</div></div>
+    <div class="plan-cards">
+      <div class="plan-card"><div><div class="name">Starter</div><div class="meta">10,000 credits · 5 scrapes · 75 scripts</div></div><div class="price">$39<span>/mo</span></div></div>
+      <div class="plan-card selected" style="position:relative"><span class="popular-badge">POPULAR</span><div><div class="name">Growth</div><div class="meta">30,000 credits · 10 scrapes · 200 scripts</div></div><div class="price">$79<span>/mo</span></div></div>
+      <div class="plan-card"><div><div class="name">Pro</div><div class="meta">75,000 credits · 15 scrapes · 500 scripts</div></div><div class="price">$139<span>/mo</span></div></div>
+    </div>
+
+    <div class="c1-zone">
+      <div class="c1-split">
+        <div class="c1-col today">
+          <div class="col-label">You pay today</div>
+          <div class="col-price">$0</div>
+          <div class="col-note">Full access to Growth plan<br>for 7 days — no charge</div>
+        </div>
+        <div class="c1-arrow">&rarr;</div>
+        <div class="c1-col after">
+          <div class="col-label">After 7 days</div>
+          <div class="col-price">$79<span style="font-size:13px;color:#64748b">/mo</span></div>
+          <div class="col-note">Only if you decide to stay.<br>Cancel before = $0 forever</div>
+        </div>
+      </div>
+      <button class="cta-btn">Start Free — $0 Due Now &rarr;</button>
+      <div class="c1-guarantees">
+        <div class="gi"><span class="tick">&#10003;</span> Cancel in 1 click</div>
+        <div class="gi"><span class="tick">&#10003;</span> No hidden fees</div>
+        <div class="gi"><span class="tick">&#10003;</span> Reminder before billing</div>
+      </div>
+    </div>
+    <div class="back-link">&larr; Back</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ═══════════════════════════════════════════
+     C2 — COUNTDOWN + INCLUDED PERKS
+     Show what's included free with a countdown
+     to create subtle urgency. List specific
+     features they unlock — not abstract value.
+     ═══════════════════════════════════════════ -->
+<div>
+  <div class="option-label">C2 — Countdown + Included Perks</div>
+  <div class="option-desc">Countdown timer creates subtle urgency. Specific feature bullets show concrete value they'll unlock for free — not abstract promises.</div>
+  <div class="card">
+    <div class="card-header"><div class="brand">CONNECTA CREATORS</div><div class="subtitle">Choose your plan</div></div>
+    <div class="plan-cards">
+      <div class="plan-card"><div><div class="name">Starter</div><div class="meta">10,000 credits · 5 scrapes · 75 scripts</div></div><div class="price">$39<span>/mo</span></div></div>
+      <div class="plan-card selected" style="position:relative"><span class="popular-badge">POPULAR</span><div><div class="name">Growth</div><div class="meta">30,000 credits · 10 scrapes · 200 scripts</div></div><div class="price">$79<span>/mo</span></div></div>
+      <div class="plan-card"><div><div class="name">Pro</div><div class="meta">75,000 credits · 15 scrapes · 500 scripts</div></div><div class="price">$139<span>/mo</span></div></div>
+    </div>
+
+    <div class="c2-zone">
+      <div class="c2-countdown">
+        <div class="c2-block"><div class="c2-num">7</div><div class="c2-unit">Days</div></div>
+        <div class="c2-sep">:</div>
+        <div class="c2-block"><div class="c2-num">0</div><div class="c2-unit">Hours</div></div>
+        <div class="c2-sep">:</div>
+        <div class="c2-block"><div class="c2-num">0</div><div class="c2-unit">Minutes</div></div>
+      </div>
+      <div class="c2-headline">of <span class="grad">free, unlimited access</span></div>
+      <div class="c2-sub">Start today — your card is <strong>not charged</strong> until the trial ends</div>
+
+      <div class="c2-perks">
+        <div class="perk"><div class="p-icon cyan">&#10003;</div> AI script generation — unlimited during trial</div>
+        <div class="perk"><div class="p-icon cyan">&#10003;</div> Channel scraping & viral video discovery</div>
+        <div class="perk"><div class="p-icon cyan">&#10003;</div> Content calendar & scheduling tools</div>
+        <div class="perk"><div class="p-icon lime">&#9733;</div> 250 bonus credits to keep — even if you cancel</div>
+      </div>
+
+      <button class="cta-btn">Claim My 7 Free Days &rarr;</button>
+      <div class="c2-fine">We'll email you 2 days before your trial ends. Cancel anytime with 1 click.</div>
+    </div>
+    <div class="back-link">&larr; Back</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ═══════════════════════════════════════════
+     C3 — MINIMAL CONFIDENCE BAR
+     Clean, editorial feel. Progress bar shows
+     "you are here" in the trial. Trust signals
+     as clean list items. Strikethrough price
+     anchoring. Maximum confidence, minimum noise.
+     ═══════════════════════════════════════════ -->
+<div>
+  <div class="option-label">C3 — Minimal Confidence Bar</div>
+  <div class="option-desc">Clean, editorial approach. Strikethrough price anchoring, a progress bar showing trial position, and trust signals as clean rows. Maximum confidence, minimum noise.</div>
+  <div class="card">
+    <div class="card-header"><div class="brand">CONNECTA CREATORS</div><div class="subtitle">Choose your plan</div></div>
+    <div class="plan-cards">
+      <div class="plan-card"><div><div class="name">Starter</div><div class="meta">10,000 credits · 5 scrapes · 75 scripts</div></div><div class="price">$39<span>/mo</span></div></div>
+      <div class="plan-card selected" style="position:relative"><span class="popular-badge">POPULAR</span><div><div class="name">Growth</div><div class="meta">30,000 credits · 10 scrapes · 200 scripts</div></div><div class="price">$79<span>/mo</span></div></div>
+      <div class="plan-card"><div><div class="name">Pro</div><div class="meta">75,000 credits · 15 scrapes · 500 scripts</div></div><div class="price">$139<span>/mo</span></div></div>
+    </div>
+
+    <div class="c3-zone">
+      <div class="c3-price-row">
+        <span class="old">$79</span>
+        <span class="new">$0</span>
+        <span class="tag">7 days free</span>
+      </div>
+      <div class="c3-when">First charge of <strong>$79/mo</strong> on Apr 3, 2026</div>
+
+      <!-- Trial progress bar -->
+      <div class="c3-bar"><div class="filled" style="width:2%"></div></div>
+      <div class="c3-days">
+        <span>Today (free)</span>
+        <span>Day 7 &rarr; Plan starts</span>
+      </div>
+
+      <div class="c3-trust">
+        <div class="t-row"><span class="t-icon cyan">&#128274;</span> <span>Your card is stored securely — <strong>not charged today</strong></span></div>
+        <div class="t-row"><span class="t-icon lime">&#9993;</span> <span>We email you <strong>2 days before</strong> billing starts</span></div>
+        <div class="t-row"><span class="t-icon amber">&#10005;</span> <span>Cancel anytime in settings — <strong>takes 5 seconds</strong></span></div>
+      </div>
+
+      <button class="cta-btn">Start Free Trial &rarr;</button>
+      <div style="margin-top:8px">
+        <button class="cta-btn outline">I have questions first</button>
+      </div>
+    </div>
+    <div class="back-link">&larr; Back</div>
+  </div>
+</div>
+
+</div>
+
+<div class="notes">
+  <strong>MARKETING NOTES</strong><br><br>
+  <strong>C1 — Split Comparison:</strong> Price anchoring via contrast. The brain sees $0 next to $79 and the decision becomes "free vs paid" instead of "buy vs don't buy". Most effective for users comparing plans.<br><br>
+  <strong>C2 — Countdown + Perks:</strong> Urgency (7 days ticking) + concrete value (specific features). The "250 credits to keep" line is a loss-aversion hook — they get something even if they cancel. Best for feature-motivated users.<br><br>
+  <strong>C3 — Minimal Confidence:</strong> For the cautious buyer. Strikethrough pricing, exact billing date, progress bar, and 3 specific trust signals that address the top 3 fears: "will I be charged?", "will I forget?", "is it hard to cancel?". The secondary "I have questions" CTA catches users who aren't ready — better to route them than lose them.
+</div>
+
+</body>
+</html>

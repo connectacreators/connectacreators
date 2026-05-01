@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Save, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Eye, EyeOff, Trash2, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import BorderGlow from "@/components/ui/BorderGlow";
 
 export default function Settings() {
   const { language } = useLanguage();
@@ -23,6 +24,19 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const [viralThreshold, setViralThreshold] = useState<number>(
+    parseFloat(localStorage.getItem('viral_outlier_threshold') ?? '5')
+  );
+
+  const handleViralThresholdChange = (val: number) => {
+    setViralThreshold(val);
+    localStorage.setItem('viral_outlier_threshold', String(val));
+  };
 
   useEffect(() => {
     if (user) {
@@ -99,6 +113,36 @@ export default function Settings() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch(
+        `https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1/stripe-billing-portal`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: "delete-account" }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete account");
+
+      toast.success("Account deleted successfully");
+      await signOut();
+      navigate("/");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete account");
+      setDeleting(false);
+    }
+  };
+
   return (
     <PageTransition className="flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 py-8 max-w-lg">
@@ -120,10 +164,12 @@ export default function Settings() {
               {roleLabel}
             </div>
           </div>
-          <Button onClick={handleSaveProfile} disabled={saving} className="gap-2 btn-primary-glass">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#0891B2]" />}
-            {tr(t.settings.saveChanges, language)}
-          </Button>
+          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
+            <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#0891B2]" />}
+              {tr(t.settings.saveChanges, language)}
+            </Button>
+          </BorderGlow>
         </div>
 
         {/* Change password */}
@@ -153,15 +199,121 @@ export default function Settings() {
             {showPasswords ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             {showPasswords ? tr(t.settings.hidePasswords, language) : tr(t.settings.showPasswords, language)} {tr(t.settings.passwords, language)}
           </button>
-          <Button
-            onClick={handleChangePassword}
-            disabled={changingPassword || !newPassword || !confirmPassword}
-            className="gap-2 btn-primary-glass"
-          >
-            {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {tr(t.settings.changePassword, language)}
-          </Button>
+          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changingPassword || !newPassword || !confirmPassword}
+              className="gap-2"
+            >
+              {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {tr(t.settings.changePassword, language)}
+            </Button>
+          </BorderGlow>
         </div>
+
+        {/* Viral Feed settings */}
+        <div className="glass-card rounded-xl p-6 space-y-4 mt-8">
+          <h2 className="text-lg font-semibold text-foreground">Viral Feed</h2>
+          <p className="text-sm text-muted-foreground">
+            Set the minimum outlier score for videos shown in the Viral Reels feed. Higher = only the most viral content.
+          </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground">Minimum outlier score</span>
+              <span className="text-sm font-bold text-primary">&ge; {viralThreshold}x</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              step={0.5}
+              value={viralThreshold}
+              onChange={(e) => handleViralThresholdChange(parseFloat(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { label: 'Any', value: 1 },
+                { label: '3x', value: 3 },
+                { label: '5x', value: 5 },
+                { label: '10x', value: 10 },
+                { label: '20x', value: 20 },
+              ].map(({ label, value }) => (
+                <button
+                  key={value}
+                  onClick={() => handleViralThresholdChange(value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    viralThreshold === value
+                      ? 'bg-primary/20 border-primary/50 text-primary'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Takes effect next time you open the Viral Reels page.</p>
+          </div>
+        </div>
+
+        {/* Delete Account — only for non-admin users */}
+        {role !== "admin" && (
+          <div className="glass-card rounded-xl p-6 space-y-4 mt-8 border border-red-500/20">
+            <h2 className="text-lg font-semibold text-red-400">Delete Account</h2>
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete your account, cancel your subscription, and remove all your data. This action cannot be undone.
+            </p>
+
+            {!showDeleteConfirm ? (
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete my account
+              </Button>
+            ) : (
+              <div className="space-y-3 p-4 rounded-lg bg-red-500/5 border border-red-500/20">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-300">
+                    <p className="font-semibold mb-1">Are you sure?</p>
+                    <p className="text-red-400/80">Your subscription will be canceled immediately and all account data will be permanently deleted.</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">
+                    Type <span className="font-bold text-red-400">DELETE</span> to confirm
+                  </label>
+                  <Input
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="Type DELETE"
+                    className="border-red-500/30 max-w-[200px]"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting || deleteConfirmText !== "DELETE"}
+                    className="gap-2 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {deleting ? "Deleting..." : "Permanently delete account"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </PageTransition>
   );

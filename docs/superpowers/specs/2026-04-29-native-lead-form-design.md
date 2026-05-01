@@ -144,7 +144,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=admin@connectacreators.com
 SMTP_PASS=[app password — stored in Supabase vault, never in code]
-SMTP_TO=admin@connectacreators.com
+SMTP_TO=admin@connectacreators.com,creatorsconnecta@gmail.com
 ```
 
 **Email content:**

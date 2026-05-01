@@ -11,6 +11,15 @@ const VPS_SERVER = "http://72.62.200.145:3099";
 const VPS_API_KEY = "ytdlp_connecta_2026_secret";
 const CACHE_TTL_HOURS = 6;
 
+async function fetchVpsWithRetry(url: string, init: RequestInit, retries = 2, delayMs = 6000): Promise<Response> {
+  let res = await fetch(url, init);
+  while (res.status === 503 && retries-- > 0) {
+    await new Promise((r) => setTimeout(r, delayMs));
+    res = await fetch(url, init);
+  }
+  return res;
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -100,18 +109,22 @@ serve(async (req) => {
     console.log(`[scrape-reels-search] Searching: "${cleanQuery}"`);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 180_000);
+    const timeout = setTimeout(() => controller.abort(), 300_000);
 
     let vpsRes: Response;
     try {
-      vpsRes = await fetch(`${VPS_SERVER}/scrape-reels-search`, {
+      vpsRes = await fetchVpsWithRetry(`${VPS_SERVER}/scrape-reels-search`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
-        body: JSON.stringify({ query: cleanQuery, limit: 150 }),
+        body: JSON.stringify({ query: cleanQuery, limit: 500 }),
         signal: controller.signal,
       });
     } finally {
       clearTimeout(timeout);
+    }
+
+    if (vpsRes.status === 503) {
+      throw new Error("Server busy, please try again in ~30 seconds");
     }
 
     if (!vpsRes.ok) {
@@ -131,10 +144,27 @@ serve(async (req) => {
     const now = Date.now();
     const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
 
+    // Language filter: reject captions with non-Latin scripts (Arabic, Devanagari, Bengali, Thai, CJK, etc.)
+    // Allows: Latin (English, Spanish, Portuguese, French, etc.) + common emoji/punctuation
+    const NON_LATIN_RE = /[\u0600-\u06FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0B00-\u0B7F\u0C00-\u0C7F\u0D00-\u0D7F\u0E00-\u0E7F\u1000-\u109F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/;
+    function isLatinCaption(caption: string | null): boolean {
+      if (!caption || caption.trim().length < 5) return true; // allow empty/short (mostly hashtags)
+      // Remove hashtags, mentions, emoji, URLs for cleaner text sample
+      const clean = caption.replace(/#\S+|@\S+|https?:\/\/\S+/g, "").trim();
+      if (clean.length < 5) return true;
+      // If >30% of characters are non-Latin script, reject
+      const nonLatinChars = (clean.match(NON_LATIN_RE) || []).length;
+      return nonLatinChars / clean.length < 0.3;
+    }
+
     const videos = posts
       .map((post: any) => {
         const videoId = post.id;
         if (!videoId) return null;
+
+        // Filter out non-English/Spanish content
+        const caption = post.title ?? "";
+        if (!isLatinCaption(caption)) return null;
 
         const views = Number(post.views) || 0;
         const likes = Number(post.likes) || 0;
@@ -166,7 +196,7 @@ serve(async (req) => {
           platform: "instagram",
           video_url: post.url,
           thumbnail_url: post.thumbnail || null,
-          caption: (post.title ?? "").slice(0, 600),
+          caption: caption.slice(0, 600),
           views_count: views,
           likes_count: likes,
           comments_count: comments,
@@ -178,10 +208,15 @@ serve(async (req) => {
           hashtag_source: cleanQuery,
         };
       })
-      .filter((v): v is NonNullable<typeof v> => v !== null && v.apify_video_id !== null);
+      .filter((v): v is NonNullable<typeof v> =>
+        v !== null &&
+        v.apify_video_id !== null &&
+        v.views_count >= 50_000 &&
+        v.outlier_score >= 1.5
+      );
 
     if (videos.length === 0) {
-      return json({ inserted: 0, query: cleanQuery, cached: false, message: "No recent videos found" });
+      return json({ inserted: 0, query: cleanQuery, cached: false, message: "No viral videos found (min 50k views + 1.5x outlier)" });
     }
 
     // VPS already calculates per-account outlier scores — use them directly

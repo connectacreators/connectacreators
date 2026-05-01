@@ -22,7 +22,7 @@ const PLANS = [
 type PlanKey = "starter" | "growth" | "enterprise";
 
 export default function Signup() {
-  const { user, signUpWithEmail, loading: authLoading } = useAuth();
+  const { user, signUpWithEmail, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -344,7 +344,7 @@ export default function Signup() {
               </div>
 
               <button
-                onClick={() => { if (!user) setStep(1); }}
+                onClick={async () => { await signOut(); setStep(1); }}
                 className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors mt-3"
               >
                 ← {tr(t.signup.back, language)}

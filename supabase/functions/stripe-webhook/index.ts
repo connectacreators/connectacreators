@@ -21,7 +21,6 @@ const PLAN_CONFIG: Record<string, {
   lead_tracker_enabled: boolean;
   facebook_integration_enabled: boolean;
 }> = {
-  free:       { credits_monthly_cap: 250,   channel_scrapes_limit: 1,  script_limit: 10,   lead_tracker_enabled: true, facebook_integration_enabled: true },
   starter:    { credits_monthly_cap: 10000, channel_scrapes_limit: 8,  script_limit: 75,   lead_tracker_enabled: true, facebook_integration_enabled: true },
   growth:     { credits_monthly_cap: 30000, channel_scrapes_limit: 15, script_limit: 200,  lead_tracker_enabled: true, facebook_integration_enabled: true },
   enterprise: { credits_monthly_cap: 75000, channel_scrapes_limit: 25, script_limit: 500,  lead_tracker_enabled: true, facebook_integration_enabled: true },
@@ -41,7 +40,7 @@ const PRODUCT_PLAN_MAP: Record<string, string> = {
 const TRIAL_CREDITS = 1000;
 
 function getDbStatus(sub: Stripe.Subscription): string {
-  if (sub.cancel_at_period_end && sub.status === "active") return "canceling";
+  if (sub.cancel_at_period_end && (sub.status === "active" || sub.status === "trialing")) return "canceling";
   const map: Record<string, string> = {
     trialing: "trialing",
     active: "active",
@@ -171,7 +170,7 @@ async function syncSubscription(
   if (!isNew) {
     const { data: currentClient } = await adminClient
       .from("clients")
-      .select("subscription_status")
+      .select("subscription_status, plan_type, credits_balance, credits_monthly_cap")
       .eq("id", clientId)
       .maybeSingle();
     if (currentClient?.subscription_status === "trialing" && dbStatus === "active") {
@@ -180,6 +179,32 @@ async function syncSubscription(
       delete clientUpdate.credits_used;
       delete clientUpdate.channel_scrapes_used;
       logStep("Trial→active transition: skipping credit update (handled by invoice.payment_succeeded)");
+    } else if (currentClient?.plan_type && currentClient.plan_type !== planType) {
+      // Plan change detected (upgrade/downgrade via Stripe portal)
+      const oldCap = currentClient.credits_monthly_cap ?? 0;
+      const newCap = planCfg.credits_monthly_cap;
+      const currentBalance = currentClient.credits_balance ?? 0;
+
+      if (newCap > oldCap) {
+        // Upgrade: full fresh allocation at new plan level (prevents inflation on re-upgrades)
+        clientUpdate.credits_balance = newCap;
+        clientUpdate.credits_used = 0;
+        clientUpdate.pending_plan_type = null;
+        clientUpdate.pending_plan_effective_date = null;
+      } else {
+        // Downgrade: don't change plan_type or credits — a pending downgrade was saved.
+        // Keep current plan active until invoice.payment_succeeded applies it.
+        delete clientUpdate.credits_monthly_cap;
+        delete clientUpdate.plan_type;
+        delete clientUpdate.script_limit;
+        delete clientUpdate.channel_scrapes_limit;
+        logStep("Downgrade detected — skipping plan_type update (pending downgrade active)");
+      }
+
+      logStep("Plan change detected", {
+        oldPlan: currentClient.plan_type, newPlan: planType,
+        oldCap, newCap, newBalance: clientUpdate.credits_balance,
+      });
     }
   }
 
@@ -205,7 +230,7 @@ async function syncSubscription(
     logStep("WARNING: subscriptions table sync failed (non-fatal)", { error: String(syncErr) });
   }
 
-  // Ensure subscriber_clients junction entry exists
+  // Ensure subscriber_clients junction entry exists (only on creation)
   if (isNew && userId && clientId) {
     try {
       await adminClient.from("subscriber_clients").upsert({
@@ -213,17 +238,24 @@ async function syncSubscription(
         client_id: clientId,
         is_primary: true,
       }, { onConflict: "subscriber_user_id,client_id" });
+      logStep("Created subscriber_clients junction entry", { userId, clientId });
+    } catch (junctionErr) {
+      logStep("WARNING: junction entry creation failed (non-fatal)", { error: String(junctionErr) });
+    }
+  }
 
-      // Set client_limit on subscriptions
+  // Update client_limit on subscriptions table (every sync, not just on creation)
+  // This ensures plan upgrades/downgrades correctly update the client limit.
+  if (userId) {
+    try {
       const CLIENT_LIMITS: Record<string, number> = {
         starter: 5, growth: 10, enterprise: 20, connecta_dfy: 1, connecta_plus: 1
       };
       await adminClient.from("subscriptions")
         .update({ client_limit: CLIENT_LIMITS[planType] || 1 })
         .eq("user_id", userId);
-      logStep("Created subscriber_clients junction entry", { userId, clientId });
-    } catch (junctionErr) {
-      logStep("WARNING: junction entry creation failed (non-fatal)", { error: String(junctionErr) });
+    } catch (limitErr) {
+      logStep("WARNING: client_limit update failed (non-fatal)", { error: String(limitErr) });
     }
   }
 
@@ -267,7 +299,7 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not set");
     if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET not set");
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const stripe = new Stripe(stripeKey);
 
     const body = await req.text();
     const sig = req.headers.get("stripe-signature");
@@ -277,7 +309,8 @@ serve(async (req) => {
 
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+      // Must use constructEventAsync in Deno edge runtime (SubtleCrypto requires async)
+      event = await stripe.webhooks.constructEventAsync(body, sig, webhookSecret);
     } catch (err) {
       logStep("Webhook signature verification failed", { error: String(err) });
       return new Response(`Webhook Error: ${err}`, { status: 400 });
@@ -302,6 +335,10 @@ serve(async (req) => {
         const sub = event.data.object as Stripe.Subscription;
         const clientId = await getClientBySubscription(adminClient, sub);
         if (clientId) {
+          // Mark as canceled but PRESERVE credits — users keep what they haven't used.
+          // The subscription guard's hasCredits fallback lets them use remaining credits
+          // until depleted, then redirects to /signup.
+          // Top-up credits are also preserved (separate column).
           await adminClient.from("clients")
             .update({ subscription_status: "canceled" })
             .eq("id", clientId);
@@ -312,7 +349,7 @@ serve(async (req) => {
               .update({ status: "canceled", updated_at: new Date().toISOString() })
               .eq("user_id", userId);
           }
-          logStep("Subscription canceled", { clientId });
+          logStep("Subscription canceled — credits preserved", { clientId });
         }
         break;
       }
@@ -348,6 +385,56 @@ serve(async (req) => {
           break;
         }
 
+        // Use subscription's current_period_end (always the latest correct value)
+        const resetTimestamp = Math.max(sub.current_period_end, invoice.period_end);
+
+        // Apply pending downgrade if one exists
+        const { data: pendingCheck } = await adminClient
+          .from("clients")
+          .select("pending_plan_type, pending_plan_effective_date")
+          .eq("id", clientId)
+          .maybeSingle();
+
+        if (pendingCheck?.pending_plan_type) {
+          const pendingPlan = pendingCheck.pending_plan_type;
+          const pendingCfg = PLAN_CONFIG[pendingPlan];
+          if (pendingCfg) {
+            await adminClient.from("clients").update({
+              plan_type: pendingPlan,
+              credits_balance: pendingCfg.credits_monthly_cap,
+              credits_monthly_cap: pendingCfg.credits_monthly_cap,
+              credits_used: 0,
+              channel_scrapes_used: 0,
+              channel_scrapes_limit: pendingCfg.channel_scrapes_limit,
+              script_limit: pendingCfg.script_limit,
+              subscription_status: "active",
+              credits_reset_at: new Date(resetTimestamp * 1000).toISOString(),
+              pending_plan_type: null,
+              pending_plan_effective_date: null,
+            }).eq("id", clientId);
+
+            // Update client_limit on plan change
+            const userId2 = await getUserIdBySubscription(adminClient, sub);
+            if (userId2) {
+              const CLIENT_LIMITS: Record<string, number> = {
+                starter: 5, growth: 10, enterprise: 20, connecta_dfy: 1, connecta_plus: 1
+              };
+              await adminClient.from("subscriptions")
+                .update({ client_limit: CLIENT_LIMITS[pendingPlan] || 1 })
+                .eq("user_id", userId2);
+            }
+
+            await adminClient.from("credit_transactions").insert({
+              client_id: clientId,
+              action: "plan_downgrade_reset",
+              credits: pendingCfg.credits_monthly_cap,
+              metadata: { plan_type: pendingPlan, previous_plan: planType },
+            });
+            logStep("Applied pending downgrade", { clientId, pendingPlan, credits: pendingCfg.credits_monthly_cap });
+            break; // Skip normal renewal logic — downgrade handled everything
+          }
+        }
+
         // Check if this is the first charge after trial
         const { data: currentClient } = await adminClient
           .from("clients")
@@ -355,7 +442,7 @@ serve(async (req) => {
           .eq("id", clientId)
           .maybeSingle();
 
-        const isPostTrial = currentClient?.subscription_status === "trialing" || (currentClient?.credits_monthly_cap != null && currentClient.credits_monthly_cap < planCfg.credits_monthly_cap);
+        const isPostTrial = currentClient?.subscription_status === "trialing" || currentClient?.subscription_status === "trial";
 
         if (isPostTrial) {
           // First charge after trial — grant full plan credits
@@ -366,14 +453,16 @@ serve(async (req) => {
             channel_scrapes_used: 0,
             subscription_status: "active",
             trial_ends_at: null,
-            credits_reset_at: new Date(invoice.period_end * 1000).toISOString(),
+            credits_reset_at: new Date(resetTimestamp * 1000).toISOString(),
+            pending_plan_type: null,
+            pending_plan_effective_date: null,
           }).eq("id", clientId);
 
           await adminClient.from("credit_transactions").insert({
             client_id: clientId,
             action: "initial_grant",
             credits: planCfg.credits_monthly_cap,
-            metadata: { billing_period_end: invoice.period_end, plan_type: planType, post_trial: true },
+            metadata: { billing_period_end: resetTimestamp, plan_type: planType, post_trial: true },
           });
           logStep("Post-trial: granted full credits", { clientId, planType, credits: planCfg.credits_monthly_cap });
         } else {
@@ -384,16 +473,48 @@ serve(async (req) => {
             channel_scrapes_used: 0,
             subscription_status: "active",
             trial_ends_at: null,
-            credits_reset_at: new Date(invoice.period_end * 1000).toISOString(),
+            credits_reset_at: new Date(resetTimestamp * 1000).toISOString(),
+            pending_plan_type: null,
+            pending_plan_effective_date: null,
           }).eq("id", clientId);
 
           await adminClient.from("credit_transactions").insert({
             client_id: clientId,
             action: "monthly_reset",
             credits: planCfg.credits_monthly_cap,
-            metadata: { billing_period_end: invoice.period_end, plan_type: planType },
+            metadata: { billing_period_end: resetTimestamp, plan_type: planType },
           });
           logStep("Credits reset for billing cycle", { clientId, planType, credits: planCfg.credits_monthly_cap });
+        }
+        break;
+      }
+
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        // Only handle top-up payments (mode=payment with type=credit_topup metadata)
+        if (session.mode !== "payment" || session.metadata?.type !== "credit_topup") {
+          logStep("Skipping non-topup checkout session", { sessionId: session.id, mode: session.mode });
+          break;
+        }
+        if (session.payment_status !== "paid") {
+          logStep("Topup session not paid", { sessionId: session.id, payment_status: session.payment_status });
+          break;
+        }
+        const clientId = session.metadata?.client_id;
+        const credits = parseInt(session.metadata?.credits || "0", 10);
+        if (!clientId || !credits || credits <= 0) {
+          logStep("Topup session missing metadata", { sessionId: session.id });
+          break;
+        }
+        const { data: result, error: rpcError } = await adminClient.rpc("add_topup_credits", {
+          p_client_id: clientId,
+          p_amount: credits,
+          p_session_id: session.id,
+        });
+        if (rpcError) {
+          logStep("ERROR adding topup credits", { error: rpcError.message });
+        } else {
+          logStep("Topup credits added", { clientId, credits, result });
         }
         break;
       }

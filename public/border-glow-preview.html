@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BorderGlow Preview — Border Only (No Fill)</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f11; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 40px; padding: 40px; }
+h1 { font-size: 14px; font-weight: 400; color: #666; letter-spacing: 0.1em; text-transform: uppercase; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 900px; width: 100%; }
+.buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+/* ── BorderGlow CSS (border-only, fillOpacity=0) ── */
+.border-glow-card {
+  --edge-proximity: 0;
+  --cursor-angle: 45deg;
+  --edge-sensitivity: 25;
+  --color-sensitivity: calc(var(--edge-sensitivity) + 20);
+  --border-radius: 12px;
+  --glow-padding: 50px;
+  --cone-spread: 10;
+  --fill-opacity: 0;
+
+  position: relative;
+  border-radius: var(--border-radius);
+  isolation: isolate;
+  transform: translate3d(0, 0, 0.01px);
+  display: grid;
+  border: 1px solid rgb(255 255 255 / 12%);
+  background: #141416;
+  overflow: visible;
+  cursor: pointer;
+}
+
+.border-glow-card::before,
+.border-glow-card::after,
+.border-glow-card > .edge-light {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transition: opacity 0.25s ease-out;
+  z-index: -1;
+}
+.border-glow-card:not(:hover)::before,
+.border-glow-card:not(:hover)::after,
+.border-glow-card:not(:hover) > .edge-light {
+  opacity: 0;
+  transition: opacity 0.75s ease-in-out;
+}
+
+.border-glow-card::before {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#141416 0 100%) padding-box,
+    radial-gradient(at 80% 55%, #06B6D4 0px, transparent 50%) border-box,
+    radial-gradient(at 69% 34%, #22d3ee 0px, transparent 50%) border-box,
+    radial-gradient(at 8% 6%, #84CC16 0px, transparent 50%) border-box,
+    radial-gradient(at 41% 38%, #06B6D4 0px, transparent 50%) border-box,
+    radial-gradient(at 86% 85%, #22d3ee 0px, transparent 50%) border-box,
+    radial-gradient(at 82% 18%, #84CC16 0px, transparent 50%) border-box,
+    radial-gradient(at 51% 4%, #22d3ee 0px, transparent 50%) border-box,
+    linear-gradient(#06B6D4 0 100%) border-box;
+
+  opacity: calc((var(--edge-proximity) - var(--color-sensitivity)) / (100 - var(--color-sensitivity)));
+  mask-image: conic-gradient(
+    from var(--cursor-angle) at center,
+    black calc(var(--cone-spread) * 1%),
+    transparent calc((var(--cone-spread) + 15) * 1%),
+    transparent calc((100 - var(--cone-spread) - 15) * 1%),
+    black calc((100 - var(--cone-spread)) * 1%)
+  );
+}
+
+/* FILL disabled (opacity 0) */
+.border-glow-card::after {
+  opacity: 0;
+}
+
+.border-glow-card > .edge-light {
+  inset: calc(var(--glow-padding) * -1);
+  pointer-events: none;
+  z-index: 1;
+  mask-image: conic-gradient(
+    from var(--cursor-angle) at center, black 2.5%, transparent 10%, transparent 90%, black 97.5%
+  );
+  opacity: calc((var(--edge-proximity) - var(--edge-sensitivity)) / (100 - var(--edge-sensitivity)));
+  mix-blend-mode: plus-lighter;
+}
+
+.border-glow-card > .edge-light::before {
+  content: "";
+  position: absolute;
+  inset: var(--glow-padding);
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px hsl(187deg 80% 70% / 100%),
+    inset 0 0 1px 0 hsl(187deg 80% 70% / 60%),
+    inset 0 0 3px 0 hsl(187deg 80% 70% / 50%),
+    inset 0 0 6px 0 hsl(187deg 80% 70% / 40%),
+    inset 0 0 15px 0 hsl(187deg 80% 70% / 30%),
+    inset 0 0 25px 2px hsl(187deg 80% 70% / 20%),
+    inset 0 0 50px 2px hsl(187deg 80% 70% / 10%),
+    0 0 1px 0 hsl(187deg 80% 70% / 60%),
+    0 0 3px 0 hsl(187deg 80% 70% / 50%),
+    0 0 6px 0 hsl(187deg 80% 70% / 40%),
+    0 0 15px 0 hsl(187deg 80% 70% / 30%),
+    0 0 25px 2px hsl(187deg 80% 70% / 20%),
+    0 0 50px 2px hsl(187deg 80% 70% / 10%);
+}
+
+.border-glow-inner {
+  display: flex; flex-direction: column; position: relative; overflow: auto; z-index: 1;
+}
+
+/* Card content */
+.card-content {
+  display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 32px 24px; text-align: center;
+}
+.card-content .icon {
+  width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  font-size: 20px;
+}
+.card-content h2 { font-size: 14px; font-weight: 700; }
+.card-content p { font-size: 12px; color: #888; line-height: 1.5; }
+
+/* Button style */
+.btn-content {
+  padding: 12px 28px; font-size: 14px; font-weight: 600; color: #fff; text-align: center;
+}
+.btn-sm { --border-radius: 10px; --glow-padding: 20px; }
+.btn-lg { --border-radius: 16px; --glow-padding: 50px; }
+
+.label { font-size: 11px; color: #555; text-align: center; margin-top: -12px; }
+</style>
+</head>
+<body>
+
+<h1>Border Glow Preview — Hover near edges to see the glow</h1>
+
+<div class="grid">
+  <div class="border-glow-card" id="card1">
+    <span class="edge-light"></span>
+    <div class="border-glow-inner">
+      <div class="card-content">
+        <div class="icon">&#9998;</div>
+        <div>
+          <h2>Content Creation</h2>
+          <p>Scripts · Vault · Editing Queue · Content Calendar</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="border-glow-card" id="card2">
+    <span class="edge-light"></span>
+    <div class="border-glow-inner">
+      <div class="card-content">
+        <div class="icon">&#128200;</div>
+        <div>
+          <h2>Sales</h2>
+          <p>Lead Tracker · Lead Calendar</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="border-glow-card" id="card3">
+    <span class="edge-light"></span>
+    <div class="border-glow-inner">
+      <div class="card-content">
+        <div class="icon">&#9881;</div>
+        <div>
+          <h2>Client Set Up</h2>
+          <p>Onboarding · Booking · Landing Page · Database</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h1>Buttons</h1>
+
+<div class="buttons">
+  <div class="border-glow-card btn-sm" id="btn1">
+    <span class="edge-light"></span>
+    <div class="border-glow-inner">
+      <div class="btn-content">Try Connecta</div>
+    </div>
+  </div>
+
+  <div class="border-glow-card btn-sm" id="btn2">
+    <span class="edge-light"></span>
+    <div class="border-glow-inner">
+      <div class="btn-content">&#9654; Try It Free</div>
+    </div>
+  </div>
+
+  <div class="border-glow-card btn-lg" id="btn3">
+    <span class="edge-light"></span>
+    <div class="border-glow-inner">
+      <div class="btn-content" style="padding: 20px 48px; font-size: 16px;">Start Free Today &rarr;</div>
+    </div>
+  </div>
+</div>
+
+<p class="label">fillOpacity = 0 &mdash; no gradient fill inside, only border + outer glow on hover</p>
+
+<script>
+function getCenterOfElement(el) {
+  const { width, height } = el.getBoundingClientRect();
+  return [width / 2, height / 2];
+}
+function getEdgeProximity(el, x, y) {
+  const [cx, cy] = getCenterOfElement(el);
+  const dx = x - cx, dy = y - cy;
+  let kx = Infinity, ky = Infinity;
+  if (dx !== 0) kx = cx / Math.abs(dx);
+  if (dy !== 0) ky = cy / Math.abs(dy);
+  return Math.min(Math.max(1 / Math.min(kx, ky), 0), 1);
+}
+function getCursorAngle(el, x, y) {
+  const [cx, cy] = getCenterOfElement(el);
+  const dx = x - cx, dy = y - cy;
+  if (dx === 0 && dy === 0) return 0;
+  let deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+  if (deg < 0) deg += 360;
+  return deg;
+}
+document.querySelectorAll('.border-glow-card').forEach(card => {
+  card.addEventListener('pointermove', e => {
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const edge = getEdgeProximity(card, x, y);
+    const angle = getCursorAngle(card, x, y);
+    card.style.setProperty('--edge-proximity', (edge * 100).toFixed(3));
+    card.style.setProperty('--cursor-angle', angle.toFixed(3) + 'deg');
+  });
+});
+</script>
+
+</body>
+</html>

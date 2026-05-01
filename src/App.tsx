@@ -6,12 +6,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
+import FloatingUploadProgress from "@/components/FloatingUploadProgress";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages — each becomes its own chunk, loaded on demand
 const Home = lazy(() => import("./pages/Home"));
 const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
+const LandingPageNewES = lazy(() => import("./pages/LandingPageNewES"));
 const Index = lazy(() => import("./pages/Index"));
 const IndexEN = lazy(() => import("./pages/IndexEN"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -28,6 +30,8 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
+const PublicFolderShare = lazy(() => import("./pages/PublicFolderShare"));
+const Finances = lazy(() => import("./pages/Finances"));
 const PublicBooking = lazy(() => import("./pages/PublicBooking"));
 const BookingSettings = lazy(() => import("./pages/BookingSettings"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -35,6 +39,7 @@ const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const SelectPlan = lazy(() => import("./pages/SelectPlan"));
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const TopupSuccess = lazy(() => import("./pages/TopupSuccess"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const EditingQueue = lazy(() => import("./pages/EditingQueue"));
 const MasterEditingQueue = lazy(() => import("./pages/MasterEditingQueue"));
@@ -51,11 +56,13 @@ const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const PublicEditingQueue = lazy(() => import("./pages/PublicEditingQueue"));
 const Trainings = lazy(() => import("./pages/Trainings"));
 const ViralToday = lazy(() => import("./pages/ViralToday"));
+const ViralReelFeed = lazy(() => import("./pages/ViralReelFeed"));
 const ViralVideoDetail = lazy(() => import("./pages/ViralVideoDetail"));
 const Subscribers = lazy(() => import("./pages/Subscribers"));
 const PublicVideoReview = lazy(() => import("./pages/PublicVideoReview"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const About = lazy(() => import("./pages/About"));
 
 const queryClient = new QueryClient();
 
@@ -84,6 +91,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <FloatingUploadProgress />
           <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public / unauthenticated routes */}
@@ -92,13 +100,16 @@ const App = () => (
             <Route path="/home" element={<Home />} />
             <Route path="/reto" element={<Index />} />
             <Route path="/reto/en" element={<IndexEN />} />
+            <Route path="/about" element={<About />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/onboarding/:clientId" element={<Onboarding />} />
             <Route path="/select-plan" element={<SelectPlan />} />
             <Route path="/coming-soon" element={<ComingSoon />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/topup-success" element={<TopupSuccess />} />
             <Route path="/s/:id" element={<PublicScript />} />
+            <Route path="/f/:token" element={<PublicFolderShare />} />
             <Route path="/book/:clientId" element={<PublicBooking />} />
             <Route path="/public/calendar/:clientId" element={<PublicContentCalendar />} />
             <Route path="/public/onboard/:clientId" element={<PublicOnboarding />} />
@@ -107,6 +118,7 @@ const App = () => (
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/facebook-callback" element={<FacebookCallback />} />
+            <Route path="/es" element={<LandingPageNewES />} />
             <Route path="/signup" element={<Signup />} />
 
             {/* Authenticated routes — all share the DashboardLayout */}
@@ -137,7 +149,9 @@ const App = () => (
               <Route path="/editing-queue" element={<MasterEditingQueue />} />
               <Route path="/master-database" element={<MasterDatabase />} />
               <Route path="/trainings" element={<Trainings />} />
+              <Route path="/finances" element={<Finances />} />
               <Route path="/viral-today" element={<ViralToday />} />
+              <Route path="/viral-today/reels" element={<ViralReelFeed />} />
               <Route path="/viral-today/video/:videoId" element={<ViralVideoDetail />} />
               <Route path="/subscribers" element={<Subscribers />} />
               <Route path="/change-password" element={<ChangePassword />} />

@@ -5,7 +5,7 @@ import { revisionCommentService, type RevisionComment } from '@/services/revisio
 import { videoUploadService } from '@/services/videoUploadService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Play, Pause, Check } from 'lucide-react';
+import { Send, Play, Pause, Check, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 
@@ -92,9 +92,10 @@ export default function PublicVideoReview() {
   }, [isSupabaseVideo, video?.storage_path]);
 
   const sortedComments = useMemo(() => {
-    const ts = comments.filter(c => c.timestamp_seconds !== null)
+    const public_ = comments.filter(c => !c.internal_only);
+    const ts = public_.filter(c => c.timestamp_seconds !== null)
       .sort((a, b) => (a.timestamp_seconds ?? 0) - (b.timestamp_seconds ?? 0));
-    const gen = comments.filter(c => c.timestamp_seconds === null);
+    const gen = public_.filter(c => c.timestamp_seconds === null);
     return [...ts, ...gen];
   }, [comments]);
 
@@ -108,17 +109,32 @@ export default function PublicVideoReview() {
     if (!newComment.trim() || !videoEditId) return;
 
     let timestampSeconds: number | null = null;
+    let commentBody = newComment.trim();
+
     if (isSupabaseVideo && isPaused) {
       timestampSeconds = Math.floor(currentTime);
-    } else if (isDriveVideo && manualTimestamp.trim()) {
-      timestampSeconds = parseTimestamp(manualTimestamp);
+    } else if (isDriveVideo) {
+      if (manualTimestamp.trim()) {
+        timestampSeconds = parseTimestamp(manualTimestamp);
+      }
+      if (timestampSeconds == null) {
+        const leading = commentBody.match(/^\s*(?:@|at\s+)?(\d{1,2}(?::\d{2}){1,2})\b[\s\-—:,.]*/i);
+        if (leading) {
+          const parsed = parseTimestamp(leading[1]);
+          if (parsed != null) {
+            timestampSeconds = parsed;
+            commentBody = commentBody.slice(leading[0].length).trim();
+          }
+        }
+      }
     }
+    if (!commentBody) commentBody = newComment.trim();
 
     try {
       const created = await revisionCommentService.createComment({
         video_edit_id: videoEditId,
         timestamp_seconds: timestampSeconds,
-        comment: newComment.trim(),
+        comment: commentBody,
         author_name: clientName,
         author_role: 'client',
       });
@@ -244,6 +260,17 @@ export default function PublicVideoReview() {
               </>
             )}
 
+            {/* Drive timestamp helper */}
+            {isDriveVideo && (
+              <div className="mt-3 flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                <Clock className="h-4 w-4 text-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0 text-[11px] text-muted-foreground leading-tight">
+                  <div className="text-foreground/80">Tip: Drive videos don't auto-detect the time.</div>
+                  <div>Type the time you see on Drive (e.g. <span className="font-mono text-foreground">1:23</span>) into the box, or just start your note with it.</div>
+                </div>
+              </div>
+            )}
+
             {/* Comment input */}
             <div className="mt-3 flex gap-2 items-center">
               {isSupabaseVideo && isPaused && (
@@ -252,10 +279,19 @@ export default function PublicVideoReview() {
                 </span>
               )}
               {isDriveVideo && (
-                <Input placeholder="0:00" value={manualTimestamp} onChange={(e) => setManualTimestamp(e.target.value)} className="w-16 h-8 text-xs font-mono" />
+                <div className="relative">
+                  <Clock className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-primary pointer-events-none" />
+                  <Input
+                    placeholder="1:23"
+                    value={manualTimestamp}
+                    onChange={(e) => setManualTimestamp(e.target.value)}
+                    className="w-20 h-8 text-xs font-mono pl-6"
+                    title="Optional — type the time from Drive (MM:SS), or prefix your note with 1:23."
+                  />
+                </div>
               )}
               <Input
-                placeholder="Add your revision note..."
+                placeholder={isDriveVideo ? "Add your note (prefix with 1:23 to set a time)" : "Add your revision note..."}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}

@@ -159,6 +159,69 @@ serve(async (req) => {
       });
     }
 
+    // ── Delete account (before Stripe customer check — user may not have one) ──
+    if (action === "delete-account") {
+      // Block admins
+      const { data: roleData } = await supabaseClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (roleData?.role === "admin") {
+        throw new Error("Admin accounts cannot be deleted through this endpoint.");
+      }
+
+      // 1) Cancel Stripe subscriptions if customer exists
+      const { data: delClient } = await supabaseClient
+        .from("clients")
+        .select("id, stripe_customer_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (delClient?.stripe_customer_id) {
+        try {
+          for (const status of ["active", "trialing"] as const) {
+            const subs = await stripe.subscriptions.list({
+              customer: delClient.stripe_customer_id,
+              status,
+              limit: 10,
+            });
+            for (const sub of subs.data) {
+              await stripe.subscriptions.cancel(sub.id);
+              console.log(`Canceled Stripe subscription ${sub.id}`);
+            }
+          }
+        } catch (stripeErr: any) {
+          console.error("Stripe cancel error (continuing):", stripeErr.message);
+        }
+      }
+
+      // 2) Delete DB records (order matters for FK constraints)
+      if (delClient) {
+        await supabaseClient.from("credit_transactions").delete().eq("client_id", delClient.id);
+        await supabaseClient.from("subscriber_clients").delete().eq("client_id", delClient.id);
+      }
+      await supabaseClient.from("subscriber_clients").delete().eq("subscriber_user_id", user.id);
+      await supabaseClient.from("subscriptions").delete().eq("user_id", user.id);
+      if (delClient) {
+        await supabaseClient.from("clients").delete().eq("id", delClient.id);
+      }
+      await supabaseClient.from("user_roles").delete().eq("user_id", user.id);
+      await supabaseClient.from("profiles").delete().eq("user_id", user.id);
+
+      // 3) Delete auth user
+      const { error: deleteErr } = await supabaseClient.auth.admin.deleteUser(user.id);
+      if (deleteErr) {
+        console.error("Auth delete error:", deleteErr);
+        throw new Error("Failed to delete auth account: " + deleteErr.message);
+      }
+
+      console.log(`Account deleted: ${user.id} (${user.email})`);
+      return new Response(JSON.stringify({ success: true, message: "Account deleted successfully." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Per-user actions: need the user's own stripe_customer_id ─────────────
     const { data: client } = await supabaseClient
       .from("clients")
@@ -290,10 +353,62 @@ serve(async (req) => {
         : sub.status === "trialing" ? "trialing"
         : "inactive";
 
-      await supabaseClient
+      // Sync subscription_status + plan from Stripe → DB (catches missed webhooks)
+      const statusProductId = sub.items.data[0]?.price?.product as string;
+      const STATUS_PRODUCT_PLAN: Record<string, string> = {
+        "prod_U8CMY29gkbO85Y": "starter", "prod_U8CMTfvyn4lvgv": "growth", "prod_U8CMxSv9ZoV1PF": "enterprise",
+        "prod_Tzx3VOK8V8gI11": "starter", "prod_Tzx4et0Y0iv6LI": "growth", "prod_Tzx4OBg3PpYuES": "enterprise",
+      };
+      const STATUS_PLAN_CFG: Record<string, { credits_monthly_cap: number; channel_scrapes_limit: number; script_limit: number }> = {
+        starter:    { credits_monthly_cap: 10000, channel_scrapes_limit: 8,  script_limit: 75  },
+        growth:     { credits_monthly_cap: 30000, channel_scrapes_limit: 15, script_limit: 200 },
+        enterprise: { credits_monthly_cap: 75000, channel_scrapes_limit: 25, script_limit: 500 },
+      };
+
+      const stripePlan = STATUS_PRODUCT_PLAN[statusProductId];
+      const clientUpdatePayload: Record<string, any> = { subscription_status: dbStatus };
+
+      if (stripePlan) {
+        const cfg = STATUS_PLAN_CFG[stripePlan];
+        // Fetch current client to detect plan mismatch
+        const { data: clientRow } = await supabaseClient
+          .from("clients")
+          .select("plan_type, credits_balance, credits_monthly_cap")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (clientRow && clientRow.plan_type !== stripePlan) {
+          // Plan mismatch — sync from Stripe
+          clientUpdatePayload.plan_type = stripePlan;
+          clientUpdatePayload.credits_monthly_cap = cfg.credits_monthly_cap;
+          clientUpdatePayload.channel_scrapes_limit = cfg.channel_scrapes_limit;
+          clientUpdatePayload.script_limit = cfg.script_limit;
+
+          const oldCap = clientRow.credits_monthly_cap ?? 0;
+          if (cfg.credits_monthly_cap > oldCap) {
+            // Upgrade: full fresh allocation (prevents inflation on re-upgrades)
+            clientUpdatePayload.credits_balance = cfg.credits_monthly_cap;
+            clientUpdatePayload.credits_used = 0;
+          } else {
+            // Downgrade: keep current balance AND cap — user already paid for this cycle.
+            delete clientUpdatePayload.credits_monthly_cap;
+          }
+
+          // Also sync subscriptions table
+          await supabaseClient.from("subscriptions")
+            .update({ plan_type: stripePlan, updated_at: new Date().toISOString() })
+            .eq("user_id", user.id);
+        }
+      }
+
+      await supabaseClient.from("clients").update(clientUpdatePayload).eq("user_id", user.id);
+
+      // Fetch pending downgrade info
+      const { data: pendingData } = await supabaseClient
         .from("clients")
-        .update({ subscription_status: dbStatus })
-        .eq("user_id", user.id);
+        .select("pending_plan_type, pending_plan_effective_date")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
       return new Response(
         JSON.stringify({
@@ -312,10 +427,62 @@ serve(async (req) => {
             created: sub.created,
             trial_end: sub.trial_end,
             trial_start: sub.trial_start,
+            pending_plan_type: pendingData?.pending_plan_type ?? null,
+            pending_plan_effective_date: pendingData?.pending_plan_effective_date ?? null,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // ── Cancel a pending downgrade ──────────────────────────────────────
+    if (action === "cancel-downgrade") {
+      const { data: pendingClient } = await supabaseClient
+        .from("clients")
+        .select("pending_plan_type, plan_type")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!pendingClient?.pending_plan_type) {
+        throw new Error("No pending downgrade to cancel.");
+      }
+
+      const PLAN_PRICE_MAP: Record<string, string> = {
+        starter:    Deno.env.get("STRIPE_PRICE_STARTER")    || "price_1TCX3SCp1qPE081LCBJc8avw",
+        growth:     Deno.env.get("STRIPE_PRICE_GROWTH")     || "price_1TCX3SCp1qPE081LSkPmF8FN",
+        enterprise: Deno.env.get("STRIPE_PRICE_ENTERPRISE") || "price_1TCX3SCp1qPE081LODOQradO",
+      };
+
+      const currentPlan = pendingClient.plan_type;
+      if (currentPlan && PLAN_PRICE_MAP[currentPlan]) {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: customerId, limit: 5,
+        });
+        const subscription = subscriptions.data.find(s => s.status === "active" || s.status === "trialing");
+        if (subscription) {
+          const currentItem = subscription.items.data[0];
+          await stripe.subscriptions.update(subscription.id, {
+            items: [{ id: currentItem.id, price: PLAN_PRICE_MAP[currentPlan] }],
+            proration_behavior: "none",
+          });
+        }
+      }
+
+      await supabaseClient.from("clients").update({
+        pending_plan_type: null,
+        pending_plan_effective_date: null,
+      }).eq("user_id", user.id);
+
+      try {
+        await supabaseClient.from("subscriptions")
+          .update({ plan_type: currentPlan, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+      } catch (_) { /* non-fatal */ }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Downgrade canceled. Your current plan will continue.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── Change plan: upgrade or downgrade ──────────────────────────────────────
@@ -370,19 +537,54 @@ serve(async (req) => {
           proration_behavior: "none",
         });
       } else if (isUpgrade) {
-        // Upgrade: charge prorated difference immediately via new invoice
+        // Upgrade: charge prorated difference immediately via new invoice.
+        // Also clear cancel_at_period_end — upgrading a canceling subscription reactivates it.
         await stripe.subscriptions.update(subscription.id, {
           items: [{ id: currentItem.id, price: PLAN_PRICE_MAP[newPlan] }],
           proration_behavior: "always_invoice",
+          cancel_at_period_end: false,
         });
       } else {
-        // Downgrade: no refund, change takes effect at next billing cycle
+        // Downgrade: change Stripe price (charges new amount next cycle) but keep current plan active
         await stripe.subscriptions.update(subscription.id, {
           items: [{ id: currentItem.id, price: PLAN_PRICE_MAP[newPlan] }],
           proration_behavior: "none",
         });
+
+        // Save pending downgrade — current plan stays active until next billing cycle
+        const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        await supabaseClient.from("clients").update({
+          pending_plan_type: newPlan,
+          pending_plan_effective_date: periodEnd,
+        }).eq("user_id", user.id);
+
+        // Sync subscriptions table (show pending in admin view)
+        try {
+          await supabaseClient.from("subscriptions").upsert({
+            user_id: user.id,
+            email: user.email,
+            plan_type: config.plan_type,
+            status: "active",
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscription.id,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "email" });
+        } catch (_) { /* non-fatal */ }
+
+        const effectiveDate = new Date(subscription.current_period_end * 1000)
+          .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+        return new Response(JSON.stringify({
+          success: true,
+          plan: newPlan,
+          is_upgrade: false,
+          is_scheduled: true,
+          effective_date: periodEnd,
+          message: `Downgrade to ${config.plan_type} scheduled for ${effectiveDate}. Your current plan and credits remain active until then.`,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // Only upgrade/trial reach here:
       // Fetch current credits to calculate upgrade bonus
       const { data: clientRow } = await supabaseClient
         .from("clients")
@@ -397,8 +599,10 @@ serve(async (req) => {
       if (isTrial) {
         newBalance = config.credits_monthly_cap;
       } else if (isUpgrade) {
-        newBalance = currentBalance + Math.max(0, config.credits_monthly_cap - currentCap);
+        // Upgrade: full fresh allocation (prevents inflation on re-upgrades)
+        newBalance = config.credits_monthly_cap;
       } else {
+        // Downgrade: keep current balance — user already paid for this cycle
         newBalance = currentBalance;
       }
 
@@ -409,12 +613,19 @@ serve(async (req) => {
         lead_tracker_enabled: config.lead_tracker_enabled,
         facebook_integration_enabled: config.facebook_integration_enabled,
         subscription_status: "active",
-        credits_monthly_cap: config.credits_monthly_cap,
         channel_scrapes_limit: config.channel_scrapes_limit,
         credits_balance: newBalance,
+        pending_plan_type: null,
+        pending_plan_effective_date: null,
       };
-      if (isTrial) {
+      // Upgrade/trial: set new (higher) cap and reset usage
+      if (isTrial || isUpgrade) {
+        clientUpdate.credits_monthly_cap = config.credits_monthly_cap;
         clientUpdate.credits_used = 0;
+      }
+      // Downgrade: keep current credits_monthly_cap — user paid for the full cycle.
+      // New cap applies at next billing reset via invoice.payment_succeeded.
+      if (isTrial) {
         clientUpdate.trial_ends_at = null;
       }
 
@@ -422,7 +633,11 @@ serve(async (req) => {
 
       // Sync subscriptions table for admin visibility
       try {
-        await supabaseClient.from("subscriptions").upsert({
+        // Only update client_limit on upgrade (downgrade applies at next cycle via webhook)
+        const CLIENT_LIMITS: Record<string, number> = {
+          starter: 5, growth: 10, enterprise: 20,
+        };
+        const subscriptionsUpdate: Record<string, any> = {
           user_id: user.id,
           email: user.email,
           plan_type: config.plan_type,
@@ -430,7 +645,11 @@ serve(async (req) => {
           stripe_customer_id: customerId,
           stripe_subscription_id: subscription.id,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "email" });
+        };
+        if (isUpgrade || isTrial) {
+          subscriptionsUpdate.client_limit = CLIENT_LIMITS[config.plan_type] || 1;
+        }
+        await supabaseClient.from("subscriptions").upsert(subscriptionsUpdate, { onConflict: "email" });
       } catch (_) { /* non-fatal */ }
 
       return new Response(JSON.stringify({

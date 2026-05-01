@@ -206,8 +206,9 @@ export default function ContentCalendar() {
   const nextMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)), []);
 
   const handleSharePublicLink = useCallback(() => {
-    if (!clientId) return;
-    const publicLink = `${window.location.origin}/public/calendar/${clientId}`;
+    const shareId = clientId || (filterClientId && filterClientId !== "all" ? filterClientId : null);
+    if (!shareId) return;
+    const publicLink = `${window.location.origin}/public/calendar/${shareId}`;
     navigator.clipboard.writeText(publicLink);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -442,7 +443,7 @@ export default function ContentCalendar() {
                 </select>
               )}
               {/* Share Button - Desktop only */}
-              {clientId && (
+              {(clientId || (filterClientId && filterClientId !== "all")) && (
                 <Button
                   onClick={handleSharePublicLink}
                   variant="outline"
@@ -662,7 +663,7 @@ export default function ContentCalendar() {
               </div>
 
               {/* ─── Expanded Calendar (RIGHT - flex-1 on desktop) ──────────────────────────── */}
-              <div className="w-full md:flex-1 rounded-xl border border-border/40 bg-card/20 backdrop-blur-sm p-4 flex flex-col">
+              <div className="w-full md:flex-1 rounded-xl border border-border/40 bg-card p-4 flex flex-col">
 
                 {/* Month Navigation */}
                 <div className="flex items-center justify-between gap-2 mb-4">
@@ -718,7 +719,7 @@ export default function ContentCalendar() {
                         className={`relative py-3 px-1 flex flex-col items-center justify-start text-center text-xs font-medium transition-colors border-r border-b border-border/30 cursor-pointer
                           ${col === 6 ? "border-r-0" : ""}
                           ${row === 5 ? "border-b-0" : ""}
-                          ${isCurrentMonth ? "hover:bg-muted/10" : "bg-background/20"}
+                          ${isCurrentMonth ? "hover:bg-muted/10" : "bg-muted/5"}
                           ${isToday ? "bg-primary/20" : ""}
                           ${isSelected ? "bg-muted/30" : ""}`}
                       >

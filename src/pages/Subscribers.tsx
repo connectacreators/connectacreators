@@ -41,6 +41,7 @@ import {
   EyeOff,
   KeyRound,
   Zap,
+  Crown,
 } from "lucide-react";
 import { format, isPast, parseISO } from "date-fns";
 
@@ -63,11 +64,13 @@ interface Subscriber {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  // Credits (joined from clients table)
+  // Credits (from clients table — source of truth)
   client_id?: string | null;
   credits_balance?: number | null;
   credits_used?: number | null;
   credits_monthly_cap?: number | null;
+  topup_credits_balance?: number | null;
+  role?: string | null;
 }
 
 const PLAN_LABELS: Record<PlanType, string> = {
@@ -141,6 +144,10 @@ export default function Subscribers() {
   const [rechargeAmount, setRechargeAmount] = useState("100");
   const [recharging, setRecharging] = useState(false);
 
+  // Convert to agency client
+  const [convertTarget, setConvertTarget] = useState<Subscriber | null>(null);
+  const [converting, setConverting] = useState(false);
+
   // Stripe sync
   const [syncing, setSyncing] = useState(false);
 
@@ -161,41 +168,85 @@ export default function Subscribers() {
   const fetchSubscribers = useCallback(async () => {
     setLoading(true);
     await expireTrials();
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .select("*")
+
+    // Fetch from clients table (source of truth) — include only primary clients
+    // (parent_subscriber_id IS NULL means this is a billing client, not a subclient)
+    const { data: clientsData, error: clientsErr } = await supabase
+      .from("clients")
+      .select("id, user_id, email, name, plan_type, subscription_status, credits_balance, credits_used, credits_monthly_cap, topup_credits_balance, stripe_customer_id, trial_ends_at, created_at, updated_at, parent_subscriber_id")
+      .is("parent_subscriber_id", null)
+      .not("user_id", "is", null)
       .order("created_at", { ascending: false });
-    if (error) {
-      toast({ title: "Error loading subscribers", description: error.message, variant: "destructive" });
+
+    if (clientsErr) {
+      toast({ title: "Error loading subscribers", description: clientsErr.message, variant: "destructive" });
       setLoading(false);
       return;
     }
-    const subs = (data as Subscriber[]) || [];
 
-    // Enrich with credits from clients table
-    const userIds = subs.filter((s) => s.user_id).map((s) => s.user_id!);
-    if (userIds.length > 0) {
-      const { data: clientsData } = await supabase
-        .from("clients")
-        .select("id, user_id, credits_balance, credits_used, credits_monthly_cap")
-        .in("user_id", userIds);
-      const creditsMap = new Map(
-        (clientsData ?? []).map((c) => [c.user_id, c])
-      );
-      const enriched = subs.map((s) => {
-        const c = s.user_id ? creditsMap.get(s.user_id) : null;
-        return {
-          ...s,
-          client_id: c?.id ?? null,
-          credits_balance: c?.credits_balance ?? null,
-          credits_used: c?.credits_used ?? null,
-          credits_monthly_cap: c?.credits_monthly_cap ?? null,
-        };
-      });
-      setSubscribers(enriched);
-    } else {
-      setSubscribers(subs);
-    }
+    const clients = clientsData || [];
+    const userIds = clients.map((c) => c.user_id).filter(Boolean) as string[];
+
+    // Fetch subscriptions (for stripe_subscription_id, subscribed_at, notes, is_manually_assigned)
+    const { data: subsData } = await supabase
+      .from("subscriptions")
+      .select("id, user_id, stripe_subscription_id, subscribed_at, notes, is_manually_assigned")
+      .in("user_id", userIds);
+    const subsMap = new Map((subsData ?? []).map((s) => [s.user_id, s]));
+
+    // Fetch user_roles for role display
+    const { data: rolesData } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .in("user_id", userIds);
+    const rolesMap = new Map<string, string>();
+    (rolesData ?? []).forEach((r) => {
+      // Prioritize admin > videographer > editor > connecta_plus > user
+      const priority = ["admin", "videographer", "editor", "connecta_plus", "user"];
+      const existing = rolesMap.get(r.user_id);
+      if (!existing || priority.indexOf(r.role) < priority.indexOf(existing)) {
+        rolesMap.set(r.user_id, r.role);
+      }
+    });
+
+    // Merge into Subscriber shape
+    const merged: Subscriber[] = clients.map((c) => {
+      const sub = c.user_id ? subsMap.get(c.user_id) : null;
+      // Map client subscription_status to Subscriber StatusType
+      const statusMap: Record<string, StatusType> = {
+        active: "active",
+        trialing: "trial",
+        trial: "trial",
+        canceling: "active",
+        canceled: "canceled",
+        past_due: "inactive",
+        inactive: "inactive",
+      };
+      return {
+        id: sub?.id || c.id,
+        user_id: c.user_id,
+        email: c.email || "",
+        full_name: c.name,
+        plan_type: (c.plan_type || "starter") as PlanType,
+        status: statusMap[c.subscription_status || "inactive"] || "inactive",
+        is_manually_assigned: sub?.is_manually_assigned || false,
+        trial_ends_at: c.trial_ends_at,
+        stripe_subscription_id: sub?.stripe_subscription_id || null,
+        stripe_customer_id: c.stripe_customer_id,
+        subscribed_at: sub?.subscribed_at || c.created_at,
+        notes: sub?.notes || null,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        client_id: c.id,
+        credits_balance: c.credits_balance,
+        credits_used: c.credits_used,
+        credits_monthly_cap: c.credits_monthly_cap,
+        topup_credits_balance: c.topup_credits_balance ?? 0,
+        role: c.user_id ? rolesMap.get(c.user_id) || "user" : "user",
+      };
+    });
+
+    setSubscribers(merged);
     setLoading(false);
   }, [expireTrials, toast]);
 
@@ -379,6 +430,35 @@ export default function Subscribers() {
     fetchSubscribers();
   };
 
+  const handleConvert = async () => {
+    if (!convertTarget?.user_id) {
+      toast({ title: "No user_id found for this subscriber", variant: "destructive" });
+      return;
+    }
+    setConverting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("convert-to-agency-client", {
+        body: { user_id: convertTarget.user_id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast({
+        title: "Converted to Agency Client",
+        description: `${convertTarget.full_name || convertTarget.email} is now a Connecta Plus client`,
+      });
+      setConvertTarget(null);
+      fetchSubscribers();
+    } catch (err: any) {
+      toast({
+        title: "Conversion failed",
+        description: err.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const handleDeactivate = async (id: string) => {
     const { error } = await supabase
       .from("subscriptions")
@@ -560,6 +640,7 @@ export default function Subscribers() {
                     onEdit={() => openEdit(s)}
                     onDeactivate={() => setDeactivateId(s.id)}
                     onRecharge={() => { setRechargeTarget(s); setRechargeAmount("100"); }}
+                    onConvert={() => setConvertTarget(s)}
                   />
                 ))}
               </div>
@@ -820,6 +901,53 @@ export default function Subscribers() {
         </DialogContent>
       </Dialog>
 
+      {/* Convert to Agency Client confirm */}
+      <Dialog open={!!convertTarget} onOpenChange={(o) => !o && setConvertTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-cyan-400" />
+              Convert to Agency Client
+            </DialogTitle>
+          </DialogHeader>
+          {convertTarget && (
+            <div className="space-y-4 py-1">
+              <div className="rounded-lg bg-muted/30 border border-border/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Subscriber</p>
+                <p className="text-sm font-medium">{convertTarget.full_name || convertTarget.email}</p>
+                <p className="text-xs text-muted-foreground">{convertTarget.email}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Current plan: <span className="text-foreground font-semibold">{PLAN_LABELS[convertTarget.plan_type]}</span>
+                </p>
+              </div>
+              <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/20 px-4 py-3 space-y-2">
+                <p className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">What happens next</p>
+                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                  <li>Stripe subscription will be <strong>canceled immediately</strong></li>
+                  <li>Plan type changes to <strong>Connecta Plus</strong></li>
+                  <li>Role changes to <strong>connecta_plus</strong> (unlimited feature access)</li>
+                  <li>All existing data preserved (scripts, leads, content)</li>
+                  <li>This action cannot be undone</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertTarget(null)} disabled={converting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConvert}
+              disabled={converting}
+              className="gap-1.5 bg-cyan-500 hover:bg-cyan-600 text-white"
+            >
+              {converting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
+              Convert to Agency Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Deactivate confirm */}
       <Dialog open={!!deactivateId} onOpenChange={() => setDeactivateId(null)}>
         <DialogContent className="max-w-sm">
@@ -877,12 +1005,14 @@ function SubscriberRow({
   onEdit,
   onDeactivate,
   onRecharge,
+  onConvert,
 }: {
   subscriber: Subscriber;
   isTrialExpired: boolean;
   onEdit: () => void;
   onDeactivate: () => void;
   onRecharge: () => void;
+  onConvert: () => void;
 }) {
   const creditsUsed = s.credits_used ?? 0;
   const creditsCap = s.credits_monthly_cap ?? 0;
@@ -994,17 +1124,29 @@ function SubscriberRow({
 
       {/* Actions */}
       <div className="flex items-center gap-1 justify-end">
-        <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 w-7 p-0">
+        <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 w-7 p-0" title="Edit">
           <Edit2 className="w-3.5 h-3.5" />
         </Button>
         <Button variant="ghost" size="sm" onClick={onRecharge} title="Recharge credits" className="h-7 w-7 p-0 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10">
           <Zap className="w-3.5 h-3.5" />
         </Button>
+        {s.plan_type !== "connecta_plus" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onConvert}
+            title="Convert to Agency Client"
+            className="h-7 w-7 p-0 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+          >
+            <Crown className="w-3.5 h-3.5" />
+          </Button>
+        )}
         {s.status !== "inactive" && s.status !== "canceled" && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onDeactivate}
+            title="Deactivate"
             className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
           >
             <UserX className="w-3.5 h-3.5" />

@@ -166,55 +166,19 @@ async function deductCredits(
 ): Promise<string | null> {
   if (cost === 0) return null;
 
-  // Admin bypass
   const { data: roleData } = await adminClient
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
   const role = roleData?.role;
-  // Skip credit deduction for admin, videographers, and editors
   if (role === "admin" || role === "videographer" || role === "editor") return null;
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
   if (!primaryClientId) return null;
-  const { data: client, error: fetchErr } = await adminClient
-    .from("clients")
-    .select("id, credits_balance, credits_used")
-    .eq("id", primaryClientId)
-    .single();
 
-  if (fetchErr || !client) return null; // staff/no-record accounts pass through
-
-  if ((client.credits_balance ?? 0) < cost) {
-    return JSON.stringify({
-      error: `Insufficient credits. You need ${cost} credits but only have ${client.credits_balance ?? 0}.`,
-      insufficient_credits: true,
-      balance: client.credits_balance ?? 0,
-      needed: cost,
-    });
-  }
-
-  const { error: updateErr } = await adminClient
-    .from("clients")
-    .update({
-      credits_balance: (client.credits_balance ?? 0) - cost,
-      credits_used: (client.credits_used ?? 0) + cost,
-    })
-    .eq("id", primaryClientId);
-
-  if (updateErr) {
-    console.error("Credit update error:", updateErr);
-    return null; // Don't block on credit tracking errors
-  }
-
-  await adminClient.from("credit_transactions").insert({
-    client_id: client.id,
-    action,
-    cost,
-    metadata: {},
+  const { data: result, error } = await adminClient.rpc("deduct_credits_atomic", {
+    p_client_id: primaryClientId, p_action: action, p_cost: cost,
   });
-
+  if (error) { console.error("Credit deduction error:", error); return null; }
+  if (!result?.ok) return JSON.stringify(result);
   return null;
 }
 
