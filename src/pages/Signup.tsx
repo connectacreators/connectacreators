@@ -22,7 +22,7 @@ const PLANS = [
 type PlanKey = "starter" | "growth" | "enterprise";
 
 export default function Signup() {
-  const { user, signUpWithEmail, signOut, loading: authLoading } = useAuth();
+  const { user, signUpWithEmail, signOut, loading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -46,6 +46,13 @@ export default function Signup() {
         setStep(1);
         return;
       }
+
+      // Admins always go straight to dashboard
+      if (isAdmin) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
       // User is authenticated — check if they have a subscription
       const { data } = await supabase
         .from("clients")
@@ -63,7 +70,7 @@ export default function Signup() {
       setCheckingAuth(false);
     };
     checkUserState();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin, navigate]);
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
