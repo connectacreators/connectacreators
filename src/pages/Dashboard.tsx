@@ -345,7 +345,11 @@ export default function Dashboard() {
     );
   }
 
-  const displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+  const authName = user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+  // When viewing a specific client, greet by their name instead of the logged-in user's name
+  const displayName = (selectedClientId && viewMode !== "me")
+    ? selectedClientName
+    : authName;
   const activeFolderData = activeFolder ? folderCards.find(f => f.key === activeFolder) : null;
 
   // Determine which sub-cards to use for the current view
