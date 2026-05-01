@@ -66,8 +66,13 @@ export default function LeadForm() {
   // Total steps: 5 for online, 7 for physical (once branch known)
   const totalSteps = branch === "fisico" ? 7 : branch === "online" ? 5 : 7;
 
-  // Auto-scroll to form when step changes
+  const isFirstRender = useRef(true);
+  // Auto-scroll to form when step changes, but not on initial mount
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [step]);
 
