@@ -237,10 +237,18 @@ export default function Index() {
           margin: 0 auto;
           text-align: left;
         }
-        .roberto-photo {
+        .roberto-photo-wrap {
           width: 280px;
-          height: auto;
+          height: 340px;
           border-radius: 4px;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .roberto-photo {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center top;
           display: block;
         }
 
@@ -249,7 +257,7 @@ export default function Index() {
           .grid-3 { grid-template-columns: 1fr 1fr; gap: 12px; }
           .hero-stat-row { grid-template-columns: 1fr 1fr 1fr; gap: 8px; max-width: 100%; }
           .roberto-row { grid-template-columns: 1fr; gap: 20px; text-align: center; }
-          .roberto-photo { width: 200px; height: auto; margin: 0 auto; }
+          .roberto-photo-wrap { width: 200px; height: 240px; margin: 0 auto; }
         }
         @media (max-width: 480px) {
           .sec-inner { padding: 48px 16px !important; }
@@ -723,7 +731,9 @@ export default function Index() {
         <SectionTitle text="SOBRE ROBERTO" />
 
         <div className="roberto-row">
-          <img src={robertoFounder} alt="Roberto Gauna" className="roberto-photo" />
+          <div className="roberto-photo-wrap">
+            <img src={robertoFounder} alt="Roberto Gauna" className="roberto-photo" />
+          </div>
           <div>
             <div
               style={{
