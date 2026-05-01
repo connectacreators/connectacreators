@@ -1,6 +1,18 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+// Public routes where lead notifications should never appear
+const PUBLIC_ROUTES = ["/reto", "/reto/en", "/es", "/", "/home", "/about", "/select-plan",
+  "/signup", "/coming-soon", "/privacy-policy", "/terms-and-conditions"];
+
+function isPublicRoute(pathname: string): boolean {
+  if (PUBLIC_ROUTES.includes(pathname)) return true;
+  // catch /s/:id, /f/:token, /book/:id, /p/:slug, /public/*, etc.
+  if (/^\/(s|f|p|book|public)\//.test(pathname)) return true;
+  return false;
+}
 
 type LeadNotificationContextType = {
   newLeadCount: number;
@@ -47,6 +59,8 @@ function setLastOpenAt(ts: string) {
 }
 
 export function LeadNotificationProvider({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const isPublic = isPublicRoute(pathname);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const knownIdsRef = useRef<Set<string>>(loadSet(STORAGE_KEY));
   const bookedIdsRef = useRef<Set<string>>(loadSet(BOOKED_KEY));
@@ -131,6 +145,7 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
     let authSub: { unsubscribe: () => void } | null = null;
 
     const setupRealtime = async () => {
+      if (isPublic) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
