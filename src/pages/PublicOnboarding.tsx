@@ -109,14 +109,13 @@ const PublicOnboarding = () => {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("clients")
-        .update({ onboarding_data: formData })
-        .eq("id", clientId);
+      const { data, error } = await supabase.functions.invoke("save-onboarding", {
+        body: { clientId, formData },
+      });
 
-      if (error) {
+      if (error || data?.error) {
         toast.error("Error saving form");
-        console.error("Save error:", error);
+        console.error("Save error:", error || data?.error);
       } else {
         toast.success("Thank you! Your information has been saved.");
         setSubmitted(true);
