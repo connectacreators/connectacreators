@@ -1235,7 +1235,13 @@ const bottomRef = useRef<HTMLDivElement>(null);
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Script generation failed");
+      if (!res.ok) {
+        if (json.insufficient_credits) {
+          showOutOfCreditsModal();
+          return;
+        }
+        throw new Error(json.error || "Script generation failed");
+      }
       // Ensure lines is always an array
       if (!Array.isArray(json.lines)) json.lines = [];
       // Show inline preview in chat — replace existing script_preview if present, else append
@@ -1472,7 +1478,13 @@ const bottomRef = useRef<HTMLDivElement>(null);
           }),
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Script edit failed");
+        if (!res.ok) {
+          if (json.insufficient_credits) {
+            showOutOfCreditsModal();
+            return;
+          }
+          throw new Error(json.error || "Script edit failed");
+        }
         if (!Array.isArray(json.lines)) json.lines = [];
 
         // Replace the old script preview with the updated one
@@ -1774,6 +1786,10 @@ const bottomRef = useRef<HTMLDivElement>(null);
             signal: abortController.signal,
           });
           const data = await res.json();
+          if (data.insufficient_credits) {
+            showOutOfCreditsModal();
+            return;
+          }
           if (data.error) {
             const _errMsg = { role: "assistant" as const, content: `⚠️ ${data.error}` };
             const _withErr = capMessages([...messagesRef.current, _errMsg]);

@@ -80,7 +80,7 @@ export default function Signup() {
         subscription_status: null,
         credits_balance: 1000,
         credits_monthly_cap: 1000,
-      }, { onConflict: "user_id" });
+      }, { onConflict: "user_id", ignoreDuplicates: true });
     }
 
     setLoading(false);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   EmbeddedCheckoutProvider,
@@ -23,13 +23,27 @@ type PlanKey = "starter" | "growth" | "enterprise";
 
 export default function OutOfCreditsModal() {
   const { isOpen, hideOutOfCreditsModal } = useOutOfCredits();
-  const { user } = useAuth();
+  const { user, isAdmin, isVideographer, isEditor, isConnectaPlus } = useAuth();
   const [phase, setPhase] = useState<"plans" | "checkout">("plans");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    hideOutOfCreditsModal();
+    setPhase("plans");
+    setClientSecret(null);
+    setError(null);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen]);
+
+  if (!isOpen || isAdmin || isVideographer || isEditor || isConnectaPlus) return null;
 
   const handlePlanSelect = async (planKey: PlanKey) => {
     if (!user) return;
@@ -64,19 +78,13 @@ export default function OutOfCreditsModal() {
     }
   };
 
-  const handleClose = () => {
-    hideOutOfCreditsModal();
-    setPhase("plans");
-    setClientSecret(null);
-    setError(null);
-  };
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.7)" }}
+      onClick={handleClose}
     >
-      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div
           className="px-7 pt-7 pb-5 relative"
