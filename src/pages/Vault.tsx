@@ -221,8 +221,6 @@ export default function Vault() {
     toast.success(tr({ en: "Template deleted", es: "Plantilla eliminada" }, language));
   };
 
-  const backPath = urlClientId ? `/clients/${urlClientId}` : "/dashboard";
-
   if (authLoading || clientsLoading) {
     return (
       <PageTransition className="flex-1 flex flex-col min-h-screen">
@@ -255,7 +253,6 @@ export default function Vault() {
               creating={creating}
               handleCreate={handleCreate}
               handleDelete={handleDelete}
-              backPath={backPath}
               language={language}
               isMasterMode={isMasterMode}
               allClients={allClients}
@@ -297,7 +294,6 @@ export default function Vault() {
             creating={creating}
             handleCreate={handleCreate}
             handleDelete={handleDelete}
-            backPath={backPath}
             language={language}
         />
       </div>
@@ -320,7 +316,6 @@ interface VaultContentProps {
   creating: boolean;
   handleCreate: () => void;
   handleDelete: (id: string) => void;
-  backPath: string;
   language: "en" | "es";
   isMasterMode?: boolean;
   allClients?: { id: string; name: string }[];
@@ -332,14 +327,14 @@ function VaultContent({
   templates, loadingTemplates, hasClientId, showCreate, setShowCreate,
   newUrl, setNewUrl, newName, setNewName,
   creating, handleCreate, handleDelete,
-  backPath, language, isMasterMode, allClients, filterClientId, onFilterClient,
+  language, isMasterMode, allClients, filterClientId, onFilterClient,
 }: VaultContentProps) {
   const stats = useMemo(() => {
     let hooks = 0, body = 0, ctas = 0;
     templates.forEach((t) => {
       if (!Array.isArray(t.template_lines)) return;
       t.template_lines.forEach((line: any) => {
-        const s = (line.section || "").toLowerCase();
+        const s = (line.section || line.line_type || "").toLowerCase();
         if (s.includes("hook")) hooks++;
         else if (s.includes("cta") || s.includes("call")) ctas++;
         else body++;
@@ -609,18 +604,16 @@ function VaultTemplateCard({
   handleDelete: (id: string) => void;
   clientName?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [showTranscription, setShowTranscription] = useState(false);
 
-  // Detect source type for thumbnail rendering
   const sourceInfo = useMemo(() => {
     const url = tpl.source_url || "";
     const igMatch = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
-    if (igMatch) return { type: "instagram" as const, id: igMatch[1], label: "Instagram" };
+    if (igMatch) return { label: "IG" };
     const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) return { type: "youtube" as const, id: ytMatch[1], label: "YouTube" };
-    if (url.includes("tiktok.com")) return { type: "tiktok" as const, id: null, label: "TikTok" };
-    return { type: "other" as const, id: null, label: null };
+    if (ytMatch) return { label: "YT" };
+    if (url.includes("tiktok.com")) return { label: "TikTok" };
+    return { label: null };
   }, [tpl.source_url]);
 
   const lines = useMemo(() => {
@@ -629,10 +622,6 @@ function VaultTemplateCard({
     return [];
   }, [tpl.template_lines]);
 
-  const previewLines = lines.slice(0, 3);
-  const hasMore = lines.length > 3;
-
-  // Section color config (matches wizard's line-type colors)
   const sectionConfig = {
     hook: { label: "HOOK", color: "text-[#22d3ee]", bg: "bg-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.15)]", badge: "bg-[rgba(8,145,178,0.12)] text-[#22d3ee] border-[rgba(8,145,178,0.25)]" },
     body: { label: "BODY", color: "text-[#94a3b8]",  bg: "bg-[rgba(148,163,184,0.04)] border-[rgba(148,163,184,0.12)]",   badge: "bg-[rgba(148,163,184,0.08)] text-[#94a3b8] border-[rgba(148,163,184,0.2)]" },
@@ -640,115 +629,80 @@ function VaultTemplateCard({
   };
 
   return (
-    <div
-      className="group relative glass-card rounded-2xl hover:border-[rgba(8,145,178,0.25)] transition-all duration-200 overflow-hidden flex flex-col cursor-pointer hover:shadow-lg hover:shadow-primary/5"
-      style={{ fontFamily: "Arial, sans-serif" }}
-      onClick={() => lines.length > 0 && setShowTranscription(true)}
-    >
-      {/* Thumbnail */}
-      <div className="relative bg-gradient-to-br from-muted/40 to-muted/20 overflow-hidden flex-shrink-0">
+    <>
+      {/* Portrait card */}
+      <div
+        className="group relative rounded-[10px] overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform duration-200"
+        style={{ aspectRatio: "9/14" }}
+        onClick={() => lines.length > 0 && setShowTranscription(true)}
+      >
+        {/* Background */}
         {tpl.thumbnail_url ? (
           <img
             src={tpl.thumbnail_url}
             alt={tpl.name}
-            className="w-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             loading="lazy"
           />
         ) : (
-          <div className="w-full aspect-[9/16] max-h-[200px] flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-primary/5">
-            <Archive className="w-8 h-8 text-primary/30" />
-            <span className="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wider">Template</span>
-          </div>
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(160deg, #1a2535, #0d1520)" }}
+          />
         )}
 
-        {/* Gradient overlay at bottom of thumbnail */}
+        {/* Gradient overlay */}
         <div
-          className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
-          style={{ background: "linear-gradient(transparent, rgba(6,9,12,0.85))" }}
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.95) 100%)" }}
         />
 
-        {/* Source platform badge — top left */}
+        {/* Platform badge — top left */}
         {sourceInfo.label && (
-          <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md rounded-md px-1.5 py-0.5 text-[9px] text-slate-400">
+          <div
+            className="absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.15)" }}
+          >
             {sourceInfo.label}
           </div>
         )}
 
-        {/* Line count badge — bottom right */}
-        {lines.length > 0 && (
-          <div className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-            <FileText className="w-2.5 h-2.5" />
-            {lines.length} lines
+        {/* Client badge (master mode) */}
+        {clientName && (
+          <div
+            className="absolute left-2 text-[8px] font-bold px-1.5 py-0.5 rounded truncate max-w-[80%]"
+            style={{ top: sourceInfo.label ? "28px" : "8px", background: "rgba(8,145,178,0.25)", color: "#22d3ee", border: "1px solid rgba(8,145,178,0.3)" }}
+          >
+            {clientName}
           </div>
         )}
 
         {/* Delete button — top right, on hover */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-white hover:text-red-400 bg-black/50 hover:bg-black/70 backdrop-blur-sm h-7 w-7 p-0 rounded-full transition-all"
+        <button
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-full transition-opacity"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
           onClick={(e) => { e.stopPropagation(); handleDelete(tpl.id); }}
         >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
-      </div>
+          <Trash2 className="w-3 h-3 text-white" />
+        </button>
 
-      {/* Content */}
-      <div className="p-3 flex-1 flex flex-col gap-2">
-        {/* Name + date */}
-        <div>
-          {clientName && (
-            <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/70 border border-primary/20 mb-1 truncate max-w-full">
-              {clientName}
+        {/* Bottom info */}
+        <div className="absolute bottom-0 left-0 right-0 p-2">
+          <p className="text-white text-[11px] font-bold leading-tight line-clamp-2 mb-1.5">{tpl.name}</p>
+          {lines.length > 0 && (
+            <span
+              className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(34,211,238,0.15)", color: "#22d3ee" }}
+            >
+              {lines.length} lines
             </span>
           )}
-          <h3 className="text-sm font-bold text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-            {tpl.name}
-          </h3>
-          <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 mt-1">
-            <CalendarDays className="w-2.5 h-2.5" />
-            {new Date(tpl.created_at).toLocaleDateString()}
-          </span>
         </div>
-
-        {/* Hook preview */}
-        {previewLines.length > 0 && (
-          <div className="space-y-1 mt-1">
-            {previewLines.slice(0, 2).map((line: any, i: number) => {
-              const sec = (line.section || "body").toLowerCase() as keyof typeof sectionConfig;
-              const cfg = sectionConfig[sec] || sectionConfig.body;
-              return (
-                <div key={i} className="flex items-start gap-1.5">
-                  <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border flex-shrink-0 mt-0.5 ${cfg.badge}`}>
-                    {cfg.label}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground line-clamp-1 leading-relaxed">{line.text}</span>
-                </div>
-              );
-            })}
-            {lines.length > 2 && (
-              <p className="text-[10px] text-primary/60 font-medium">
-                +{lines.length - 2} {tr({ en: "more lines", es: "líneas más" }, language)}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* View CTA */}
-        {lines.length > 0 && (
-          <div className="mt-auto pt-1">
-            <span className="text-[11px] text-primary font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <FileText className="w-3 h-3" />
-              {tr({ en: "View template →", es: "Ver plantilla →" }, language)}
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Template Modal */}
+      {/* Template detail modal — unchanged */}
       {lines.length > 0 && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Dialog open={showTranscription} onOpenChange={setShowTranscription}>
+        <Dialog open={showTranscription} onOpenChange={setShowTranscription}>
           <DialogContent className="max-w-lg max-h-[85vh] flex flex-col" style={{ fontFamily: "Arial, sans-serif" }}>
             <DialogHeader className="border-b border-border/60 pb-4">
               <DialogTitle className="flex items-center gap-3">
@@ -791,9 +745,8 @@ function VaultTemplateCard({
               })}
             </div>
           </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
       )}
-    </div>
+    </>
   );
 }
