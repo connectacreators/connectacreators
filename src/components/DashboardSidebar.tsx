@@ -260,6 +260,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       ...(ownClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${ownClientId}/booking-settings` }] : []),
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
+      { label: "Viral Today", icon: Flame, path: "/viral-today" },
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
       { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
       { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
