@@ -334,86 +334,103 @@ function VaultContent({
   creating, handleCreate, handleDelete,
   backPath, language, isMasterMode, allClients, filterClientId, onFilterClient,
 }: VaultContentProps) {
+  const stats = useMemo(() => {
+    let hooks = 0, body = 0, ctas = 0;
+    templates.forEach((t) => {
+      if (!Array.isArray(t.template_lines)) return;
+      t.template_lines.forEach((line: any) => {
+        const s = (line.section || "").toLowerCase();
+        if (s.includes("hook")) hooks++;
+        else if (s.includes("cta") || s.includes("call")) ctas++;
+        else body++;
+      });
+    });
+    return { hooks, body, ctas };
+  }, [templates]);
+
   return (
     <div className="space-y-0" style={{ fontFamily: "Arial, sans-serif" }}>
 
-      {/* ── Hero Header ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-background via-primary/5 to-background border-b border-border/60 mb-8 -mx-4 sm:-mx-6 px-4 sm:px-6 py-8">
-        {/* Decorative glows */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-16 -right-16 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl" />
-        </div>
-
-        <div className="relative">
-          <Link to={backPath} className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-4">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            {tr({ en: "Go Back", es: "Volver" }, language)}
-          </Link>
-
-          <div className="flex items-end justify-between gap-4">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-primary/60 bg-primary/10 px-4 py-1.5 rounded-full border border-primary/20">
-                <Archive className="w-3.5 h-3.5" />
-                {isMasterMode
-                  ? tr({ en: "Master Vault", es: "Vault Maestro" }, language)
-                  : tr({ en: "Template Library", es: "Biblioteca de Plantillas" }, language)}
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-                {isMasterMode ? tr({ en: "Master Vault", es: "Vault Maestro" }, language) : "Vault"}
-              </h1>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                {isMasterMode
-                  ? tr({ en: "All clients' vault templates in one place. Filter by client.", es: "Todas las plantillas de los clientes en un solo lugar. Filtra por cliente." }, language)
-                  : tr({ en: "Save viral video structures as reusable templates for your scripts.", es: "Guarda estructuras de videos virales como plantillas reutilizables para tus scripts." }, language)}
-              </p>
-            </div>
-
-            <Button
-              variant="cta"
-              size="sm"
-              disabled={!hasClientId}
-              onClick={() => setShowCreate(!showCreate)}
-              className="h-10 px-5 gap-2 rounded-xl font-semibold flex-shrink-0 shadow-lg shadow-primary/20"
-              title={isMasterMode && !hasClientId ? tr({ en: "Select a client filter first to add a template", es: "Selecciona un cliente para agregar una plantilla" }, language) : undefined}
-            >
-              {showCreate ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {showCreate
-                ? tr({ en: "Cancel", es: "Cancelar" }, language)
-                : tr({ en: "New Template", es: "Nueva Plantilla" }, language)}
-            </Button>
+      {/* ── Compact Header ── */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full bg-[#22d3ee]" />
+            <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">
+              {isMasterMode
+                ? tr({ en: "Master Vault", es: "Vault Maestro" }, language)
+                : tr({ en: "Template Library", es: "Biblioteca de Plantillas" }, language)}
+            </span>
           </div>
+          <h1 className="text-xl font-black text-foreground leading-tight">
+            {isMasterMode ? tr({ en: "Master Vault", es: "Vault Maestro" }, language) : "Vault"}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {isMasterMode
+              ? tr({ en: "All clients' templates in one place", es: "Todas las plantillas en un lugar" }, language)
+              : tr({ en: "Saved viral video structures", es: "Estructuras de videos virales guardadas" }, language)}
+          </p>
+        </div>
+        <Button
+          variant="cta"
+          size="sm"
+          disabled={!hasClientId}
+          onClick={() => setShowCreate(true)}
+          className="h-9 px-4 gap-2 rounded-lg font-semibold flex-shrink-0 shadow-lg shadow-primary/20"
+          title={isMasterMode && !hasClientId ? tr({ en: "Select a client filter first", es: "Selecciona un cliente primero" }, language) : undefined}
+        >
+          <Plus className="w-4 h-4" />
+          {tr({ en: "New Template", es: "Nueva Plantilla" }, language)}
+        </Button>
+      </div>
 
-          {/* ── Master mode: client filter dropdown ── */}
-          {isMasterMode && allClients && allClients.length > 0 && (
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground font-medium shrink-0">Filter:</span>
-              <Select
-                value={filterClientId ?? "__all__"}
-                onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}
-              >
-                <SelectTrigger className="h-8 text-xs w-48 border-border/60 bg-muted/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">{tr({ en: "All Clients", es: "Todos los Clientes" }, language)}</SelectItem>
-                  {allClients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {filterClientId && (
-                <button
-                  onClick={() => onFilterClient?.(null)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+      {/* ── Stats bar ── */}
+      {templates.length > 0 && (
+        <div className="flex gap-5 py-2.5 mb-3 border-b border-border/40">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">{tr({ en: "Templates", es: "Plantillas" }, language)}</span>
+            <span className="text-foreground font-bold text-sm ml-1.5">{templates.length}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Hook</span>
+            <span className="text-[#22d3ee] font-bold text-sm ml-1.5">{stats.hooks}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Body</span>
+            <span className="text-[#a3e635] font-bold text-sm ml-1.5">{stats.body}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">CTA</span>
+            <span className="text-[#f59e0b] font-bold text-sm ml-1.5">{stats.ctas}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Master mode: client filter dropdown ── */}
+      {isMasterMode && allClients && allClients.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-muted-foreground font-medium shrink-0">Filter:</span>
+          <Select
+            value={filterClientId ?? "__all__"}
+            onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}
+          >
+            <SelectTrigger className="h-8 text-xs w-48 border-border/60 bg-muted/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{tr({ en: "All Clients", es: "Todos los Clientes" }, language)}</SelectItem>
+              {allClients.map(client => (
+                <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filterClientId && (
+            <button onClick={() => onFilterClient?.(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Clear
+            </button>
           )}
         </div>
-      </div>
+      )}
 
       <div className="space-y-6">
         {/* ── Create Form ── */}
@@ -560,15 +577,6 @@ function VaultContent({
           </div>
         ) : (
           <>
-            {/* Count badge */}
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-primary/60 bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-                <Archive className="w-3 h-3" />
-                {templates.length} {tr({ en: "templates", es: "plantillas" }, language)}
-              </div>
-              <div className="flex-1 h-px bg-border/40" />
-            </div>
-
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-3">
               {templates.map((tpl) => (
                 <div key={tpl.id} className="break-inside-avoid mb-3">
