@@ -337,7 +337,8 @@ export default function Dashboard() {
 
   const authName = user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
   // When viewing a specific client, greet by their name instead of the logged-in user's name
-  const displayName = (selectedClientId && viewMode !== "me")
+  // Only show client name when admin/videographer/user explicitly switches to a client view
+  const displayName = (selectedClientId && viewMode !== "me" && showClientSelector)
     ? selectedClientName
     : authName;
   const activeFolderData = activeFolder ? folderCards.find(f => f.key === activeFolder) : null;
