@@ -862,19 +862,13 @@ export default function ViralToday() {
   const [lang, setLang] = useState<Language>("en");
   const t = TRANSLATIONS[lang];
 
-  // Subscribers can scrape if they have remaining scrapes
-  const hasSubscription = credits && (
-    credits.subscription_status === "active" ||
-    credits.subscription_status === "pending_contact" ||
-    credits.subscription_status === "canceling" ||
-    credits.subscription_status === "connecta_plus"
-  );
-  // Ensure all subscribers have at least 8 scrapes (starter default) even if DB value is 0
-  const effectiveScrapeLimit = credits ? Math.max(credits.channel_scrapes_limit, hasSubscription ? 8 : 0) : 0;
-  const scrapesRemaining = credits ? Math.max(0, effectiveScrapeLimit - credits.channel_scrapes_used) : 0;
-  const canScrape = isAdmin || isVideographer || (!!hasSubscription && scrapesRemaining > 0);
+  // A user can scrape if they have a scrape limit configured (regardless of status label)
+  const hasSubscription = !!(credits && credits.channel_scrapes_limit > 0);
+  const effectiveScrapeLimit = credits?.channel_scrapes_limit ?? 0;
+  const scrapesRemaining = credits ? Math.max(0, effectiveScrapeLimit - (credits.channel_scrapes_used ?? 0)) : 0;
+  const canScrape = isAdmin || isVideographer || (hasSubscription && scrapesRemaining > 0);
   const scrapeDisabledReason = !hasSubscription
-    ? "Active subscription required"
+    ? "No scrape limit configured"
     : scrapesRemaining <= 0
     ? `Scrape limit reached (${credits?.channel_scrapes_used ?? 0}/${effectiveScrapeLimit})`
     : undefined;
@@ -944,10 +938,12 @@ export default function ViralToday() {
   const fetchChannels = useCallback(async () => {
     setLoadingChannels(true);
     try {
-      const { data, error } = await supabase
-        .from("viral_channels")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let q = supabase.from("viral_channels").select("*").order("created_at", { ascending: false });
+      // Non-admin users only see their own channels
+      if (!isAdmin && !isVideographer && user) {
+        q = q.eq("created_by", user.id);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       setChannels((data ?? []) as ViralChannel[]);
     } catch {
@@ -955,7 +951,7 @@ export default function ViralToday() {
     } finally {
       setLoadingChannels(false);
     }
-  }, []);
+  }, [isAdmin, isVideographer, user]);
 
   const fetchVideos = useCallback(async (opts?: {
     platform?: string; date?: string; outlier?: string; views?: string; engagement?: string;
