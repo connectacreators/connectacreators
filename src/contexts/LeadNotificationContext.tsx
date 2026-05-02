@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -7,9 +6,9 @@ import { toast } from "sonner";
 const PUBLIC_ROUTES = ["/reto", "/reto/en", "/es", "/", "/home", "/about", "/select-plan",
   "/signup", "/coming-soon", "/privacy-policy", "/terms-and-conditions"];
 
-function isPublicRoute(pathname: string): boolean {
+function isPublicRoute(): boolean {
+  const pathname = window.location.pathname;
   if (PUBLIC_ROUTES.includes(pathname)) return true;
-  // catch /s/:id, /f/:token, /book/:id, /p/:slug, /public/*, etc.
   if (/^\/(s|f|p|book|public)\//.test(pathname)) return true;
   return false;
 }
@@ -59,8 +58,6 @@ function setLastOpenAt(ts: string) {
 }
 
 export function LeadNotificationProvider({ children }: { children: React.ReactNode }) {
-  const { pathname } = useLocation();
-  const isPublic = isPublicRoute(pathname);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const knownIdsRef = useRef<Set<string>>(loadSet(STORAGE_KEY));
   const bookedIdsRef = useRef<Set<string>>(loadSet(BOOKED_KEY));
@@ -145,7 +142,7 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
     let authSub: { unsubscribe: () => void } | null = null;
 
     const setupRealtime = async () => {
-      if (isPublic) return;
+      if (isPublicRoute()) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
