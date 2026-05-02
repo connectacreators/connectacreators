@@ -16,7 +16,15 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: node-cache
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install dependencies
+        if: steps.node-cache.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Build
@@ -28,10 +36,10 @@ jobs:
         run: |
           sudo apt-get install -y sshpass
           cd dist
-          tar czf /tmp/deploy.tar.gz assets/ index.html landing.html
-          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz root@72.62.200.145:/tmp/deploy.tar.gz
+          tar czf /home/runner/deploy.tar.gz assets/ index.html landing.html
+          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no /home/runner/deploy.tar.gz root@72.62.200.145:/root/deploy.tar.gz
           sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no root@72.62.200.145 \
-            "cd /var/www/connectacreators && tar xzf /tmp/deploy.tar.gz && rm /tmp/deploy.tar.gz"
+            "cd /var/www/connectacreators && tar xzf /root/deploy.tar.gz && rm /root/deploy.tar.gz"
 
       - name: Purge Cloudflare cache
         run: |
