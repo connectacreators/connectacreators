@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Bot, Send, Loader2, X } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import chessKnightIcon from "@/assets/chess-knight-white.svg";
 
 interface WizardState {
@@ -61,6 +62,7 @@ function getQuickChips(step: number): string[] {
 export default function AIAssistantPanel({ wizardState, clientInfo, onAction, authToken, onClose }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const { showOutOfCreditsModal } = useOutOfCredits();
   const displayName = (user?.user_metadata?.full_name as string)?.split(" ")[0] || clientInfo?.name?.split(" ")[0] || "";
   const greeting = language === "es"
     ? `¿Qué hacemos hoy${displayName ? `, ${displayName}` : ""}?`
@@ -123,7 +125,12 @@ export default function AIAssistantPanel({ wizardState, clientInfo, onAction, au
       });
 
       if (!res.ok) {
-        throw new Error(`Request failed: ${res.status}`);
+        const errData = await res.json().catch(() => ({}));
+        if (errData.insufficient_credits) {
+          showOutOfCreditsModal();
+          return;
+        }
+        throw new Error(errData.error || `Request failed: ${res.status}`);
       }
 
       const data = await res.json();

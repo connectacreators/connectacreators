@@ -3,6 +3,7 @@ import { NodeProps, Handle, Position } from "@xyflow/react";
 import { Anchor, Loader2, X, Check, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { VIRAL_HOOK_FORMULAS, HOOK_CATEGORIES, HOOK_CATEGORY_LABELS, type HookCategory } from "@/data/viralHookFormulas";
 
 interface HookGeneratorData {
@@ -38,6 +39,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export default function HookGeneratorNode({ data: d }: NodeProps) {
+  const { showOutOfCreditsModal } = useOutOfCredits();
   const [topic, setTopic] = useState((d as HookGeneratorData).topic ?? "");
   const [loading, setLoading] = useState(false);
   const hooks = (d as HookGeneratorData).hooks ?? [];
@@ -78,6 +80,14 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
         }),
       });
       const json = await res.json();
+      if (!res.ok) {
+        if (json.insufficient_credits) {
+          showOutOfCreditsModal();
+          return;
+        }
+        toast.error(json.error || "Failed to generate hooks");
+        return;
+      }
       if (json.hooks) {
         const newHookTexts = json.hooks.map((h: any) => h.text);
         const prevHooks = [...(dd.previousHooks ?? []), ...newHookTexts].slice(-20);

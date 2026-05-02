@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClients, type Client } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { cn } from "@/lib/utils";
 
 // ==================== TYPES ====================
@@ -114,6 +115,7 @@ export default function ViralVideoDetail() {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const { clients, loading: clientsLoading } = useClients(!!user);
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   const [video, setVideo] = useState<ViralVideo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -229,6 +231,11 @@ export default function ViralVideoDetail() {
       });
       if (!transcribeRes.ok) {
         const err = await transcribeRes.json().catch(() => ({}));
+        if (err.insufficient_credits) {
+          showOutOfCreditsModal();
+          setSaveMode("idle");
+          return;
+        }
         throw new Error(err.error || "Transcription failed");
       }
       const { transcription } = await transcribeRes.json();
@@ -242,6 +249,11 @@ export default function ViralVideoDetail() {
       });
       if (!analyzeRes.ok) {
         const err = await analyzeRes.json().catch(() => ({}));
+        if (err.insufficient_credits) {
+          showOutOfCreditsModal();
+          setSaveMode("idle");
+          return;
+        }
         throw new Error(err.error || "Analysis failed");
       }
       const analysis = await analyzeRes.json();

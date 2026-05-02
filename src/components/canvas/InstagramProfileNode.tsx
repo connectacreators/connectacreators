@@ -3,6 +3,7 @@ import { Handle, Position } from "@xyflow/react";
 import { Loader2, UserSearch, ExternalLink, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
 interface CompetitorPost {
   rank: number;
@@ -79,6 +80,7 @@ export default function InstagramProfileNode({ data }: { data: NodeData }) {
     onUpdate,
     onDelete,
   } = data;
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   const [inputUrl, setInputUrl] = useState(savedUrl);
   const [analyzingIndex, setAnalyzingIndex] = useState<number | null>(null);
@@ -129,6 +131,10 @@ export default function InstagramProfileNode({ data }: { data: NodeData }) {
       });
 
       if (error) throw new Error(error.message);
+      if (result?.insufficient_credits) {
+        showOutOfCreditsModal();
+        return;
+      }
       if (result?.error) throw new Error(result.error);
 
       const updatedPosts = posts.map((p, i) =>

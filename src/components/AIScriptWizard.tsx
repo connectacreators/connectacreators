@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -146,6 +147,7 @@ function viralityBg(score: number) {
 // ==================== MAIN COMPONENT ====================
 export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTemplateVideo }: AIScriptWizardProps) {
   const { language } = useLanguage();
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   // Navigation
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -298,6 +300,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         );
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
+          if (err.insufficient_credits) {
+            showOutOfCreditsModal();
+            throw new Error("insufficient_credits");
+          }
           throw new Error(err.error || `Transcription error ${res.status}`);
         }
         const result = await res.json();
@@ -656,6 +662,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     );
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      if (err.insufficient_credits) {
+        showOutOfCreditsModal();
+        throw new Error("insufficient_credits");
+      }
       throw new Error(err.error || `Error ${res.status}`);
     }
     return await res.json();

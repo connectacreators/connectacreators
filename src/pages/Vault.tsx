@@ -6,6 +6,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,6 +59,7 @@ export default function Vault() {
   const { clients, loading: clientsLoading } = useClients(!!user);
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   const isStaff = isAdmin || isVideographer;
   const isMasterMode = isAdmin && !urlClientId;
@@ -138,6 +140,11 @@ export default function Vault() {
       );
       if (!transcribeRes.ok) {
         const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
+        if (err.insufficient_credits) {
+          showOutOfCreditsModal();
+          setCreating(false);
+          return;
+        }
         throw new Error(err.error || "Transcription failed");
       }
       const { transcription, thumbnail_url: transcribedThumb } = await transcribeRes.json();
@@ -155,6 +162,11 @@ export default function Vault() {
       );
       if (!analyzeRes.ok) {
         const err = await analyzeRes.json().catch(() => ({ error: "Analysis failed" }));
+        if (err.insufficient_credits) {
+          showOutOfCreditsModal();
+          setCreating(false);
+          return;
+        }
         throw new Error(err.error || "Analysis failed");
       }
       const analysis = await analyzeRes.json();

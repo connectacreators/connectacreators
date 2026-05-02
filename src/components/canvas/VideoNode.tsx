@@ -3,6 +3,7 @@ import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play, Pause, Eye, Type, Music2, Zap, MicOff, Clock, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const VPS_API_URL = "https://connectacreators.com/api";
@@ -431,6 +432,7 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose, onAspectDetected }: { sr
 
 const VideoNode = memo(({ data, selected }: NodeProps) => {
   const d = data as VideoData;
+  const { showOutOfCreditsModal } = useOutOfCredits();
   const [urlInput, setUrlInput] = useState(d.url || "");
   const [stage, setStage] = useState<"idle" | "transcribing" | "transcribed" | "analyzing" | "done">(
     d.structure ? "done" : d.transcription ? "transcribed" : "idle"
@@ -529,7 +531,14 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         videoUrl: json.videoUrl ? json.videoUrl.slice(0, 80) + "..." : null,
         error: json.error,
       }));
-      if (!res.ok) throw new Error(json.error || "Transcription failed");
+      if (!res.ok) {
+        if (json.insufficient_credits) {
+          showOutOfCreditsModal();
+          setStage("idle");
+          return;
+        }
+        throw new Error(json.error || "Transcription failed");
+      }
 
       const updates: Partial<VideoData> = { url: urlInput.trim(), transcription: json.transcription };
 
@@ -683,6 +692,12 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
       let visualOk = false;
       const updates: Partial<VideoData> = {};
 
+      if (structureRes.status === "fulfilled" && structureRes.value.insufficient_credits) {
+        showOutOfCreditsModal();
+        setStage("transcribed");
+        return;
+      }
+
       if (structureRes.status === "fulfilled" && !structureRes.value.error) {
         let structure = structureRes.value;
         // B-roll fallback: if detected format is caption-style and transcription is sparse,
@@ -812,7 +827,13 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         body: JSON.stringify({ step: "analyze-template", transcription: d.transcription, url: urlInput }),
       });
       const analysis = await res.json();
-      if (!res.ok) throw new Error(analysis.error || "Analysis failed");
+      if (!res.ok) {
+        if (analysis.insufficient_credits) {
+          showOutOfCreditsModal();
+          return;
+        }
+        throw new Error(analysis.error || "Analysis failed");
+      }
 
       await supabase.from("vault_templates").insert({
         client_id: d.clientId,

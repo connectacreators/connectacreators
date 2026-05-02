@@ -3,6 +3,7 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Search, X, Loader2, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -23,6 +24,7 @@ const impactColor = (score: number) =>
 
 const ResearchNoteNode = memo(({ data }: NodeProps) => {
   const d = data as ResearchData;
+  const { showOutOfCreditsModal } = useOutOfCredits();
   const [loading, setLoading] = useState(false);
   const [topicInput, setTopicInput] = useState(d.topic || "");
 
@@ -38,7 +40,13 @@ const ResearchNoteNode = memo(({ data }: NodeProps) => {
         body: JSON.stringify({ step: "research", topic: topicInput.trim() }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Research failed");
+      if (!res.ok) {
+        if (json.insufficient_credits) {
+          showOutOfCreditsModal();
+          return;
+        }
+        throw new Error(json.error || "Research failed");
+      }
       d.onUpdate?.({ topic: topicInput.trim(), facts: json.facts || [] });
     } catch (e: any) {
       toast.error(e.message || "Research failed");

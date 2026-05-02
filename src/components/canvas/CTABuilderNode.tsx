@@ -3,6 +3,7 @@ import { NodeProps, Handle, Position } from "@xyflow/react";
 import { Target, Loader2, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
 interface CTABuilderData {
   topic?: string;
@@ -15,6 +16,7 @@ interface CTABuilderData {
 
 export default function CTABuilderNode({ data: d }: NodeProps) {
   const cd = d as CTABuilderData;
+  const { showOutOfCreditsModal } = useOutOfCredits();
   const [topic, setTopic] = useState(cd.topic ?? "");
   const [loading, setLoading] = useState(false);
   const ctas = cd.ctas ?? [];
@@ -34,6 +36,14 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
         body: JSON.stringify({ step: "generate-ctas", topic: topic.trim() }),
       });
       const json = await res.json();
+      if (!res.ok) {
+        if (json.insufficient_credits) {
+          showOutOfCreditsModal();
+          return;
+        }
+        toast.error(json.error || "Failed to generate CTAs");
+        return;
+      }
       if (json.ctas) {
         cd.onUpdate?.({ ctas: json.ctas, selectedCTA: undefined });
       } else {

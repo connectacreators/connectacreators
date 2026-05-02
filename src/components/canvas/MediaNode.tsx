@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { Progress } from "@/components/ui/progress";
 import {
   canvasMediaService,
@@ -91,6 +92,7 @@ const SIGNED_URL_TTL_MS = 55 * 60 * 1000;
 
 const MediaNode = memo(({ data }: NodeProps) => {
   const d = data as MediaNodeData;
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   // ─── Large-file pricing (files > 25 MB cost 2×) ───
   const isLargeFile = (d.fileSizeBytes ?? 0) > 25 * 1024 * 1024;
@@ -348,7 +350,15 @@ const MediaNode = memo(({ data }: NodeProps) => {
       );
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Transcription failed");
+      if (!res.ok) {
+        if (json.insufficient_credits) {
+          showOutOfCreditsModal();
+          d.onUpdate?.({ transcriptionStatus: "none" });
+          setTranscribing(false);
+          return;
+        }
+        throw new Error(json.error || "Transcription failed");
+      }
 
       const updates: Partial<MediaNodeData> = {
         transcriptionStatus: "done",

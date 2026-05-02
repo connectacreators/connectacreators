@@ -5,6 +5,7 @@ import { Loader2, UserSearch, ExternalLink, ChevronDown, ChevronRight, X, Youtub
 import { Instagram } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -115,6 +116,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
     onAddVideoNode,
     onTransform,
   } = data;
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   // Show top 10 by outlier score
   const posts = [...rawPosts].sort((a, b) => (b.outlier_score ?? 0) - (a.outlier_score ?? 0)).slice(0, 10);
@@ -199,6 +201,10 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
         },
       });
       if (error) throw new Error(error.message);
+      if (result?.insufficient_credits) {
+        showOutOfCreditsModal();
+        return;
+      }
       if (result?.error) throw new Error(result.error);
       if (fetchGeneration.current !== gen) return;
       onUpdate?.({
@@ -228,6 +234,10 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
         body: { url: post.url, source: "competitor" },
       });
       if (error) throw new Error(error.message);
+      if (result?.insufficient_credits) {
+        showOutOfCreditsModal();
+        return;
+      }
       if (result?.error) throw new Error(result.error);
       const text = result?.transcription;
       if (!text) throw new Error("No transcription returned");

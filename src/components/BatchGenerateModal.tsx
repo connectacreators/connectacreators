@@ -5,6 +5,7 @@ import { X, Loader2, CheckCircle2, AlertCircle, Zap, ChevronDown } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
 interface BatchResult {
   customId: string;
@@ -36,7 +37,12 @@ async function callFunction(name: string, payload: any) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  if (!res.ok) {
+    // Attach raw data so callers can inspect insufficient_credits
+    const err = new Error(data.error || `Error ${res.status}`) as any;
+    err.responseData = data;
+    throw err;
+  }
   return data;
 }
 
@@ -51,6 +57,7 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
   const [results, setResults] = useState<BatchResult[]>([]);
   const [savedCount, setSavedCount] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { showOutOfCreditsModal } = useOutOfCredits();
 
   const topics = topicsText
     .split("\n")
@@ -110,6 +117,11 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
       setTopicMap(data.topicMap || {});
       setProgress({ ...progress, total: topics.length, processing: topics.length });
     } catch (e: any) {
+      if (e.responseData?.insufficient_credits) {
+        showOutOfCreditsModal();
+        setPhase("input");
+        return;
+      }
       toast.error(e.message || "Failed to submit batch.");
       setPhase("input");
     }
