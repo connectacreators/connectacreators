@@ -344,7 +344,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         </div>
       )}
 
-      <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10" onMouseLeave={() => setHoveredItem(null)}>
+      <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onMouseLeave={() => setHoveredItem(null)}>
         {navItems.map((entry, idx) => {
           if (entry.type === 'group') {
             return (
