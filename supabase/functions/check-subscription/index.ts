@@ -86,11 +86,12 @@ serve(async (req) => {
 
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     if (customers.data.length === 0) {
-      logStep("No Stripe customer found");
-      return new Response(JSON.stringify({ subscribed: false }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      // Free-trial users have no Stripe customer — skip DB sync to preserve trial credits
+      logStep("No stripe_customer_id — free trial user, skipping sync");
+      return new Response(
+        JSON.stringify({ status: "free_trial", message: "No Stripe customer" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
     }
 
     const customerId = customers.data[0].id;
