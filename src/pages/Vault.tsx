@@ -337,12 +337,14 @@ function VaultContent({
     return { hooks, body, ctas };
   }, [templates]);
 
+  const closeDrawer = () => { setShowCreate(false); setNewUrl(""); setNewName(""); };
+
   useEffect(() => {
     if (!showCreate) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowCreate(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeDrawer(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [showCreate, setShowCreate]);
+  }, [showCreate]);
 
   return (
     <div className="space-y-0" style={{ fontFamily: "Arial, sans-serif" }}>
@@ -508,7 +510,7 @@ function VaultContent({
           opacity: showCreate ? 1 : 0,
           pointerEvents: showCreate ? "auto" : "none",
         }}
-        onClick={() => setShowCreate(false)}
+        onClick={closeDrawer}
       />
       {/* Drawer panel */}
       <div
@@ -537,7 +539,7 @@ function VaultContent({
             </div>
           </div>
           <button
-            onClick={() => setShowCreate(false)}
+            onClick={closeDrawer}
             className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
             style={{ background: "rgba(255,255,255,0.05)" }}
             aria-label="Close drawer"
