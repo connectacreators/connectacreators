@@ -31,15 +31,16 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
   const [ownClientName, setOwnClientName] = useState<string | null>(null);
 
-  // Client selector state
-  const showClientSelector = isAdmin || isVideographer || isUser;
+  // Client selector state — everyone except editors can switch between their clients
+  const isSubscriber = !isAdmin && !isVideographer && !isEditor && !isUser;
+  const showClientSelector = !isEditor;
   const [viewMode, setViewMode] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("dashboard_viewMode");
       if (stored) return stored;
     }
-    // Subscribers default to "me" (their own brand), admins to "master"
-    return isUser ? "me" : "master";
+    // Subscribers and agency users default to "me", admins to "master"
+    return (isUser || isSubscriber) ? "me" : "master";
   });
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
@@ -87,8 +88,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   useEffect(() => {
     if (!user || !showClientSelector) return;
 
-    if (isUser) {
-      // Fetch non-primary subscriber clients (primary is shown as "My Brand" separately)
+    if (isUser || isSubscriber) {
+      // Fetch non-primary subscriber clients (primary shown as "My Brand" separately)
       supabase
         .from("subscriber_clients")
         .select("client_id, is_primary, clients(id, name)")
@@ -107,11 +108,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       supabase.from("clients").select("id, name").order("name")
         .then(({ data }) => { if (data) setClients(data); });
     }
-  }, [user, showClientSelector, isUser]);
+  }, [user, showClientSelector, isUser, isSubscriber]);
 
   // Fetch subscriber client limit
   useEffect(() => {
-    if (!user || !isUser) return;
+    if (!user || (!isUser && !isSubscriber)) return;
     supabase
       .from("subscriptions")
       .select("client_limit")
@@ -120,7 +121,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       .then(({ data }) => {
         if (data?.client_limit) setClientLimit(data.client_limit);
       });
-  }, [user, isUser]);
+  }, [user, isUser, isSubscriber]);
 
   // Close selector on outside click (check both trigger area and portal dropdown)
   useEffect(() => {

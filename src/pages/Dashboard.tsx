@@ -97,7 +97,7 @@ export default function Dashboard() {
   const isStaff = isAdmin || isVideographer;
   const isClientRole = !isAdmin && !isVideographer && !isEditor && !isUser;
   const isSubscriber = userPlanType === "free" || userPlanType === "starter" || userPlanType === "growth" || userPlanType === "enterprise";
-  const showClientSelector = isAdmin || isVideographer || isUser;
+  const showClientSelector = !isEditor;
 
   // Listen for viewMode changes from sidebar
   useEffect(() => {
