@@ -259,11 +259,13 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Public Calendar", icon: Globe, path: selectedClientId ? `/clients/${selectedClientId}/booking-settings` : "/dashboard" },
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads" },
         { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: selectedClientId ? `/clients/${selectedClientId}/lead-calendar` : "/lead-calendar" },
+        { type: 'group', label: 'Resources' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { type: 'group', label: 'Manage' },
         { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
-        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
-        { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
+        { label: "Subscription", icon: CreditCard, path: "/subscription" },
+        { label: "Account", icon: Settings, path: "/settings" },
       ];
     }
     // Subscriber / Client / Connecta Plus
@@ -280,11 +282,13 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: "Public Calendar", icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
+      { type: 'group', label: 'Resources' },
       { label: "Viral Today", icon: Flame, path: "/viral-today" },
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
+      { type: 'group', label: 'Manage' },
       { label: "Clients", icon: Users, path: "/clients" },
-      { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
-      { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
+      { label: "Subscription", icon: CreditCard, path: "/subscription" },
+      { label: "Account", icon: Settings, path: "/settings" },
     ];
   };
 
