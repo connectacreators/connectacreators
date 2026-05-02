@@ -229,7 +229,6 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
-        { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -245,6 +244,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         ...(selectedClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${selectedClientId}/booking-settings` }] : []),
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
@@ -260,6 +260,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       ...(ownClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${ownClientId}/booking-settings` }] : []),
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
+      { label: "Trainings", icon: BookOpen, path: "/trainings" },
       { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
       { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
     ];

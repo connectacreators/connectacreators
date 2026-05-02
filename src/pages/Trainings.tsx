@@ -269,7 +269,15 @@ export default function Trainings() {
     );
   }
 
-  const isStaff = isAdmin || isVideographer || isEditor;
+  if (isEditor) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        No tienes acceso a esta página.
+      </div>
+    );
+  }
+
+  const isStaff = isAdmin || isVideographer;
 
   // ── Editor View ──────────────────────────────────────────────────────────────
   if (view === "editor") {
