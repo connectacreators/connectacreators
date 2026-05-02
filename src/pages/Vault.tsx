@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, CalendarDays, Sparkles, X, FileText,
+  Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, Sparkles, X, FileText,
 } from "lucide-react";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -593,6 +593,12 @@ function VaultContent({
 
 // ===================== VAULT TEMPLATE CARD =====================
 
+const SECTION_CONFIG = {
+  hook: { label: "HOOK", color: "text-[#22d3ee]", bg: "bg-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.15)]", badge: "bg-[rgba(8,145,178,0.12)] text-[#22d3ee] border-[rgba(8,145,178,0.25)]" },
+  body: { label: "BODY", color: "text-[#94a3b8]",  bg: "bg-[rgba(148,163,184,0.04)] border-[rgba(148,163,184,0.12)]",   badge: "bg-[rgba(148,163,184,0.08)] text-[#94a3b8] border-[rgba(148,163,184,0.2)]" },
+  cta:  { label: "CTA",  color: "text-[#a3e635]", bg: "bg-[rgba(132,204,22,0.04)] border-[rgba(132,204,22,0.12)]", badge: "bg-[rgba(132,204,22,0.08)] text-[#a3e635] border-[rgba(132,204,22,0.2)]" },
+};
+
 function VaultTemplateCard({
   tpl,
   language,
@@ -622,17 +628,12 @@ function VaultTemplateCard({
     return [];
   }, [tpl.template_lines]);
 
-  const sectionConfig = {
-    hook: { label: "HOOK", color: "text-[#22d3ee]", bg: "bg-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.15)]", badge: "bg-[rgba(8,145,178,0.12)] text-[#22d3ee] border-[rgba(8,145,178,0.25)]" },
-    body: { label: "BODY", color: "text-[#94a3b8]",  bg: "bg-[rgba(148,163,184,0.04)] border-[rgba(148,163,184,0.12)]",   badge: "bg-[rgba(148,163,184,0.08)] text-[#94a3b8] border-[rgba(148,163,184,0.2)]" },
-    cta:  { label: "CTA",  color: "text-[#a3e635]", bg: "bg-[rgba(132,204,22,0.04)] border-[rgba(132,204,22,0.12)]", badge: "bg-[rgba(132,204,22,0.08)] text-[#a3e635] border-[rgba(132,204,22,0.2)]" },
-  };
 
   return (
     <>
       {/* Portrait card */}
       <div
-        className="group relative rounded-[10px] overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform duration-200"
+        className={`group relative rounded-[10px] overflow-hidden hover:scale-[1.02] transition-transform duration-200 ${lines.length > 0 ? "cursor-pointer" : "cursor-default"}`}
         style={{ aspectRatio: "9/14" }}
         onClick={() => lines.length > 0 && setShowTranscription(true)}
       >
@@ -679,6 +680,7 @@ function VaultTemplateCard({
 
         {/* Delete button — top right, on hover */}
         <button
+          aria-label="Delete template"
           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-full transition-opacity"
           style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
           onClick={(e) => { e.stopPropagation(); handleDelete(tpl.id); }}
@@ -724,7 +726,7 @@ function VaultTemplateCard({
                   return !s.includes("hook") && !s.includes("cta") && !s.includes("call");
                 });
                 if (sectionLines.length === 0) return null;
-                const meta = sectionConfig[sectionKey];
+                const meta = SECTION_CONFIG[sectionKey];
                 return (
                   <div key={sectionKey} className={`rounded-2xl border p-4 space-y-3 ${meta.bg}`}>
                     <div className={`inline-flex items-center gap-2 text-xs font-bold tracking-widest px-3 py-1 rounded-full border ${meta.badge}`}>
