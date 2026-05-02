@@ -60,7 +60,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { toast } from "sonner";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+
 import { leadService } from "@/services/leadService";
 import { checkResourceLimit } from "@/utils/planLimits";
 
@@ -123,7 +123,7 @@ const stripDbPrefix = (id: string) => id.startsWith("db_") ? id.slice(3) : id;
 
 export default function LeadTracker() {
   const { clientId: urlClientId } = useParams<{ clientId?: string }>();
-  const { checking: subscriptionChecking } = useSubscriptionGuard();
+
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
@@ -567,7 +567,7 @@ export default function LeadTracker() {
     }
   };
 
-  if (authLoading || subscriptionChecking) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />

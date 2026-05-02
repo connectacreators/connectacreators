@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WelcomeSubscriptionModal from "@/components/WelcomeSubscriptionModal";
 import SplashScreen from "@/components/SplashScreen";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
 import BorderGlow from "@/components/ui/BorderGlow";
@@ -61,8 +61,7 @@ export default function Dashboard() {
     if (typeof window === "undefined") return false;
     return !!localStorage.getItem("connecta_just_paid");
   });
-  // Skip the slow Stripe reconciliation if we just came from PaymentSuccess (it already verified)
-  const { checking: subscriptionChecking, subscriptionData } = useSubscriptionGuard({ skipRedirect: true, skipReconcile: justPaid });
+
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
@@ -168,15 +167,12 @@ export default function Dashboard() {
     }
   }, [user, showClientSelector, isUser]);
 
-  // Sync plan type from subscription guard (no duplicate edge function call)
+  // Sync plan type from DB (subscription guard removed)
   useEffect(() => {
-    if (subscriptionChecking) return;
     if (loading || !user) return;
     if (isAdmin || isVideographer || isEditor || isConnectaPlus) return;
 
-    if (subscriptionData.plan_type) {
-      setUserPlanType(subscriptionData.plan_type);
-    } else if (justPaidRef.current) {
+    if (justPaidRef.current) {
       // Just paid but DB not updated yet — use the plan from payment flow
       justPaidRef.current = false;
       setUserPlanType(welcomePlan as string);
@@ -189,9 +185,7 @@ export default function Dashboard() {
         }
       });
     } else {
-      // No valid subscription: check if client exists with a plan, otherwise redirect to signup.
-      // This path only fires when the user has no Stripe subscription AND is not a special role.
-      // No more auto-creating fake "trial" client records — users must sign up via Stripe.
+      // Check if client exists with a plan
       const checkExisting = async () => {
         let existing: any = null;
         if (ownClientId) {
@@ -212,15 +206,11 @@ export default function Dashboard() {
 
         if (existing?.plan_type && ["active", "trialing", "canceling"].includes(existing.subscription_status || "")) {
           setUserPlanType(existing.plan_type);
-          return;
         }
-
-        // No valid subscription — redirect to signup
-        navigate("/signup");
       };
       checkExisting();
     }
-  }, [subscriptionChecking, subscriptionData, user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, navigate, welcomePlan, ownClientId]);
+  }, [user, loading, isAdmin, isVideographer, isEditor, isConnectaPlus, welcomePlan, ownClientId]);
 
   // Reset folder when switching view mode
   useEffect(() => {
@@ -328,7 +318,7 @@ export default function Dashboard() {
 
   const toolCards = getToolCards();
 
-  if (loading || subscriptionChecking) {
+  if (loading) {
     return (
       <PageTransition className="flex-1 flex flex-col min-h-screen">
         <DashboardSkeleton />

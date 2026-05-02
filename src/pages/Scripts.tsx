@@ -19,7 +19,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+
 
 import { useClients, type Client } from "@/hooks/useClients";
 import { useScripts, type ScriptLine, type Script, type ScriptMetadata } from "@/hooks/useScripts";
@@ -383,7 +383,7 @@ function ScriptsSkeleton() {
 export default function Scripts() {
   const { clientId: urlClientId } = useParams<{ clientId?: string }>();
   const location = useLocation();
-  const { checking: subscriptionChecking } = useSubscriptionGuard();
+
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user, role, loading: authLoading, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
@@ -1079,7 +1079,7 @@ export default function Scripts() {
   }, [linkedVideoEdit?.id]);
 
   // Auth loading
-  if (authLoading || subscriptionChecking) {
+  if (authLoading) {
     return (
       <PageTransition className="flex-1 flex flex-col overflow-hidden">
         <ScriptsSkeleton />
