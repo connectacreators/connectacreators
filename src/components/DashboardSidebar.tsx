@@ -11,8 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe,
 } from "lucide-react";
+
+type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ className?: string }>; path: string };
+type NavGroup = { type: 'group'; label: string };
+type NavEntry = NavItem | NavGroup;
 
 import connectaTextLogo from "@/assets/connecta-logo-text-light.png";
 
@@ -194,39 +198,46 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     return `/clients/${viewMode}/scripts?view=canvas`;
   })();
 
-  const getNavItems = () => {
+  const getNavItems = (): NavEntry[] => {
     if (isAdmin) {
       return [
-        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: "Home", icon: Home, path: "/dashboard" },
+        { type: 'group', label: 'Create' },
         { label: "Connecta AI", icon: Bot, path: connectaAIPath },
-        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Vault", icon: Archive, path: "/vault" },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
+        { type: 'group', label: 'Editing' },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
+        { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: "Finances", icon: DollarSign, path: "/finances" },
+        { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { type: 'group', label: 'Agency' },
+        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: language === "en" ? "Team Members" : "Equipo", icon: Video, path: "/videographers" },
         { label: "Subscribers", icon: UserCheck, path: "/subscribers" },
-        { label: "Trainings", icon: BookOpen, path: "/trainings" },
-        { label: "Finances", icon: DollarSign, path: "/finances" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
     if (isVideographer) {
       return [
-        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: "Home", icon: Home, path: "/dashboard" },
+        { type: 'group', label: 'Create' },
         { label: "Connecta AI", icon: Bot, path: connectaAIPath },
+        { type: 'group', label: 'Editing' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
+        { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
-        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
     if (isEditor) {
       return [
-        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+        { label: "Home", icon: Home, path: "/dashboard" },
+        { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
@@ -236,33 +247,40 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isUser) {
       const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
-        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
-        { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
+        { label: "Home", icon: Home, path: "/dashboard" },
+        { type: 'group', label: 'Create' },
         { label: "Connecta AI", icon: Bot, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts" },
+        { label: "Vault", icon: Archive, path: selectedClientId ? `/clients/${selectedClientId}/vault` : "/vault" },
+        { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue" },
-        { label: "Content Calendar", icon: Calendar, path: selectedClientId ? `/clients/${selectedClientId}/content-calendar` : "/content-calendar" },
-        ...(selectedClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${selectedClientId}/booking-settings` }] : []),
+        { label: "Public Calendar", icon: Globe, path: selectedClientId ? `/clients/${selectedClientId}/booking-settings` : "/dashboard" },
+        { type: 'group', label: 'Sales' },
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads" },
+        { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: selectedClientId ? `/clients/${selectedClientId}/lead-calendar` : "/lead-calendar" },
+        { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
-    // Client role + Connecta Plus (same nav)
+    // Subscriber / Client / Connecta Plus
     return [
-      { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
+      { label: "Home", icon: Home, path: "/dashboard" },
+      { type: 'group', label: 'Create' },
       { label: "Connecta AI", icon: Bot, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
       { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
+      { type: 'group', label: 'Editing' },
       { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
-      { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
-      ...(ownClientId ? [{ label: "Booking", icon: Clock, path: `/clients/${ownClientId}/booking-settings` }] : []),
+      { label: "Public Calendar", icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },
+      { type: 'group', label: 'Sales' },
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
-      { label: "Viral Today", icon: Flame, path: "/viral-today" },
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
+      { label: "Clients", icon: Users, path: "/clients" },
       { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
       { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
     ];
@@ -327,17 +345,27 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       )}
 
       <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10" onMouseLeave={() => setHoveredItem(null)}>
-        {navItems.map((item) => {
+        {navItems.map((entry, idx) => {
+          if (entry.type === 'group') {
+            return (
+              <div key={`group-${idx}`} className="px-3 pt-4 pb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-[#555]">
+                  {entry.label}
+                </span>
+              </div>
+            );
+          }
+          const item = entry as NavItem;
+          const navItemsList = navItems.filter(e => e.type !== 'group') as NavItem[];
           const currentPathname = currentPath.split("?")[0];
           const itemPathname = item.path.split("?")[0];
           const itemHasQuery = item.path.includes("?");
           const isActive = itemHasQuery
             ? item.path === currentPath
-            : itemPathname === currentPathname && !navItems.some(
+            : itemPathname === currentPathname && !navItemsList.some(
                 other => other !== item && other.path.split("?")[0] === itemPathname && other.path === currentPath
               );
           const isHovered = hoveredItem === item.label;
-          // When something is hovered, only the hovered item shows active; otherwise the real active item does
           const showActive = hoveredItem ? isHovered : isActive;
           return (
             <button
