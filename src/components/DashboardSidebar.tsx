@@ -262,6 +262,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
+        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -282,6 +283,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: "Viral Today", icon: Flame, path: "/viral-today" },
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
       { label: "Clients", icon: Users, path: "/clients" },
+      { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
       { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
     ];
   };
