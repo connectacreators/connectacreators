@@ -310,6 +310,8 @@ export default function Subscription() {
   const currentOpt = PLAN_OPTIONS.find((p) => p.key === planKey);
   const currentAmount = currentOpt?.amount ?? 0;
 
+  const isFreeTrial = !credits.plan_type && !stripeStatus && !statusLoading;
+
   // Prefer cancel_at for canceled subs, then current_period_end from Stripe, then DB fallback
   const periodEndTs = stripeStatus?.cancel_at_period_end && stripeStatus?.cancel_at
     ? stripeStatus.cancel_at
@@ -354,15 +356,17 @@ export default function Subscription() {
     ? new Date(credits.pending_plan_effective_date).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
     : renewalDate;
 
-  const showStatusBadge = stripeStatus && (
+  const showStatusBadge = isFreeTrial || (stripeStatus && (
     stripeStatus.status === "trialing" ||
     isCanceling ||
     stripeStatus.status === "past_due" ||
     isCanceled ||
     isPendingDowngrade
-  );
+  ));
 
-  const statusBadgeText = isPendingDowngrade
+  const statusBadgeText = isFreeTrial
+    ? (en ? "Free Trial" : "Prueba Gratis")
+    : isPendingDowngrade
     ? (en ? `Downgrades to ${pendingPlanLabel} on ${pendingEffectiveDate}` : `Cambia a ${pendingPlanLabel} el ${pendingEffectiveDate}`)
     : isCanceled
     ? (en ? "Canceled" : "Cancelada")
@@ -374,7 +378,9 @@ export default function Subscription() {
     ? (en ? "Past due" : "Pago pendiente")
     : "";
 
-  const statusBadgeClass = isCanceled || stripeStatus?.status === "past_due"
+  const statusBadgeClass = isFreeTrial
+    ? "bg-blue-500/15 text-blue-400"
+    : isCanceled || stripeStatus?.status === "past_due"
     ? "bg-red-500/15 text-red-400"
     : isPendingDowngrade
     ? "bg-amber-500/15 text-amber-400"
