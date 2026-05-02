@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
+import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { parseDeck, composeDeckAnswers, type DeckPayload, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
 import { QuestionDeckCard } from "./QuestionDeckCard";
 import { DeckSummaryBubble } from "./DeckSummaryBubble";
@@ -694,6 +695,7 @@ const hasContext = (ctx: CanvasContext) =>
 export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvasContextRef: parentContextRef, clientInfo, onGenerateScript, authToken, format, language: scriptLang, aiModel, onFormatChange, onLanguageChange, onModelChange, remixMode = false, remixContext = null, initialInput = null, onInitialInputConsumed, initialMessages, onMessagesChange, onStreamingPartial, remoteStreamingContent = null, onSaveScript, onSessionTitle, externalDroppedImage, fullscreen = false }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const { showOutOfCreditsModal } = useOutOfCredits();
   // Keep a ref to always read the latest canvasContext in callbacks (avoids stale closures)
   const canvasContextRefLocal = useRef(canvasContextProp);
   canvasContextRefLocal.current = canvasContextProp;
@@ -1305,7 +1307,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
         const errData = await res.json().catch(() => ({}));
         const errMsg = errData.error || "Research failed";
         if (errData.insufficient_credits) {
-          toast.error(`Not enough credits. Need 100 credits for deep research.`);
+          showOutOfCreditsModal();
         } else {
           toast.error(errMsg);
         }
