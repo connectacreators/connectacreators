@@ -420,8 +420,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           {/* Top gradient highlight */}
           <div className="absolute top-0 left-[10%] right-[10%] h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)' }} />
 
-          {/* Master — admin/videographer only */}
-          {!isUser && (
+          {/* Master — admin/videographer only, not for subscribers */}
+          {(isAdmin || isVideographer) && (
           <button
             onClick={() => handleViewModeChange("master")}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150 rounded-t-xl"
@@ -449,7 +449,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 8px rgba(99,102,241,0.12)' }}>
                 <UserCircle className="w-3.5 h-3.5 text-indigo-400" />
               </div>
-              <span className="text-sm font-medium text-foreground flex-1">{isUser ? "My Brand" : "Me"}</span>
+              <span className="text-sm font-medium text-foreground flex-1">{ownClientName || (isUser ? "My Brand" : "Me")}</span>
               {viewMode === "me" && <Check className="w-3.5 h-3.5 text-primary" />}
             </button>
           )}
@@ -480,7 +480,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           </div>
 
           {/* Subscriber: Add Client */}
-          {isUser && !addingClient && clients.length < clientLimit && (
+          {(isUser || isSubscriber) && !addingClient && clients.length < clientLimit && (
             <button
               onClick={(e) => { e.stopPropagation(); setAddingClient(true); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-b-xl"
@@ -494,7 +494,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             </button>
           )}
 
-          {isUser && addingClient && (
+          {(isUser || isSubscriber) && addingClient && (
             <div className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
               <input
                 autoFocus
