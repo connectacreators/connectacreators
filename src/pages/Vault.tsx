@@ -556,29 +556,29 @@ function VaultContent({
             )}
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[10px]">
-              {templates.map((tpl) => (
-                <VaultTemplateCard
-                  key={tpl.id}
-                  tpl={tpl}
-                  language={language}
-                  handleDelete={handleDelete}
-                  clientName={isMasterMode ? tpl.clients?.name : undefined}
-                />
-              ))}
-              {/* Ghost card — opens create drawer */}
-              <button
-                disabled={!hasClientId}
-                onClick={() => setShowCreate(true)}
-                className="rounded-[10px] flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#22d3ee]/30"
-                style={{ aspectRatio: "9/14", background: "rgba(255,255,255,0.02)", border: "1.5px dashed rgba(255,255,255,0.1)" }}
-              >
-                <Plus className="w-4 h-4 text-[#22d3ee]/50" />
-                <span className="text-[10px] font-semibold text-white/25">Add</span>
-              </button>
-            </div>
-          </>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[10px]">
+            {templates.map((tpl) => (
+              <VaultTemplateCard
+                key={tpl.id}
+                tpl={tpl}
+                language={language}
+                handleDelete={handleDelete}
+                clientName={isMasterMode ? tpl.clients?.name : undefined}
+              />
+            ))}
+            {/* Ghost card — opens create drawer */}
+            <button
+              disabled={!hasClientId}
+              onClick={() => setShowCreate(true)}
+              aria-label="Add new template"
+              title={!hasClientId ? tr({ en: "Select a client filter first", es: "Selecciona un cliente primero" }, language) : undefined}
+              className="rounded-[10px] flex flex-col items-center justify-center gap-2 border border-dashed border-white/10 hover:border-[#22d3ee]/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ aspectRatio: "9/14", background: "rgba(255,255,255,0.02)" }}
+            >
+              <Plus className="w-4 h-4 text-[#22d3ee]/50" />
+              <span className="text-[10px] font-semibold text-white/25">Add</span>
+            </button>
+          </div>
         )}
       </div>
     </div>
