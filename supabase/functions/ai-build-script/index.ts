@@ -141,7 +141,7 @@ async function deductCredits(
     .eq("user_id", userId)
     .maybeSingle();
   const role = roleData?.role;
-  if (role === "admin" || role === "videographer" || role === "editor") return null;
+  if (role === "admin" || role === "videographer" || role === "editor" || role === "connecta_plus") return null;
 
   const { data: client } = await adminClient
     .from("clients")

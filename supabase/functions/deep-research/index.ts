@@ -36,7 +36,7 @@ async function checkAndDeductCredits(
   const { data: roleData } = await adminClient
     .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
   const role = roleData?.role;
-  if (role === "admin" || role === "videographer" || role === "editor") return {};
+  if (role === "admin" || role === "videographer" || role === "editor" || role === "connecta_plus") return {};
 
   const primaryClientId = await getPrimaryClientId(adminClient, userId);
   if (!primaryClientId) return {};
