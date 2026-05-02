@@ -120,9 +120,9 @@ export default function ViralVideoDetail() {
   const [video, setVideo] = useState<ViralVideo | null>(null);
   const [loading, setLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  const [videoFailed, setVideoFailed] = useState(false);
-  const [videoErrorStage, setVideoErrorStage] = useState<"cache" | "stream" | null>(null);
+  const [videoSrc] = useState<string | null>(null);
+  const [videoFailed] = useState(false);
+  const [videoErrorStage] = useState<"cache" | "stream" | null>(null);
 
   // Format detection state
   const [detectingFormat, setDetectingFormat] = useState(false);
@@ -152,11 +152,6 @@ export default function ViralVideoDetail() {
         const v = data as ViralVideo;
         setVideo(v);
         setLoading(false);
-        // Init video src: cache-first for IG/TikTok/YT, stream-reel for others
-        if (v.video_url && v.platform !== "youtube") {
-          setVideoSrc(getStreamUrl(v));
-        }
-
         // Restore cached detection if available
         if (v.format_detection) {
           setFormatDetection(v.format_detection);
@@ -343,67 +338,30 @@ export default function ViralVideoDetail() {
         {/* ===== LEFT PANEL: Video Preview ===== */}
         <div className="w-full lg:w-[58%] space-y-4">
 
-          {/* Video preview */}
+          {/* Video preview — thumbnail only, watch on platform */}
           <div className="relative bg-black rounded-2xl overflow-hidden" style={{ aspectRatio: "9/16", maxHeight: "520px" }}>
-            {/* Thumbnail always shown underneath as placeholder */}
-            {video.thumbnail_url && !imgError && (
+            {video.thumbnail_url && !imgError ? (
               <img
                 src={proxyImg(video.thumbnail_url)}
                 alt={video.caption?.slice(0, 60) || "video"}
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={() => setImgError(true)}
               />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <Play className="w-12 h-12 text-white/30" />
+              </div>
             )}
-
-            {/* Native video player for IG + TikTok via stream-reel proxy */}
-            {videoSrc && !videoFailed && (
-              <video
-                key={videoSrc}
-                src={videoSrc}
-                className="absolute inset-0 w-full h-full object-contain"
-                controls
-                autoPlay
-                playsInline
-                muted
-                onError={() => {
-                  if (videoErrorStage === null) {
-                    // Cache miss → try stream-reel
-                    setVideoErrorStage("cache");
-                    const streamUrl = `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url ?? "")}&nocache=1`;
-                    setVideoSrc(streamUrl);
-                  } else {
-                    // stream-reel also failed → show thumbnail + watch link
-                    setVideoFailed(true);
-                  }
-                }}
-              />
-            )}
-
-            {/* YouTube: use embed */}
-            {video.platform === "youtube" && video.video_url && (() => {
-              const ytId = (video.video_url.match(/\/shorts\/([^/?]+)/) || video.video_url.match(/[?&]v=([^&]+)/))?.[1];
-              return ytId ? (
-                <iframe
-                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&controls=1`}
-                  className="absolute inset-0 w-full h-full border-0"
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                />
-              ) : null;
-            })()}
-
-            {/* Watch original overlay — shown when video fails or is YouTube without ID */}
-            {(videoFailed || (!videoSrc && video.platform !== "youtube")) && (
-              <a
-                href={video.video_url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-black/90 transition-all border border-white/10"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Watch on {video.platform === "instagram" ? "Instagram" : video.platform === "tiktok" ? "TikTok" : "YouTube"}
-              </a>
-            )}
+            {/* Watch on platform button */}
+            <a
+              href={video.video_url ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-black/90 transition-all border border-white/10"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Watch on {video.platform === "instagram" ? "Instagram" : video.platform === "tiktok" ? "TikTok" : "YouTube"}
+            </a>
           </div>
 
           {/* Stats grid */}

@@ -196,14 +196,14 @@ function timeAgo(dateStr: string | null): string {
 
 // Resolve thumbnails via yt-dlp cache when a video URL is available, else proxy the CDN URL
 function proxyImg(url: string | null, videoUrl?: string): string | null {
-  if (!url) return null;
-  if (url.includes("connectacreators.com/thumb-cache")) return url;
-  if (url.includes("connectacreators.com")) return url;
-  // If we have the original video URL, always prefer resolve-thumb (yt-dlp + disk cache).
-  // This works for Instagram, TikTok, YouTube — avoids expired CDN URLs entirely.
+  if (url?.includes("connectacreators.com/thumb-cache")) return url;
+  if (url?.includes("connectacreators.com")) return url;
+  // Prefer resolve-thumb (VPS yt-dlp cache) when we have the video URL — avoids expired CDN URLs.
+  // Also used as a fallback when thumbnail_url is null but video_url is known.
   if (videoUrl) {
     return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
   }
+  if (!url) return null;
   // Fallback: proxy the raw CDN URL (may 403 if expired)
   return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
@@ -576,9 +576,9 @@ function VideoCard({
           className="absolute inset-0"
           style={{ background: gridGradientFor(video.channel_username) }}
         />
-        {video.thumbnail_url && !imgError ? (
+        {!imgError && (video.thumbnail_url || video.video_url) ? (
           <img
-            src={proxyImg(video.thumbnail_url) ?? video.thumbnail_url}
+            src={proxyImg(video.thumbnail_url, video.video_url) ?? undefined}
             alt={video.caption?.slice(0, 60) ?? "video"}
             className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImgError(true)}
