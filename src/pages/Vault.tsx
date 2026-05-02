@@ -337,6 +337,13 @@ function VaultContent({
     return { hooks, body, ctas };
   }, [templates]);
 
+  useEffect(() => {
+    if (!showCreate) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowCreate(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showCreate, setShowCreate]);
+
   return (
     <div className="space-y-0" style={{ fontFamily: "Arial, sans-serif" }}>
 
@@ -422,96 +429,6 @@ function VaultContent({
       )}
 
       <div className="space-y-6">
-        {/* ── Create Form ── */}
-        {showCreate && (
-          <div className="glass-card glass-card-cyan rounded-2xl overflow-hidden">
-            {/* Form header */}
-            <div className="px-5 py-4 border-b border-primary/15 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {tr({ en: "Add from Viral Video", es: "Agregar desde Video Viral" }, language)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {tr({ en: "AI transcribes and extracts the reusable hook/body/CTA structure", es: "La IA transcribe y extrae la estructura reutilizable de hook/cuerpo/CTA" }, language)}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-4">
-              {/* URL input */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {tr({ en: "Video URL", es: "URL del Video" }, language)}
-                </label>
-                <div className="relative">
-                  <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                  <Input
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
-                    placeholder={tr({ en: "TikTok, Instagram, YouTube URL...", es: "URL de TikTok, Instagram, YouTube..." }, language)}
-                    className="pl-10 h-12 rounded-xl bg-card border-border/60 focus:border-primary/60 text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Name input */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {tr({ en: "Template Name", es: "Nombre de Plantilla" }, language)}{" "}
-                  <span className="normal-case font-normal text-muted-foreground/50">({tr({ en: "optional", es: "opcional" }, language)})</span>
-                </label>
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder={tr({ en: "e.g. Shock Fact Hook, Story CTA...", es: "ej. Hook Dato Impactante, Historia CTA..." }, language)}
-                  className="h-12 rounded-xl bg-card border-border/60 focus:border-primary/60 text-sm"
-                />
-              </div>
-
-              {/* Generate button */}
-              <Button
-                variant="cta"
-                onClick={handleCreate}
-                disabled={creating || !newUrl.trim()}
-                className="w-full h-12 rounded-xl text-base font-semibold gap-3 transition-all shadow-lg shadow-primary/20"
-              >
-                {creating ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {tr({ en: "Transcribing & Analyzing...", es: "Transcribiendo y Analizando..." }, language)}
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    {tr({ en: "Transcribe & Templatize", es: "Transcribir y Templatizar" }, language)}
-                  </>
-                )}
-              </Button>
-
-              {/* Loading animation */}
-              {creating && (
-                <div className="bg-card/50 border border-primary/20 rounded-2xl p-5 text-center space-y-3">
-                  <div className="flex justify-center gap-2">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce"
-                        style={{ animationDelay: `${i * 0.1}s` }}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {tr({ en: "AI is extracting the viral structure...", es: "La IA está extrayendo la estructura viral..." }, language)}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ── Template list ── */}
         {loadingTemplates ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[10px]">
@@ -580,6 +497,132 @@ function VaultContent({
             </button>
           </div>
         )}
+      </div>
+
+      {/* ── Slide-in Create Drawer ── */}
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          background: "rgba(0,0,0,0.5)",
+          opacity: showCreate ? 1 : 0,
+          pointerEvents: showCreate ? "auto" : "none",
+        }}
+        onClick={() => setShowCreate(false)}
+      />
+      {/* Drawer panel */}
+      <div
+        className="fixed right-0 top-0 h-full z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-out"
+        style={{
+          width: "420px",
+          maxWidth: "100vw",
+          background: "#0f1623",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
+          transform: showCreate ? "translateX(0)" : "translateX(100%)",
+        }}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {tr({ en: "New Template", es: "Nueva Plantilla" }, language)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {tr({ en: "Paste a video URL to extract structure", es: "Pega una URL para extraer la estructura" }, language)}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCreate(false)}
+            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+            aria-label="Close drawer"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Drawer body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* URL input */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {tr({ en: "Video URL", es: "URL del Video" }, language)}
+            </label>
+            <div className="relative">
+              <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+              <Input
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder={tr({ en: "TikTok, Instagram, YouTube URL...", es: "URL de TikTok, Instagram, YouTube..." }, language)}
+                className="pl-10 h-12 rounded-xl bg-card border-border/60 focus:border-primary/60 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !creating && newUrl.trim()) handleCreate();
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Name input */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {tr({ en: "Template Name", es: "Nombre de Plantilla" }, language)}{" "}
+              <span className="normal-case font-normal text-muted-foreground/50">
+                ({tr({ en: "optional", es: "opcional" }, language)})
+              </span>
+            </label>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={tr({ en: "e.g. Shock Fact Hook, Story CTA...", es: "ej. Hook Dato Impactante, Historia CTA..." }, language)}
+              className="h-12 rounded-xl bg-card border-border/60 focus:border-primary/60 text-sm"
+            />
+          </div>
+
+          {/* Loading animation */}
+          {creating && (
+            <div className="border border-primary/20 rounded-2xl p-5 text-center space-y-3" style={{ background: "rgba(255,255,255,0.03)" }}>
+              <div className="flex justify-center gap-2">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce"
+                    style={{ animationDelay: `${i * 0.1}s` }}
+                  />
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {tr({ en: "AI is extracting the viral structure...", es: "La IA está extrayendo la estructura viral..." }, language)}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Drawer footer */}
+        <div className="p-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <Button
+            variant="cta"
+            onClick={handleCreate}
+            disabled={creating || !newUrl.trim()}
+            className="w-full h-12 rounded-xl text-base font-semibold gap-3 shadow-lg shadow-primary/20"
+          >
+            {creating ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {tr({ en: "Transcribing & Analyzing...", es: "Transcribiendo y Analizando..." }, language)}
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                {tr({ en: "Transcribe & Templatize", es: "Transcribir y Templatizar" }, language)}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
