@@ -38,15 +38,9 @@ interface VaultTemplate {
 function VaultSkeleton() {
   return (
     <div className="flex-1 px-4 sm:px-6 py-6 max-w-6xl mx-auto w-full">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-border bg-card/50 overflow-hidden">
-            <Skeleton className="h-36 w-full rounded-none" />
-            <div className="p-3 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[10px]">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton key={i} className="rounded-[10px]" style={{ aspectRatio: "9/14" }} />
         ))}
       </div>
     </div>
@@ -520,19 +514,10 @@ function VaultContent({
 
         {/* ── Template list ── */}
         {loadingTemplates ? (
-          <div className="py-16 text-center space-y-4">
-            <div className="flex justify-center gap-2">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="w-2.5 h-2.5 rounded-full bg-primary/40 animate-bounce"
-                  style={{ animationDelay: `${i * 0.1}s` }}
-                />
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {tr({ en: "Loading templates...", es: "Cargando plantillas..." }, language)}
-            </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[10px]">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <Skeleton key={i} className="rounded-[10px]" style={{ aspectRatio: "9/14" }} />
+            ))}
           </div>
         ) : templates.length === 0 ? (
           <div className="py-16 text-center space-y-4">
@@ -572,17 +557,26 @@ function VaultContent({
           </div>
         ) : (
           <>
-            <div className="columns-1 sm:columns-2 lg:columns-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[10px]">
               {templates.map((tpl) => (
-                <div key={tpl.id} className="break-inside-avoid mb-3">
-                  <VaultTemplateCard
-                    tpl={tpl}
-                    language={language}
-                    handleDelete={handleDelete}
-                    clientName={isMasterMode ? tpl.clients?.name : undefined}
-                  />
-                </div>
+                <VaultTemplateCard
+                  key={tpl.id}
+                  tpl={tpl}
+                  language={language}
+                  handleDelete={handleDelete}
+                  clientName={isMasterMode ? tpl.clients?.name : undefined}
+                />
               ))}
+              {/* Ghost card — opens create drawer */}
+              <button
+                disabled={!hasClientId}
+                onClick={() => setShowCreate(true)}
+                className="rounded-[10px] flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#22d3ee]/30"
+                style={{ aspectRatio: "9/14", background: "rgba(255,255,255,0.02)", border: "1.5px dashed rgba(255,255,255,0.1)" }}
+              >
+                <Plus className="w-4 h-4 text-[#22d3ee]/50" />
+                <span className="text-[10px] font-semibold text-white/25">Add</span>
+              </button>
             </div>
           </>
         )}
