@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
+import { OutOfCreditsProvider } from "@/contexts/OutOfCreditsContext";
+import OutOfCreditsModal from "@/components/OutOfCreditsModal";
 import FloatingUploadProgress from "@/components/FloatingUploadProgress";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
@@ -87,11 +89,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <LeadNotificationProvider>
+      <OutOfCreditsProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
           <FloatingUploadProgress />
+          <OutOfCreditsModal />
           <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public / unauthenticated routes */}
@@ -163,6 +167,7 @@ const App = () => (
           </Suspense>
         </BrowserRouter>
       </TooltipProvider>
+      </OutOfCreditsProvider>
       </LeadNotificationProvider>
     </AuthProvider>
   </QueryClientProvider>
