@@ -69,10 +69,11 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { client_id } = await req.json() as { client_id: string };
+    const { client_id, language } = await req.json() as { client_id: string; language?: string };
     if (!client_id) {
       return new Response(JSON.stringify({ error: "client_id required" }), { status: 400, headers: corsHeaders });
     }
+    const lang = language === "es" ? "es" : "en";
 
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -134,7 +135,11 @@ serve(async (req) => {
 
     const noEmulationProfiles = emulationProfiles.length === 0;
 
-    const prompt = `You are analyzing a social media creator's most recent content to assess how well it serves their target audience.
+    const langInstruction = lang === "es"
+      ? "Respond entirely in Spanish. All text in the JSON values must be in Spanish."
+      : "Respond entirely in English.";
+
+    const prompt = `You are analyzing a social media creator's most recent content to assess how well it serves their target audience. ${langInstruction}
 
 CLIENT PROFILE:
 - Industry: ${industry}
@@ -216,6 +221,7 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       emulation_posts_analyzed: totalEmulationPosts,
       emulation_profiles: emulationProfiles,
       analyzed_at: new Date().toISOString(),
+      language: lang,
     };
 
     await adminClient.from("client_strategies").upsert(

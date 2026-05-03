@@ -36,6 +36,7 @@ interface ClientStrategy {
     emulation_posts_analyzed: number;
     emulation_profiles: string[];
     analyzed_at: string;
+    language?: string;
   } | null;
   audience_analyzed_at?: string | null;
 }
@@ -197,7 +198,7 @@ export default function ClientStrategy() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data, error } = await supabase.functions.invoke("analyze-audience-alignment", {
-        body: { client_id: clientId },
+        body: { client_id: clientId, language },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error || !data?.success) {
@@ -480,6 +481,17 @@ export default function ClientStrategy() {
             <p className="text-[12px] mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
               {s.audience_analysis.summary}
             </p>
+          )}
+
+          {/* Language mismatch nudge */}
+          {s.audience_analysis?.language && s.audience_analysis.language !== language && !analyzing && (
+            <button
+              onClick={runAnalysis}
+              className="w-full text-[11px] text-left px-2.5 py-2 rounded-lg mb-3 transition-opacity hover:opacity-80"
+              style={{ background: "rgba(34,211,238,0.07)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.15)" }}
+            >
+              {en ? "Analysis is in another language — click to re-analyze in English" : "El análisis está en otro idioma — toca para re-analizar en español"}
+            </button>
           )}
 
           <div className="flex items-center justify-between mt-4">
