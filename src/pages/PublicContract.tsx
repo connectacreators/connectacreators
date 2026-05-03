@@ -13,9 +13,19 @@ const FONTS = [
   { key: "pinyon-script",  label: "Pinyon Script",  family: "'Pinyon Script', cursive"  },
 ];
 
+interface PublicContractData {
+  id: string;
+  title: string;
+  status: string;
+  current_storage_path: string;
+  signing_token_expires_at: string;
+  admin_signature_name: string | null;
+  client_signed_at: string | null;
+}
+
 export default function PublicContract() {
   const { token } = useParams<{ token: string }>();
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<PublicContractData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -25,10 +35,13 @@ export default function PublicContract() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=Dancing+Script&family=Great+Vibes&family=Pinyon+Script&display=swap";
-    document.head.appendChild(link);
+    if (!document.getElementById("contract-pub-fonts")) {
+      const link = document.createElement("link");
+      link.id = "contract-pub-fonts";
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Dancing+Script&family=Great+Vibes&family=Pinyon+Script&display=swap";
+      document.head.appendChild(link);
+    }
 
     async function load() {
       try {

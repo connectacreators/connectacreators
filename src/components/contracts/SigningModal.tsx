@@ -24,9 +24,10 @@ interface Props {
   contract: Contract;
   onClose: () => void;
   onSigned: (updatedContract: Contract) => void;
+  role?: "admin" | "client";
 }
 
-export default function SigningModal({ contract, onClose, onSigned }: Props) {
+export default function SigningModal({ contract, onClose, onSigned, role = "admin" }: Props) {
   const { user } = useAuth();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -64,7 +65,7 @@ export default function SigningModal({ contract, onClose, onSigned }: Props) {
       const { data, error } = await supabase.functions.invoke("sign-contract", {
         body: {
           contract_id: contract.id,
-          role: "admin",
+          role,
           signature_name: name.trim(),
           signature_font: font,
         },

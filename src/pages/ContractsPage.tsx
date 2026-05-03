@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Loader2, ArrowLeft, Plus, FileText, Download, Send,
-  CheckCircle2, FileX, LayoutTemplate,
+  FileX, LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -219,6 +219,26 @@ export default function ContractsPage() {
                       <ArrowLeft className="w-3 h-3 rotate-180" />
                     </Button>
                   )}
+                  {isAdmin && c.status === "draft" && !!c.admin_signed_at && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs btn-17-primary gap-1"
+                      onClick={() => setSendingContract(c)}
+                    >
+                      <Send className="w-3 h-3" />
+                      Send
+                    </Button>
+                  )}
+                  {!isAdmin && c.status === "awaiting_client" && c.send_method === "in_app" && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs btn-17-primary gap-1"
+                      onClick={() => setSigningContract(c)}
+                    >
+                      Sign
+                      <ArrowLeft className="w-3 h-3 rotate-180" />
+                    </Button>
+                  )}
                   {isAdmin && c.status === "awaiting_client" && (
                     <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setSendingContract(c)}>
                       <Send className="w-3 h-3" />
@@ -238,6 +258,7 @@ export default function ContractsPage() {
                     <Button
                       variant="ghost" size="sm"
                       className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                      title="Void contract"
                       onClick={() => handleVoid(c)}
                     >
                       <FileX className="w-3 h-3" />
@@ -291,8 +312,13 @@ export default function ContractsPage() {
       {signingContract && (
         <SigningModal
           contract={signingContract}
+          role={isAdmin ? "admin" : "client"}
           onClose={() => setSigningContract(null)}
-          onSigned={(updatedContract) => { setSigningContract(null); setSendingContract(updatedContract); fetchData(); }}
+          onSigned={(updatedContract) => {
+            setSigningContract(null);
+            if (isAdmin) setSendingContract(updatedContract);
+            fetchData();
+          }}
         />
       )}
       {sendingContract && (
