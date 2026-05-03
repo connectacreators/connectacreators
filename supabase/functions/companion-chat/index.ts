@@ -525,7 +525,7 @@ YOUR RULES — FOLLOW EXACTLY:
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION — MANDATORY ORCHESTRATOR PATTERN.
 
-When asked to build a script, write a script, create content, or anything similar, you MUST call ONE tool: build_script_full_pipeline. That single tool does everything: searches viral references, picks the best one, adds video node to canvas, generates research analysis, identifies the winning idea, builds the full script, places all nodes on the canvas, and saves to scripts library.
+When asked to build a script, write a script, create content, or anything similar, you MUST call ONE tool: build_script_full_pipeline. That single tool is CANVAS-AWARE: before doing anything, it reads what's already on the user's active canvas. If a video is already there it reuses it (no re-fetch, no re-transcribe). If research/idea/framework notes are already there, the synthesis builds on them instead of inventing from scratch. So when a user says "build a script" while their canvas already has competitors mapped or hooks researched, the tool intelligently uses that work — saving credits and producing better-grounded scripts. After the tool returns, READ the summary carefully: if it says "REUSED" or "CANVAS CONTEXT used", mention that in your reply so the user knows you noticed their existing work.
 
 USAGE:
 - Pass client_name (the user's name from CLIENT STRATEGY context).
@@ -1176,22 +1176,26 @@ For everything else (non-script tasks): Think: what is the single most useful ac
             } else {
               const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
               const existingEdges = Array.isArray(canvasState.edges) ? canvasState.edges : [];
-              // Only count PIPELINE nodes (id prefix videoNode_pipeline_) — keeps positioning sensible
-              // when canvas already has competitor folders, etc.
-              const pipelineRowCount = existingNodes.filter(
-                (n: any) => typeof n.id === "string" && n.id.startsWith("videoNode_pipeline_")
-              ).length;
-              const rowY = pipelineRowCount * 700;
 
               // ─── Read existing canvas context — Mario should reuse what's already there ───
               const existingVideoNodes = existingNodes.filter((n: any) => n.type === "videoNode");
               const existingTextNodes = existingNodes.filter((n: any) => n.type === "textNoteNode");
               const existingCompetitors = existingNodes.filter((n: any) => n.type === "competitorProfileNode" || n.type === "instagramProfileNode");
 
-              // Find a video already on canvas with transcription — skip the transcribe step
-              const reusableVideo = existingVideoNodes.find((n: any) =>
+              // Tier 1: video already transcribed → full reuse (no fetch, no transcribe, no visual).
+              // Tier 2: video on canvas but not transcribed → use that URL, transcribe it now.
+              // Tier 3: no video on canvas → fetch from viral_videos DB.
+              const fullyReusableVideo = existingVideoNodes.find((n: any) =>
                 n.data?.transcription && (n.data.transcription as string).length > 100
               );
+              const partialReusableVideo = !fullyReusableVideo
+                ? existingVideoNodes.find((n: any) => typeof n.data?.url === "string" && n.data.url.length > 0)
+                : null;
+
+              // Pipeline row count drives Y position for fresh fetches; reused videos use their own Y.
+              const pipelineRowCount = existingNodes.filter(
+                (n: any) => typeof n.id === "string" && n.id.startsWith("videoNode_pipeline_")
+              ).length;
 
               // Build context summary so synthesis can leverage existing research/ideas/frameworks
               const canvasContextLines: string[] = [];
@@ -1206,24 +1210,38 @@ For everything else (non-script tasks): Think: what is the single most useful ac
                 const handles = existingCompetitors.map((n: any) => `@${n.data?.username || n.data?.channel_username || "unknown"}`).filter(h => h !== "@unknown");
                 if (handles.length) canvasContextLines.push(`COMPETITORS ALREADY MAPPED: ${handles.join(", ")}`);
               }
-              if (reusableVideo) {
+              if (fullyReusableVideo) {
                 canvasContextLines.push(`VIDEO ALREADY ON CANVAS WITH TRANSCRIPTION — reuse it instead of fetching a new one.`);
+              } else if (partialReusableVideo) {
+                canvasContextLines.push(`VIDEO ON CANVAS BUT NOT TRANSCRIBED — use that URL and transcribe it now.`);
               }
               const canvasContext = canvasContextLines.join("\n\n");
 
-              // 3. Find viral video — but reuse one already on canvas if available
+              // 3. Find viral video — three-tier reuse logic
               let chosenVideo: any = null;
-              let skipFetch = false;
+              let reuseMode: "full" | "url-only" | "fetch" = "fetch";
+              let reusedNode: any = null;
 
-              if (reusableVideo) {
+              if (fullyReusableVideo) {
                 chosenVideo = {
-                  channel_username: reusableVideo.data?.channel_username || "",
-                  caption: reusableVideo.data?.caption || reusableVideo.data?.videoTitle || "",
-                  views_count: reusableVideo.data?.views_count || 0,
+                  channel_username: fullyReusableVideo.data?.channel_username || "",
+                  caption: fullyReusableVideo.data?.caption || fullyReusableVideo.data?.videoTitle || "",
+                  views_count: fullyReusableVideo.data?.views_count || 0,
                   outlier_score: 0,
-                  video_url: reusableVideo.data?.url || "",
+                  video_url: fullyReusableVideo.data?.url || "",
                 };
-                skipFetch = true;
+                reuseMode = "full";
+                reusedNode = fullyReusableVideo;
+              } else if (partialReusableVideo) {
+                chosenVideo = {
+                  channel_username: partialReusableVideo.data?.channel_username || "",
+                  caption: partialReusableVideo.data?.caption || partialReusableVideo.data?.videoTitle || "",
+                  views_count: partialReusableVideo.data?.views_count || 0,
+                  outlier_score: 0,
+                  video_url: partialReusableVideo.data?.url || "",
+                };
+                reuseMode = "url-only";
+                reusedNode = partialReusableVideo;
               } else {
                 let { data: videos } = await adminClient
                   .from("viral_videos")
@@ -1254,17 +1272,51 @@ For everything else (non-script tasks): Think: what is the single most useful ac
                 let transcription = "";
                 let videoCacheUrl: string | null = null;
 
-                if (skipFetch && reusableVideo) {
-                  // Reuse existing video on canvas — skip write, transcribe, and visual analysis
-                  videoNode = reusableVideo;
-                  transcription = reusableVideo.data?.transcription || "";
-                  videoCacheUrl = reusableVideo.data?.videoUrl || null;
+                // Position downstream nodes — align with reused video's Y if reusing, else stack below pipeline rows
+                const reusedY = reusedNode?.position?.y ?? 0;
+                const reusedX = reusedNode?.position?.x ?? 50;
+                const rowY = reusedNode ? reusedY : pipelineRowCount * 700;
+                const colXBase = reusedNode ? reusedX : 50;
+
+                if (reuseMode === "full" && reusedNode) {
+                  // Tier 1: Full reuse — use existing transcription as-is
+                  videoNode = reusedNode;
+                  transcription = reusedNode.data?.transcription || "";
+                  videoCacheUrl = reusedNode.data?.videoUrl || null;
+                } else if (reuseMode === "url-only" && reusedNode) {
+                  // Tier 2: Reuse the URL but transcribe now (user dropped a URL but never clicked Go)
+                  videoNode = reusedNode;
+                  try {
+                    const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: authHeader },
+                      body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
+                    });
+                    if (transcribeRes.ok) {
+                      const tdata = await transcribeRes.json();
+                      transcription = tdata.transcription || "";
+                      videoCacheUrl = tdata.videoUrl ?? null;
+                      // Update the EXISTING video node in place so user sees transcription appear on it
+                      nodesAccumulator = nodesAccumulator.map((n: any) =>
+                        n.id === reusedNode.id
+                          ? { ...n, data: { ...n.data, transcription, videoUrl: videoCacheUrl, thumbnail_url: tdata.thumbnail_url ?? n.data?.thumbnail_url ?? null } }
+                          : n
+                      );
+                      await adminClient.from("canvas_states")
+                        .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                        .eq("id", canvasState.id);
+                    } else {
+                      console.warn("[orchestrator] transcribe-video failed (url-only reuse):", transcribeRes.status);
+                    }
+                  } catch (tErr) {
+                    console.warn("[orchestrator] transcribe-video threw (url-only reuse):", tErr);
+                  }
                 } else {
-                  // ─── STAGE 1: Write the video node FIRST so user sees it appear ───
+                  // Tier 3: Fresh fetch — write video node, then transcribe
                   videoNode = {
                     id: `videoNode_pipeline_${ts}`,
                     type: "videoNode",
-                    position: { x: 50, y: rowY },
+                    position: { x: colXBase, y: rowY },
                     data: {
                       url: chosenVideo.video_url,
                       videoTitle: (chosenVideo.caption || "").slice(0, 80),
@@ -1278,7 +1330,6 @@ For everything else (non-script tasks): Think: what is the single most useful ac
                     .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
                     .eq("id", canvasState.id);
 
-                  // ─── STAGE 2a: Transcribe the video so synthesis has REAL spoken content ───
                   try {
                     const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
                       method: "POST",
@@ -1305,8 +1356,8 @@ For everything else (non-script tasks): Think: what is the single most useful ac
                   }
                 }
 
-                // ─── STAGE 2b: Visual breakdown — only if we just transcribed (not for reused) ───
-                const visualPromise = !skipFetch && transcription
+                // ─── STAGE 2b: Visual breakdown — only run when we did a fresh fetch ───
+                const visualPromise = reuseMode === "fetch" && transcription
                   ? fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-video-multimodal`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json", Authorization: authHeader },
@@ -1406,7 +1457,7 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                   const researchNode = {
                     id: `textNoteNode_research_${ts}`,
                     type: "textNoteNode",
-                    position: { x: 370, y: rowY },
+                    position: { x: colXBase + 320, y: rowY },
                     data: {
                       noteText: `HOOK TYPE: ${(r.hook_type || "").toUpperCase()}\n\nHook: "${r.hook_text || ""}"\n\nWhy it works: ${r.why_it_works || ""}\n\nHow to adapt: ${r.how_to_adapt || ""}`,
                       noteHtml: `<p><strong>HOOK TYPE: ${(r.hook_type || "").toUpperCase()}</strong></p><p>Hook: "${r.hook_text || ""}"</p><p>Why it works: ${r.why_it_works || ""}</p><p>How to adapt: ${r.how_to_adapt || ""}</p>`,
@@ -1425,7 +1476,7 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                   const ideaNode = {
                     id: `textNoteNode_idea_${ts}`,
                     type: "textNoteNode",
-                    position: { x: 680, y: rowY },
+                    position: { x: colXBase + 630, y: rowY },
                     data: {
                       noteText: `WINNING IDEA — ${(idea.category || "").toUpperCase()}\n\n"${idea.hook_sentence || ""}"\n\nFramework: ${idea.framework || ""}\n\nWhy it works: ${idea.why_it_works || ""}`,
                       noteHtml: `<p><strong>WINNING IDEA — ${(idea.category || "").toUpperCase()}</strong></p><p>"${idea.hook_sentence || ""}"</p><p>Framework: ${idea.framework || ""}</p><p>Why it works: ${idea.why_it_works || ""}</p>`,
@@ -1444,7 +1495,7 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                   const scriptNode = {
                     id: `textNoteNode_script_${ts}`,
                     type: "textNoteNode",
-                    position: { x: 980, y: rowY },
+                    position: { x: colXBase + 930, y: rowY },
                     data: {
                       noteText: `SCRIPT — ${(idea.category || "").toUpperCase()}\nFramework: ${idea.framework || ""}\n\nHOOK:\n${sc.hook || ""}\n\nBODY:\n${sc.body || ""}\n\nCTA:\n${sc.cta || ""}`,
                       noteHtml: `<p><strong>SCRIPT — ${(idea.category || "").toUpperCase()}</strong></p><p>Framework: ${idea.framework || ""}</p><p><strong>HOOK:</strong></p><p>${(sc.hook || "").replace(/\n/g, "<br>")}</p><p><strong>BODY:</strong></p><p>${(sc.body || "").replace(/\n/g, "<br>")}</p><p><strong>CTA:</strong></p><p>${sc.cta || ""}</p>`,
@@ -1501,17 +1552,28 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                   // 7. Navigate to canvas (client-specific path)
                   actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts?view=canvas` });
 
+                  const reuseLine = reuseMode === "full"
+                    ? `REUSED video already on canvas (saved a fetch + transcribe + visual analysis).`
+                    : reuseMode === "url-only"
+                    ? `REUSED video URL already on canvas — transcribed it now.`
+                    : `FRESH FETCH from viral_videos library.`;
+                  const contextLine = canvasContext
+                    ? `CANVAS CONTEXT used: ${existingTextNodes.length} existing notes, ${existingCompetitors.length} competitors mapped.`
+                    : "";
+
                   const summary = `BUILT a complete script for ${targetClient.name}.
 
+${reuseLine}
+${contextLine}
 REFERENCE: @${chosenVideo.channel_username} (${(chosenVideo.views_count || 0).toLocaleString()} views) — ${r.hook_type} hook
 ${transcription ? `TRANSCRIBED: ${transcription.length} chars of real audio captured` : "TRANSCRIPTION: failed (used caption only)"}
 ${visualResult ? `VISUAL BREAKDOWN: ${visualResult.visual_segments?.length || 0} scenes analyzed` : ""}
 WINNING IDEA: "${idea.hook_sentence}"
 FRAMEWORK: ${idea.framework}
 
-The canvas has 4 nodes connected with edges: video reference (with transcription + visual analysis), research, winning idea, and full script draft. The script is saved to the scripts library.
+The canvas now has the reference video connected to research → idea → script nodes via animated edges. The script is saved to the scripts library.
 
-Tell the user this in your respond_to_user — be specific about what you found and what the winning idea was.`;
+Tell the user this in your respond_to_user — be specific about what you found, what the winning idea was, AND if you reused something from the canvas mention it (e.g. "I noticed you already had X on the canvas, so I built on that").`;
                   toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
                 }
               }
