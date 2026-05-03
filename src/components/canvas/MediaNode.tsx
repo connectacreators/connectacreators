@@ -321,7 +321,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
 
   // ─── Transcription handler ───
   const triggerTranscription = async (
-    mode: "audio" | "visual" | "both"
+    mode: "audio" | "visual" | "both" | "pdf"
   ) => {
     if (!d.mediaId) {
       toast.error("Cannot transcribe — missing media info.");
@@ -856,7 +856,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
                 {/* Status / action */}
                 {d.transcriptionStatus === "none" && !isProcessing && (
                   <button
-                    onClick={() => triggerTranscription("audio")}
+                    onClick={() => triggerTranscription("pdf")}
                     className="nodrag w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-[11px] font-medium"
                   >
                     <FileText className="w-3.5 h-3.5" />
@@ -880,7 +880,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
 
                 {d.transcriptionStatus === "error" && !isProcessing && (
                   <button
-                    onClick={() => triggerTranscription("audio")}
+                    onClick={() => triggerTranscription("pdf")}
                     className="nodrag w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[11px] font-medium"
                   >
                     Extraction failed — Retry
