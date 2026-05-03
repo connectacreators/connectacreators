@@ -3,10 +3,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { useCompanion } from "@/contexts/CompanionContext";
 import { t, tr } from "@/i18n/translations";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
@@ -14,7 +16,7 @@ import {
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe,
 } from "lucide-react";
 
-type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ className?: string }>; path: string };
+type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ className?: string }>; path: string; badge?: number };
 type NavGroup = { type: 'group'; label: string };
 type NavEntry = NavItem | NavGroup;
 
@@ -32,6 +34,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const { language } = useLanguage();
   const { user, signOut, isAdmin, isUser, isVideographer, isEditor, role } = useAuth();
   const { credits } = useCredits();
+  const { tasks: companionTasks, companionName } = useCompanion();
+  const companionBadge = companionTasks.filter((t) => t.priority === "red" || t.priority === "amber").length;
   const [ownClientId, setOwnClientId] = useState<string | null>(null);
   const [ownClientName, setOwnClientName] = useState<string | null>(null);
 
@@ -55,6 +59,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const [clientLimit, setClientLimit] = useState(5);
   const [addingClient, setAddingClient] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  const [creatingClient, setCreatingClient] = useState(false);
 
   // Sync viewMode when URL contains a client ID (e.g. navigating from Clients list)
   useEffect(() => {
@@ -217,6 +222,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: language === "en" ? "Team Members" : "Equipo", icon: Video, path: "/videographers" },
         { label: "Subscribers", icon: UserCheck, path: "/subscribers" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -231,6 +237,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -241,6 +248,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -265,6 +273,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: 'Manage' },
         { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
         { label: "Subscription", icon: CreditCard, path: "/subscription" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: "Account", icon: Settings, path: "/settings" },
       ];
     }
@@ -288,6 +297,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { type: 'group', label: 'Manage' },
       { label: "Clients", icon: Users, path: "/clients" },
       { label: "Subscription", icon: CreditCard, path: "/subscription" },
+      { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
       { label: "Account", icon: Settings, path: "/settings" },
     ];
   };
@@ -398,10 +408,15 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               )}
               <span
                 key={`${item.label}-${showActive}`}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', animation: 'nav-blur-in 0.45s cubic-bezier(0.25,0.46,0.45,0.94) forwards' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', animation: 'nav-blur-in 0.45s cubic-bezier(0.25,0.46,0.45,0.94) forwards', flex: 1 }}
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
+                {(item.badge ?? 0) > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
+                    {item.badge}
+                  </span>
+                )}
               </span>
             </button>
           );
@@ -566,32 +581,43 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               />
               <div className="flex gap-1 mt-1">
                 <button
+                  disabled={creatingClient}
                   onClick={async () => {
-                    if (!newClientName.trim()) return;
-                    const { data: clientId, error } = await supabase.rpc("create_client_for_subscriber", {
-                      _name: newClientName.trim(),
-                      _email: null,
-                    });
-                    if (!error && clientId) {
+                    if (!newClientName.trim() || creatingClient) return;
+                    setCreatingClient(true);
+                    try {
+                      const { data: clientId, error } = await supabase.rpc("create_client_for_subscriber", {
+                        _name: newClientName.trim(),
+                        _email: null,
+                      });
+                      if (error) {
+                        console.error("[create client]", error);
+                        toast.error(error.message || "Failed to create client");
+                        return;
+                      }
+                      if (!clientId) {
+                        toast.error("Client could not be created — you may have reached your limit");
+                        return;
+                      }
                       handleViewModeChange(clientId);
                       setNewClientName("");
                       setAddingClient(false);
                       window.dispatchEvent(new Event("clients-changed"));
-                      supabase
+                      const { data } = await supabase
                         .from("subscriber_clients")
                         .select("client_id, is_primary, clients(id, name)")
                         .eq("subscriber_user_id", user!.id)
                         .eq("is_primary", false)
-                        .order("created_at")
-                        .then(({ data }) => {
-                          if (data) setClients(data.map((d: any) => ({ id: d.clients.id, name: d.clients.name })));
-                        });
+                        .order("created_at");
+                      if (data) setClients(data.map((d: any) => ({ id: d.clients.id, name: d.clients.name })));
+                    } finally {
+                      setCreatingClient(false);
                     }
                   }}
-                  className="flex-1 py-1 text-xs font-semibold rounded-md"
+                  className="flex-1 py-1 text-xs font-semibold rounded-md disabled:opacity-50"
                   style={{ background: '#22d3ee', color: 'black' }}
                 >
-                  {language === "en" ? "Create" : "Crear"}
+                  {creatingClient ? "..." : (language === "en" ? "Create" : "Crear")}
                 </button>
                 <button
                   onClick={() => { setNewClientName(""); setAddingClient(false); }}
