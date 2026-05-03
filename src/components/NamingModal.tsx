@@ -4,13 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
 
-const SUGGESTIONS = ["Max", "Luna", "Nova", "Ace", "Rio", "Zara"];
-
 export default function NamingModal() {
   const { setupDone, setSetupDone, setCompanionName, clientId } = useCompanion();
   const { language } = useLanguage();
   const en = language === "en";
-  const [name, setName] = useState("Max");
+  const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
   if (setupDone || !clientId) return null;
@@ -74,22 +72,6 @@ export default function NamingModal() {
               boxShadow: "0 0 0 3px rgba(8,145,178,0.08)",
             }}
           />
-          <div className="flex flex-wrap gap-2 justify-center mt-3">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setName(s)}
-                className="text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors hover:text-[#22d3ee]"
-                style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "rgba(255,255,255,0.45)",
-                }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
           <button
             disabled={saving || !name.trim()}
             onClick={() => saveAndClose(name)}
