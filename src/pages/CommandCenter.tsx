@@ -10,7 +10,7 @@ import PageTransition from "@/components/PageTransition";
 type Tab = "todo" | "done";
 
 export default function CommandCenter() {
-  const { companionName, tasks, loadingTasks } = useCompanion();
+  const { companionName, tasks, loadingTasks, autonomyMode, setAutonomyMode } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ export default function CommandCenter() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data } = await supabase.functions.invoke("companion-chat", {
-        body: { message: userMsg, companion_name: companionName, current_path: location.pathname },
+        body: { message: userMsg, companion_name: companionName, current_path: location.pathname, autonomy_mode: autonomyMode },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (data?.reply) {
@@ -80,6 +80,28 @@ export default function CommandCenter() {
               : (en ? "You're all caught up" : "Estás al día")}
           </p>
         </div>
+      </div>
+
+      {/* Autonomy mode toggle */}
+      <div className="flex gap-1 mb-4 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        {([
+          { key: "auto" as const, label: en ? "Auto" : "Auto", desc: en ? "Acts immediately" : "Actúa de inmediato", color: "#22c55e" },
+          { key: "ask" as const, label: en ? "Ask" : "Preguntar", desc: en ? "Confirms before acting" : "Confirma antes de actuar", color: "#22d3ee" },
+          { key: "plan" as const, label: en ? "Plan" : "Plan", desc: en ? "Shows plan first" : "Muestra el plan primero", color: "#f59e0b" },
+        ]).map((m) => (
+          <button
+            key={m.key}
+            onClick={() => setAutonomyMode(m.key)}
+            className="flex-1 py-2 px-3 rounded-lg text-left transition-all"
+            style={{
+              background: autonomyMode === m.key ? `${m.color}18` : "transparent",
+              border: autonomyMode === m.key ? `1px solid ${m.color}44` : "1px solid transparent",
+            }}
+          >
+            <p className="text-[11px] font-bold" style={{ color: autonomyMode === m.key ? m.color : "rgba(255,255,255,0.35)" }}>{m.label}</p>
+            <p className="text-[9px]" style={{ color: autonomyMode === m.key ? `${m.color}99` : "rgba(255,255,255,0.2)" }}>{m.desc}</p>
+          </button>
+        ))}
       </div>
 
       {/* Tabs */}

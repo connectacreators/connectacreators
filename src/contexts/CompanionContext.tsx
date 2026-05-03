@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+export type AutonomyMode = "auto" | "ask" | "plan";
+
 export interface CompanionTask {
   id: string;
   titleEn: string;
@@ -27,6 +29,8 @@ interface CompanionContextType {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   loadingTasks: boolean;
+  autonomyMode: AutonomyMode;
+  setAutonomyMode: (mode: AutonomyMode) => void;
 }
 
 const CompanionContext = createContext<CompanionContextType | null>(null);
@@ -39,6 +43,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
   const [clientId, setClientId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [autonomyMode, setAutonomyModeState] = useState<AutonomyMode>("ask");
 
   // Resolve primary client ID
   useEffect(() => {
@@ -50,16 +55,34 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
   // Load companion state once client is known
   useEffect(() => {
     if (!clientId) return;
-    supabase.from("companion_state").select("companion_name, companion_setup_done")
+    supabase.from("companion_state")
+      .select("companion_name, companion_setup_done, workflow_context")
       .eq("client_id", clientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
           setCompanionName(data.companion_name);
           setSetupDone(data.companion_setup_done);
+          const mode = data.workflow_context?.__autonomy_mode;
+          if (mode === "auto" || mode === "ask" || mode === "plan") {
+            setAutonomyModeState(mode);
+          }
         } else {
           setSetupDone(false);
         }
       });
+  }, [clientId]);
+
+  const setAutonomyMode = useCallback(async (mode: AutonomyMode) => {
+    setAutonomyModeState(mode);
+    if (!clientId) return;
+    // Merge into workflow_context
+    const { data: existing } = await supabase.from("companion_state")
+      .select("workflow_context").eq("client_id", clientId).maybeSingle();
+    const merged = { ...(existing?.workflow_context || {}), __autonomy_mode: mode };
+    await supabase.from("companion_state").upsert(
+      { client_id: clientId, workflow_context: merged },
+      { onConflict: "client_id" }
+    );
   }, [clientId]);
 
   const refreshTasks = useCallback(async () => {
@@ -87,6 +110,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
       clientId,
       isOpen, setIsOpen,
       loadingTasks,
+      autonomyMode, setAutonomyMode,
     }}>
       {children}
     </CompanionContext.Provider>

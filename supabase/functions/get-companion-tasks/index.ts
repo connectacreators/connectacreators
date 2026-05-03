@@ -48,7 +48,9 @@ serve(async (req) => {
 
     // 1. Onboarding incomplete (red)
     const od = client.onboarding_data || {};
-    const onboardingDone = od && Object.keys(od).length >= 3;
+    // Onboarding is only "done" when the 5 core fields all have real content
+    const requiredFields = ["clientName", "industry", "uniqueOffer", "targetClient", "story"];
+    const onboardingDone = requiredFields.every((f) => od[f] && String(od[f]).trim().length > 3);
     if (!onboardingDone) {
       tasks.push({
         id: "onboarding",

@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function CompanionBubble() {
-  const { companionName, tasks, isOpen, setIsOpen } = useCompanion();
+  const { companionName, tasks, isOpen, setIsOpen, autonomyMode, setAutonomyMode } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ export default function CompanionBubble() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data } = await supabase.functions.invoke("companion-chat", {
-        body: { message: userMsg, companion_name: companionName, current_path: location.pathname },
+        body: { message: userMsg, companion_name: companionName, current_path: location.pathname, autonomy_mode: autonomyMode },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (data?.reply) {
@@ -41,7 +41,6 @@ export default function CompanionBubble() {
       if (data?.actions) {
         for (const action of data.actions) {
           if (action.type === "navigate") {
-            setIsOpen(false);
             navigate(action.path);
           }
           if (action.type === "fill_onboarding") {
@@ -87,7 +86,7 @@ export default function CompanionBubble() {
         >
           {/* Panel header */}
           <div
-            className="flex items-center gap-3 px-4 py-3.5"
+            className="flex items-center gap-3 px-4 py-3"
             style={{ background: "linear-gradient(135deg,#0c1524,#111d35)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
           >
             <div
@@ -109,6 +108,28 @@ export default function CompanionBubble() {
             >
               {en ? "See all" : "Ver todo"} <ChevronRight className="w-3 h-3" />
             </button>
+          </div>
+
+          {/* Autonomy mode toggle */}
+          <div className="flex items-center gap-1 px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.2)" }}>
+            {([
+              { key: "auto", label: "Auto", color: "#22c55e" },
+              { key: "ask", label: "Ask", color: "#22d3ee" },
+              { key: "plan", label: "Plan", color: "#f59e0b" },
+            ] as const).map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setAutonomyMode(m.key)}
+                className="flex-1 text-[10px] font-bold py-1 rounded-lg transition-all"
+                style={{
+                  background: autonomyMode === m.key ? `${m.color}22` : "transparent",
+                  color: autonomyMode === m.key ? m.color : "rgba(255,255,255,0.25)",
+                  border: autonomyMode === m.key ? `1px solid ${m.color}44` : "1px solid transparent",
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
 
           {/* Urgent tasks */}

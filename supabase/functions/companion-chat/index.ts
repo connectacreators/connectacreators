@@ -69,10 +69,11 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { message, companion_name, current_path } = await req.json() as {
+    const { message, companion_name, current_path, autonomy_mode } = await req.json() as {
       message: string;
       companion_name: string;
       current_path?: string;
+      autonomy_mode?: "auto" | "ask" | "plan";
     };
 
     if (!message?.trim()) {
@@ -176,7 +177,15 @@ YOUR RULES — FOLLOW EXACTLY:
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
-11. MEMORY: Whenever you learn something important about the client — their main story with specific numbers, their content pillars, their target audience, a great hook idea, a business result, a preference — call save_memory immediately. Don't wait to be asked. Think of this like taking notes on a client you'll work with for years. Save things that would be valuable to remember in 6 months.`;
+11. MEMORY: Whenever you learn something important about the client — their main story with specific numbers, their content pillars, their target audience, a great hook idea, a business result, a preference — call save_memory immediately. Don't wait to be asked. Think of this like taking notes on a client you'll work with for years. Save things that would be valuable to remember in 6 months.
+
+AUTONOMY MODE: ${autonomy_mode || "ask"}
+${autonomy_mode === "auto"
+  ? "AUTO MODE: Execute all actions immediately without asking permission. Fill fields, navigate, save memories — just do it. Tell the user what you did after. Speed and efficiency over confirmation."
+  : autonomy_mode === "plan"
+  ? "PLAN MODE: Before doing anything, write out a numbered plan of every step you'll take. Ask the user to approve the plan. Only execute after they confirm. Be thorough — list every field you'll fill, every page you'll navigate to."
+  : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you're about to do in one sentence and wait for the user to confirm. Keep it short — 'I will fill your target client field and navigate to onboarding. Should I?' Then execute once they say yes."
+}`;
 
     // Save user message
     await adminClient.from("companion_messages").insert({
@@ -230,7 +239,7 @@ YOUR RULES — FOLLOW EXACTLY:
         if (block.name === "navigate_to_page") {
           const { path } = block.input;
           actions.push({ type: "navigate", path });
-          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Navigating to ${path}` });
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Navigating to " + path });
         }
 
         if (block.name === "save_memory") {
@@ -242,7 +251,7 @@ YOUR RULES — FOLLOW EXACTLY:
           );
           // Update local copy so subsequent saves in same call stack correctly
           savedMemories[key] = value;
-          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Saved memory: ${key}` });
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Saved memory: " + key });
         }
 
         if (block.name === "fill_onboarding_fields") {
@@ -255,7 +264,7 @@ YOUR RULES — FOLLOW EXACTLY:
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: `Filled fields: ${Object.keys(fields).join(", ")}`,
+            content: "Filled fields: " + Object.keys(fields).join(", "),
           });
         }
       }
