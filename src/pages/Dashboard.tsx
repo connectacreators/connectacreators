@@ -4,7 +4,7 @@ import ScriptsLogin from "@/components/ScriptsLogin";
 import {
   Loader2, FileText, Target, CalendarDays, Users,
   Clapperboard, Database, Archive, Zap, UserPlus, Globe,
-  BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame, Layers,
+  BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame, Layers, ScrollText,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
@@ -267,10 +267,12 @@ export default function Dashboard() {
       { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads", icon: CalendarDays, color: "#a78bfa", path: clientId ? `/clients/${clientId}/lead-calendar` : "/lead-calendar" },
     ],
     setup: [
-      { label: "Onboarding", description: language === "en" ? "Complete your account setup" : "Completa la configuración de tu cuenta", icon: UserPlus, color: "#bbbbbb", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
-      { label: "Public Booking", description: language === "en" ? "Configure your booking page" : "Configura tu página de reservas", icon: Globe, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
-      { label: "Landing Page", description: language === "en" ? "View your public landing page" : "Ve tu página de destino pública", icon: Globe, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
-      { label: "Master Database", description: language === "en" ? "View all your leads and videos" : "Ve todos tus leads y videos", icon: Database, color: "#ffffff", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
+      { label: language === "en" ? "Content Strategy" : "Estrategia de Contenido", description: language === "en" ? "Goals, mix, ManyChat & fulfillment score" : "Metas, mezcla, ManyChat y puntuación", icon: BarChart3, color: "#22d3ee", path: clientId ? `/clients/${clientId}/strategy` : "/dashboard" },
+      { label: language === "en" ? "Brand Setup" : "Configuración de Marca", description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding", icon: Sparkles, color: "#fbbf24", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
+      { label: "Public Booking", description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly", icon: Globe, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
+      { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "#34d399", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
+      { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "#22d3ee", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
+      { label: "Contracts", description: language === "en" ? "Upload, sign & send contracts" : "Sube, firma y envía contratos", icon: ScrollText, color: "#fbbf24", path: clientId ? `/clients/${clientId}/contracts` : "/dashboard" },
     ],
   });
 
