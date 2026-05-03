@@ -6,3 +6,5 @@ export type {
   AssistantThreadListProps,
   ThreadListItem,
 } from "./AssistantThreadList.tsx";
+export { AssistantChat } from "./AssistantChat.tsx";
+export type { AssistantChatProps } from "./AssistantChat.tsx";
