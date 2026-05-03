@@ -28,6 +28,16 @@ interface ClientStrategy {
   monthly_revenue_goal: number;
   monthly_revenue_actual: number;
   content_pillars: string[];
+  audience_analysis?: {
+    summary: string;
+    audience_detail: string;
+    uniqueness_detail: string;
+    client_posts_analyzed: number;
+    emulation_posts_analyzed: number;
+    emulation_profiles: string[];
+    analyzed_at: string;
+  } | null;
+  audience_analyzed_at?: string | null;
 }
 
 interface MonthCounts {
@@ -56,6 +66,8 @@ const DEFAULTS: Omit<ClientStrategy, "client_id"> = {
   monthly_revenue_goal: 0,
   monthly_revenue_actual: 0,
   content_pillars: [],
+  audience_analysis: null,
+  audience_analyzed_at: null,
 };
 
 function calcScore(strategy: ClientStrategy, counts: MonthCounts): number {
@@ -134,6 +146,8 @@ export default function ClientStrategy() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<ClientStrategy | null>(null);
+  const [clientOnboarding, setClientOnboarding] = useState<Record<string, unknown>>({});
+  const [analyzing, setAnalyzing] = useState(false);
 
   const load = useCallback(async () => {
     if (!clientId) return;
@@ -149,6 +163,13 @@ export default function ClientStrategy() {
         ? { ...strat, content_pillars: Array.isArray(strat.content_pillars) ? strat.content_pillars : [] }
         : { client_id: clientId, ...DEFAULTS };
       setStrategy(resolved);
+
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("onboarding_data")
+        .eq("id", clientId)
+        .maybeSingle();
+      setClientOnboarding(clientData?.onboarding_data || {});
 
       const monthStart = new Date();
       monthStart.setDate(1);
@@ -167,7 +188,41 @@ export default function ClientStrategy() {
     }
   }, [clientId]);
 
-  useEffect(() => { load(); }, [load]);
+  const runAnalysis = useCallback(async () => {
+    if (!clientId || analyzing) return;
+    setAnalyzing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase.functions.invoke("analyze-audience-alignment", {
+        body: { client_id: clientId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error || !data?.success) {
+        toast.error(en ? "Analysis failed — check Instagram handle in onboarding" : "Análisis falló — revisa el usuario de Instagram");
+        return;
+      }
+      await load();
+      toast.success(en ? "Audience analysis complete" : "Análisis de audiencia completado");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [clientId, analyzing, en, load]);
+
+  useEffect(() => {
+    load().then(() => {
+      setStrategy((current) => {
+        if (!current) return current;
+        const analyzedAt = current.audience_analyzed_at;
+        const isStale = !analyzedAt ||
+          (Date.now() - new Date(analyzedAt).getTime()) > 7 * 24 * 60 * 60 * 1000;
+        if (isStale) {
+          runAnalysis();
+        }
+        return current;
+      });
+    });
+  }, [load]);
 
   const startEdit = () => { setDraft(strategy ? { ...strategy } : null); setEditing(true); };
   const cancelEdit = () => { setDraft(null); setEditing(false); };
@@ -363,27 +418,84 @@ export default function ClientStrategy() {
         </StatusCard>
 
         {/* Audience Alignment */}
-        <StatusCard status={audienceStatus} title={en ? "Audience Alignment" : "Alineación con Audiencia"} badge={audienceStatus === "green" ? (en ? "Strong" : "Fuerte") : audienceStatus === "yellow" ? (en ? "Needs Work" : "Necesita Trabajo") : (en ? "Weak" : "Débil")}>
-          <div className="flex flex-col gap-3">
-            {[
-              { label: en ? "Talking to the right people?" : "¿Hablando con las personas correctas?", field: "audience_score" as keyof ClientStrategy, value: s.audience_score },
-              { label: en ? "Content unique enough to stop the scroll?" : "¿El contenido es lo suficientemente único?", field: "uniqueness_score" as keyof ClientStrategy, value: s.uniqueness_score },
-            ].map(item => {
-              const pct = (item.value / 10) * 100;
-              const c = item.value >= 7 ? "#22c55e" : item.value >= 4 ? "#f59e0b" : "#ef4444";
-              return (
-                <div key={String(item.field)}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] text-white/50">{item.label}</span>
-                    {editing
-                      ? <input type="number" min={0} max={10} value={item.value} onChange={e => set(item.field, Math.min(10, Math.max(0, Number(e.target.value))))} className="bg-white/[0.06] border border-white/10 rounded px-1.5 py-0.5 text-[11px] text-white w-12 outline-none text-center" />
-                      : <span className="text-[11px] font-bold" style={{ color: c }}>{item.value}/10</span>
-                    }
-                  </div>
-                  <ProgressBar pct={pct} color={c} />
-                </div>
-              );
-            })}
+        <StatusCard
+          status={audienceStatus}
+          title={en ? "Audience Alignment" : "Alineación con Audiencia"}
+          badge={
+            analyzing
+              ? (en ? "Analyzing..." : "Analizando...")
+              : audienceStatus === "green"
+                ? (en ? "Strong" : "Fuerte")
+                : audienceStatus === "yellow"
+                  ? (en ? "Needs Work" : "Necesita Trabajo")
+                  : (en ? "Weak" : "Débil")
+          }
+        >
+          {!clientOnboarding.instagram && (
+            <p className="text-[11px] mb-3" style={{ color: "#f59e0b" }}>
+              {en
+                ? "Add your Instagram handle in onboarding to enable auto-analysis."
+                : "Agrega tu usuario de Instagram en el onboarding para activar el análisis."}
+            </p>
+          )}
+
+          {[
+            {
+              label: en ? "Talking to the right people?" : "¿Hablando con las personas correctas?",
+              score: s.audience_score,
+              detail: s.audience_analysis?.audience_detail,
+            },
+            {
+              label: en ? "Content unique enough to stop the scroll?" : "¿El contenido es único para parar el scroll?",
+              score: s.uniqueness_score,
+              detail: s.audience_analysis?.uniqueness_detail,
+            },
+          ].map(({ label, score, detail }) => (
+            <div key={label} className="mb-3">
+              <div className="flex justify-between items-center text-[12px] text-white/70 mb-1">
+                <span>{label}</span>
+                <span className="font-bold text-white">{score}/10</span>
+              </div>
+              <ProgressBar pct={score * 10} color={STATUS_COLORS[audienceStatus]} />
+              {detail && (
+                <p className="text-[11px] mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>{detail}</p>
+              )}
+            </div>
+          ))}
+
+          {s.audience_analysis?.summary && (
+            <p className="text-[12px] mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {s.audience_analysis.summary}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between mt-4">
+            {s.audience_analyzed_at ? (
+              <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                {en ? "Analyzed" : "Analizado"}{" "}
+                {Math.floor((Date.now() - new Date(s.audience_analyzed_at).getTime()) / 86400000)}
+                {en ? "d ago" : "d atrás"}{" "}
+                · {s.audience_analysis?.client_posts_analyzed ?? 0} posts
+              </span>
+            ) : (
+              <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                {analyzing ? (en ? "Running analysis..." : "Ejecutando análisis...") : (en ? "Never analyzed" : "Sin analizar")}
+              </span>
+            )}
+            <button
+              onClick={runAnalysis}
+              disabled={analyzing}
+              className="text-[10px] font-semibold px-2.5 py-1 rounded-md transition-opacity disabled:opacity-40"
+              style={{
+                background: "rgba(34,211,238,0.1)",
+                color: "#22d3ee",
+                border: "1px solid rgba(34,211,238,0.2)",
+              }}
+            >
+              {analyzing
+                ? (en ? "Analyzing..." : "Analizando...")
+                : (en ? "Re-analyze" : "Re-analizar")}
+            </button>
           </div>
         </StatusCard>
 
