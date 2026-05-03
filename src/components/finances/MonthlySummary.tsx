@@ -27,6 +27,7 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   const tax = netProfit * settings.tax_rate;
   const ownerDist = netProfit - tax;
   const takeHome = settings.employee_salary + ownerDist;
+  const payrollTax = Math.max(0, settings.salary_payout - settings.employee_salary);
   const foodDeductible = sum(
     expenses.filter((t) => t.category === "Food & Meals" && t.deductible_amount != null),
     (t) => t.deductible_amount ?? 0,
@@ -58,11 +59,14 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         <Divider />
         <Row label="Gross Income" value={gross} emphasized positive={gross >= 0} negative={gross < 0} />
         {editingSettings ? (
-          <SettingRow label="Salary Payout">
+          <SettingRow label="Payroll Cost (gross)" hint="Total monthly payroll cost from the business including payroll taxes.">
             <Input type="number" step="0.01" className="h-7 text-xs" value={salaryPayout} onChange={(e) => setSalaryPayout(e.target.value)} />
           </SettingRow>
         ) : (
-          <Row label="Salary Payout" value={settings.salary_payout} negative />
+          <Row label="Payroll Cost (gross)" value={settings.salary_payout} negative />
+        )}
+        {payrollTax > 0 && !editingSettings && (
+          <Row label="↳ Payroll Tax" value={payrollTax} muted />
         )}
         <Row label="Net Profit" value={netProfit} emphasized />
         {editingSettings ? (
@@ -75,12 +79,12 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         <Divider />
         <Row label="Owner's Dist." value={ownerDist} positive={ownerDist >= 0} />
         {editingSettings ? (
-          <SettingRow label="Employee Salary">
+          <SettingRow label="Take-Home Salary (net)" hint="What actually hits your personal account each month — net of payroll taxes.">
             <Input type="number" step="0.01" className="h-7 text-xs" value={employeeSalary} onChange={(e) => setEmployeeSalary(e.target.value)} />
           </SettingRow>
-        ) : settings.employee_salary > 0 ? (
-          <Row label="Employee Salary" value={settings.employee_salary} positive />
-        ) : null}
+        ) : (
+          <Row label="Take-Home Salary (net)" value={settings.employee_salary} positive={settings.employee_salary > 0} muted={settings.employee_salary === 0} />
+        )}
         <Row label="Take-Home Pay" value={takeHome} emphasized positive={takeHome >= 0} />
       </dl>
 
@@ -127,11 +131,14 @@ function Row({
   );
 }
 
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="w-24">{children}</dd>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="w-24">{children}</dd>
+      </div>
+      {hint && <p className="text-[10px] text-muted-foreground/70 leading-snug">{hint}</p>}
     </div>
   );
 }

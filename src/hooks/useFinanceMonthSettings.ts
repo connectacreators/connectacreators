@@ -14,21 +14,37 @@ export interface FinanceMonthSettings {
 
 const DEFAULTS = { salary_payout: 0, tax_rate: 0.25, employee_salary: 0 };
 
+type Defaults = { salary_payout: number; tax_rate: number; employee_salary: number };
+
 export function useFinanceMonthSettings(month: string) {
   const { user } = useAuth();
   const [settings, setSettings] = useState<FinanceMonthSettings | null>(null);
+  // Defaults inherited from the most recent prior month so users don't re-enter
+  // their salary every month. Only used when no row exists for the current month.
+  const [inheritedDefaults, setInheritedDefaults] = useState<Defaults>(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("finance_month_settings")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("month", month)
-      .maybeSingle();
+    const [{ data }, { data: prior }] = await Promise.all([
+      supabase
+        .from("finance_month_settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("month", month)
+        .maybeSingle(),
+      supabase
+        .from("finance_month_settings")
+        .select("salary_payout, tax_rate, employee_salary")
+        .eq("user_id", user.id)
+        .lt("month", month)
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
     setSettings((data as FinanceMonthSettings | null) ?? null);
+    setInheritedDefaults(prior ? (prior as Defaults) : DEFAULTS);
     setLoading(false);
   }, [user, month]);
 
@@ -37,7 +53,7 @@ export function useFinanceMonthSettings(month: string) {
   const saveSettings = useCallback(
     async (patch: Partial<Pick<FinanceMonthSettings, "salary_payout" | "tax_rate" | "employee_salary">>) => {
       if (!user) return null;
-      const base = settings ?? { ...DEFAULTS, month, user_id: user.id };
+      const base = settings ?? { ...inheritedDefaults, month, user_id: user.id };
       const merged = { ...base, ...patch, user_id: user.id, month };
       const { data, error } = await supabase
         .from("finance_month_settings")
@@ -56,7 +72,7 @@ export function useFinanceMonthSettings(month: string) {
 
   return {
     settings,
-    effectiveSettings: settings ?? { ...DEFAULTS, id: "", month, user_id: user?.id ?? "" },
+    effectiveSettings: settings ?? { ...inheritedDefaults, id: "", month, user_id: user?.id ?? "" },
     loading,
     saveSettings,
     refresh: fetchSettings,
