@@ -24,7 +24,9 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   const totalExpenses = sum(expenses, (t) => t.amount);
   const gross = collected - totalExpenses;
   const netProfit = gross - settings.salary_payout;
-  const tax = netProfit * settings.tax_rate;
+  // Tax applies only to actual profit — losses don't generate a same-month
+  // cash refund (NOLs may carry forward but that's not represented here).
+  const tax = Math.max(0, netProfit) * settings.tax_rate;
   const ownerDist = netProfit - tax;
   const takeHome = settings.employee_salary + ownerDist;
   const payrollTax = Math.max(0, settings.salary_payout - settings.employee_salary);
@@ -85,7 +87,7 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         ) : (
           <Row label="Take-Home Salary (net)" value={settings.employee_salary} positive={settings.employee_salary > 0} muted={settings.employee_salary === 0} />
         )}
-        <Row label="Take-Home Pay" value={takeHome} emphasized positive={takeHome >= 0} />
+        <Row label="Owner Net Position" value={takeHome} emphasized positive={takeHome >= 0} negative={takeHome < 0} />
       </dl>
 
       {foodDeductible > 0 && (
