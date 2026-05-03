@@ -40,6 +40,24 @@ const TOOLS = [
       required: ["fields"],
     },
   },
+  {
+    name: "save_memory",
+    description: "Save an important fact about this client to long-term memory. Use this whenever you learn something significant: their main story, content pillars, target audience, best hooks, business results, key decisions, preferences. These memories persist forever and will be available in every future conversation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description: "Short identifier for this memory, e.g. 'main_story', 'content_pillars', 'target_audience', 'best_hook', 'business_result', 'preference'",
+        },
+        value: {
+          type: "string",
+          description: "The fact to remember, written as a clear statement. Be specific. Include numbers, names, and details.",
+        },
+      },
+      required: ["key", "value"],
+    },
+  },
 ];
 
 serve(async (req) => {
@@ -86,13 +104,22 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
-    // Last 20 messages for context
+    // Load long-term memory from companion_state
+    const { data: companionState } = await adminClient
+      .from("companion_state")
+      .select("workflow_context")
+      .eq("client_id", client.id)
+      .maybeSingle();
+
+    const savedMemories: Record<string, string> = companionState?.workflow_context || {};
+
+    // Last 40 messages for context (expanded from 20)
     const { data: history } = await adminClient
       .from("companion_messages")
       .select("role, content")
       .eq("client_id", client.id)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(40);
 
     const priorMessages = (history || []).reverse().map((m: any) => ({
       role: m.role as "user" | "assistant",
@@ -110,6 +137,12 @@ serve(async (req) => {
       od.competition && `Competition: ${od.competition}`,
       od.story && `Story: ${od.story}`,
     ].filter(Boolean).join("\n");
+
+    // Format saved memories for injection
+    const memoriesText = Object.keys(savedMemories).length > 0
+      ? "\nWhat you remember about this client (long-term memory — treat these as facts):\n" +
+        Object.entries(savedMemories).map(([k, v]) => `- ${k}: ${v}`).join("\n")
+      : "";
 
     const name = companion_name || "AI";
     const systemPrompt = `You are ${name}, the AI assistant inside Connecta Creators — a done-for-you social media and personal branding platform for service professionals and local business owners.
@@ -129,7 +162,8 @@ WHAT CONNECTA DOES NOT DO: SEO, web design, traditional PR, email marketing, e-c
 
 User's name: ${client.name || "there"}
 Currently on page: ${current_path || "unknown"}
-${brandLines ? `\nWhat we already know about them:\n${brandLines}` : "\nNo onboarding data yet."}
+${brandLines ? `\nOnboarding data:\n${brandLines}` : "\nNo onboarding data yet."}
+${memoriesText}
 
 YOUR RULES — FOLLOW EXACTLY:
 1. NEVER use markdown. No asterisks, no bold, no headers, no bullet dashes. Plain text only.
@@ -141,7 +175,8 @@ YOUR RULES — FOLLOW EXACTLY:
 7. You are a coach who takes action, not a chatbot that asks questions.
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
-10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.`;
+10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
+11. MEMORY: Whenever you learn something important about the client — their main story with specific numbers, their content pillars, their target audience, a great hook idea, a business result, a preference — call save_memory immediately. Don't wait to be asked. Think of this like taking notes on a client you'll work with for years. Save things that would be valuable to remember in 6 months.`;
 
     // Save user message
     await adminClient.from("companion_messages").insert({
@@ -171,7 +206,7 @@ YOUR RULES — FOLLOW EXACTLY:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: "claude-sonnet-4-6",
         max_tokens: 1024,
         system: systemPrompt,
         tools: TOOLS,
@@ -196,6 +231,18 @@ YOUR RULES — FOLLOW EXACTLY:
           const { path } = block.input;
           actions.push({ type: "navigate", path });
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Navigating to ${path}` });
+        }
+
+        if (block.name === "save_memory") {
+          const { key, value } = block.input;
+          const updatedMemories = { ...savedMemories, [key]: value };
+          await adminClient.from("companion_state").upsert(
+            { client_id: client.id, workflow_context: updatedMemories },
+            { onConflict: "client_id" }
+          );
+          // Update local copy so subsequent saves in same call stack correctly
+          savedMemories[key] = value;
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Saved memory: ${key}` });
         }
 
         if (block.name === "fill_onboarding_fields") {
@@ -223,7 +270,7 @@ YOUR RULES — FOLLOW EXACTLY:
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
+            model: "claude-sonnet-4-6",
             max_tokens: 512,
             system: systemPrompt,
             tools: TOOLS,
