@@ -9,16 +9,34 @@ const corsHeaders = {
 const VPS_SCRAPE_URL = "http://72.62.200.145:3099/scrape-profile";
 const VPS_API_KEY = "ytdlp_connecta_2026_secret";
 
-async function scrapeProfile(profileUrl: string, limit: number): Promise<{ caption: string; views: number; likes: number }[]> {
-  const url = new URL(VPS_SCRAPE_URL);
-  url.searchParams.set("url", profileUrl);
-  url.searchParams.set("limit", String(limit));
+// Extract bare username from a handle or URL
+function parseUsername(raw: string): string {
+  const s = raw.trim().replace(/^@/, "").replace(/\/$/, "");
+  // Handle full URLs like https://www.instagram.com/username/
+  const match = s.match(/instagram\.com\/([^/?#\s]+)/i);
+  if (match) return match[1].toLowerCase();
+  // Handle tiktok.com/@username
+  const ttMatch = s.match(/tiktok\.com\/@?([^/?#\s]+)/i);
+  if (ttMatch) return ttMatch[1].toLowerCase();
+  // Bare handle
+  return s.split(/[/?#]/)[0].toLowerCase();
+}
+
+// VPS expects POST with JSON body { platform, username, limit }
+async function scrapeProfile(handle: string, limit: number): Promise<{ caption: string; views: number; likes: number }[]> {
+  const username = parseUsername(handle);
+  if (!username) return [];
 
   let res: Response;
   try {
-    res = await fetch(url.toString(), {
-      headers: { "x-api-key": VPS_API_KEY },
-      signal: AbortSignal.timeout(25_000),
+    res = await fetch(VPS_SCRAPE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": VPS_API_KEY,
+      },
+      body: JSON.stringify({ platform: "instagram", username, limit }),
+      signal: AbortSignal.timeout(30_000),
     });
   } catch {
     return [];
@@ -41,11 +59,6 @@ function parseProfiles(raw: unknown): string[] {
   return String(raw).split(/[\n,]+/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
 }
 
-function toInstagramUrl(handle: string): string {
-  const s = handle.trim().replace(/^@/, "");
-  if (s.startsWith("http")) return s;
-  return `https://www.instagram.com/${s}/`;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -93,12 +106,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No Instagram handle in onboarding data" }), { status: 400, headers: corsHeaders });
     }
 
-    const clientUrl = toInstagramUrl(instagramHandle);
-    const emulationUrls = emulationProfiles.map(toInstagramUrl);
-
     const [clientPosts, ...emulationPostArrays] = await Promise.all([
-      scrapeProfile(clientUrl, 20),
-      ...emulationUrls.map((url) => scrapeProfile(url, 10)),
+      scrapeProfile(instagramHandle, 20),
+      ...emulationProfiles.map((handle) => scrapeProfile(handle, 10)),
     ]);
 
     const totalEmulationPosts = emulationPostArrays.reduce((sum, arr) => sum + arr.length, 0);
