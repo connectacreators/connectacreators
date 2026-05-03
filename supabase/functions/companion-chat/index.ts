@@ -70,6 +70,32 @@ const TOOLS = [
     },
   },
   {
+    name: "create_script",
+    description: "Create and SAVE a real script in the system for a specific client. Call this when the user asks to build, write, create, or make a script. This inserts it into the database so the client can see and use it. Always build the full script — hook, body lines, CTA — then call this tool to save it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name (used to find their account)" },
+        title: { type: "string", description: "The script title / winning hook idea" },
+        formato: { type: "string", description: "Video format: talking_head, b_roll, interview, variado" },
+        lines: {
+          type: "array",
+          description: "All script lines in order",
+          items: {
+            type: "object",
+            properties: {
+              section: { type: "string", description: "hook, body, or cta" },
+              line_type: { type: "string", description: "e.g. hook, screen_text, voiceover, body, cta" },
+              text: { type: "string", description: "The actual script text for this line" },
+            },
+            required: ["section", "line_type", "text"],
+          },
+        },
+      },
+      required: ["client_name", "title", "lines"],
+    },
+  },
+  {
     name: "respond_to_user",
     description: "Send a text response to the user. Use this when no other action is needed — just a message. In auto mode, you must always call a tool, so use this when the response is purely conversational.",
     input_schema: {
@@ -198,6 +224,7 @@ YOUR RULES — FOLLOW EXACTLY:
 7. You are a coach who takes action, not a chatbot that asks questions.
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
+12. CRITICAL: When asked to create, build, write, or make a script — call create_script with the FULL script (hook + all body lines + CTA). Never output the script as text in the chat. Build it and save it to the database using the tool, then navigate the user to it.
 13. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
 12. CONTEXT RULE: If the user is currently on /onboarding, do NOT navigate them away. Stay on that page and keep filling fields using fill_onboarding_fields. "Take me to the next step" means fill the next empty fields on this page, not navigate elsewhere. Only navigate away from /onboarding after the form is fully complete and saved.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
@@ -272,6 +299,55 @@ ${autonomy_mode === "auto"
           // Pure text response wrapped as a tool call (used in auto mode)
           reply = block.input.message || "";
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
+        }
+
+        if (block.name === "create_script") {
+          const { client_name, title, formato, lines } = block.input;
+
+          // Find the client
+          const { data: targetClient } = await adminClient
+            .from("clients")
+            .select("id, name")
+            .ilike("name", "%" + client_name + "%")
+            .limit(1)
+            .maybeSingle();
+
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            // Insert the script
+            const rawContent = lines.map((l: any) => l.text).join("\n");
+            const { data: script, error: scriptErr } = await adminClient
+              .from("scripts")
+              .insert({
+                client_id: targetClient.id,
+                title,
+                idea_ganadora: title,
+                raw_content: rawContent,
+                formato: formato || null,
+                status: "complete",
+              })
+              .select("id")
+              .single();
+
+            if (scriptErr || !script) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Error saving script: " + (scriptErr?.message || "unknown") });
+            } else {
+              // Insert script lines
+              const lineRows = lines.map((l: any, i: number) => ({
+                script_id: script.id,
+                line_number: i + 1,
+                line_type: l.line_type || "body",
+                section: l.section || "body",
+                text: l.text,
+              }));
+              await adminClient.from("script_lines").insert(lineRows);
+
+              // Navigate to the client's scripts page
+              actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
+            }
+          }
         }
 
         if (block.name === "get_client_info") {
