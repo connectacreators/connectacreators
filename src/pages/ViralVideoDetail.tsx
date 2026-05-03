@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, type Client } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { cn } from "@/lib/utils";
@@ -165,13 +166,10 @@ export default function ViralVideoDetail() {
     if (!video.thumbnail_url) return;
 
     setDetectingFormat(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    getAuthToken().then((token) => {
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-video-format`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           video_id: video.id,
           thumbnail_url: video.thumbnail_url,
@@ -211,11 +209,8 @@ export default function ViralVideoDetail() {
     setSaveError(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      };
+      const token = await getAuthToken();
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
       const baseUrl = import.meta.env.VITE_SUPABASE_URL;
 
       // Step 1: Transcribe

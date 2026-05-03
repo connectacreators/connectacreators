@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Search, X, Loader2, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
@@ -32,8 +33,7 @@ const ResearchNoteNode = memo(({ data }: NodeProps) => {
     if (!topicInput.trim()) { toast.error("Enter a topic first."); return; }
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = d.authToken || session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = await getAuthToken();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

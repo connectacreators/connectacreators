@@ -5,6 +5,7 @@ import { useClients } from "@/hooks/useClients";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { Button } from "@/components/ui/button";
@@ -120,11 +121,8 @@ export default function Vault() {
     }
     setCreating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      };
+      const token = await getAuthToken();
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       // Step 1: Transcribe
       toast.info(tr({ en: "Transcribing video...", es: "Transcribiendo video..." }, language));

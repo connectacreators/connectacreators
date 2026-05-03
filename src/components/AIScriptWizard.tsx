@@ -16,6 +16,7 @@ import { tr } from "@/i18n/translations";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import type { Client } from "@/hooks/useClients";
 import type { ScriptLine } from "@/hooks/useScripts";
@@ -286,15 +287,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     (async () => {
       try {
         // ── Step 1: Transcribe video ──
-        const { data: { session } } = await supabase.auth.getSession();
+        const token = await getAuthToken();
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-video`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ url: initialTemplateVideo.url }),
           }
         );
@@ -317,7 +315,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         let isStorytellingDetected = false;
         let videoAnalysis: any = null;
 
-        const { data: { session: sessionForAnalysis } } = await supabase.auth.getSession();
+        const tokenForAnalysis = await getAuthToken();
         const [verifyResult, multimodalResult] = await Promise.allSettled([
           callAIBuild({
             step: "verify-video-type",
@@ -327,10 +325,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-video-multimodal`,
             {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${sessionForAnalysis?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenForAnalysis}` },
               body: JSON.stringify({ url: initialTemplateVideo.url, transcript: result.transcription }),
             }
           ).then(r => r.ok ? r.json() : Promise.reject(new Error(`Multimodal error ${r.status}`))),
@@ -603,15 +598,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     if (!topic || !selectedClient?.id) return;
     setHookLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getAuthToken();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/suggest-hooks`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             topic: topic.trim().toLowerCase(),
             client_id: selectedClient.id,
@@ -648,15 +640,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
   // ==================== API HELPER ====================
   async function callAIBuild(payload: any) {
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = await getAuthToken();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-build-script`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       }
     );
@@ -673,15 +662,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
   // ==================== STREAMING SCRIPT HELPER ====================
   async function callAIBuildStream(payload: any, onLine: (line: any) => void): Promise<any> {
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = await getAuthToken();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-build-script`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...payload, step: "generate-script-stream" }),
       }
     );

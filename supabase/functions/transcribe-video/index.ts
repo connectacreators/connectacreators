@@ -89,7 +89,7 @@ serve(async (req) => {
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return new Response(JSON.stringify({ error: "Session expired. Please refresh the page and try again." }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -115,7 +115,7 @@ serve(async (req) => {
 
   const { data: { user }, error: userError } = await userClient.auth.getUser();
   if (userError || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return new Response(JSON.stringify({ error: "Session expired. Please refresh the page and try again." }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

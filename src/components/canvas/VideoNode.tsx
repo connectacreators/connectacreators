@@ -2,6 +2,7 @@ import { memo, useState, useEffect, useRef, useCallback } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play, Pause, Eye, Type, Music2, Zap, MicOff, Clock, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken, authHeader } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
@@ -468,9 +469,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const transcribe = async () => {
     if (!urlInput.trim()) { toast.error("Paste a video URL first."); return; }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      // Prefer fresh session token over prop (prop can go stale in long sessions)
-      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = await getAuthToken();
 
       setStage("transcribing");
       setThumbStatus("loading");
@@ -656,9 +655,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const analyzeStructure = async () => {
     if (!d.transcription) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      // Prefer fresh session token over prop (prop can go stale in long sessions)
-      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = await getAuthToken();
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       setStage("analyzing");
@@ -763,9 +760,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   // ─── Re-run visual analysis only (when structure exists but videoAnalysis is missing) ───
   const reAnalyzeVisual = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      // Prefer fresh session token over prop (prop can go stale in long sessions)
-      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = await getAuthToken();
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       setVisualProgress("running");
@@ -817,9 +812,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     if (!d.clientId) { toast.error("No client selected."); return; }
     setSavingVault(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      // Prefer fresh session token over prop (prop can go stale in long sessions)
-      const token = session?.access_token || d.authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = await getAuthToken();
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
         method: "POST",

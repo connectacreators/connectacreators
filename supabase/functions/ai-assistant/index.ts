@@ -709,7 +709,7 @@ serve(async (req) => {
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return new Response(JSON.stringify({ error: "Session expired. Please refresh the page and try again." }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -733,7 +733,7 @@ serve(async (req) => {
   const token = authHeader.replace("Bearer ", "");
   const { data: userData, error: userError } = await adminClient.auth.getUser(token);
   if (userError || !userData.user) {
-    return new Response(JSON.stringify({ error: "Authentication failed" }), {
+    return new Response(JSON.stringify({ error: "Session expired. Please refresh the page and try again." }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -773,7 +773,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, wizard_state, client_info, model: requestedModel, canvas_mode, mode, canvas_image_urls, title_mode, pasted_image_b64, pasted_image_type, stream: streamRequested, thinking: thinkingRequested, ideation_mode: ideationMode } = await req.json();
+    const { messages, wizard_state, client_info, model: requestedModel, canvas_mode, mode, canvas_image_urls, title_mode, pasted_image_b64, pasted_image_type, stream: streamRequested, thinking: thinkingRequested, ideation_mode: ideationMode, chat_id: chatId } = await req.json();
 
     // ─── TITLE MODE (background, no credits charged) ───
     if (title_mode === true) {
@@ -1121,6 +1121,7 @@ serve(async (req) => {
         const encoder = new TextEncoder();
         let streamInputTokens = 0;
         let streamOutputTokens = 0;
+        let finalContent = "";
         const readable = new ReadableStream({
           async start(controller) {
             const reader = streamRes.body!.getReader();
@@ -1138,6 +1139,7 @@ serve(async (req) => {
                   try {
                     const ev = JSON.parse(line.slice(6));
                     if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+                      finalContent += ev.delta.text;
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: ev.delta.text })}\n\n`));
                     } else if (ev.type === "content_block_delta" && ev.delta?.type === "thinking_delta") {
                       // Extended thinking block — skip (don't send to client)
@@ -1161,6 +1163,30 @@ serve(async (req) => {
             await deductCredits(adminClient, userId, "ai_chat", creditCost);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, credits_used: creditCost, actual_model: routedModelKey, requested_model: requestedModel, downgraded: wasDowngraded })}\n\n`));
             controller.close();
+
+            // Server-side save: append the completed AI response to canvas_ai_chats so the
+            // message is persisted even if the client navigated away mid-stream. This also
+            // triggers a Supabase realtime broadcast so all collaborators on the same canvas
+            // receive the response without needing to refresh.
+            if (chatId && finalContent) {
+              try {
+                const { data: chatRow } = await adminClient
+                  .from("canvas_ai_chats")
+                  .select("messages")
+                  .eq("id", chatId)
+                  .single();
+                if (chatRow) {
+                  const existing = Array.isArray(chatRow.messages) ? chatRow.messages : [];
+                  const aiMsg = { role: "assistant", content: finalContent, credits_used: creditCost };
+                  await adminClient
+                    .from("canvas_ai_chats")
+                    .update({ messages: [...existing, aiMsg], updated_at: new Date().toISOString() })
+                    .eq("id", chatId);
+                }
+              } catch (saveErr) {
+                console.error("[ai-assistant] server-side chat save failed:", saveErr);
+              }
+            }
           },
         });
         return new Response(readable, {

@@ -5,6 +5,7 @@ import { Bot, Send, Loader2, X } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
+import { getAuthToken } from "@/lib/getAuthToken";
 import chessKnightIcon from "@/assets/chess-knight-white.svg";
 
 interface WizardState {
@@ -92,12 +93,10 @@ export default function AIAssistantPanel({ wizardState, clientInfo, onAction, au
     setLoading(true);
 
     try {
+      const token = await getAuthToken();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-assistant`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           messages: updatedMessages,
           wizard_state: {
