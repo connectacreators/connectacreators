@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
 } from "lucide-react";
 
 type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ className?: string }>; path: string; badge?: number };
@@ -207,8 +207,9 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isAdmin) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { type: 'group', label: 'Create' },
-        { label: "Connecta AI", icon: Bot, path: connectaAIPath },
+        { label: "Super Canvas", icon: Layers, path: connectaAIPath },
         { label: "Vault", icon: Archive, path: "/vault" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { type: 'group', label: 'Editing' },
@@ -222,33 +223,32 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: language === "en" ? "Team Members" : "Equipo", icon: Video, path: "/videographers" },
         { label: "Subscribers", icon: UserCheck, path: "/subscribers" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
     if (isVideographer) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { type: 'group', label: 'Create' },
-        { label: "Connecta AI", icon: Bot, path: connectaAIPath },
+        { label: "Super Canvas", icon: Layers, path: connectaAIPath },
         { type: 'group', label: 'Editing' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
     if (isEditor) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -256,8 +256,9 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { type: 'group', label: 'Create' },
-        { label: "Connecta AI", icon: Bot, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+        { label: "Super Canvas", icon: Layers, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts" },
         { label: "Vault", icon: Archive, path: selectedClientId ? `/clients/${selectedClientId}/vault` : "/vault" },
         { type: 'group', label: 'Editing' },
@@ -272,17 +273,18 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: "Contracts", icon: ScrollText, path: selectedClientId ? `/clients/${selectedClientId}/contracts` : "/dashboard" },
         { type: 'group', label: 'Manage' },
+        { label: language === "en" ? "Strategy" : "Estrategia", icon: BarChart3, path: selectedClientId ? `/clients/${selectedClientId}/strategy` : "/dashboard" },
         { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
         { label: "Subscription", icon: CreditCard, path: "/subscription" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
         { label: "Account", icon: Settings, path: "/settings" },
       ];
     }
     // Subscriber / Client / Connecta Plus
     return [
       { label: "Home", icon: Home, path: "/dashboard" },
+      { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
       { type: 'group', label: 'Create' },
-      { label: "Connecta AI", icon: Bot, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Super Canvas", icon: Layers, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
       { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
       { type: 'group', label: 'Editing' },
@@ -297,9 +299,9 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
       { label: "Contracts", icon: ScrollText, path: ownClientId ? `/clients/${ownClientId}/contracts` : "/dashboard" },
       { type: 'group', label: 'Manage' },
+      { label: language === "en" ? "Strategy" : "Estrategia", icon: BarChart3, path: ownClientId ? `/clients/${ownClientId}/strategy` : "/dashboard" },
       { label: "Clients", icon: Users, path: "/clients" },
       { label: "Subscription", icon: CreditCard, path: "/subscription" },
-      { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
       { label: "Account", icon: Settings, path: "/settings" },
     ];
   };

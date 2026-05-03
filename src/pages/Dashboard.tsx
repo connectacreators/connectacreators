@@ -4,7 +4,7 @@ import ScriptsLogin from "@/components/ScriptsLogin";
 import {
   Loader2, FileText, Target, CalendarDays, Users,
   Clapperboard, Database, Archive, Zap, UserPlus, Globe,
-  BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame, Bot,
+  BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame, Layers,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
@@ -256,7 +256,7 @@ export default function Dashboard() {
   // Sub-cards with optional clientId for context-specific routes
   const getClientSubCards = (clientId: string | null) => ({
     content: [
-      { label: "Connecta AI", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Bot, color: "#fb923c", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Super Canvas", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Layers, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
       { label: "Scripts", description: language === "en" ? "View and manage scripts" : "Ver y gestionar guiones", icon: FileText, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
       { label: "Vault", description: language === "en" ? "Script templates from viral videos" : "Plantillas de scripts de videos virales", icon: Archive, color: "#fbbf24", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
       { label: "Editing Queue", description: language === "en" ? "Track video production status" : "Estado de producción de videos", icon: Clapperboard, color: "#fb7185", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
