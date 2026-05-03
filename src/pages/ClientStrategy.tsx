@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
@@ -148,6 +148,7 @@ export default function ClientStrategy() {
   const [draft, setDraft] = useState<ClientStrategy | null>(null);
   const [clientOnboarding, setClientOnboarding] = useState<Record<string, unknown>>({});
   const [analyzing, setAnalyzing] = useState(false);
+  const analyzingRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!clientId) return;
@@ -189,7 +190,8 @@ export default function ClientStrategy() {
   }, [clientId]);
 
   const runAnalysis = useCallback(async () => {
-    if (!clientId || analyzing) return;
+    if (!clientId || analyzingRef.current) return;
+    analyzingRef.current = true;
     setAnalyzing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -205,9 +207,10 @@ export default function ClientStrategy() {
       await load();
       toast.success(en ? "Audience analysis complete" : "Análisis de audiencia completado");
     } finally {
+      analyzingRef.current = false;
       setAnalyzing(false);
     }
-  }, [clientId, analyzing, en, load]);
+  }, [clientId, en, load]);
 
   useEffect(() => {
     load().then(() => {
@@ -222,7 +225,7 @@ export default function ClientStrategy() {
         return current;
       });
     });
-  }, [load]);
+  }, [load, runAnalysis]);
 
   const startEdit = () => { setDraft(strategy ? { ...strategy } : null); setEditing(true); };
   const cancelEdit = () => { setDraft(null); setEditing(false); };
