@@ -393,11 +393,30 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { data: client } = await adminClient
-      .from("clients")
-      .select("id, name, onboarding_data")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // If user is on /clients/:clientId/... use THAT client (URL trumps name-matching)
+    const urlClientMatch = current_path?.match(/\/clients\/([0-9a-f-]{36})/i);
+    const urlClientId = urlClientMatch?.[1] ?? null;
+
+    let client: { id: string; name: string | null; onboarding_data: any } | null = null;
+
+    if (urlClientId) {
+      const { data: urlClient } = await adminClient
+        .from("clients")
+        .select("id, name, onboarding_data")
+        .eq("id", urlClientId)
+        .maybeSingle();
+      if (urlClient) client = urlClient;
+    }
+
+    // Fallback: user's own primary client
+    if (!client) {
+      const { data: ownClient } = await adminClient
+        .from("clients")
+        .select("id, name, onboarding_data")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (ownClient) client = ownClient;
+    }
 
     if (!client) {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
@@ -481,6 +500,7 @@ WHAT CONNECTA DOES NOT DO: SEO, web design, traditional PR, email marketing, e-c
 
 User's name: ${client.name || "there"}
 Currently on page: ${current_path || "unknown"}
+${urlClientId ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.` : ""}
 ${brandLines ? `\nOnboarding data:\n${brandLines}` : "\nNo onboarding data yet."}
 ${strategyContext}
 ${memoriesText}
@@ -1155,8 +1175,12 @@ For everything else (non-script tasks): Think: what is the single most useful ac
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Could not create canvas for " + targetClient.name });
             } else {
               const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
-              const videoNodeCount = existingNodes.filter((n: any) => n.type === "videoNode").length;
-              const rowY = videoNodeCount * 700;
+              // Only count PIPELINE nodes (id prefix videoNode_pipeline_) — keeps positioning sensible
+              // when canvas already has competitor folders, etc.
+              const pipelineRowCount = existingNodes.filter(
+                (n: any) => typeof n.id === "string" && n.id.startsWith("videoNode_pipeline_")
+              ).length;
+              const rowY = pipelineRowCount * 700;
 
               // 3. Find viral video (try topic match, fall back to top viral)
               let { data: videos } = await adminClient

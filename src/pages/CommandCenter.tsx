@@ -110,7 +110,7 @@ export default function CommandCenter() {
   };
 
   return (
-    <PageTransition className="flex flex-col h-full max-w-2xl mx-auto px-4 py-6">
+    <PageTransition className="flex flex-col flex-1 min-h-0 max-w-2xl mx-auto w-full px-4 py-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div
