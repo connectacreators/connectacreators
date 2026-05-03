@@ -181,6 +181,17 @@ const TOOLS = [
     },
   },
   {
+    name: "get_client_strategy",
+    description: "Get a client's content strategy — their monthly posting targets, content mix, ManyChat keyword, CTA goal, ads status, and current month's progress. Call this before making any content decisions for a client so Robby knows exactly what the goals are.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name to look up" },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
     name: "create_script",
     description: "Create and SAVE a real script in the system for a specific client. Call this when the user asks to build, write, create, or make a script. This inserts it into the database so the client can see and use it. Always build the full script — hook, body lines, CTA — then call this tool to save it.",
     input_schema: {
@@ -659,6 +670,52 @@ ${autonomy_mode === "auto"
             } else {
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas found for " + targetClient.name + ". Have them open the Connecta AI canvas first." });
             }
+          }
+        }
+
+        if (block.name === "get_client_strategy") {
+          const { client_name } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients")
+            .select("id, name")
+            .ilike("name", "%" + client_name + "%")
+            .limit(1)
+            .maybeSingle();
+
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: strat } = await adminClient
+              .from("client_strategies")
+              .select("*")
+              .eq("client_id", targetClient.id)
+              .maybeSingle();
+
+            const monthStart = new Date();
+            monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+            const iso = monthStart.toISOString();
+
+            const [{ count: scriptCount }, { count: videoCount }, { count: calCount }] = await Promise.all([
+              adminClient.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).gte("created_at", iso),
+              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).eq("status", "Done").is("deleted_at", null).gte("created_at", iso),
+              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).gte("schedule_date", iso.slice(0, 10)).is("deleted_at", null),
+            ]);
+
+            const s = strat || { posts_per_month: 20, scripts_per_month: 20, videos_edited_per_month: 20, stories_per_week: 10, mix_reach: 60, mix_trust: 30, mix_convert: 10, manychat_active: false, manychat_keyword: null, cta_goal: "manychat", ads_active: false, ads_budget: 0, monthly_revenue_goal: 0, monthly_revenue_actual: 0 };
+
+            const summary = [
+              "Strategy for " + targetClient.name + ":",
+              "Monthly targets: " + s.scripts_per_month + " scripts, " + s.videos_edited_per_month + " videos edited, " + s.posts_per_month + " posts scheduled",
+              "This month so far: " + (scriptCount || 0) + " scripts, " + (videoCount || 0) + " videos done, " + (calCount || 0) + " posts scheduled",
+              "Content mix: " + s.mix_reach + "% reach / " + s.mix_trust + "% trust / " + s.mix_convert + "% convert",
+              "Stories per week: " + s.stories_per_week,
+              "ManyChat: " + (s.manychat_active ? "active, keyword: " + (s.manychat_keyword || "not set") : "not set up"),
+              "CTA goal: " + s.cta_goal,
+              "Ads: " + (s.ads_active ? "running, budget $" + s.ads_budget + "/month" : "not running"),
+              "Revenue goal: $" + s.monthly_revenue_goal + "/month, this month: $" + s.monthly_revenue_actual,
+            ].join("\n");
+
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
           }
         }
 
