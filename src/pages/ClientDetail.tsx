@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Zap, Sparkles, Calendar, BarChart3, Settings2, ChevronLeft, Bot } from "lucide-react";
+import { Loader2, FileText, Target, CalendarDays, ArrowLeft, Globe, Archive, Pencil, Trash2, Clapperboard, Database, Zap, Sparkles, Calendar, BarChart3, Settings2, ChevronLeft, Bot, ScrollText } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -207,6 +207,7 @@ export default function ClientDetail() {
       { label: language === "en" ? "Public Booking" : "Booking Público", description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly", icon: Globe, color: "text-sky-400", path: `/clients/${clientId}/booking-settings` },
       { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "text-emerald-400", path: `/clients/${clientId}/landing-page` },
       { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "text-cyan-400", action: "database" },
+      { label: "Contracts", description: language === "en" ? "Upload, sign & send contracts" : "Sube, firma y envía contratos", icon: ScrollText, color: "text-amber-400", path: `/clients/${clientId}/contracts` },
     ],
   };
 

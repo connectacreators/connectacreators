@@ -69,6 +69,8 @@ const Signup = lazy(() => import("./pages/Signup"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const About = lazy(() => import("./pages/About"));
 const CommandCenter = lazy(() => import("./pages/CommandCenter"));
+const PublicContract = lazy(() => import("./pages/PublicContract"));
+const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 
 const queryClient = new QueryClient();
 
@@ -131,6 +133,7 @@ const App = () => (
             <Route path="/facebook-callback" element={<FacebookCallback />} />
             <Route path="/es" element={<LandingPageNewES />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/contract/:token" element={<PublicContract />} />
 
             {/* Authenticated routes — all share the DashboardLayout */}
             <Route element={<DashboardLayout />}>
@@ -167,6 +170,7 @@ const App = () => (
               <Route path="/viral-today/video/:videoId" element={<ViralVideoDetail />} />
               <Route path="/subscribers" element={<Subscribers />} />
               <Route path="/change-password" element={<ChangePassword />} />
+              <Route path="/clients/:clientId/contracts" element={<ContractsPage />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
