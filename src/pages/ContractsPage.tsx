@@ -156,14 +156,6 @@ export default function ContractsPage() {
           {isAdmin && (
             <div className="ml-auto flex gap-2">
               <Button
-                variant="outline" size="sm"
-                className="gap-1.5 h-7 text-xs"
-                onClick={() => { setUploadFromTemplate(null); setShowUpload(true); }}
-              >
-                <LayoutTemplate className="w-3 h-3" />
-                From Template
-              </Button>
-              <Button
                 size="sm"
                 className="gap-1.5 h-7 text-xs btn-17-primary"
                 onClick={() => { setUploadFromTemplate(null); setShowUpload(true); }}
