@@ -882,6 +882,112 @@ ${autonomy_mode === "auto"
           }
         }
 
+        if (block.name === "add_idea_nodes_to_canvas") {
+          const { client_name, ideas } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas for " + targetClient.name + "." });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const videoNodeCount = existingNodes.filter((n: any) => n.type === "videoNode").length;
+              const rowY = Math.max(0, videoNodeCount - 1) * 700;
+              const ideaNodes = (ideas as any[]).map((idea: any, i: number) => {
+                const nodeId = `textNoteNode_idea_${Date.now()}_${i}`;
+                const noteText = `IDEA ${idea.number} — ${idea.category.toUpperCase()}\n\n"${idea.hook_sentence}"\n\nFramework: ${idea.framework}\n\nWhy it works: ${idea.why_it_works}`;
+                return {
+                  id: nodeId,
+                  type: "textNoteNode",
+                  position: { x: 680, y: rowY + i * 210 },
+                  data: {
+                    noteText,
+                    noteHtml: `<p><strong>IDEA ${idea.number} — ${idea.category.toUpperCase()}</strong></p><p>"${idea.hook_sentence}"</p><p>Framework: ${idea.framework}</p><p>Why it works: ${idea.why_it_works}</p>`,
+                  },
+                };
+              });
+              await adminClient.from("canvas_states").update({ nodes: [...existingNodes, ...ideaNodes] }).eq("id", canvasState.id);
+              const summary = (ideas as any[]).map((idea: any) => `Idea ${idea.number} (${idea.category}): "${idea.hook_sentence}"`).join("\n");
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${ideas.length} idea node(s) added to canvas:\n${summary}` });
+            }
+          }
+        }
+
+        if (block.name === "add_script_draft_to_canvas") {
+          const { client_name, title, category, framework, hook, body, cta } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas for " + targetClient.name + "." });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const videoNodeCount = existingNodes.filter((n: any) => n.type === "videoNode").length;
+              const rowY = Math.max(0, videoNodeCount - 1) * 700;
+              const nodeId = `textNoteNode_script_${Date.now()}`;
+              const noteText = `SCRIPT DRAFT — ${category.toUpperCase()}\nFramework: ${framework}\n\nHOOK:\n${hook}\n\nBODY:\n${body}\n\nCTA:\n${cta}`;
+              const newNode = {
+                id: nodeId,
+                type: "textNoteNode",
+                position: { x: 980, y: rowY },
+                data: {
+                  noteText,
+                  noteHtml: `<p><strong>SCRIPT DRAFT — ${category.toUpperCase()}</strong></p><p>Framework: ${framework}</p><p><strong>HOOK:</strong></p><p>${hook.replace(/\n/g, "<br>")}</p><p><strong>BODY:</strong></p><p>${body.replace(/\n/g, "<br>")}</p><p><strong>CTA:</strong></p><p>${cta}</p>`,
+                  width: 320,
+                },
+              };
+              await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script draft added to ${targetClient.name}'s canvas: "${title}". The user can edit it directly on the canvas.` });
+            }
+          }
+        }
+
+        if (block.name === "save_script_from_canvas") {
+          const { client_name, title, hook, body, cta, category, framework } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const rawContent = [hook, body, cta].join("\n");
+            const { data: script, error: scriptErr } = await adminClient
+              .from("scripts")
+              .insert({
+                client_id: targetClient.id,
+                title,
+                idea_ganadora: title,
+                raw_content: rawContent,
+                formato: "talking_head",
+                status: "complete",
+              })
+              .select("id")
+              .single();
+            if (scriptErr || !script) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Error saving script: " + (scriptErr?.message || "unknown") });
+            } else {
+              const bodyLines = body.split("\n").filter(Boolean);
+              const lineRows = [
+                { script_id: script.id, line_number: 1, line_type: "hook", section: "hook", text: hook },
+                ...bodyLines.map((line: string, i: number) => ({
+                  script_id: script.id, line_number: i + 2, line_type: "body", section: "body", text: line,
+                })),
+                { script_id: script.id, line_number: bodyLines.length + 2, line_type: "cta", section: "cta", text: cta },
+              ];
+              await adminClient.from("script_lines").insert(lineRows);
+              actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script "${title}" saved to ${targetClient.name}'s scripts library.` });
+            }
+          }
+        }
+
         if (block.name === "get_client_strategy") {
           const { client_name } = block.input;
           const { data: targetClient } = await adminClient
