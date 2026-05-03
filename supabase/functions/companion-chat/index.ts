@@ -1225,35 +1225,43 @@ For everything else (non-script tasks): Think: what is the single most useful ac
                   .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
                   .eq("id", canvasState.id);
 
-                // ─── STAGE 2: Transcribe the video so synthesis has REAL context ───
+                // ─── STAGE 2a: Transcribe the video so synthesis has REAL spoken content ───
                 let transcription = "";
+                let videoCacheUrl: string | null = null;
                 try {
                   const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
                     method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: authHeader,
-                    },
+                    headers: { "Content-Type": "application/json", Authorization: authHeader },
                     body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
                   });
                   if (transcribeRes.ok) {
                     const tdata = await transcribeRes.json();
                     transcription = tdata.transcription || "";
-                    // Update video node with transcription so user sees it on the node
+                    videoCacheUrl = tdata.videoUrl ?? null;
                     nodesAccumulator = nodesAccumulator.map((n: any) =>
                       n.id === videoNode.id
-                        ? { ...n, data: { ...n.data, transcription, videoUrl: tdata.videoUrl ?? null, thumbnail_url: tdata.thumbnail_url ?? null } }
+                        ? { ...n, data: { ...n.data, transcription, videoUrl: videoCacheUrl, thumbnail_url: tdata.thumbnail_url ?? null } }
                         : n
                     );
                     await adminClient.from("canvas_states")
                       .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
                       .eq("id", canvasState.id);
                   } else {
-                    console.warn("[orchestrator] transcribe-video failed:", transcribeRes.status);
+                    console.warn("[orchestrator] transcribe-video failed:", transcribeRes.status, await transcribeRes.text().catch(() => ""));
                   }
                 } catch (tErr) {
                   console.warn("[orchestrator] transcribe-video threw:", tErr);
                 }
+
+                // ─── STAGE 2b: Visual breakdown — frame-by-frame analysis (parallel with synthesis) ───
+                // Kicks off in background; result stored on video node when it returns.
+                const visualPromise = transcription
+                  ? fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-video-multimodal`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: authHeader },
+                      body: JSON.stringify({ url: chosenVideo.video_url, transcript: transcription }),
+                    }).then(async (r) => r.ok ? await r.json() : null).catch((e) => { console.warn("[orchestrator] visual analysis failed:", e); return null; })
+                  : Promise.resolve(null);
 
                 // 4. Call Claude internally to generate analysis + idea + script
                 const synthesisPrompt = `You are building a script for ${targetClient.name}. Generate the analysis, winning idea, and full script.
@@ -1425,16 +1433,31 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                     await adminClient.from("script_lines").insert(lineRows);
                   }
 
+                  // ─── STAGE 6: Wait for visual analysis & attach to video node ───
+                  const visualResult = await visualPromise;
+                  if (visualResult && Array.isArray(visualResult.visual_segments)) {
+                    nodesAccumulator = nodesAccumulator.map((n: any) =>
+                      n.id === videoNode.id
+                        ? { ...n, data: { ...n.data, videoAnalysis: visualResult } }
+                        : n
+                    );
+                    await adminClient.from("canvas_states")
+                      .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                      .eq("id", canvasState.id);
+                  }
+
                   // 7. Navigate to canvas (client-specific path)
                   actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts?view=canvas` });
 
                   const summary = `BUILT a complete script for ${targetClient.name}.
 
 REFERENCE: @${chosenVideo.channel_username} (${(chosenVideo.views_count || 0).toLocaleString()} views) — ${r.hook_type} hook
+${transcription ? `TRANSCRIBED: ${transcription.length} chars of real audio captured` : "TRANSCRIPTION: failed (used caption only)"}
+${visualResult ? `VISUAL BREAKDOWN: ${visualResult.visual_segments?.length || 0} scenes analyzed` : ""}
 WINNING IDEA: "${idea.hook_sentence}"
 FRAMEWORK: ${idea.framework}
 
-The canvas now has 4 nodes: video reference, research analysis, winning idea, and full script draft. The script has been saved to the scripts library.
+The canvas has 4 nodes connected with edges: video reference (with transcription + visual analysis), research, winning idea, and full script draft. The script is saved to the scripts library.
 
 Tell the user this in your respond_to_user — be specific about what you found and what the winning idea was.`;
                   toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
