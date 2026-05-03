@@ -111,22 +111,23 @@ export default function CompanionBubble() {
           </div>
 
           {/* Autonomy mode toggle */}
-          <div className="flex items-center gap-1 px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.2)" }}>
+          <div className="flex items-center gap-1.5 px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             {([
-              { key: "auto", label: "Auto", color: "#22c55e" },
-              { key: "ask", label: "Ask", color: "#22d3ee" },
-              { key: "plan", label: "Plan", color: "#f59e0b" },
+              { key: "auto", label: "Auto", icon: "⚡" },
+              { key: "ask", label: "Ask", icon: "?" },
+              { key: "plan", label: "Plan", icon: "≡" },
             ] as const).map((m) => (
               <button
                 key={m.key}
                 onClick={() => setAutonomyMode(m.key)}
-                className="flex-1 text-[10px] font-bold py-1 rounded-lg transition-all"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all"
                 style={{
-                  background: autonomyMode === m.key ? `${m.color}22` : "transparent",
-                  color: autonomyMode === m.key ? m.color : "rgba(255,255,255,0.25)",
-                  border: autonomyMode === m.key ? `1px solid ${m.color}44` : "1px solid transparent",
+                  background: autonomyMode === m.key ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+                  color: autonomyMode === m.key ? "#e5e5e5" : "rgba(255,255,255,0.3)",
+                  border: autonomyMode === m.key ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.06)",
                 }}
               >
+                <span style={{ fontSize: 10 }}>{m.icon}</span>
                 {m.label}
               </button>
             ))}

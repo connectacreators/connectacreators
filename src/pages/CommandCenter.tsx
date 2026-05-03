@@ -83,23 +83,25 @@ export default function CommandCenter() {
       </div>
 
       {/* Autonomy mode toggle */}
-      <div className="flex gap-1 mb-4 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+      <div className="flex items-center gap-2 mb-4">
         {([
-          { key: "auto" as const, label: en ? "Auto" : "Auto", desc: en ? "Acts immediately" : "Actúa de inmediato", color: "#22c55e" },
-          { key: "ask" as const, label: en ? "Ask" : "Preguntar", desc: en ? "Confirms before acting" : "Confirma antes de actuar", color: "#22d3ee" },
-          { key: "plan" as const, label: en ? "Plan" : "Plan", desc: en ? "Shows plan first" : "Muestra el plan primero", color: "#f59e0b" },
+          { key: "auto" as const, label: en ? "Auto" : "Auto", icon: "⚡", desc: en ? "Acts immediately" : "Actúa de inmediato" },
+          { key: "ask" as const, label: en ? "Ask" : "Preguntar", icon: "?", desc: en ? "Confirms first" : "Confirma primero" },
+          { key: "plan" as const, label: en ? "Plan" : "Plan", icon: "≡", desc: en ? "Shows plan first" : "Plan primero" },
         ]).map((m) => (
           <button
             key={m.key}
             onClick={() => setAutonomyMode(m.key)}
-            className="flex-1 py-2 px-3 rounded-lg text-left transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
             style={{
-              background: autonomyMode === m.key ? `${m.color}18` : "transparent",
-              border: autonomyMode === m.key ? `1px solid ${m.color}44` : "1px solid transparent",
+              background: autonomyMode === m.key ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+              color: autonomyMode === m.key ? "#e5e5e5" : "rgba(255,255,255,0.3)",
+              border: autonomyMode === m.key ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.07)",
             }}
+            title={m.desc}
           >
-            <p className="text-[11px] font-bold" style={{ color: autonomyMode === m.key ? m.color : "rgba(255,255,255,0.35)" }}>{m.label}</p>
-            <p className="text-[9px]" style={{ color: autonomyMode === m.key ? `${m.color}99` : "rgba(255,255,255,0.2)" }}>{m.desc}</p>
+            <span style={{ fontSize: 11 }}>{m.icon}</span>
+            {m.label}
           </button>
         ))}
       </div>
