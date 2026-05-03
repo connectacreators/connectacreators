@@ -27,8 +27,11 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   // Tax applies only to actual profit — losses don't generate a same-month
   // cash refund (NOLs may carry forward but that's not represented here).
   const tax = Math.max(0, netProfit) * settings.tax_rate;
-  const ownerDist = netProfit - tax;
-  const takeHome = settings.employee_salary + ownerDist;
+  // Distribution can't be negative — you can't distribute a loss.
+  const ownerDist = Math.max(0, netProfit - tax);
+  // What the owner actually made personally this month: salary + any distribution.
+  const ownerIncome = settings.employee_salary + ownerDist;
+  const isLoss = netProfit < 0;
   const payrollTax = Math.max(0, settings.salary_payout - settings.employee_salary);
   const foodDeductible = sum(
     expenses.filter((t) => t.category === "Food & Meals" && t.deductible_amount != null),
@@ -70,16 +73,21 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         {payrollTax > 0 && !editingSettings && (
           <Row label="↳ Payroll Tax" value={payrollTax} muted />
         )}
-        <Row label="Net Profit" value={netProfit} emphasized />
+        <Row label={isLoss ? "Net Loss" : "Net Profit"} value={netProfit} emphasized positive={netProfit > 0} negative={netProfit < 0} />
         {editingSettings ? (
           <SettingRow label="Tax Rate %">
             <Input type="number" step="0.5" className="h-7 text-xs" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
           </SettingRow>
         ) : (
-          <Row label={`Tax ${(settings.tax_rate * 100).toFixed(1)}%`} value={tax} negative />
+          <Row label={`Income Tax ${(settings.tax_rate * 100).toFixed(1)}%`} value={tax} negative={tax > 0} muted={tax === 0} />
         )}
         <Divider />
-        <Row label="Owner's Dist." value={ownerDist} positive={ownerDist >= 0} />
+        <Row label="Owner Distribution" value={ownerDist} positive={ownerDist > 0} muted={ownerDist === 0} />
+        {isLoss && !editingSettings && (
+          <p className="text-[10px] text-muted-foreground/70 italic leading-snug -mt-1">
+            No distribution on a loss month — business reserves absorbed the shortfall.
+          </p>
+        )}
         {editingSettings ? (
           <SettingRow label="Take-Home Salary (net)" hint="What actually hits your personal account each month — net of payroll taxes.">
             <Input type="number" step="0.01" className="h-7 text-xs" value={employeeSalary} onChange={(e) => setEmployeeSalary(e.target.value)} />
@@ -87,7 +95,7 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         ) : (
           <Row label="Take-Home Salary (net)" value={settings.employee_salary} positive={settings.employee_salary > 0} muted={settings.employee_salary === 0} />
         )}
-        <Row label="Owner Net Position" value={takeHome} emphasized positive={takeHome >= 0} negative={takeHome < 0} />
+        <Row label="Owner Income This Month" value={ownerIncome} emphasized positive={ownerIncome > 0} muted={ownerIncome === 0} />
       </dl>
 
       {foodDeductible > 0 && (
