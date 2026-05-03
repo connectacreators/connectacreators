@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
-  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe,
+  Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText,
 } from "lucide-react";
 
 type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ className?: string }>; path: string; badge?: number };
@@ -270,6 +270,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: 'Resources' },
         { label: "Viral Today", icon: Flame, path: "/viral-today" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { label: "Contracts", icon: ScrollText, path: selectedClientId ? `/clients/${selectedClientId}/contracts` : "/dashboard" },
         { type: 'group', label: 'Manage' },
         { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
         { label: "Subscription", icon: CreditCard, path: "/subscription" },
@@ -294,6 +295,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { type: 'group', label: 'Resources' },
       { label: "Viral Today", icon: Flame, path: "/viral-today" },
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
+      { label: "Contracts", icon: ScrollText, path: ownClientId ? `/clients/${ownClientId}/contracts` : "/dashboard" },
       { type: 'group', label: 'Manage' },
       { label: "Clients", icon: Users, path: "/clients" },
       { label: "Subscription", icon: CreditCard, path: "/subscription" },
