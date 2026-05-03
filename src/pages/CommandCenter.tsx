@@ -134,8 +134,8 @@ export default function CommandCenter() {
         ))}
       </div>
 
-      {/* Task list */}
-      <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+      {/* Task list — shrinks when chat is active so chat gets room */}
+      <div className={`overflow-y-auto space-y-2 mb-4 ${chatMessages.length > 0 ? "max-h-[220px]" : "flex-1"}`}>
         {tab === "todo" && (
           <>
             {loadingTasks && (
@@ -213,7 +213,7 @@ export default function CommandCenter() {
 
       {/* Chat messages */}
       {chatMessages.length > 0 && (
-        <div className="space-y-2 mb-3 max-h-[160px] overflow-y-auto">
+        <div className="space-y-3 mb-3 flex-1 overflow-y-auto min-h-0">
           {chatMessages.map((msg, i) => (
             <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (

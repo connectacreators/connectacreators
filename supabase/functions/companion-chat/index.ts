@@ -192,6 +192,31 @@ const TOOLS = [
     },
   },
   {
+    name: "update_client_strategy",
+    description: "Update a client's content strategy settings — posts per month, scripts per month, videos per month, stories per week, content mix percentages, ManyChat settings, ads status, or revenue goals. Call this when the user wants to change any of these targets.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        posts_per_month: { type: "number", description: "Monthly posts target" },
+        scripts_per_month: { type: "number", description: "Monthly scripts target" },
+        videos_edited_per_month: { type: "number", description: "Monthly videos edited target" },
+        stories_per_week: { type: "number", description: "Stories per week target" },
+        mix_reach: { type: "number", description: "Reach content % (0-100)" },
+        mix_trust: { type: "number", description: "Trust content % (0-100)" },
+        mix_convert: { type: "number", description: "Convert content % (0-100)" },
+        manychat_active: { type: "boolean", description: "Whether ManyChat is active" },
+        manychat_keyword: { type: "string", description: "ManyChat trigger keyword" },
+        cta_goal: { type: "string", description: "Primary CTA goal" },
+        ads_active: { type: "boolean", description: "Whether ads are running" },
+        ads_budget: { type: "number", description: "Monthly ads budget in USD" },
+        monthly_revenue_goal: { type: "number", description: "Monthly revenue goal in USD" },
+        monthly_revenue_actual: { type: "number", description: "Actual revenue this month in USD" },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
     name: "create_script",
     description: "Create and SAVE a real script in the system for a specific client. Call this when the user asks to build, write, create, or make a script. This inserts it into the database so the client can see and use it. Always build the full script — hook, body lines, CTA — then call this tool to save it.",
     input_schema: {
@@ -716,6 +741,41 @@ ${autonomy_mode === "auto"
             ].join("\n");
 
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
+          }
+        }
+
+        if (block.name === "update_client_strategy") {
+          const { client_name, ...updates } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients")
+            .select("id, name")
+            .ilike("name", "%" + client_name + "%")
+            .limit(1)
+            .maybeSingle();
+
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            // Remove undefined values
+            const patch: Record<string, any> = { client_id: targetClient.id };
+            const fields = ["posts_per_month","scripts_per_month","videos_edited_per_month","stories_per_week","mix_reach","mix_trust","mix_convert","manychat_active","manychat_keyword","cta_goal","ads_active","ads_budget","monthly_revenue_goal","monthly_revenue_actual"];
+            for (const f of fields) {
+              if (updates[f] !== undefined) patch[f] = updates[f];
+            }
+
+            const { error } = await adminClient
+              .from("client_strategies")
+              .upsert(patch, { onConflict: "client_id" });
+
+            if (error) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Failed to update strategy: " + error.message });
+            } else {
+              const changed = Object.entries(patch)
+                .filter(([k]) => k !== "client_id")
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(", ");
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Strategy updated for " + targetClient.name + ". Changed: " + changed });
+            }
           }
         }
 
