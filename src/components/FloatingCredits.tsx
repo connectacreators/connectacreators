@@ -20,7 +20,7 @@ export default function FloatingCredits() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+      <div className="fixed bottom-5 right-[80px] z-50 flex items-center gap-2">
         {/* Add credits button (only show if user has an active sub) */}
         {!isEmpty && credits.subscription_status && ["active", "trialing", "canceling"].includes(credits.subscription_status) && (
           <button
