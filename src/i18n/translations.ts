@@ -5,7 +5,7 @@ export const t = {
     question: { en: "What do you want to do today?", es: "¿Qué quieres hacer hoy?" },
     signOut: { en: "Sign out", es: "Cerrar sesión" },
     home: { en: "Home", es: "Inicio" },
-    scripts: { en: "Scripts", es: "Scripts" },
+    scripts: { en: "Content Ideas", es: "Ideas de Contenido" },
     leadTracker: { en: "Lead Tracker", es: "Lead Tracker" },
     leadCalendar: { en: "Lead Calendar", es: "Lead Calendar" },
     settings: { en: "Settings", es: "Configuración" },

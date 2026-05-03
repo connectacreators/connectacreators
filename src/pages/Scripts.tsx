@@ -1361,7 +1361,7 @@ export default function Scripts() {
           <>
             <div className="text-center mb-8">
               <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
-                Script <span className="text-primary">Breakdown</span>
+                Content <span className="text-primary">Ideas</span>
               </h1>
               <p className="text-muted-foreground max-w-xl mx-auto">
                 {isAdmin ? tr(t.scripts.manageAll, language) : isVideographer ? tr(t.scripts.assignedClients, language) : tr(t.scripts.manageYour, language)}
