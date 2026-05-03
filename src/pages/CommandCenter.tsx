@@ -10,7 +10,7 @@ import PageTransition from "@/components/PageTransition";
 type Tab = "todo" | "done";
 
 export default function CommandCenter() {
-  const { companionName, tasks, loadingTasks, refreshTasks, autonomyMode, setAutonomyMode } = useCompanion();
+  const { companionName, tasks, loadingTasks, refreshTasks, autonomyMode, setAutonomyMode, clientId } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -21,6 +21,22 @@ export default function CommandCenter() {
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [sending, setSending] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  // Load conversation history from DB on mount
+  useEffect(() => {
+    if (!clientId) return;
+    supabase
+      .from("companion_messages")
+      .select("role, content")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: true })
+      .limit(40)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setChatMessages(data.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
+        }
+      });
+  }, [clientId]);
 
   // Re-fetch tasks every time this page is visited so completed actions clear immediately
   useEffect(() => { refreshTasks(); }, []);
@@ -213,7 +229,10 @@ export default function CommandCenter() {
 
       {/* Chat messages */}
       {chatMessages.length > 0 && (
-        <div className="space-y-3 mb-3 flex-1 overflow-y-auto min-h-0">
+        <div
+          className="space-y-3 mb-3 flex-1 overflow-y-auto min-h-0"
+          ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}
+        >
           {chatMessages.map((msg, i) => (
             <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
