@@ -2,17 +2,18 @@ import { useState } from "react";
 import { Pencil, Trash2, ArrowDownRight, ArrowUpRight, CircleDollarSign, Utensils, Loader2, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ManualEntryForm } from "@/components/finances/ManualEntryForm";
-import type { FinanceTransaction, NewFinanceTransaction } from "@/hooks/useFinanceTransactions";
+import type { FinanceTransaction, NewFinanceTransaction, RecurrenceInterval } from "@/hooks/useFinanceTransactions";
 
 type Props = {
   title: string;
   kind: "income" | "expense";
   transactions: FinanceTransaction[];
   onUpdate: (id: string, patch: Partial<NewFinanceTransaction>) => Promise<FinanceTransaction | null>;
+  onConvertToRecurring: (id: string, interval: RecurrenceInterval) => Promise<FinanceTransaction | null>;
   onDelete: (id: string) => Promise<boolean>;
 };
 
-export function TransactionList({ title, kind, transactions, onUpdate, onDelete }: Props) {
+export function TransactionList({ title, kind, transactions, onUpdate, onConvertToRecurring, onDelete }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -36,11 +37,15 @@ export function TransactionList({ title, kind, transactions, onUpdate, onDelete 
             {editingId === t.id ? (
               <ManualEntryForm
                 initial={t}
-                allowRecurring={false}
+                allowRecurring={!t.recurring_subscription_id}
                 onCancel={() => setEditingId(null)}
-                onSave={async (patch) => {
+                onSave={async (patch, recurrence) => {
                   const saved = await onUpdate(t.id, patch);
-                  if (saved) setEditingId(null);
+                  if (!saved) return;
+                  if (recurrence && !t.recurring_subscription_id) {
+                    await onConvertToRecurring(t.id, recurrence.interval);
+                  }
+                  setEditingId(null);
                 }}
               />
             ) : (

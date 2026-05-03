@@ -155,6 +155,62 @@ export function useFinanceTransactions(month: string) {
     [],
   );
 
+  const convertToRecurring = useCallback(
+    async (
+      txId: string,
+      interval: RecurrenceInterval,
+    ): Promise<FinanceTransaction | null> => {
+      if (!user) return null;
+      const tx = transactions.find((t) => t.id === txId);
+      if (!tx) {
+        toast.error("Transaction not found");
+        return null;
+      }
+      if (tx.recurring_subscription_id) {
+        toast.error("Already a recurring subscription");
+        return null;
+      }
+      const anchorMonth = tx.date.slice(0, 7);
+      const anchorDay = parseInt(tx.date.slice(8, 10), 10) || 1;
+      const { data: tpl, error: tplErr } = await supabase
+        .from("finance_recurring_subscriptions")
+        .insert({
+          user_id: user.id,
+          type: tx.type,
+          vendor: tx.vendor,
+          client: tx.client,
+          category: tx.category,
+          description: tx.description,
+          amount: tx.amount,
+          payment_method: tx.payment_method,
+          deductible_ratio: tx.category === "Food & Meals" ? 0.5 : null,
+          interval,
+          day_of_month: anchorDay,
+          start_month: anchorMonth,
+          last_generated_month: anchorMonth,
+        })
+        .select("id")
+        .single();
+      if (tplErr || !tpl) {
+        toast.error(`Couldn't create recurring template: ${tplErr?.message ?? "unknown"}`);
+        return null;
+      }
+      const { data, error } = await supabase
+        .from("finance_transactions")
+        .update({ recurring_subscription_id: tpl.id })
+        .eq("id", txId)
+        .select("*")
+        .single();
+      if (error) {
+        toast.error(`Couldn't link transaction: ${error.message}`);
+        return null;
+      }
+      setTransactions((prev) => prev.map((t) => (t.id === txId ? (data as FinanceTransaction) : t)));
+      return data as FinanceTransaction;
+    },
+    [user, transactions],
+  );
+
   const deleteTransaction = useCallback(async (id: string) => {
     const { error } = await supabase
       .from("finance_transactions")
@@ -180,6 +236,7 @@ export function useFinanceTransactions(month: string) {
     refresh: fetchTx,
     createTransaction,
     updateTransaction,
+    convertToRecurring,
     deleteTransaction,
   };
 }

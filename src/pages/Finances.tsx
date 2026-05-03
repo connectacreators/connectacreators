@@ -48,7 +48,7 @@ export default function Finances() {
   const [incomeCatFilter, setIncomeCatFilter] = useState<FinanceCategory | null>(null);
   const [expenseCatFilter, setExpenseCatFilter] = useState<FinanceCategory | null>(null);
 
-  const { income, expenses, loading, createTransaction, updateTransaction, deleteTransaction } =
+  const { income, expenses, loading, createTransaction, updateTransaction, convertToRecurring, deleteTransaction } =
     useFinanceTransactions(month);
 
   const filteredIncome = useMemo(
@@ -279,6 +279,7 @@ export default function Finances() {
                   kind="income"
                   transactions={income}
                   onUpdate={updateTransaction}
+                  onConvertToRecurring={convertToRecurring}
                   onDelete={deleteTransaction}
                 />
                 <TransactionList
@@ -286,6 +287,7 @@ export default function Finances() {
                   kind="expense"
                   transactions={expenses}
                   onUpdate={updateTransaction}
+                  onConvertToRecurring={convertToRecurring}
                   onDelete={deleteTransaction}
                 />
               </>

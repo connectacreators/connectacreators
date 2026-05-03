@@ -1,6 +1,6 @@
 // src/components/canvas/CompetitorFolderNode.tsx
 import { memo } from "react";
-import { NodeProps, NodeResizer } from "@xyflow/react";
+import { NodeProps, NodeResizer, Handle, Position } from "@xyflow/react";
 import { ChevronUp, ChevronDown, X, UserSearch } from "lucide-react";
 import { Instagram, Youtube } from "lucide-react";
 
@@ -183,10 +183,12 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   if (collapsed) {
     return (
       <div
-        className="bg-card border border-border rounded-xl shadow-xl"
+        className="bg-card border border-border rounded-xl shadow-xl relative"
         style={{ minWidth: 320 }}
       >
         {ProfileHeader}
+        <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 100, right: -8 }} />
+        <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 100, left: -8 }} />
       </div>
     );
   }
@@ -209,6 +211,34 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
         isVisible={selected}
       />
       {ProfileHeader}
+      {/* Default body handles — backwards-compatible for existing edges. Pushed outside body and z-100 to win over children. */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-primary !border-primary/70 !w-3 !h-3"
+        style={{ zIndex: 100, right: -10 }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-primary !border-primary/70 !w-3 !h-3"
+        style={{ zIndex: 100, left: -10 }}
+      />
+      {/* Header handles — pinned to the (always-uncovered) profile bar so users can drag from a guaranteed-clickable spot. */}
+      <Handle
+        id="header-source"
+        type="source"
+        position={Position.Right}
+        className="!bg-rose-500 !border-rose-200 !w-4 !h-4 !shadow-lg"
+        style={{ top: 30, right: -10, zIndex: 101 }}
+      />
+      <Handle
+        id="header-target"
+        type="target"
+        position={Position.Left}
+        className="!bg-rose-500 !border-rose-200 !w-4 !h-4 !shadow-lg"
+        style={{ top: 30, left: -10, zIndex: 101 }}
+      />
     </div>
   );
 });
