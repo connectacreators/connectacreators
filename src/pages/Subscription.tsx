@@ -247,7 +247,6 @@ export default function Subscription() {
       en ? "Unlimited scripts"   : "Guiones ilimitados",
       en ? "AI Canvas access"    : "Acceso AI Canvas",
       en ? "Lead Tracker"        : "Rastreo de Leads",
-      en ? "Landing pages"       : "Páginas de aterrizaje",
       en ? "Vault templates"     : "Plantillas Vault",
     ];
     const roleLabel = isAdmin ? "Admin" : en ? "Videographer" : "Videógrafo";
@@ -333,13 +332,11 @@ export default function Subscription() {
   if (planKey !== "free") {
     features.push({ label: en ? "AI Canvas access" : "Acceso AI Canvas", included: true });
     features.push({ label: `${en ? "Lead Tracker" : "Rastreo de Leads"} (${limits.leads === -1 ? (en ? "unlimited" : "ilimitados") : limits.leads + " leads"})`, included: true });
-    features.push({ label: `${en ? "Landing pages" : "Páginas de aterrizaje"} (${limits.landing_pages === -1 ? (en ? "unlimited" : "ilimitadas") : limits.landing_pages})`, included: limits.landing_pages !== 0 });
     features.push({ label: en ? "Vault templates" : "Plantillas Vault", included: true });
   } else {
-    features.push({ label: en ? "AI Canvas access" : "Acceso AI Canvas", included: false });
-    features.push({ label: en ? "Lead Tracker" : "Rastreo de Leads", included: false });
-    features.push({ label: en ? "Landing pages" : "Páginas de aterrizaje", included: false });
-    features.push({ label: en ? "Vault templates" : "Plantillas Vault", included: false });
+    features.push({ label: en ? "AI Canvas access" : "Acceso AI Canvas", included: true });
+    features.push({ label: en ? "Lead Tracker" : "Rastreo de Leads", included: true });
+    features.push({ label: en ? "Vault templates" : "Plantillas Vault", included: true });
   }
   if (planKey === "enterprise") {
     features.push({ label: en ? "Unlimited leads & scripts" : "Leads y guiones ilimitados", included: true });
@@ -658,6 +655,13 @@ export default function Subscription() {
           </button>
         </div>
       </motion.section>
+
+      <p className="text-center text-xs text-muted-foreground pb-2">
+        {en ? "Questions? Contact support at " : "¿Dudas? Contacta soporte en "}
+        <a href="mailto:admin@connectacreators.com" className="text-primary hover:underline">
+          admin@connectacreators.com
+        </a>
+      </p>
     </PageTransition>
   );
 }
