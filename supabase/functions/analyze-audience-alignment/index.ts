@@ -7,7 +7,26 @@ const corsHeaders = {
 };
 
 const VPS_SCRAPE_URL = "http://72.62.200.145:3099/scrape-profile";
+const VPS_PROXY_URL = "http://72.62.200.145:3099/proxy-image";
 const VPS_API_KEY = "ytdlp_connecta_2026_secret";
+
+async function proxyImageAsBase64(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(`${VPS_PROXY_URL}?url=${encodeURIComponent(url)}`, {
+      headers: { "x-api-key": VPS_API_KEY },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength === 0) return null;
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    return `data:${contentType};base64,${b64}`;
+  } catch {
+    return null;
+  }
+}
 
 // Extract bare username from a handle or URL
 function parseUsername(raw: string): string {
@@ -117,8 +136,11 @@ serve(async (req) => {
     ]);
 
     const clientPosts = clientResult.posts;
-    const profilePicUrl = clientResult.profilePicUrl;
     const followers = clientResult.followers;
+    // Proxy the profile pic through VPS and store as base64 so it's browser-safe
+    const profilePicUrl = clientResult.profilePicUrl
+      ? await proxyImageAsBase64(clientResult.profilePicUrl)
+      : null;
     const emulationPostArrays = emulationResults.map(r => r.posts);
     const totalEmulationPosts = emulationPostArrays.reduce((sum, arr) => sum + arr.length, 0);
 

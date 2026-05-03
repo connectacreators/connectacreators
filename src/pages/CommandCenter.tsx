@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bot, Send } from "lucide-react";
 import { useCompanion } from "@/contexts/CompanionContext";
@@ -21,6 +21,30 @@ export default function CommandCenter() {
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [sending, setSending] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [streamingIdx, setStreamingIdx] = useState<number | null>(null);
+  const [streamedText, setStreamedText] = useState("");
+  const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const TRUNCATE_AT = 280;
+
+  // Simulate streaming for a new assistant message
+  const streamMessage = useCallback((fullText: string, idx: number) => {
+    setStreamingIdx(idx);
+    setStreamedText("");
+    let i = 0;
+    const tick = () => {
+      i += Math.floor(Math.random() * 4) + 2; // 2-5 chars per tick
+      setStreamedText(fullText.slice(0, i));
+      if (i < fullText.length) {
+        setTimeout(tick, 16);
+      } else {
+        setStreamedText(fullText);
+        setStreamingIdx(null);
+      }
+    };
+    setTimeout(tick, 40);
+  }, []);
 
   // Load conversation history from DB on mount
   useEffect(() => {
@@ -59,7 +83,12 @@ export default function CommandCenter() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (data?.reply) {
-        setChatMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        setChatMessages((prev) => {
+          const next = [...prev, { role: "assistant" as const, content: data.reply }];
+          // Start streaming animation for the new message
+          setTimeout(() => streamMessage(data.reply, next.length - 1), 0);
+          return next;
+        });
       }
       if (data?.actions) {
         for (const action of data.actions) {
@@ -229,11 +258,15 @@ export default function CommandCenter() {
 
       {/* Chat messages */}
       {chatMessages.length > 0 && (
-        <div
-          className="space-y-3 mb-3 flex-1 overflow-y-auto min-h-0"
-          ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}
-        >
-          {chatMessages.map((msg, i) => (
+        <div className="space-y-3 mb-3 flex-1 overflow-y-auto min-h-0" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+          {chatMessages.map((msg, i) => {
+            const isStreaming = streamingIdx === i;
+            const displayText = isStreaming ? streamedText : msg.content;
+            const isLong = displayText.length > TRUNCATE_AT;
+            const isExpanded = expandedIdx.has(i);
+            const shown = isLong && !isExpanded ? displayText.slice(0, TRUNCATE_AT) + "…" : displayText;
+
+            return (
             <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
                 <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5" style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}>
@@ -247,10 +280,26 @@ export default function CommandCenter() {
                   : { background: "linear-gradient(135deg,#0891B2,#0e7490)", color: "#fff", borderRadius: "12px 4px 12px 12px" }
                 }
               >
-                {msg.content}
+                <span>{shown}</span>
+                {isStreaming && (
+                  <span className="inline-block w-[2px] h-[12px] bg-white/60 ml-0.5 animate-pulse align-middle" />
+                )}
+                {isLong && !isStreaming && (
+                  <button
+                    onClick={() => setExpandedIdx(prev => {
+                      const next = new Set(prev);
+                      isExpanded ? next.delete(i) : next.add(i);
+                      return next;
+                    })}
+                    className="block mt-1.5 text-[10px] font-semibold opacity-60 hover:opacity-100 transition-opacity"
+                  >
+                    {isExpanded ? (en ? "Show less" : "Mostrar menos") : (en ? "Show more" : "Ver más")}
+                  </button>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
           {sending && (
             <div className="flex gap-2">
               <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}>
