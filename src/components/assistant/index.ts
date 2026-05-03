@@ -17,3 +17,8 @@ export type {
 } from "./AssistantTextInput.tsx";
 export { AssistantChipsBar } from "./AssistantChipsBar.tsx";
 export type { AssistantChipsBarProps } from "./AssistantChipsBar.tsx";
+export { AssistantContextPanel } from "./AssistantContextPanel.tsx";
+export type {
+  AssistantContextPanelProps,
+  ContextNode,
+} from "./AssistantContextPanel.tsx";

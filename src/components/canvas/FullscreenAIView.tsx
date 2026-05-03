@@ -3,6 +3,7 @@ import { Node } from "@xyflow/react";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import CanvasAIPanel from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
+import { AssistantContextPanel } from "@/components/assistant";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeChatSync } from "@/hooks/useRealtimeChatSync";
@@ -900,233 +901,24 @@ const FullscreenAIView = memo(function FullscreenAIView({
         </div>
 
         {/* Right — AI sees context panel */}
-        <div
-          style={{
-            width: contextPanelCollapsed ? 32 : 180,
-            flexShrink: 0,
-            background: "#111214",
-            borderLeft: "1px solid #2a2b30",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            transition: "width 0.25s ease",
-          }}
-        >
-          {contextPanelCollapsed ? (
-            /* Collapsed strip */
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "10px 0",
-                gap: 8,
-              }}
-            >
-              <button
-                onClick={() => setContextPanelCollapsed(false)}
-                title="Expand AI context panel"
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "rgba(255,255,255,0.35)",
-                  padding: 4,
-                  borderRadius: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "color 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)")
-                }
-              >
-                <span style={{ fontSize: 14 }}>&#8250;</span>
-              </button>
-              <div
-                style={{
-                  writingMode: "vertical-rl",
-                  textOrientation: "mixed",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.22)",
-                  marginTop: 4,
-                }}
-              >
-                AI sees
-              </div>
-            </div>
-          ) : (
-            /* Expanded panel */
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              {/* Panel header */}
-              <div
-                style={{
-                  padding: "10px 12px 8px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottom: "1px solid #2a2b30",
-                  flexShrink: 0,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "rgba(255,255,255,0.35)",
-                    }}
-                  >
-                    AI sees
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "#22d3ee",
-                      background: "rgba(34,211,238,0.1)",
-                      borderRadius: 4,
-                      padding: "1px 5px",
-                    }}
-                  >
-                    {contextNodes.length}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setContextPanelCollapsed(true)}
-                  title="Collapse AI context panel"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "rgba(255,255,255,0.35)",
-                    padding: 2,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                    lineHeight: 1,
-                    transition: "color 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)")
-                  }
-                >
-                  &#8249;
-                </button>
-              </div>
-
-              {/* Node list */}
-              <div
-                style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}
-                className="custom-scrollbar"
-              >
-                {contextNodes.length === 0 ? (
-                  <div
-                    style={{
-                      padding: "12px",
-                      fontSize: 11,
-                      color: "rgba(255,255,255,0.25)",
-                      textAlign: "center",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    No nodes on canvas yet
-                  </div>
-                ) : (
-                  contextNodes.map((node) => {
-                    const type = node.type as string;
-                    const d = node.data as any;
-                    const color = NODE_TYPE_COLOR[type] || "#888";
-                    const typeLabel = NODE_TYPE_LABEL[type] || type;
-                    const displayName = d?.videoLabel || d?.videoTitle
-                      || (d?.channel_username ? `@${d.channel_username}` : null)
-                      || d?.topic || d?.fileName || d?.label || typeLabel;
-
-                    return (
-                      <div
-                        key={node.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
-                          padding: "5px 12px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: "50%",
-                            background: color,
-                            flexShrink: 0,
-                            marginTop: 3,
-                          }}
-                        />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              color: "rgba(255,255,255,0.7)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {displayName}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 9,
-                              color: "rgba(255,255,255,0.28)",
-                              marginTop: 1,
-                            }}
-                          >
-                            {typeLabel}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Footer */}
-              <div
-                style={{
-                  padding: "8px 12px",
-                  borderTop: "1px solid #2a2b30",
-                  flexShrink: 0,
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.22)",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
-                  Add nodes in canvas to give the AI more context
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        <AssistantContextPanel
+          nodes={contextNodes.map((n) => {
+            const d = n.data as any;
+            const typeLabel = NODE_TYPE_LABEL[n.type as string] || (n.type as string);
+            const displayName = d?.videoLabel || d?.videoTitle
+              || (d?.channel_username ? `@${d.channel_username}` : null)
+              || d?.topic || d?.fileName || d?.label || typeLabel;
+            return {
+              id: n.id,
+              type: n.type as string,
+              label: displayName,
+            };
+          })}
+          typeColorMap={NODE_TYPE_COLOR}
+          typeLabelMap={NODE_TYPE_LABEL}
+          collapsed={contextPanelCollapsed}
+          onToggleCollapsed={() => setContextPanelCollapsed((v) => !v)}
+        />
       </div>
 
       {/* Custom scrollbar styles */}
