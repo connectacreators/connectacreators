@@ -107,7 +107,7 @@ serve(async (req) => {
     }
 
     const [clientPosts, ...emulationPostArrays] = await Promise.all([
-      scrapeProfile(instagramHandle, 20),
+      scrapeProfile(instagramHandle, 10),
       ...emulationProfiles.map((handle) => scrapeProfile(handle, 10)),
     ]);
 
@@ -132,7 +132,9 @@ serve(async (req) => {
     const industry = od.industry || "not specified";
     const uniqueOffer = od.uniqueOffer || "not specified";
 
-    const prompt = `You are analyzing a social media creator's content alignment.
+    const noEmulationProfiles = emulationProfiles.length === 0;
+
+    const prompt = `You are analyzing a social media creator's most recent content to assess how well it serves their target audience.
 
 CLIENT PROFILE:
 - Industry: ${industry}
@@ -140,25 +142,25 @@ CLIENT PROFILE:
 - Unique offer: ${uniqueOffer}
 - Instagram: @${instagramHandle}
 
-CLIENT'S RECENT POSTS (last ${clientPosts.length}):
+MOST RECENT POSTS (last ${clientPosts.length} — ordered newest first):
 ${clientPostsText}
 
-EMULATION PROFILES (what they aspire to):
-${emulationText || "None provided."}
+EMULATION PROFILES (accounts they want to model):
+${noEmulationProfiles ? "None provided — score based on stated target audience and industry benchmarks only." : emulationText}
 
-Score the client on two dimensions. Be honest — a 5/10 is average, 3/10 is poor, 8/10 is genuinely strong.
+Score the client on two dimensions. Be honest — a 5/10 is average, 3/10 is poor, 8/10 is genuinely strong. Focus on the most recent posts as the truest signal of current strategy.
 
-1. AUDIENCE ALIGNMENT (0-10): Do the client's captions, topics, and framing clearly speak to "${targetAudience}"? Compare to the emulation profiles — are they reaching similar people with similar language and topics? Consider: specificity of language, problem awareness level, niche relevance.
+1. AUDIENCE ALIGNMENT (0-10): Do the captions, topics, and framing of these recent posts clearly speak to "${targetAudience}"? Are they addressing that audience's specific problems, language, and awareness level? ${noEmulationProfiles ? "Score against industry benchmarks since no emulation profiles were provided." : "Compare to the emulation profiles — are they reaching similar people with similar language?"}
 
-2. CONTENT UNIQUENESS (0-10): Is the client's hook style, angle, and topic selection differentiated from the emulation profiles and from generic content in their niche? Or are they blending in? Consider: distinctive angles, specific stories, memorable hooks vs generic captions.
+2. CONTENT UNIQUENESS (0-10): Does the hook style, angle, and topic selection stand out in this niche, or does it blend into generic content? Consider: distinctive personal stories, specific client results, memorable hooks vs templated captions.
 
 Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
 {
   "audience_score": <integer 0-10>,
   "uniqueness_score": <integer 0-10>,
-  "summary": "<2-3 sentences explaining the scores in plain English. Be specific about what's working and what needs to change. No jargon.>",
-  "audience_detail": "<1 sentence on audience alignment specifically>",
-  "uniqueness_detail": "<1 sentence on uniqueness specifically>"
+  "summary": "<2-3 sentences on what these recent posts show about audience alignment and uniqueness. Be specific — name the patterns you see. No jargon.>${noEmulationProfiles ? " End with exactly this sentence: 'Add competitor or reference accounts in your onboarding profile to get a more precise benchmark for these scores.'" : ""}",
+  "audience_detail": "<1 sentence on audience alignment — what specifically is or isn't connecting with ${targetAudience}>",
+  "uniqueness_detail": "<1 sentence on what makes the content blend in or stand out>"
 }`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {

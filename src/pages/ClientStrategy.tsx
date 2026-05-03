@@ -441,6 +441,16 @@ export default function ClientStrategy() {
                 : "Agrega tu usuario de Instagram en el onboarding para activar el análisis."}
             </p>
           )}
+          {clientOnboarding.instagram && !clientOnboarding.top3Profiles && (
+            <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg" style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)" }}>
+              <span style={{ color: "#f59e0b", fontSize: 13, lineHeight: 1.2, marginTop: 1 }}>⚠</span>
+              <p className="text-[11px] leading-relaxed" style={{ color: "#f59e0b" }}>
+                {en
+                  ? "No reference accounts added. Scores are based only on stated goals — add competitor or inspiration profiles in onboarding for a real benchmark."
+                  : "Sin cuentas de referencia. Los puntajes se basan solo en los objetivos declarados — agrega perfiles de referencia en el onboarding para un benchmark real."}
+              </p>
+            </div>
+          )}
 
           {[
             {
