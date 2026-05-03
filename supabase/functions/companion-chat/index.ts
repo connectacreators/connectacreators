@@ -815,6 +815,73 @@ ${autonomy_mode === "auto"
           }
         }
 
+        if (block.name === "add_video_to_canvas") {
+          const { client_name, video_url, video_title, channel_username, reason } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas for " + targetClient.name + ". Have the user open Super Canvas first." });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const videoNodeCount = existingNodes.filter((n: any) => n.type === "videoNode").length;
+              const rowY = videoNodeCount * 700;
+              const nodeId = `videoNode_mario_${Date.now()}`;
+              const newNode = {
+                id: nodeId,
+                type: "videoNode",
+                position: { x: 50, y: rowY },
+                data: {
+                  url: video_url,
+                  videoTitle: video_title,
+                  videoLabel: video_title,
+                  channel_username: channel_username || "",
+                  caption: reason,
+                },
+              };
+              await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
+              actions.push({ type: "navigate", path: "/scripts?view=canvas" });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Video node added to canvas for ${targetClient.name}: "${video_title}". The node will auto-transcribe when the canvas opens. Row position: ${rowY}.` });
+            }
+          }
+        }
+
+        if (block.name === "add_research_note_to_canvas") {
+          const { client_name, hook_type, hook_text, why_it_works, how_to_adapt } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas for " + targetClient.name + "." });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const videoNodeCount = existingNodes.filter((n: any) => n.type === "videoNode").length;
+              const rowY = Math.max(0, videoNodeCount - 1) * 700;
+              const nodeId = `textNoteNode_research_${Date.now()}`;
+              const noteText = `HOOK TYPE: ${hook_type.toUpperCase()}\n\nHook: "${hook_text}"\n\nWhy it works: ${why_it_works}\n\nHow to adapt: ${how_to_adapt}`;
+              const newNode = {
+                id: nodeId,
+                type: "textNoteNode",
+                position: { x: 370, y: rowY },
+                data: {
+                  noteText,
+                  noteHtml: `<p><strong>HOOK TYPE: ${hook_type.toUpperCase()}</strong></p><p>Hook: "${hook_text}"</p><p>Why it works: ${why_it_works}</p><p>How to adapt: ${how_to_adapt}</p>`,
+                },
+              };
+              await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Research note added to ${targetClient.name}'s canvas.` });
+            }
+          }
+        }
+
         if (block.name === "get_client_strategy") {
           const { client_name } = block.input;
           const { data: targetClient } = await adminClient
