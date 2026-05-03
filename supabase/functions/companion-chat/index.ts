@@ -253,6 +253,96 @@ const TOOLS = [
       required: ["message"],
     },
   },
+  {
+    name: "add_video_to_canvas",
+    description: "Add a viral reference video as a VideoNode on the client's Super Canvas. The node will auto-transcribe when the user opens the canvas. Call this immediately after find_viral_videos to place the reference video visibly on the canvas. Always call this BEFORE add_research_note_to_canvas.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        video_url: { type: "string", description: "The full URL of the viral video" },
+        video_title: { type: "string", description: "Title or hook of the video" },
+        channel_username: { type: "string", description: "The creator's username (e.g. @victorheras)" },
+        reason: { type: "string", description: "One sentence: why this video was chosen as inspiration" },
+      },
+      required: ["client_name", "video_url", "video_title", "reason"],
+    },
+  },
+  {
+    name: "add_research_note_to_canvas",
+    description: "Add a research note to the canvas analyzing the viral video. Call this after add_video_to_canvas. Use the find_viral_videos caption and your knowledge of hook patterns to analyze the video structure.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        hook_type: { type: "string", description: "The hook category: storytelling, educational, comparison, authority, pattern_interrupt, or curiosity_gap" },
+        hook_text: { type: "string", description: "The actual hook (first line of the video based on caption/title)" },
+        why_it_works: { type: "string", description: "2-3 sentences: why this video performed. Be specific about the hook mechanism, not generic." },
+        how_to_adapt: { type: "string", description: "1 sentence: how to apply this structure to the client's specific story and offer" },
+      },
+      required: ["client_name", "hook_type", "hook_text", "why_it_works", "how_to_adapt"],
+    },
+  },
+  {
+    name: "add_idea_nodes_to_canvas",
+    description: "Add winning idea nodes to the canvas. In Auto mode: call with 1 idea (your best pick). In Ask or Plan mode: call with 3 ideas across different categories so the user can pick. Each idea is the WHAT — the hook premise tailored to this client's story and audience.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        ideas: {
+          type: "array",
+          description: "1 idea in Auto mode, 3 ideas in Ask/Plan mode. Each across a different category.",
+          items: {
+            type: "object",
+            properties: {
+              number: { type: "number", description: "1, 2, or 3" },
+              category: { type: "string", description: "storytelling | educational | comparison | authority | pattern_interrupt | curiosity_gap" },
+              hook_sentence: { type: "string", description: "The exact first line of the video — specific, not generic. Uses the client's real numbers/story." },
+              framework: { type: "string", description: "The script structure: e.g. 'vulnerability open → 3 moments → turning point → ManyChat CTA'" },
+              why_it_works: { type: "string", description: "One sentence: why this idea will stop the scroll for the target audience" },
+            },
+            required: ["number", "category", "hook_sentence", "framework", "why_it_works"],
+          },
+        },
+      },
+      required: ["client_name", "ideas"],
+    },
+  },
+  {
+    name: "add_script_draft_to_canvas",
+    description: "Add the full script draft as a node on the canvas. The draft is the winning idea plugged into the framework — every line written. Call this after the idea is selected (either you chose it in Auto mode, or the user picked one in Ask/Plan mode). Do NOT call save_script_from_canvas yet.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        title: { type: "string", description: "The winning idea / hook title" },
+        category: { type: "string", description: "The idea category used" },
+        framework: { type: "string", description: "The framework applied" },
+        hook: { type: "string", description: "The hook line(s)" },
+        body: { type: "string", description: "The full body of the script, each line on a new line" },
+        cta: { type: "string", description: "The call to action" },
+      },
+      required: ["client_name", "title", "category", "framework", "hook", "body", "cta"],
+    },
+  },
+  {
+    name: "save_script_from_canvas",
+    description: "Save the canvas script draft to the scripts library. In Auto mode call this immediately after add_script_draft_to_canvas. In Ask mode only call this after the user confirms ('yes', 'save it', 'looks good'). In Plan mode only after explicit approval.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        title: { type: "string", description: "The script title / winning idea" },
+        hook: { type: "string", description: "The hook line(s)" },
+        body: { type: "string", description: "The body lines, each on a new line" },
+        cta: { type: "string", description: "The call to action" },
+        category: { type: "string", description: "The idea category" },
+        framework: { type: "string", description: "The framework used" },
+      },
+      required: ["client_name", "title", "hook", "body", "cta"],
+    },
+  },
 ];
 
 serve(async (req) => {
