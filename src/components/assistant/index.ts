@@ -8,3 +8,12 @@ export type {
 } from "./AssistantThreadList.tsx";
 export { AssistantChat } from "./AssistantChat.tsx";
 export type { AssistantChatProps } from "./AssistantChat.tsx";
+export { AssistantTextInput } from "./AssistantTextInput.tsx";
+export type {
+  AssistantTextInputProps,
+  MentionableNode,
+  ModelOption,
+  PromptPreset,
+} from "./AssistantTextInput.tsx";
+export { AssistantChipsBar } from "./AssistantChipsBar.tsx";
+export type { AssistantChipsBarProps } from "./AssistantChipsBar.tsx";

@@ -1,14 +1,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
-import { Send, Loader2, Wand2, Image as ImageIcon, ChevronUp, Check, Square, Mic, MicOff, X, Film, Search, Palette, Megaphone, User, Paperclip, Folder, MapPin, Zap } from "lucide-react";
+import { FileText, Film, Search, Palette, Megaphone, User, Paperclip, Folder, MapPin, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { parseDeck, type DeckPayload, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
-import { AssistantChat } from "@/components/assistant";
+import { AssistantChat, AssistantChipsBar, AssistantTextInput } from "@/components/assistant";
 import {
   AI_MODELS,
   MODEL_LABEL,
@@ -311,6 +309,29 @@ No voiceover. Story must work through B-roll and text only. Keep the same storyt
   },
 ];
 
+// Mention dropdown — icon + label per node type. Passed as props to
+// AssistantTextInput so the input component itself stays canvas-agnostic.
+const NODE_ICON_COMPONENTS: Record<string, React.ReactNode> = {
+  videoNode:              <Film className="w-3.5 h-3.5" />,
+  textNoteNode:           <FileText className="w-3.5 h-3.5" />,
+  researchNoteNode:       <Search className="w-3.5 h-3.5" />,
+  hookGeneratorNode:      <Zap className="w-3.5 h-3.5" />,
+  brandGuideNode:         <Palette className="w-3.5 h-3.5" />,
+  ctaBuilderNode:         <Megaphone className="w-3.5 h-3.5" />,
+  competitorProfileNode:  <User className="w-3.5 h-3.5" />,
+  instagramProfileNode:   <User className="w-3.5 h-3.5" />,
+  mediaNode:              <Paperclip className="w-3.5 h-3.5" />,
+  groupNode:              <Folder className="w-3.5 h-3.5" />,
+  annotationNode:         <MapPin className="w-3.5 h-3.5" />,
+};
+
+const NODE_LABELS: Record<string, string> = {
+  videoNode: "Video", textNoteNode: "Text Note", researchNoteNode: "Research",
+  hookGeneratorNode: "Hook Generator", brandGuideNode: "Brand Guide", ctaBuilderNode: "CTA Builder",
+  competitorProfileNode: "Competitor", instagramProfileNode: "Competitor", mediaNode: "Media",
+  groupNode: "Group", annotationNode: "Annotation",
+};
+
 const hasContext = (ctx: CanvasContext) =>
   ctx.transcriptions.filter(Boolean).length > 0 || ctx.structures.filter(Boolean).length > 0 ||
   ctx.text_notes.trim().length > 0 || ctx.research_facts.length > 0 ||
@@ -600,7 +621,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   const [generating, setGenerating] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
-  const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
+  // atMentionQuery moved into AssistantTextInput (Phase B.1, Task 4).
   const [pastedImage, setPastedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const pastedImageRef = useRef<{ dataUrl: string; mimeType: string } | null>(null);
   pastedImageRef.current = pastedImage; // always current — avoids stale closure in sendMessage
@@ -717,21 +738,13 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
   const [imageMode, setImageMode] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const modelDropdownRef = useRef<HTMLDivElement>(null);
-  const modelPortalRef = useRef<HTMLDivElement>(null);
-  const modelBtnRef = useRef<HTMLButtonElement>(null);
 
+  // Wrapper around the input area — used to scrollIntoView when an external
+  // image is dropped onto the parent AI node.
   const inputBoxRef = useRef<HTMLDivElement>(null);
-  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
-  const plusMenuRef = useRef<HTMLDivElement>(null);
 
-  const adjustTextareaHeight = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-  }, []);
+  // modelDropdownOpen / plusMenuOpen / their refs / click-outside effects /
+  // adjustTextareaHeight all moved into AssistantTextInput (Phase B.1, Task 4).
 
   // ── Voice input ──
   const toggleVoice = useCallback(() => {
@@ -749,8 +762,8 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     rec.onresult = (e: any) => {
       const transcript = e.results[0]?.[0]?.transcript || "";
       if (transcript) {
+        // AssistantTextInput re-measures its textarea height on value change.
         setInput(prev => (prev ? prev + " " + transcript : transcript));
-        setTimeout(adjustTextareaHeight, 0);
       }
     };
     rec.onerror = () => setRecognizing(false);
@@ -758,7 +771,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     recognitionRef.current = rec;
     rec.start();
     setRecognizing(true);
-  }, [recognizing, scriptLang, adjustTextareaHeight]);
+  }, [recognizing, scriptLang]);
 
   // ── Paste image handler ──
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -776,33 +789,17 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     reader.readAsDataURL(file);
   }, []);
 
-  useEffect(() => {
-    if (!modelDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // Check the portal dropdown, the trigger button, AND the container
-      if (
-        (!modelPortalRef.current || !modelPortalRef.current.contains(target)) &&
-        (!modelDropdownRef.current || !modelDropdownRef.current.contains(target)) &&
-        (!modelBtnRef.current || !modelBtnRef.current.contains(target))
-      ) {
-        setModelDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [modelDropdownOpen]);
-
-  useEffect(() => {
-    if (!plusMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
-        setPlusMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [plusMenuOpen]);
+  // Stop any in-flight generation. Called by AssistantTextInput's stop button.
+  const stopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+    if (typewriterRef.current) {
+      clearInterval(typewriterRef.current);
+      typewriterRef.current = null;
+    }
+    setStreamingContent(null);
+    setLoading(false);
+    setGenerating(false);
+  }, []);
 
   const generateScript = useCallback(async () => {
     const ctx = getLatestContext();
@@ -1629,6 +1626,12 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   }, []);
 
   const [contextCount, setContextCount] = useState(0);
+  // Live snapshot of canvas nodes for the @ mention dropdown. Refreshed on the
+  // same 1.5s tick used for context-count, so the dropdown stays in sync as
+  // nodes are added/removed without forcing a full ReactFlow re-render.
+  const [canvasNodesForMention, setCanvasNodesForMention] = useState<
+    { id: string; type: string; label?: string; detail?: string }[]
+  >([]);
   useEffect(() => {
     const tick = () => {
       const ctx = getLatestContext();
@@ -1638,6 +1641,36 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         ctx.text_notes.trim().length > 0,
         ctx.research_facts.length > 0,
       ].filter(Boolean).length);
+      // Build mentionable-nodes list from the same window snapshot used by
+      // getLatestContext. The AssistantTextInput renders icon/label using the
+      // NODE_ICON_COMPONENTS / NODE_LABELS maps passed as props.
+      const rawNodes = (window as any).__canvasNodes as any[] | undefined;
+      if (Array.isArray(rawNodes)) {
+        const AI_NODE = "ai-assistant";
+        const next = rawNodes
+          .filter((n: any) => n.id !== AI_NODE && n.type !== "aiAssistantNode" && n.type !== "annotationNode")
+          .map((n: any) => {
+            const d = n.data || {};
+            let detail = "";
+            if (n.type === "videoNode") detail = d.channel_username ? `@${d.channel_username}` : (d.url ? "linked" : "empty");
+            else if (n.type === "textNoteNode" || n.type === "researchNoteNode") detail = (d.noteText || "").slice(0, 30);
+            else if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") detail = d.profileUrl || "";
+            else if (n.type === "brandGuideNode") detail = d.brandName || "";
+            else if (n.type === "hookGeneratorNode") detail = d.topic || "";
+            else if (n.type === "mediaNode") detail = d.fileName || "";
+            return { id: n.id, type: n.type, detail };
+          });
+        // Avoid resetting the array reference if the contents are identical —
+        // prevents AssistantTextInput from re-rendering on every tick.
+        setCanvasNodesForMention((prev) => {
+          if (prev.length !== next.length) return next;
+          for (let i = 0; i < next.length; i++) {
+            const a = prev[i], b = next[i];
+            if (!a || a.id !== b.id || a.type !== b.type || a.detail !== b.detail) return next;
+          }
+          return prev;
+        });
+      }
     };
     tick(); // run immediately
     const id = setInterval(tick, 1500); // re-check every 1.5s
@@ -1646,6 +1679,12 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   }, []);
 
   const hasOlderMessages = visibleCount < messages.length;
+  const dynamicChips = useMemo(
+    () => getDynamicChips(messages, getLatestContext()),
+    // recompute when messages change; getLatestContext reads from window each call
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messages, contextCount, liveHasContext],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -1715,442 +1754,67 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         onAutoScrolledToBottom={() => setVisibleCount(DEFAULT_WINDOW)}
       />
 
-      {/* Generate Script button — v2 build marker */}
-      <div className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} border-t border-border flex-shrink-0`}>
+      {/* Input area — chips bar + AssistantTextInput. Lifted out of CanvasAIPanel
+          in Phase B.1, Task 4. Canvas-context-aware bits (dynamic chips,
+          mention nodes) are computed here and passed in as props. */}
+      <div ref={inputBoxRef} className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} border-t border-border flex-shrink-0`}>
         <div className={fullscreen ? "max-w-3xl mx-auto w-full" : ""}>
-        {/* Research mode banner */}
-        {isResearchMode && (
-          <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg" style={{ background: "linear-gradient(90deg,rgba(34,211,238,0.12),rgba(14,165,233,0.08))", border: "1px solid rgba(34,211,238,0.2)" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" style={{ boxShadow: "0 0 5px #22d3ee", animation: "pulse 1.5s infinite" }} />
-            <span className="text-[10px] text-primary/80 font-medium">Deep Research mode · 100 credits per query</span>
-          </div>
-        )}
-        {/* Pasted image preview — above chips */}
-        {pastedImage && (
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <div className="relative flex-shrink-0">
-              <img src={pastedImage.dataUrl} alt="Pasted" className="w-12 h-12 rounded-lg object-cover border border-border" />
-              <button
-                type="button"
-                onClick={() => setPastedImage(null)}
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </div>
-            <span className="text-[10px] text-muted-foreground">Image attached — AI will analyze it</span>
-          </div>
-        )}
-
-        {/* CONTEXT CHIPS ROW — scrollable, above the input box */}
-        <div style={{ display:"flex", gap:5, overflowX:"auto", scrollbarWidth:"none", WebkitOverflowScrolling:"touch" as any, marginBottom:6, paddingBottom:2, alignItems:"center" }}>
-          {getDynamicChips(messages, getLatestContext()).map((chip) => (
-            <button
-              type="button"
-              key={chip}
-              onClick={() => sendMessage(chip)}
-              disabled={loading || generating}
-              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", borderRadius:8, padding:"4px 9px", fontSize:10, whiteSpace:"nowrap", flexShrink:0, cursor:"pointer", opacity: (loading || generating) ? 0.4 : 1 }}
-            >
-              {chip}
-            </button>
-          ))}
+          <AssistantChipsBar
+            chips={dynamicChips}
+            onChip={(chip) => sendMessage(chip)}
+            disabled={loading || generating}
+          />
+          <AssistantTextInput
+            value={input}
+            onChange={(val) => {
+              setInput(val);
+              // Read by SuperPlanningCanvas when opening the fullscreen view
+              (window as any).__canvasAIDraftInput = val;
+            }}
+            onSend={() => sendMessage(input)}
+            onStop={stopGeneration}
+            loading={loading}
+            generating={generating}
+            recognizing={recognizing}
+            pastedImage={pastedImage}
+            onClearPastedImage={() => setPastedImage(null)}
+            onPaste={handlePaste}
+            imageMode={imageMode}
+            onToggleImageMode={() => setImageMode((v) => !v)}
+            isResearchMode={isResearchMode}
+            onToggleResearchMode={() => setIsResearchMode((v) => !v)}
+            onGenerateScript={() => {
+              if (!generating) {
+                toast.info("Generating script...");
+                generateScript();
+              }
+            }}
+            generateScriptDisabled={loading || generating}
+            selectedModel={selectedModel}
+            models={AI_MODELS}
+            onModelChange={(key) => {
+              setSelectedModel(key);
+              onModelChange(key);
+              if (!key.includes("sonnet") && !key.includes("opus")) setThinkingEnabled(false);
+            }}
+            thinkingEnabled={thinkingEnabled}
+            onToggleThinking={() => setThinkingEnabled((v) => !v)}
+            onToggleVoice={toggleVoice}
+            mentionableNodes={canvasNodesForMention}
+            mentionIconMap={NODE_ICON_COMPONENTS}
+            mentionLabelMap={NODE_LABELS}
+            promptPresets={PROMPT_PRESETS.map((p) => ({
+              name: p.name,
+              description: p.description,
+              prompt: p.prompt,
+            }))}
+            variant={fullscreen ? "full" : "compact"}
+            placeholder={imageMode ? "Describe the image..." : "Ask anything about your script..."}
+            inputRef={textareaRef}
+          />
         </div>
-
-        {/* UNIFIED INPUT BOX — Claude style */}
-        <div
-          ref={inputBoxRef}
-          className="relative rounded-xl border"
-          style={{
-            background: imageMode ? "rgba(168,85,247,0.05)" : "rgba(255,255,255,0.04)",
-            borderColor: imageMode ? "rgba(168,85,247,0.25)" : "rgba(255,255,255,0.1)",
-          }}
-        >
-          {/* @ mention dropdown portal — keep existing code exactly as-is */}
-          {atMentionQuery !== null && (() => {
-            const rawNodes = (window as any).__canvasNodes as any[] | undefined;
-            const AI_NODE = "ai-assistant";
-            const NODE_ICON_COMPONENTS: Record<string, React.ReactNode> = {
-              videoNode:              <Film className="w-3.5 h-3.5" />,
-              textNoteNode:           <FileText className="w-3.5 h-3.5" />,
-              researchNoteNode:       <Search className="w-3.5 h-3.5" />,
-              hookGeneratorNode:      <Zap className="w-3.5 h-3.5" />,
-              brandGuideNode:         <Palette className="w-3.5 h-3.5" />,
-              ctaBuilderNode:         <Megaphone className="w-3.5 h-3.5" />,
-              competitorProfileNode:  <User className="w-3.5 h-3.5" />,
-              instagramProfileNode:   <User className="w-3.5 h-3.5" />,
-              mediaNode:              <Paperclip className="w-3.5 h-3.5" />,
-              groupNode:              <Folder className="w-3.5 h-3.5" />,
-              annotationNode:         <MapPin className="w-3.5 h-3.5" />,
-            };
-            const NODE_LABELS: Record<string, string> = {
-              videoNode: "Video", textNoteNode: "Text Note", researchNoteNode: "Research",
-              hookGeneratorNode: "Hook Generator", brandGuideNode: "Brand Guide", ctaBuilderNode: "CTA Builder",
-              competitorProfileNode: "Competitor", instagramProfileNode: "Competitor", mediaNode: "Media",
-              groupNode: "Group", annotationNode: "Annotation",
-            };
-            const allNodes = (rawNodes || [])
-              .filter((n: any) => n.id !== AI_NODE && n.type !== "aiAssistantNode" && n.type !== "annotationNode")
-              .map((n: any) => {
-                const d = n.data || {};
-                const typeLabel = NODE_LABELS[n.type] || n.type;
-                const iconEl = NODE_ICON_COMPONENTS[n.type] || <span className="w-3.5 h-3.5 rounded-full bg-muted-foreground/40 inline-block" />;
-                let detail = "";
-                if (n.type === "videoNode") detail = d.channel_username ? `@${d.channel_username}` : (d.url ? "linked" : "empty");
-                else if (n.type === "textNoteNode" || n.type === "researchNoteNode") detail = (d.noteText || "").slice(0, 30);
-                else if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") detail = d.profileUrl || "";
-                else if (n.type === "brandGuideNode") detail = d.brandName || "";
-                else if (n.type === "hookGeneratorNode") detail = d.topic || "";
-                else if (n.type === "mediaNode") detail = d.fileName || "";
-                return { id: n.id, typeLabel, iconEl, detail };
-              })
-              .filter((n: any) => n.typeLabel.toLowerCase().includes(atMentionQuery) || n.detail.toLowerCase().includes(atMentionQuery));
-            if (allNodes.length === 0) return null;
-            return createPortal(
-              <>
-                <div style={{ position:"fixed", inset:0, zIndex:99998 }} onMouseDown={() => setAtMentionQuery(null)} />
-              <div
-                className="rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                style={{
-                  position: "fixed",
-                  zIndex: 99999,
-                  width: 240,
-                  maxHeight: 200,
-                  overflowY: "auto",
-                  ...(textareaRef.current ? {
-                    left: textareaRef.current.getBoundingClientRect().left,
-                    bottom: window.innerHeight - textareaRef.current.getBoundingClientRect().top + 4,
-                  } : {}),
-                }}
-              >
-                {allNodes.map((node: any) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      const atIdx = input.lastIndexOf("@");
-                      const before = input.slice(0, atIdx);
-                      setInput(before + `@${node.typeLabel}${node.detail ? "(" + node.detail.slice(0, 20) + ")" : ""} `);
-                      setAtMentionQuery(null);
-                      setTimeout(() => textareaRef.current?.focus(), 0);
-                    }}
-                  >
-                    <span className="text-primary/70">{node.iconEl}</span>
-                    <span className="flex-1 truncate">
-                      <span className="font-medium text-xs">{node.typeLabel}</span>
-                      {node.detail && <span className="text-muted-foreground text-xs ml-1">— {node.detail}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              </>,
-              document.body
-            );
-          })()}
-
-          {/* Textarea — full width */}
-          <div className="relative">
-            {/@\S+/.test(input) && (
-              <div
-                aria-hidden
-                className="absolute inset-0 px-3 pt-3 text-xs pointer-events-none overflow-hidden"
-                style={{ fontFamily:"inherit", lineHeight:"1.5", whiteSpace:"pre-wrap", wordBreak:"break-word", zIndex:0 }}
-              >
-                {input.split(/(@\S+)/).map((part, i) =>
-                  part.startsWith("@") && part.length > 1
-                    ? <span key={i} style={{ background:"rgba(59,130,246,0.18)", color:"#60a5fa", borderRadius:3, padding:"0 1px" }}>{part}</span>
-                    : <span key={i} style={{ color:"transparent" }}>{part}</span>
-                )}
-              </div>
-            )}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                const val = e.target.value;
-                setInput(val);
-                (window as any).__canvasAIDraftInput = val; // read by SuperPlanningCanvas when opening fullscreen view
-                adjustTextareaHeight();
-                const atIdx = val.lastIndexOf("@");
-                if (atIdx >= 0 && !val.slice(atIdx).includes(" ")) {
-                  setAtMentionQuery(val.slice(atIdx + 1).toLowerCase());
-                } else {
-                  setAtMentionQuery(null);
-                }
-              }}
-              onPaste={handlePaste}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") { setAtMentionQuery(null); return; }
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
-              }}
-              placeholder={imageMode ? "Describe the image..." : "Ask anything about your script..."}
-              data-tutorial-target="ai-chat-input"
-              className={`relative resize-none canvas-ai-scroll ${fullscreen ? "text-sm" : "text-xs"} w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0`}
-              style={{
-                color: /@\S+/.test(input) ? "transparent" : "#e0e0e0",
-                caretColor: "#e0e0e0",
-                minHeight: fullscreen ? 64 : 44,
-                maxHeight: fullscreen ? 200 : 160,
-                overflowY: "auto",
-                zIndex: 1,
-              }}
-              rows={1}
-              disabled={loading || generating}
-            />
-          </div>
-
-          {/* Inner divider */}
-          <div style={{ height:1, background:"rgba(255,255,255,0.06)", margin:"0 10px" }} />
-
-          {/* Inner toolbar */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px" }}>
-
-            {/* circle-+ — image mode, research, presets */}
-            <div className="relative" ref={plusMenuRef}>
-              <button
-                type="button"
-                onClick={() => setPlusMenuOpen(v => !v)}
-                style={{ width:26, height:26, border:"1.5px solid rgba(255,255,255,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:18, fontWeight:300, lineHeight:1, background:"none", cursor:"pointer", flexShrink:0 }}
-              >
-                +
-              </button>
-              {plusMenuOpen && (
-                <div
-                  className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                  style={{ zIndex:99999 }}
-                  onPointerDown={e => e.stopPropagation()}
-                >
-                  <button
-                    type="button"
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${imageMode ? "text-purple-400 bg-purple-500/10" : "text-muted-foreground hover:bg-muted/60"}`}
-                    onClick={() => { setImageMode(v => !v); setPlusMenuOpen(false); }}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span className="text-xs">Image generation{imageMode ? " (ON)" : ""}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${isResearchMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted/60"}`}
-                    onClick={() => { setIsResearchMode(v => !v); setPlusMenuOpen(false); }}
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
-                    <span className="text-xs">Deep research{isResearchMode ? " (ON · 100cr)" : ""}</span>
-                  </button>
-                  <div className="h-px bg-border mx-3" />
-                  <div className="px-3 py-1.5">
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt Presets</p>
-                  </div>
-                  <div className="p-1.5 space-y-1 max-h-48 overflow-y-auto">
-                    {PROMPT_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/60 transition-colors group"
-                        onClick={() => { setInput(preset.prompt); (window as any).__canvasAIDraftInput = preset.prompt; setPlusMenuOpen(false); }}
-                      >
-                        <p className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{preset.name}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* spacer */}
-            <div style={{ flex:1 }} />
-
-            {/* Generate Script — teal text button in toolbar */}
-            <button
-              type="button"
-              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); if (!generating) { toast.info("Generating script..."); generateScript(); } }}
-              onClick={(e) => { e.stopPropagation(); }}
-              disabled={generating}
-              style={{ display:"flex", alignItems:"center", gap:4, color: generating ? "rgba(34,211,238,0.4)" : "#22d3ee", fontSize:11, fontWeight:600, background:"none", border:"none", cursor: generating ? "default" : "pointer", whiteSpace:"nowrap", flexShrink:0 }}
-            >
-              {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-              {generating ? "Generating..." : "Generate Script"}
-            </button>
-
-            {/* separator */}
-            <span style={{ width:1, height:14, background:"rgba(255,255,255,0.1)", display:"inline-block", flexShrink:0 }} />
-
-            {/* Model selector — name + ChevronUp */}
-            <div className="relative" ref={modelDropdownRef}>
-              <button
-                ref={modelBtnRef}
-                type="button"
-                onClick={() => setModelDropdownOpen(v => !v)}
-                style={{ display:"flex", alignItems:"center", gap:3, color:"rgba(255,255,255,0.35)", fontSize:11, background:"none", border:"none", cursor:"pointer", whiteSpace:"nowrap" }}
-                title="Change AI model"
-              >
-                <span>{MODEL_LABEL[selectedModel] || "Haiku"}{thinkingEnabled ? " \u2726" : ""}</span>
-                <ChevronUp style={{ width:10, height:10, transform: modelDropdownOpen ? "" : "rotate(180deg)", color:"rgba(255,255,255,0.35)" }} />
-              </button>
-              {modelDropdownOpen && createPortal(
-                <>
-                  <div style={{ position:"fixed", inset:0, zIndex:99998 }} onClick={() => setModelDropdownOpen(false)} />
-                  <div
-                    ref={modelPortalRef}
-                    className="w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                    style={{
-                      position:"fixed",
-                      zIndex:99999,
-                      ...(modelBtnRef.current ? {
-                        left: modelBtnRef.current.getBoundingClientRect().left,
-                        top: modelBtnRef.current.getBoundingClientRect().top - 8,
-                        transform: "translateY(-100%)",
-                      } : {}),
-                    }}
-                    onPointerDown={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                  >
-                    {(["Anthropic", "OpenAI"] as const).map((provider) => (
-                      <div key={provider}>
-                        <div className="px-3 py-1.5">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{provider}</p>
-                        </div>
-                        {AI_MODELS.filter(m => m.provider === provider).map((m) => (
-                          <button
-                            key={m.key}
-                            type="button"
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                              selectedModel === m.key
-                                ? "bg-primary/10 border-l-2 border-l-primary text-foreground"
-                                : "text-muted-foreground hover:bg-muted/60"
-                            }`}
-                            onClick={() => {
-                              setSelectedModel(m.key);
-                              onModelChange(m.key);
-                              if (!m.key.includes("sonnet") && !m.key.includes("opus")) setThinkingEnabled(false);
-                              setModelDropdownOpen(false);
-                            }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m.color }} />
-                            <span className="text-xs font-medium">{m.label}</span>
-                            {selectedModel === m.key && <Check className="w-3 h-3 ml-auto text-primary" />}
-                            <span className={`text-[10px] ${selectedModel === m.key ? "" : "ml-auto"} opacity-50`}>{m.cost}</span>
-                          </button>
-                        ))}
-                        {provider === "Anthropic" && <div className="h-px bg-border mx-3" />}
-                      </div>
-                    ))}
-                    {/* Extended thinking toggle */}
-                    <div className="h-px bg-border mx-3" />
-                    <button
-                      type="button"
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                        selectedModel.includes("sonnet") || selectedModel.includes("opus")
-                          ? "text-muted-foreground hover:bg-muted/60"
-                          : "text-muted-foreground/40 cursor-not-allowed"
-                      }`}
-                      onClick={() => {
-                        if (selectedModel.includes("sonnet") || selectedModel.includes("opus")) {
-                          setThinkingEnabled(v => !v);
-                        }
-                      }}
-                    >
-                      <span style={{ fontSize: 12, opacity: 0.7 }}>{"\u2726"}</span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-medium">Extended thinking</span>
-                        <p className="text-[9px] opacity-50 mt-0.5">Better answers, slower</p>
-                      </div>
-                      <div
-                        className="relative flex-shrink-0"
-                        style={{
-                          width: 28, height: 16, borderRadius: 8,
-                          background: thinkingEnabled ? "#0891b2" : "rgba(255,255,255,0.15)",
-                          transition: "background 0.2s",
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute", top: 2, width: 12, height: 12, borderRadius: 6,
-                            background: "#fff",
-                            left: thinkingEnabled ? 14 : 2,
-                            transition: "left 0.2s",
-                          }}
-                        />
-                      </div>
-                    </button>
-
-                  </div>
-                </>,
-                document.body
-              )}
-            </div>
-
-            {/* Stop / Send circle / Mic — crossfade transitions */}
-            <div style={{ position:"relative", width:28, height:28, flexShrink:0 }}>
-              {/* Stop button */}
-              <button
-                type="button"
-                onClick={() => {
-                  abortControllerRef.current?.abort();
-                  if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; }
-                  setStreamingContent(null);
-                  setLoading(false);
-                  setGenerating(false);
-                }}
-                style={{
-                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
-                  border:"1.5px solid rgba(239,68,68,0.4)", background:"rgba(239,68,68,0.1)", color:"#f87171",
-                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-                  opacity: (loading || generating) ? 1 : 0,
-                  pointerEvents: (loading || generating) ? "auto" : "none",
-                  transition: "opacity 200ms ease",
-                }}
-                title="Stop generating"
-              >
-                <Square className="w-3.5 h-3.5 fill-current" />
-              </button>
-              {/* Send button */}
-              <button
-                type="button"
-                onClick={() => sendMessage(input)}
-                style={{
-                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
-                  background:"transparent", border:"1.5px solid #22d3ee", color:"#22d3ee",
-                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-                  opacity: (!loading && !generating && input.trim()) ? 1 : 0,
-                  pointerEvents: (!loading && !generating && input.trim()) ? "auto" : "none",
-                  transition: "opacity 200ms ease",
-                }}
-                title="Send"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-              {/* Mic button */}
-              <button
-                type="button"
-                onClick={toggleVoice}
-                style={{
-                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
-                  border:"none", background:"none", color: recognizing ? "#f87171" : "rgba(255,255,255,0.35)",
-                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-                  opacity: (!loading && !generating && !input.trim()) ? 1 : 0,
-                  pointerEvents: (!loading && !generating && !input.trim()) ? "auto" : "none",
-                  transition: "opacity 200ms ease",
-                }}
-                title={recognizing ? "Stop recording" : "Voice input"}
-              >
-                {recognizing ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Image mode indicator */}
-        {imageMode && (
-          <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-purple-500/5 rounded-lg w-fit">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-            <span className="text-[10px] text-purple-400">Image mode · DALL-E 3 · ~150 cr</span>
-          </div>
-        )}
-        </div>{/* end max-w input wrapper */}
       </div>
     </div>
   );
 }
+
