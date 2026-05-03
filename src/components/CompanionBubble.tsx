@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Bot, X, ChevronRight, Send } from "lucide-react";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -11,6 +11,7 @@ export default function CompanionBubble() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const en = language === "en";
   const [chatInput, setChatInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -30,11 +31,23 @@ export default function CompanionBubble() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data } = await supabase.functions.invoke("companion-chat", {
-        body: { message: userMsg, companion_name: companionName },
+        body: { message: userMsg, companion_name: companionName, current_path: location.pathname },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (data?.reply) {
         setPanelMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      }
+      // Execute actions returned by the AI
+      if (data?.actions) {
+        for (const action of data.actions) {
+          if (action.type === "navigate") {
+            setIsOpen(false);
+            navigate(action.path);
+          }
+          if (action.type === "fill_onboarding") {
+            window.dispatchEvent(new CustomEvent("companion:fill-onboarding", { detail: action.fields }));
+          }
+        }
       }
     } finally {
       setSending(false);

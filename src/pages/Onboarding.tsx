@@ -106,6 +106,19 @@ const Onboarding = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Listen for AI companion filling fields
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const fields = (e as CustomEvent).detail;
+      if (fields && typeof fields === "object") {
+        setFormData(prev => ({ ...prev, ...fields }));
+        toast.success("Your AI filled in some fields. Review and save when ready.");
+      }
+    };
+    window.addEventListener("companion:fill-onboarding", handler);
+    return () => window.removeEventListener("companion:fill-onboarding", handler);
+  }, []);
+
   const handleSave = async () => {
     if (!clientId) {
       toast.error("No client found");
