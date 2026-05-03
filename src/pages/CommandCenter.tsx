@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bot, Send } from "lucide-react";
 import { useCompanion } from "@/contexts/CompanionContext";
@@ -10,7 +10,7 @@ import PageTransition from "@/components/PageTransition";
 type Tab = "todo" | "done";
 
 export default function CommandCenter() {
-  const { companionName, tasks, loadingTasks, autonomyMode, setAutonomyMode } = useCompanion();
+  const { companionName, tasks, loadingTasks, refreshTasks, autonomyMode, setAutonomyMode } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -21,6 +21,9 @@ export default function CommandCenter() {
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [sending, setSending] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  // Re-fetch tasks every time this page is visited so completed actions clear immediately
+  useEffect(() => { refreshTasks(); }, []);
 
   const todoTasks = tasks.filter((t) => !dismissedIds.has(t.id));
   const urgentCount = todoTasks.filter((t) => t.priority === "red" || t.priority === "amber").length;

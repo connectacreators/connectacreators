@@ -766,8 +766,14 @@ ${autonomy_mode === "auto"
         }
       }
 
-      // Second Claude call to get the text reply after tool use
-      if (!reply) {
+      // Second Claude call to synthesize tool results into a recommendation.
+      // Always run if there are real data lookups — even if reply was already set by
+      // respond_to_user in Turn 1 (e.g. "Let me look everything up..."). Without this,
+      // the lookup results are silently discarded and Mario never gives the recommendation.
+      const hasDataLookups = toolResults.some((r) =>
+        r.content !== "Message sent." && !String(r.content).startsWith("Navigating to")
+      );
+      if (!reply || hasDataLookups) {
         const secondRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -777,9 +783,10 @@ ${autonomy_mode === "auto"
           },
           body: JSON.stringify({
             model: "claude-sonnet-4-6",
-            max_tokens: 512,
+            max_tokens: 1024,
             system: systemPrompt,
             tools: TOOLS,
+            ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
             messages: [
               ...priorMessages,
               { role: "user", content: message },
@@ -789,8 +796,24 @@ ${autonomy_mode === "auto"
           }),
         });
         const secondResult = await secondRes.json();
-        const textBlock = secondResult.content?.find((b: any) => b.type === "text");
-        reply = textBlock?.text || "Done.";
+        // In auto mode Mario uses respond_to_user tool; in ask/plan it outputs plain text
+        if (secondResult.stop_reason === "tool_use") {
+          const respondBlock = secondResult.content?.find(
+            (b: any) => b.type === "tool_use" && b.name === "respond_to_user"
+          );
+          const textBlock = secondResult.content?.find((b: any) => b.type === "text");
+          const secondReply = respondBlock?.input?.message || textBlock?.text;
+          if (secondReply) reply = secondReply;
+          // Capture any navigation actions from the second turn
+          const navBlock = secondResult.content?.find(
+            (b: any) => b.type === "tool_use" && b.name === "navigate_to_page"
+          );
+          if (navBlock?.input?.path) actions.push({ type: "navigate", path: navBlock.input.path });
+        } else {
+          const textBlock = secondResult.content?.find((b: any) => b.type === "text");
+          if (textBlock?.text) reply = textBlock.text;
+        }
+        if (!reply) reply = "I looked everything up but couldn't form a recommendation. Try asking again.";
       }
     } else {
       // Normal text response
