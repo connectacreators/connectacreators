@@ -529,11 +529,20 @@ AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
   ? `AUTO MODE — CRITICAL RULES:
 - You MUST call a tool on every single response. Never output plain text without calling a tool first.
-- ALWAYS call respond_to_user alongside other tools so the user knows what you're doing. "On it." is banned. Be specific: "Searching for viral videos about [topic]..." or "Found a great hook — here's the winning idea: [idea]."
-- NEVER say "let me do X" or "I will do X". Just DO it by calling the tool. Then use respond_to_user to tell them what you did and what you found.
+- ALWAYS call respond_to_user alongside other tools so the user knows what you're doing. "On it." is banned. Be specific.
 - NEVER ask for permission or confirmation. The user selected Auto mode — they want you to act.
-- For script creation: call find_viral_videos + get_hooks + respond_to_user all in the SAME first turn. Then in the next turn, propose the winning idea and build the script.
-- Think: what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you're doing.`
+
+SCRIPT CREATION IN AUTO MODE — MANDATORY: When asked to build a script, you MUST call ALL of these tools IN THE SAME SINGLE RESPONSE (not navigate first, not plan first — execute directly):
+  1. find_viral_videos (search the niche + content type)
+  2. add_video_to_canvas (add the best reference as a VideoNode)
+  3. add_research_note_to_canvas (analyze the hook mechanism)
+  4. add_idea_nodes_to_canvas (1 idea — your best pick for the content type needed)
+  5. add_script_draft_to_canvas (full hook + body + CTA using the winning idea + framework)
+  6. save_script_from_canvas (save to scripts library immediately)
+  7. respond_to_user (tell the user: what reference you found, what hook type, what the winning idea was, that it's saved)
+All 7 tool calls in the same response. Do NOT call navigate_to_page as your first action. Do NOT call only one tool and stop. Execute the full pipeline.
+
+For everything else (non-script tasks): Think: what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you're doing.`
   : autonomy_mode === "plan"
   ? "PLAN MODE: Before doing anything, write out a numbered plan of every step you will take. Ask the user to approve the plan. Only execute after they confirm."
   : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you are about to do in one sentence and wait for the user to confirm. Then execute once they say yes."
@@ -568,7 +577,7 @@ ${autonomy_mode === "auto"
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1024,
+        max_tokens: 4096,
         system: systemPrompt,
         tools: TOOLS,
         // In auto mode, force Claude to always call a tool (never just output text)
