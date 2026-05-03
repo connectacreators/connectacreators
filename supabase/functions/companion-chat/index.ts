@@ -300,24 +300,17 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
-    // Load long-term memory from companion_state
-    const { data: companionState } = await adminClient
-      .from("companion_state")
-      .select("workflow_context")
-      .eq("client_id", client.id)
-      .maybeSingle();
+    // Load memory, strategy, history in parallel
+    const [companionStateRes, strategyRes, historyRes] = await Promise.all([
+      adminClient.from("companion_state").select("workflow_context").eq("client_id", client.id).maybeSingle(),
+      adminClient.from("client_strategies").select("*").eq("client_id", client.id).maybeSingle(),
+      adminClient.from("companion_messages").select("role, content").eq("client_id", client.id).order("created_at", { ascending: false }).limit(40),
+    ]);
 
-    const savedMemories: Record<string, string> = companionState?.workflow_context || {};
+    const savedMemories: Record<string, string> = companionStateRes.data?.workflow_context || {};
+    const strat = strategyRes.data;
 
-    // Last 40 messages for context (expanded from 20)
-    const { data: history } = await adminClient
-      .from("companion_messages")
-      .select("role, content")
-      .eq("client_id", client.id)
-      .order("created_at", { ascending: false })
-      .limit(40);
-
-    const priorMessages = (history || []).reverse().map((m: any) => ({
+    const priorMessages = ((historyRes.data || []) as any[]).reverse().map((m: any) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
@@ -332,7 +325,34 @@ serve(async (req) => {
       od.uniqueValues && `Key values: ${od.uniqueValues}`,
       od.competition && `Competition: ${od.competition}`,
       od.story && `Story: ${od.story}`,
+      od.instagram && `Instagram: @${od.instagram}`,
     ].filter(Boolean).join("\n");
+
+    // Build strategy context — injected at startup so Mario always knows the plan
+    let strategyContext = "";
+    if (strat) {
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+      const iso = monthStart.toISOString();
+      const [{ count: scriptsThisMonth }, { count: videosThisMonth }, { count: postsThisMonth }] = await Promise.all([
+        adminClient.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", client.id).gte("created_at", iso),
+        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).eq("status", "Done").is("deleted_at", null).gte("created_at", iso),
+        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).gte("schedule_date", iso.slice(0,10)).is("deleted_at", null),
+      ]);
+      const s = scriptsThisMonth ?? 0;
+      const v = videosThisMonth ?? 0;
+      const p = postsThisMonth ?? 0;
+      const analysis = strat.audience_analysis as any;
+      strategyContext = `
+CLIENT STRATEGY (read this before every decision):
+Monthly targets: ${strat.scripts_per_month} scripts / ${strat.videos_edited_per_month} videos edited / ${strat.posts_per_month} posts scheduled
+This month so far: ${s}/${strat.scripts_per_month} scripts · ${v}/${strat.videos_edited_per_month} videos · ${p}/${strat.posts_per_month} posts
+Content mix goal: ${strat.mix_reach}% reach / ${strat.mix_trust}% trust / ${strat.mix_convert}% convert
+ManyChat: ${strat.manychat_active ? `active — keyword: "${strat.manychat_keyword || "not set"}"` : "NOT SET UP — should be a priority"}
+CTA goal: ${strat.cta_goal || "not set"}
+Ads: ${strat.ads_active ? `running — $${strat.ads_budget}/month` : "not running"}
+Revenue goal: $${strat.monthly_revenue_goal}/month · this month: $${strat.monthly_revenue_actual}
+${analysis?.summary ? `\nAUDIENCE ANALYSIS (from Instagram scrape):\nAudience alignment: ${analysis.audience_score}/10 — ${analysis.audience_detail}\nContent uniqueness: ${analysis.uniqueness_score}/10 — ${analysis.uniqueness_detail}\nSummary: ${analysis.summary}` : ""}`;
+    }
 
     // Format saved memories for injection
     const memoriesText = Object.keys(savedMemories).length > 0
@@ -359,6 +379,7 @@ WHAT CONNECTA DOES NOT DO: SEO, web design, traditional PR, email marketing, e-c
 User's name: ${client.name || "there"}
 Currently on page: ${current_path || "unknown"}
 ${brandLines ? `\nOnboarding data:\n${brandLines}` : "\nNo onboarding data yet."}
+${strategyContext}
 ${memoriesText}
 
 YOUR RULES — FOLLOW EXACTLY:
@@ -371,19 +392,24 @@ YOUR RULES — FOLLOW EXACTLY:
 7. You are a coach who takes action, not a chatbot that asks questions.
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
-12. CRITICAL: When asked to create, build, write, or make a script — first call get_hooks to find the best hook structure, optionally call find_viral_videos for references, then call create_script with the FULL script (hook + all body lines + CTA). Never output the script as text in the chat. Build it and save it to the database, then navigate to it.
-13. PLAIN ENGLISH ONLY: Never use marketing jargon with clients. Translate everything: "TOFU" = "content that gets new people to find you", "MOFU" = "content that builds trust with your audience", "BOFU" = "content that gets people to book or buy". Never say TOFU, MOFU, BOFU, "outlier method", "virality score", or any internal methodology terms.
-14. TOOLS AVAILABLE: You have tools for everything — navigating pages, filling onboarding, creating scripts, finding viral videos, scheduling content, submitting to editing queue, checking calendars, creating canvas notes, looking up clients, and getting hook templates. Use them. Do not describe what you would do — do it.
-15. NEVER respond with "Done.", "OK.", "Sure.", or any vague single-word/short answer. Every response must be useful, specific, and actionable. If you just completed an action, tell the user exactly what you did, what you found, and what the next step is.
-18. SCRIPT PREVIEW BEFORE SAVING: Before calling create_script, ALWAYS show the full script as a preview in your respond_to_user message first. Format it clearly: show the hook, each body line, and the CTA. Then say "Should I save this?" Wait for confirmation before calling create_script. Exception: only skip preview in Auto mode if the user explicitly said "just do it" or "auto".
-19. WHEN CONTEXT IS UNCLEAR: If someone says "build a script for me" without specifying which client or topic, use get_client_info on the currently selected client and their recent data to make a smart decision. Never just say "Done." — always explain what you're doing or what you need.
-20. AFTER EVERY ACTION: Tell the user (a) what you just did, (b) what you found or created, (c) what the next step is. Always 3 parts. No exceptions.
-16. When the user asks "what to do now", "what's next", "now what", or similar — ALWAYS call get_client_strategy AND get_client_info AND get_editing_queue AND get_content_calendar FIRST to understand the full picture. The strategy tells you their monthly goals and how far behind they are. Use that to give a specific, numbers-driven recommendation. Never guess. Look it up, then tell them exactly what to do. Example: "You need 20 scripts this month and you've done 2. Let's write 3 today. Your ManyChat isn't set up — that's next after scripts."
-17. WORKFLOW GUIDE: The Connecta workflow for a client is always: (1) Onboarding complete → (2) Canvas loaded with research and brand info → (3) Viral video references found → (4) Script created → (5) Client films → (6) Footage submitted to editing queue → (7) Editor assigned → (8) Approved → (9) Scheduled to content calendar → (10) Posted. Always know where the client is in this workflow and tell them the next specific step.
-13. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
-12. CONTEXT RULE: If the user is currently on /onboarding, do NOT navigate them away. Stay on that page and keep filling fields using fill_onboarding_fields. "Take me to the next step" means fill the next empty fields on this page, not navigate elsewhere. Only navigate away from /onboarding after the form is fully complete and saved.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
-11. MEMORY: Whenever you learn something important about the client — their main story with specific numbers, their content pillars, their target audience, a great hook idea, a business result, a preference — call save_memory immediately. Don't wait to be asked. Think of this like taking notes on a client you'll work with for years. Save things that would be valuable to remember in 6 months.
+11. MEMORY: Whenever you learn something important — their story with specific numbers, content pillars, target audience, a great hook idea, a business result, preference — call save_memory immediately. Don't wait to be asked.
+12. NEVER navigate manually. If navigation is needed, call navigate_to_page — the app takes them there. Never say "head to X", "go to X", "visit X".
+13. ONBOARDING CONTEXT: If the user is on /onboarding, do NOT navigate away. Keep filling fields using fill_onboarding_fields until the form is fully complete.
+14. PLAIN ENGLISH ONLY: Never use TOFU, MOFU, BOFU, "outlier method", or internal jargon. Translate: reach content = "content that gets new people to find you", trust = "builds authority with your audience", convert = "turns warm viewers into booked leads".
+15. NEVER respond with "Done.", "OK.", "Sure." Every response must tell the user (a) what you did, (b) what you found, (c) what the next step is.
+16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
+17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
+18. SCRIPT CREATION WORKFLOW — This is a 4-step process, not a one-shot command:
+    STEP 1 — DETERMINE CONTENT TYPE: Check the CLIENT STRATEGY above. What type of content is most needed? If they're behind on reach content, the next script must be reach-focused. Tell the user what type you're creating and why ("You need reach content — your mix is 50% reach but you haven't posted any this month").
+    STEP 2 — FIND VIRAL INSPIRATION: Call find_viral_videos with the client's niche + content type. Find a video with a shocking or counterintuitive angle that performed well. The winning idea must be: (a) surprising to the target audience, (b) tied to the client's specific story/results, (c) different from what's already in their feed.
+    STEP 3 — GET HOOK: Call get_hooks to find the right hook structure for this content type.
+    STEP 4 — PROPOSE THE WINNING IDEA FIRST: Before writing anything, tell the user the winning idea in one sentence: "Here's the idea: [hook premise]. This works because [why it's surprising/unique]. Should I build the full script?" Wait for approval in Ask/Plan mode. In Auto mode, proceed immediately.
+    STEP 5 — BUILD AND PREVIEW: Write the full script (hook + body lines + CTA). Show it to the user. Say "Should I save this?"
+    STEP 6 — SAVE: Call create_script only after confirmation (or immediately in Auto mode).
+    NEVER skip Step 2-4. A script without a viral-validated winning idea is generic content that won't perform.
+19. TOOLS: You have navigate_to_page, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, list_all_clients, get_client_info, get_hooks, get_client_strategy, save_memory, respond_to_user. Use them. Don't describe what you'd do — do it.
+20. TOOLS AVAILABLE: You have tools for everything — navigating pages, filling onboarding, creating scripts, finding viral videos, scheduling content, submitting to editing queue, checking calendars, creating canvas notes, looking up clients, and getting hook templates. Use them. Do not describe what you would do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -440,12 +466,13 @@ ${autonomy_mode === "auto"
     const firstResult = await firstRes.json();
     const actions: any[] = [];
     let reply = "";
+    let turn1Reply = ""; // preserve Turn 1 reply as fallback if Turn 2 only navigates
 
     // Process response — may have tool_use blocks
     if (firstResult.stop_reason === "tool_use") {
       const toolUseBlocks = firstResult.content.filter((b: any) => b.type === "tool_use");
       const textBlocks = firstResult.content.filter((b: any) => b.type === "text");
-      if (textBlocks.length > 0) reply = textBlocks[0].text;
+      if (textBlocks.length > 0) { reply = textBlocks[0].text; turn1Reply = reply; }
 
       const toolResults: any[] = [];
 
@@ -453,6 +480,7 @@ ${autonomy_mode === "auto"
         if (block.name === "respond_to_user") {
           // Pure text response wrapped as a tool call (used in auto mode)
           reply = block.input.message || "";
+          turn1Reply = reply;
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
         }
 
@@ -728,17 +756,24 @@ ${autonomy_mode === "auto"
 
             const s = strat || { posts_per_month: 20, scripts_per_month: 20, videos_edited_per_month: 20, stories_per_week: 10, mix_reach: 60, mix_trust: 30, mix_convert: 10, manychat_active: false, manychat_keyword: null, cta_goal: "manychat", ads_active: false, ads_budget: 0, monthly_revenue_goal: 0, monthly_revenue_actual: 0 };
 
-            const summary = [
+            const analysis = (s as any).audience_analysis;
+            const summaryLines = [
               "Strategy for " + targetClient.name + ":",
               "Monthly targets: " + s.scripts_per_month + " scripts, " + s.videos_edited_per_month + " videos edited, " + s.posts_per_month + " posts scheduled",
               "This month so far: " + (scriptCount || 0) + " scripts, " + (videoCount || 0) + " videos done, " + (calCount || 0) + " posts scheduled",
               "Content mix: " + s.mix_reach + "% reach / " + s.mix_trust + "% trust / " + s.mix_convert + "% convert",
               "Stories per week: " + s.stories_per_week,
-              "ManyChat: " + (s.manychat_active ? "active, keyword: " + (s.manychat_keyword || "not set") : "not set up"),
+              "ManyChat: " + (s.manychat_active ? "active, keyword: " + (s.manychat_keyword || "not set") : "NOT SET UP — priority action"),
               "CTA goal: " + s.cta_goal,
               "Ads: " + (s.ads_active ? "running, budget $" + s.ads_budget + "/month" : "not running"),
               "Revenue goal: $" + s.monthly_revenue_goal + "/month, this month: $" + s.monthly_revenue_actual,
+              analysis ? [
+                "Audience alignment: " + analysis.audience_score + "/10 — " + (analysis.audience_detail || ""),
+                "Content uniqueness: " + analysis.uniqueness_score + "/10 — " + (analysis.uniqueness_detail || ""),
+                "Analysis: " + (analysis.summary || ""),
+              ].join("\n") : "Audience analysis: not yet run",
             ].join("\n");
+            const summary = summaryLines;
 
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
           }
@@ -873,7 +908,8 @@ ${autonomy_mode === "auto"
           const textBlock = secondResult.content?.find((b: any) => b.type === "text");
           if (textBlock?.text) reply = textBlock.text;
         }
-        if (!reply) reply = "I looked everything up but couldn't form a recommendation. Try asking again.";
+        // If Turn 2 only navigated (no text/respond_to_user), fall back to Turn 1 reply
+        if (!reply) reply = turn1Reply || "On it.";
       }
     } else {
       // Normal text response

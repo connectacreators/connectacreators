@@ -44,13 +44,17 @@ async function scrapeProfile(handle: string, limit: number): Promise<{ caption: 
   if (!res.ok) return [];
 
   const data = await res.json().catch(() => null);
-  if (!data?.posts) return [];
+  if (!data?.posts) return { posts: [], profilePicUrl: null, followers: null };
 
-  return (data.posts as any[]).slice(0, limit).map((p) => ({
-    caption: String(p.title || p.caption || "").slice(0, 300),
-    views: Number(p.views) || 0,
-    likes: Number(p.likes) || 0,
-  }));
+  return {
+    posts: (data.posts as any[]).slice(0, limit).map((p) => ({
+      caption: String(p.title || p.caption || "").slice(0, 300),
+      views: Number(p.views) || 0,
+      likes: Number(p.likes) || 0,
+    })),
+    profilePicUrl: data.profilePicUrl || null,
+    followers: data.followers ? Number(data.followers) : null,
+  };
 }
 
 function parseProfiles(raw: unknown): string[] {
@@ -107,11 +111,15 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No Instagram handle in onboarding data" }), { status: 400, headers: corsHeaders });
     }
 
-    const [clientPosts, ...emulationPostArrays] = await Promise.all([
+    const [clientResult, ...emulationResults] = await Promise.all([
       scrapeProfile(instagramHandle, 10),
       ...emulationProfiles.map((handle) => scrapeProfile(handle, 10)),
     ]);
 
+    const clientPosts = clientResult.posts;
+    const profilePicUrl = clientResult.profilePicUrl;
+    const followers = clientResult.followers;
+    const emulationPostArrays = emulationResults.map(r => r.posts);
     const totalEmulationPosts = emulationPostArrays.reduce((sum, arr) => sum + arr.length, 0);
 
     const clientPostsText = clientPosts.length > 0
@@ -222,6 +230,8 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       emulation_profiles: emulationProfiles,
       analyzed_at: new Date().toISOString(),
       language: lang,
+      profilePicUrl: profilePicUrl || null,
+      followers: followers || null,
     };
 
     await adminClient.from("client_strategies").upsert(

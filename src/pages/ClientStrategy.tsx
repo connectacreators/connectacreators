@@ -308,9 +308,32 @@ export default function ClientStrategy() {
     <PageTransition className="flex-1 px-4 sm:px-6 py-6 max-w-3xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-black text-foreground">{en ? "Content Strategy" : "Estrategia de Contenido"}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{en ? "Robby reads this before every content decision" : "Robby lee esto antes de cada decisión de contenido"}</p>
+        <div className="flex items-center gap-3">
+          {/* Instagram profile picture */}
+          {(s.audience_analysis as any)?.profilePicUrl ? (
+            <img
+              src={(s.audience_analysis as any).profilePicUrl}
+              alt="Instagram"
+              className="w-11 h-11 rounded-full object-cover flex-shrink-0"
+              style={{ border: "2px solid rgba(34,211,238,0.3)" }}
+            />
+          ) : clientOnboarding.instagram ? (
+            <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[13px] font-bold"
+              style={{ background: "rgba(34,211,238,0.1)", border: "2px solid rgba(34,211,238,0.2)", color: "#22d3ee" }}>
+              {String(clientOnboarding.instagram).replace(/^@/, "").slice(0, 2).toUpperCase()}
+            </div>
+          ) : null}
+          <div>
+            <h1 className="text-xl font-black text-foreground">{en ? "Content Strategy" : "Estrategia de Contenido"}</h1>
+            {clientOnboarding.instagram ? (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                @{String(clientOnboarding.instagram).replace(/^@/, "")}
+                {(s.audience_analysis as any)?.followers ? ` · ${((s.audience_analysis as any).followers as number).toLocaleString()} followers` : ""}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-0.5">{en ? "Robby reads this before every content decision" : "Robby lee esto antes de cada decisión de contenido"}</p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {editing ? (
