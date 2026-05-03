@@ -345,7 +345,7 @@ const TOOLS = [
   },
   {
     name: "build_script_full_pipeline",
-    description: "ATOMIC ORCHESTRATOR — Use this for ALL script creation requests in Auto mode (and as the default in Ask/Plan when the user wants you to handle everything). Single call that does the COMPLETE pipeline: searches viral references, picks the best one, adds video node to canvas, generates research analysis, generates the winning idea, builds the full script, places everything on the canvas, and saves to scripts library. Returns a summary of what was built. Use this instead of calling find_viral_videos + add_video_to_canvas + add_research_note_to_canvas + add_idea_nodes_to_canvas + add_script_draft_to_canvas + save_script_from_canvas separately.",
+    description: "ATOMIC ORCHESTRATOR — Use this for ALL script creation requests in Auto mode. CANVAS-AWARE: this tool automatically reads the client's active canvas first. If a video with transcription already exists on the canvas, it reuses it (no re-fetch, no re-transcribe). If research/idea/framework notes already exist, the synthesis step uses them as context instead of inventing from scratch. So when a user says 'build a script' on a canvas that already has competitors mapped or hooks researched, this tool intelligently builds on what's there. Single call does: read canvas context → reuse or fetch reference video → transcribe (if needed) → visual breakdown (if needed) → generate research/idea/script informed by existing canvas notes → write nodes progressively with edges → save to scripts library.",
     input_schema: {
       type: "object",
       properties: {
@@ -1183,79 +1183,130 @@ For everything else (non-script tasks): Think: what is the single most useful ac
               ).length;
               const rowY = pipelineRowCount * 700;
 
-              // 3. Find viral video (try topic match, fall back to top viral)
-              let { data: videos } = await adminClient
-                .from("viral_videos")
-                .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
-                .ilike("caption", "%" + inferredTopic + "%")
-                .gte("outlier_score", 3)
-                .order("outlier_score", { ascending: false })
-                .limit(5);
-              if (!videos || videos.length === 0) {
-                const { data: fallback } = await adminClient
+              // ─── Read existing canvas context — Mario should reuse what's already there ───
+              const existingVideoNodes = existingNodes.filter((n: any) => n.type === "videoNode");
+              const existingTextNodes = existingNodes.filter((n: any) => n.type === "textNoteNode");
+              const existingCompetitors = existingNodes.filter((n: any) => n.type === "competitorProfileNode" || n.type === "instagramProfileNode");
+
+              // Find a video already on canvas with transcription — skip the transcribe step
+              const reusableVideo = existingVideoNodes.find((n: any) =>
+                n.data?.transcription && (n.data.transcription as string).length > 100
+              );
+
+              // Build context summary so synthesis can leverage existing research/ideas/frameworks
+              const canvasContextLines: string[] = [];
+              if (existingTextNodes.length > 0) {
+                canvasContextLines.push(`EXISTING NOTES ON CANVAS (research, ideas, frameworks already explored — reuse what fits):`);
+                existingTextNodes.slice(0, 8).forEach((n: any, i: number) => {
+                  const text = (n.data?.noteText || "").slice(0, 600);
+                  if (text.trim()) canvasContextLines.push(`Note ${i + 1}: ${text}`);
+                });
+              }
+              if (existingCompetitors.length > 0) {
+                const handles = existingCompetitors.map((n: any) => `@${n.data?.username || n.data?.channel_username || "unknown"}`).filter(h => h !== "@unknown");
+                if (handles.length) canvasContextLines.push(`COMPETITORS ALREADY MAPPED: ${handles.join(", ")}`);
+              }
+              if (reusableVideo) {
+                canvasContextLines.push(`VIDEO ALREADY ON CANVAS WITH TRANSCRIPTION — reuse it instead of fetching a new one.`);
+              }
+              const canvasContext = canvasContextLines.join("\n\n");
+
+              // 3. Find viral video — but reuse one already on canvas if available
+              let chosenVideo: any = null;
+              let skipFetch = false;
+
+              if (reusableVideo) {
+                chosenVideo = {
+                  channel_username: reusableVideo.data?.channel_username || "",
+                  caption: reusableVideo.data?.caption || reusableVideo.data?.videoTitle || "",
+                  views_count: reusableVideo.data?.views_count || 0,
+                  outlier_score: 0,
+                  video_url: reusableVideo.data?.url || "",
+                };
+                skipFetch = true;
+              } else {
+                let { data: videos } = await adminClient
                   .from("viral_videos")
                   .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
-                  .gte("outlier_score", 5)
+                  .ilike("caption", "%" + inferredTopic + "%")
+                  .gte("outlier_score", 3)
                   .order("outlier_score", { ascending: false })
                   .limit(5);
-                videos = fallback || [];
+                if (!videos || videos.length === 0) {
+                  const { data: fallback } = await adminClient
+                    .from("viral_videos")
+                    .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
+                    .gte("outlier_score", 5)
+                    .order("outlier_score", { ascending: false })
+                    .limit(5);
+                  videos = fallback || [];
+                }
+                if (videos && videos.length > 0) chosenVideo = videos[0];
               }
-              if (videos.length === 0) {
-                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No viral videos in the database to reference. Add some via the Viral Today scraper first." });
+
+              if (!chosenVideo) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No viral videos to reference (none on canvas, none in viral_videos DB). Add some via Viral Today first." });
               } else {
-                const chosenVideo = videos[0];
                 const ts = Date.now();
-
-                // ─── STAGE 1: Write the video node FIRST so user sees it appear ───
-                const videoNode = {
-                  id: `videoNode_pipeline_${ts}`,
-                  type: "videoNode",
-                  position: { x: 50, y: rowY },
-                  data: {
-                    url: chosenVideo.video_url,
-                    videoTitle: (chosenVideo.caption || "").slice(0, 80),
-                    videoLabel: (chosenVideo.caption || "").slice(0, 80),
-                    channel_username: chosenVideo.channel_username || "",
-                    caption: (chosenVideo.caption || "").slice(0, 200),
-                  },
-                };
-                let nodesAccumulator = [...existingNodes, videoNode];
+                let nodesAccumulator = [...existingNodes];
                 let edgesAccumulator = [...existingEdges];
-                await adminClient.from("canvas_states")
-                  .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                  .eq("id", canvasState.id);
-
-                // ─── STAGE 2a: Transcribe the video so synthesis has REAL spoken content ───
+                let videoNode: any;
                 let transcription = "";
                 let videoCacheUrl: string | null = null;
-                try {
-                  const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", Authorization: authHeader },
-                    body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
-                  });
-                  if (transcribeRes.ok) {
-                    const tdata = await transcribeRes.json();
-                    transcription = tdata.transcription || "";
-                    videoCacheUrl = tdata.videoUrl ?? null;
-                    nodesAccumulator = nodesAccumulator.map((n: any) =>
-                      n.id === videoNode.id
-                        ? { ...n, data: { ...n.data, transcription, videoUrl: videoCacheUrl, thumbnail_url: tdata.thumbnail_url ?? null } }
-                        : n
-                    );
-                    await adminClient.from("canvas_states")
-                      .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                      .eq("id", canvasState.id);
-                  } else {
-                    console.warn("[orchestrator] transcribe-video failed:", transcribeRes.status, await transcribeRes.text().catch(() => ""));
+
+                if (skipFetch && reusableVideo) {
+                  // Reuse existing video on canvas — skip write, transcribe, and visual analysis
+                  videoNode = reusableVideo;
+                  transcription = reusableVideo.data?.transcription || "";
+                  videoCacheUrl = reusableVideo.data?.videoUrl || null;
+                } else {
+                  // ─── STAGE 1: Write the video node FIRST so user sees it appear ───
+                  videoNode = {
+                    id: `videoNode_pipeline_${ts}`,
+                    type: "videoNode",
+                    position: { x: 50, y: rowY },
+                    data: {
+                      url: chosenVideo.video_url,
+                      videoTitle: (chosenVideo.caption || "").slice(0, 80),
+                      videoLabel: (chosenVideo.caption || "").slice(0, 80),
+                      channel_username: chosenVideo.channel_username || "",
+                      caption: (chosenVideo.caption || "").slice(0, 200),
+                    },
+                  };
+                  nodesAccumulator = [...existingNodes, videoNode];
+                  await adminClient.from("canvas_states")
+                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                    .eq("id", canvasState.id);
+
+                  // ─── STAGE 2a: Transcribe the video so synthesis has REAL spoken content ───
+                  try {
+                    const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: authHeader },
+                      body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
+                    });
+                    if (transcribeRes.ok) {
+                      const tdata = await transcribeRes.json();
+                      transcription = tdata.transcription || "";
+                      videoCacheUrl = tdata.videoUrl ?? null;
+                      nodesAccumulator = nodesAccumulator.map((n: any) =>
+                        n.id === videoNode.id
+                          ? { ...n, data: { ...n.data, transcription, videoUrl: videoCacheUrl, thumbnail_url: tdata.thumbnail_url ?? null } }
+                          : n
+                      );
+                      await adminClient.from("canvas_states")
+                        .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                        .eq("id", canvasState.id);
+                    } else {
+                      console.warn("[orchestrator] transcribe-video failed:", transcribeRes.status, await transcribeRes.text().catch(() => ""));
+                    }
+                  } catch (tErr) {
+                    console.warn("[orchestrator] transcribe-video threw:", tErr);
                   }
-                } catch (tErr) {
-                  console.warn("[orchestrator] transcribe-video threw:", tErr);
                 }
 
-                // ─── STAGE 2b: Visual breakdown — frame-by-frame analysis (parallel with synthesis) ───
-                // Kicks off in background; result stored on video node when it returns.
-                const visualPromise = transcription
+                // ─── STAGE 2b: Visual breakdown — only if we just transcribed (not for reused) ───
+                const visualPromise = !skipFetch && transcription
                   ? fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-video-multimodal`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json", Authorization: authHeader },
@@ -1280,6 +1331,7 @@ VIRAL REFERENCE:
 ${transcription ? `- ACTUAL TRANSCRIPTION (use this — it's the real spoken content):\n"""\n${transcription.slice(0, 2500)}\n"""` : "- (No transcription available — adapt from caption only.)"}
 
 CONTENT TYPE NEEDED: ${inferredContentType}
+${canvasContext ? `\n${canvasContext}\n\nIMPORTANT: If the existing notes already contain a relevant framework, hook type, or angle — REUSE it instead of inventing a new one. The user has already done research; build on it. Only invent a new framework if nothing on the canvas applies.` : ""}
 
 Generate JSON with this exact structure (no markdown, no explanation, just valid JSON):
 {
