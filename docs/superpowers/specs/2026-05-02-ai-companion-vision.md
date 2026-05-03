@@ -1,6 +1,6 @@
 # AI Companion — Project Vision & Roadmap
 **Date:** 2026-05-02  
-**Status:** Brainstorming in progress — Phase 1 not yet specced  
+**Status:** Phase 1 shipped · Brainstorming Phase 2+ intelligence upgrades
 
 ---
 
@@ -10,129 +10,119 @@ Make **anyone** — even someone with zero marketing knowledge — able to produ
 
 ---
 
-## Who It Serves
+## Phase 1 — Shipped ✅
 
-The companion adapts its tone, questions, and guidance based on who is logged in:
-
-- **Client (business owner / creator):** No marketing knowledge assumed. Companion leads, explains, and does the heavy lifting. Asks simple questions, translates answers into content strategy automatically.
-- **Agency user (Connecta team member):** More efficient mode — companion accelerates workflows, suggests next actions, and manages multiple clients without hand-holding.
-
-Role detection uses existing auth roles (`isUser`, `isAdmin`, `isVideographer`, etc.).
-
----
-
-## Existing Systems the Companion Orchestrates
-
-All of these already exist in the codebase and the companion will call into them:
-
-| System | File | What the companion uses it for |
-|--------|------|-------------------------------|
-| Onboarding data | `clients.onboarding_data` | Client's brand, offer, target audience, competitors |
-| SuperPlanningCanvas | `SuperPlanningCanvas.tsx` | Creating nodes (ideas, research, brand guide, competitor profiles) |
-| Script Wizard | `AIScriptWizard.tsx` | Pre-filling and running the 5-step script generation |
-| Viral Today | `ViralReelFeed.tsx` | Selecting reference viral videos by niche/format |
-| Vault | `vault_templates` table | Saving and reusing video structures |
-| Editing Queue | `EditingQueue.tsx` | Routing footage to editors |
-| Content Calendar | `ContentCalendar.tsx` | Scheduling approved content |
-| Credits system | `deduct_credits_atomic()` | All AI operations deduct credits |
+- Floating bubble on every page (CompanionBubble)
+- Command Center page at `/ai` with task cards + chat
+- First-login naming modal (Max, Luna, Nova, etc.)
+- Persistent memory via `companion_state.workflow_context`
+- 40-message conversation history
+- Auto/Ask/Plan autonomy modes
+- Full tool library: navigate, fill_onboarding, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, list_all_clients, get_client_info, get_hooks, save_memory
 
 ---
 
-## 4-Phase Roadmap
+## Phase 2 — Intelligence Upgrades (Brainstorming in Progress)
 
-### Phase 1 — Floating AI Companion + Memory *(spec this next)*
-A chat bubble in the bottom-right corner of **every page**, always available. Has persistent memory of the client across sessions (what stage they're in, what they've discussed before, what content they've made). Proactively asks the next question. Knows what page the user is on and adjusts its guidance accordingly.
+### Decisions Made
 
-**Key capabilities:**
-- Floating bubble UI, expands into a chat panel
-- Persistent conversation memory across sessions (stored in DB)
-- Workflow stage awareness (onboarding → ideation → scripting → filming → editing → published)
-- Role-aware tone (client = guided/simple, agency = efficient/direct)
-- Can navigate the user to the right page
-- Calls the existing Claude API edge function for responses
+**Autonomy:** Option C — Monday sweep (time-based) + real-time triggers (event-based). Both.
 
-**What's NOT in Phase 1:**
-- No canvas node creation yet
-- No script wizard automation yet
-- No editing queue automation yet
-- Just: companion UI + memory + guidance + navigation
+**Draft review:** Option A — "Robby's Drafts" tab in the Command Center. Everything Robby prepared sits there. Approve/edit/reject without touching main workflow.
+
+**Content strategy location:** A dedicated **Strategy tab on each client's profile page** — same view for agency and client. Serves as both visual dashboard and Robby's instruction set.
+
+**Strategy is Robby's context:** The strategy page data is loaded into Robby's system prompt. Robby reads the monthly target, content mix, ManyChat keyword, CTA goal, stories target, etc. and uses this to make all decisions automatically.
 
 ---
 
-### Phase 2 — Canvas Orchestration
-Companion can create and fill SuperPlanningCanvas nodes from conversation:
-- Ideas from chat → text nodes
-- Voice memo transcription → text/research nodes
-- Competitor URL → competitor profile node
-- Brand info from onboarding → brand guide node
-- Entire canvas pre-populated from a 10-minute onboarding conversation
+### Strategy Page Design (Approved)
+
+**Fulfillment Score** (0–100) at the top:
+- 80–100 = Green "On Track"
+- 50–79 = Yellow "Needs Attention"
+- 0–49 = Red "Action Required"
+
+Score is calculated from weighted average of all areas below.
+
+**Traffic light sections:**
+1. **Social Media Presence** — handles + follower count + engagement per platform
+2. **Monthly Pace** — scripts created, videos edited, posts scheduled vs. goal (default 20/month)
+3. **Content Mix** — Reach/Trust/Convert bar (plain English, not TOFU/MOFU/BOFU)
+4. **Audience Alignment** — are scripts targeting the right people? interest ratio score, uniqueness score
+5. **ManyChat & CTAs** — is it set up, what keyword, is it used consistently
+6. **Stories** — target vs actual per week
+7. **Ads** — running or not, budget, goal
+
+**Strategy fields stored per client:**
+- Posts per month (default: 20)
+- Scripts per month (default: 20)
+- Videos edited per month (default: 20)
+- Stories per week (default: 10)
+- Content mix: % reach / % trust / % convert (default: 60/30/10)
+- Primary platform (Instagram, TikTok, YouTube)
+- ManyChat active: yes/no
+- ManyChat keyword (default: none)
+- CTA goal: ManyChat trigger / Follow / Link in bio
+- Running ads: yes/no
+- Ad budget
+- Ad goal
 
 ---
 
-### Phase 3 — Script Pipeline Automation
-Companion handles the full script creation flow from chat:
-1. Asks what topic/idea to create content about
-2. Searches Viral Today for matching viral videos in the client's niche
-3. Recommends 3 reference videos with explanation of why they work
-4. Client picks one (or says "you pick")
-5. Companion pre-fills the script wizard (format, hook type, research facts)
-6. Script is generated, reviewed in chat, saved
-7. Client is prompted to film
+### Robby's Proactive Intelligence (To Build)
+
+**Monday sweep:** Every Monday, Robby checks all clients:
+- How far behind is each client on their monthly goal?
+- What content types are missing from the mix?
+- What needs to go into the editing queue?
+- What calendar slots are empty?
+
+Robby auto-generates what's missing → places everything in "Robby's Drafts" tab.
+
+**Real-time triggers:**
+- Client hasn't posted in 5+ days → draft a script
+- Calendar has empty slots next week → fill them
+- Editing queue stalled → flag it
+- Monthly target pace is off → generate batch scripts
+
+**Drafts queue:** Everything Robby generates auto is a "draft" — never goes live without human approval. Agency or client reviews in Command Center → approve/edit/reject.
 
 ---
 
-### Phase 4 — Post-Production Automation
-When footage is uploaded:
-1. Companion detects the upload (via editing queue or storage event)
-2. Auto-creates an editing queue item with the script attached
-3. Assigns to best available editor (based on workload/availability)
-4. Notifies editor
-5. When approved: auto-schedules to content calendar with AI-generated caption
-6. Notifies client that their content is live
+### Brainstorm Questions Still Open
+
+- [ ] When Robby auto-generates scripts, which decisions does it make alone vs. ask about? (topic, hook, viral reference, format, CTA, caption)
+- [ ] What triggers the Monday sweep? (scheduled cron job vs. manual trigger)
+- [ ] Can clients approve their own drafts or only agency?
+- [ ] What does the "Robby's Drafts" tab look like inside the Command Center?
 
 ---
 
-## UI Concept (Phase 1)
+## Full Tool Library (Current)
 
-**Floating bubble:** Bottom-right corner, always visible across all pages. Shows an animated pulse when the companion has something to say. Clicking opens a chat panel.
-
-**Chat panel:** Slides up from the bubble. Shows:
-- Companion avatar + name (e.g. "Connecta AI")
-- Current workflow stage indicator ("You're in: Idea Phase")
-- Conversation history (persistent, scrollable)
-- Input field with voice memo option
-- Quick action chips based on context ("Show me viral videos", "Start a script", "What's next?")
-
-**Adaptive greeting:**
-- Client (no marketing knowledge): "Hey [Name]! Ready to create something great today? Let's figure out what we're posting this week."
-- Agency user: "Hey — [ClientName] hasn't posted in 4 days. Want to run the script pipeline?"
-
----
-
-## Memory Architecture (Phase 1 Design Decision — TBD)
-
-Options to decide during Phase 1 brainstorming:
-- **A:** Store conversation history + workflow state in a new `ai_companion_sessions` table
-- **B:** Use the existing `onboarding_data` JSON blob extended with companion state
-- **C:** New `companion_memory` table with structured fields (stage, last_topic, last_script_id, etc.)
-
-Recommendation: **C** — structured memory is easier to query for "where are they in the workflow" logic.
-
----
-
-## Open Questions (to answer during Phase 1 brainstorm)
-
-1. Does the companion speak first (proactive) or wait for the user to open it?
-2. What is the companion's name/persona? Or just "Connecta AI"?
-3. Does it have a voice (text-to-speech output)? Or text only?
-4. Maximum messages stored per client session?
-5. Does the companion appear for all users or only clients + agency users (not editors/videographers)?
-
----
-
-## Next Steps
-
-1. Continue Phase 1 brainstorm — clarify open questions above
-2. Present Phase 1 design (UI mockups + data model + behavior)
-3. Write Phase 1 spec → plan → build
-4. Repeat for Phases 2–4
+| Tool | Status |
+|------|--------|
+| navigate_to_page | ✅ |
+| fill_onboarding_fields | ✅ |
+| save_memory | ✅ |
+| get_client_info | ✅ |
+| create_script | ✅ |
+| find_viral_videos | ✅ |
+| list_client_scripts | ✅ |
+| schedule_content | ✅ |
+| submit_to_editing_queue | ✅ |
+| get_editing_queue | ✅ |
+| get_content_calendar | ✅ |
+| create_canvas_note | ✅ |
+| list_all_clients | ✅ |
+| get_hooks | ✅ |
+| respond_to_user | ✅ |
+| **get_client_strategy** | 🔲 To build |
+| **create_draft_script** | 🔲 To build |
+| **approve_draft** | 🔲 To build |
+| **batch_create_scripts** | 🔲 To build |
+| **generate_caption** | 🔲 To build |
+| **run_5_50_filter** | 🔲 To build |
+| **extract_content_pillars** | 🔲 To build |
+| **generate_weekly_report** | 🔲 To build |
