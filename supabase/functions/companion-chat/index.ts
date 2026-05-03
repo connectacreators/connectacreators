@@ -59,6 +59,17 @@ const TOOLS = [
     },
   },
   {
+    name: "get_client_info",
+    description: "Look up a client's information by name. Use this BEFORE asking the user for info about a client. Always try to find the client yourself first. Returns their onboarding data, industry, story, and offer.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name or partial name to search for" },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
     name: "respond_to_user",
     description: "Send a text response to the user. Use this when no other action is needed — just a message. In auto mode, you must always call a tool, so use this when the response is purely conversational.",
     input_schema: {
@@ -186,7 +197,8 @@ YOUR RULES — FOLLOW EXACTLY:
 6. Keep text replies short: 2-4 sentences. Never long paragraphs.
 7. You are a coach who takes action, not a chatbot that asks questions.
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
-9. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
+9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
+13. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
 12. CONTEXT RULE: If the user is currently on /onboarding, do NOT navigate them away. Stay on that page and keep filling fields using fill_onboarding_fields. "Take me to the next step" means fill the next empty fields on this page, not navigate elsewhere. Only navigate away from /onboarding after the form is fully complete and saved.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
 11. MEMORY: Whenever you learn something important about the client — their main story with specific numbers, their content pillars, their target audience, a great hook idea, a business result, a preference — call save_memory immediately. Don't wait to be asked. Think of this like taking notes on a client you'll work with for years. Save things that would be valuable to remember in 6 months.
@@ -260,6 +272,20 @@ ${autonomy_mode === "auto"
           // Pure text response wrapped as a tool call (used in auto mode)
           reply = block.input.message || "";
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
+        }
+
+        if (block.name === "get_client_info") {
+          const { client_name } = block.input;
+          const { data: clientInfo } = await adminClient
+            .from("clients")
+            .select("name, email, onboarding_data")
+            .ilike("name", `%${client_name}%`)
+            .limit(1)
+            .maybeSingle();
+          const info = clientInfo
+            ? `Client: ${clientInfo.name} (${clientInfo.email})\n${JSON.stringify(clientInfo.onboarding_data || {}, null, 2)}`
+            : `No client found matching "${client_name}"`;
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: info });
         }
 
         if (block.name === "navigate_to_page") {
