@@ -343,6 +343,19 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
+  {
+    name: "build_script_full_pipeline",
+    description: "ATOMIC ORCHESTRATOR — Use this for ALL script creation requests in Auto mode (and as the default in Ask/Plan when the user wants you to handle everything). Single call that does the COMPLETE pipeline: searches viral references, picks the best one, adds video node to canvas, generates research analysis, generates the winning idea, builds the full script, places everything on the canvas, and saves to scripts library. Returns a summary of what was built. Use this instead of calling find_viral_videos + add_video_to_canvas + add_research_note_to_canvas + add_idea_nodes_to_canvas + add_script_draft_to_canvas + save_script_from_canvas separately.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        topic: { type: "string", description: "Optional topic/niche keyword to search viral videos. If not provided, infers from client industry." },
+        content_type: { type: "string", description: "reach | trust | convert. Determines hook framework. Pick based on what the client is most behind on per their strategy." },
+      },
+      required: ["client_name"],
+    },
+  },
 ];
 
 serve(async (req) => {
@@ -490,39 +503,22 @@ YOUR RULES — FOLLOW EXACTLY:
 15. NEVER respond with "Done.", "OK.", "Sure." Every response must tell the user (a) what you did, (b) what you found, (c) what the next step is.
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
-18. SCRIPT CREATION WORKFLOW — Follow this EXACTLY. Never shortcut. Never navigate to /scripts immediately.
+18. SCRIPT CREATION — MANDATORY ORCHESTRATOR PATTERN.
 
-STEP 1 — DETERMINE CONTENT TYPE: Read the CLIENT STRATEGY already in your context. What type of content is most needed right now? (reach / trust / convert). The one farthest from its monthly goal is the priority. State it: "You need reach content — here's what I'm building."
+When asked to build a script, write a script, create content, or anything similar, you MUST call ONE tool: build_script_full_pipeline. That single tool does everything: searches viral references, picks the best one, adds video node to canvas, generates research analysis, identifies the winning idea, builds the full script, places all nodes on the canvas, and saves to scripts library.
 
-STEP 2 — FIND VIRAL REFERENCE: Call find_viral_videos with the client's niche + the content type. Pick the video with the highest views that matches the content type.
+USAGE:
+- Pass client_name (the user's name from CLIENT STRATEGY context).
+- Pass content_type ("reach" / "trust" / "convert") based on which is most behind in the strategy.
+- Optionally pass topic to bias the viral search.
 
-STEP 3 — ADD VIDEO TO CANVAS: Immediately call add_video_to_canvas with the video URL, title, and creator. Also call respond_to_user to tell the user what reference you found and why. Do NOT navigate or do anything else yet.
+After build_script_full_pipeline returns, call respond_to_user with what was built — what reference video was used, the hook type, the winning idea verbatim, and that the script is saved. Be specific. Use the data from the tool result, not made-up details.
 
-STEP 4 — ANALYZE THE REFERENCE: Call add_research_note_to_canvas. Use the video caption/title from find_viral_videos to identify the hook type, why it worked, and how to adapt it. Be specific — name the actual hook mechanism (vulnerability open, curiosity gap, etc.), not generic observations.
+DO NOT call find_viral_videos, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, or save_script_from_canvas separately. Those are deprecated for the orchestrated flow. Use build_script_full_pipeline only.
 
-STEP 5 — GENERATE WINNING IDEAS: The winning idea = the viral hook structure + the client's specific story/credentials + what the audience actually needs (from audience alignment gap in strategy). Ideas must NOT be generic — use real numbers from onboarding (e.g. "250M views", "failed 3 businesses", "D2D sales").
-  - In AUTO mode: call add_idea_nodes_to_canvas with 1 idea (your best pick). Tell the user what you chose and why. Proceed immediately.
-  - In ASK mode: call add_idea_nodes_to_canvas with 3 ideas across DIFFERENT categories (e.g. one storytelling, one authority, one comparison). Tell the user: "3 ideas are on your canvas. Which one — say 1, 2, or 3?" Then STOP and wait.
-  - In PLAN mode: call add_idea_nodes_to_canvas with 3 ideas. Tell the user: "3 ideas on canvas. Approve one to proceed." Then STOP and wait.
+For batch ("build 20 scripts"): call build_script_full_pipeline 20 times in the same response (or as many as you can per response — at least 5 in parallel). Vary the content_type each time to balance the mix.
 
-STEP 6 — BUILD SCRIPT DRAFT: Once the idea is confirmed (immediately in Auto, after user pick in Ask/Plan), call add_script_draft_to_canvas with the FULL script — hook lines, all body lines, CTA. The idea is the WHAT. The framework determines the HOW (structure). Plug the winning idea into the framework and write every single line.
-
-Frameworks by content type:
-  Reach + Storytelling: Hook = personal failure + specific detail | Body = 3 moments -> turning point | CTA = ManyChat keyword
-  Reach + Pattern Interrupt: Hook = unexpected/controversial claim | Body = proof -> expand | CTA = follow
-  Trust + Educational: Hook = counterintuitive claim | Body = teach -> prove with result | CTA = follow/part 2
-  Trust + Authority: Hook = credential + surprise | Body = method -> proof | CTA = link in bio
-  Convert + Problem-Solution: Hook = name the exact pain | Body = why others fail -> what works | CTA = DM offer
-  Convert + Comparison: Hook = wrong vs right | Body = side by side -> verdict | CTA = ManyChat/DM
-
-STEP 7 — SAVE (mode-dependent):
-  - AUTO: Call save_script_from_canvas immediately after the draft. No confirmation needed.
-  - ASK: Tell the user "Draft is on your canvas. Should I save it?" Wait for confirmation. Then call save_script_from_canvas.
-  - PLAN: Tell the user "Draft is on your canvas. Approve to save." Wait. Then call save_script_from_canvas.
-
-CRITICAL: NEVER call navigate_to_page("/scripts") as your first action when asked to build a script. Always do steps 2-4 first. ALWAYS call respond_to_user alongside your canvas tools so the user knows what's happening.
-
-BATCH (Auto mode only): "Build 20 scripts" -> loop steps 2-7 twenty times. Each loop picks a different viral reference and different idea category. Save each. Report total at the end.
+In Ask/Plan mode, you may still call build_script_full_pipeline directly — the user wants the work done. Just announce what you're about to do first, then call it.
 19. TOOLS: You have navigate_to_page, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, list_all_clients, get_client_info, get_hooks, get_client_strategy, save_memory, respond_to_user. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
@@ -532,15 +528,7 @@ ${autonomy_mode === "auto"
 - ALWAYS call respond_to_user alongside other tools so the user knows what you're doing. "On it." is banned. Be specific.
 - NEVER ask for permission or confirmation. The user selected Auto mode — they want you to act.
 
-SCRIPT CREATION IN AUTO MODE — MANDATORY: When asked to build a script, you MUST call ALL of these tools IN THE SAME SINGLE RESPONSE (not navigate first, not plan first — execute directly):
-  1. find_viral_videos (search the niche + content type)
-  2. add_video_to_canvas (add the best reference as a VideoNode)
-  3. add_research_note_to_canvas (analyze the hook mechanism)
-  4. add_idea_nodes_to_canvas (1 idea — your best pick for the content type needed)
-  5. add_script_draft_to_canvas (full hook + body + CTA using the winning idea + framework)
-  6. save_script_from_canvas (save to scripts library immediately)
-  7. respond_to_user (tell the user: what reference you found, what hook type, what the winning idea was, that it's saved)
-All 7 tool calls in the same response. Do NOT call navigate_to_page as your first action. Do NOT call only one tool and stop. Execute the full pipeline.
+SCRIPT CREATION IN AUTO MODE: When asked to build a script, call build_script_full_pipeline (the orchestrator that does everything atomically) AND respond_to_user in the SAME response. Two tools, that's it. Do NOT call navigate_to_page as your first action. The orchestrator handles all the work.
 
 For everything else (non-script tasks): Think: what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you're doing.`
   : autonomy_mode === "plan"
@@ -1140,6 +1128,235 @@ For everything else (non-script tasks): Think: what is the single most useful ac
           // Update local copy so subsequent saves in same call stack correctly
           savedMemories[key] = value;
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Saved memory: " + key });
+        }
+
+        if (block.name === "build_script_full_pipeline") {
+          const { client_name, topic, content_type } = block.input;
+          // 1. Look up client + onboarding + strategy
+          const { data: targetClient } = await adminClient
+            .from("clients").select("id, name, onboarding_data").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const od = (targetClient.onboarding_data as any) || {};
+            const inferredTopic = topic || od.industry || od.uniqueOffer || "social media";
+            const inferredContentType = content_type || "reach";
+
+            // 2. Get or create active canvas (pick most recently updated if multiple)
+            let { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+            if (!canvasState) {
+              const { data: newCanvas } = await adminClient.from("canvas_states").insert({
+                client_id: targetClient.id, is_active: true, nodes: [], edges: [],
+              }).select("id, nodes").single();
+              canvasState = newCanvas;
+            }
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Could not create canvas for " + targetClient.name });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const videoNodeCount = existingNodes.filter((n: any) => n.type === "videoNode").length;
+              const rowY = videoNodeCount * 700;
+
+              // 3. Find viral video (try topic match, fall back to top viral)
+              let { data: videos } = await adminClient
+                .from("viral_videos")
+                .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
+                .ilike("caption", "%" + inferredTopic + "%")
+                .gte("outlier_score", 3)
+                .order("outlier_score", { ascending: false })
+                .limit(5);
+              if (!videos || videos.length === 0) {
+                const { data: fallback } = await adminClient
+                  .from("viral_videos")
+                  .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
+                  .gte("outlier_score", 5)
+                  .order("outlier_score", { ascending: false })
+                  .limit(5);
+                videos = fallback || [];
+              }
+              if (videos.length === 0) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No viral videos in the database to reference. Add some via the Viral Today scraper first." });
+              } else {
+                const chosenVideo = videos[0];
+
+                // 4. Call Claude internally to generate analysis + idea + script
+                const synthesisPrompt = `You are building a script for ${targetClient.name}. Generate the analysis, winning idea, and full script.
+
+CLIENT CONTEXT:
+- Industry: ${od.industry || "not specified"}
+- Target audience: ${od.targetClient || "not specified"}
+- Unique offer: ${od.uniqueOffer || "not specified"}
+- Story: ${od.story || "not specified"}
+- Instagram: @${od.instagram || "not specified"}
+
+VIRAL REFERENCE:
+- Creator: @${chosenVideo.channel_username}
+- Views: ${(chosenVideo.views_count || 0).toLocaleString()}
+- Caption/title: "${(chosenVideo.caption || "").slice(0, 400)}"
+
+CONTENT TYPE NEEDED: ${inferredContentType}
+
+Generate JSON with this exact structure (no markdown, no explanation, just valid JSON):
+{
+  "research": {
+    "hook_type": "<storytelling | educational | comparison | authority | pattern_interrupt | curiosity_gap>",
+    "hook_text": "<the actual first line of the reference video — extract from caption>",
+    "why_it_works": "<2-3 sentences explaining the hook mechanism specifically>",
+    "how_to_adapt": "<1 sentence on how to apply to ${targetClient.name}'s specific story>"
+  },
+  "idea": {
+    "category": "<one of the 6 categories>",
+    "hook_sentence": "<the WINNING idea — first line of THE NEW script. Specific. Uses ${targetClient.name}'s real numbers/story. NOT generic.>",
+    "framework": "<vulnerability open / authority lead / problem-solution / etc.>",
+    "why_it_works": "<1 sentence on why this idea will stop the scroll for the target audience>"
+  },
+  "script": {
+    "title": "<short title — same as the hook_sentence or the core idea>",
+    "hook": "<the opening 1-2 sentences>",
+    "body": "<3-5 body lines, separated by \\n. Each line is one beat in the script.>",
+    "cta": "<the call to action — should match the client's CTA goal>"
+  }
+}`;
+
+                let synthesisRes: Response;
+                let synthesisText = "";
+                let synthesis: any = {};
+                try {
+                  synthesisRes = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: {
+                      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+                      "anthropic-version": "2023-06-01",
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      model: "claude-sonnet-4-6",
+                      max_tokens: 2048,
+                      messages: [{ role: "user", content: synthesisPrompt }],
+                    }),
+                  });
+                  if (!synthesisRes.ok) {
+                    const errText = await synthesisRes.text();
+                    console.error("[orchestrator] Anthropic API error:", synthesisRes.status, errText);
+                    toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Anthropic API error: " + synthesisRes.status + " — " + errText.slice(0, 300) });
+                    continue;
+                  }
+                  const synthesisJson = await synthesisRes.json();
+                  synthesisText = synthesisJson.content?.[0]?.text || "";
+                  if (!synthesisText) {
+                    console.error("[orchestrator] Empty synthesis response:", JSON.stringify(synthesisJson).slice(0, 500));
+                    toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Empty response from synthesis. " + JSON.stringify(synthesisJson).slice(0, 300) });
+                    continue;
+                  }
+                  try {
+                    synthesis = JSON.parse(synthesisText);
+                  } catch {
+                    const match = synthesisText.match(/\{[\s\S]*\}/);
+                    if (match) synthesis = JSON.parse(match[0]);
+                  }
+                } catch (apiErr) {
+                  console.error("[orchestrator] Synthesis fetch threw:", apiErr);
+                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Synthesis call failed: " + String(apiErr).slice(0, 300) });
+                  continue;
+                }
+
+                if (!synthesis.script || !synthesis.idea || !synthesis.research) {
+                  console.error("[orchestrator] Incomplete synthesis:", synthesisText.slice(0, 500));
+                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Failed to generate script synthesis. Raw: " + synthesisText.slice(0, 500) });
+                } else {
+                  // 5. Build all canvas nodes
+                  const ts = Date.now();
+                  const videoNode = {
+                    id: `videoNode_pipeline_${ts}`,
+                    type: "videoNode",
+                    position: { x: 50, y: rowY },
+                    data: {
+                      url: chosenVideo.video_url,
+                      videoTitle: (chosenVideo.caption || "").slice(0, 80),
+                      videoLabel: (chosenVideo.caption || "").slice(0, 80),
+                      channel_username: chosenVideo.channel_username || "",
+                      caption: (chosenVideo.caption || "").slice(0, 200),
+                    },
+                  };
+                  const r = synthesis.research;
+                  const researchNode = {
+                    id: `textNoteNode_research_${ts}`,
+                    type: "textNoteNode",
+                    position: { x: 370, y: rowY },
+                    data: {
+                      noteText: `HOOK TYPE: ${(r.hook_type || "").toUpperCase()}\n\nHook: "${r.hook_text || ""}"\n\nWhy it works: ${r.why_it_works || ""}\n\nHow to adapt: ${r.how_to_adapt || ""}`,
+                      noteHtml: `<p><strong>HOOK TYPE: ${(r.hook_type || "").toUpperCase()}</strong></p><p>Hook: "${r.hook_text || ""}"</p><p>Why it works: ${r.why_it_works || ""}</p><p>How to adapt: ${r.how_to_adapt || ""}</p>`,
+                    },
+                  };
+                  const idea = synthesis.idea;
+                  const ideaNode = {
+                    id: `textNoteNode_idea_${ts}`,
+                    type: "textNoteNode",
+                    position: { x: 680, y: rowY },
+                    data: {
+                      noteText: `WINNING IDEA — ${(idea.category || "").toUpperCase()}\n\n"${idea.hook_sentence || ""}"\n\nFramework: ${idea.framework || ""}\n\nWhy it works: ${idea.why_it_works || ""}`,
+                      noteHtml: `<p><strong>WINNING IDEA — ${(idea.category || "").toUpperCase()}</strong></p><p>"${idea.hook_sentence || ""}"</p><p>Framework: ${idea.framework || ""}</p><p>Why it works: ${idea.why_it_works || ""}</p>`,
+                    },
+                  };
+                  const sc = synthesis.script;
+                  const scriptNode = {
+                    id: `textNoteNode_script_${ts}`,
+                    type: "textNoteNode",
+                    position: { x: 980, y: rowY },
+                    data: {
+                      noteText: `SCRIPT — ${(idea.category || "").toUpperCase()}\nFramework: ${idea.framework || ""}\n\nHOOK:\n${sc.hook || ""}\n\nBODY:\n${sc.body || ""}\n\nCTA:\n${sc.cta || ""}`,
+                      noteHtml: `<p><strong>SCRIPT — ${(idea.category || "").toUpperCase()}</strong></p><p>Framework: ${idea.framework || ""}</p><p><strong>HOOK:</strong></p><p>${(sc.hook || "").replace(/\n/g, "<br>")}</p><p><strong>BODY:</strong></p><p>${(sc.body || "").replace(/\n/g, "<br>")}</p><p><strong>CTA:</strong></p><p>${sc.cta || ""}</p>`,
+                      width: 320,
+                    },
+                  };
+
+                  const newNodes = [videoNode, researchNode, ideaNode, scriptNode];
+                  await adminClient.from("canvas_states").update({ nodes: [...existingNodes, ...newNodes] }).eq("id", canvasState.id);
+
+                  // 6. Save script to library
+                  const rawContent = [sc.hook || "", sc.body || "", sc.cta || ""].join("\n");
+                  const { data: scriptRow } = await adminClient
+                    .from("scripts")
+                    .insert({
+                      client_id: targetClient.id,
+                      title: sc.title || idea.hook_sentence || "Untitled",
+                      idea_ganadora: idea.hook_sentence || sc.title || "",
+                      raw_content: rawContent,
+                      formato: "talking_head",
+                      status: "complete",
+                    })
+                    .select("id")
+                    .single();
+                  if (scriptRow) {
+                    const bodyLines = (sc.body || "").split("\n").filter(Boolean);
+                    const lineRows = [
+                      { script_id: scriptRow.id, line_number: 1, line_type: "hook", section: "hook", text: sc.hook || "" },
+                      ...bodyLines.map((line: string, i: number) => ({
+                        script_id: scriptRow.id, line_number: i + 2, line_type: "body", section: "body", text: line,
+                      })),
+                      { script_id: scriptRow.id, line_number: bodyLines.length + 2, line_type: "cta", section: "cta", text: sc.cta || "" },
+                    ];
+                    await adminClient.from("script_lines").insert(lineRows);
+                  }
+
+                  // 7. Navigate to canvas (client-specific path)
+                  actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts?view=canvas` });
+
+                  const summary = `BUILT a complete script for ${targetClient.name}.
+
+REFERENCE: @${chosenVideo.channel_username} (${(chosenVideo.views_count || 0).toLocaleString()} views) — ${r.hook_type} hook
+WINNING IDEA: "${idea.hook_sentence}"
+FRAMEWORK: ${idea.framework}
+
+The canvas now has 4 nodes: video reference, research analysis, winning idea, and full script draft. The script has been saved to the scripts library.
+
+Tell the user this in your respond_to_user — be specific about what you found and what the winning idea was.`;
+                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
+                }
+              }
+            }
+          }
         }
 
         if (block.name === "fill_onboarding_fields") {
