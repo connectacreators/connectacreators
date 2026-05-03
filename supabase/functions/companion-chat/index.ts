@@ -58,6 +58,17 @@ const TOOLS = [
       required: ["key", "value"],
     },
   },
+  {
+    name: "respond_to_user",
+    description: "Send a text response to the user. Use this when no other action is needed — just a message. In auto mode, you must always call a tool, so use this when the response is purely conversational.",
+    input_schema: {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "The message to send to the user." },
+      },
+      required: ["message"],
+    },
+  },
 ];
 
 serve(async (req) => {
@@ -182,10 +193,16 @@ YOUR RULES — FOLLOW EXACTLY:
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
-  ? "AUTO MODE: Execute all actions immediately without asking permission. Fill fields, navigate, save memories — just do it. Tell the user what you did after. Speed and efficiency over confirmation."
+  ? `AUTO MODE — CRITICAL RULES:
+- You MUST call a tool on every single response. Never output plain text without calling a tool first.
+- Use respond_to_user for conversational replies, navigate_to_page to navigate, fill_onboarding_fields to fill forms, save_memory to remember things.
+- NEVER say "let me do X" or "I will do X". Just DO it by calling the tool. Then use respond_to_user to tell them what you did.
+- NEVER ask for permission or confirmation. The user selected Auto mode — they want you to act.
+- If the user is already on a page you were about to navigate to, skip the navigation and do the next useful thing instead.
+- Think: what is the single most useful action I can take RIGHT NOW? Take it.`
   : autonomy_mode === "plan"
-  ? "PLAN MODE: Before doing anything, write out a numbered plan of every step you'll take. Ask the user to approve the plan. Only execute after they confirm. Be thorough — list every field you'll fill, every page you'll navigate to."
-  : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you're about to do in one sentence and wait for the user to confirm. Keep it short — 'I will fill your target client field and navigate to onboarding. Should I?' Then execute once they say yes."
+  ? "PLAN MODE: Before doing anything, write out a numbered plan of every step you will take. Ask the user to approve the plan. Only execute after they confirm."
+  : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you are about to do in one sentence and wait for the user to confirm. Then execute once they say yes."
 }`;
 
     // Save user message
@@ -220,6 +237,8 @@ ${autonomy_mode === "auto"
         max_tokens: 1024,
         system: systemPrompt,
         tools: TOOLS,
+        // In auto mode, force Claude to always call a tool (never just output text)
+        ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
         messages: [...priorMessages, { role: "user", content: message }],
       }),
     });
@@ -237,6 +256,12 @@ ${autonomy_mode === "auto"
       const toolResults: any[] = [];
 
       for (const block of toolUseBlocks) {
+        if (block.name === "respond_to_user") {
+          // Pure text response wrapped as a tool call (used in auto mode)
+          reply = block.input.message || "";
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
+        }
+
         if (block.name === "navigate_to_page") {
           const { path } = block.input;
           actions.push({ type: "navigate", path });
