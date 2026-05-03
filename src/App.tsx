@@ -68,6 +68,7 @@ const PublicVideoReview = lazy(() => import("./pages/PublicVideoReview"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const About = lazy(() => import("./pages/About"));
+const ClientStrategy = lazy(() => import("./pages/ClientStrategy"));
 const CommandCenter = lazy(() => import("./pages/CommandCenter"));
 const PublicContract = lazy(() => import("./pages/PublicContract"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
@@ -171,6 +172,7 @@ const App = () => (
               <Route path="/subscribers" element={<Subscribers />} />
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/clients/:clientId/contracts" element={<ContractsPage />} />
+              <Route path="/clients/:clientId/strategy" element={<ClientStrategy />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

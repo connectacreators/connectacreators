@@ -203,6 +203,7 @@ export default function ClientDetail() {
       { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads", icon: CalendarDays, color: "text-violet-400", path: `/clients/${clientId}/lead-calendar` },
     ],
     setup: [
+      { label: language === "en" ? "Content Strategy" : "Estrategia de Contenido", description: language === "en" ? "Goals, mix, ManyChat & fulfillment score" : "Metas, mezcla, ManyChat y puntuación", icon: BarChart3, color: "text-[#22d3ee]", path: `/clients/${clientId}/strategy` },
       { label: language === "en" ? "Brand Setup" : "Configuración de Marca", description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding", icon: Sparkles, color: "text-yellow-400", path: `/onboarding/${clientId}` },
       { label: language === "en" ? "Public Booking" : "Booking Público", description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly", icon: Globe, color: "text-sky-400", path: `/clients/${clientId}/booking-settings` },
       { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "text-emerald-400", path: `/clients/${clientId}/landing-page` },
