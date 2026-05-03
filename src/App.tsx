@@ -8,6 +8,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
 import { OutOfCreditsProvider } from "@/contexts/OutOfCreditsContext";
 import OutOfCreditsModal from "@/components/OutOfCreditsModal";
+import { CompanionProvider } from "@/contexts/CompanionContext";
+import CompanionBubble from "@/components/CompanionBubble";
+import NamingModal from "@/components/NamingModal";
 import FloatingUploadProgress from "@/components/FloatingUploadProgress";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
@@ -65,6 +68,7 @@ const PublicVideoReview = lazy(() => import("./pages/PublicVideoReview"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const About = lazy(() => import("./pages/About"));
+const CommandCenter = lazy(() => import("./pages/CommandCenter"));
 
 const queryClient = new QueryClient();
 
@@ -89,6 +93,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <LeadNotificationProvider>
+      <CompanionProvider>
       <OutOfCreditsProvider>
       <TooltipProvider>
         <Toaster />
@@ -96,6 +101,8 @@ const App = () => (
         <BrowserRouter>
           <FloatingUploadProgress />
           <OutOfCreditsModal />
+          <CompanionBubble />
+          <NamingModal />
           <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public / unauthenticated routes */}
@@ -150,6 +157,7 @@ const App = () => (
               <Route path="/lead-calendar" element={<LeadCalendar />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/subscription" element={<Subscription />} />
+              <Route path="/ai" element={<CommandCenter />} />
               <Route path="/editing-queue" element={<MasterEditingQueue />} />
               <Route path="/master-database" element={<MasterDatabase />} />
               <Route path="/trainings" element={<Trainings />} />
@@ -168,6 +176,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
       </OutOfCreditsProvider>
+      </CompanionProvider>
       </LeadNotificationProvider>
     </AuthProvider>
   </QueryClientProvider>
