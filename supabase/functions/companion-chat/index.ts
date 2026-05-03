@@ -1164,17 +1164,18 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
             // 2. Get or create active canvas (pick most recently updated if multiple)
             let { data: canvasState } = await adminClient
-              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+              .from("canvas_states").select("id, nodes, edges").eq("client_id", targetClient.id).eq("is_active", true).order("updated_at", { ascending: false }).limit(1).maybeSingle();
             if (!canvasState) {
               const { data: newCanvas } = await adminClient.from("canvas_states").insert({
                 client_id: targetClient.id, is_active: true, nodes: [], edges: [],
-              }).select("id, nodes").single();
+              }).select("id, nodes, edges").single();
               canvasState = newCanvas;
             }
             if (!canvasState) {
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Could not create canvas for " + targetClient.name });
             } else {
               const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const existingEdges = Array.isArray(canvasState.edges) ? canvasState.edges : [];
               // Only count PIPELINE nodes (id prefix videoNode_pipeline_) — keeps positioning sensible
               // when canvas already has competitor folders, etc.
               const pipelineRowCount = existingNodes.filter(
@@ -1203,6 +1204,56 @@ For everything else (non-script tasks): Think: what is the single most useful ac
                 toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No viral videos in the database to reference. Add some via the Viral Today scraper first." });
               } else {
                 const chosenVideo = videos[0];
+                const ts = Date.now();
+
+                // ─── STAGE 1: Write the video node FIRST so user sees it appear ───
+                const videoNode = {
+                  id: `videoNode_pipeline_${ts}`,
+                  type: "videoNode",
+                  position: { x: 50, y: rowY },
+                  data: {
+                    url: chosenVideo.video_url,
+                    videoTitle: (chosenVideo.caption || "").slice(0, 80),
+                    videoLabel: (chosenVideo.caption || "").slice(0, 80),
+                    channel_username: chosenVideo.channel_username || "",
+                    caption: (chosenVideo.caption || "").slice(0, 200),
+                  },
+                };
+                let nodesAccumulator = [...existingNodes, videoNode];
+                let edgesAccumulator = [...existingEdges];
+                await adminClient.from("canvas_states")
+                  .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                  .eq("id", canvasState.id);
+
+                // ─── STAGE 2: Transcribe the video so synthesis has REAL context ───
+                let transcription = "";
+                try {
+                  const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: authHeader,
+                    },
+                    body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
+                  });
+                  if (transcribeRes.ok) {
+                    const tdata = await transcribeRes.json();
+                    transcription = tdata.transcription || "";
+                    // Update video node with transcription so user sees it on the node
+                    nodesAccumulator = nodesAccumulator.map((n: any) =>
+                      n.id === videoNode.id
+                        ? { ...n, data: { ...n.data, transcription, videoUrl: tdata.videoUrl ?? null, thumbnail_url: tdata.thumbnail_url ?? null } }
+                        : n
+                    );
+                    await adminClient.from("canvas_states")
+                      .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                      .eq("id", canvasState.id);
+                  } else {
+                    console.warn("[orchestrator] transcribe-video failed:", transcribeRes.status);
+                  }
+                } catch (tErr) {
+                  console.warn("[orchestrator] transcribe-video threw:", tErr);
+                }
 
                 // 4. Call Claude internally to generate analysis + idea + script
                 const synthesisPrompt = `You are building a script for ${targetClient.name}. Generate the analysis, winning idea, and full script.
@@ -1218,6 +1269,7 @@ VIRAL REFERENCE:
 - Creator: @${chosenVideo.channel_username}
 - Views: ${(chosenVideo.views_count || 0).toLocaleString()}
 - Caption/title: "${(chosenVideo.caption || "").slice(0, 400)}"
+${transcription ? `- ACTUAL TRANSCRIPTION (use this — it's the real spoken content):\n"""\n${transcription.slice(0, 2500)}\n"""` : "- (No transcription available — adapt from caption only.)"}
 
 CONTENT TYPE NEEDED: ${inferredContentType}
 
@@ -1289,20 +1341,7 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                   console.error("[orchestrator] Incomplete synthesis:", synthesisText.slice(0, 500));
                   toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Failed to generate script synthesis. Raw: " + synthesisText.slice(0, 500) });
                 } else {
-                  // 5. Build all canvas nodes
-                  const ts = Date.now();
-                  const videoNode = {
-                    id: `videoNode_pipeline_${ts}`,
-                    type: "videoNode",
-                    position: { x: 50, y: rowY },
-                    data: {
-                      url: chosenVideo.video_url,
-                      videoTitle: (chosenVideo.caption || "").slice(0, 80),
-                      videoLabel: (chosenVideo.caption || "").slice(0, 80),
-                      channel_username: chosenVideo.channel_username || "",
-                      caption: (chosenVideo.caption || "").slice(0, 200),
-                    },
-                  };
+                  // ─── STAGE 3: Research node + edge from video → research ───
                   const r = synthesis.research;
                   const researchNode = {
                     id: `textNoteNode_research_${ts}`,
@@ -1313,6 +1352,15 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                       noteHtml: `<p><strong>HOOK TYPE: ${(r.hook_type || "").toUpperCase()}</strong></p><p>Hook: "${r.hook_text || ""}"</p><p>Why it works: ${r.why_it_works || ""}</p><p>How to adapt: ${r.how_to_adapt || ""}</p>`,
                     },
                   };
+                  nodesAccumulator = [...nodesAccumulator, researchNode];
+                  edgesAccumulator = [...edgesAccumulator, {
+                    id: `edge_${ts}_v_r`, source: videoNode.id, target: researchNode.id, animated: true,
+                  }];
+                  await adminClient.from("canvas_states")
+                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                    .eq("id", canvasState.id);
+
+                  // ─── STAGE 4: Idea node + edge from research → idea ───
                   const idea = synthesis.idea;
                   const ideaNode = {
                     id: `textNoteNode_idea_${ts}`,
@@ -1323,6 +1371,15 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                       noteHtml: `<p><strong>WINNING IDEA — ${(idea.category || "").toUpperCase()}</strong></p><p>"${idea.hook_sentence || ""}"</p><p>Framework: ${idea.framework || ""}</p><p>Why it works: ${idea.why_it_works || ""}</p>`,
                     },
                   };
+                  nodesAccumulator = [...nodesAccumulator, ideaNode];
+                  edgesAccumulator = [...edgesAccumulator, {
+                    id: `edge_${ts}_r_i`, source: researchNode.id, target: ideaNode.id, animated: true,
+                  }];
+                  await adminClient.from("canvas_states")
+                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                    .eq("id", canvasState.id);
+
+                  // ─── STAGE 5: Script node + edge from idea → script ───
                   const sc = synthesis.script;
                   const scriptNode = {
                     id: `textNoteNode_script_${ts}`,
@@ -1334,9 +1391,13 @@ Generate JSON with this exact structure (no markdown, no explanation, just valid
                       width: 320,
                     },
                   };
-
-                  const newNodes = [videoNode, researchNode, ideaNode, scriptNode];
-                  await adminClient.from("canvas_states").update({ nodes: [...existingNodes, ...newNodes] }).eq("id", canvasState.id);
+                  nodesAccumulator = [...nodesAccumulator, scriptNode];
+                  edgesAccumulator = [...edgesAccumulator, {
+                    id: `edge_${ts}_i_s`, source: ideaNode.id, target: scriptNode.id, animated: true,
+                  }];
+                  await adminClient.from("canvas_states")
+                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
+                    .eq("id", canvasState.id);
 
                   // 6. Save script to library
                   const rawContent = [sc.hook || "", sc.body || "", sc.cta || ""].join("\n");
