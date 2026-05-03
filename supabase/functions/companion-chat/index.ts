@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { VIRAL_HOOKS } from "./hookData.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,6 +57,116 @@ const TOOLS = [
         },
       },
       required: ["key", "value"],
+    },
+  },
+  {
+    name: "find_viral_videos",
+    description: "Search for viral videos by topic or niche to use as content inspiration. Returns videos with high outlier scores sorted by performance. Use this when looking for viral references for a client's content.",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Topic or keyword to search (e.g. 'sales', 'fitness', 'immigration attorney')" },
+        platform: { type: "string", description: "Optional: instagram, tiktok, youtube" },
+        limit: { type: "number", description: "Number of results to return (default 5, max 10)" },
+      },
+      required: ["topic"],
+    },
+  },
+  {
+    name: "list_client_scripts",
+    description: "List existing scripts for a client. Use to check what scripts already exist before creating new ones.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        limit: { type: "number", description: "Number of scripts to return (default 5)" },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
+    name: "schedule_content",
+    description: "Schedule a piece of content to the client's content calendar. Sets a post date for a video or script.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        title: { type: "string", description: "The script or content title to schedule" },
+        date: { type: "string", description: "The date to schedule it (YYYY-MM-DD format)" },
+        caption: { type: "string", description: "Optional caption for the post" },
+      },
+      required: ["client_name", "title", "date"],
+    },
+  },
+  {
+    name: "submit_to_editing_queue",
+    description: "Submit a script or content to the editing queue so an editor can work on it. Use when footage is uploaded or a script is ready for production.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        title: { type: "string", description: "The content title or script name" },
+        notes: { type: "string", description: "Optional instructions for the editor" },
+        schedule_date: { type: "string", description: "Optional target post date (YYYY-MM-DD)" },
+      },
+      required: ["client_name", "title"],
+    },
+  },
+  {
+    name: "get_editing_queue",
+    description: "Check the current status of the editing queue for a client. Shows what's in progress, pending, and done.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
+    name: "get_content_calendar",
+    description: "View what content is scheduled in the content calendar for a client. Shows upcoming posts.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        days_ahead: { type: "number", description: "How many days ahead to look (default 14)" },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
+    name: "create_canvas_note",
+    description: "Create a text note or research note in the client's SuperPlanningCanvas. Use to add ideas, content pillars, research findings, or any notes to the canvas workspace.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name" },
+        content: { type: "string", description: "The note content to add to the canvas" },
+        note_type: { type: "string", description: "text_note or research_note (default: text_note)" },
+      },
+      required: ["client_name", "content"],
+    },
+  },
+  {
+    name: "get_hooks",
+    description: "Get powerful viral hook templates from the hooks library. Use when building scripts to find the best hook structure for the content type. Filter by category to get relevant hooks.",
+    input_schema: {
+      type: "object",
+      properties: {
+        category: { type: "string", description: "Hook category: educational, storytelling, controversial, transformation, curiosity, social_proof, or leave empty for mixed" },
+        count: { type: "number", description: "Number of hooks to return (default 5)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "list_all_clients",
+    description: "List all clients in the system with their basic info. Use when the user asks about their clients or you need to find a client.",
+    input_schema: {
+      type: "object",
+      properties: {},
+      required: [],
     },
   },
   {
@@ -224,7 +335,9 @@ YOUR RULES — FOLLOW EXACTLY:
 7. You are a coach who takes action, not a chatbot that asks questions.
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
-12. CRITICAL: When asked to create, build, write, or make a script — call create_script with the FULL script (hook + all body lines + CTA). Never output the script as text in the chat. Build it and save it to the database using the tool, then navigate the user to it.
+12. CRITICAL: When asked to create, build, write, or make a script — first call get_hooks to find the best hook structure, optionally call find_viral_videos for references, then call create_script with the FULL script (hook + all body lines + CTA). Never output the script as text in the chat. Build it and save it to the database, then navigate to it.
+13. PLAIN ENGLISH ONLY: Never use marketing jargon with clients. Translate everything: "TOFU" = "content that gets new people to find you", "MOFU" = "content that builds trust with your audience", "BOFU" = "content that gets people to book or buy". Never say TOFU, MOFU, BOFU, "outlier method", "virality score", or any internal methodology terms.
+14. TOOLS AVAILABLE: You have tools for everything — navigating pages, filling onboarding, creating scripts, finding viral videos, scheduling content, submitting to editing queue, checking calendars, creating canvas notes, looking up clients, and getting hook templates. Use them. Do not describe what you would do — do it.
 13. CRITICAL: Never tell the user to go somewhere or navigate manually. If navigation is needed, call the navigate_to_page tool immediately — the app will take them there automatically. Do not say "head to X" or "go to X" or "visit X". Just call the tool.
 12. CONTEXT RULE: If the user is currently on /onboarding, do NOT navigate them away. Stay on that page and keep filling fields using fill_onboarding_fields. "Take me to the next step" means fill the next empty fields on this page, not navigate elsewhere. Only navigate away from /onboarding after the form is fully complete and saved.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
@@ -346,6 +459,199 @@ ${autonomy_mode === "auto"
               // Navigate to the client's scripts page
               actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
+            }
+          }
+        }
+
+        if (block.name === "get_hooks") {
+          const { category, count = 5 } = block.input;
+          let pool = VIRAL_HOOKS;
+          if (category) pool = pool.filter((h: any) => h.category.toLowerCase().includes(category.toLowerCase()));
+          const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, count);
+          const result = shuffled.map((h: any) => "[" + h.category + "] " + h.template).join("\n\n");
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Hook templates:\n\n" + result });
+        }
+
+        if (block.name === "list_all_clients") {
+          const { data: allClients } = await adminClient
+            .from("clients")
+            .select("id, name, email, onboarding_data")
+            .order("name");
+          const summary = (allClients || []).map((c: any) => {
+            const od = c.onboarding_data || {};
+            return c.name + " (" + c.email + ")" + (od.industry ? " — " + od.industry : "");
+          }).join("\n");
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary || "No clients found." });
+        }
+
+        if (block.name === "find_viral_videos") {
+          const { topic, platform, limit = 5 } = block.input;
+          let query = adminClient
+            .from("viral_videos")
+            .select("id, channel_username, platform, caption, views_count, likes_count, outlier_score, video_url, thumbnail_url")
+            .gte("outlier_score", 3)
+            .order("outlier_score", { ascending: false })
+            .limit(Math.min(limit, 10));
+          if (topic) query = query.ilike("caption", "%" + topic + "%");
+          if (platform) query = query.eq("platform", platform);
+          const { data: videos } = await query;
+          if (!videos || videos.length === 0) {
+            // Fallback: top viral videos regardless of caption match
+            const { data: fallback } = await adminClient
+              .from("viral_videos")
+              .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
+              .gte("outlier_score", 5)
+              .order("outlier_score", { ascending: false })
+              .limit(5);
+            const info = (fallback || []).map((v: any) =>
+              "@" + v.channel_username + " (" + v.platform + ") — " + (v.views_count || 0).toLocaleString() + " views, outlier score " + v.outlier_score + ". Caption: " + (v.caption || "").slice(0, 100)
+            ).join("\n\n");
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No exact matches for topic. Top viral videos:\n" + info });
+          } else {
+            const info = videos.map((v: any) =>
+              "@" + v.channel_username + " (" + v.platform + ") — " + (v.views_count || 0).toLocaleString() + " views, outlier score " + v.outlier_score + ". Caption: " + (v.caption || "").slice(0, 150)
+            ).join("\n\n");
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: videos.length + " viral videos found:\n\n" + info });
+          }
+        }
+
+        if (block.name === "list_client_scripts") {
+          const { client_name, limit = 5 } = block.input;
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: scripts } = await adminClient
+              .from("scripts")
+              .select("id, idea_ganadora, status, created_at, review_status")
+              .eq("client_id", targetClient.id)
+              .order("created_at", { ascending: false })
+              .limit(limit);
+            const info = (scripts || []).map((s: any) =>
+              (s.idea_ganadora || "Untitled") + " — " + (s.status || "draft") + (s.review_status ? " (" + s.review_status + ")" : "")
+            ).join("\n");
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: (scripts?.length || 0) + " scripts for " + targetClient.name + ":\n" + info });
+          }
+        }
+
+        if (block.name === "schedule_content") {
+          const { client_name, title, date, caption } = block.input;
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            // Find matching video_edit or create one
+            const { data: existing } = await adminClient
+              .from("video_edits")
+              .select("id")
+              .eq("client_id", targetClient.id)
+              .ilike("reel_title", "%" + title + "%")
+              .limit(1)
+              .maybeSingle();
+            if (existing) {
+              await adminClient.from("video_edits").update({ schedule_date: date, caption: caption || null }).eq("id", existing.id);
+              actions.push({ type: "navigate", path: "/content-calendar" });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Scheduled '" + title + "' for " + date });
+            } else {
+              await adminClient.from("video_edits").insert({ client_id: targetClient.id, reel_title: title, schedule_date: date, caption: caption || null, status: "Not started", post_status: "Unpublished" });
+              actions.push({ type: "navigate", path: "/content-calendar" });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Created and scheduled '" + title + "' for " + date });
+            }
+          }
+        }
+
+        if (block.name === "submit_to_editing_queue") {
+          const { client_name, title, notes, schedule_date } = block.input;
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: ve } = await adminClient.from("video_edits").insert({
+              client_id: targetClient.id,
+              reel_title: title,
+              status: "Not started",
+              post_status: "Unpublished",
+              revisions: notes || null,
+              schedule_date: schedule_date || null,
+            }).select("id").single();
+            actions.push({ type: "navigate", path: "/editing-queue" });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "'" + title + "' added to editing queue for " + targetClient.name });
+          }
+        }
+
+        if (block.name === "get_editing_queue") {
+          const { client_name } = block.input;
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const { data: items } = await adminClient
+              .from("video_edits")
+              .select("reel_title, status, assignee, schedule_date, post_status")
+              .eq("client_id", targetClient.id)
+              .is("deleted_at", null)
+              .order("created_at", { ascending: false })
+              .limit(10);
+            const info = (items || []).map((i: any) =>
+              (i.reel_title || "Untitled") + " — " + i.status + (i.assignee ? " (editor: " + i.assignee + ")" : " (no editor)") + (i.schedule_date ? " — posts " + i.schedule_date : "")
+            ).join("\n");
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Editing queue for " + targetClient.name + ":\n" + info });
+          }
+        }
+
+        if (block.name === "get_content_calendar") {
+          const { client_name, days_ahead = 14 } = block.input;
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            const today = new Date().toISOString().slice(0, 10);
+            const future = new Date(Date.now() + days_ahead * 86400000).toISOString().slice(0, 10);
+            const { data: items } = await adminClient
+              .from("video_edits")
+              .select("reel_title, schedule_date, post_status, caption")
+              .eq("client_id", targetClient.id)
+              .gte("schedule_date", today)
+              .lte("schedule_date", future)
+              .is("deleted_at", null)
+              .order("schedule_date");
+            if (!items || items.length === 0) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No content scheduled in the next " + days_ahead + " days for " + targetClient.name });
+            } else {
+              const info = items.map((i: any) => i.schedule_date + ": " + (i.reel_title || "Untitled") + " — " + i.post_status).join("\n");
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Content calendar for " + targetClient.name + " (next " + days_ahead + " days):\n" + info });
+            }
+          }
+        }
+
+        if (block.name === "create_canvas_note") {
+          const { client_name, content, note_type = "text_note" } = block.input;
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
+          } else {
+            // Get or find active canvas state
+            const { data: canvasState } = await adminClient
+              .from("canvas_states")
+              .select("id, nodes")
+              .eq("client_id", targetClient.id)
+              .eq("is_active", true)
+              .limit(1)
+              .maybeSingle();
+            const nodeId = crypto.randomUUID();
+            const newNode = {
+              id: nodeId,
+              type: note_type === "research_note" ? "researchNote" : "textNote",
+              position: { x: Math.floor(Math.random() * 400) + 100, y: Math.floor(Math.random() * 300) + 100 },
+              data: { text: content, content, label: content.slice(0, 50) },
+            };
+            if (canvasState) {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
+              actions.push({ type: "navigate", path: "/scripts?view=canvas" });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Note added to " + targetClient.name + "'s canvas." });
+            } else {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas found for " + targetClient.name + ". Have them open the Connecta AI canvas first." });
             }
           }
         }
