@@ -1421,8 +1421,18 @@ Tell the user this in your respond_to_user — be specific about what you found 
           const textBlock = secondResult.content?.find((b: any) => b.type === "text");
           if (textBlock?.text) reply = textBlock.text;
         }
-        // If Turn 2 only navigated (no text/respond_to_user), fall back to Turn 1 reply
-        if (!reply) reply = turn1Reply || "On it.";
+        // If Turn 2 only navigated (no text/respond_to_user), check for orchestrator result and surface that
+        if (!reply) {
+          const orchestratorResult = toolResults.find((r) =>
+            typeof r.content === "string" && r.content.startsWith("BUILT a complete script")
+          );
+          if (orchestratorResult) {
+            // Use the orchestrator summary directly as the reply
+            reply = orchestratorResult.content;
+          } else {
+            reply = turn1Reply || "On it.";
+          }
+        }
       }
     } else {
       // Normal text response
