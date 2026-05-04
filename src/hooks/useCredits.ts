@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 
 export interface CreditsData {
   id: string;
@@ -29,9 +30,13 @@ export interface CreditTransaction {
 
 export function useCredits() {
   const { user } = useAuth();
-  const [credits, setCredits] = useState<CreditsData | null>(null);
+  // Hydrate from localStorage so the credits counter renders instantly on
+  // navigation; background fetch validates and updates if stale.
+  const [credits, setCredits] = useState<CreditsData | null>(() =>
+    user ? readCache<CreditsData | null>(`credits_${user.id}`, null) : null
+  );
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!credits);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCredits = async () => {
@@ -70,7 +75,7 @@ export function useCredits() {
       }
       if (clientError) throw clientError;
       if (clientData) {
-        setCredits({
+        const fresh: CreditsData = {
           id: clientData.id,
           credits_balance: clientData.credits_balance ?? 0,
           credits_used: clientData.credits_used ?? 0,
@@ -84,7 +89,9 @@ export function useCredits() {
           pending_plan_type: clientData.pending_plan_type ?? null,
           pending_plan_effective_date: clientData.pending_plan_effective_date ?? null,
           topup_credits_balance: clientData.topup_credits_balance ?? 0,
-        });
+        };
+        setCredits(fresh);
+        writeCache(`credits_${user.id}`, fresh);
         const { data: txData } = await supabase
           .from("credit_transactions")
           .select("id, action, credits, created_at, metadata")

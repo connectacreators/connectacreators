@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { getCachedSupabaseUser, readCache, writeCache } from "@/lib/sessionCache";
 
 type UserRole = "admin" | "user" | "client" | "videographer" | "editor" | "connecta_plus";
 
@@ -24,9 +25,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<UserRole>("client");
-  const [loading, setLoading] = useState(true);
+  // Hydrate synchronously from Supabase's localStorage cache so display name,
+  // role, etc. render correctly on the very first paint instead of popping in
+  // ~200-500ms later after onAuthStateChange resolves.
+  const cachedUser = getCachedSupabaseUser();
+  const cachedRole = cachedUser ? readCache<UserRole>(`role_${cachedUser.id}`, "client") : "client";
+  const [user, setUser] = useState<User | null>(cachedUser);
+  const [role, setRole] = useState<UserRole>(cachedRole);
+  const [loading, setLoading] = useState(!cachedUser);
   const [roleLoading, setRoleLoading] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
@@ -68,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             fetchRole(u.id).then((r) => {
               if (isMounted) {
                 setRole(r);
+                writeCache(`role_${u.id}`, r);
                 setRoleLoading(false);
               }
             });

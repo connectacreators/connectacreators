@@ -3,6 +3,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { t, tr } from "@/i18n/translations";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -36,8 +37,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const { credits } = useCredits();
   const { tasks: companionTasks, companionName } = useCompanion();
   const companionBadge = companionTasks.filter((t) => t.priority === "red" || t.priority === "amber").length;
-  const [ownClientId, setOwnClientId] = useState<string | null>(null);
-  const [ownClientName, setOwnClientName] = useState<string | null>(null);
+  // Hydrate from cache so the selected client name appears instantly on
+  // navigation; background fetch refreshes if stale.
+  const cachedOwnClient = user ? readCache<{ id: string | null; name: string | null }>(`ownClient_${user.id}`, { id: null, name: null }) : { id: null, name: null };
+  const [ownClientId, setOwnClientId] = useState<string | null>(cachedOwnClient.id);
+  const [ownClientName, setOwnClientName] = useState<string | null>(cachedOwnClient.name);
 
   // Client selector state — everyone except editors can switch between their clients
   const isSubscriber = !isAdmin && !isVideographer && !isEditor && !isUser;
@@ -84,11 +88,20 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       .maybeSingle()
       .then(({ data }) => {
         if (data?.client_id) {
-          setOwnClientId(data.client_id);
-          setOwnClientName((data as any).clients?.name ?? null);
+          const id = data.client_id;
+          const name = (data as any).clients?.name ?? null;
+          setOwnClientId(id);
+          setOwnClientName(name);
+          writeCache(`ownClient_${user.id}`, { id, name });
         } else {
           supabase.from("clients").select("id, name").eq("user_id", user.id).maybeSingle()
-            .then(({ data: fb }) => { if (fb) { setOwnClientId(fb.id); setOwnClientName(fb.name); } });
+            .then(({ data: fb }) => {
+              if (fb) {
+                setOwnClientId(fb.id);
+                setOwnClientName(fb.name);
+                writeCache(`ownClient_${user.id}`, { id: fb.id, name: fb.name });
+              }
+            });
         }
       });
   }, [user]);
