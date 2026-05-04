@@ -34,7 +34,6 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AssistantChat,
-  AssistantContextPanel,
   AssistantTextInput,
   AssistantThreadList,
   type ThreadListItem,
@@ -347,7 +346,7 @@ export default function CommandCenter() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0a0f1c] text-white">
+    <div className="fixed inset-0 flex flex-col text-white" style={{ background: "#131417" }}>
       {/* Header — mirrors FullscreenAIView: just back button + centered title */}
       <header className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2.5 border-b border-white/5">
         <button
@@ -384,7 +383,7 @@ export default function CommandCenter() {
         {rightTab === "chat" ? (
           <>
             {/* CHATS sidebar */}
-            <aside className="w-[260px] bg-[#0c1424] border-r border-white/[0.04] flex flex-col">
+            <aside className="w-[260px] bg-[#1a1b1f] border-r border-white/[0.04] flex flex-col">
               <AssistantThreadList
                 threads={threadListItems}
                 activeThreadId={activeThreadId}
@@ -453,17 +452,92 @@ export default function CommandCenter() {
               </div>
             </main>
 
-            {/* AI SEES (off-canvas: empty state) */}
-            <aside className="w-[260px] bg-[#0c1424] border-l border-white/[0.04] flex flex-col">
-              <AssistantContextPanel
-                nodes={[]}
-                emptyMessage={
-                  en
-                    ? "Open a canvas to see connected nodes feeding the AI."
-                    : "Abre un canvas para ver los nodos conectados al AI."
-                }
-                className="flex-1 min-h-0"
-              />
+            {/* AI SEES — agency-mode context categories */}
+            <aside
+              className="w-[260px] flex flex-col"
+              style={{ background: "#1a1b1f", borderLeft: "1px solid #2a2b30" }}
+            >
+              <div
+                className="px-3 py-2.5 flex items-center justify-between"
+                style={{ borderBottom: "1px solid #2a2b30" }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.35)",
+                  }}
+                >
+                  {en ? "AI sees" : "AI ve"}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+                {(
+                  [
+                    {
+                      key: "strategy",
+                      label: en ? "Client strategies" : "Estrategias de clientes",
+                      sub: en ? "Vision, audience, voice" : "Visión, audiencia, voz",
+                      color: "#84cc16",
+                    },
+                    {
+                      key: "onboarding",
+                      label: en ? "Onboarding profiles" : "Perfiles de onboarding",
+                      sub: en ? "Brand, niche, goals" : "Marca, nicho, objetivos",
+                      color: "#22d3ee",
+                    },
+                    {
+                      key: "canvas",
+                      label: en ? "Canvas history" : "Historial de canvas",
+                      sub: en ? "Past scripts + research" : "Scripts y research previos",
+                      color: "#a78bfa",
+                    },
+                    {
+                      key: "editing",
+                      label: en ? "Editing queue" : "Cola de edición",
+                      sub: en ? "What's pending or shipped" : "Qué está pendiente o entregado",
+                      color: "#f59e0b",
+                    },
+                    {
+                      key: "memory",
+                      label: en ? "Memory facts" : "Memoria",
+                      sub: en ? "What I've learned about you" : "Lo que aprendí de ti",
+                      color: "#f472b6",
+                    },
+                  ]
+                ).map((c) => (
+                  <div
+                    key={c.key}
+                    className="flex items-start gap-2 px-3 py-2"
+                  >
+                    <div
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: c.color,
+                        flexShrink: 0,
+                        marginTop: 5,
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+                        {c.label}
+                      </div>
+                      <div className="text-[9px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        {c.sub}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-3 py-2 text-[10px]" style={{ borderTop: "1px solid #2a2b30", color: "rgba(255,255,255,0.32)", lineHeight: 1.5 }}>
+                {en
+                  ? "I read these on demand — not every prompt. Memory keeps the highlights."
+                  : "Los leo bajo demanda — no en cada prompt. La memoria guarda lo importante."}
+              </div>
             </aside>
           </>
         ) : (
