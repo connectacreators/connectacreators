@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bubble Variations</title>
+<style>
+  body { background: #111; display: flex; flex-wrap: wrap; gap: 40px; padding: 60px; font-family: sans-serif; align-items: flex-end; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .label { color: #888; font-size: 11px; text-align: center; max-width: 80px; line-height: 1.4; }
+  .bubble {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.15s;
+  }
+  .bubble:hover { transform: scale(1.08); }
+  .bubble img { width: 36px; height: 36px; border-radius: 50%; object-fit: contain; }
+</style>
+</head>
+<body>
+
+<div class="item">
+  <div class="bubble" style="background:#06B6D4; box-shadow:0 4px 24px rgba(6,182,212,0.5);">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">Cyan<br>#06B6D4<br><em>current</em></div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:#0F172A; box-shadow:0 4px 24px rgba(0,0,0,0.6); border: 1.5px solid #1E293B;">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">Dark Navy<br>#0F172A</div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:#1E293B; box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">Slate Dark<br>#1E293B</div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:linear-gradient(135deg,#0EA5E9,#06B6D4); box-shadow:0 4px 24px rgba(6,182,212,0.45);">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">Sky→Cyan<br>gradient</div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:linear-gradient(135deg,#6366F1,#06B6D4); box-shadow:0 4px 24px rgba(99,102,241,0.45);">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">Indigo→Cyan<br>gradient</div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:linear-gradient(135deg,#7C3AED,#06B6D4); box-shadow:0 4px 24px rgba(124,58,237,0.45);">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">Purple→Cyan<br>gradient</div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:#FFFFFF; box-shadow:0 4px 24px rgba(0,0,0,0.25);">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">White<br>#FFFFFF</div>
+</div>
+
+<div class="item">
+  <div class="bubble" style="background:#F8FAFC; box-shadow:0 4px 20px rgba(6,182,212,0.3); border: 1.5px solid #E2E8F0;">
+    <img src="/favicon.png">
+  </div>
+  <div class="label">White + cyan border</div>
+</div>
+
+</body>
+</html>
