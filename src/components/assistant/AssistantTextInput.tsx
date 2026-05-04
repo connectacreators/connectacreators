@@ -455,7 +455,8 @@ export function AssistantTextInput({
             padding: "6px 10px",
           }}
         >
-          {/* circle-+ — image mode, research, presets */}
+          {/* circle-+ — image mode, research, presets. Hidden when no menu items. */}
+          {(onToggleImageMode || onToggleResearchMode || (promptPresets && promptPresets.length > 0)) && (
           <div className="relative" ref={plusMenuRef}>
             <button
               type="button"
@@ -566,6 +567,7 @@ export function AssistantTextInput({
               </div>
             )}
           </div>
+          )}
 
           {/* spacer */}
           <div style={{ flex: 1 }} />

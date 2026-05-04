@@ -205,18 +205,47 @@ const handleReadingContext: StateHandler = async (ctx) => {
 };
 
 const handleIdeasGenerated: StateHandler = async (ctx) => {
-  // If we already have ideas (user provided one verbatim), just confirm and pause.
-  if (ctx.session.ideas.length > 0 && ctx.session.ideas[0]?.title !== "__SUGGEST__") {
-    await logProgress(ctx, `Got it. Working on: "${ctx.session.ideas[0].title}".`);
-    // Auto-advance into framework search.
+  const userInput = await consumeUserInput(ctx);
+
+  // Case A: user already provided their own idea verbatim (selectedIdeas
+  // populated with a real title in AWAITING_IDEA). Confirm and advance.
+  const sel = ctx.session.selectedIdeas ?? [];
+  if (sel.length > 0 && sel[0]?.title && sel[0].title !== "__SUGGEST__") {
+    await logProgress(ctx, `Got it. Working on: "${sel[0].title}".`);
+    return { kind: "advance" };
+  }
+
+  // Case B: 5 ideas were already generated and presented; user is now replying.
+  if (ctx.session.ideas.length > 0 && sel.length === 0) {
+    if (!userInput) {
+      // Re-entry without input — just pause for user.
+      return { kind: "pause" };
+    }
+    let chosen: typeof ctx.session.ideas = [];
+    if (/\ball\b/i.test(userInput)) {
+      chosen = ctx.session.ideas;
+    } else {
+      const indices = userInput.match(/\d+/g)?.map((n) => parseInt(n, 10) - 1) ?? [];
+      chosen = indices
+        .filter((i) => i >= 0 && i < ctx.session.ideas.length)
+        .map((i) => ctx.session.ideas[i]);
+    }
+    if (chosen.length === 0) {
+      // Off-topic reply or unrecognized. Don't silently advance.
+      await logProgress(
+        ctx,
+        `I'll stay here until you pick. Reply with a number (1-${ctx.session.ideas.length}) or "all" to choose which ideas to build.`,
+      );
+      return { kind: "pause" };
+    }
     await updateBuildSession(ctx.admin, ctx.session.id, {
+      selectedIdeas: chosen,
       currentIdeaIndex: 0,
-      selectedIdeas: [ctx.session.ideas[0]],
     });
     return { kind: "advance" };
   }
 
-  // Need to generate 5 ideas.
+  // Case C: First entry in suggestion mode — generate 5 ideas.
   await logProgress(ctx, "Coming up with 5 ideas based on what I'm seeing...");
 
   // Pull client onboarding + strategy for richer context.
@@ -285,28 +314,9 @@ Output ONLY the JSON array, nothing else.`;
 };
 
 const handleFindingFrameworks: StateHandler = async (ctx) => {
-  // Capture user's selection from awaiting_user state.
-  const userInput = await consumeUserInput(ctx);
-  let selected: typeof ctx.session.ideas = ctx.session.selectedIdeas ?? [];
-
-  if (selected.length === 0 && userInput) {
-    if (/\ball\b/i.test(userInput)) {
-      selected = ctx.session.ideas;
-    } else {
-      const indices = userInput.match(/\d+/g)?.map((n) => parseInt(n, 10) - 1) ?? [];
-      selected = indices
-        .filter((i) => i >= 0 && i < ctx.session.ideas.length)
-        .map((i) => ctx.session.ideas[i]);
-    }
-    if (selected.length === 0) {
-      await logProgress(ctx, "I didn't recognize that selection. Reply with a number like \"1\" or \"all\".");
-      return { kind: "pause" };
-    }
-    await updateBuildSession(ctx.admin, ctx.session.id, {
-      selectedIdeas: selected,
-      currentIdeaIndex: 0,
-    });
-  }
+  // Selection now happens in IDEAS_GENERATED. We just consume any stray input.
+  await consumeUserInput(ctx);
+  const selected = ctx.session.selectedIdeas ?? [];
   if (selected.length === 0) {
     return { kind: "error", message: "No selected ideas to find frameworks for" };
   }
@@ -318,47 +328,91 @@ const handleFindingFrameworks: StateHandler = async (ctx) => {
   await logProgress(ctx, `Searching viral frameworks for "${currentIdea.title}"...`);
 
   const keywords = currentIdea.keywords ?? currentIdea.title.split(/\s+/).slice(0, 5);
-  // Naive keyword search across viral_videos.caption — fall back to recent rows.
   const orFilter = keywords
     .filter((k) => k.length >= 3)
     .map((k) => `caption.ilike.%${k.replace(/[%,]/g, "")}%`)
     .join(",");
 
+  // Pull a larger CANDIDATE pool (up to 25), then ask Claude to rank by relevance.
+  // This stops construction videos with 400x outliers from beating actually-relevant content.
   let query = ctx.admin
     .from("viral_videos")
     .select("id, video_url, caption, channel_username, views_count, outlier_score, thumbnail_url")
     .order("outlier_score", { ascending: false, nullsFirst: false })
-    .limit(3);
+    .limit(25);
   if (orFilter) query = query.or(orFilter);
   const { data: videos } = await query;
-  const list = (videos as any[] | null) ?? [];
-  if (list.length === 0) {
-    // Fallback: top outliers regardless of keywords
-    const { data: fallback } = await ctx.admin
-      .from("viral_videos")
-      .select("id, video_url, caption, channel_username, views_count, outlier_score, thumbnail_url")
-      .order("outlier_score", { ascending: false, nullsFirst: false })
-      .limit(3);
-    list.push(...((fallback as any[] | null) ?? []));
-  }
-  if (list.length === 0) {
-    return { kind: "error", message: "No viral videos found in database" };
+  let candidates = ((videos as any[] | null) ?? []).filter((v) => (v.caption ?? "").trim().length > 0);
+
+  if (candidates.length === 0) {
+    await logProgress(
+      ctx,
+      `I couldn't find any viral references that match "${currentIdea.title}" in the database. Want to paste 1-3 Instagram reel URLs that fit this idea? I'll add them to the viral library and use them as the framework.`,
+    );
+    return { kind: "pause" };
   }
 
-  // Pick the top one for FRAMEWORKS_PRESENTED to default-select.
+  // Ask Claude to pick the 3 most RELEVANT (not just highest-outlier) candidates.
+  let chosenIds: string[] = [];
+  if (candidates.length > 3) {
+    const candidateBlock = candidates
+      .map(
+        (v, i) =>
+          `${i + 1}. id=${v.id} | @${v.channel_username ?? "unknown"} | ${v.outlier_score ?? "?"}x | caption: ${(v.caption ?? "").slice(0, 200)}`,
+      )
+      .join("\n");
+    const rankPrompt = `You are picking VIRAL VIDEO REFERENCES for a creator who wants to make this script:
+
+IDEA: ${currentIdea.title}
+${currentIdea.description ? `DESCRIPTION: ${currentIdea.description}` : ""}
+
+Below are ${candidates.length} candidate viral videos pulled from the database. Pick the 3 that are MOST RELEVANT to the idea — same topic, same hook structure, same target audience. Outlier multiplier is a tiebreaker, NOT the main signal. Reject videos that are off-topic even if they have huge outliers.
+
+CANDIDATES:
+${candidateBlock}
+
+Output ONLY a JSON array of 3 ids, in order of best fit. Example: ["uuid1","uuid2","uuid3"]. Nothing else.`;
+    try {
+      let ranked = await callClaude(rankPrompt);
+      ranked = ranked.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
+      const ids = JSON.parse(ranked) as string[];
+      if (Array.isArray(ids)) chosenIds = ids.filter((s) => typeof s === "string");
+    } catch (e) {
+      console.warn("[FINDING_FRAMEWORKS] Claude ranking failed:", (e as Error).message);
+    }
+  }
+
+  let list: any[];
+  if (chosenIds.length > 0) {
+    const map = new Map(candidates.map((c) => [c.id, c]));
+    list = chosenIds.map((id) => map.get(id)).filter(Boolean) as any[];
+    if (list.length < 3) {
+      // Top up with remaining candidates
+      const seen = new Set(list.map((v) => v.id));
+      for (const c of candidates) {
+        if (list.length >= 3) break;
+        if (!seen.has(c.id)) list.push(c);
+      }
+    }
+  } else {
+    list = candidates.slice(0, 3);
+  }
+
+  // Default-pick the top-ranked.
   await updateBuildSession(ctx.admin, ctx.session.id, {
     currentFrameworkVideoId: list[0].id,
   });
 
-  // Compose framework preview text.
-  const lines = list.map((v, i) => {
-    const cap = (v.caption ?? "").slice(0, 100);
-    return `${i + 1}. @${v.channel_username ?? "unknown"} — ${v.outlier_score ?? "?"}x · ${cap}\n   ${v.video_url ?? ""}`;
-  }).join("\n\n");
+  const lines = list
+    .map((v, i) => {
+      const cap = (v.caption ?? "").slice(0, 120);
+      return `${i + 1}. @${v.channel_username ?? "unknown"} — ${v.outlier_score ?? "?"}x · ${cap}\n   ${v.video_url ?? ""}`;
+    })
+    .join("\n\n");
 
   await logProgress(
     ctx,
-    `I found these viral references:\n\n${lines}\n\nReply with a number to use one, or "use #1" to confirm the top match.`,
+    `I found these viral references for "${currentIdea.title}":\n\n${lines}\n\nReply with a number to pick one, or paste your own Instagram reel URL if these don't fit.`,
   );
   return { kind: "advance" };
 };
