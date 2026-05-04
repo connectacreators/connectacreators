@@ -27,3 +27,4 @@ dist-ssr
 *.sw?
 .worktrees/
 public/VSL_ESPANOL_ROBERTO.mp4
+deploy.sh
