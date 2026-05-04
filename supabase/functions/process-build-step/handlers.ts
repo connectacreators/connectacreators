@@ -72,19 +72,17 @@ async function callClaude(prompt: string, system?: string): Promise<string> {
 // ── State handlers ─────────────────────────────────────────────────────────
 
 const handleInit: StateHandler = async (ctx) => {
-  // Announce which client we're working on so the user always knows context,
-  // especially important when triggered from the /ai agency page.
+  // Announce which client we're working on, then auto-advance so
+  // AWAITING_IDEA becomes the one that asks for the idea and pauses.
+  // INIT must never pause — it's only ever visited once and has no user_input to consume.
   const { data: client } = await ctx.admin
     .from("clients")
     .select("name")
     .eq("id", ctx.session.clientId)
     .maybeSingle();
   const clientName = (client?.name as string | null) ?? "your client";
-  await logProgress(
-    ctx,
-    `Got it! I'm working on **${clientName}**. What idea is on your mind? Or say "give me 5 ideas" and I'll suggest some based on their strategy.`,
-  );
-  return { kind: "pause" };
+  await logProgress(ctx, `Got it! Working on **${clientName}**...`);
+  return { kind: "advance" };
 };
 
 const handleResolveChat: StateHandler = async (ctx) => {
@@ -118,11 +116,10 @@ const handleResolveChat: StateHandler = async (ctx) => {
 const handleAwaitingIdea: StateHandler = async (ctx) => {
   const userInput = await consumeUserInput(ctx);
   if (!userInput) {
-    // INIT already asked the question and paused; if we somehow re-enter
-    // without input (e.g. after LOOPING_NEXT), ask again.
+    // First time here — ask for the idea and pause.
     await logProgress(
       ctx,
-      "What's the next idea? Or say \"give me 5 ideas\" for suggestions.",
+      "What idea is on your mind? Or say \"give me 5 ideas\" and I'll suggest some based on their strategy.",
     );
     return { kind: "pause" };
   }
