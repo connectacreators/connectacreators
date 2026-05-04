@@ -16,7 +16,7 @@ import SplashScreen from "@/components/SplashScreen";
 
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
-import BorderGlow from "@/components/ui/BorderGlow";
+import { ScribbleUnderline } from "@/components/ui/ScribbleUnderline";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -452,7 +452,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {activeSubCards.map((card, i) => (
                       <motion.div key={card.path} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}>
-                        <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#141416] hover:border-[rgba(255,255,255,0.15)] transition-colors">
                           <button
                             onClick={() => !(card as any).disabled && navigate(card.path)}
                             className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
@@ -461,14 +461,14 @@ export default function Dashboard() {
                               <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon">{card.label}</h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon"><ScribbleUnderline>{card.label}</ScribbleUnderline></h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                               {(card as any).disabled && (
                                 <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
                               )}
                             </div>
                           </button>
-                        </BorderGlow>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
@@ -485,7 +485,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (
                       <motion.div key={folder.key} initial="hidden" animate="visible" custom={i + 2} variants={fadeUp}>
-                        <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#141416] hover:border-[rgba(255,255,255,0.15)] transition-colors">
                           <button
                             onClick={() => setActiveFolder(folder.key)}
                             className="group flex flex-col items-center gap-5 p-8 text-center w-full"
@@ -494,11 +494,11 @@ export default function Dashboard() {
                               <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors font-caslon">{folder.label}</h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-caslon"><ScribbleUnderline>{folder.label}</ScribbleUnderline></h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                             </div>
                           </button>
-                        </BorderGlow>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
@@ -517,7 +517,7 @@ export default function Dashboard() {
                 <div className={`grid grid-cols-1 ${toolCards.length === 1 ? 'max-w-sm mx-auto' : toolCards.length === 2 ? 'sm:grid-cols-2 max-w-xl mx-auto' : 'sm:grid-cols-3'} gap-6`}>
                   {toolCards.map((tool, i) => (
                     <motion.div key={tool.path} initial="hidden" animate="visible" custom={i + 2} variants={fadeUp}>
-                      <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                      <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#141416] hover:border-[rgba(255,255,255,0.15)] transition-colors">
                         <button
                           onClick={() => navigate(tool.path)}
                           className="group flex flex-col items-center gap-5 p-8 text-center w-full"
@@ -526,11 +526,11 @@ export default function Dashboard() {
                             <tool.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                           </div>
                           <div>
-                            <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors font-caslon">{tool.label}</h2>
+                            <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-caslon"><ScribbleUnderline>{tool.label}</ScribbleUnderline></h2>
                             <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
                           </div>
                         </button>
-                      </BorderGlow>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -573,7 +573,7 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {activeSubCards.map((card, i) => (
                         <motion.div key={card.path} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}>
-                          <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                          <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#141416] hover:border-[rgba(255,255,255,0.15)] transition-colors">
                             <button
                               onClick={() => !(card as any).disabled && navigate(card.path)}
                               className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
@@ -582,14 +582,14 @@ export default function Dashboard() {
                                 <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                               </div>
                               <div>
-                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon">{card.label}</h2>
+                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon"><ScribbleUnderline>{card.label}</ScribbleUnderline></h2>
                                 <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                                 {(card as any).disabled && (
                                   <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
                                 )}
                               </div>
                             </button>
-                          </BorderGlow>
+                          </div>
                         </motion.div>
                       ))}
                     </div>
@@ -608,7 +608,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (
                       <motion.div key={folder.key} initial="hidden" animate="visible" custom={i + 3} variants={fadeUp}>
-                        <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#141416] hover:border-[rgba(255,255,255,0.15)] transition-colors">
                           <button
                             onClick={() => setActiveFolder(folder.key)}
                             className="group flex flex-col items-center gap-5 p-8 text-center w-full"
@@ -617,11 +617,11 @@ export default function Dashboard() {
                               <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors font-caslon">{folder.label}</h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-caslon"><ScribbleUnderline>{folder.label}</ScribbleUnderline></h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                             </div>
                           </button>
-                        </BorderGlow>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
