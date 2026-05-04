@@ -132,6 +132,25 @@ All colors MUST be HSL for consistency and theming.
     letter-spacing: 0.06em;
   }
 
+  .nav-side-mark::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%) scaleY(0);
+    transform-origin: center;
+    width: 1.5px; height: 55%;
+    background: rgba(255,255,255,0.55);
+    border-radius: 0 1px 1px 0;
+    transition: transform 0.18s ease;
+  }
+  .nav-side-mark:hover::before {
+    transform: translateY(-50%) scaleY(1);
+  }
+  .nav-side-mark.nav-active::before {
+    transform: translateY(-50%) scaleY(1);
+    background: rgba(255,255,255,0.75);
+  }
+
   .scribble-path {
     stroke-dasharray: 130;
     stroke-dashoffset: 130;

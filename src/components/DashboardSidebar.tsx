@@ -398,36 +398,17 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               key={item.label}
               onClick={() => navigate(item.path)}
               onMouseEnter={() => setHoveredItem(item.label)}
-              className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative ${
-                showActive ? "text-[#22d3ee]" : "text-[#aaaaaa]"
+              className={`nav-side-mark w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative ${
+                showActive ? "text-[#e8e8e8] nav-active" : "text-[#aaaaaa] hover:text-[#cccccc]"
               }`}
-              style={showActive ? {
-                background: 'linear-gradient(90deg, rgba(34,211,238,0.10) 0%, rgba(34,211,238,0.03) 60%, transparent 100%)',
-              } : undefined}
             >
-              {showActive && (
-                <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full"
-                  style={{
-                    height: '60%',
-                    background: '#22d3ee',
-                    boxShadow: '0 0 10px rgba(34,211,238,0.4)',
-                    animation: 'nav-indicator-in 0.45s cubic-bezier(0.25,0.46,0.45,0.94) forwards',
-                  }}
-                />
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+              {item.label}
+              {(item.badge ?? 0) > 0 && (
+                <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
+                  {item.badge}
+                </span>
               )}
-              <span
-                key={`${item.label}-${showActive}`}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', animation: 'nav-blur-in 0.45s cubic-bezier(0.25,0.46,0.45,0.94) forwards', flex: 1 }}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-                {(item.badge ?? 0) > 0 && (
-                  <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
-                    {item.badge}
-                  </span>
-                )}
-              </span>
             </button>
           );
         })}
