@@ -26,6 +26,7 @@ interface Training {
   title: string;
   content: string;
   assigned_to_user_id: string | null;
+  visibility: string;
   created_by: string | null;
   category: string;
   is_published: boolean;
@@ -92,7 +93,7 @@ function EditorToolbar({ editor }: { editor: any }) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function Trainings() {
-  const { user, loading, isAdmin, isVideographer, isEditor } = useAuth();
+  const { user, loading, isAdmin, isVideographer, isEditor, role } = useAuth();
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [fetching, setFetching] = useState(true);
@@ -108,6 +109,7 @@ export default function Trainings() {
     title: "",
     category: "",
     assigned_to_user_id: "__all__",
+    visibility: "team" as "team" | "everyone",
     is_published: false,
   });
 
@@ -134,11 +136,15 @@ export default function Trainings() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      // Non-admins only see published trainings assigned to them or to everyone
       if (!isAdmin) {
-        query = query
-          .eq("is_published", true)
-          .or(`assigned_to_user_id.is.null,assigned_to_user_id.eq.${user?.id}`);
+        query = query.eq("is_published", true);
+        if (isVideographer) {
+          // Team members see trainings assigned to them, all-team, or everyone
+          query = query.or(`assigned_to_user_id.is.null,assigned_to_user_id.eq.${user?.id}`);
+        } else {
+          // Clients only see trainings explicitly published for everyone
+          query = query.eq("visibility", "everyone").is("assigned_to_user_id", null);
+        }
       }
 
       const { data, error } = await query;
@@ -156,7 +162,9 @@ export default function Trainings() {
         }
         setTrainings(data.map((t) => ({
           ...t,
-          assignee_name: t.assigned_to_user_id ? (nameMap[t.assigned_to_user_id] || "Team Member") : "All",
+          assignee_name: t.assigned_to_user_id
+            ? (nameMap[t.assigned_to_user_id] || "Team Member")
+            : t.visibility === "everyone" ? "Everyone" : "All team members",
         })));
       } else {
         setTrainings(data || []);
@@ -185,7 +193,7 @@ export default function Trainings() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: "", category: "", assigned_to_user_id: "__all__", is_published: false });
+    setForm({ title: "", category: "", assigned_to_user_id: "__all__", visibility: "team", is_published: false });
     editor?.commands.setContent("");
     setView("editor");
   };
@@ -196,6 +204,7 @@ export default function Trainings() {
       title: t.title,
       category: t.category || "",
       assigned_to_user_id: t.assigned_to_user_id || "__all__",
+      visibility: (t.visibility as "team" | "everyone") || "team",
       is_published: t.is_published,
     });
     editor?.commands.setContent(t.content || "");
@@ -208,6 +217,7 @@ export default function Trainings() {
       title: t.title,
       category: t.category || "",
       assigned_to_user_id: t.assigned_to_user_id || "__all__",
+      visibility: (t.visibility as "team" | "everyone") || "team",
       is_published: t.is_published,
     });
     editor?.commands.setContent(t.content || "");
@@ -219,11 +229,13 @@ export default function Trainings() {
     if (!form.title.trim()) { toast.error("Title is required"); return; }
     setSaving(true);
     try {
+      const isAllOrEveryone = form.assigned_to_user_id === "__all__" || form.assigned_to_user_id === "__everyone__";
       const payload = {
         title: form.title.trim(),
         content: editor?.getHTML() || "",
         category: form.category,
-        assigned_to_user_id: form.assigned_to_user_id === "__all__" ? null : form.assigned_to_user_id,
+        assigned_to_user_id: isAllOrEveryone ? null : form.assigned_to_user_id,
+        visibility: form.assigned_to_user_id === "__everyone__" ? "everyone" : isAllOrEveryone ? "team" : form.visibility,
         is_published: form.is_published,
         created_by: user?.id,
       };
@@ -320,7 +332,16 @@ export default function Trainings() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={form.assigned_to_user_id} onValueChange={(v) => setForm((f) => ({ ...f, assigned_to_user_id: v }))}>
+                  <Select
+                    value={form.assigned_to_user_id === "__all__" && form.visibility === "everyone" ? "__everyone__" : form.assigned_to_user_id}
+                    onValueChange={(v) => {
+                      if (v === "__everyone__") {
+                        setForm((f) => ({ ...f, assigned_to_user_id: "__all__", visibility: "everyone" }));
+                      } else {
+                        setForm((f) => ({ ...f, assigned_to_user_id: v, visibility: "team" }));
+                      }
+                    }}
+                  >
                     <SelectTrigger className="h-7 text-xs border-border/40 bg-card/50 gap-1 pr-2 w-auto">
                       <User className="w-3 h-3 text-muted-foreground" />
                       <SelectValue placeholder="Assign to" />
@@ -328,6 +349,7 @@ export default function Trainings() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All team members</SelectItem>
+                      <SelectItem value="__everyone__">Everyone (incl. clients)</SelectItem>
                       {teamMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                     </SelectContent>
                   </Select>

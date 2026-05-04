@@ -217,6 +217,3 @@ verify_jwt = false
 [functions.send-lead-notification]
 verify_jwt = false
 
-# Conversational script builder background worker
-[functions.process-build-step]
-verify_jwt = false

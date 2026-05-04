@@ -195,16 +195,19 @@ function timeAgo(dateStr: string | null): string {
 }
 
 // Resolve thumbnails via yt-dlp cache when a video URL is available, else proxy the CDN URL
+const EXPIRED_CDN_PATTERN = /cdninstagram\.com|fbcdn\.net|scontent[-.]|instagram\.f[a-z]{3}/;
+
 function proxyImg(url: string | null, videoUrl?: string): string | null {
   if (url?.includes("connectacreators.com/thumb-cache")) return url;
   if (url?.includes("connectacreators.com")) return url;
   // Prefer resolve-thumb (VPS yt-dlp cache) when we have the video URL — avoids expired CDN URLs.
-  // Also used as a fallback when thumbnail_url is null but video_url is known.
   if (videoUrl) {
     return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
   }
   if (!url) return null;
-  // Fallback: proxy the raw CDN URL (may 403 if expired)
+  // Instagram/Facebook CDN URLs expire — don't bother proxying them, show fallback instead.
+  if (EXPIRED_CDN_PATTERN.test(url)) return null;
+  // For other CDN URLs, proxy through VPS
   return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
@@ -709,7 +712,7 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDis
         <div className="relative flex-shrink-0">
           {channel.avatar_url ? (
             <img
-              src={channel.avatar_url}
+              src={proxyImg(channel.avatar_url) ?? channel.avatar_url}
               alt={channel.username}
               className="w-9 h-9 rounded-full object-cover border border-border"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
@@ -945,7 +948,22 @@ export default function ViralToday() {
       }
       const { data, error } = await q;
       if (error) throw error;
-      setChannels((data ?? []) as ViralChannel[]);
+      const channels = (data ?? []) as ViralChannel[];
+      setChannels(channels);
+
+      // Clear stale Instagram/Facebook CDN avatar URLs so they re-cache on next scrape.
+      // These URLs expire — storing them causes broken images until the channel is re-scraped.
+      const staleIds = channels
+        .filter(c => c.avatar_url && EXPIRED_CDN_PATTERN.test(c.avatar_url))
+        .map(c => c.id);
+      if (staleIds.length > 0) {
+        supabase.from("viral_channels")
+          .update({ avatar_url: null })
+          .in("id", staleIds)
+          .then(() => {
+            setChannels(prev => prev.map(c => staleIds.includes(c.id) ? { ...c, avatar_url: null } : c));
+          });
+      }
     } catch {
       toast.error("Error loading channels");
     } finally {

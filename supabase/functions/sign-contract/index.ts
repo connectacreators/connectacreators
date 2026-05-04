@@ -1,22 +1,43 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
+import {
+  DancingScript_Regular_B64,
+  GreatVibes_Regular_B64,
+  PinyonScript_Regular_B64,
+} from "./fonts-b64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const FONT_MAP: Record<string, string> = {
-  "dancing-script": "./fonts/DancingScript-Regular.ttf",
-  "great-vibes":    "./fonts/GreatVibes-Regular.ttf",
-  "pinyon-script":  "./fonts/PinyonScript-Regular.ttf",
+// Fonts are embedded as base64 in fonts-b64.ts because Supabase Edge Functions
+// don't bundle non-source files with the deploy, and external CDNs (jsdelivr)
+// were rate-limiting/blocking. Self-contained = always works.
+const FONT_B64: Record<string, string> = {
+  "dancing-script": DancingScript_Regular_B64,
+  "great-vibes":    GreatVibes_Regular_B64,
+  "pinyon-script":  PinyonScript_Regular_B64,
 };
 
+const fontCache = new Map<string, Uint8Array>();
+
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 async function loadFont(fontKey: string): Promise<Uint8Array> {
-  const path = FONT_MAP[fontKey] ?? FONT_MAP["dancing-script"];
-  const url = new URL(path, import.meta.url);
-  return new Uint8Array(await Deno.readFile(url.pathname));
+  const cached = fontCache.get(fontKey);
+  if (cached) return cached;
+  const b64 = FONT_B64[fontKey] ?? FONT_B64["dancing-script"];
+  if (!b64) throw new Error(`Font not found: ${fontKey}`);
+  const bytes = base64ToBytes(b64);
+  fontCache.set(fontKey, bytes);
+  return bytes;
 }
 
 function formatTimestamp(date: Date): string {
@@ -139,7 +160,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!FONT_MAP[signature_font]) {
+    if (!FONT_B64[signature_font]) {
       return new Response(JSON.stringify({ error: "Invalid font" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -291,8 +312,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("sign-contract error:", err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }), {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("sign-contract error:", message, stack);
+    return new Response(JSON.stringify({ error: message, stack }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

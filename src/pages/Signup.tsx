@@ -18,6 +18,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // On mount / auth change: if already authenticated, ensure client record exists then go to dashboard
   useEffect(() => {
@@ -161,6 +162,38 @@ export default function Signup() {
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
             />
 
+            {/* Terms & Privacy checkbox */}
+            <label className="flex items-start gap-2.5 cursor-pointer select-none mt-1">
+              <div className="relative flex-shrink-0 mt-0.5">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  onClick={() => setAgreedToTerms(v => !v)}
+                  className="w-4 h-4 rounded flex items-center justify-center transition-colors"
+                  style={{
+                    background: agreedToTerms ? 'rgba(8,145,178,0.9)' : 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${agreedToTerms ? 'rgba(8,145,178,0.9)' : 'rgba(8,145,178,0.3)'}`,
+                  }}
+                >
+                  {agreedToTerms && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground leading-relaxed">
+                {language === 'es'
+                  ? <>Al marcar esta casilla, acepto la{' '}<a href="/privacy-policy" target="_blank" className="text-primary hover:underline">Política de Privacidad</a>{' '}y los{' '}<a href="/terms-and-conditions" target="_blank" className="text-primary hover:underline">Términos y Condiciones</a>{' '}de Connecta Creators.</>
+                  : <>By checking this box, I agree to the{' '}<a href="/privacy-policy" target="_blank" className="text-primary hover:underline">Privacy Policy</a>{' '}and{' '}<a href="/terms-and-conditions" target="_blank" className="text-primary hover:underline">Terms & Conditions</a>{' '}of Connecta Creators.</>
+                }
+              </span>
+            </label>
+
             {error && <p className="text-red-500 text-xs">{error}</p>}
 
             <div className="flex items-center gap-3 my-3">
@@ -172,7 +205,8 @@ export default function Signup() {
             <button
               type="button"
               onClick={handleGoogleSignup}
-              className="w-full py-2.5 rounded-lg text-foreground text-sm transition-colors flex items-center justify-center gap-2 hover:brightness-125"
+              disabled={!agreedToTerms}
+              className="w-full py-2.5 rounded-lg text-foreground text-sm transition-colors flex items-center justify-center gap-2 hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }}
             >
               <span className="text-orange-400 font-bold">G</span>
@@ -181,9 +215,9 @@ export default function Signup() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !agreedToTerms}
               style={{ background: 'linear-gradient(135deg, #0891B2, #84CC16)', boxShadow: '0 4px 20px rgba(8,145,178,0.35)' }}
-              className="w-full py-3 rounded-lg text-white font-bold text-sm transition-all hover:brightness-110 disabled:opacity-50"
+              className="w-full py-3 rounded-lg text-white font-bold text-sm transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "..." : (language === 'es' ? 'Crear cuenta gratis →' : 'Create free account →')}
             </button>

@@ -11,6 +11,13 @@ const VPS_SERVER = "http://72.62.200.145:3099";
 const VPS_API_KEY = "ytdlp_connecta_2026_secret";
 const CACHE_TTL_HOURS = 6;
 
+// Common words to skip when splitting multi-word queries into sub-searches
+const STOP_WORDS = new Set([
+  "a", "an", "the", "and", "or", "for", "of", "in", "on", "at", "to",
+  "with", "by", "is", "are", "was", "be", "how", "what", "when", "do",
+  "i", "my", "me", "we", "you", "your", "it", "its", "as", "from",
+]);
+
 async function fetchVpsWithRetry(url: string, init: RequestInit, retries = 2, delayMs = 6000): Promise<Response> {
   let res = await fetch(url, init);
   while (res.status === 503 && retries-- > 0) {
@@ -43,6 +50,57 @@ async function cacheThumbnail(cdnUrl: string, key: string): Promise<string | nul
     const { cached_url } = await res.json();
     return cached_url || null;
   } catch { return null; }
+}
+
+/**
+ * Build expanded search terms from a query.
+ * "tile remodeling" → ["tile remodeling", "tile", "remodeling"]
+ * "sales humor" → ["sales humor", "sales", "humor"]
+ * "tile" → ["tile"]
+ */
+function buildSearchTerms(query: string): string[] {
+  const clean = query.trim().toLowerCase();
+  const words = clean.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+
+  const terms: string[] = [clean]; // always include the full phrase
+  if (words.length > 1) {
+    // Add each meaningful word as its own search
+    for (const w of words) {
+      if (!terms.includes(w)) terms.push(w);
+    }
+    // Also try first-word combinations (e.g. "tile installation" from "tile remodeling installation")
+    if (words.length > 2) {
+      const pair = words[0] + " " + words[1];
+      if (!terms.includes(pair)) terms.push(pair);
+    }
+  }
+  // Cap at 4 search terms to avoid overloading the VPS
+  return terms.slice(0, 4);
+}
+
+async function vpsSearch(term: string, limit: number, signal: AbortSignal): Promise<any[]> {
+  try {
+    const res = await fetchVpsWithRetry(`${VPS_SERVER}/scrape-reels-search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
+      body: JSON.stringify({ query: term, limit }),
+      signal,
+    });
+    if (res.status === 503) {
+      console.warn(`[scrape-reels-search] VPS 503 for "${term}"`);
+      return [];
+    }
+    if (!res.ok) {
+      console.warn(`[scrape-reels-search] VPS HTTP ${res.status} for "${term}"`);
+      return [];
+    }
+    const data = await res.json();
+    return data.posts ?? [];
+  } catch (e: any) {
+    if (e.name === "AbortError") throw e; // propagate abort
+    console.warn(`[scrape-reels-search] VPS error for "${term}": ${e.message}`);
+    return [];
+  }
 }
 
 serve(async (req) => {
@@ -105,38 +163,44 @@ serve(async (req) => {
       });
     }
 
-    // ── Call VPS /scrape-reels-search ──────────────────────────────────────
-    console.log(`[scrape-reels-search] Searching: "${cleanQuery}"`);
+    // ── Build expanded search terms ─────────────────────────────────────────
+    const searchTerms = buildSearchTerms(cleanQuery);
+    console.log(`[scrape-reels-search] Expanded "${cleanQuery}" → ${JSON.stringify(searchTerms)}`);
 
+    // ── Run all searches in parallel with shared timeout ───────────────────
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 300_000);
 
-    let vpsRes: Response;
+    let allPosts: any[] = [];
     try {
-      vpsRes = await fetchVpsWithRetry(`${VPS_SERVER}/scrape-reels-search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
-        body: JSON.stringify({ query: cleanQuery, limit: 500 }),
-        signal: controller.signal,
-      });
+      // Run searches in parallel — each gets 150 results, combined gives 450+ candidates
+      const limitPerTerm = Math.ceil(500 / searchTerms.length);
+      const results = await Promise.allSettled(
+        searchTerms.map(term => vpsSearch(term, limitPerTerm, controller.signal))
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled") allPosts = allPosts.concat(r.value);
+      }
     } finally {
       clearTimeout(timeout);
     }
 
-    if (vpsRes.status === 503) {
-      throw new Error("Server busy, please try again in ~30 seconds");
+    console.log(`[scrape-reels-search] Combined: ${allPosts.length} posts across ${searchTerms.length} searches`);
+
+    // ── Deduplicate by video id ──────────────────────────────────────────────
+    const seenIds = new Set<string>();
+    const uniquePosts: any[] = [];
+    for (const post of allPosts) {
+      const id = String(post.id ?? "");
+      if (id && !seenIds.has(id)) {
+        seenIds.add(id);
+        uniquePosts.push(post);
+      }
     }
+    console.log(`[scrape-reels-search] After dedup: ${uniquePosts.length} unique posts`);
 
-    if (!vpsRes.ok) {
-      const errBody = await vpsRes.json().catch(() => ({ error: "VPS error" }));
-      throw new Error(errBody.error || `VPS HTTP ${vpsRes.status}`);
-    }
-
-    const vpsData = await vpsRes.json();
-    const posts: any[] = vpsData.posts ?? [];
-    console.log(`[scrape-reels-search] VPS returned ${posts.length} posts`);
-
-    if (posts.length === 0) {
+    if (uniquePosts.length === 0) {
       return json({ inserted: 0, query: cleanQuery, cached: false, message: "No results found" });
     }
 
@@ -144,25 +208,21 @@ serve(async (req) => {
     const now = Date.now();
     const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
 
-    // Language filter: reject captions with non-Latin scripts (Arabic, Devanagari, Bengali, Thai, CJK, etc.)
-    // Allows: Latin (English, Spanish, Portuguese, French, etc.) + common emoji/punctuation
-    const NON_LATIN_RE = /[\u0600-\u06FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0B00-\u0B7F\u0C00-\u0C7F\u0D00-\u0D7F\u0E00-\u0E7F\u1000-\u109F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/;
+    // Language filter: reject captions with non-Latin scripts
+    const NON_LATIN_RE = /[؀-ۿऀ-ॿঀ-৿਀-੿଀-୿ఀ-౿ഀ-ൿ฀-๿က-႟぀-ヿ一-鿿가-힯]/;
     function isLatinCaption(caption: string | null): boolean {
-      if (!caption || caption.trim().length < 5) return true; // allow empty/short (mostly hashtags)
-      // Remove hashtags, mentions, emoji, URLs for cleaner text sample
+      if (!caption || caption.trim().length < 5) return true;
       const clean = caption.replace(/#\S+|@\S+|https?:\/\/\S+/g, "").trim();
       if (clean.length < 5) return true;
-      // If >30% of characters are non-Latin script, reject
       const nonLatinChars = (clean.match(NON_LATIN_RE) || []).length;
       return nonLatinChars / clean.length < 0.3;
     }
 
-    const videos = posts
+    const videos = uniquePosts
       .map((post: any) => {
         const videoId = post.id;
         if (!videoId) return null;
 
-        // Filter out non-English/Spanish content
         const caption = post.title ?? "";
         if (!isLatinCaption(caption)) return null;
 
@@ -178,7 +238,7 @@ serve(async (req) => {
           if (!isNaN(num) && num > 0) {
             const ts = new Date(num < 2e10 ? num * 1000 : num);
             if (!isNaN(ts.getTime())) {
-              if (ts.getTime() < oneYearAgo) return null; // too old
+              if (ts.getTime() < oneYearAgo) return null;
               postedAt = ts.toISOString();
             }
           } else if (typeof raw === "string") {
@@ -201,7 +261,7 @@ serve(async (req) => {
           likes_count: likes,
           comments_count: comments,
           engagement_rate: Math.round(engagementRate * 100) / 100,
-          outlier_score: Number(post.outlier_score) || 1, // per-account outlier from VPS
+          outlier_score: Number(post.outlier_score) || 1,
           posted_at: postedAt,
           scraped_at: new Date().toISOString(),
           apify_video_id: String(videoId),
@@ -249,7 +309,8 @@ serve(async (req) => {
     return json({
       inserted: videosWithOutlier.length,
       query: cleanQuery,
-      total_scraped: posts.length,
+      terms_searched: searchTerms,
+      total_scraped: uniquePosts.length,
       cached: false,
     });
   } catch (e: any) {

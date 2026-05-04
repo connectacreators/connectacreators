@@ -52,6 +52,7 @@ interface EditingQueueItem {
   postStatus?: string | null;
   uploadSource?: string | null;
   storagePath?: string | null;
+  deadline?: string | null;
   storageUrl?: string | null;
   deleted_at?: string | null;
 }
@@ -107,7 +108,7 @@ function getAssigneeColor(name: string): string {
 }
 
 export default function MasterEditingQueue() {
-  const { user, loading, isAdmin, isEditor, isVideographer } = useAuth();
+  const { user, loading: authLoading, isAdmin, isEditor, isVideographer } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -230,7 +231,7 @@ export default function MasterEditingQueue() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchQueue = async () => {
-    if (!user) return;
+    if (!user || authLoading) return;
     setFetching(true);
     setError(null);
     try {
@@ -267,7 +268,7 @@ export default function MasterEditingQueue() {
 
       const { data: dbVideos, error: dbErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, client_id, caption, upload_source, storage_path, storage_url, deleted_at, script_id, clients(name)")
+        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, deadline, client_id, caption, upload_source, storage_path, storage_url, deleted_at, script_id, clients(name)")
         .in("client_id", clientIds)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -298,6 +299,7 @@ export default function MasterEditingQueue() {
         uploadSource: v.upload_source || null,
         storagePath: v.storage_path || null,
         storageUrl: v.storage_url || null,
+        deadline: v.deadline || null,
         source: 'db' as const,
       }));
 
@@ -321,18 +323,19 @@ export default function MasterEditingQueue() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
     fetchQueue();
-  }, [user]);
+  }, [user, authLoading, isAdmin, isEditor, isVideographer]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || authLoading) return;
     supabase
       .from("profiles")
       .select("user_id, display_name")
       .then(({ data }) => {
         setTeamMembers((data || []).filter((p: any) => p.display_name));
       });
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (!items.length) return;
@@ -372,6 +375,7 @@ export default function MasterEditingQueue() {
       else if (sortCol === 'post_status') { aVal = a.postStatus ?? ''; bVal = b.postStatus ?? ''; }
       else if (sortCol === 'assignee') { aVal = a.assignee ?? ''; bVal = b.assignee ?? ''; }
       else if (sortCol === 'revisions') { aVal = unresolvedCounts[a.id] ?? 0; bVal = unresolvedCounts[b.id] ?? 0; }
+      else if (sortCol === 'deadline') { aVal = a.deadline ?? '9999'; bVal = b.deadline ?? '9999'; }
       const cmp = typeof aVal === 'number'
         ? aVal - bVal
         : aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
@@ -703,7 +707,7 @@ export default function MasterEditingQueue() {
     }
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -948,6 +952,7 @@ export default function MasterEditingQueue() {
                     <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('post_status')}>Post Status<SortIcon col="post_status" /></TableHead>
                     <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('assignee')}>{language === "en" ? "Assignee" : "Asignado"}<SortIcon col="assignee" /></TableHead>
                     <TableHead className="cursor-pointer select-none hover:text-foreground whitespace-nowrap" onClick={() => handleSort('revisions')}>{language === "en" ? "Revisions" : "Revisiones"}<SortIcon col="revisions" /></TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground whitespace-nowrap" onClick={() => handleSort('deadline')}>Deadline<SortIcon col="deadline" /></TableHead>
                     <TableHead>Files</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
@@ -1100,6 +1105,25 @@ export default function MasterEditingQueue() {
                               <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-[9px] font-bold text-white">✓</span>
                             ) : null}
                           </button>
+                        </TableCell>
+
+                        {/* Deadline */}
+                        <TableCell onClick={e => e.stopPropagation()} className="whitespace-nowrap">
+                          {item.deadline ? (
+                            <span className={`text-xs font-medium ${
+                              (() => {
+                                const diff = new Date(item.deadline).getTime() - Date.now();
+                                if (diff < 0) return 'text-destructive';
+                                if (diff < 86400000 * 2) return 'text-orange-400';
+                                if (diff < 86400000 * 5) return 'text-yellow-400';
+                                return 'text-muted-foreground';
+                              })()
+                            }`}>
+                              {new Date(item.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/30">—</span>
+                          )}
                         </TableCell>
 
                         {/* Files — merged Footage + File Submission */}

@@ -70,7 +70,34 @@ export default function SigningModal({ contract, onClose, onSigned, role = "admi
           signature_font: font,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        // Supabase wraps non-2xx responses with a generic message — extract the real
+        // error from the response body so the user sees what actually failed.
+        let realMessage = error.message || "Failed to sign";
+        try {
+          const ctx = (error as any).context;
+          if (ctx?.body && typeof ctx.body.getReader === "function") {
+            const reader = ctx.body.getReader();
+            const chunks: Uint8Array[] = [];
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (value) chunks.push(value);
+            }
+            const total = chunks.reduce((n, c) => n + c.length, 0);
+            const merged = new Uint8Array(total);
+            let off = 0;
+            for (const c of chunks) { merged.set(c, off); off += c.length; }
+            const text = new TextDecoder().decode(merged);
+            const parsed = JSON.parse(text);
+            if (parsed?.error) realMessage = parsed.error;
+          }
+        } catch (parseErr) {
+          console.error("[SigningModal] Could not parse edge function error body:", parseErr);
+        }
+        console.error("[SigningModal] sign-contract error:", realMessage, error);
+        throw new Error(realMessage);
+      }
       toast.success("Document signed");
       onSigned({ ...contract, current_storage_path: data?.path ?? contract.current_storage_path });
     } catch (err: any) {
