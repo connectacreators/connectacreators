@@ -7,8 +7,14 @@ import {
 } from "../_shared/assistant/threads.ts";
 import {
   createBuildSession,
+  getBuildSession,
   getActiveBuildSessionForThread,
 } from "../_shared/build-session/service.ts";
+import {
+  handleBuildTool,
+  logBuildProgress,
+  type BuildToolContext,
+} from "./build-tool-handlers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -482,83 +488,48 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
-    // ── Conversational script builder: awaiting_user reply routing (Phase 2) ──
-    // If there's an active build session for this user/client whose status is
-    // awaiting_user, route the user's message back into the FSM as user_input
-    // and resume the worker. Skips this routing if the message is itself a new
-    // build trigger (handled below).
-    {
-      const { data: awaiting } = await adminClient
+    // Pre-resolve the companion thread ID for build session lookup and progress messages.
+    const sentinel = "Active companion chat";
+    const { data: _sentinelThread } = await adminClient
+      .from("assistant_threads")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("client_id", client.id)
+      .eq("origin", "drawer")
+      .eq("title", sentinel)
+      .maybeSingle();
+    const resolvedThreadId: string | null = _sentinelThread?.id ?? null;
+
+    // Load active build session (if any) for this user+client.
+    let activeBuildSession = await getActiveBuildSessionForThread(
+      adminClient,
+      resolvedThreadId ?? "",
+    ).catch(() => null);
+
+    // If user is paused and sends a message, auto-resume.
+    if (activeBuildSession?.status === "paused") {
+      await adminClient
         .from("companion_build_sessions")
-        .select("id, current_state, status")
-        .eq("user_id", user.id)
-        .eq("client_id", client.id)
-        .eq("status", "awaiting_user")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (awaiting) {
-        const sentinel = "Active companion chat";
-        const { data: thread } = await adminClient
-          .from("assistant_threads")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("client_id", client.id)
-          .eq("origin", "drawer")
-          .eq("title", sentinel)
-          .maybeSingle();
-        if (thread?.id) {
-          // Persist the user's message in the thread.
-          await adminClient.from("assistant_messages").insert({
-            thread_id: thread.id,
-            role: "user",
-            content: { type: "text", text: message },
-          });
-          // Stash the input on the build session and resume it.
-          await adminClient
-            .from("companion_build_sessions")
-            .update({
-              user_input: message,
-              status: "running",
-              last_activity_at: new Date().toISOString(),
-            })
-            .eq("id", awaiting.id);
-          // Kick worker.
-          void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/process-build-step`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            },
-            body: JSON.stringify({ build_session_id: awaiting.id }),
-          }).catch(() => {});
-          return new Response(
-            JSON.stringify({ reply: "", actions: [], build_session_id: awaiting.id, thread_id: thread.id }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
-      }
+        .update({ status: "running", phase: "Resuming..." })
+        .eq("id", activeBuildSession.id);
+      activeBuildSession = { ...activeBuildSession, status: "running", phase: "Resuming..." };
     }
 
-    // ── Conversational script builder bootstrap (Phase 1) ──────────────────
-    // In Ask mode, intercept "build me a script"-style messages and route
-    // them through the FSM-driven builder instead of the normal LLM path.
-    // Phase 1 = dummy state walk; Phase 2 will swap real per-state work in.
+    // ── Conversational script builder bootstrap ──────────────────────────────────
+    // If user triggers a build and no session exists, create one then fall through
+    // to the LLM (which gets the build context in the system prompt and drives it).
     const BUILD_TRIGGER = /\b(let'?s\s+)?(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
-    if (BUILD_TRIGGER.test(message)) {
-      const sentinel = "Active companion chat";
-      let threadId: string | null = null;
-      const { data: existingThread } = await adminClient
-        .from("assistant_threads")
+    if (BUILD_TRIGGER.test(message) && !activeBuildSession) {
+      const { data: activeCanvas } = await adminClient
+        .from("canvas_states")
         .select("id")
-        .eq("user_id", user.id)
         .eq("client_id", client.id)
-        .eq("origin", "drawer")
-        .eq("title", sentinel)
+        .eq("is_active", true)
         .maybeSingle();
-      if (existingThread) {
-        threadId = existingThread.id;
-      } else {
+
+      // Ensure sentinel thread exists for progress messages.
+      let buildThreadId = resolvedThreadId;
+      if (!buildThreadId) {
         const { data: newThread } = await adminClient
           .from("assistant_threads")
           .insert({
@@ -569,80 +540,22 @@ serve(async (req) => {
           })
           .select("id")
           .single();
-        threadId = newThread?.id ?? null;
+        buildThreadId = newThread?.id ?? null;
       }
-      if (threadId) {
-        const existing = await getActiveBuildSessionForThread(adminClient, threadId);
-        if (existing) {
-          // Phase 5 will surface "resume or replace?"; for now, just acknowledge.
-          await adminClient.from("assistant_messages").insert({
-            thread_id: threadId,
-            role: "user",
-            content: { type: "text", text: message },
-          });
-          const replyText = `You already have a build in progress (state: ${existing.currentState}). Continuing that one.`;
-          await adminClient.from("assistant_messages").insert({
-            thread_id: threadId,
-            role: "assistant",
-            content: { type: "text", text: replyText },
-          });
-          return new Response(
-            JSON.stringify({ reply: replyText, actions: [], build_session_id: existing.id, thread_id: threadId }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
 
-        // Resolve active canvas (may be null — process-build-step handles that in later phases).
-        const { data: activeCanvas } = await adminClient
-          .from("canvas_states")
-          .select("id")
-          .eq("client_id", client.id)
-          .eq("is_active", true)
-          .maybeSingle();
-        const canvasStateId = (activeCanvas?.id as string | undefined) ?? null;
-
-        const session = await createBuildSession(adminClient, {
+      try {
+        const newSession = await createBuildSession(adminClient, {
           userId: user.id,
           clientId: client.id,
-          threadId,
-          canvasStateId,
+          threadId: buildThreadId ?? "",
+          canvasStateId: activeCanvas?.id ?? null,
           autoPilot: false,
         });
-
-        // Persist the user's trigger + an opening assistant message in the thread.
-        await adminClient.from("assistant_messages").insert({
-          thread_id: threadId,
-          role: "user",
-          content: { type: "text", text: message },
-        });
-        const replyText = "On it — kicking off the build. Watch the banner above for progress.";
-        await adminClient.from("assistant_messages").insert({
-          thread_id: threadId,
-          role: "assistant",
-          content: { type: "text", text: replyText },
-        });
-
-        // Fire the worker (don't await — let it run in background).
-        void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/process-build-step`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({ build_session_id: session.id }),
-        }).catch((e) => console.error("[companion-chat] worker kickoff failed:", e));
-
-        return new Response(
-          JSON.stringify({ reply: replyText, actions: [], build_session_id: session.id, thread_id: threadId }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        activeBuildSession = newSession;
+      } catch (e) {
+        console.warn("[companion-chat] createBuildSession failed:", (e as Error).message);
       }
-      // Thread creation failed — return an error instead of falling through to
-      // the LLM. We never want build_script_full_pipeline to run for build requests.
-      return new Response(
-        JSON.stringify({ reply: "Sorry, I had trouble starting the build session. Please try again.", actions: [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      // No early return — fall through to LLM which handles it conversationally.
     }
 
     // Load memory, strategy, history in parallel
@@ -746,22 +659,7 @@ YOUR RULES — FOLLOW EXACTLY:
 15. NEVER respond with "Done.", "OK.", "Sure." Every response must tell the user (a) what you did, (b) what you found, (c) what the next step is.
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
-18. SCRIPT CREATION — MANDATORY ORCHESTRATOR PATTERN.
-
-When asked to build a script, write a script, create content, or anything similar, you MUST call ONE tool: build_script_full_pipeline. That single tool is CANVAS-AWARE: before doing anything, it reads what's already on the user's active canvas. If a video is already there it reuses it (no re-fetch, no re-transcribe). If research/idea/framework notes are already there, the synthesis builds on them instead of inventing from scratch. So when a user says "build a script" while their canvas already has competitors mapped or hooks researched, the tool intelligently uses that work — saving credits and producing better-grounded scripts. After the tool returns, READ the summary carefully: if it says "REUSED" or "CANVAS CONTEXT used", mention that in your reply so the user knows you noticed their existing work.
-
-USAGE:
-- Pass client_name (the user's name from CLIENT STRATEGY context).
-- Pass content_type ("reach" / "trust" / "convert") based on which is most behind in the strategy.
-- Optionally pass topic to bias the viral search.
-
-After build_script_full_pipeline returns, call respond_to_user with what was built — what reference video was used, the hook type, the winning idea verbatim, and that the script is saved. Be specific. Use the data from the tool result, not made-up details.
-
-DO NOT call find_viral_videos, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, or save_script_from_canvas separately. Those are deprecated for the orchestrated flow. Use build_script_full_pipeline only.
-
-For batch ("build 20 scripts"): call build_script_full_pipeline 20 times in the same response (or as many as you can per response — at least 5 in parallel). Vary the content_type each time to balance the mix.
-
-In Ask/Plan mode, you may still call build_script_full_pipeline directly — the user wants the work done. Just announce what you're about to do first, then call it.
+18. SCRIPT CREATION: When asked to build a script, use the 8 build tools (resolve_client, get_canvas_context, generate_script_ideas, search_viral_frameworks, add_url_to_viral_database, add_video_to_canvas, draft_script, save_script). Do NOT call build_script_full_pipeline — that is deprecated. If a build session is active, the ACTIVE SCRIPT BUILD context block above shows exactly where you are.
 19. TOOLS: You have navigate_to_page, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, list_all_clients, get_client_info, get_hooks, get_client_strategy, save_memory, respond_to_user. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
@@ -778,6 +676,53 @@ For everything else (non-script tasks): Think: what is the single most useful ac
   ? "PLAN MODE: Before doing anything, write out a numbered plan of every step you will take. Ask the user to approve the plan. Only execute after they confirm."
   : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you are about to do in one sentence and wait for the user to confirm. Then execute once they say yes."
 }`;
+
+    // ── Build context injection ──────────────────────────────────────────────────
+    let buildContextBlock = "";
+    if (activeBuildSession) {
+      const bs = activeBuildSession;
+      const ideasStr = bs.ideas.length > 0
+        ? bs.ideas.map((idea: any, idx: number) => `${idx + 1}. ${idea.title}`).join("\n")
+        : "not yet";
+      const selectedStr = bs.selectedIdeas.length > 0
+        ? bs.selectedIdeas.map((idea: any) => idea.title).join(", ")
+        : "not yet";
+      const currentIdea = bs.selectedIdeas[bs.currentIdeaIndex]?.title ?? "none";
+
+      buildContextBlock = `
+
+━━━ ACTIVE SCRIPT BUILD ━━━
+Client: ${client.name ?? "unknown"} (id: ${client.id})
+Canvas: ${bs.canvasStateId ? "linked (id:" + bs.canvasStateId + ")" : "none"}
+
+What's been done:
+- Canvas context: ${bs.cachedCanvasContext !== null ? "cached ✓" : "not read yet"}
+- Ideas generated: ${ideasStr}
+- Ideas selected: ${selectedStr}
+- Current idea (${bs.currentIdeaIndex + 1}): ${currentIdea}
+- Framework video: ${bs.currentFrameworkVideoId ? "id:" + bs.currentFrameworkVideoId : "not chosen yet"}
+- Script draft: ${bs.currentScriptDraft ? "exists ✓" : "not yet"}
+- Script saved: ${bs.currentScriptId ? "yes (id:" + bs.currentScriptId + ")" : "no"}
+
+Status: ${bs.status}
+Build session id: ${bs.id}
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You are in SCRIPT BUILD MODE. Rules:
+- Answer ANY question the user asks. After answering, return to the build.
+- Use the build tools to advance each step. Don't skip steps.
+- Tools insert their own progress messages. Do NOT duplicate with your own narration — respond to the tool result naturally.
+- NEVER call navigate_to_page during a build. Everything stays in this drawer.
+- NEVER call build_script_full_pipeline. Use the 8 build tools instead.
+- Present ideas and frameworks as numbered lists.
+- Show script draft with HOOK / BODY / CTA labels. After showing, ask "Ready to generate?"
+- After saving, say "Perfect! Now let's work on the next one." if more ideas remain.
+- If user pastes URLs (instagram.com, tiktok.com), call add_url_to_viral_database for each one.
+- Canvas context is cached — call get_canvas_context only once per session unless user asks to re-read.
+- If on /ai page (no URL client detected), ask which client to work on then call resolve_client.`;
+    }
+
+    const finalSystemPrompt = systemPrompt + buildContextBlock;
 
     // Save user message
     await adminClient.from("companion_messages").insert({
@@ -809,7 +754,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 4096,
-        system: systemPrompt,
+        system: finalSystemPrompt,
         tools: TOOLS,
         // In auto mode, force Claude to always call a tool (never just output text)
         ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
@@ -831,6 +776,20 @@ For everything else (non-script tasks): Think: what is the single most useful ac
       const toolResults: any[] = [];
 
       for (const block of toolUseBlocks) {
+        // ── Build tool dispatcher ────────────────────────────────────────────────────
+        const buildCtx: BuildToolContext = {
+          adminClient,
+          userId: user.id,
+          client: { id: client.id, name: client.name ?? null },
+          buildSession: activeBuildSession,
+          threadId: resolvedThreadId,
+        };
+        const buildResult = await handleBuildTool(block.name, block.input, block.id, buildCtx);
+        if (buildResult) {
+          toolResults.push(buildResult);
+          continue;
+        }
+
         if (block.name === "respond_to_user") {
           // Pure text response wrapped as a tool call (used in auto mode)
           reply = block.input.message || "";
@@ -1838,7 +1797,7 @@ Tell the user this in your respond_to_user — be specific about what you found,
           body: JSON.stringify({
             model: "claude-sonnet-4-6",
             max_tokens: 1024,
-            system: systemPrompt,
+            system: finalSystemPrompt,
             tools: TOOLS,
             ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
             messages: [
