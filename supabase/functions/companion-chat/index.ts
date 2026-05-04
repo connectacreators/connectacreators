@@ -724,6 +724,12 @@ You are in SCRIPT BUILD MODE. Rules:
 
     const finalSystemPrompt = systemPrompt + buildContextBlock;
 
+    // When a build session is active, filter out build_script_full_pipeline so the
+    // LLM cannot call it regardless of mode. The 8 build tools replace it.
+    const effectiveTools = activeBuildSession
+      ? TOOLS.filter((t: any) => t.name !== "build_script_full_pipeline")
+      : TOOLS;
+
     // Save user message
     await adminClient.from("companion_messages").insert({
       client_id: client.id,
@@ -755,7 +761,7 @@ You are in SCRIPT BUILD MODE. Rules:
         model: "claude-sonnet-4-6",
         max_tokens: 4096,
         system: finalSystemPrompt,
-        tools: TOOLS,
+        tools: effectiveTools,
         // In auto mode, force Claude to always call a tool (never just output text)
         ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
         messages: [...priorMessages, { role: "user", content: message }],
@@ -1798,7 +1804,7 @@ Tell the user this in your respond_to_user — be specific about what you found,
             model: "claude-sonnet-4-6",
             max_tokens: 1024,
             system: finalSystemPrompt,
-            tools: TOOLS,
+            tools: effectiveTools,
             ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
             messages: [
               ...priorMessages,
