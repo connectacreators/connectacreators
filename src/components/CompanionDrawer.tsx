@@ -294,9 +294,9 @@ export default function CompanionDrawer() {
     <aside
       className="fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none"
       style={{
-        background: "rgba(10, 14, 23, 0.55)",
-        backdropFilter: "blur(28px) saturate(115%)",
-        WebkitBackdropFilter: "blur(28px) saturate(115%)",
+        background: "rgba(20, 20, 20, 0.55)",
+        backdropFilter: "blur(28px)",
+        WebkitBackdropFilter: "blur(28px)",
         boxShadow: "-10px 0 40px rgba(0,0,0,0.5)",
       }}
     >
