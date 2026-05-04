@@ -932,7 +932,7 @@ export default function LandingPageNew() {
               AI-Powered Creator Platform
             </motion.div>
 
-            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, fontFamily: "'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif", lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "var(--lp-h1-tracking)", color: "rgba(255,255,255,.92)" }}>
+            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, fontFamily: "'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif", lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "var(--lp-h1-tracking)", wordSpacing: "0.12em", color: "rgba(255,255,255,.92)" }}>
               Create viral short-form<br />
               <b style={{ fontWeight: 700, background: goldGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>videos in seconds</b>
             </h1>
