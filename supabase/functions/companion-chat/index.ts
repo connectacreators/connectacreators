@@ -900,6 +900,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
           const { data: allClients } = await adminClient
             .from("clients")
             .select("id, name, email, onboarding_data")
+            .eq("user_id", user.id)
             .order("name");
           const summary = (allClients || []).map((c: any) => {
             const od = c.onboarding_data || {};
@@ -941,7 +942,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
         if (block.name === "list_client_scripts") {
           const { client_name, limit = 5 } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -960,7 +961,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
         if (block.name === "schedule_content") {
           const { client_name, title, date, caption } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -986,7 +987,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
         if (block.name === "submit_to_editing_queue") {
           const { client_name, title, notes, schedule_date } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1005,7 +1006,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
         if (block.name === "get_editing_queue") {
           const { client_name } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1025,7 +1026,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
         if (block.name === "get_content_calendar") {
           const { client_name, days_ahead = 14 } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1050,7 +1051,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
 
         if (block.name === "create_canvas_note") {
           const { client_name, content, note_type = "text_note" } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1377,7 +1378,7 @@ For everything else (non-script tasks): Think: what is the single most useful ac
           const { client_name, topic, content_type } = block.input;
           // 1. Look up client + onboarding + strategy
           const { data: targetClient } = await adminClient
-            .from("clients").select("id, name, onboarding_data").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+            .from("clients").select("id, name, onboarding_data").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
