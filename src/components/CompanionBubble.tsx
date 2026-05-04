@@ -34,14 +34,14 @@ export default function CompanionBubble() {
         style={{
           width: 52,
           height: 52,
-          background: "#06B6D4",
-          boxShadow: "0 4px 24px rgba(6,182,212,0.5)",
+          background: "#1E293B",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
         }}
         aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
       >
         {badgeCount > 0 && !isOpen && (
           <span
-            className="absolute inset-[-5px] rounded-full border-2 border-[rgba(8,145,178,0.4)] animate-ping"
+            className="absolute inset-[-5px] rounded-full border-2 border-[rgba(30,41,59,0.5)] animate-ping"
             style={{ animationDuration: "2.2s" }}
           />
         )}
