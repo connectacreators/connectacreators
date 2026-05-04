@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { VIRAL_HOOKS } from "./hookData.ts";
+import {
+  createThread as assistantCreateThread,
+  appendMessage as assistantAppendMessage,
+} from "../_shared/assistant/threads.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -357,6 +361,58 @@ const TOOLS = [
     },
   },
 ];
+
+/**
+ * Phase A dual-write: in addition to existing companion_messages persistence,
+ * write each turn into the new assistant_threads + assistant_messages tables.
+ * Failures are logged but don't block the response. Read path still uses
+ * companion_messages — the new tables are write-only until Phase B.
+ */
+async function dualWriteCompanionTurn(
+  supabase: any,
+  params: {
+    userId: string;
+    clientId: string;
+    userMessageText: string;
+    assistantReplyText: string;
+  },
+) {
+  try {
+    // For each (user, client) we maintain ONE active drawer thread for the dual-write.
+    // Look it up by sentinel title; create if missing.
+    const sentinel = "Active companion chat";
+    const { data: existing } = await supabase
+      .from("assistant_threads")
+      .select("id")
+      .eq("user_id", params.userId)
+      .eq("client_id", params.clientId)
+      .eq("origin", "drawer")
+      .eq("title", sentinel)
+      .maybeSingle();
+
+    let threadId = existing?.id;
+    if (!threadId) {
+      const t = await assistantCreateThread(supabase, {
+        userId: params.userId,
+        clientId: params.clientId,
+        origin: "drawer",
+        title: sentinel,
+      });
+      threadId = t.id;
+    }
+
+    await assistantAppendMessage(supabase, threadId, {
+      role: "user",
+      content: { type: "text", text: params.userMessageText },
+    });
+    await assistantAppendMessage(supabase, threadId, {
+      role: "assistant",
+      content: { type: "text", text: params.assistantReplyText },
+    });
+  } catch (err) {
+    console.warn("dualWriteCompanionTurn failed:", err instanceof Error ? err.message : err);
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -1667,6 +1723,14 @@ Tell the user this in your respond_to_user — be specific about what you found,
       client_id: client.id,
       role: "assistant",
       content: reply,
+    });
+
+    // Phase A dual-write to the new unified tables (non-blocking on failure).
+    await dualWriteCompanionTurn(adminClient, {
+      userId: user.id,
+      clientId: client.id,
+      userMessageText: message,
+      assistantReplyText: reply,
     });
 
     return new Response(JSON.stringify({ reply, actions }), {

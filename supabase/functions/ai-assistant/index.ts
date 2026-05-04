@@ -1,6 +1,66 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { VIRAL_HOOKS } from "./hookData.ts";
+import {
+  appendMessage as assistantAppendMessage,
+} from "../_shared/assistant/threads.ts";
+
+/**
+ * Phase A dual-write for canvas chats. The existing canvas_ai_chats row's UUID
+ * is reused as the assistant_threads UUID (per the Phase A backfill convention).
+ * If the assistant_threads row doesn't exist yet (e.g. a brand-new chat created
+ * after the backfill ran), we create it on demand.
+ */
+async function dualWriteCanvasTurn(
+  supabase: any,
+  params: {
+    chatId: string;
+    userId: string;
+    clientId: string;
+    nodeId: string;
+    chatName: string;
+    userMessageText: string;
+    assistantContent:
+      | { type: "text"; text: string }
+      | { type: "script_preview"; script: unknown };
+    model?: string;
+  },
+) {
+  try {
+    // Ensure the assistant_threads row exists for this canvas chat (id reuse).
+    const { data: existing } = await supabase
+      .from("assistant_threads")
+      .select("id")
+      .eq("id", params.chatId)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error: insertErr } = await supabase
+        .from("assistant_threads")
+        .insert({
+          id: params.chatId,
+          user_id: params.userId,
+          client_id: params.clientId,
+          canvas_node_id: params.nodeId,
+          origin: "canvas",
+          title: params.chatName,
+        });
+      if (insertErr) throw new Error(insertErr.message);
+    }
+
+    await assistantAppendMessage(supabase, params.chatId, {
+      role: "user",
+      content: { type: "text", text: params.userMessageText },
+    });
+    await assistantAppendMessage(supabase, params.chatId, {
+      role: "assistant",
+      content: params.assistantContent,
+      model: params.model,
+    });
+  } catch (err) {
+    console.warn("dualWriteCanvasTurn failed:", err instanceof Error ? err.message : err);
+  }
+}
 
 /** Pick a random sample of hooks, balanced across categories */
 function sampleHooks(count = 50): string {
@@ -1185,6 +1245,35 @@ serve(async (req) => {
                 }
               } catch (saveErr) {
                 console.error("[ai-assistant] server-side chat save failed:", saveErr);
+              }
+
+              // Phase A dual-write to assistant_threads + assistant_messages (non-blocking on failure).
+              try {
+                const { data: chatMeta } = await adminClient
+                  .from("canvas_ai_chats")
+                  .select("client_id, node_id, name")
+                  .eq("id", chatId)
+                  .maybeSingle();
+                const lastUserMsg = [...(messages as any[])].reverse().find((m: any) => m?.role === "user");
+                const userMessageText = typeof lastUserMsg?.content === "string"
+                  ? lastUserMsg.content
+                  : (Array.isArray(lastUserMsg?.content)
+                      ? lastUserMsg.content.map((c: any) => c?.text ?? "").join("")
+                      : "");
+                if (chatMeta?.client_id && chatMeta?.node_id) {
+                  await dualWriteCanvasTurn(adminClient, {
+                    chatId,
+                    userId,
+                    clientId: chatMeta.client_id,
+                    nodeId: chatMeta.node_id,
+                    chatName: chatMeta.name || "New Chat",
+                    userMessageText,
+                    assistantContent: { type: "text", text: finalContent },
+                    model: routedModelKey,
+                  });
+                }
+              } catch (dwErr) {
+                console.warn("[ai-assistant] dual-write setup failed:", dwErr instanceof Error ? dwErr.message : dwErr);
               }
             }
           },
