@@ -294,10 +294,10 @@ export default function CompanionDrawer() {
     <aside
       className="fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none"
       style={{
-        background: "rgba(10, 14, 23, 0.78)",
-        backdropFilter: "blur(32px) saturate(160%)",
-        WebkitBackdropFilter: "blur(32px) saturate(160%)",
-        boxShadow: "-10px 0 40px rgba(0,0,0,0.6)",
+        background: "rgba(10, 14, 23, 0.55)",
+        backdropFilter: "blur(28px) saturate(115%)",
+        WebkitBackdropFilter: "blur(28px) saturate(115%)",
+        boxShadow: "-10px 0 40px rgba(0,0,0,0.5)",
       }}
     >
       {/* Tabs strip */}
