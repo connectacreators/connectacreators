@@ -129,6 +129,7 @@ All colors MUST be HSL for consistency and theming.
 
   .font-caslon {
     font-family: 'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif;
+    letter-spacing: 0.06em;
   }
 
   body {

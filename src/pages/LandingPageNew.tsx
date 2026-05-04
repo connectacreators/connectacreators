@@ -58,7 +58,7 @@ function ViralVideosMockup() {
       <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-2">
           <TrendingUp size={11} style={{ color: "#22d3ee" }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "0.04em" }}>Viral Today</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "0.06em" }}>Viral Today</span>
         </div>
         <div className="flex gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-70" />
@@ -929,7 +929,7 @@ export default function LandingPageNew() {
               AI-Powered Creator Platform
             </motion.div>
 
-            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, fontFamily: "'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif", lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "0.04em", wordSpacing: "normal", color: "rgba(255,255,255,.92)" }}>
+            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, fontFamily: "'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif", lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "0.06em", wordSpacing: "normal", color: "rgba(255,255,255,.92)" }}>
               Create viral short-form<br />
               <b style={{ fontWeight: 700, background: goldGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>videos in seconds</b>
             </h1>
