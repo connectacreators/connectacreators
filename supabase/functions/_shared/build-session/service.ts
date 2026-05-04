@@ -22,6 +22,7 @@ export function rowToBuildSession(row: Record<string, unknown>): BuildSession {
     currentScriptId: (row.current_script_id as string | null) ?? null,
     cachedCanvasContext: (row.cached_canvas_context as string | null) ?? null,
     cachedCanvasContextAt: (row.cached_canvas_context_at as string | null) ?? null,
+    userInput: (row.user_input as string | null) ?? null,
     autoPilot: (row.auto_pilot as boolean) ?? false,
     errorMessage: (row.error_message as string | null) ?? null,
     tokenUsage: (row.token_usage as Record<string, unknown>) ?? {},
@@ -98,6 +99,7 @@ export interface UpdateBuildSessionPatch {
   currentScriptId?: string | null;
   cachedCanvasContext?: string | null;
   cachedCanvasContextAt?: string | null;
+  userInput?: string | null;
   tokenUsage?: Record<string, unknown>;
   lastActivityAt?: string;
 }
@@ -120,6 +122,7 @@ export async function updateBuildSession(
   if (patch.currentScriptId !== undefined) dbPatch.current_script_id = patch.currentScriptId;
   if (patch.cachedCanvasContext !== undefined) dbPatch.cached_canvas_context = patch.cachedCanvasContext;
   if (patch.cachedCanvasContextAt !== undefined) dbPatch.cached_canvas_context_at = patch.cachedCanvasContextAt;
+  if (patch.userInput !== undefined) dbPatch.user_input = patch.userInput;
   if (patch.tokenUsage !== undefined) dbPatch.token_usage = patch.tokenUsage;
   dbPatch.last_activity_at = patch.lastActivityAt ?? new Date().toISOString();
 

@@ -482,6 +482,64 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
+    // ── Conversational script builder: awaiting_user reply routing (Phase 2) ──
+    // If there's an active build session for this user/client whose status is
+    // awaiting_user, route the user's message back into the FSM as user_input
+    // and resume the worker. Skips this routing if the message is itself a new
+    // build trigger (handled below).
+    {
+      const { data: awaiting } = await adminClient
+        .from("companion_build_sessions")
+        .select("id, current_state, status")
+        .eq("user_id", user.id)
+        .eq("client_id", client.id)
+        .eq("status", "awaiting_user")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (awaiting && autonomy_mode === "ask") {
+        const sentinel = "Active companion chat";
+        const { data: thread } = await adminClient
+          .from("assistant_threads")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("client_id", client.id)
+          .eq("origin", "drawer")
+          .eq("title", sentinel)
+          .maybeSingle();
+        if (thread?.id) {
+          // Persist the user's message in the thread.
+          await adminClient.from("assistant_messages").insert({
+            thread_id: thread.id,
+            role: "user",
+            content: { type: "text", text: message },
+          });
+          // Stash the input on the build session and resume it.
+          await adminClient
+            .from("companion_build_sessions")
+            .update({
+              user_input: message,
+              status: "running",
+              last_activity_at: new Date().toISOString(),
+            })
+            .eq("id", awaiting.id);
+          // Kick worker.
+          void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/process-build-step`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ build_session_id: awaiting.id }),
+          }).catch(() => {});
+          return new Response(
+            JSON.stringify({ reply: "", actions: [], build_session_id: awaiting.id }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
     // ── Conversational script builder bootstrap (Phase 1) ──────────────────
     // In Ask mode, intercept "build me a script"-style messages and route
     // them through the FSM-driven builder instead of the normal LLM path.

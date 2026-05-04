@@ -31,6 +31,7 @@ export interface BuildSession {
   currentScriptId: string | null;
   cachedCanvasContext: string | null;
   cachedCanvasContextAt: string | null;
+  userInput: string | null;
   autoPilot: boolean;
   errorMessage: string | null;
   tokenUsage: Record<string, unknown>;
