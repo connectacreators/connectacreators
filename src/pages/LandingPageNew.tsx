@@ -24,23 +24,23 @@ const useIsMobile = () => {
 
 const PARTICLES = [
   { left: "6%",  dur: 7,   del: 0,   size: 4, color: "rgba(6,182,212,0.7)" },
-  { left: "18%", dur: 9,   del: 0.5, size: 3, color: "rgba(132,204,22,0.6)" },
+  { left: "18%", dur: 9,   del: 0.5, size: 3, color: "rgba(201,169,110,0.5)" },
   { left: "30%", dur: 6.5, del: 1.8, size: 5, color: "rgba(34,211,238,0.55)" },
   { left: "42%", dur: 10,  del: 0.3, size: 3, color: "rgba(6,182,212,0.6)" },
-  { left: "54%", dur: 7.5, del: 2.5, size: 4, color: "rgba(132,204,22,0.5)" },
+  { left: "54%", dur: 7.5, del: 2.5, size: 4, color: "rgba(201,169,110,0.45)" },
   { left: "66%", dur: 8,   del: 1,   size: 3, color: "rgba(34,211,238,0.6)" },
   { left: "78%", dur: 11,  del: 3.5, size: 3, color: "rgba(6,182,212,0.5)" },
-  { left: "12%", dur: 8.5, del: 2,   size: 4, color: "rgba(132,204,22,0.45)" },
+  { left: "12%", dur: 8.5, del: 2,   size: 4, color: "rgba(201,169,110,0.4)" },
   { left: "90%", dur: 9.5, del: 1.5, size: 4, color: "rgba(6,182,212,0.55)" },
   { left: "48%", dur: 12,  del: 4,   size: 3, color: "rgba(34,211,238,0.5)" },
   { left: "35%", dur: 6,   del: 0.8, size: 5, color: "rgba(6,182,212,0.5)" },
-  { left: "72%", dur: 10.5,del: 3,   size: 3, color: "rgba(132,204,22,0.55)" },
+  { left: "72%", dur: 10.5,del: 3,   size: 3, color: "rgba(201,169,110,0.45)" },
   { left: "85%", dur: 7,   del: 2.2, size: 4, color: "rgba(34,211,238,0.45)" },
   { left: "25%", dur: 13,  del: 5.5, size: 3, color: "rgba(6,182,212,0.4)" },
 ];
 
 const gold = "#22d3ee";
-const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #84CC16 100%)";
+const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #c9a96e 100%)";
 const darkBg = "#000000";
 const borderGold = "rgba(8, 145, 178, 0.15)";
 
@@ -63,7 +63,7 @@ function ViralVideosMockup() {
         <div className="flex gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-70" />
           <div className="w-2.5 h-2.5 rounded-full opacity-70" style={{ background: gold }} />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500 opacity-70" />
+          <div className="w-2.5 h-2.5 rounded-full opacity-70" style={{ background: "#c9a96e" }} />
         </div>
       </div>
       <div className="px-5 pt-4 pb-3 flex items-center gap-2 overflow-hidden">
@@ -92,8 +92,8 @@ function ViralVideosMockup() {
             </div>
             <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md"
               style={{ background: v.hot ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${v.hot ? "rgba(249,115,22,0.4)" : "rgba(255,255,255,0.1)"}` }}>
-              {v.hot && <Flame className="w-2.5 h-2.5 text-[#84CC16]" />}
-              <span style={{ fontSize: 8, fontWeight: 700, color: v.hot ? "#84CC16" : "rgba(255,255,255,0.4)" }}>{v.score}</span>
+              {v.hot && <Flame className="w-2.5 h-2.5 text-[#c9a96e]" />}
+              <span style={{ fontSize: 8, fontWeight: 700, color: v.hot ? "#c9a96e" : "rgba(255,255,255,0.4)" }}>{v.score}</span>
             </div>
             <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 rounded-md"
               style={{ background: "rgba(8,145,178,0.15)", border: "1px solid rgba(8,145,178,0.3)", fontSize: 8, color: gold, fontWeight: 700 }}>
@@ -823,7 +823,7 @@ export default function LandingPageNew() {
       <style>{`
         .glow-orb { position: fixed; border-radius: 50%; pointer-events: none; will-change: transform, opacity; z-index: 50; }
         .glow-orb-1 { top: -30%; left: 30%; width: 1200px; height: 1000px; background: radial-gradient(circle, rgba(6,182,212,.6), transparent 60%); opacity: .06; filter: blur(200px); animation: g1 16s ease-in-out infinite; }
-        .glow-orb-2 { bottom: -20%; right: -10%; width: 1000px; height: 800px; background: radial-gradient(circle, rgba(132,204,22,.5), transparent 60%); opacity: .03; filter: blur(180px); animation: g2 20s ease-in-out infinite; }
+        .glow-orb-2 { bottom: -20%; right: -10%; width: 1000px; height: 800px; background: radial-gradient(circle, rgba(201,169,110,.5), transparent 60%); opacity: .03; filter: blur(180px); animation: g2 20s ease-in-out infinite; }
         .glow-orb-3 { top: 30%; right: 20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(8,145,178,.4), transparent 60%); opacity: .04; filter: blur(160px); animation: g3 22s ease-in-out infinite; }
         @keyframes g1 { 0%,100%{opacity:.06;transform:scale(1) translate(0,0)} 50%{opacity:.09;transform:scale(1.05) translate(30px,-20px)} }
         @keyframes g2 { 0%,100%{opacity:.03;transform:translate(0,0)} 50%{opacity:.05;transform:translate(-25px,15px)} }
@@ -844,7 +844,7 @@ export default function LandingPageNew() {
         {/* Background Embers */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute rounded-full" style={{ top: "-15%", left: "45%", width: 900, height: 700, background: "radial-gradient(circle, rgba(6,182,212,1), transparent 70%)", opacity: 0.12, filter: "blur(160px)", animation: "cc-ember-breathe 14s ease-in-out infinite" }} />
-          <div className="absolute rounded-full" style={{ bottom: "-5%", left: "-8%", width: 780, height: 680, background: "radial-gradient(circle, rgba(132,204,22,1), transparent 70%)", opacity: 0.06, filter: "blur(150px)", animation: "cc-ember-drift 18s ease-in-out infinite" }} />
+          <div className="absolute rounded-full" style={{ bottom: "-5%", left: "-8%", width: 780, height: 680, background: "radial-gradient(circle, rgba(201,169,110,1), transparent 70%)", opacity: 0.04, filter: "blur(150px)", animation: "cc-ember-drift 18s ease-in-out infinite" }} />
           <div className="absolute rounded-full" style={{ top: "40%", right: "-5%", width: 500, height: 500, background: "radial-gradient(circle, rgba(34,211,238,1), transparent 70%)", opacity: 0.07, filter: "blur(130px)", animation: "cc-ember-breathe 22s ease-in-out infinite 5s" }} />
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 130% 90% at 50% 20%, transparent 40%, rgba(6,9,12,0.65) 100%)" }} />
         </div>
@@ -863,11 +863,12 @@ export default function LandingPageNew() {
               <img src={connectaLoginLogo} alt="ConnectaCreators" className="h-8 object-contain" />
             </motion.div>
             <div className="hidden md:flex items-center gap-6">
-              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95">
-                <Link to="/scripts" className="px-6 py-2.5 font-semibold text-sm text-white block" style={{ textDecoration: "none" }}>
-                  Try Connecta
-                </Link>
-              </BorderGlow>
+              <Link to="/scripts" className="relative inline-flex items-center px-6 py-2.5 font-semibold text-sm text-white/80 hover:text-white transition-colors overflow-visible" style={{ textDecoration: "none" }}>
+                <svg className="scribble-btn" viewBox="0 0 155 40" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
+                  <path d="M7,3 C38,1.5 95,1 132,2 C148,2.5 154,5 154,9 C155,15 155,25 154,32 C153,37 147,40 130,40.5 C98,41.5 48,41.5 22,40.5 C8,40 1,37 1,32 C0,24 0,13 1,9 C1.5,5 4,3.5 7,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:400, strokeDashoffset:400 }}/>
+                </svg>
+                Try Connecta
+              </Link>
             </div>
             <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ color: gold }}>
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -880,11 +881,12 @@ export default function LandingPageNew() {
               className="md:hidden px-6 py-4 border-t"
               style={{ backgroundColor: "rgba(6,9,12,0.95)", borderColor: "rgba(8,145,178,0.2)", backdropFilter: "blur(24px)" }}
             >
-              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="w-fit">
-                <Link to="/scripts" className="px-6 py-2.5 font-semibold text-sm text-white block" style={{ textDecoration: "none" }}>
-                  Try Connecta
-                </Link>
-              </BorderGlow>
+              <Link to="/scripts" className="relative inline-flex items-center px-6 py-2.5 font-semibold text-sm text-white/80 hover:text-white transition-colors overflow-visible" style={{ textDecoration: "none" }}>
+                <svg className="scribble-btn" viewBox="0 0 155 40" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
+                  <path d="M7,3 C38,1.5 95,1 132,2 C148,2.5 154,5 154,9 C155,15 155,25 154,32 C153,37 147,40 130,40.5 C98,41.5 48,41.5 22,40.5 C8,40 1,37 1,32 C0,24 0,13 1,9 C1.5,5 4,3.5 7,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:400, strokeDashoffset:400 }}/>
+                </svg>
+                Try Connecta
+              </Link>
             </motion.div>
           )}
         </nav>
@@ -896,7 +898,7 @@ export default function LandingPageNew() {
             {/* Radial glow base */}
             <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.15) 0%, transparent 55%)" }} />
             {/* Secondary glow */}
-            <div style={{ position: "absolute", top: "15%", left: "25%", width: "50%", height: "40%", background: "radial-gradient(ellipse at center, rgba(132,204,22,0.06) 0%, transparent 65%)" }} />
+            <div style={{ position: "absolute", top: "15%", left: "25%", width: "50%", height: "40%", background: "radial-gradient(ellipse at center, rgba(201,169,110,0.05) 0%, transparent 65%)" }} />
             {/* Floating particles */}
             {PARTICLES.map((p, i) => (
               <div key={i} className="lp-particle" style={{
@@ -938,12 +940,13 @@ export default function LandingPageNew() {
               Turn any viral video into a ready-to-edit asset, assign it to your team, and ship faster without the chaos.
             </p>
 
-            <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="hover:scale-[1.02] transition-transform w-fit mx-auto">
-              <Link to="/dashboard" className="inline-flex items-center gap-2.5 px-8 py-3.5 text-white" style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.02em", textDecoration: "none" }}>
-                <Play size={14} />
-                Try It Free
-              </Link>
-            </BorderGlow>
+            <Link to="/dashboard" className="relative inline-flex items-center gap-2.5 px-8 py-3.5 text-white/80 hover:text-white transition-colors overflow-visible mx-auto" style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.02em", textDecoration: "none" }}>
+              <svg className="scribble-btn" viewBox="0 0 180 48" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
+                <path d="M8,3 C45,1.5 110,1 155,2 C170,2.5 178,5 179,10 C180,18 180,30 179,38 C178,43 172,46 155,47 C115,48 55,48 25,47 C10,46 2,43 2,38 C1,29 1,16 2,10 C2.5,6 5,3.5 8,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:400, strokeDashoffset:400 }}/>
+              </svg>
+              <Play size={14} />
+              Try It Free
+            </Link>
           </motion.div>
         </section>
 
@@ -1084,12 +1087,13 @@ export default function LandingPageNew() {
               <p className="text-lg mb-10" style={{ color: "#666" }}>
                 Join the creators already using Connecta to scale their personal brand.
               </p>
-              <BorderGlow borderRadius={16} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95 w-fit mx-auto">
-                <Link to="/dashboard" className="cc-cta-btn inline-flex items-center gap-3 px-10 py-5 font-semibold text-base text-white" style={{ textDecoration: "none" }}>
-                  Start Free Today
-                  <ArrowRight size={18} />
-                </Link>
-              </BorderGlow>
+              <Link to="/dashboard" className="cc-cta-btn relative inline-flex items-center gap-3 px-10 py-5 font-semibold text-base text-white/80 hover:text-white transition-colors overflow-visible mx-auto" style={{ textDecoration: "none" }}>
+                <svg className="scribble-btn" viewBox="0 0 225 56" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
+                  <path d="M10,3 C55,1.5 145,1 193,2 C212,2.5 222,6 223,12 C224,21 224,35 223,44 C222,50 213,54 190,55 C148,56 72,56 32,55 C13,54 2,50 2,44 C1,34 1,19 2,12 C2.5,7 6,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:500, strokeDashoffset:500 }}/>
+                </svg>
+                Start Free Today
+                <ArrowRight size={18} />
+              </Link>
             </div>
           </div>
         </motion.section>

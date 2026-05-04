@@ -151,6 +151,18 @@ All colors MUST be HSL for consistency and theming.
     background: rgba(255,255,255,0.75);
   }
 
+  a:hover .scribble-btn,
+  button:hover .scribble-btn {
+    opacity: 1 !important;
+  }
+  a:hover .scribble-btn path,
+  button:hover .scribble-btn path {
+    animation: scribble-btn-draw 0.5s ease-out forwards;
+  }
+  @keyframes scribble-btn-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
   .scribble-path {
     stroke-dasharray: 130;
     stroke-dashoffset: 130;
