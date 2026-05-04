@@ -75,7 +75,7 @@ export default function CompanionDrawer() {
   // ── Threads loader ──────────────────────────────────────────────────────
   const loadThreads = useCallback(async () => {
     if (!user) return;
-    let query = (supabase as any)
+    let query = supabase
       .from("assistant_threads")
       .select(
         "id, title, origin, client_id, canvas_node_id, message_count, last_message_at, updated_at",
@@ -105,7 +105,7 @@ export default function CompanionDrawer() {
     }
     let cancelled = false;
     (async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("assistant_messages")
         .select("id, role, content, created_at")
         .eq("thread_id", activeThreadId)

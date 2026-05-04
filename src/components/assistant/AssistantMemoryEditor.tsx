@@ -5,8 +5,8 @@
 //   - scope='user', client_id=null  — facts about the user (global)
 //   - scope='client', client_id=...  — facts about a specific client
 //
-// `assistant_memories` isn't in the generated supabase types yet, hence the
-// `(supabase as any)` casts. Drop them once `npm run gen:types` runs.
+// RLS scopes every query to `auth.uid() = user_id`, so unqualified queries
+// safely return only the caller's rows.
 
 import { useEffect, useMemo, useState } from "react";
 import { Brain, Loader2, Pencil, Trash2, X, Check } from "lucide-react";
@@ -50,7 +50,7 @@ export function AssistantMemoryEditor() {
       setLoading(true);
       try {
         const [memRes, clientRes] = await Promise.all([
-          (supabase as any)
+          supabase
             .from("assistant_memories")
             .select("id, user_id, scope, client_id, key, value, source_thread_id, created_at, updated_at")
             .eq("user_id", user.id)
@@ -116,7 +116,7 @@ export function AssistantMemoryEditor() {
     }
     setSavingId(editing.id);
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("assistant_memories")
         .update({ value: next, updated_at: new Date().toISOString() })
         .eq("id", editing.id);
@@ -143,7 +143,7 @@ export function AssistantMemoryEditor() {
   const confirmDelete = async (id: string) => {
     setDeletingId(id);
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("assistant_memories")
         .delete()
         .eq("id", id);
