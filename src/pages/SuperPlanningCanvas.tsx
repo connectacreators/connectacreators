@@ -405,11 +405,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   const loadSessions = useCallback(async () => {
     if (!userIdRef.current) return;
+    // No explicit user_id filter — RLS gates which rows the caller can see:
+    // - clients see their own canvases (auth.uid() = user_id)
+    // - admins + agency-owners see all canvases for the client
     const { data } = await supabase
       .from("canvas_states")
-      .select("id, name, is_active, updated_at")
+      .select("id, name, is_active, updated_at, user_id")
       .eq("client_id", selectedClient.id)
-      .eq("user_id", userIdRef.current)
       .order("updated_at", { ascending: false });
     if (data) setSessions(data as SessionItem[]);
   }, [selectedClient.id]);
@@ -849,16 +851,26 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         return;
       }
       try {
-        // Fetch session metadata only (no heavy node/edge data) for the sidebar list
+        // Fetch session metadata only (no heavy node/edge data) for the sidebar list.
+        // No user_id filter — RLS gates visibility so admins/agency-owners see the
+        // client's actual canvases instead of just their own scratch sessions.
         const { data: allSessions } = await supabase
           .from("canvas_states")
-          .select("id, name, is_active, updated_at")
+          .select("id, name, is_active, updated_at, user_id")
           .eq("client_id", selectedClient.id)
-          .eq("user_id", userId)
           .order("updated_at", { ascending: false });
 
-        // Prefer the explicitly-active session; fall back to the most recent one
-        const activeMeta = allSessions?.find(s => s.is_active) ?? allSessions?.[0] ?? null;
+        // When the viewer is admin/agency (not the client owner), prefer the
+        // canvas owned by the client owner so they see the actual work — not
+        // a scratch canvas they accidentally created on top.
+        const viewerOwnsClient = userId === selectedClient.user_id;
+        const ownerSessions = (allSessions ?? []).filter(s => s.user_id === selectedClient.user_id);
+        const viewerSessions = (allSessions ?? []).filter(s => s.user_id === userId);
+        const pickActive = (rows: typeof allSessions) =>
+          rows?.find(s => s.is_active) ?? rows?.[0] ?? null;
+        const activeMeta = viewerOwnsClient
+          ? pickActive(viewerSessions) ?? pickActive(ownerSessions)
+          : pickActive(ownerSessions) ?? pickActive(viewerSessions) ?? pickActive(allSessions);
 
         if (activeMeta) {
           // Store session id for all future saves

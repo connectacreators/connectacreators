@@ -8,6 +8,7 @@ export interface SessionItem {
   name: string;
   is_active: boolean;
   updated_at: string;
+  user_id?: string;
 }
 
 function relativeTime(isoString: string): string {
