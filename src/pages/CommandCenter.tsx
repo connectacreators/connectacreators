@@ -23,6 +23,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  Bot,
   CheckCircle2,
   Clock,
   ListChecks,
@@ -72,7 +73,6 @@ export default function CommandCenter() {
     loadingTasks,
     refreshTasks,
     autonomyMode,
-    setAutonomyMode,
   } = useCompanion();
   const { mode, clientId: urlClientId } = useAssistantMode();
   const path = useCurrentPath();
@@ -334,25 +334,18 @@ export default function CommandCenter() {
         </button>
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div
-            className="w-6 h-6 rounded-full flex-shrink-0"
-            style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}
-          />
-          <span className="text-sm font-bold truncate">{companionName}</span>
-          <span
-            className={`px-1.5 py-0.5 rounded text-[8px] font-semibold tracking-wider uppercase border flex-shrink-0 ${
-              mode === "agency"
-                ? "bg-lime-500/10 text-lime-400 border-lime-500/30"
-                : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-            }`}
-          >
+          <Bot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#e0e0e0" }} />
+          <span className="text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
+            {companionName}
+          </span>
+          <span className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
             {mode === "agency"
               ? en
-                ? "Agency"
-                : "Agencia"
+                ? "Agency mode"
+                : "Modo agencia"
               : en
-                ? "Client"
-                : "Cliente"}
+                ? "Working on this client"
+                : "Trabajando en este cliente"}
           </span>
         </div>
 
@@ -387,29 +380,6 @@ export default function CommandCenter() {
           </button>
         </div>
 
-        {/* Autonomy mode pills */}
-        <div className="flex gap-1.5 flex-shrink-0">
-          {(
-            [
-              { key: "auto", icon: "⚡", label: "Auto" },
-              { key: "ask", icon: "?", label: en ? "Ask" : "Preguntar" },
-              { key: "plan", icon: "≡", label: "Plan" },
-            ] as const
-          ).map((m) => (
-            <button
-              key={m.key}
-              onClick={() => setAutonomyMode(m.key)}
-              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
-                autonomyMode === m.key
-                  ? "bg-white/10 text-white border border-white/15"
-                  : "bg-white/[0.04] text-white/40 border border-white/[0.06] hover:text-white/60"
-              }`}
-            >
-              <span className="mr-1">{m.icon}</span>
-              {m.label}
-            </button>
-          ))}
-        </div>
       </header>
 
       {/* Main 3-column layout (chat tab) OR full-width tasks (tasks tab) */}

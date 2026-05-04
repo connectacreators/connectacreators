@@ -5,6 +5,7 @@ import CanvasAIPanel from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
 import { AssistantContextPanel, AssistantThreadList } from "@/components/assistant";
 import { supabase } from "@/integrations/supabase/client";
+import { loadCanvasChatMessages } from "@/lib/canvasChatBridge";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeChatSync } from "@/hooks/useRealtimeChatSync";
 
@@ -159,12 +160,11 @@ const FullscreenAIView = memo(function FullscreenAIView({
       if (remoteChatId === activeChatIdRefForRoom.current) return;
       isRemoteUpdateRef.current = true;
       setActiveChatId(remoteChatId);
-      supabase.from("canvas_ai_chats").select("messages").eq("id", remoteChatId).single()
-        .then(({ data }) => {
-          const msgs = (data?.messages as ChatMessage[]) || [];
-          setActiveMessages(msgs.length > MAX_MESSAGES ? msgs.slice(-MAX_MESSAGES) : msgs);
-          setTimeout(() => { isRemoteUpdateRef.current = false; }, 100);
-        });
+      loadCanvasChatMessages(remoteChatId).then((msgs) => {
+        const out = msgs as ChatMessage[];
+        setActiveMessages(out.length > MAX_MESSAGES ? out.slice(-MAX_MESSAGES) : out);
+        setTimeout(() => { isRemoteUpdateRef.current = false; }, 100);
+      });
     }, []),
   });
   const broadcastStreamingRef = useRef(broadcastStreaming);
@@ -221,13 +221,9 @@ const FullscreenAIView = memo(function FullscreenAIView({
           const activeRow = rows[0];
           setActiveChatId(activeRow.id);
 
-          // Load messages for active chat
-          const { data: activeData } = await supabase
-            .from("canvas_ai_chats")
-            .select("messages")
-            .eq("id", activeRow.id)
-            .single();
-          let restoredMsgs: ChatMessage[] = (activeData?.messages as any) || [];
+          // Load messages for active chat — unified read from
+          // assistant_messages so canvas + drawer share state.
+          let restoredMsgs: ChatMessage[] = (await loadCanvasChatMessages(activeRow.id)) as ChatMessage[];
 
           // Check localStorage fallback
           try {

@@ -4,6 +4,7 @@ import { Bot, X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2
 import CanvasAIPanel, { type CanvasContext } from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
 import { supabase } from "@/integrations/supabase/client";
+import { loadCanvasChatMessages } from "@/lib/canvasChatBridge";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeChatSync } from "@/hooks/useRealtimeChatSync";
 
@@ -121,13 +122,11 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       if (remoteChatId === activeChatIdRef.current) return;
       isRemoteUpdateRef.current = true;
       setActiveChatId(remoteChatId);
-      // Load messages for the new active chat from DB
-      supabase.from("canvas_ai_chats").select("messages").eq("id", remoteChatId).single()
-        .then(({ data }) => {
-          const msgs = (data?.messages as any) || [];
-          setActiveMessages(msgs.length > MAX_MESSAGES ? msgs.slice(-MAX_MESSAGES) : msgs);
-          setTimeout(() => { isRemoteUpdateRef.current = false; }, 100);
-        });
+      // Load messages for the new active chat from the unified table
+      loadCanvasChatMessages(remoteChatId).then((msgs) => {
+        setActiveMessages(msgs.length > MAX_MESSAGES ? msgs.slice(-MAX_MESSAGES) : msgs);
+        setTimeout(() => { isRemoteUpdateRef.current = false; }, 100);
+      });
     }, []),
   });
   const broadcastStreamingRef = useRef(broadcastStreaming);
@@ -231,13 +230,9 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
           const activeRow = rows[0];
           setActiveChatId(activeRow.id);
 
-          // Load messages ONLY for the active chat
-          const { data: activeData } = await supabase
-            .from("canvas_ai_chats")
-            .select("messages")
-            .eq("id", activeRow.id)
-            .single();
-          let restoredMsgs = (activeData?.messages as any) || [];
+          // Load messages ONLY for the active chat — unified read from
+          // assistant_messages so the canvas + drawer share state.
+          let restoredMsgs: any[] = await loadCanvasChatMessages(activeRow.id);
 
           // Check localStorage for messages newer than DB (in case Supabase save lagged)
           const lsKey = `cc_chat_${activeRow.id}`;
@@ -661,6 +656,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
               remoteStreamingContent={remoteStreamingContent}
               onSaveScript={d.onSaveScript}
               externalDroppedImage={droppedAIImage}
+              chatId={activeChatId}
             />
           )}
         </div>

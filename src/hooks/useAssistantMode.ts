@@ -4,28 +4,23 @@
 // Used by the companion drawer + /ai page + (eventually) canvas surfaces to
 // determine which tools/context the assistant should expose.
 
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 export type AssistantMode =
   | { mode: "agency"; clientId: null }
   | { mode: "client"; clientId: string };
 
 /**
- * Derives mode from the current URL.
+ * Derives mode from the current URL pathname.
  * - `/clients/:clientId/*` → client mode with that clientId
  * - everything else → agency mode
  *
- * The `clientId` is read from `useParams()`; routes that don't define
- * a `:clientId` param will return agency mode automatically.
+ * Uses `useLocation()` (not `useParams()`) so it works for components
+ * mounted outside the matched <Route> subtree (e.g. the floating drawer).
  */
 export function useAssistantMode(): AssistantMode {
-  const params = useParams();
-  const clientId = params.clientId;
-
-  if (clientId && clientId !== "" && clientId !== "/") {
-    return { mode: "client", clientId };
-  }
-  return { mode: "agency", clientId: null };
+  const location = useLocation();
+  return detectAssistantModeFromPath(location.pathname);
 }
 
 /**
@@ -34,7 +29,9 @@ export function useAssistantMode(): AssistantMode {
  */
 export function detectAssistantModeFromPath(path: string): AssistantMode {
   // Server-side mirror — keeps the regex consistent with the edge function's mode.ts
-  const re = /^\/clients\/([^/?#]+)(?:[/?#].*)?$/;
+  // Match /clients/<id> with anything after — the original regex required a
+  // trailing /, ?, or # which broke for the bare /clients/:id pathname.
+  const re = /^\/clients\/([^/?#]+)/;
   const m = re.exec(path);
   if (m && m[1] && m[1] !== "" && m[1] !== "/") {
     return { mode: "client", clientId: m[1] };
