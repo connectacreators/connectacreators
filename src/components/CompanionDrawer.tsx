@@ -344,8 +344,8 @@ export default function CompanionDrawer() {
                   messages={chatMessages}
                   loading={sending}
                   variant="compact"
-                  greeting={`Hi, I'm ${companionName}.`}
-                  greetingSubtitle="Ask me anything about your work."
+                  greeting="What are we doing today?"
+                  greetingSubtitle="Ask anything about your work."
                 />
               </div>
               <div className="p-2 border-t border-white/[0.04]">
@@ -355,7 +355,7 @@ export default function CompanionDrawer() {
                   onSend={handleSend}
                   loading={sending}
                   variant="compact"
-                  placeholder={`Ask ${companionName}...`}
+                  placeholder="Ask anything..."
                 />
               </div>
             </>

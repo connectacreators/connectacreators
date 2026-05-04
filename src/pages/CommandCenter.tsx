@@ -23,11 +23,9 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Bot,
   CheckCircle2,
   Clock,
   ListChecks,
-  MessageSquare,
 } from "lucide-react";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -323,63 +321,35 @@ export default function CommandCenter() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 flex flex-col bg-[#0a0f1c] text-white">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-2.5 bg-[#0a1020] border-b border-white/5">
+      {/* Header — mirrors FullscreenAIView: just back button + centered title */}
+      <header className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2.5 border-b border-white/5">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs text-white/55 hover:text-white/80 px-2 py-1 rounded bg-white/[0.04] border border-white/[0.06] transition-colors"
+          className="flex items-center gap-1 text-xs text-white/45 hover:text-white/80 transition-colors w-fit"
         >
           <ArrowLeft className="w-3 h-3" />
           {en ? "Back" : "Atrás"}
         </button>
-
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Bot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#e0e0e0" }} />
-          <span className="text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
-            {companionName}
-          </span>
-          <span className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
-            {mode === "agency"
-              ? en
-                ? "Agency mode"
-                : "Modo agencia"
-              : en
-                ? "Working on this client"
-                : "Trabajando en este cliente"}
-          </span>
+        <div className="text-center text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
+          {companionName}
         </div>
-
-        {/* Right tabs: Chat / Tasks */}
-        <div className="flex gap-1 flex-shrink-0">
-          <button
-            onClick={() => setRightTab("chat")}
-            className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${
-              rightTab === "chat"
-                ? "bg-white/[0.08] text-white border border-white/15"
-                : "bg-transparent text-white/45 border border-transparent hover:text-white/70"
-            }`}
-          >
-            <MessageSquare className="w-3 h-3" />
-            {en ? "Chat" : "Chat"}
-          </button>
-          <button
-            onClick={() => setRightTab("tasks")}
-            className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${
-              rightTab === "tasks"
-                ? "bg-white/[0.08] text-white border border-white/15"
-                : "bg-transparent text-white/45 border border-transparent hover:text-white/70"
-            }`}
-          >
-            <ListChecks className="w-3 h-3" />
-            {en ? "Tasks" : "Tareas"}
-            {todoCount > 0 && (
-              <span className="px-1 rounded bg-red-500 text-white text-[9px] font-bold">
-                {todoCount}
-              </span>
-            )}
-          </button>
-        </div>
-
+        {/* Right slot: tasks toggle (kept tucked, neutral) */}
+        <button
+          onClick={() => setRightTab(rightTab === "tasks" ? "chat" : "tasks")}
+          className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded justify-self-end ${
+            rightTab === "tasks"
+              ? "bg-white/[0.08] text-white border border-white/15"
+              : "text-white/45 hover:text-white/80 border border-transparent"
+          }`}
+          title={en ? "Tasks" : "Tareas"}
+        >
+          <ListChecks className="w-3 h-3" />
+          {todoCount > 0 && (
+            <span className="px-1 rounded bg-red-500 text-white text-[9px] font-bold">
+              {todoCount}
+            </span>
+          )}
+        </button>
       </header>
 
       {/* Main 3-column layout (chat tab) OR full-width tasks (tasks tab) */}
@@ -408,13 +378,13 @@ export default function CommandCenter() {
                   variant="full"
                   greeting={
                     en
-                      ? `Hi, I'm ${companionName}.`
-                      : `Hola, soy ${companionName}.`
+                      ? `What are we doing today?`
+                      : `¿Qué hacemos hoy?`
                   }
                   greetingSubtitle={
                     en
-                      ? "Ask me anything about your pipeline, scripts, or clients."
-                      : "Pregúntame lo que sea sobre tu pipeline, scripts o clientes."
+                      ? "Ask anything about your pipeline, scripts, or clients."
+                      : "Pregunta lo que sea sobre tu pipeline, scripts o clientes."
                   }
                 />
               </div>
@@ -427,8 +397,8 @@ export default function CommandCenter() {
                   variant="full"
                   placeholder={
                     en
-                      ? `Ask ${companionName} anything...`
-                      : `Pregúntale a ${companionName} lo que quieras...`
+                      ? "Ask anything..."
+                      : "Pregunta lo que sea..."
                   }
                 />
               </div>
