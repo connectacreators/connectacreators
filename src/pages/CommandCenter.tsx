@@ -1,342 +1,619 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Bot, Send } from "lucide-react";
-import { useCompanion } from "@/contexts/CompanionContext";
-import { useLanguage } from "@/hooks/useLanguage";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import PageTransition from "@/components/PageTransition";
+// src/pages/CommandCenter.tsx
+//
+// Phase B.2 — `/ai` companion command-center page redesigned as a three-panel
+// canvas-AI-style layout that uses the shared `@/components/assistant` primitives.
+//
+// Layout:
+//   ┌────────────────────────────────────────────────────────────────┐
+//   │ HEADER: ← Back  Companion · [mode pill]   tabs (Chat / Tasks)  │
+//   ├──────────┬────────────────────────────────────┬────────────────┤
+//   │ CHATS    │  AssistantChat                     │ AI SEES        │
+//   │ + New    │                                    │ (off-canvas:   │
+//   │ threads  │  AssistantTextInput                │  empty state)  │
+//   └──────────┴────────────────────────────────────┴────────────────┘
+//
+// Phase 1's task system (To Do / In Progress / Done) survives as a separate
+// "Tasks" tab in the header so users today aren't broken — same task cards,
+// same actions, same priority colors.
+//
+// Reads threads + messages from `assistant_threads` / `assistant_messages`
+// (Phase A foundation; second surface using the new tables after CompanionDrawer).
 
-type Tab = "todo" | "done";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  ListChecks,
+  MessageSquare,
+} from "lucide-react";
+import { useCompanion } from "@/contexts/CompanionContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
+import { useLanguage } from "@/hooks/useLanguage";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  AssistantChat,
+  AssistantContextPanel,
+  AssistantTextInput,
+  AssistantThreadList,
+  type ThreadListItem,
+} from "@/components/assistant";
+import type { AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
+
+interface ThreadRow {
+  id: string;
+  title: string | null;
+  origin: "drawer" | "canvas";
+  client_id: string | null;
+  canvas_node_id: string | null;
+  message_count: number;
+  last_message_at: string | null;
+  updated_at: string;
+}
+
+interface MsgRow {
+  id: string;
+  role: "user" | "assistant" | "tool";
+  content: any;
+  created_at: string;
+}
+
+type RightTab = "chat" | "tasks";
+type TaskFilter = "todo" | "in_progress" | "done";
 
 export default function CommandCenter() {
-  const { companionName, tasks, loadingTasks, refreshTasks, autonomyMode, setAutonomyMode, clientId } = useCompanion();
   const { user } = useAuth();
-  const { language } = useLanguage();
+  const {
+    companionName,
+    clientId: ownClientId,
+    tasks,
+    loadingTasks,
+    refreshTasks,
+    autonomyMode,
+    setAutonomyMode,
+  } = useCompanion();
+  const { mode, clientId: urlClientId } = useAssistantMode();
+  const path = useCurrentPath();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { language } = useLanguage();
   const en = language === "en";
-  const [tab, setTab] = useState<Tab>("todo");
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+
+  // URL clientId takes precedence; fallback to user's own primary client
+  const activeClientId = urlClientId ?? ownClientId;
+
+  // ── Thread / chat state ────────────────────────────────────────────────
+  const [threads, setThreads] = useState<ThreadRow[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MsgRow[]>([]);
+  const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+
+  // ── Right-tab state (Chat vs Tasks) ────────────────────────────────────
+  const [rightTab, setRightTab] = useState<RightTab>("chat");
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>("todo");
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [streamingIdx, setStreamingIdx] = useState<number | null>(null);
-  const [streamedText, setStreamedText] = useState("");
-  const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
-  const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const TRUNCATE_AT = 280;
-
-  // Simulate streaming for a new assistant message
-  const streamMessage = useCallback((fullText: string, idx: number) => {
-    setStreamingIdx(idx);
-    setStreamedText("");
-    let i = 0;
-    const tick = () => {
-      i += Math.floor(Math.random() * 4) + 2; // 2-5 chars per tick
-      setStreamedText(fullText.slice(0, i));
-      if (i < fullText.length) {
-        setTimeout(tick, 16);
-      } else {
-        setStreamedText(fullText);
-        setStreamingIdx(null);
-      }
-    };
-    setTimeout(tick, 40);
+  // Refresh tasks each time this page is visited so completed actions clear
+  useEffect(() => {
+    void refreshTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load conversation history from DB on mount
+  // ── Threads loader ─────────────────────────────────────────────────────
+  const loadThreads = useCallback(async () => {
+    if (!user) return;
+    let query = (supabase as any)
+      .from("assistant_threads")
+      .select(
+        "id, title, origin, client_id, canvas_node_id, message_count, last_message_at, updated_at",
+      )
+      .eq("user_id", user.id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(50);
+    if (mode === "client" && activeClientId) {
+      query = query.eq("client_id", activeClientId);
+    } else {
+      query = query.is("client_id", null);
+    }
+    const { data, error } = await query;
+    if (!error) setThreads((data ?? []) as ThreadRow[]);
+  }, [user, mode, activeClientId]);
+
   useEffect(() => {
-    if (!clientId) return;
-    supabase
-      .from("companion_messages")
-      .select("role, content")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: true })
-      .limit(40)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setChatMessages(data.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
-        }
-      });
-  }, [clientId]);
+    void loadThreads();
+  }, [loadThreads]);
 
-  // Re-fetch tasks every time this page is visited so completed actions clear immediately
-  useEffect(() => { refreshTasks(); }, []);
+  // ── Messages for active thread ─────────────────────────────────────────
+  useEffect(() => {
+    if (!activeThreadId) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("assistant_messages")
+        .select("id, role, content, created_at")
+        .eq("thread_id", activeThreadId)
+        .order("created_at", { ascending: true })
+        .limit(200);
+      if (!cancelled && !error) setMessages((data ?? []) as MsgRow[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeThreadId]);
 
-  const todoTasks = tasks.filter((t) => !dismissedIds.has(t.id));
-  const urgentCount = todoTasks.filter((t) => t.priority === "red" || t.priority === "amber").length;
+  // ── ThreadRow → ThreadListItem ─────────────────────────────────────────
+  const threadListItems: ThreadListItem[] = useMemo(
+    () =>
+      threads.map((t) => ({
+        id: t.id,
+        name: t.title ?? "Chat",
+        origin: t.origin,
+        updatedAt: t.last_message_at ?? t.updated_at,
+        messageCount: t.message_count,
+      })),
+    [threads],
+  );
 
-  const sendMessage = async () => {
-    if (!chatInput.trim() || sending || !user) return;
-    const userMsg = chatInput.trim();
-    setChatInput("");
+  const handleSelectThread = useCallback(
+    (threadId: string) => {
+      const thread = threads.find((t) => t.id === threadId);
+      if (!thread) return;
+      if (thread.origin === "canvas" && thread.client_id) {
+        // Canvas-origin chat → navigate to that canvas
+        navigate(
+          `/clients/${thread.client_id}/scripts?view=canvas&chatId=${thread.id}`,
+        );
+        return;
+      }
+      // Drawer-origin chat → load it inline
+      setActiveThreadId(threadId);
+      setRightTab("chat");
+    },
+    [threads, navigate],
+  );
+
+  const handleNewThread = useCallback(() => {
+    setActiveThreadId(null);
+    setMessages([]);
+    setRightTab("chat");
+  }, []);
+
+  // ── Send a message via companion-chat (dual-writes to new tables) ──────
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || sending || !user) return;
+    const text = input.trim();
+    setInput("");
     setSending(true);
-    setChatMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+
+    const optimistic: MsgRow = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `tmp-${Date.now()}`,
+      role: "user",
+      content: { type: "text", text },
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
       const { data } = await supabase.functions.invoke("companion-chat", {
-        body: { message: userMsg, companion_name: companionName, current_path: location.pathname, autonomy_mode: autonomyMode },
+        body: {
+          message: text,
+          companion_name: companionName,
+          current_path: path,
+          autonomy_mode: autonomyMode,
+        },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
+
       if (data?.reply) {
-        setChatMessages((prev) => {
-          const next = [...prev, { role: "assistant" as const, content: data.reply }];
-          // Start streaming animation for the new message
-          setTimeout(() => streamMessage(data.reply, next.length - 1), 0);
-          return next;
-        });
+        const assistantMsg: MsgRow = {
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `tmp-${Date.now() + 1}`,
+          role: "assistant",
+          content: { type: "text", text: data.reply },
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
       }
-      if (data?.actions) {
+
+      if (Array.isArray(data?.actions)) {
         for (const action of data.actions) {
-          if (action.type === "navigate") navigate(action.path);
-          if (action.type === "fill_onboarding") {
-            window.dispatchEvent(new CustomEvent("companion:fill-onboarding", { detail: action.fields }));
+          if (action?.type === "navigate" && typeof action.path === "string") {
+            navigate(action.path);
+          }
+          if (action?.type === "fill_onboarding") {
+            window.dispatchEvent(
+              new CustomEvent("companion:fill-onboarding", {
+                detail: action.fields,
+              }),
+            );
           }
         }
       }
+
+      // Refresh both the threads list and tasks (companion-chat may have
+      // mutated state that affects tasks)
+      await loadThreads();
+      void refreshTasks();
     } finally {
       setSending(false);
     }
-  };
+  }, [
+    input,
+    sending,
+    user,
+    companionName,
+    path,
+    autonomyMode,
+    navigate,
+    loadThreads,
+    refreshTasks,
+  ]);
 
+  // ── MsgRow[] → AssistantMessage[] for AssistantChat ────────────────────
+  const chatMessages: AssistantMessage[] = useMemo(() => {
+    return messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map<AssistantMessage>((m) => {
+        const c: any = m.content;
+        let content = "";
+        if (typeof c === "string") {
+          content = c;
+        } else if (c && typeof c === "object" && typeof c.text === "string") {
+          content = c.text;
+        } else {
+          content = JSON.stringify(c ?? "");
+        }
+        return {
+          role: m.role as "user" | "assistant",
+          content,
+        };
+      });
+  }, [messages]);
+
+  // ── Task filtering (preserve Phase 1 priorities) ───────────────────────
+  // Existing tasks shape uses priority red/amber/blue. Map onto:
+  //   todo         = red + amber (urgent)
+  //   in_progress  = blue (in flight)
+  //   done         = (none today — task system v2)
+  const visibleTasks = useMemo(
+    () => tasks.filter((t) => !dismissedIds.has(t.id)),
+    [tasks, dismissedIds],
+  );
+
+  const filteredTasks = useMemo(() => {
+    if (taskFilter === "todo") {
+      return visibleTasks.filter(
+        (t) => t.priority === "red" || t.priority === "amber",
+      );
+    }
+    if (taskFilter === "in_progress") {
+      return visibleTasks.filter((t) => t.priority === "blue");
+    }
+    return [];
+  }, [visibleTasks, taskFilter]);
+
+  const todoCount = visibleTasks.filter(
+    (t) => t.priority === "red" || t.priority === "amber",
+  ).length;
+  const inProgressCount = visibleTasks.filter(
+    (t) => t.priority === "blue",
+  ).length;
+
+  // Dot color shared with Phase 1
   const dotColor: Record<string, string> = {
     red: "#ef4444",
     amber: "#f59e0b",
     blue: "#22d3ee",
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <PageTransition className="flex flex-col h-[calc(100dvh-120px)] lg:h-[calc(100dvh-56px)] max-w-2xl mx-auto w-full px-4 py-6">
+    <div className="fixed inset-0 flex flex-col bg-[#0a0f1c] text-white">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}
+      <header className="flex items-center gap-3 px-4 py-2.5 bg-[#0a1020] border-b border-white/5">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-xs text-white/55 hover:text-white/80 px-2 py-1 rounded bg-white/[0.04] border border-white/[0.06] transition-colors"
         >
-          <Bot className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-lg font-black text-foreground">{companionName}</h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22d3ee] animate-pulse inline-block" />
-            {urgentCount > 0
-              ? (en ? `${urgentCount} things need your attention` : `${urgentCount} cosas necesitan tu atención`)
-              : (en ? "You're all caught up" : "Estás al día")}
-          </p>
-        </div>
-      </div>
+          <ArrowLeft className="w-3 h-3" />
+          {en ? "Back" : "Atrás"}
+        </button>
 
-      {/* Autonomy mode toggle */}
-      <div className="flex items-center gap-2 mb-4">
-        {([
-          { key: "auto" as const, label: en ? "Auto" : "Auto", icon: "⚡", desc: en ? "Acts immediately" : "Actúa de inmediato" },
-          { key: "ask" as const, label: en ? "Ask" : "Preguntar", icon: "?", desc: en ? "Confirms first" : "Confirma primero" },
-          { key: "plan" as const, label: en ? "Plan" : "Plan", icon: "≡", desc: en ? "Shows plan first" : "Plan primero" },
-        ]).map((m) => (
-          <button
-            key={m.key}
-            onClick={() => setAutonomyMode(m.key)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
-            style={{
-              background: autonomyMode === m.key ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
-              color: autonomyMode === m.key ? "#e5e5e5" : "rgba(255,255,255,0.3)",
-              border: autonomyMode === m.key ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.07)",
-            }}
-            title={m.desc}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div
+            className="w-6 h-6 rounded-full flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}
+          />
+          <span className="text-sm font-bold truncate">{companionName}</span>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[8px] font-semibold tracking-wider uppercase border flex-shrink-0 ${
+              mode === "agency"
+                ? "bg-lime-500/10 text-lime-400 border-lime-500/30"
+                : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+            }`}
           >
-            <span style={{ fontSize: 11 }}>{m.icon}</span>
-            {m.label}
+            {mode === "agency"
+              ? en
+                ? "Agency"
+                : "Agencia"
+              : en
+                ? "Client"
+                : "Cliente"}
+          </span>
+        </div>
+
+        {/* Right tabs: Chat / Tasks */}
+        <div className="flex gap-1 flex-shrink-0">
+          <button
+            onClick={() => setRightTab("chat")}
+            className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${
+              rightTab === "chat"
+                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                : "bg-white/[0.04] text-white/50 border border-white/[0.06] hover:text-white/70"
+            }`}
+          >
+            <MessageSquare className="w-3 h-3" />
+            {en ? "Chat" : "Chat"}
           </button>
-        ))}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-border/40 mb-4">
-        {([
-          { key: "todo" as Tab, enLabel: "To Do", esLabel: "Por Hacer", count: todoTasks.length },
-          { key: "done" as Tab, enLabel: "Done", esLabel: "Hecho", count: 0 },
-        ]).map((t) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className="px-4 py-2 text-[11px] font-semibold relative flex items-center gap-1.5 transition-colors"
-            style={{ color: tab === t.key ? "#22d3ee" : "rgba(255,255,255,0.3)" }}
+            onClick={() => setRightTab("tasks")}
+            className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${
+              rightTab === "tasks"
+                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                : "bg-white/[0.04] text-white/50 border border-white/[0.06] hover:text-white/70"
+            }`}
           >
-            {en ? t.enLabel : t.esLabel}
-            {t.count > 0 && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.2)", color: "#f87171" }}>
-                {t.count}
+            <ListChecks className="w-3 h-3" />
+            {en ? "Tasks" : "Tareas"}
+            {todoCount > 0 && (
+              <span className="px-1 rounded bg-red-500 text-white text-[9px] font-bold">
+                {todoCount}
               </span>
             )}
-            {tab === t.key && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#22d3ee]" />
-            )}
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Task list — shrinks when chat is active so chat gets room */}
-      <div className={`overflow-y-auto space-y-2 mb-4 ${chatMessages.length > 0 ? "max-h-[220px]" : "flex-1"}`}>
-        {tab === "todo" && (
+        {/* Autonomy mode pills */}
+        <div className="flex gap-1.5 flex-shrink-0">
+          {(
+            [
+              { key: "auto", icon: "⚡", label: "Auto" },
+              { key: "ask", icon: "?", label: en ? "Ask" : "Preguntar" },
+              { key: "plan", icon: "≡", label: "Plan" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setAutonomyMode(m.key)}
+              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                autonomyMode === m.key
+                  ? "bg-white/10 text-white border border-white/15"
+                  : "bg-white/[0.04] text-white/40 border border-white/[0.06] hover:text-white/60"
+              }`}
+            >
+              <span className="mr-1">{m.icon}</span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* Main 3-column layout (chat tab) OR full-width tasks (tasks tab) */}
+      <div className="flex-1 flex min-h-0">
+        {rightTab === "chat" ? (
           <>
-            {loadingTasks && (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                {en ? `${companionName} is checking your pipeline...` : `${companionName} está revisando tu pipeline...`}
-              </div>
-            )}
-            {!loadingTasks && todoTasks.length === 0 && (
-              <div className="py-10 text-center">
-                <p className="text-sm font-semibold text-foreground">
-                  {en ? "You're all caught up!" : "¡Estás al día!"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {en ? `${companionName} will let you know when something needs attention.` : `${companionName} te avisará cuando algo necesite atención.`}
-                </p>
-              </div>
-            )}
-            {todoTasks.map((task) => (
-              <div
-                key={task.id}
-                className="rounded-xl p-3.5 flex items-start gap-3"
-                style={{
-                  background: task.priority === "red"
-                    ? "rgba(239,68,68,0.03)"
-                    : task.priority === "amber"
-                    ? "rgba(245,158,11,0.03)"
-                    : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${task.priority === "red"
-                    ? "rgba(239,68,68,0.2)"
-                    : task.priority === "amber"
-                    ? "rgba(245,158,11,0.18)"
-                    : "rgba(255,255,255,0.06)"}`,
-                }}
-              >
-                <div
-                  className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
-                  style={{ background: dotColor[task.priority] }}
+            {/* CHATS sidebar */}
+            <aside className="w-[260px] bg-[#0c1424] border-r border-white/[0.04] flex flex-col">
+              <AssistantThreadList
+                threads={threadListItems}
+                activeThreadId={activeThreadId}
+                onSelect={handleSelectThread}
+                onCreate={handleNewThread}
+                groupByDate
+                variant="full"
+                className="flex-1 min-h-0"
+              />
+            </aside>
+
+            {/* Chat column */}
+            <main className="flex-1 flex flex-col min-w-0 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <AssistantChat
+                  messages={chatMessages}
+                  loading={sending}
+                  variant="full"
+                  greeting={
+                    en
+                      ? `Hi, I'm ${companionName}.`
+                      : `Hola, soy ${companionName}.`
+                  }
+                  greetingSubtitle={
+                    en
+                      ? "Ask me anything about your pipeline, scripts, or clients."
+                      : "Pregúntame lo que sea sobre tu pipeline, scripts o clientes."
+                  }
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-white leading-tight">
-                    {en ? task.titleEn : task.titleEs}
-                  </p>
-                  <p className="text-[11px] text-white/40 mt-1 leading-relaxed">
-                    {en ? task.subtitleEn : task.subtitleEs}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                  <button
-                    onClick={() => navigate(task.actionPath)}
-                    className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                    style={{ background: "rgba(8,145,178,0.15)", color: "#22d3ee", border: "1px solid rgba(8,145,178,0.25)" }}
-                  >
-                    {en ? task.actionLabelEn : task.actionLabelEs}
-                  </button>
-                  <button
-                    onClick={() => setDismissedIds((prev) => new Set([...prev, task.id]))}
-                    className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                    style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}
-                  >
-                    {en ? task.skipLabelEn : task.skipLabelEs}
-                  </button>
-                </div>
               </div>
-            ))}
+              <div className="border-t border-white/[0.05]">
+                <AssistantTextInput
+                  value={input}
+                  onChange={setInput}
+                  onSend={handleSend}
+                  loading={sending}
+                  variant="full"
+                  placeholder={
+                    en
+                      ? `Ask ${companionName} anything...`
+                      : `Pregúntale a ${companionName} lo que quieras...`
+                  }
+                />
+              </div>
+            </main>
+
+            {/* AI SEES (off-canvas: empty state) */}
+            <aside className="w-[260px] bg-[#0c1424] border-l border-white/[0.04] flex flex-col">
+              <AssistantContextPanel
+                nodes={[]}
+                emptyMessage={
+                  en
+                    ? "Open a canvas to see connected nodes feeding the AI."
+                    : "Abre un canvas para ver los nodos conectados al AI."
+                }
+                className="flex-1 min-h-0"
+              />
+            </aside>
           </>
-        )}
-        {tab === "done" && (
-          <div className="py-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              {en ? "Completed tasks will appear here." : "Las tareas completadas aparecerán aquí."}
-            </p>
+        ) : (
+          /* Tasks tab — full-width Phase 1 task list */
+          <div className="flex-1 overflow-auto p-6">
+            {/* Task subtab filter */}
+            <div className="flex gap-2 mb-4 max-w-3xl mx-auto">
+              {(
+                [
+                  {
+                    key: "todo" as TaskFilter,
+                    label: en ? "To Do" : "Pendiente",
+                    icon: Clock,
+                    count: todoCount,
+                  },
+                  {
+                    key: "in_progress" as TaskFilter,
+                    label: en ? "In Progress" : "En curso",
+                    icon: ListChecks,
+                    count: inProgressCount,
+                  },
+                  {
+                    key: "done" as TaskFilter,
+                    label: en ? "Done" : "Completado",
+                    icon: CheckCircle2,
+                    count: 0,
+                  },
+                ]
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTaskFilter(t.key)}
+                  className={`px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                    taskFilter === t.key
+                      ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                      : "bg-white/[0.04] text-white/50 border border-white/[0.06] hover:text-white/70"
+                  }`}
+                >
+                  <t.icon className="w-3 h-3" />
+                  {t.label}
+                  {t.count > 0 && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300">
+                      {t.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Task cards (preserve Phase 1 styling + actions) */}
+            <div className="max-w-3xl mx-auto space-y-2">
+              {loadingTasks && taskFilter === "todo" && (
+                <div className="py-10 text-center text-sm text-white/40">
+                  {en
+                    ? `${companionName} is checking your pipeline...`
+                    : `${companionName} está revisando tu pipeline...`}
+                </div>
+              )}
+              {!loadingTasks && filteredTasks.length === 0 && (
+                <div className="py-12 text-center text-sm text-white/40">
+                  {taskFilter === "done"
+                    ? en
+                      ? "Completed tasks will appear here."
+                      : "Las tareas completadas aparecerán aquí."
+                    : taskFilter === "in_progress"
+                      ? en
+                        ? "Nothing in progress right now."
+                        : "Nada en curso ahora mismo."
+                      : en
+                        ? `You're all caught up! ${companionName} will let you know when something needs attention.`
+                        : `¡Estás al día! ${companionName} te avisará cuando algo necesite atención.`}
+                </div>
+              )}
+              {filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="rounded-xl p-3.5 flex items-start gap-3"
+                  style={{
+                    background:
+                      task.priority === "red"
+                        ? "rgba(239,68,68,0.04)"
+                        : task.priority === "amber"
+                          ? "rgba(245,158,11,0.04)"
+                          : "rgba(8,145,178,0.04)",
+                    border: `1px solid ${
+                      task.priority === "red"
+                        ? "rgba(239,68,68,0.2)"
+                        : task.priority === "amber"
+                          ? "rgba(245,158,11,0.18)"
+                          : "rgba(8,145,178,0.2)"
+                    }`,
+                  }}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                    style={{ background: dotColor[task.priority] }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold text-white leading-tight">
+                      {en ? task.titleEn : task.titleEs}
+                    </p>
+                    <p className="text-[11px] text-white/40 mt-1 leading-relaxed">
+                      {en ? task.subtitleEn : task.subtitleEs}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+                    <button
+                      onClick={() => navigate(task.actionPath)}
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                      style={{
+                        background: "rgba(8,145,178,0.15)",
+                        color: "#22d3ee",
+                        border: "1px solid rgba(8,145,178,0.25)",
+                      }}
+                    >
+                      {en ? task.actionLabelEn : task.actionLabelEs}
+                    </button>
+                    <button
+                      onClick={() =>
+                        setDismissedIds(
+                          (prev) => new Set([...prev, task.id]),
+                        )
+                      }
+                      className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        color: "rgba(255,255,255,0.35)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      {en ? task.skipLabelEn : task.skipLabelEs}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
-
-      {/* Chat messages */}
-      {chatMessages.length > 0 && (
-        <div className="space-y-3 mb-3 flex-1 overflow-y-auto min-h-0" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
-          {chatMessages.map((msg, i) => {
-            const isStreaming = streamingIdx === i;
-            const displayText = isStreaming ? streamedText : msg.content;
-            const isLong = displayText.length > TRUNCATE_AT;
-            const isExpanded = expandedIdx.has(i);
-            const shown = isLong && !isExpanded ? displayText.slice(0, TRUNCATE_AT) + "…" : displayText;
-
-            return (
-            <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              {msg.role === "assistant" && (
-                <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5" style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}>
-                  <Bot className="w-3 h-3 text-white" />
-                </div>
-              )}
-              <div
-                className="max-w-sm text-[12px] px-3 py-2 rounded-xl leading-relaxed"
-                style={msg.role === "assistant"
-                  ? { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.85)", borderRadius: "4px 12px 12px 12px" }
-                  : { background: "linear-gradient(135deg,#0891B2,#0e7490)", color: "#fff", borderRadius: "12px 4px 12px 12px" }
-                }
-              >
-                <span>{shown}</span>
-                {isStreaming && (
-                  <span className="inline-block w-[2px] h-[12px] bg-white/60 ml-0.5 animate-pulse align-middle" />
-                )}
-                {isLong && !isStreaming && (
-                  <button
-                    onClick={() => setExpandedIdx(prev => {
-                      const next = new Set(prev);
-                      isExpanded ? next.delete(i) : next.add(i);
-                      return next;
-                    })}
-                    className="block mt-1.5 text-[10px] font-semibold opacity-60 hover:opacity-100 transition-opacity"
-                  >
-                    {isExpanded ? (en ? "Show less" : "Mostrar menos") : (en ? "Show more" : "Ver más")}
-                  </button>
-                )}
-              </div>
-            </div>
-            );
-          })}
-          {sending && (
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}>
-                <Bot className="w-3 h-3 text-white" />
-              </div>
-              <div className="flex gap-1 items-center px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.06)" }}>
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: `${i * 0.1}s` }} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Input */}
-      <div
-        className="flex items-center gap-3 rounded-xl px-4 py-3"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-      >
-        <input
-          type="text"
-          value={chatInput}
-          onChange={(e) => setChatInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          placeholder={en ? `Ask ${companionName} anything...` : `Pregúntale a ${companionName} lo que quieras...`}
-          className="flex-1 bg-transparent text-sm text-white/70 placeholder:text-white/25 outline-none"
-        />
-        <button
-          onClick={sendMessage}
-          disabled={!chatInput.trim() || sending}
-          className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-40 transition-opacity flex-shrink-0"
-          style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}
-        >
-          <Send className="w-4 h-4 text-white" />
-        </button>
-      </div>
-    </PageTransition>
+    </div>
   );
 }
