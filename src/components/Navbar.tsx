@@ -35,7 +35,7 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <img src={connectaLogoNew} alt="Connecta" className="h-10 object-contain" />
+            <img src={connectaLogoNew} alt="Connecta" className="h-8 w-auto object-contain" style={{ maxWidth: 200 }} />
           </div>
 
           {/* Desktop Navigation */}
