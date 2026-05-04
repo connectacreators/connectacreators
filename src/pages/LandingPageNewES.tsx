@@ -498,7 +498,7 @@ function FeatureSection({
           {/* Texto */}
           <div className="flex-1 max-w-lg">
             <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 14 }}>{label}</p>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight mb-5 leading-tight text-white">{headline}</h2>
+            <h2 className="text-3xl sm:text-4xl font-light tracking-tight mb-5 leading-tight text-white font-caslon" style={{ letterSpacing: "0.02em" }}>{headline}</h2>
             <p className="text-base leading-relaxed mb-7" style={{ color: "#888" }}>{desc}</p>
             <ul className="flex flex-col gap-2.5">
               {bullets.map((b, i) => (

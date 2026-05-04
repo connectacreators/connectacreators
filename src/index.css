@@ -307,7 +307,7 @@ All colors MUST be HSL for consistency and theming.
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(8,145,178,0.4), rgba(132,204,22,0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(8,145,178,0.4), rgba(201,169,110,0.2), transparent);
     pointer-events: none;
     z-index: 0;
   }
@@ -321,10 +321,10 @@ All colors MUST be HSL for consistency and theming.
 
   /* ── Gradient utilities ── */
   .gradient-brand {
-    background: linear-gradient(135deg, #0891B2, #84CC16);
+    background: linear-gradient(135deg, #0891B2, #c9a96e);
   }
   .text-gradient-brand {
-    background: linear-gradient(135deg, #06B6D4, #84CC16);
+    background: linear-gradient(135deg, #06B6D4, #c9a96e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
