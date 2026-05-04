@@ -18,6 +18,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bot, Eye, List, Maximize2, MessageSquare, X } from "lucide-react";
 import { useCompanion } from "@/contexts/CompanionContext";
+import { useActiveBuildSessions } from "@/hooks/useActiveBuildSessions";
+import { BuildBanner } from "@/components/companion/BuildBanner";
 import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -70,6 +72,12 @@ export default function CompanionDrawer() {
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Active conversational-builder sessions for this user (Realtime-driven)
+  const { sessions: buildSessions } = useActiveBuildSessions();
+  const buildForThisThread = activeThreadId
+    ? buildSessions.find((s) => s.thread_id === activeThreadId)
+    : undefined;
 
   // ── Threads loader ──────────────────────────────────────────────────────
   const loadThreads = useCallback(async () => {
@@ -322,6 +330,12 @@ export default function CompanionDrawer() {
             </button>
           </div>
         </header>
+
+        {buildForThisThread && (
+          <div className="px-3 py-2 flex-shrink-0 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+            <BuildBanner session={buildForThisThread} />
+          </div>
+        )}
 
         {/* Tab content */}
         <div className="flex-1 min-h-0 flex flex-col">

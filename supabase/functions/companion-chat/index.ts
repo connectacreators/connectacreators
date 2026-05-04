@@ -5,6 +5,10 @@ import {
   createThread as assistantCreateThread,
   appendMessage as assistantAppendMessage,
 } from "../_shared/assistant/threads.ts";
+import {
+  createBuildSession,
+  getActiveBuildSessionForThread,
+} from "../_shared/build-session/service.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -476,6 +480,106 @@ serve(async (req) => {
 
     if (!client) {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
+    }
+
+    // ── Conversational script builder bootstrap (Phase 1) ──────────────────
+    // In Ask mode, intercept "build me a script"-style messages and route
+    // them through the FSM-driven builder instead of the normal LLM path.
+    // Phase 1 = dummy state walk; Phase 2 will swap real per-state work in.
+    const BUILD_TRIGGER = /\b(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
+    if (autonomy_mode === "ask" && BUILD_TRIGGER.test(message)) {
+      const sentinel = "Active companion chat";
+      let threadId: string | null = null;
+      const { data: existingThread } = await adminClient
+        .from("assistant_threads")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("client_id", client.id)
+        .eq("origin", "drawer")
+        .eq("title", sentinel)
+        .maybeSingle();
+      if (existingThread) {
+        threadId = existingThread.id;
+      } else {
+        const { data: newThread } = await adminClient
+          .from("assistant_threads")
+          .insert({
+            user_id: user.id,
+            client_id: client.id,
+            origin: "drawer",
+            title: sentinel,
+          })
+          .select("id")
+          .single();
+        threadId = newThread?.id ?? null;
+      }
+      if (threadId) {
+        const existing = await getActiveBuildSessionForThread(adminClient, threadId);
+        if (existing) {
+          // Phase 5 will surface "resume or replace?"; for now, just acknowledge.
+          await adminClient.from("assistant_messages").insert({
+            thread_id: threadId,
+            role: "user",
+            content: { type: "text", text: message },
+          });
+          const replyText = `You already have a build in progress (state: ${existing.currentState}). Continuing that one.`;
+          await adminClient.from("assistant_messages").insert({
+            thread_id: threadId,
+            role: "assistant",
+            content: { type: "text", text: replyText },
+          });
+          return new Response(
+            JSON.stringify({ reply: replyText, actions: [], build_session_id: existing.id }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        // Resolve active canvas (may be null — process-build-step handles that in later phases).
+        const { data: activeCanvas } = await adminClient
+          .from("canvas_states")
+          .select("id")
+          .eq("client_id", client.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        const canvasStateId = (activeCanvas?.id as string | undefined) ?? null;
+
+        const session = await createBuildSession(adminClient, {
+          userId: user.id,
+          clientId: client.id,
+          threadId,
+          canvasStateId,
+          autoPilot: false,
+        });
+
+        // Persist the user's trigger + an opening assistant message in the thread.
+        await adminClient.from("assistant_messages").insert({
+          thread_id: threadId,
+          role: "user",
+          content: { type: "text", text: message },
+        });
+        const replyText = "On it — kicking off the build. Watch the banner above for progress.";
+        await adminClient.from("assistant_messages").insert({
+          thread_id: threadId,
+          role: "assistant",
+          content: { type: "text", text: replyText },
+        });
+
+        // Fire the worker (don't await — let it run in background).
+        void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/process-build-step`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ build_session_id: session.id }),
+        }).catch((e) => console.error("[companion-chat] worker kickoff failed:", e));
+
+        return new Response(
+          JSON.stringify({ reply: replyText, actions: [], build_session_id: session.id }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      // If we couldn't resolve a thread, fall through to the normal LLM path.
     }
 
     // Load memory, strategy, history in parallel
