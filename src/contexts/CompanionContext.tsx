@@ -35,9 +35,23 @@ interface CompanionContextType {
 
 const CompanionContext = createContext<CompanionContextType | null>(null);
 
+const COMPANION_NAME_CACHE_KEY = "connecta_companion_name";
+
 export function CompanionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [companionName, setCompanionName] = useState("AI");
+  // Hydrate from localStorage so the sidebar doesn't flash "AI" before the
+  // companion_state row finishes loading. Falls back to "AI" only on the
+  // first-ever visit (before naming).
+  const [companionName, _setCompanionName] = useState<string>(() => {
+    if (typeof window === "undefined") return "AI";
+    return localStorage.getItem(COMPANION_NAME_CACHE_KEY) || "AI";
+  });
+  const setCompanionName = useCallback((name: string) => {
+    _setCompanionName(name);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(COMPANION_NAME_CACHE_KEY, name);
+    }
+  }, []);
   const [setupDone, setSetupDone] = useState(true);
   const [tasks, setTasks] = useState<CompanionTask[]>([]);
   const [clientId, setClientId] = useState<string | null>(null);
