@@ -1075,7 +1075,7 @@ export default function LandingPageNew() {
             </div>
             <div className="relative">
               <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 16 }}>GET STARTED TODAY</p>
-              <h2 className="text-3xl sm:text-5xl md:text-6xl font-light tracking-tight mb-6 leading-tight text-white">
+              <h2 className="text-3xl sm:text-5xl md:text-6xl font-light tracking-tight mb-6 leading-tight text-white font-caslon" style={{ letterSpacing: "0.02em" }}>
                 Ready to Create Content{" "}
                 <span className="text-gradient-brand" style={{ fontWeight: 600 }}>
                   That Converts?
