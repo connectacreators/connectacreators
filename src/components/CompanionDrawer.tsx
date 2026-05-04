@@ -54,7 +54,6 @@ export default function CompanionDrawer() {
     companionName,
     clientId: ownClientId,
     autonomyMode,
-    setAutonomyMode,
     setIsOpen,
   } = useCompanion();
   const { user } = useAuth();
@@ -260,11 +259,11 @@ export default function CompanionDrawer() {
 
   return (
     <aside
-      className="fixed top-0 right-0 z-50 h-screen w-[380px] flex bg-[#0d1525] border-l border-[rgba(8,145,178,0.18)]"
+      className="fixed top-0 right-0 z-50 h-screen w-[380px] flex glass-card border-l border-l-white/8 rounded-none"
       style={{ boxShadow: "-10px 0 30px rgba(0,0,0,0.5)" }}
     >
       {/* Tabs strip */}
-      <nav className="w-10 bg-[#0a1020] border-r border-white/[0.04] flex flex-col items-center pt-4 gap-2">
+      <nav className="w-10 border-r border-white/[0.04] flex flex-col items-center pt-4 gap-2" style={{ background: "rgba(255,255,255,0.02)" }}>
         <TabBtn
           icon={List}
           active={tab === "threads"}
@@ -287,71 +286,42 @@ export default function CompanionDrawer() {
 
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
+        {/* Header — matches CanvasAIPanel header (subtle, single-line) */}
         <header
-          className="flex items-center gap-2 px-3 py-2 border-b border-white/5"
-          style={{ background: "linear-gradient(135deg,#0c1524,#111d35)" }}
+          className="flex items-center justify-between px-3 py-2.5 flex-shrink-0"
+          style={{ background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         >
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg,#0891B2,#84CC16)" }}
-          >
-            <Bot className="w-3.5 h-3.5 text-white" />
+          <div className="flex items-center gap-2 min-w-0">
+            <Bot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#e0e0e0" }} />
+            <span className="text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
+              {companionName}
+            </span>
+            <span className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
+              {mode === "agency" ? "Agency mode" : `· working on this client`}
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm font-bold text-white truncate">
-                {companionName}
-              </span>
-              <ModePill mode={mode} />
-            </div>
-            <div className="text-[10px] text-white/40 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              Online
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              navigate("/ai");
-              setIsOpen(false);
-            }}
-            className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white/60 flex items-center justify-center transition-colors"
-            title="Open full view"
-          >
-            <Maximize2 className="w-3 h-3" />
-          </button>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white/60 flex items-center justify-center transition-colors"
-            title="Close"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </header>
-
-        {/* Autonomy modes bar */}
-        <div className="flex gap-1.5 px-3 py-1.5 border-b border-white/[0.04]">
-          {(
-            [
-              { key: "auto", label: "⚡ Auto" },
-              { key: "ask", label: "? Ask" },
-              { key: "plan", label: "≡ Plan" },
-            ] as const
-          ).map((m) => (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
             <button
-              key={m.key}
-              onClick={() => setAutonomyMode(m.key)}
-              className={
-                "px-2.5 py-1 rounded text-[10px] font-semibold transition-colors " +
-                (autonomyMode === m.key
-                  ? "bg-white/10 text-white border border-white/15"
-                  : "bg-white/[0.04] text-white/40 border border-white/[0.06] hover:text-white/70")
-              }
+              onClick={() => {
+                navigate("/ai");
+                setIsOpen(false);
+              }}
+              className="p-0.5 rounded hover:bg-white/5 transition-colors"
+              title="Open full view"
+              style={{ color: "rgba(255,255,255,0.4)" }}
             >
-              {m.label}
+              <Maximize2 className="w-3 h-3" />
             </button>
-          ))}
-        </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-0.5 rounded hover:bg-red-500/20 transition-colors"
+              title="Close"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </header>
 
         {/* Tab content */}
         <div className="flex-1 min-h-0 flex flex-col">
@@ -431,17 +401,3 @@ function TabBtn({
   );
 }
 
-function ModePill({ mode }: { mode: "agency" | "client" }) {
-  if (mode === "agency") {
-    return (
-      <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold tracking-wider uppercase bg-lime-500/10 text-lime-400 border border-lime-500/30 flex-shrink-0">
-        Agency
-      </span>
-    );
-  }
-  return (
-    <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold tracking-wider uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex-shrink-0">
-      Client
-    </span>
-  );
-}
