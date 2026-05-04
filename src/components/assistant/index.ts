@@ -22,3 +22,4 @@ export type {
   AssistantContextPanelProps,
   ContextNode,
 } from "./AssistantContextPanel.tsx";
+export { AssistantMemoryEditor } from "./AssistantMemoryEditor.tsx";
