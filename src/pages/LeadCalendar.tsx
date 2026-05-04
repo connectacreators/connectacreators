@@ -571,7 +571,7 @@ export default function LeadCalendar() {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <h1 className="font-bold text-base sm:text-lg">{tr(t.leadCalendar.title, language)}</h1>
+          <h1 className="font-bold text-base sm:text-lg font-caslon">{tr(t.leadCalendar.title, language)}</h1>
           <div className="ml-auto flex items-center gap-1.5">
             <LanguageToggle />
             <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={goToday}>{tr(t.leadCalendar.today, language)}</Button>

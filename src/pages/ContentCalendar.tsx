@@ -422,7 +422,7 @@ export default function ContentCalendar() {
                   {clientName || (language === "en" ? "Back" : "Volver")}
                 </button>
               )}
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2 font-caslon">
                 <Calendar className="w-5 h-5 text-primary" />
                 {language === "en" ? "Content Calendar" : "Calendario de Contenido"}
               </h1>

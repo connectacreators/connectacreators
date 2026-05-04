@@ -268,7 +268,7 @@ export default function PublicContentCalendar() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{clientName || "Content Calendar"}</h1>
+            <h1 className="text-2xl font-bold text-foreground font-caslon">{clientName || "Content Calendar"}</h1>
             <p className="text-xs text-muted-foreground font-normal mt-0.5">Content Calendar</p>
           </div>
           <Button

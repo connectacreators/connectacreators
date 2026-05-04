@@ -324,7 +324,7 @@ export default function ClientStrategy() {
             </div>
           ) : null}
           <div>
-            <h1 className="text-xl font-black text-foreground">{en ? "Content Strategy" : "Estrategia de Contenido"}</h1>
+            <h1 className="text-xl font-black text-foreground font-caslon">{en ? "Content Strategy" : "Estrategia de Contenido"}</h1>
             {clientOnboarding.instagram ? (
               <p className="text-xs text-muted-foreground mt-0.5">
                 @{String(clientOnboarding.instagram).replace(/^@/, "")}

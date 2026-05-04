@@ -776,7 +776,7 @@ export default function MasterEditingQueue() {
           >
             <div className="flex items-center gap-3">
               <Clapperboard className="w-5 h-5 text-primary" />
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight font-caslon">
                 Editing Queue
               </h1>
             </div>

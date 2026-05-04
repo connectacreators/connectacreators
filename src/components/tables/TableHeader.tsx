@@ -62,7 +62,7 @@ export default function TableHeader({
     <div className="space-y-4 mb-6">
       {/* Title and Count */}
       <div className="flex items-baseline gap-3">
-        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+        <h1 className="text-2xl font-bold text-foreground font-caslon">{title}</h1>
         <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
           {count}
         </span>

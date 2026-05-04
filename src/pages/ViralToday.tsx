@@ -1490,7 +1490,7 @@ export default function ViralToday() {
         <div className="px-5 sm:px-8 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-foreground tracking-tight">Viral Reels</h1>
+              <h1 className="text-xl font-bold text-foreground tracking-tight font-caslon">Viral Reels</h1>
               <p className="text-xs text-muted-foreground mt-0.5">Scroll through your top viral content</p>
             </div>
             <div className="flex items-center gap-1 bg-muted border border-border rounded-lg p-0.5">
@@ -1532,7 +1532,7 @@ export default function ViralToday() {
           <div className="mb-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h1 className="text-xl font-bold text-foreground tracking-tight">
+                <h1 className="text-xl font-bold text-foreground tracking-tight font-caslon">
                   {view === "videos" ? "Videos" : view === "reels" ? "Viral Reels" : t.channels}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">

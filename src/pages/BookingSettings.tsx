@@ -277,7 +277,7 @@ export default function BookingSettings() {
               <CalendarDays className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-foreground">Public Calendar</h1>
+              <h1 className="text-lg font-bold text-foreground font-caslon">Public Calendar</h1>
               <p className="text-xs text-muted-foreground">Booking settings for {clientName}</p>
             </div>
           </div>
