@@ -1,4 +1,5 @@
 import { Bot, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,7 @@ export default function CompanionBubble() {
   const { companionName, tasks, isOpen, setIsOpen } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const location = useLocation();
   const en = language === "en";
 
   const badgeCount = tasks.filter(
@@ -20,6 +22,8 @@ export default function CompanionBubble() {
   ).length;
 
   if (!user) return null;
+  // Hide on /ai — the page IS the full assistant view, the bubble is redundant.
+  if (location.pathname === "/ai") return null;
 
   return (
     <>

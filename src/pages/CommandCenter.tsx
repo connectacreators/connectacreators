@@ -355,8 +355,8 @@ export default function CommandCenter() {
             onClick={() => setRightTab("chat")}
             className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${
               rightTab === "chat"
-                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                : "bg-white/[0.04] text-white/50 border border-white/[0.06] hover:text-white/70"
+                ? "bg-white/[0.08] text-white border border-white/15"
+                : "bg-transparent text-white/45 border border-transparent hover:text-white/70"
             }`}
           >
             <MessageSquare className="w-3 h-3" />
@@ -366,8 +366,8 @@ export default function CommandCenter() {
             onClick={() => setRightTab("tasks")}
             className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${
               rightTab === "tasks"
-                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                : "bg-white/[0.04] text-white/50 border border-white/[0.06] hover:text-white/70"
+                ? "bg-white/[0.08] text-white border border-white/15"
+                : "bg-transparent text-white/45 border border-transparent hover:text-white/70"
             }`}
           >
             <ListChecks className="w-3 h-3" />
@@ -479,8 +479,8 @@ export default function CommandCenter() {
                   onClick={() => setTaskFilter(t.key)}
                   className={`px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
                     taskFilter === t.key
-                      ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                      : "bg-white/[0.04] text-white/50 border border-white/[0.06] hover:text-white/70"
+                      ? "bg-white/[0.08] text-white border border-white/15"
+                      : "bg-transparent text-white/45 border border-transparent hover:text-white/70"
                   }`}
                 >
                   <t.icon className="w-3 h-3" />
@@ -528,13 +528,13 @@ export default function CommandCenter() {
                         ? "rgba(239,68,68,0.04)"
                         : task.priority === "amber"
                           ? "rgba(245,158,11,0.04)"
-                          : "rgba(8,145,178,0.04)",
+                          : "rgba(255,255,255,0.03)",
                     border: `1px solid ${
                       task.priority === "red"
                         ? "rgba(239,68,68,0.2)"
                         : task.priority === "amber"
                           ? "rgba(245,158,11,0.18)"
-                          : "rgba(8,145,178,0.2)"
+                          : "rgba(255,255,255,0.08)"
                     }`,
                   }}
                 >
@@ -555,9 +555,9 @@ export default function CommandCenter() {
                       onClick={() => navigate(task.actionPath)}
                       className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
                       style={{
-                        background: "rgba(8,145,178,0.15)",
-                        color: "#22d3ee",
-                        border: "1px solid rgba(8,145,178,0.25)",
+                        background: "rgba(255,255,255,0.08)",
+                        color: "#e0e0e0",
+                        border: "1px solid rgba(255,255,255,0.15)",
                       }}
                     >
                       {en ? task.actionLabelEn : task.actionLabelEs}
