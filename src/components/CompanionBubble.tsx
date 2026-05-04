@@ -34,8 +34,10 @@ export default function CompanionBubble() {
         style={{
           width: 52,
           height: 52,
-          background: "#1E293B",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+          background: "transparent",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
+          padding: 0,
+          overflow: "hidden",
         }}
         aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
       >
@@ -48,7 +50,7 @@ export default function CompanionBubble() {
         {isOpen ? (
           <X className="w-5 h-5 text-white" />
         ) : (
-          <img src="/favicon.png" alt="Connecta" className="w-9 h-9 rounded-full object-contain" />
+          <img src="/favicon.png" alt="Connecta" className="w-full h-full object-cover" />
         )}
         {badgeCount > 0 && !isOpen && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
