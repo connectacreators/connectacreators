@@ -9,7 +9,7 @@ import {
   CheckCircle, Flame,
 } from "lucide-react";
 import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
-import connectaHorseLogo from "@/assets/connecta-horse-logo.png";
+import connectaFaviconIcon from "@/assets/connecta-favicon-icon.png";
 import BorderGlow from "@/components/ui/BorderGlow";
 
 const useIsMobile = () => {
@@ -803,7 +803,6 @@ export default function LandingPageNew() {
           --lp-h1-tracking: -2px;
           --lp-h1-lh: 1.08;
           --lp-demo-px: 48px;
-          --lp-horse-h: 110px;
         }
         @media (max-width: 640px) {
           :root {
@@ -813,9 +812,7 @@ export default function LandingPageNew() {
             --lp-h1-tracking: -0.5px;
             --lp-h1-lh: 1.14;
             --lp-demo-px: 14px;
-            --lp-horse-h: 80px;
           }
-          .cc-horse-wrap { display: none !important; }
           .cc-viral-overflow-chips { display: none !important; }
           .cc-viral-search { min-width: 0 !important; flex: 1 !important; }
           .cc-feature-mockup { max-width: 100% !important; overflow-x: hidden; }
@@ -836,8 +833,7 @@ export default function LandingPageNew() {
         video::-webkit-media-controls-play-button { display: none !important; }
         video::-webkit-media-controls-start-playback-button { display: none !important; }
         video::-moz-media-controls { display: none !important; }
-        @keyframes horse-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-        @keyframes horse-glow-pulse { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+
       `}</style>
 
       <div className="min-h-screen text-white overflow-x-hidden ambient-glow" style={{ backgroundColor: darkBg }}>
@@ -917,28 +913,8 @@ export default function LandingPageNew() {
 
         {/* HERO */}
         <section className="relative flex flex-col items-center" style={{ padding: "var(--lp-hero-pt) var(--lp-hero-px) 48px", zIndex: 1 }}>
-          {/* Horse logo — hidden on mobile (iOS in-app browsers don't support mix-blend-mode) */}
-          <div className="cc-horse-wrap relative flex items-center justify-center mb-5">
-            <video
-              autoPlay loop muted playsInline
-              controls={false}
-              disablePictureInPicture
-              // @ts-ignore — webkit vendor attribute
-              webkit-playsinline=""
-              style={{
-                height: "var(--lp-horse-h)", objectFit: "contain",
-                background: "transparent",
-                outline: "none",
-                border: "none",
-                pointerEvents: "none",
-                mixBlendMode: "screen" as any,
-                animation: "horse-float 8s ease-in-out infinite",
-                filter: "brightness(1.1)",
-              }}
-            >
-              <source src="/assets/horse-hero.webm" type="video/webm" />
-              <source src="/assets/horse-hero.mp4" type="video/mp4" />
-            </video>
+          <div className="flex items-center justify-center mb-6">
+            <img src={connectaFaviconIcon} alt="Connecta" style={{ height: 72, width: 72, objectFit: "contain" }} />
           </div>
 
           <motion.div
@@ -956,7 +932,7 @@ export default function LandingPageNew() {
               AI-Powered Creator Platform
             </motion.div>
 
-            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "var(--lp-h1-tracking)", color: "rgba(255,255,255,.92)" }}>
+            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, fontFamily: "'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif", lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "var(--lp-h1-tracking)", color: "rgba(255,255,255,.92)" }}>
               Create viral short-form<br />
               <b style={{ fontWeight: 700, background: goldGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>videos in seconds</b>
             </h1>

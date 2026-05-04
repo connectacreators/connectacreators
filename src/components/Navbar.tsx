@@ -3,8 +3,7 @@ import { Menu, X, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
-import connectaLogo from "@/assets/connecta-logo.png";
-import connectaLogoDark from "@/assets/connecta-logo-dark.png";
+import connectaLogoNew from "@/assets/connecta-logo-new.png";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,7 +35,7 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <img src={theme === "light" ? connectaLogoDark : connectaLogo} alt="Connecta" className="h-16" />
+            <img src={connectaLogoNew} alt="Connecta" className="h-10 object-contain" />
           </div>
 
           {/* Desktop Navigation */}
