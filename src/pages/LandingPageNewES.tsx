@@ -980,9 +980,6 @@ export default function LandingPageNewES() {
 
         {/* HERO */}
         <section className="relative flex flex-col items-center" style={{ padding: "var(--lp-hero-pt) var(--lp-hero-px) 48px", zIndex: 1 }}>
-          <div className="flex items-center justify-center mb-6">
-            <img src={connectaFaviconIcon} alt="Connecta" style={{ height: 72, width: 72, objectFit: "contain" }} />
-          </div>
 
           <motion.div
             className="text-center relative z-10"

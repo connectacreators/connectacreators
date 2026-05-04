@@ -20,7 +20,7 @@ type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ class
 type NavGroup = { type: 'group'; label: string };
 type NavEntry = NavItem | NavGroup;
 
-import connectaTextLogo from "@/assets/connecta-logo-text-light.png";
+import connectaTextLogo from "@/assets/connecta-logo-new.png";
 
 interface Props {
   sidebarOpen: boolean;
@@ -96,6 +96,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   // Fetch clients list for selector
   useEffect(() => {
     if (!user || !showClientSelector) return;
+    // Cancel stale resolutions: role loads async, so this effect runs first
+    // with role="client" (default → isSubscriber=true, fires empty subscriber query),
+    // then re-runs after role resolves to "admin" (fires full clients query). Without
+    // this guard, the late-resolving subscriber query overwrites the admin result with [].
+    let cancelled = false;
 
     if (isUser || isSubscriber) {
       // Fetch non-primary subscriber clients (primary shown as "My Brand" separately)
@@ -106,17 +111,20 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         .eq("is_primary", false)
         .order("created_at")
         .then(({ data }) => {
-          if (data) {
-            setClients(data.map((d: any) => ({
-              id: d.clients.id,
-              name: d.clients.name,
-            })));
-          }
+          if (cancelled || !data) return;
+          setClients(data.map((d: any) => ({
+            id: d.clients.id,
+            name: d.clients.name,
+          })));
         });
     } else {
       supabase.from("clients").select("id, name").order("name")
-        .then(({ data }) => { if (data) setClients(data); });
+        .then(({ data }) => {
+          if (cancelled || !data) return;
+          setClients(data);
+        });
     }
+    return () => { cancelled = true; };
   }, [user, showClientSelector, isUser, isSubscriber]);
 
   // Fetch subscriber client limit
