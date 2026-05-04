@@ -304,7 +304,12 @@ export function AssistantChat({
         {visibleMessages.map((msg, i) => (
           <div key={i}>
             {msg.role === "assistant" ? (
-              msg.type === "script_preview" && msg.script_data ? (
+              msg.is_progress ? (
+                <div className="flex items-center gap-1.5 text-muted-foreground/60">
+                  <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
+                  <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic`}>{msg.content}</span>
+                </div>
+              ) : msg.type === "script_preview" && msg.script_data ? (
                 <div className="flex gap-2 items-start">
                   <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
                   <div className="min-w-0 flex-1">

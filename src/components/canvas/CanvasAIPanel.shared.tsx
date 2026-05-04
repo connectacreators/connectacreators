@@ -35,6 +35,7 @@ export interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
   type?: "text" | "image" | "script_preview";
+  is_progress?: boolean;
   image_b64?: string;
   _blobUrl?: string;
   revised_prompt?: string;

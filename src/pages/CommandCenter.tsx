@@ -324,6 +324,7 @@ export default function CommandCenter() {
         return {
           role: m.role as "user" | "assistant",
           content,
+          is_progress: (m.content as any)?.is_progress === true,
         };
       });
   }, [messages]);
