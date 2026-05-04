@@ -138,9 +138,8 @@ export default function CommandCenter() {
       .limit(50);
     if (mode === "client" && activeClientId) {
       query = query.eq("client_id", activeClientId);
-    } else {
-      query = query.is("client_id", null);
     }
+    // Agency mode: show ALL user threads (drawer + canvas) so /ai is synced with the drawer
     const { data, error } = await query;
     if (!error) setThreads((data ?? []) as ThreadRow[]);
   }, [user, mode, activeClientId]);

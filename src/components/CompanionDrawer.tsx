@@ -104,26 +104,53 @@ export default function CompanionDrawer() {
     void loadThreads();
   }, [loadThreads]);
 
-  // ── Messages for active thread ──────────────────────────────────────────
+  // ── Messages for active thread (with Realtime for FSM messages) ────────
+  const loadMessagesForThread = useCallback(async (threadId: string) => {
+    const { data, error } = await supabase
+      .from("assistant_messages")
+      .select("id, role, content, created_at")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (!error) setMessages((data ?? []) as MsgRow[]);
+  }, []);
+
   useEffect(() => {
     if (!activeThreadId) {
       setMessages([]);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("assistant_messages")
-        .select("id, role, content, created_at")
-        .eq("thread_id", activeThreadId)
-        .order("created_at", { ascending: true })
-        .limit(100);
-      if (!cancelled && !error) setMessages((data ?? []) as MsgRow[]);
-    })();
+    void loadMessagesForThread(activeThreadId);
+
+    const channel = supabase
+      .channel(`companion-msgs-${activeThreadId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "assistant_messages",
+          filter: `thread_id=eq.${activeThreadId}`,
+        },
+        (payload: any) => {
+          const newMsg = payload.new as MsgRow;
+          if (newMsg.role === "tool") return;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            // Replace any matching optimistic (tmp-) message with the real one
+            const filtered = prev.filter(
+              (m) => !(m.id.startsWith("tmp-") && m.role === newMsg.role),
+            );
+            return [...filtered, newMsg];
+          });
+        },
+      )
+      .subscribe();
+
     return () => {
-      cancelled = true;
+      void supabase.removeChannel(channel);
     };
-  }, [activeThreadId]);
+  }, [activeThreadId, loadMessagesForThread]);
 
   // ── Map ThreadRow → ThreadListItem ──────────────────────────────────────
   const threadListItems: ThreadListItem[] = useMemo(
@@ -170,12 +197,10 @@ export default function CompanionDrawer() {
     setInput("");
     setSending(true);
 
-    // Optimistic user-message append
+    // Optimistic user message — shown immediately, Realtime will replace it
+    // with the real DB row when companion-chat dual-writes it.
     const optimistic: MsgRow = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `tmp-${Date.now()}`,
+      id: `tmp-${Date.now()}`,
       role: "user",
       content: { type: "text", text },
       created_at: new Date().toISOString(),
@@ -197,20 +222,18 @@ export default function CompanionDrawer() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      if (data?.reply) {
-        const assistantMsg: MsgRow = {
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `tmp-${Date.now() + 1}`,
-          role: "assistant",
-          content: { type: "text", text: data.reply },
-          created_at: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
+      // If companion-chat returns a thread_id, activate that thread so the
+      // Realtime subscription picks up FSM messages automatically.
+      const returnedThreadId = data?.thread_id as string | undefined;
+      if (returnedThreadId && !activeThreadId) {
+        setActiveThreadId(returnedThreadId);
+        // useEffect will fire loadMessagesForThread → clears optimistic + loads real msgs
+      } else if (returnedThreadId && activeThreadId) {
+        // Reload to replace optimistic messages with real DB state.
+        await loadMessagesForThread(activeThreadId);
       }
 
-      // Execute any actions returned by the AI (preserve old bubble behavior)
+      // Execute any actions returned by the AI
       if (Array.isArray(data?.actions)) {
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
@@ -227,7 +250,6 @@ export default function CompanionDrawer() {
         }
       }
 
-      // Refresh threads list (companion-chat dual-write created/updated one).
       await loadThreads();
     } finally {
       setSending(false);
@@ -242,6 +264,8 @@ export default function CompanionDrawer() {
     navigate,
     setIsOpen,
     loadThreads,
+    activeThreadId,
+    loadMessagesForThread,
   ]);
 
   // ── Convert MsgRow[] → AssistantMessage[] for AssistantChat ─────────────

@@ -380,10 +380,8 @@ async function dualWriteCompanionTurn(
     userMessageText: string;
     assistantReplyText: string;
   },
-) {
+): Promise<string | null> {
   try {
-    // For each (user, client) we maintain ONE active drawer thread for the dual-write.
-    // Look it up by sentinel title; create if missing.
     const sentinel = "Active companion chat";
     const { data: existing } = await supabase
       .from("assistant_threads")
@@ -413,8 +411,10 @@ async function dualWriteCompanionTurn(
       role: "assistant",
       content: { type: "text", text: params.assistantReplyText },
     });
+    return threadId ?? null;
   } catch (err) {
     console.warn("dualWriteCompanionTurn failed:", err instanceof Error ? err.message : err);
+    return null;
   }
 }
 
@@ -497,7 +497,7 @@ serve(async (req) => {
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (awaiting && autonomy_mode === "ask") {
+      if (awaiting) {
         const sentinel = "Active companion chat";
         const { data: thread } = await adminClient
           .from("assistant_threads")
@@ -533,7 +533,7 @@ serve(async (req) => {
             body: JSON.stringify({ build_session_id: awaiting.id }),
           }).catch(() => {});
           return new Response(
-            JSON.stringify({ reply: "", actions: [], build_session_id: awaiting.id }),
+            JSON.stringify({ reply: "", actions: [], build_session_id: awaiting.id, thread_id: thread.id }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
@@ -544,8 +544,8 @@ serve(async (req) => {
     // In Ask mode, intercept "build me a script"-style messages and route
     // them through the FSM-driven builder instead of the normal LLM path.
     // Phase 1 = dummy state walk; Phase 2 will swap real per-state work in.
-    const BUILD_TRIGGER = /\b(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
-    if (autonomy_mode === "ask" && BUILD_TRIGGER.test(message)) {
+    const BUILD_TRIGGER = /\b(let'?s\s+)?(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
+    if (BUILD_TRIGGER.test(message)) {
       const sentinel = "Active companion chat";
       let threadId: string | null = null;
       const { data: existingThread } = await adminClient
@@ -587,7 +587,7 @@ serve(async (req) => {
             content: { type: "text", text: replyText },
           });
           return new Response(
-            JSON.stringify({ reply: replyText, actions: [], build_session_id: existing.id }),
+            JSON.stringify({ reply: replyText, actions: [], build_session_id: existing.id, thread_id: threadId }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
@@ -633,7 +633,7 @@ serve(async (req) => {
         }).catch((e) => console.error("[companion-chat] worker kickoff failed:", e));
 
         return new Response(
-          JSON.stringify({ reply: replyText, actions: [], build_session_id: session.id }),
+          JSON.stringify({ reply: replyText, actions: [], build_session_id: session.id, thread_id: threadId }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -1888,14 +1888,14 @@ Tell the user this in your respond_to_user — be specific about what you found,
     });
 
     // Phase A dual-write to the new unified tables (non-blocking on failure).
-    await dualWriteCompanionTurn(adminClient, {
+    const threadId = await dualWriteCompanionTurn(adminClient, {
       userId: user.id,
       clientId: client.id,
       userMessageText: message,
       assistantReplyText: reply,
     });
 
-    return new Response(JSON.stringify({ reply, actions }), {
+    return new Response(JSON.stringify({ reply, actions, thread_id: threadId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
