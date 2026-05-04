@@ -269,8 +269,10 @@ If client has no canvas at all, existing logic at `SuperPlanningCanvas.tsx:899` 
 - Lost row lock during `process-build-step` → no-op; another invocation has it.
 - Network drop during interactive checkpoint → no impact; state persists in DB; user reload picks up where left off.
 
-## Open questions
+## Resolved decisions
 
-- Should the auto-pilot toggle be visible during *Auto mode* too, or only Ask mode? Recommendation: only Ask, since Auto already auto-pilots everything.
-- Token usage aggregation across the whole conversation vs per build session — recommendation: per session, with a roll-up later if needed.
-- Behavior when user starts a *new* build while one is `paused` on the same thread — recommendation: ask "Resume the paused build first or replace it?"
+- **Auto-pilot toggle visibility:** only in Ask mode. Auto mode already auto-pilots everything; toggle is hidden there.
+- **Token usage:** tracked per build session (`companion_build_sessions.token_usage` jsonb). Per-conversation roll-up can be added later if needed without schema change.
+- **New build while one is paused/running on same thread:** Robby surfaces the conflict explicitly before starting:
+  > *"Heads up — you've got a build paused at step 6 (framework search) for idea 'How to talk to girls'. Starting a new one will abandon that progress. Resume the paused one, or start fresh?"*
+  Two buttons: **Resume paused** / **Start fresh and abandon**. No silent replacement.
