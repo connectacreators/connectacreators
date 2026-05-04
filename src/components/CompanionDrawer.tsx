@@ -301,7 +301,7 @@ export default function CompanionDrawer() {
       }}
     >
       {/* Tabs strip */}
-      <nav className="w-10 border-r border-white/[0.04] flex flex-col items-center pt-4 gap-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+      <nav className="w-10 border-r border-white/[0.04] flex flex-col items-center pt-4 gap-2" style={{ background: "transparent" }}>
         <TabBtn
           icon={List}
           active={tab === "threads"}
