@@ -103,6 +103,7 @@ export async function handleResolveClient(
   ctx: BuildToolContext,
 ): Promise<string> {
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
+  await logBuildProgress(ctx, "On it — looking up client...", "Resolving client...");
 
   const { data: targetClient } = await ctx.adminClient
     .from("clients")
@@ -141,6 +142,8 @@ export async function handleGetCanvasContext(
   if (ctx.buildSession?.cachedCanvasContext !== null && ctx.buildSession?.cachedCanvasContext !== undefined) {
     return `Using cached canvas context (read earlier this session).\n\n${ctx.buildSession.cachedCanvasContext || "(canvas was empty)"}`;
   }
+
+  await logBuildProgress(ctx, "Reading your canvas...", "Reading canvas...");
 
   const { data: canvases } = await ctx.adminClient
     .from("canvas_states")
