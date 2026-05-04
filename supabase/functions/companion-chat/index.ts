@@ -637,7 +637,12 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      // If we couldn't resolve a thread, fall through to the normal LLM path.
+      // Thread creation failed — return an error instead of falling through to
+      // the LLM. We never want build_script_full_pipeline to run for build requests.
+      return new Response(
+        JSON.stringify({ reply: "Sorry, I had trouble starting the build session. Please try again.", actions: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Load memory, strategy, history in parallel

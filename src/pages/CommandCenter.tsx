@@ -148,26 +148,52 @@ export default function CommandCenter() {
     void loadThreads();
   }, [loadThreads]);
 
-  // ── Messages for active thread ─────────────────────────────────────────
+  // ── Messages for active thread (with Realtime for FSM messages) ──────────
+  const loadMessagesForThread = useCallback(async (threadId: string) => {
+    const { data, error } = await supabase
+      .from("assistant_messages")
+      .select("id, role, content, created_at")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    if (!error) setMessages((data ?? []) as MsgRow[]);
+  }, []);
+
   useEffect(() => {
     if (!activeThreadId) {
       setMessages([]);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("assistant_messages")
-        .select("id, role, content, created_at")
-        .eq("thread_id", activeThreadId)
-        .order("created_at", { ascending: true })
-        .limit(200);
-      if (!cancelled && !error) setMessages((data ?? []) as MsgRow[]);
-    })();
+    void loadMessagesForThread(activeThreadId);
+
+    const channel = supabase
+      .channel(`cc-msgs-${activeThreadId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "assistant_messages",
+          filter: `thread_id=eq.${activeThreadId}`,
+        },
+        (payload: any) => {
+          const newMsg = payload.new as MsgRow;
+          if (newMsg.role === "tool") return;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            const filtered = prev.filter(
+              (m) => !(m.id.startsWith("tmp-") && m.role === newMsg.role),
+            );
+            return [...filtered, newMsg];
+          });
+        },
+      )
+      .subscribe();
+
     return () => {
-      cancelled = true;
+      void supabase.removeChannel(channel);
     };
-  }, [activeThreadId]);
+  }, [activeThreadId, loadMessagesForThread]);
 
   // ── ThreadRow → ThreadListItem ─────────────────────────────────────────
   const threadListItems: ThreadListItem[] = useMemo(
@@ -214,10 +240,7 @@ export default function CommandCenter() {
     setSending(true);
 
     const optimistic: MsgRow = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `tmp-${Date.now()}`,
+      id: `tmp-${Date.now()}`,
       role: "user",
       content: { type: "text", text },
       created_at: new Date().toISOString(),
@@ -239,19 +262,17 @@ export default function CommandCenter() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      if (data?.reply) {
-        const assistantMsg: MsgRow = {
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `tmp-${Date.now() + 1}`,
-          role: "assistant",
-          content: { type: "text", text: data.reply },
-          created_at: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
+      // Activate the thread from the response so Realtime subscription fires
+      const returnedThreadId = data?.thread_id as string | undefined;
+      if (returnedThreadId && !activeThreadId) {
+        setActiveThreadId(returnedThreadId);
+        setRightTab("chat");
+        // useEffect fires loadMessagesForThread automatically
+      } else if (returnedThreadId && activeThreadId) {
+        await loadMessagesForThread(activeThreadId);
       }
 
+      // Only navigate for non-FSM responses (FSM returns actions: [])
       if (Array.isArray(data?.actions)) {
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
@@ -267,8 +288,6 @@ export default function CommandCenter() {
         }
       }
 
-      // Refresh both the threads list and tasks (companion-chat may have
-      // mutated state that affects tasks)
       await loadThreads();
       void refreshTasks();
     } finally {
@@ -284,6 +303,8 @@ export default function CommandCenter() {
     navigate,
     loadThreads,
     refreshTasks,
+    activeThreadId,
+    loadMessagesForThread,
   ]);
 
   // ── MsgRow[] → AssistantMessage[] for AssistantChat ────────────────────

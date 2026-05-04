@@ -71,9 +71,20 @@ async function callClaude(prompt: string, system?: string): Promise<string> {
 
 // ── State handlers ─────────────────────────────────────────────────────────
 
-const handleInit: StateHandler = async (_ctx) => {
-  // No setup needed in Phase 2; advance immediately.
-  return { kind: "advance" };
+const handleInit: StateHandler = async (ctx) => {
+  // Announce which client we're working on so the user always knows context,
+  // especially important when triggered from the /ai agency page.
+  const { data: client } = await ctx.admin
+    .from("clients")
+    .select("name")
+    .eq("id", ctx.session.clientId)
+    .maybeSingle();
+  const clientName = (client?.name as string | null) ?? "your client";
+  await logProgress(
+    ctx,
+    `Got it! I'm working on **${clientName}**. What idea is on your mind? Or say "give me 5 ideas" and I'll suggest some based on their strategy.`,
+  );
+  return { kind: "pause" };
 };
 
 const handleResolveChat: StateHandler = async (ctx) => {
@@ -107,10 +118,11 @@ const handleResolveChat: StateHandler = async (ctx) => {
 const handleAwaitingIdea: StateHandler = async (ctx) => {
   const userInput = await consumeUserInput(ctx);
   if (!userInput) {
-    // First entry into this state — ask the user.
+    // INIT already asked the question and paused; if we somehow re-enter
+    // without input (e.g. after LOOPING_NEXT), ask again.
     await logProgress(
       ctx,
-      "What idea is on your mind? Reply with a topic, or say \"give me 5 ideas\" and I'll suggest some.",
+      "What's the next idea? Or say \"give me 5 ideas\" for suggestions.",
     );
     return { kind: "pause" };
   }
