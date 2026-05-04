@@ -452,7 +452,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {activeSubCards.map((card, i) => (
                       <motion.div key={card.path} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}>
-                        <div className="rounded-xl border border-[rgba(255,255,255,0.09)] bg-[#171a20] hover:bg-[#141416] hover:border-[rgba(255,255,255,0.13)] transition-colors">
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16171a] hover:bg-[#131315] hover:border-[rgba(255,255,255,0.11)] transition-colors">
                           <button
                             onClick={() => !(card as any).disabled && navigate(card.path)}
                             className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
@@ -485,7 +485,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (
                       <motion.div key={folder.key} initial="hidden" animate="visible" custom={i + 2} variants={fadeUp}>
-                        <div className="rounded-xl border border-[rgba(255,255,255,0.09)] bg-[#171a20] hover:bg-[#141416] hover:border-[rgba(255,255,255,0.13)] transition-colors">
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16171a] hover:bg-[#131315] hover:border-[rgba(255,255,255,0.11)] transition-colors">
                           <button
                             onClick={() => setActiveFolder(folder.key)}
                             className="group flex flex-col items-center gap-5 p-8 text-center w-full"
@@ -517,7 +517,7 @@ export default function Dashboard() {
                 <div className={`grid grid-cols-1 ${toolCards.length === 1 ? 'max-w-sm mx-auto' : toolCards.length === 2 ? 'sm:grid-cols-2 max-w-xl mx-auto' : 'sm:grid-cols-3'} gap-6`}>
                   {toolCards.map((tool, i) => (
                     <motion.div key={tool.path} initial="hidden" animate="visible" custom={i + 2} variants={fadeUp}>
-                      <div className="rounded-xl border border-[rgba(255,255,255,0.09)] bg-[#171a20] hover:bg-[#141416] hover:border-[rgba(255,255,255,0.13)] transition-colors">
+                      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16171a] hover:bg-[#131315] hover:border-[rgba(255,255,255,0.11)] transition-colors">
                         <button
                           onClick={() => navigate(tool.path)}
                           className="group flex flex-col items-center gap-5 p-8 text-center w-full"
@@ -573,7 +573,7 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {activeSubCards.map((card, i) => (
                         <motion.div key={card.path} initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}>
-                          <div className="rounded-xl border border-[rgba(255,255,255,0.09)] bg-[#171a20] hover:bg-[#141416] hover:border-[rgba(255,255,255,0.13)] transition-colors">
+                          <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16171a] hover:bg-[#131315] hover:border-[rgba(255,255,255,0.11)] transition-colors">
                             <button
                               onClick={() => !(card as any).disabled && navigate(card.path)}
                               className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
@@ -608,7 +608,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {folderCards.map((folder, i) => (
                       <motion.div key={folder.key} initial="hidden" animate="visible" custom={i + 3} variants={fadeUp}>
-                        <div className="rounded-xl border border-[rgba(255,255,255,0.09)] bg-[#171a20] hover:bg-[#141416] hover:border-[rgba(255,255,255,0.13)] transition-colors">
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16171a] hover:bg-[#131315] hover:border-[rgba(255,255,255,0.11)] transition-colors">
                           <button
                             onClick={() => setActiveFolder(folder.key)}
                             className="group flex flex-col items-center gap-5 p-8 text-center w-full"
