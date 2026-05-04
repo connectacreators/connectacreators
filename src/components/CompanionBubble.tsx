@@ -1,4 +1,4 @@
-import { Bot, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -34,7 +34,7 @@ export default function CompanionBubble() {
         style={{
           width: 52,
           height: 52,
-          background: "linear-gradient(135deg,#0891B2,#84CC16)",
+          background: "#0891B2",
           boxShadow: "0 4px 24px rgba(8,145,178,0.45)",
         }}
         aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
@@ -48,7 +48,7 @@ export default function CompanionBubble() {
         {isOpen ? (
           <X className="w-5 h-5 text-white" />
         ) : (
-          <Bot className="w-5 h-5 text-white" />
+          <img src="/favicon.png" alt="Connecta" className="w-8 h-8 rounded-sm" />
         )}
         {badgeCount > 0 && !isOpen && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
