@@ -323,13 +323,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full lg:w-0 lg:translate-x-0 lg:overflow-hidden"
       } fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
-      <div className="flex items-center gap-2 px-4 py-5 border-b border-[rgba(255,255,255,0.06)] relative z-10">
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-[rgba(255,255,255,0.06)] relative z-10">
         <button onClick={() => navigate("/")} className="focus:outline-none">
-          <img
-            src={connectaTextLogo}
-            alt="Connecta"
-            className="h-8 w-auto object-contain hover:opacity-80 transition-opacity" style={{ maxWidth: 160 }}
-          />
+          <span className="font-caslon text-xl text-foreground hover:opacity-80 transition-opacity tracking-wide" style={{ letterSpacing: "0.06em" }}>
+            Connecta
+          </span>
         </button>
         <button
           onClick={() => setSidebarOpen(false)}
