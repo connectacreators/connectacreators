@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { Node } from "@xyflow/react";
-import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import CanvasAIPanel from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
+import { AssistantContextPanel, AssistantThreadList } from "@/components/assistant";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeChatSync } from "@/hooks/useRealtimeChatSync";
@@ -100,26 +101,6 @@ function stripImagesForPersistence(messages: ChatMessage[]): ChatMessage[] {
   });
 }
 
-function relativeDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return d.toLocaleDateString("en-US", { weekday: "short" });
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function groupChatsByDate(chats: ChatSession[]): Array<{ label: string; chats: ChatSession[] }> {
-  const map = new Map<string, ChatSession[]>();
-  for (const chat of chats) {
-    const label = relativeDate(chat.updated_at);
-    if (!map.has(label)) map.set(label, []);
-    map.get(label)!.push(chat);
-  }
-  return Array.from(map.entries()).map(([label, chats]) => ({ label, chats }));
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 const FullscreenAIView = memo(function FullscreenAIView({
@@ -148,8 +129,6 @@ const FullscreenAIView = memo(function FullscreenAIView({
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeMessages, setActiveMessages] = useState<ChatMessage[]>([]);
   const [chatsLoaded, setChatsLoaded] = useState(false);
-  const [editingChatId, setEditingChatId] = useState<string | null>(null);
-  const [editingChatName, setEditingChatName] = useState("");
 
   const [generatedScript, setGeneratedScript] = useState<any>(null);
 
@@ -452,8 +431,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
   }, [user, selectedClient.id, chats.length, chatNodeId]);
 
   // Delete a chat
-  const deleteChat = useCallback(async (chatId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deleteChat = useCallback(async (chatId: string) => {
     await supabase.from("canvas_ai_chats").delete().eq("id", chatId);
     try { localStorage.removeItem(`cc_chat_${chatId}`); } catch { /* ignore */ }
     setChats((prev) => prev.filter((c) => c.id !== chatId));
@@ -467,41 +445,33 @@ const FullscreenAIView = memo(function FullscreenAIView({
     window.dispatchEvent(new CustomEvent("canvas-ai-chat-changed", { detail: { clientId: selectedClient.id, nodeId: chatNodeId } }));
   }, [activeChatId, chats, selectedClient.id, chatNodeId]);
 
-  // Rename handlers
-  const startRename = useCallback((chat: ChatSession, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingChatId(chat.id);
-    setEditingChatName(chat.name);
-  }, []);
-
-  const commitRename = useCallback(async (chatId: string) => {
-    const trimmed = editingChatName.trim();
-    if (trimmed) {
-      await supabase.from("canvas_ai_chats").update({ name: trimmed }).eq("id", chatId);
-      setChats((prev) => prev.map((c) => c.id === chatId ? { ...c, name: trimmed } : c));
-      window.dispatchEvent(new CustomEvent("canvas-ai-chat-changed", { detail: { clientId: selectedClient.id, nodeId: chatNodeId } }));
-    }
-    setEditingChatId(null);
-  }, [editingChatName, selectedClient.id, chatNodeId]);
+  // Rename a chat (called by AssistantThreadList after inline edit)
+  const renameChat = useCallback(async (chatId: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    await supabase.from("canvas_ai_chats").update({ name: trimmed }).eq("id", chatId);
+    setChats((prev) => prev.map((c) => c.id === chatId ? { ...c, name: trimmed } : c));
+    window.dispatchEvent(new CustomEvent("canvas-ai-chat-changed", { detail: { clientId: selectedClient.id, nodeId: chatNodeId } }));
+  }, [selectedClient.id, chatNodeId]);
 
   // Switch chat — lazy-load messages
   const switchChat = useCallback(
-    async (chat: ChatSession) => {
+    async (chatId: string) => {
       if (activeChatId && activeMessages.length > 0) {
         persistMessages(activeChatId, activeMessages);
       }
-      setActiveChatId(chat.id);
-      broadcastActiveChatRef.current?.(chat.id); // collaborators follow this switch
+      setActiveChatId(chatId);
+      broadcastActiveChatRef.current?.(chatId); // collaborators follow this switch
       setActiveMessages([]);
 
       const { data: chatData } = await supabase
         .from("canvas_ai_chats")
         .select("messages")
-        .eq("id", chat.id)
+        .eq("id", chatId)
         .single();
       let msgs: ChatMessage[] = (chatData?.messages as any) || [];
       try {
-        const lsRaw = localStorage.getItem(`cc_chat_${chat.id}`);
+        const lsRaw = localStorage.getItem(`cc_chat_${chatId}`);
         if (lsRaw) {
           const lsMsgs = JSON.parse(lsRaw);
           if (Array.isArray(lsMsgs) && lsMsgs.length > msgs.length) msgs = lsMsgs;
@@ -549,8 +519,16 @@ const FullscreenAIView = memo(function FullscreenAIView({
     });
   }, [nodes]);
 
-  // Grouped chats for sidebar
-  const groupedChats = useMemo(() => groupChatsByDate(chats), [chats]);
+  // Thread list items for AssistantThreadList
+  const threadItems = useMemo(
+    () => chats.map((c) => ({
+      id: c.id,
+      name: c.name,
+      origin: "canvas" as const,
+      updatedAt: c.updated_at,
+    })),
+    [chats]
+  );
 
   // Canvas context — read from ref at render time
   const canvasContext = canvasContextRef.current ?? {
@@ -643,199 +621,20 @@ const FullscreenAIView = memo(function FullscreenAIView({
           style={{
             width: 200,
             flexShrink: 0,
-            background: "#111214",
             borderRight: "1px solid #2a2b30",
-            display: "flex",
-            flexDirection: "column",
             overflow: "hidden",
           }}
         >
-          {/* Sidebar header */}
-          <div
-            style={{
-              padding: "10px 12px 8px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderBottom: "1px solid #2a2b30",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.35)",
-              }}
-            >
-              Chats
-            </span>
-            <button
-              onClick={createChat}
-              style={{
-                background: "none",
-                border: "1px solid #22d3ee",
-                borderRadius: 5,
-                color: "#22d3ee",
-                fontSize: 11,
-                cursor: "pointer",
-                padding: "2px 8px",
-                lineHeight: 1.5,
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.background = "rgba(34,211,238,0.1)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.background = "none")
-              }
-            >
-              + New
-            </button>
-          </div>
-
-          {/* Chat list */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "6px 0",
-            }}
-            className="custom-scrollbar"
-          >
-            {groupedChats.map(({ label, chats: group }) => (
-              <div key={label}>
-                {/* Date section header */}
-                <div
-                  style={{
-                    padding: "8px 12px 3px",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: "0.06em",
-                    color: "rgba(255,255,255,0.22)",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {label}
-                </div>
-                {group.map((chat) => {
-                  const isActive = activeChatId === chat.id;
-                  const isEditing = editingChatId === chat.id;
-                  return (
-                    <div
-                      key={chat.id}
-                      onClick={() => !isEditing && switchChat(chat)}
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        background: isActive ? "rgba(34,211,238,0.08)" : "none",
-                        borderLeft: isActive ? "2px solid #22d3ee" : "2px solid transparent",
-                        cursor: "pointer",
-                        padding: "6px 10px 6px 10px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        transition: "background 0.12s",
-                        position: "relative",
-                      }}
-                      className="chat-item-row"
-                      onMouseEnter={(e) => {
-                        if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
-                        const actions = (e.currentTarget as HTMLDivElement).querySelector(".chat-actions") as HTMLElement | null;
-                        if (actions) actions.style.opacity = "1";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "none";
-                        const actions = (e.currentTarget as HTMLDivElement).querySelector(".chat-actions") as HTMLElement | null;
-                        if (actions) actions.style.opacity = "0";
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        {isEditing ? (
-                          <input
-                            autoFocus
-                            value={editingChatName}
-                            onChange={(e) => setEditingChatName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") commitRename(chat.id);
-                              if (e.key === "Escape") setEditingChatId(null);
-                            }}
-                            onBlur={() => commitRename(chat.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              width: "100%",
-                              background: "rgba(34,211,238,0.08)",
-                              border: "1px solid rgba(34,211,238,0.4)",
-                              borderRadius: 4,
-                              padding: "1px 5px",
-                              fontSize: 11,
-                              color: "#e8e8e8",
-                              outline: "none",
-                            }}
-                          />
-                        ) : (
-                          <span style={{
-                            fontSize: 11,
-                            color: isActive ? "#22d3ee" : "rgba(255,255,255,0.65)",
-                            fontWeight: isActive ? 600 : 400,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            display: "block",
-                          }}>
-                            {chat.name}
-                          </span>
-                        )}
-                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
-                          {relativeDate(chat.updated_at)}
-                        </span>
-                      </div>
-                      {/* Action buttons — visible on hover */}
-                      <div
-                        className="chat-actions"
-                        style={{ display: "flex", gap: 3, opacity: 0, transition: "opacity 0.12s", flexShrink: 0 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={(e) => startRename(chat, e)}
-                          title="Rename"
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "rgba(255,255,255,0.4)", lineHeight: 1 }}
-                          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")}
-                          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)")}
-                        >
-                          <Pencil style={{ width: 11, height: 11 }} />
-                        </button>
-                        <button
-                          onClick={(e) => deleteChat(chat.id, e)}
-                          title="Delete"
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "rgba(255,255,255,0.4)", lineHeight: 1 }}
-                          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#f87171")}
-                          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)")}
-                        >
-                          <Trash2 style={{ width: 11, height: 11 }} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-
-            {chats.length === 0 && chatsLoaded && (
-              <div
-                style={{
-                  padding: "20px 12px",
-                  fontSize: 11,
-                  color: "rgba(255,255,255,0.25)",
-                  textAlign: "center",
-                }}
-              >
-                No chats yet
-              </div>
-            )}
-          </div>
+          <AssistantThreadList
+            threads={threadItems}
+            activeThreadId={activeChatId}
+            onSelect={(id) => switchChat(id)}
+            onCreate={createChat}
+            onRename={renameChat}
+            onDelete={deleteChat}
+            groupByDate
+            variant="full"
+          />
         </div>
 
         {/* Center — Chat area */}
@@ -900,233 +699,24 @@ const FullscreenAIView = memo(function FullscreenAIView({
         </div>
 
         {/* Right — AI sees context panel */}
-        <div
-          style={{
-            width: contextPanelCollapsed ? 32 : 180,
-            flexShrink: 0,
-            background: "#111214",
-            borderLeft: "1px solid #2a2b30",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            transition: "width 0.25s ease",
-          }}
-        >
-          {contextPanelCollapsed ? (
-            /* Collapsed strip */
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "10px 0",
-                gap: 8,
-              }}
-            >
-              <button
-                onClick={() => setContextPanelCollapsed(false)}
-                title="Expand AI context panel"
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "rgba(255,255,255,0.35)",
-                  padding: 4,
-                  borderRadius: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "color 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)")
-                }
-              >
-                <span style={{ fontSize: 14 }}>&#8250;</span>
-              </button>
-              <div
-                style={{
-                  writingMode: "vertical-rl",
-                  textOrientation: "mixed",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.22)",
-                  marginTop: 4,
-                }}
-              >
-                AI sees
-              </div>
-            </div>
-          ) : (
-            /* Expanded panel */
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              {/* Panel header */}
-              <div
-                style={{
-                  padding: "10px 12px 8px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottom: "1px solid #2a2b30",
-                  flexShrink: 0,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "rgba(255,255,255,0.35)",
-                    }}
-                  >
-                    AI sees
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "#22d3ee",
-                      background: "rgba(34,211,238,0.1)",
-                      borderRadius: 4,
-                      padding: "1px 5px",
-                    }}
-                  >
-                    {contextNodes.length}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setContextPanelCollapsed(true)}
-                  title="Collapse AI context panel"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "rgba(255,255,255,0.35)",
-                    padding: 2,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                    lineHeight: 1,
-                    transition: "color 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)")
-                  }
-                >
-                  &#8249;
-                </button>
-              </div>
-
-              {/* Node list */}
-              <div
-                style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}
-                className="custom-scrollbar"
-              >
-                {contextNodes.length === 0 ? (
-                  <div
-                    style={{
-                      padding: "12px",
-                      fontSize: 11,
-                      color: "rgba(255,255,255,0.25)",
-                      textAlign: "center",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    No nodes on canvas yet
-                  </div>
-                ) : (
-                  contextNodes.map((node) => {
-                    const type = node.type as string;
-                    const d = node.data as any;
-                    const color = NODE_TYPE_COLOR[type] || "#888";
-                    const typeLabel = NODE_TYPE_LABEL[type] || type;
-                    const displayName = d?.videoLabel || d?.videoTitle
-                      || (d?.channel_username ? `@${d.channel_username}` : null)
-                      || d?.topic || d?.fileName || d?.label || typeLabel;
-
-                    return (
-                      <div
-                        key={node.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
-                          padding: "5px 12px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: "50%",
-                            background: color,
-                            flexShrink: 0,
-                            marginTop: 3,
-                          }}
-                        />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              color: "rgba(255,255,255,0.7)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {displayName}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 9,
-                              color: "rgba(255,255,255,0.28)",
-                              marginTop: 1,
-                            }}
-                          >
-                            {typeLabel}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Footer */}
-              <div
-                style={{
-                  padding: "8px 12px",
-                  borderTop: "1px solid #2a2b30",
-                  flexShrink: 0,
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.22)",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
-                  Add nodes in canvas to give the AI more context
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        <AssistantContextPanel
+          nodes={contextNodes.map((n) => {
+            const d = n.data as any;
+            const typeLabel = NODE_TYPE_LABEL[n.type as string] || (n.type as string);
+            const displayName = d?.videoLabel || d?.videoTitle
+              || (d?.channel_username ? `@${d.channel_username}` : null)
+              || d?.topic || d?.fileName || d?.label || typeLabel;
+            return {
+              id: n.id,
+              type: n.type as string,
+              label: displayName,
+            };
+          })}
+          typeColorMap={NODE_TYPE_COLOR}
+          typeLabelMap={NODE_TYPE_LABEL}
+          collapsed={contextPanelCollapsed}
+          onToggleCollapsed={() => setContextPanelCollapsed((v) => !v)}
+        />
       </div>
 
       {/* Custom scrollbar styles */}

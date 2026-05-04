@@ -1,407 +1,25 @@
-import { useState, useRef, useEffect, useCallback, Fragment, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
-import { Bot, Send, Loader2, Wand2, Image as ImageIcon, ChevronUp, ChevronDown, Check, Save, ExternalLink, FileText, Copy, Square, RotateCcw, Mic, MicOff, X, Film, Search, Palette, Megaphone, User, Paperclip, Folder, MapPin, Zap } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { FileText, Film, Search, Palette, Megaphone, User, Paperclip, Folder, MapPin, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
-import { parseDeck, composeDeckAnswers, type DeckPayload, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
-import { QuestionDeckCard } from "./QuestionDeckCard";
-import { DeckSummaryBubble } from "./DeckSummaryBubble";
+import { parseDeck, type DeckPayload, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
+import { AssistantChat, AssistantChipsBar, AssistantTextInput } from "@/components/assistant";
+import {
+  AI_MODELS,
+  MODEL_LABEL,
+  type AssistantMessage as Message,
+  type ScriptResult,
+} from "./CanvasAIPanel.shared";
 
-/** Render a single line with inline markdown: **bold**, *italic*, `code`, URLs */
-function renderInline(line: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
-  // Match **bold**, *italic*, `code`, https:// URLs in order
-  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|(https?:\/\/[^\s<>"']+))/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-  while ((match = regex.exec(line)) !== null) {
-    if (match.index > last) parts.push(<Fragment key={key++}>{line.slice(last, match.index)}</Fragment>);
-    if (match[2] !== undefined) parts.push(<strong key={key++} className="font-semibold">{match[2]}</strong>);
-    else if (match[3] !== undefined) parts.push(<em key={key++}>{match[3]}</em>);
-    else if (match[4] !== undefined) parts.push(<code key={key++} className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono">{match[4]}</code>);
-    else if (match[5] !== undefined) parts.push(<a key={key++} href={match[5]} target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300 break-all" onClick={e => e.stopPropagation()}>{match[5]}</a>);
-    last = match.index + match[0].length;
-  }
-  if (last < line.length) parts.push(<Fragment key={key++}>{line.slice(last)}</Fragment>);
-  return parts;
-}
-
-/** Render full markdown text: headings, bullets, numbered lists, paragraphs */
-function MarkdownText({ text }: { text: string }) {
-  const lines = text.split("\n");
-  const nodes: React.ReactNode[] = [];
-  let bulletGroup: React.ReactNode[] = [];
-  let i = 0;
-
-  const flushBullets = () => {
-    if (bulletGroup.length > 0) {
-      nodes.push(<ul key={`ul-${i}`} className="list-disc list-inside space-y-0.5 my-1">{bulletGroup}</ul>);
-      bulletGroup = [];
-    }
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Heading: # or ##
-    if (/^#{1,3}\s/.test(trimmed)) {
-      flushBullets();
-      const text = trimmed.replace(/^#{1,3}\s/, "");
-      nodes.push(<p key={i} className="font-semibold text-foreground mt-2 mb-0.5">{renderInline(text)}</p>);
-    }
-    // Bullet: - or *
-    else if (/^[-*]\s/.test(trimmed)) {
-      const text = trimmed.replace(/^[-*]\s/, "");
-      bulletGroup.push(<li key={i} className="text-xs leading-relaxed">{renderInline(text)}</li>);
-    }
-    // Numbered list: 1. 2. etc
-    else if (/^\d+\.\s/.test(trimmed)) {
-      flushBullets();
-      const text = trimmed.replace(/^\d+\.\s/, "");
-      nodes.push(<p key={i} className="text-xs leading-relaxed pl-3">• {renderInline(text)}</p>);
-    }
-    // Empty line — spacing
-    else if (trimmed === "") {
-      flushBullets();
-      nodes.push(<div key={i} className="h-1" />);
-    }
-    // Script block: only explicit labeled sections (Hook:/Body:/CTA: etc.)
-    else if (/^(Hook|Body|CTA|Opening|Closing|Rehook):\s*/i.test(trimmed)) {
-      flushBullets();
-      const labelMatch = trimmed.match(/^(Hook|Body|CTA|Opening|Closing|Rehook):\s*/i);
-      const label = labelMatch ? labelMatch[1].toUpperCase() : null;
-      const scriptText = trimmed.replace(/^(Hook|Body|CTA|Opening|Closing|Rehook):\s*/i, "").trim();
-      nodes.push(
-        <div key={i} className="group/scriptline" style={{ background: "rgba(34,211,238,0.06)", borderLeft: "3px solid rgba(34,211,238,0.45)", borderRadius: "0 6px 6px 0", padding: "4px 8px", margin: "3px 0", display: "flex", alignItems: "flex-start", gap: 6 }}>
-          {label && <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3ee", opacity: 0.7, whiteSpace: "nowrap", marginTop: 2 }}>{label}</span>}
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "ui-monospace, 'SF Mono', monospace", lineHeight: 1.45, flex: 1 }}>{scriptText}</span>
-          <button
-            onClick={() => navigator.clipboard.writeText(scriptText)}
-            className="opacity-0 group-hover/scriptline:opacity-60 hover:!opacity-100 transition-opacity"
-            style={{ flexShrink: 0, marginTop: 1, cursor: "pointer", background: "none", border: "none", padding: 2, color: "#22d3ee" }}
-            title="Copy line"
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </button>
-        </div>
-      );
-    }
-    // Normal paragraph line
-    else {
-      flushBullets();
-      nodes.push(<p key={i} className="text-xs leading-relaxed">{renderInline(trimmed)}</p>);
-    }
-    i++;
-  }
-  flushBullets();
-  return <div className="space-y-0.5">{nodes}</div>;
-}
-
-/* ── Inline Script Preview Card ── */
-const LINE_COLORS: Record<string, { color: string; label: string }> = {
-  filming: { color: "#f97316", label: "Filming" },
-  actor: { color: "#d4d4d4", label: "Actor" },
-  editor: { color: "#4ade80", label: "Editor" },
-  text_on_screen: { color: "#60a5fa", label: "Text" },
-};
-const SECTION_ORDER = ["hook", "body", "cta"] as const;
-const SECTION_COLORS: Record<string, string> = { hook: "#f97316", body: "#22d3ee", cta: "#a78bfa" };
-const MAX_PREVIEW_LINES = 5;
-
-function InlineScriptPreview({ script, onSave, onExpand, saving }: {
-  script: ScriptResult;
-  onSave: () => void;
-  onExpand: () => void;
-  saving?: boolean;
-}) {
-  const [saved, setSaved] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const grouped = useMemo(() => {
-    const map: Record<string, typeof script.lines> = { hook: [], body: [], cta: [] };
-    for (const line of script.lines) {
-      const s = (line.section || "body").toLowerCase();
-      if (map[s]) map[s].push(line);
-      else map.body.push(line);
-    }
-    return map;
-  }, [script.lines]);
-
-  const virality = script.virality_score ?? 0;
-  const badgeColor = virality >= 8 ? "#4ade80" : virality >= 6 ? "#22d3ee" : "#f97316";
-
-  const handleSave = async () => {
-    onSave();
-    setSaved(true);
-  };
-
-  return (
-    <div
-      style={{
-        background: "rgba(20, 20, 24, 0.85)",
-        border: "1px solid rgba(34, 211, 238, 0.25)",
-        borderRadius: 12,
-        overflow: "hidden",
-        backdropFilter: "blur(12px)",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: "10px 12px",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "rgba(34, 211, 238, 0.04)",
-        }}
-      >
-        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#22d3ee" }} />
-        <span
-          style={{
-            flex: 1,
-            fontSize: 11,
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.9)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {script.idea_ganadora || "Untitled Script"}
-        </span>
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: badgeColor,
-            background: `${badgeColor}15`,
-            padding: "2px 7px",
-            borderRadius: 6,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {virality.toFixed(1)}/10
-        </span>
-      </div>
-
-      {/* Script Lines — max 5 total */}
-      <div style={{ padding: "6px 10px 4px" }}>
-        {script.lines.length === 0 ? (
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textAlign: "center", padding: "8px 0 4px", fontStyle: "italic" }}>
-            Click "Open Full View" to see the full script
-          </div>
-        ) : null}
-        {(() => {
-          let used = 0;
-          const totalLines = script.lines.length;
-          return SECTION_ORDER.map((section) => {
-            const lines = grouped[section] || [];
-            const limit = expanded ? 9999 : MAX_PREVIEW_LINES;
-            if (lines.length === 0 || used >= limit) return null;
-            const remaining = limit - used;
-            const visible = lines.slice(0, remaining);
-            used += visible.length;
-            const sectionColor = SECTION_COLORS[section] || "#22d3ee";
-            return (
-              <div key={section} style={{ marginBottom: 6 }}>
-                <div
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: sectionColor,
-                    opacity: 0.7,
-                    marginBottom: 3,
-                  }}
-                >
-                  {section}
-                </div>
-                <div
-                  style={{
-                    background: "rgba(0,0,0,0.3)",
-                    borderRadius: 8,
-                    overflow: "hidden",
-                  }}
-                >
-                  {visible.map((line: any, j: number) => {
-                    const info = LINE_COLORS[line.line_type] || LINE_COLORS.actor;
-                    return (
-                      <div
-                        key={j}
-                        style={{
-                          display: "flex",
-                          alignItems: "stretch",
-                          borderBottom: j < visible.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 3,
-                            flexShrink: 0,
-                            background: info.color,
-                            borderRadius: j === 0 ? "8px 0 0 0" : j === visible.length - 1 ? "0 0 0 8px" : 0,
-                          }}
-                        />
-                        <div style={{ padding: "4px 8px", flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              lineHeight: 1.35,
-                              color: "rgba(255,255,255,0.85)",
-                              ...(expanded ? {} : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }),
-                            }}
-                          >
-                            {line.text}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          }).concat(
-            !expanded && totalLines > MAX_PREVIEW_LINES ? (
-              <div key="more" onClick={() => setExpanded(true)} style={{ fontSize: 10, color: "rgba(34,211,238,0.5)", textAlign: "center", padding: "2px 0 4px", cursor: "pointer" }}>
-                +{totalLines - MAX_PREVIEW_LINES} more lines
-              </div>
-            ) : null
-          );
-        })()}
-      </div>
-
-      {/* Footer buttons */}
-      <div
-        style={{
-          padding: "8px 12px",
-          display: "flex",
-          gap: 8,
-          borderTop: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        <button
-          onClick={handleSave}
-          disabled={saving || saved}
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            padding: "7px 0",
-            borderRadius: 8,
-            border: "none",
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: saving || saved ? "default" : "pointer",
-            background: saved ? "rgba(74, 222, 128, 0.15)" : "rgba(34, 211, 238, 0.15)",
-            color: saved ? "#4ade80" : "#22d3ee",
-            transition: "all 0.2s",
-          }}
-        >
-          {saved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-          {saving ? "Saving..." : saved ? "Saved" : "Save Script"}
-        </button>
-        <button
-          onClick={onExpand}
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            padding: "7px 0",
-            borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.1)",
-            fontSize: 11,
-            fontWeight: 500,
-            cursor: "pointer",
-            background: "transparent",
-            color: "rgba(255,255,255,0.5)",
-            transition: "all 0.2s",
-          }}
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Open Full View
-        </button>
-      </div>
-    </div>
-  );
-}
+// Note: renderInline / MarkdownText / InlineScriptPreview / ThinkingAnimation
+// were extracted to ./CanvasAIPanel.shared.tsx so AssistantChat (the new
+// reusable chat surface) can render the same bubbles. Phase B.1, Task 3.
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
-/** Available AI models grouped by provider */
-const AI_MODELS = [
-  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "#3fb950", cost: "~3-8 cr" },
-  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "#0891b2", cost: "~15-25 cr" },
-  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "#a371f7", cost: "~60-100 cr" },
-  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "#3fb950", cost: "~3-8 cr" },
-  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "#f0883e", cost: "~10-20 cr" },
-] as const;
-
-const MODEL_LABEL: Record<string, string> = Object.fromEntries(AI_MODELS.map(m => [m.key, m.label]));
-
-/** Animated thinking verbs — cycles through random phrases like Claude does */
-const THINKING_VERBS = [
-  "Thinking",
-  "Connecting",
-  "Analyzing",
-  "Brainstorming",
-  "Crafting",
-  "Processing",
-  "Reasoning",
-  "Exploring",
-  "Synthesizing",
-  "Considering",
-  "Evaluating",
-  "Composing",
-  "Reflecting",
-  "Understanding",
-  "Generating",
-];
-
-function ThinkingAnimation() {
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * THINKING_VERBS.length));
-  const [fade, setFade] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFade(false);
-      setTimeout(() => {
-        setIndex(prev => {
-          let next: number;
-          do { next = Math.floor(Math.random() * THINKING_VERBS.length); } while (next === prev);
-          return next;
-        });
-        setFade(true);
-      }, 200);
-    }, 2400);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        className="text-[11px] text-muted-foreground/80 font-medium transition-opacity duration-200"
-        style={{ opacity: fade ? 1 : 0 }}
-      >
-        {THINKING_VERBS[index]}
-      </span>
-      <span className="flex gap-[3px] items-center">
-        <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce [animation-delay:0ms]" />
-        <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce [animation-delay:150ms]" />
-        <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce [animation-delay:300ms]" />
-      </span>
-    </div>
-  );
-}
 
 const MAX_MESSAGES = 30;
 /** Cap messages array to last MAX_MESSAGES entries */
@@ -487,14 +105,21 @@ export interface CanvasContext {
     visual_transcription?: any | null;
     signed_url?: string | null;
   }> | null;
-}
-
-interface ScriptResult {
-  lines: any[];
-  idea_ganadora: string;
-  target: string;
-  formato: string;
-  virality_score: number;
+  /** Competitor folder nodes — each folder contains all posts for an account */
+  folder_collections?: Array<{
+    username: string;
+    platform: string;
+    post_count: number;
+    avg_outlier_score: number | null;
+    top_outlier_score: number | null;
+    posts: Array<{
+      caption?: string | null;
+      hookType?: string | null;
+      contentTheme?: string | null;
+      outlier_score?: number | null;
+      url?: string | null;
+    }>;
+  }> | null;
 }
 
 interface Props {
@@ -534,10 +159,14 @@ interface Props {
   externalDroppedImage?: { dataUrl: string; mimeType: string } | null;
   /** When true, centers content with max-width like Claude's chat UI */
   fullscreen?: boolean;
+  /** Active chat row ID — passed to the edge function so it can server-save
+   *  the response even if the client navigates away mid-stream. */
+  chatId?: string | null;
 }
 
-interface DeckMeta { deck_questions: DeckQuestion[]; deck_answers: DeckAnswer[]; }
-interface Message { role: "user" | "assistant"; content: string; type?: "text" | "image" | "script_preview"; image_b64?: string; _blobUrl?: string; revised_prompt?: string; credits_used?: number; script_data?: ScriptResult; _imagePreview?: string; is_research?: boolean; source_count?: number; research_topic?: string; actual_model?: string; downgraded?: boolean; meta?: DeckMeta; }
+// Message and DeckMeta types moved to ./CanvasAIPanel.shared.tsx
+// (imported as `Message` alias above).
+type DeckMeta = NonNullable<Message["meta"]>;
 
 // Detects when the user is asking the AI to brainstorm without the
 // client/canvas context. Matches natural phrasings like "no context",
@@ -590,13 +219,8 @@ const CHIP_PROMPTS: Record<string, string> = {
   "Does this match our brand?": "Compare the current script or conversation context against the connected brand guide. List what fits and what doesn't — be specific about tone, language, and values alignment.",
 };
 
-// Only match if the message STARTS WITH one of these — prevents false positives like
-// "no not research, use the research for the script"
-const RESEARCH_KEYWORDS = [
-  "research ", "look up ", "find data on", "find stats on", "find studies on",
-  "find trends on", "what are the latest", "search for ", "search the web",
-  "find information on", "find info on", "find facts on", "web search ",
-];
+// RESEARCH_KEYWORDS moved to ./CanvasAIPanel.shared.tsx (used by AssistantChat
+// for streaming-bubble icon selection).
 
 function getDynamicChips(messages: Message[], ctx: CanvasContext): string[] {
   const lastScript = [...messages].reverse().find(m => m.type === "script_preview");
@@ -685,6 +309,29 @@ No voiceover. Story must work through B-roll and text only. Keep the same storyt
   },
 ];
 
+// Mention dropdown — icon + label per node type. Passed as props to
+// AssistantTextInput so the input component itself stays canvas-agnostic.
+const NODE_ICON_COMPONENTS: Record<string, React.ReactNode> = {
+  videoNode:              <Film className="w-3.5 h-3.5" />,
+  textNoteNode:           <FileText className="w-3.5 h-3.5" />,
+  researchNoteNode:       <Search className="w-3.5 h-3.5" />,
+  hookGeneratorNode:      <Zap className="w-3.5 h-3.5" />,
+  brandGuideNode:         <Palette className="w-3.5 h-3.5" />,
+  ctaBuilderNode:         <Megaphone className="w-3.5 h-3.5" />,
+  competitorProfileNode:  <User className="w-3.5 h-3.5" />,
+  instagramProfileNode:   <User className="w-3.5 h-3.5" />,
+  mediaNode:              <Paperclip className="w-3.5 h-3.5" />,
+  groupNode:              <Folder className="w-3.5 h-3.5" />,
+  annotationNode:         <MapPin className="w-3.5 h-3.5" />,
+};
+
+const NODE_LABELS: Record<string, string> = {
+  videoNode: "Video", textNoteNode: "Text Note", researchNoteNode: "Research",
+  hookGeneratorNode: "Hook Generator", brandGuideNode: "Brand Guide", ctaBuilderNode: "CTA Builder",
+  competitorProfileNode: "Competitor", instagramProfileNode: "Competitor", mediaNode: "Media",
+  groupNode: "Group", annotationNode: "Annotation",
+};
+
 const hasContext = (ctx: CanvasContext) =>
   ctx.transcriptions.filter(Boolean).length > 0 || ctx.structures.filter(Boolean).length > 0 ||
   ctx.text_notes.trim().length > 0 || ctx.research_facts.length > 0 ||
@@ -692,7 +339,7 @@ const hasContext = (ctx: CanvasContext) =>
   !!ctx.selected_hook || !!ctx.brand_guide || !!ctx.selected_cta ||
   (ctx.competitor_profiles?.length ?? 0) > 0 || (ctx.media_files?.length ?? 0) > 0;
 
-export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvasContextRef: parentContextRef, clientInfo, onGenerateScript, authToken, format, language: scriptLang, aiModel, onFormatChange, onLanguageChange, onModelChange, remixMode = false, remixContext = null, initialInput = null, onInitialInputConsumed, initialMessages, onMessagesChange, onStreamingPartial, remoteStreamingContent = null, onSaveScript, onSessionTitle, externalDroppedImage, fullscreen = false }: Props) {
+export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvasContextRef: parentContextRef, clientInfo, onGenerateScript, authToken, format, language: scriptLang, aiModel, onFormatChange, onLanguageChange, onModelChange, remixMode = false, remixContext = null, initialInput = null, onInitialInputConsumed, initialMessages, onMessagesChange, onStreamingPartial, remoteStreamingContent = null, onSaveScript, onSessionTitle, externalDroppedImage, fullscreen = false, chatId }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
   const { showOutOfCreditsModal } = useOutOfCredits();
@@ -746,6 +393,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       n.data?.status === "done" && (n.data?.posts?.length ?? 0) > 0
     );
     const mediaNodes = contextNodes.filter((n: any) => n.type === "mediaNode" && !!n.data?.mediaId);
+    const folderNodes = contextNodes.filter((n: any) => n.type === "competitorFolderNode" && (n.data?.posts?.length ?? 0) > 0);
 
     const videoNodesWithTranscript = videoNodes.filter((n: any) => !!n.data?.transcription || !!n.data?.videoAnalysis || !!n.data?.structure);
 
@@ -781,6 +429,12 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       ...mediaNodes.map((n: any) => {
         const d = n.data || {};
         return `MediaNode(${d.fileName || "unnamed"}, type=${d.fileType}, transcription=${d.transcriptionStatus === "done" ? "yes" : "no"})${groupSuffix(n.id)}`;
+      }),
+      ...folderNodes.map((n: any) => {
+        const d = n.data || {};
+        const posts = d.posts || [];
+        const analyzedCount = posts.filter((p: any) => p.hookType || p.contentTheme).length;
+        return `FolderNode(@${d.username || "unknown"}, platform=${d.platform || "?"}, total_posts=${posts.length}, analyzed=${analyzedCount}, avg_outlier=${d.avgOutlierScore?.toFixed(1) ?? "?"}x)${groupSuffix(n.id)}`;
       }),
     ];
 
@@ -862,6 +516,24 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         visual_transcription: n.data?.visualTranscription || null,
         signed_url: n.data?.fileType === "image" ? n.data?.signedUrl : null,
       })),
+      folder_collections: folderNodes.map((n: any) => {
+        const d = n.data || {};
+        const posts = (d.posts || []).slice(0, 50); // cap at 50 posts per folder to avoid token overflow
+        return {
+          username: d.username || "unknown",
+          platform: d.platform || "instagram",
+          post_count: (d.posts || []).length,
+          avg_outlier_score: d.avgOutlierScore ?? null,
+          top_outlier_score: d.topOutlierScore ?? null,
+          posts: posts.map((p: any) => ({
+            caption: p.caption ? (p.caption as string).slice(0, 300) : null,
+            hookType: p.hookType ?? null,
+            contentTheme: p.contentTheme ?? null,
+            outlier_score: p.outlier_score ?? null,
+            url: p.url ?? null,
+          })),
+        };
+      }),
     };
     return ctx;
     } catch (err) {
@@ -947,12 +619,9 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [recognizing, setRecognizing] = useState(false);
-  const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
+  // atMentionQuery moved into AssistantTextInput (Phase B.1, Task 4).
   const [pastedImage, setPastedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const pastedImageRef = useRef<{ dataUrl: string; mimeType: string } | null>(null);
   pastedImageRef.current = pastedImage; // always current — avoids stale closure in sendMessage
@@ -965,11 +634,8 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasTitledRef = useRef(false);
   const recognitionRef = useRef<any>(null);
-const bottomRef = useRef<HTMLDivElement>(null);
   const DEFAULT_WINDOW = 15;
   const [visibleCount, setVisibleCount] = useState(DEFAULT_WINDOW);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Cache base64 → blob URLs to avoid keeping large strings in DOM
   const blobUrlCacheRef = useRef<Map<string, string>>(new Map());
@@ -1004,39 +670,18 @@ const bottomRef = useRef<HTMLDivElement>(null);
     return url;
   }, []);
 
-  // Track last message content to detect new messages (length alone fails after cap — stays at 50)
-  const prevLastMsgRef = useRef<string>("");
-  useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    const lastContent = lastMsg ? `${lastMsg.role}:${lastMsg.content.slice(0, 50)}` : "";
-    if (lastContent && lastContent !== prevLastMsgRef.current) {
-      if (!showScrollBtn) {
-        setVisibleCount(DEFAULT_WINDOW);
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      } else if (lastMsg?.role === "assistant") {
-        setUnreadCount(prev => prev + 1);
-      }
-    }
-    prevLastMsgRef.current = lastContent;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  // Auto-scroll-on-new-message and streaming-content scroll moved into
+  // AssistantChat. The window-cursor reset is handled via the
+  // `onAutoScrolledToBottom` callback wired into <AssistantChat /> below.
 
   // Apply image dropped onto the parent AI node
   useEffect(() => {
     if (externalDroppedImage) {
       setPastedImage(externalDroppedImage);
       // Scroll input into view so user sees the preview
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      setTimeout(() => inputBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 50);
     }
   }, [externalDroppedImage]);
-
-  // Scroll to bottom as streaming tokens arrive
-  useEffect(() => {
-    if (streamingContent !== null && !showScrollBtn) {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamingContent]);
 
   // Auto-title: after first full exchange (user + assistant), fire background title request
   useEffect(() => {
@@ -1069,35 +714,12 @@ const bottomRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
-  // Infinite scroll — load older messages when sentinel becomes visible
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    const container = scrollContainerRef.current;
-    if (!sentinel || !container) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          // Save scroll position before expanding
-          const prevHeight = container.scrollHeight;
-          const prevTop = container.scrollTop;
-          setVisibleCount(prev => {
-            const next = Math.min(prev + 15, messages.length);
-            // Restore scroll position after React re-renders
-            requestAnimationFrame(() => {
-              const newHeight = container.scrollHeight;
-              container.scrollTop = prevTop + (newHeight - prevHeight);
-            });
-            return next;
-          });
-        }
-      },
-      { root: container, threshold: 0.1 }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [messages.length]);
+  // Infinite-scroll IntersectionObserver moved into AssistantChat.
+  // CanvasAIPanel exposes loadMore() below so the chat surface can ask
+  // for an older window.
+  const loadMoreOlder = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 15, messagesRef.current.length));
+  }, []);
 
   useEffect(() => {
     if (remixMode && messages.length === 0) {
@@ -1116,21 +738,13 @@ const bottomRef = useRef<HTMLDivElement>(null);
 
   const [imageMode, setImageMode] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const modelDropdownRef = useRef<HTMLDivElement>(null);
-  const modelPortalRef = useRef<HTMLDivElement>(null);
-  const modelBtnRef = useRef<HTMLButtonElement>(null);
 
+  // Wrapper around the input area — used to scrollIntoView when an external
+  // image is dropped onto the parent AI node.
   const inputBoxRef = useRef<HTMLDivElement>(null);
-  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
-  const plusMenuRef = useRef<HTMLDivElement>(null);
 
-  const adjustTextareaHeight = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-  }, []);
+  // modelDropdownOpen / plusMenuOpen / their refs / click-outside effects /
+  // adjustTextareaHeight all moved into AssistantTextInput (Phase B.1, Task 4).
 
   // ── Voice input ──
   const toggleVoice = useCallback(() => {
@@ -1148,8 +762,8 @@ const bottomRef = useRef<HTMLDivElement>(null);
     rec.onresult = (e: any) => {
       const transcript = e.results[0]?.[0]?.transcript || "";
       if (transcript) {
+        // AssistantTextInput re-measures its textarea height on value change.
         setInput(prev => (prev ? prev + " " + transcript : transcript));
-        setTimeout(adjustTextareaHeight, 0);
       }
     };
     rec.onerror = () => setRecognizing(false);
@@ -1157,7 +771,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
     recognitionRef.current = rec;
     rec.start();
     setRecognizing(true);
-  }, [recognizing, scriptLang, adjustTextareaHeight]);
+  }, [recognizing, scriptLang]);
 
   // ── Paste image handler ──
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1175,33 +789,17 @@ const bottomRef = useRef<HTMLDivElement>(null);
     reader.readAsDataURL(file);
   }, []);
 
-  useEffect(() => {
-    if (!modelDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // Check the portal dropdown, the trigger button, AND the container
-      if (
-        (!modelPortalRef.current || !modelPortalRef.current.contains(target)) &&
-        (!modelDropdownRef.current || !modelDropdownRef.current.contains(target)) &&
-        (!modelBtnRef.current || !modelBtnRef.current.contains(target))
-      ) {
-        setModelDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [modelDropdownOpen]);
-
-  useEffect(() => {
-    if (!plusMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
-        setPlusMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [plusMenuOpen]);
+  // Stop any in-flight generation. Called by AssistantTextInput's stop button.
+  const stopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+    if (typewriterRef.current) {
+      clearInterval(typewriterRef.current);
+      typewriterRef.current = null;
+    }
+    setStreamingContent(null);
+    setLoading(false);
+    setGenerating(false);
+  }, []);
 
   const generateScript = useCallback(async () => {
     const ctx = getLatestContext();
@@ -1633,6 +1231,25 @@ const bottomRef = useRef<HTMLDivElement>(null);
           }`
         : null;
 
+      const rawFolderCollections = (cc.folder_collections?.length ?? 0) > 0
+        ? `COMPETITOR FOLDER COLLECTIONS (full account post libraries):\n${
+            cc.folder_collections!.map((folder: any) => {
+              const posts = [...folder.posts].sort((a: any, b: any) => (b.outlier_score ?? 0) - (a.outlier_score ?? 0));
+              const hookTypes = [...new Set(posts.map((p: any) => p.hookType).filter(Boolean))];
+              const themes = [...new Set(posts.map((p: any) => p.contentTheme).filter(Boolean))];
+              const postLines = posts.map((p: any, i: number) => {
+                const score = typeof p.outlier_score === "number" ? `${p.outlier_score.toFixed(1)}x` : "?x";
+                let line = `  #${i + 1} (${score}): "${(p.caption || "(no caption)").slice(0, 150)}"`;
+                if (p.hookType) line += ` | Hook: ${p.hookType}`;
+                if (p.contentTheme) line += ` | Theme: ${p.contentTheme}`;
+                if (p.url) line += `\n    URL: ${p.url}`;
+                return line;
+              }).join("\n");
+              return `@${folder.username} (${folder.platform}) — ${folder.post_count} posts total | avg outlier: ${folder.avg_outlier_score?.toFixed(1) ?? "?"}x | top: ${folder.top_outlier_score?.toFixed(1) ?? "?"}x\n- Hook types seen: ${hookTypes.length > 0 ? hookTypes.join(", ") : "not analyzed"}\n- Content themes: ${themes.length > 0 ? themes.join(", ") : "not analyzed"}\n- All posts (sorted by viral score):\n${postLines}`;
+            }).join("\n\n")
+          }`
+        : null;
+
       const rawMediaFiles = (cc.media_files?.length ?? 0) > 0
         ? `UPLOADED MEDIA:\n${
             cc.media_files!.map(m => {
@@ -1686,6 +1303,8 @@ const bottomRef = useRef<HTMLDivElement>(null);
         rawVideoAnalyses,
         // Competitor profiles are strategy-critical — always include in full
         rawCompetitorProfiles,
+        // Folder collections — full account post libraries connected as a single node
+        rawFolderCollections,
         // Freshly auto-transcribed post (if user asked to analyze/copy a competitor video)
         autoTranscribedSection,
       ].filter(Boolean);
@@ -1856,6 +1475,7 @@ const bottomRef = useRef<HTMLDivElement>(null);
             pasted_image_b64: capturedPastedImage?.dataUrl ?? undefined,
             pasted_image_type: capturedPastedImage?.mimeType ?? undefined,
             stream: true,
+            chat_id: chatId ?? undefined,
           }),
           signal: abortController.signal,
         });
@@ -2006,6 +1626,12 @@ const bottomRef = useRef<HTMLDivElement>(null);
   }, []);
 
   const [contextCount, setContextCount] = useState(0);
+  // Live snapshot of canvas nodes for the @ mention dropdown. Refreshed on the
+  // same 1.5s tick used for context-count, so the dropdown stays in sync as
+  // nodes are added/removed without forcing a full ReactFlow re-render.
+  const [canvasNodesForMention, setCanvasNodesForMention] = useState<
+    { id: string; type: string; label?: string; detail?: string }[]
+  >([]);
   useEffect(() => {
     const tick = () => {
       const ctx = getLatestContext();
@@ -2015,6 +1641,36 @@ const bottomRef = useRef<HTMLDivElement>(null);
         ctx.text_notes.trim().length > 0,
         ctx.research_facts.length > 0,
       ].filter(Boolean).length);
+      // Build mentionable-nodes list from the same window snapshot used by
+      // getLatestContext. The AssistantTextInput renders icon/label using the
+      // NODE_ICON_COMPONENTS / NODE_LABELS maps passed as props.
+      const rawNodes = (window as any).__canvasNodes as any[] | undefined;
+      if (Array.isArray(rawNodes)) {
+        const AI_NODE = "ai-assistant";
+        const next = rawNodes
+          .filter((n: any) => n.id !== AI_NODE && n.type !== "aiAssistantNode" && n.type !== "annotationNode")
+          .map((n: any) => {
+            const d = n.data || {};
+            let detail = "";
+            if (n.type === "videoNode") detail = d.channel_username ? `@${d.channel_username}` : (d.url ? "linked" : "empty");
+            else if (n.type === "textNoteNode" || n.type === "researchNoteNode") detail = (d.noteText || "").slice(0, 30);
+            else if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") detail = d.profileUrl || "";
+            else if (n.type === "brandGuideNode") detail = d.brandName || "";
+            else if (n.type === "hookGeneratorNode") detail = d.topic || "";
+            else if (n.type === "mediaNode") detail = d.fileName || "";
+            return { id: n.id, type: n.type, detail };
+          });
+        // Avoid resetting the array reference if the contents are identical —
+        // prevents AssistantTextInput from re-rendering on every tick.
+        setCanvasNodesForMention((prev) => {
+          if (prev.length !== next.length) return next;
+          for (let i = 0; i < next.length; i++) {
+            const a = prev[i], b = next[i];
+            if (!a || a.id !== b.id || a.type !== b.type || a.detail !== b.detail) return next;
+          }
+          return prev;
+        });
+      }
     };
     tick(); // run immediately
     const id = setInterval(tick, 1500); // re-check every 1.5s
@@ -2022,730 +1678,143 @@ const bottomRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const visibleMessages = messages.slice(-visibleCount);
   const hasOlderMessages = visibleCount < messages.length;
+  const dynamicChips = useMemo(
+    () => getDynamicChips(messages, getLatestContext()),
+    // recompute when messages change; getLatestContext reads from window each call
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messages, contextCount, liveHasContext],
+  );
 
   return (
     <div className="flex flex-col h-full">
       {/* Format + Language row — hidden, format/language still passed via props */}
 
-      {/* Messages */}
-      <div
-        ref={scrollContainerRef}
-        className={`flex-1 overflow-y-auto ${fullscreen ? "px-4 py-6" : "px-3 py-3"} min-h-0 nodrag nowheel canvas-ai-scroll relative`}
-        style={{ userSelect: "text", cursor: "auto" }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-          setShowScrollBtn(!atBottom);
-          if (atBottom) setUnreadCount(0);
+      {/* Messages — rendered by the shared AssistantChat surface (Phase B.1) */}
+      <AssistantChat
+        messages={messages}
+        streamingContent={streamingContent}
+        remoteStreamingContent={remoteStreamingContent}
+        loading={loading}
+        generating={generating}
+        generatingImage={generatingImage}
+        variant={fullscreen ? "full" : "compact"}
+        visibleCount={visibleCount}
+        onLoadMore={hasOlderMessages ? loadMoreOlder : undefined}
+        hasOlderMessages={hasOlderMessages}
+        isResearchMode={isResearchMode}
+        getBlobUrl={getBlobUrl}
+        hideGreeting={remixMode}
+        greeting={
+          language === "es" ? (
+            <>¿Qué hacemos <strong className="font-bold text-foreground/80">hoy</strong>{displayName ? `, ${displayName}` : ""}?</>
+          ) : (
+            <>What are we doing <strong className="font-bold text-foreground/80">today</strong>{displayName ? `, ${displayName}` : ""}?</>
+          )
+        }
+        greetingSubtitle={
+          language === "es"
+            ? "Conecta nodos al panel para darle contexto, o empieza abajo."
+            : "Connect nodes for context, or use the suggestions below."
+        }
+        onSaveScript={async (script) => {
+          const saveFn = onSaveScript ?? (typeof window !== "undefined" ? (window as any).__canvasSaveScript : undefined);
+          if (saveFn) await saveFn(script);
         }}
-      >
-        <div className={fullscreen ? "max-w-3xl mx-auto w-full space-y-4" : "space-y-4"}>
-        {/* Centered greeting when no messages */}
-        {messages.length === 0 && !loading && !generating && !remixMode && (
-          <div className={`flex flex-col items-center justify-center flex-1 ${fullscreen ? "min-h-[60vh]" : "min-h-[200px]"} gap-3 px-3`} style={{ animation: "greetingFadeIn 0.5s ease both" }}>
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-primary" />
-            </div>
-            <p className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug`} style={{ letterSpacing: "-0.01em" }}>
-              {language === "es" ? (
-                <>¿Qué hacemos <strong className="font-bold text-foreground/80">hoy</strong>{displayName ? `, ${displayName}` : ""}?</>
-              ) : (
-                <>What are we doing <strong className="font-bold text-foreground/80">today</strong>{displayName ? `, ${displayName}` : ""}?</>
-              )}
-            </p>
-            <p className="text-[11px] text-muted-foreground/50 text-center max-w-[180px] leading-relaxed">
-              {language === "es"
-                ? "Conecta nodos al panel para darle contexto, o empieza abajo."
-                : "Connect nodes for context, or use the suggestions below."}
-            </p>
-          </div>
-        )}
-        {/* Infinite scroll sentinel — triggers loading older messages */}
-        {hasOlderMessages && (
-          <div ref={sentinelRef} className="flex justify-center py-2">
-            <Loader2 className="w-3.5 h-3.5 text-muted-foreground/40 animate-spin" />
-          </div>
-        )}
-        {visibleMessages.map((msg, i) => (
-          <div key={i}>
-            {msg.role === "assistant" ? (
-              msg.type === "script_preview" && msg.script_data ? (
-                <div className="flex gap-2 items-start">
-                  <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    {msg.script_data?.change_summary && (
-                      <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginBottom: 4, fontStyle: "italic" }}>
-                        {msg.script_data.change_summary}
-                      </p>
-                    )}
-                    <InlineScriptPreview
-                      script={msg.script_data}
-                      onSave={async () => {
-                        const saveFn = onSaveScript || (window as any).__canvasSaveScript;
-                        if (saveFn) await saveFn(msg.script_data!);
-                      }}
-                      onExpand={() => onGenerateScript(msg.script_data!)}
-                    />
-                  </div>
-                </div>
-              ) : msg.type === "image" && (msg._blobUrl || msg.image_b64) ? (
-                <div className="flex gap-2 items-start">
-                  <ImageIcon className="w-3.5 h-3.5 text-purple-400 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <img
-                      src={msg._blobUrl || getBlobUrl(msg.image_b64!)}
-                      alt={msg.revised_prompt || "Generated image"}
-                      className="rounded-lg max-w-full border border-purple-500/20"
-                    />
-                    {msg.revised_prompt && (
-                      <p className="text-[10px] text-muted-foreground mt-1.5 italic">{msg.revised_prompt}</p>
-                    )}
-                    {msg.credits_used && (
-                      <p className="text-[10px] text-purple-400/70 mt-0.5">{msg.credits_used} credits</p>
-                    )}
-                  </div>
-                </div>
-              ) : msg.is_research ? (
-                <div className="flex gap-2 items-start">
-                  <svg className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">Deep Research</span>
-                      {msg.source_count != null && msg.source_count > 0 && (
-                        <span className="text-[10px] text-muted-foreground">· {msg.source_count} source{msg.source_count !== 1 ? "s" : ""}</span>
-                      )}
-                    </div>
-                    <MarkdownText text={msg.content} />
-                    <button
-                      onClick={() => {
-                        const addFn = (window as any).__canvasAddResearchNode;
-                        if (typeof addFn === "function") {
-                          const topic = msg.research_topic || "Research";
-                          const bulletLines = msg.content.split("\n")
-                            .map(l => l.replace(/^[•\-*]\s*/, "").trim())
-                            .filter(l => l.length > 10 && l.length < 200 && !l.startsWith("#") && !l.startsWith("**"));
-                          const facts = bulletLines.slice(0, 8).map(fact => ({ fact, impact_score: 9 }));
-                          addFn(topic, facts.length > 0 ? facts : [{ fact: msg.content.slice(0, 120), impact_score: 9 }]);
-                          toast.success("Research saved to canvas");
-                        } else {
-                          toast.error("Canvas not available");
-                        }
-                      }}
-                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-primary/80 border border-primary/30 hover:border-primary/50 transition-colors"
-                      style={{ background: "rgba(34,211,238,0.08)" }}
-                    >
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10"/><polyline points="17 3 12 8 7 3"/><line x1="12" y1="8" x2="12" y2="21"/></svg>
-                      Save to Canvas
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex gap-2 items-start group/msg">
-                  <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="text-foreground min-w-0 flex-1 relative pr-8">
-                    {(() => {
-                      const deck = parseDeck(msg.content);
-                      if (!deck) return <MarkdownText text={msg.content} />;
-                      const alreadyAnswered = visibleMessages
-                        .slice(i + 1)
-                        .some((later) => later.role === "user" && !!later.meta?.deck_questions);
-                      if (alreadyAnswered) {
-                        return deck.preamble ? <MarkdownText text={deck.preamble} /> : null;
-                      }
-                      return (
-                        <>
-                          {deck.preamble && <div className="mb-2"><MarkdownText text={deck.preamble} /></div>}
-                          <QuestionDeckCard
-                            deck={deck}
-                            onSubmit={(answers) => {
-                              const composed = composeDeckAnswers(deck.questions, answers);
-                              sendMessage(composed, { deckMeta: { deck_questions: deck.questions, deck_answers: answers } });
-                            }}
-                          />
-                        </>
-                      );
-                    })()}
-                    <div className="absolute top-0 right-0 flex flex-col gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(msg.content);
-                          setCopiedIdx(i);
-                          setTimeout(() => setCopiedIdx(null), 1500);
-                        }}
-                        className="p-0.5 rounded text-muted-foreground hover:text-foreground"
-                        title="Copy response"
-                      >
-                        {copiedIdx === i ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                      </button>
-                      <button
-                        onClick={() => {
-                          const prevUser = visibleMessages.slice(0, i).reverse().find(m => m.role === "user");
-                          if (prevUser) sendMessage(prevUser.content);
-                        }}
-                        className="p-0.5 rounded text-muted-foreground hover:text-foreground"
-                        title="Regenerate"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                      </button>
-                      {msg.downgraded && msg.actual_model && (
-                        <span
-                          title={`This turn was automatically routed to ${MODEL_LABEL[msg.actual_model] || msg.actual_model} to save credits. Ask for "search", "look through", or "research" to keep your selected model.`}
-                          className="text-[9px] text-muted-foreground/60 ml-1 px-1.5 py-0 rounded border border-border/40"
-                        >
-                          {MODEL_LABEL[msg.actual_model] || msg.actual_model}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            ) : (
-              <div className="flex justify-end group/usermsg">
-                <div className="relative max-w-[85%]">
-                  {msg._imagePreview && (
-                    <img
-                      src={msg._imagePreview}
-                      alt="Attached screenshot"
-                      className="w-full max-h-40 object-cover rounded-xl rounded-br-sm mb-1 border border-border/40"
-                    />
-                  )}
-                  {msg.meta?.deck_questions ? (
-                    <DeckSummaryBubble
-                      questions={msg.meta.deck_questions}
-                      answers={msg.meta.deck_answers}
-                    />
-                  ) : (
-                    <div className={`px-3 py-2 rounded-2xl rounded-tr-sm bg-muted ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}>{msg.content}</div>
-                  )}
-                  <button
-                    onClick={() => {
-                      const allMsgs = messagesRef.current;
-                      const realIdx = allMsgs.length - visibleMessages.length + i;
-                      setInput(msg.content);
-                      setMessages(capMessages(allMsgs.slice(0, realIdx)));
-                      setTimeout(() => textareaRef.current?.focus(), 50);
-                    }}
-                    className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover/usermsg:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground hover:text-foreground"
-                    title="Edit message"
-                  >
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-        {(loading || generating) && !generatingImage && (
-          <div className="flex gap-2 items-start">
-            <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-            <ThinkingAnimation />
-          </div>
-        )}
-        {generatingImage && (
-          <div className="flex gap-2 items-start">
-            <ImageIcon className="w-3.5 h-3.5 text-purple-400 mt-0.5 flex-shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div
-                className="rounded-lg border border-purple-500/20 bg-purple-500/5 overflow-hidden relative"
-                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1" }}
-              >
-                {/* Shimmer animation */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: "linear-gradient(90deg, transparent 0%, rgba(168,85,247,0.08) 50%, transparent 100%)",
-                    backgroundSize: "200% 100%",
-                    animation: "shimmer 1.5s ease-in-out infinite",
-                  }}
-                />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
-                  <span className="text-[11px] text-purple-400 font-medium">Creating image…</span>
-                  <span className="text-[10px] text-purple-400/60">1024 × 1024</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {showScrollBtn && (
-          <div className="sticky bottom-2 flex justify-center pointer-events-none z-10">
-            <button
-              onClick={() => {
-                bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                setShowScrollBtn(false);
-                setUnreadCount(0);
-              }}
-              className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border shadow-lg text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronDown className="w-3 h-3" />
-              {unreadCount > 0 ? `${unreadCount} new` : "Latest"}
-            </button>
-          </div>
-        )}
-        {/* Streaming bubble — shown while tokens arrive (locally or from a collaborator) */}
-        {(() => {
-          const liveText = streamingContent ?? remoteStreamingContent;
-          if (liveText === null) return null;
-          return (
-            <div className="flex gap-2 items-start px-1 py-1">
-              {isResearchMode || RESEARCH_KEYWORDS.some(kw => messagesRef.current[messagesRef.current.length - 1]?.content?.toLowerCase().includes(kw)) ? (
-                <svg className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
-              ) : (
-                <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-              )}
-              <div className="text-foreground min-w-0 flex-1">
-                {liveText.includes("questions_deck") ? (
-                  <div className="text-xs text-muted-foreground italic">Preparing questions…</div>
-                ) : (
-                  <MarkdownText text={liveText + "\u200b▋"} />
-                )}
-              </div>
-            </div>
-          );
-        })()}
-        <div ref={bottomRef} />
-        </div>{/* end max-w wrapper */}
-      </div>
+        onExpandScript={(script) => onGenerateScript(script)}
+        onSaveResearchToCanvas={(markdown, topic) => {
+          const addFn = typeof window !== "undefined" ? (window as any).__canvasAddResearchNode : undefined;
+          if (typeof addFn === "function") {
+            const safeTopic = topic || "Research";
+            const bulletLines = markdown.split("\n")
+              .map((l) => l.replace(/^[•\-*]\s*/, "").trim())
+              .filter((l) => l.length > 10 && l.length < 200 && !l.startsWith("#") && !l.startsWith("**"));
+            const facts = bulletLines.slice(0, 8).map((fact) => ({ fact, impact_score: 9 }));
+            addFn(safeTopic, facts.length > 0 ? facts : [{ fact: markdown.slice(0, 120), impact_score: 9 }]);
+            toast.success("Research saved to canvas");
+          } else {
+            toast.error("Canvas not available");
+          }
+        }}
+        onRegenerateFromMessage={(visibleIdx) => {
+          const prevUser = (messages.slice(-visibleCount).slice(0, visibleIdx).reverse().find(m => m.role === "user"));
+          if (prevUser) sendMessage(prevUser.content);
+        }}
+        onEditUserMessage={(visibleIdx, content) => {
+          const allMsgs = messagesRef.current;
+          const visibleSlice = allMsgs.slice(-visibleCount);
+          const realIdx = allMsgs.length - visibleSlice.length + visibleIdx;
+          setInput(content);
+          setMessages(capMessages(allMsgs.slice(0, realIdx)));
+          setTimeout(() => textareaRef.current?.focus(), 50);
+        }}
+        onSubmitDeck={(composed, questions, answers) => {
+          sendMessage(composed, { deckMeta: { deck_questions: questions, deck_answers: answers } });
+        }}
+        onAutoScrolledToBottom={() => setVisibleCount(DEFAULT_WINDOW)}
+      />
 
-      {/* Generate Script button — v2 build marker */}
-      <div className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} border-t border-border flex-shrink-0`}>
+      {/* Input area — chips bar + AssistantTextInput. Lifted out of CanvasAIPanel
+          in Phase B.1, Task 4. Canvas-context-aware bits (dynamic chips,
+          mention nodes) are computed here and passed in as props. */}
+      <div ref={inputBoxRef} className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} border-t border-border flex-shrink-0`}>
         <div className={fullscreen ? "max-w-3xl mx-auto w-full" : ""}>
-        {/* Research mode banner */}
-        {isResearchMode && (
-          <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg" style={{ background: "linear-gradient(90deg,rgba(34,211,238,0.12),rgba(14,165,233,0.08))", border: "1px solid rgba(34,211,238,0.2)" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" style={{ boxShadow: "0 0 5px #22d3ee", animation: "pulse 1.5s infinite" }} />
-            <span className="text-[10px] text-primary/80 font-medium">Deep Research mode · 100 credits per query</span>
-          </div>
-        )}
-        {/* Pasted image preview — above chips */}
-        {pastedImage && (
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <div className="relative flex-shrink-0">
-              <img src={pastedImage.dataUrl} alt="Pasted" className="w-12 h-12 rounded-lg object-cover border border-border" />
-              <button
-                type="button"
-                onClick={() => setPastedImage(null)}
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </div>
-            <span className="text-[10px] text-muted-foreground">Image attached — AI will analyze it</span>
-          </div>
-        )}
-
-        {/* CONTEXT CHIPS ROW — scrollable, above the input box */}
-        <div style={{ display:"flex", gap:5, overflowX:"auto", scrollbarWidth:"none", WebkitOverflowScrolling:"touch" as any, marginBottom:6, paddingBottom:2, alignItems:"center" }}>
-          {getDynamicChips(messages, getLatestContext()).map((chip) => (
-            <button
-              type="button"
-              key={chip}
-              onClick={() => sendMessage(chip)}
-              disabled={loading || generating}
-              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", borderRadius:8, padding:"4px 9px", fontSize:10, whiteSpace:"nowrap", flexShrink:0, cursor:"pointer", opacity: (loading || generating) ? 0.4 : 1 }}
-            >
-              {chip}
-            </button>
-          ))}
+          <AssistantChipsBar
+            chips={dynamicChips}
+            onChip={(chip) => sendMessage(chip)}
+            disabled={loading || generating}
+          />
+          <AssistantTextInput
+            value={input}
+            onChange={(val) => {
+              setInput(val);
+              // Read by SuperPlanningCanvas when opening the fullscreen view
+              (window as any).__canvasAIDraftInput = val;
+            }}
+            onSend={() => sendMessage(input)}
+            onStop={stopGeneration}
+            loading={loading}
+            generating={generating}
+            recognizing={recognizing}
+            pastedImage={pastedImage}
+            onClearPastedImage={() => setPastedImage(null)}
+            onPaste={handlePaste}
+            imageMode={imageMode}
+            onToggleImageMode={() => setImageMode((v) => !v)}
+            isResearchMode={isResearchMode}
+            onToggleResearchMode={() => setIsResearchMode((v) => !v)}
+            onGenerateScript={() => {
+              if (!generating) {
+                toast.info("Generating script...");
+                generateScript();
+              }
+            }}
+            generateScriptDisabled={loading || generating}
+            selectedModel={selectedModel}
+            models={AI_MODELS}
+            onModelChange={(key) => {
+              setSelectedModel(key);
+              onModelChange(key);
+              if (!key.includes("sonnet") && !key.includes("opus")) setThinkingEnabled(false);
+            }}
+            thinkingEnabled={thinkingEnabled}
+            onToggleThinking={() => setThinkingEnabled((v) => !v)}
+            onToggleVoice={toggleVoice}
+            mentionableNodes={canvasNodesForMention}
+            mentionIconMap={NODE_ICON_COMPONENTS}
+            mentionLabelMap={NODE_LABELS}
+            promptPresets={PROMPT_PRESETS.map((p) => ({
+              name: p.name,
+              description: p.description,
+              prompt: p.prompt,
+            }))}
+            variant={fullscreen ? "full" : "compact"}
+            placeholder={imageMode ? "Describe the image..." : "Ask anything about your script..."}
+            inputRef={textareaRef}
+          />
         </div>
-
-        {/* UNIFIED INPUT BOX — Claude style */}
-        <div
-          ref={inputBoxRef}
-          className="relative rounded-xl border"
-          style={{
-            background: imageMode ? "rgba(168,85,247,0.05)" : "rgba(255,255,255,0.04)",
-            borderColor: imageMode ? "rgba(168,85,247,0.25)" : "rgba(255,255,255,0.1)",
-          }}
-        >
-          {/* @ mention dropdown portal — keep existing code exactly as-is */}
-          {atMentionQuery !== null && (() => {
-            const rawNodes = (window as any).__canvasNodes as any[] | undefined;
-            const AI_NODE = "ai-assistant";
-            const NODE_ICON_COMPONENTS: Record<string, React.ReactNode> = {
-              videoNode:              <Film className="w-3.5 h-3.5" />,
-              textNoteNode:           <FileText className="w-3.5 h-3.5" />,
-              researchNoteNode:       <Search className="w-3.5 h-3.5" />,
-              hookGeneratorNode:      <Zap className="w-3.5 h-3.5" />,
-              brandGuideNode:         <Palette className="w-3.5 h-3.5" />,
-              ctaBuilderNode:         <Megaphone className="w-3.5 h-3.5" />,
-              competitorProfileNode:  <User className="w-3.5 h-3.5" />,
-              instagramProfileNode:   <User className="w-3.5 h-3.5" />,
-              mediaNode:              <Paperclip className="w-3.5 h-3.5" />,
-              groupNode:              <Folder className="w-3.5 h-3.5" />,
-              annotationNode:         <MapPin className="w-3.5 h-3.5" />,
-            };
-            const NODE_LABELS: Record<string, string> = {
-              videoNode: "Video", textNoteNode: "Text Note", researchNoteNode: "Research",
-              hookGeneratorNode: "Hook Generator", brandGuideNode: "Brand Guide", ctaBuilderNode: "CTA Builder",
-              competitorProfileNode: "Competitor", instagramProfileNode: "Competitor", mediaNode: "Media",
-              groupNode: "Group", annotationNode: "Annotation",
-            };
-            const allNodes = (rawNodes || [])
-              .filter((n: any) => n.id !== AI_NODE && n.type !== "aiAssistantNode" && n.type !== "annotationNode")
-              .map((n: any) => {
-                const d = n.data || {};
-                const typeLabel = NODE_LABELS[n.type] || n.type;
-                const iconEl = NODE_ICON_COMPONENTS[n.type] || <span className="w-3.5 h-3.5 rounded-full bg-muted-foreground/40 inline-block" />;
-                let detail = "";
-                if (n.type === "videoNode") detail = d.channel_username ? `@${d.channel_username}` : (d.url ? "linked" : "empty");
-                else if (n.type === "textNoteNode" || n.type === "researchNoteNode") detail = (d.noteText || "").slice(0, 30);
-                else if (n.type === "competitorProfileNode" || n.type === "instagramProfileNode") detail = d.profileUrl || "";
-                else if (n.type === "brandGuideNode") detail = d.brandName || "";
-                else if (n.type === "hookGeneratorNode") detail = d.topic || "";
-                else if (n.type === "mediaNode") detail = d.fileName || "";
-                return { id: n.id, typeLabel, iconEl, detail };
-              })
-              .filter((n: any) => n.typeLabel.toLowerCase().includes(atMentionQuery) || n.detail.toLowerCase().includes(atMentionQuery));
-            if (allNodes.length === 0) return null;
-            return createPortal(
-              <>
-                <div style={{ position:"fixed", inset:0, zIndex:99998 }} onMouseDown={() => setAtMentionQuery(null)} />
-              <div
-                className="rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                style={{
-                  position: "fixed",
-                  zIndex: 99999,
-                  width: 240,
-                  maxHeight: 200,
-                  overflowY: "auto",
-                  ...(textareaRef.current ? {
-                    left: textareaRef.current.getBoundingClientRect().left,
-                    bottom: window.innerHeight - textareaRef.current.getBoundingClientRect().top + 4,
-                  } : {}),
-                }}
-              >
-                {allNodes.map((node: any) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      const atIdx = input.lastIndexOf("@");
-                      const before = input.slice(0, atIdx);
-                      setInput(before + `@${node.typeLabel}${node.detail ? "(" + node.detail.slice(0, 20) + ")" : ""} `);
-                      setAtMentionQuery(null);
-                      setTimeout(() => textareaRef.current?.focus(), 0);
-                    }}
-                  >
-                    <span className="text-primary/70">{node.iconEl}</span>
-                    <span className="flex-1 truncate">
-                      <span className="font-medium text-xs">{node.typeLabel}</span>
-                      {node.detail && <span className="text-muted-foreground text-xs ml-1">— {node.detail}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              </>,
-              document.body
-            );
-          })()}
-
-          {/* Textarea — full width */}
-          <div className="relative">
-            {/@\S+/.test(input) && (
-              <div
-                aria-hidden
-                className="absolute inset-0 px-3 pt-3 text-xs pointer-events-none overflow-hidden"
-                style={{ fontFamily:"inherit", lineHeight:"1.5", whiteSpace:"pre-wrap", wordBreak:"break-word", zIndex:0 }}
-              >
-                {input.split(/(@\S+)/).map((part, i) =>
-                  part.startsWith("@") && part.length > 1
-                    ? <span key={i} style={{ background:"rgba(59,130,246,0.18)", color:"#60a5fa", borderRadius:3, padding:"0 1px" }}>{part}</span>
-                    : <span key={i} style={{ color:"transparent" }}>{part}</span>
-                )}
-              </div>
-            )}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                const val = e.target.value;
-                setInput(val);
-                (window as any).__canvasAIDraftInput = val; // read by SuperPlanningCanvas when opening fullscreen view
-                adjustTextareaHeight();
-                const atIdx = val.lastIndexOf("@");
-                if (atIdx >= 0 && !val.slice(atIdx).includes(" ")) {
-                  setAtMentionQuery(val.slice(atIdx + 1).toLowerCase());
-                } else {
-                  setAtMentionQuery(null);
-                }
-              }}
-              onPaste={handlePaste}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") { setAtMentionQuery(null); return; }
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
-              }}
-              placeholder={imageMode ? "Describe the image..." : "Ask anything about your script..."}
-              data-tutorial-target="ai-chat-input"
-              className={`relative resize-none canvas-ai-scroll ${fullscreen ? "text-sm" : "text-xs"} w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0`}
-              style={{
-                color: /@\S+/.test(input) ? "transparent" : "#e0e0e0",
-                caretColor: "#e0e0e0",
-                minHeight: fullscreen ? 64 : 44,
-                maxHeight: fullscreen ? 200 : 160,
-                overflowY: "auto",
-                zIndex: 1,
-              }}
-              rows={1}
-              disabled={loading || generating}
-            />
-          </div>
-
-          {/* Inner divider */}
-          <div style={{ height:1, background:"rgba(255,255,255,0.06)", margin:"0 10px" }} />
-
-          {/* Inner toolbar */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px" }}>
-
-            {/* circle-+ — image mode, research, presets */}
-            <div className="relative" ref={plusMenuRef}>
-              <button
-                type="button"
-                onClick={() => setPlusMenuOpen(v => !v)}
-                style={{ width:26, height:26, border:"1.5px solid rgba(255,255,255,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:18, fontWeight:300, lineHeight:1, background:"none", cursor:"pointer", flexShrink:0 }}
-              >
-                +
-              </button>
-              {plusMenuOpen && (
-                <div
-                  className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                  style={{ zIndex:99999 }}
-                  onPointerDown={e => e.stopPropagation()}
-                >
-                  <button
-                    type="button"
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${imageMode ? "text-purple-400 bg-purple-500/10" : "text-muted-foreground hover:bg-muted/60"}`}
-                    onClick={() => { setImageMode(v => !v); setPlusMenuOpen(false); }}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span className="text-xs">Image generation{imageMode ? " (ON)" : ""}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${isResearchMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted/60"}`}
-                    onClick={() => { setIsResearchMode(v => !v); setPlusMenuOpen(false); }}
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
-                    <span className="text-xs">Deep research{isResearchMode ? " (ON · 100cr)" : ""}</span>
-                  </button>
-                  <div className="h-px bg-border mx-3" />
-                  <div className="px-3 py-1.5">
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt Presets</p>
-                  </div>
-                  <div className="p-1.5 space-y-1 max-h-48 overflow-y-auto">
-                    {PROMPT_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/60 transition-colors group"
-                        onClick={() => { setInput(preset.prompt); (window as any).__canvasAIDraftInput = preset.prompt; setPlusMenuOpen(false); }}
-                      >
-                        <p className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{preset.name}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* spacer */}
-            <div style={{ flex:1 }} />
-
-            {/* Generate Script — teal text button in toolbar */}
-            <button
-              type="button"
-              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); if (!generating) { toast.info("Generating script..."); generateScript(); } }}
-              onClick={(e) => { e.stopPropagation(); }}
-              disabled={generating}
-              style={{ display:"flex", alignItems:"center", gap:4, color: generating ? "rgba(34,211,238,0.4)" : "#22d3ee", fontSize:11, fontWeight:600, background:"none", border:"none", cursor: generating ? "default" : "pointer", whiteSpace:"nowrap", flexShrink:0 }}
-            >
-              {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-              {generating ? "Generating..." : "Generate Script"}
-            </button>
-
-            {/* separator */}
-            <span style={{ width:1, height:14, background:"rgba(255,255,255,0.1)", display:"inline-block", flexShrink:0 }} />
-
-            {/* Model selector — name + ChevronUp */}
-            <div className="relative" ref={modelDropdownRef}>
-              <button
-                ref={modelBtnRef}
-                type="button"
-                onClick={() => setModelDropdownOpen(v => !v)}
-                style={{ display:"flex", alignItems:"center", gap:3, color:"rgba(255,255,255,0.35)", fontSize:11, background:"none", border:"none", cursor:"pointer", whiteSpace:"nowrap" }}
-                title="Change AI model"
-              >
-                <span>{MODEL_LABEL[selectedModel] || "Haiku"}{thinkingEnabled ? " \u2726" : ""}</span>
-                <ChevronUp style={{ width:10, height:10, transform: modelDropdownOpen ? "" : "rotate(180deg)", color:"rgba(255,255,255,0.35)" }} />
-              </button>
-              {modelDropdownOpen && createPortal(
-                <>
-                  <div style={{ position:"fixed", inset:0, zIndex:99998 }} onClick={() => setModelDropdownOpen(false)} />
-                  <div
-                    ref={modelPortalRef}
-                    className="w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
-                    style={{
-                      position:"fixed",
-                      zIndex:99999,
-                      ...(modelBtnRef.current ? {
-                        left: modelBtnRef.current.getBoundingClientRect().left,
-                        top: modelBtnRef.current.getBoundingClientRect().top - 8,
-                        transform: "translateY(-100%)",
-                      } : {}),
-                    }}
-                    onPointerDown={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                  >
-                    {(["Anthropic", "OpenAI"] as const).map((provider) => (
-                      <div key={provider}>
-                        <div className="px-3 py-1.5">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{provider}</p>
-                        </div>
-                        {AI_MODELS.filter(m => m.provider === provider).map((m) => (
-                          <button
-                            key={m.key}
-                            type="button"
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                              selectedModel === m.key
-                                ? "bg-primary/10 border-l-2 border-l-primary text-foreground"
-                                : "text-muted-foreground hover:bg-muted/60"
-                            }`}
-                            onClick={() => {
-                              setSelectedModel(m.key);
-                              onModelChange(m.key);
-                              if (!m.key.includes("sonnet") && !m.key.includes("opus")) setThinkingEnabled(false);
-                              setModelDropdownOpen(false);
-                            }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m.color }} />
-                            <span className="text-xs font-medium">{m.label}</span>
-                            {selectedModel === m.key && <Check className="w-3 h-3 ml-auto text-primary" />}
-                            <span className={`text-[10px] ${selectedModel === m.key ? "" : "ml-auto"} opacity-50`}>{m.cost}</span>
-                          </button>
-                        ))}
-                        {provider === "Anthropic" && <div className="h-px bg-border mx-3" />}
-                      </div>
-                    ))}
-                    {/* Extended thinking toggle */}
-                    <div className="h-px bg-border mx-3" />
-                    <button
-                      type="button"
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                        selectedModel.includes("sonnet") || selectedModel.includes("opus")
-                          ? "text-muted-foreground hover:bg-muted/60"
-                          : "text-muted-foreground/40 cursor-not-allowed"
-                      }`}
-                      onClick={() => {
-                        if (selectedModel.includes("sonnet") || selectedModel.includes("opus")) {
-                          setThinkingEnabled(v => !v);
-                        }
-                      }}
-                    >
-                      <span style={{ fontSize: 12, opacity: 0.7 }}>{"\u2726"}</span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-medium">Extended thinking</span>
-                        <p className="text-[9px] opacity-50 mt-0.5">Better answers, slower</p>
-                      </div>
-                      <div
-                        className="relative flex-shrink-0"
-                        style={{
-                          width: 28, height: 16, borderRadius: 8,
-                          background: thinkingEnabled ? "#0891b2" : "rgba(255,255,255,0.15)",
-                          transition: "background 0.2s",
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute", top: 2, width: 12, height: 12, borderRadius: 6,
-                            background: "#fff",
-                            left: thinkingEnabled ? 14 : 2,
-                            transition: "left 0.2s",
-                          }}
-                        />
-                      </div>
-                    </button>
-
-                  </div>
-                </>,
-                document.body
-              )}
-            </div>
-
-            {/* Stop / Send circle / Mic — crossfade transitions */}
-            <div style={{ position:"relative", width:28, height:28, flexShrink:0 }}>
-              {/* Stop button */}
-              <button
-                type="button"
-                onClick={() => {
-                  abortControllerRef.current?.abort();
-                  if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; }
-                  setStreamingContent(null);
-                  setLoading(false);
-                  setGenerating(false);
-                }}
-                style={{
-                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
-                  border:"1.5px solid rgba(239,68,68,0.4)", background:"rgba(239,68,68,0.1)", color:"#f87171",
-                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-                  opacity: (loading || generating) ? 1 : 0,
-                  pointerEvents: (loading || generating) ? "auto" : "none",
-                  transition: "opacity 200ms ease",
-                }}
-                title="Stop generating"
-              >
-                <Square className="w-3.5 h-3.5 fill-current" />
-              </button>
-              {/* Send button */}
-              <button
-                type="button"
-                onClick={() => sendMessage(input)}
-                style={{
-                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
-                  background:"transparent", border:"1.5px solid #22d3ee", color:"#22d3ee",
-                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-                  opacity: (!loading && !generating && input.trim()) ? 1 : 0,
-                  pointerEvents: (!loading && !generating && input.trim()) ? "auto" : "none",
-                  transition: "opacity 200ms ease",
-                }}
-                title="Send"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-              {/* Mic button */}
-              <button
-                type="button"
-                onClick={toggleVoice}
-                style={{
-                  position:"absolute", inset:0, width:28, height:28, borderRadius:"50%",
-                  border:"none", background:"none", color: recognizing ? "#f87171" : "rgba(255,255,255,0.35)",
-                  display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-                  opacity: (!loading && !generating && !input.trim()) ? 1 : 0,
-                  pointerEvents: (!loading && !generating && !input.trim()) ? "auto" : "none",
-                  transition: "opacity 200ms ease",
-                }}
-                title={recognizing ? "Stop recording" : "Voice input"}
-              >
-                {recognizing ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Image mode indicator */}
-        {imageMode && (
-          <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-purple-500/5 rounded-lg w-fit">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-            <span className="text-[10px] text-purple-400">Image mode · DALL-E 3 · ~150 cr</span>
-          </div>
-        )}
-        </div>{/* end max-w input wrapper */}
       </div>
     </div>
   );
 }
+

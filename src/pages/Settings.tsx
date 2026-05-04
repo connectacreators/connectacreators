@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BorderGlow from "@/components/ui/BorderGlow";
+import { AssistantMemoryEditor } from "@/components/assistant";
 
 export default function Settings() {
   const { language } = useLanguage();
@@ -255,6 +256,9 @@ export default function Settings() {
             <p className="text-xs text-muted-foreground">Takes effect next time you open the Viral Reels page.</p>
           </div>
         </div>
+
+        {/* Assistant memories */}
+        <AssistantMemoryEditor />
 
         {/* Delete Account — only for non-admin users */}
         {role !== "admin" && (
