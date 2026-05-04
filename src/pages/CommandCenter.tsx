@@ -81,6 +81,33 @@ export default function CommandCenter() {
   // URL clientId takes precedence; fallback to user's own primary client
   const activeClientId = urlClientId ?? ownClientId;
 
+  // ── Display name for greeting ─────────────────────────────────────────
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const dn = data?.display_name?.trim();
+        if (dn) setDisplayName(dn.split(" ")[0]);
+      });
+  }, [user]);
+
+  const SUGGESTIONS = en
+    ? [
+        "What needs my attention?",
+        "Show me my pipeline",
+        "Which clients are stalled?",
+      ]
+    : [
+        "¿Qué necesita mi atención?",
+        "Muéstrame mi pipeline",
+        "¿Qué clientes están atascados?",
+      ];
+
   // ── Thread / chat state ────────────────────────────────────────────────
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -377,9 +404,13 @@ export default function CommandCenter() {
                   loading={sending}
                   variant="full"
                   greeting={
-                    en
-                      ? `What are we doing today?`
-                      : `¿Qué hacemos hoy?`
+                    displayName
+                      ? en
+                        ? `What are we doing today, ${displayName}?`
+                        : `¿Qué hacemos hoy, ${displayName}?`
+                      : en
+                        ? "What are we doing today?"
+                        : "¿Qué hacemos hoy?"
                   }
                   greetingSubtitle={
                     en
@@ -389,6 +420,24 @@ export default function CommandCenter() {
                 />
               </div>
               <div className="border-t border-white/[0.05]">
+                {chatMessages.length === 0 && !sending && (
+                  <div className="flex flex-wrap gap-2 px-3 pt-3 justify-center">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setInput(s)}
+                        className="text-[11px] px-2.5 py-1 rounded border transition-colors"
+                        style={{
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "rgba(255,255,255,0.6)",
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <AssistantTextInput
                   value={input}
                   onChange={setInput}
