@@ -1360,7 +1360,7 @@ export default function Scripts() {
         {view === "clients" && (
           <>
             <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 font-caslon">
                 Content <span className="text-primary">Ideas</span>
               </h1>
               <p className="text-muted-foreground max-w-xl mx-auto">
@@ -1670,7 +1670,7 @@ export default function Scripts() {
         {view === "client-detail" && selectedClient && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground font-caslon">
                 {selectedClient.name}
                 {!selectedClient.user_id && (
                   <span className="text-sm text-red-500 font-normal ml-2">{tr(t.scripts.notVerified, language)}</span>
@@ -1927,7 +1927,7 @@ export default function Scripts() {
                                 >
                                   {labelText}
                                 </span>
-                                <p className={`font-semibold leading-snug ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                                <p className={`font-semibold leading-snug font-caslon ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>
                                   {ideaOrTitle}
                                 </p>
                                 {hasIdea && s.title && s.title !== s.idea_ganadora && (
@@ -2264,7 +2264,7 @@ export default function Scripts() {
         {/* ===== NEW / EDIT SCRIPT ===== */}
         {(view === "new-script" || view === "edit-script") && (
           <>
-             <h2 className="text-xl font-bold text-foreground mb-2">
+             <h2 className="text-xl font-bold text-foreground mb-2 font-caslon">
                {view === "edit-script" ? tr(t.scripts.editScriptFor, language) : tr(t.scripts.newScriptFor, language)}{" "}
               <span className="text-primary">{selectedClient?.name}</span>
             </h2>

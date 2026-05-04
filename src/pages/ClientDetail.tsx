@@ -244,7 +244,7 @@ export default function ClientDetail() {
               </motion.div>
 
               <motion.h1
-                className="text-2xl sm:text-3xl font-bold text-foreground mb-10 tracking-tight text-center"
+                className="text-2xl sm:text-3xl font-bold text-foreground mb-10 tracking-tight text-center font-caslon"
                 initial="hidden" animate="visible" custom={0} variants={fadeUp}
               >
                 {activeFolderData?.label}
@@ -340,7 +340,7 @@ export default function ClientDetail() {
             {/* Main folder view */}
             <>
                 <motion.h1
-                  className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95]"
+                  className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-12 tracking-tight leading-[0.95] font-caslon"
                   initial="hidden"
                   animate="visible"
                   custom={2}

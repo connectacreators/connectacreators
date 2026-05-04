@@ -440,7 +440,7 @@ export default function Dashboard() {
                   </motion.div>
 
                   <motion.h1
-                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight"
+                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight font-caslon"
                     initial="hidden"
                     animate="visible"
                     custom={0}
@@ -461,7 +461,7 @@ export default function Dashboard() {
                               <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight">{card.label}</h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon">{card.label}</h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                               {(card as any).disabled && (
                                 <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
@@ -478,7 +478,7 @@ export default function Dashboard() {
                   <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
-                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {tr(t.dashboard.question, language)}
                   </motion.h1>
 
@@ -494,7 +494,7 @@ export default function Dashboard() {
                               <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
+                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors font-caslon">{folder.label}</h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                             </div>
                           </button>
@@ -510,7 +510,7 @@ export default function Dashboard() {
                 <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                   👋 {tr(t.dashboard.greeting, language)}, {displayName}
                 </motion.p>
-                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                   {tr(t.dashboard.question, language)}
                 </motion.h1>
 
@@ -526,7 +526,7 @@ export default function Dashboard() {
                             <tool.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                           </div>
                           <div>
-                            <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{tool.label}</h2>
+                            <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors font-caslon">{tool.label}</h2>
                             <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
                           </div>
                         </button>
@@ -558,7 +558,7 @@ export default function Dashboard() {
                   </motion.div>
 
                   <motion.h1
-                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight"
+                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight font-caslon"
                     initial="hidden"
                     animate="visible"
                     custom={0}
@@ -582,7 +582,7 @@ export default function Dashboard() {
                                 <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                               </div>
                               <div>
-                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight">{card.label}</h2>
+                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon">{card.label}</h2>
                                 <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                                 {(card as any).disabled && (
                                   <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
@@ -600,7 +600,7 @@ export default function Dashboard() {
                   <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
-                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95]" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95] font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?"}
                   </motion.h1>
                   <div className="mb-10" />
@@ -617,7 +617,7 @@ export default function Dashboard() {
                               <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors">{folder.label}</h2>
+                              <h2 className="text-sm font-bold text-foreground group-hover:text-[#22d3ee] mb-1 tracking-tight transition-colors font-caslon">{folder.label}</h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                             </div>
                           </button>

@@ -127,6 +127,10 @@ All colors MUST be HSL for consistency and theming.
     @apply border-border;
   }
 
+  .font-caslon {
+    font-family: 'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: Inter, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;

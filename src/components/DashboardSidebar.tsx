@@ -328,7 +328,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           <img
             src={connectaTextLogo}
             alt="Connecta"
-            className="h-6 object-contain hover:opacity-80 transition-opacity"
+            className="h-8 w-auto object-contain hover:opacity-80 transition-opacity" style={{ maxWidth: 160 }}
           />
         </button>
         <button
