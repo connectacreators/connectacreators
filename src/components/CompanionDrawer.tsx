@@ -292,8 +292,13 @@ export default function CompanionDrawer() {
 
   return (
     <aside
-      className="fixed top-0 right-0 z-50 h-screen w-[380px] flex glass-card border-l border-l-white/8 rounded-none"
-      style={{ boxShadow: "-10px 0 30px rgba(0,0,0,0.5)" }}
+      className="fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none"
+      style={{
+        background: "rgba(10, 14, 23, 0.78)",
+        backdropFilter: "blur(32px) saturate(160%)",
+        WebkitBackdropFilter: "blur(32px) saturate(160%)",
+        boxShadow: "-10px 0 40px rgba(0,0,0,0.6)",
+      }}
     >
       {/* Tabs strip */}
       <nav className="w-10 border-r border-white/[0.04] flex flex-col items-center pt-4 gap-2" style={{ background: "rgba(255,255,255,0.02)" }}>
