@@ -1,13 +1,6 @@
 // supabase/functions/_shared/build-session/types.ts
-import type { BuildStateName } from "../build-fsm/states.ts";
 
-export type BuildStatus =
-  | "running"
-  | "awaiting_user"
-  | "paused"
-  | "completed"
-  | "cancelled"
-  | "error";
+export type BuildStatus = "running" | "paused" | "completed" | "cancelled";
 
 export interface BuildIdea {
   title: string;
@@ -22,7 +15,7 @@ export interface BuildSession {
   threadId: string;
   canvasStateId: string | null;
   status: BuildStatus;
-  currentState: BuildStateName;
+  phase: string;
   ideas: BuildIdea[];
   currentIdeaIndex: number;
   selectedIdeas: BuildIdea[];
@@ -31,11 +24,7 @@ export interface BuildSession {
   currentScriptId: string | null;
   cachedCanvasContext: string | null;
   cachedCanvasContextAt: string | null;
-  userInput: string | null;
   autoPilot: boolean;
-  errorMessage: string | null;
-  tokenUsage: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  lastActivityAt: string;
 }

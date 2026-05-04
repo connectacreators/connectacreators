@@ -3,7 +3,6 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import type { BuildSession, BuildStatus } from "./types.ts";
-import type { BuildStateName } from "../build-fsm/states.ts";
 
 export function rowToBuildSession(row: Record<string, unknown>): BuildSession {
   return {
@@ -13,7 +12,7 @@ export function rowToBuildSession(row: Record<string, unknown>): BuildSession {
     threadId: row.thread_id as string,
     canvasStateId: (row.canvas_state_id as string | null) ?? null,
     status: row.status as BuildStatus,
-    currentState: row.current_state as BuildStateName,
+    phase: (row.phase as string) ?? "",
     ideas: (row.ideas as BuildSession["ideas"]) ?? [],
     currentIdeaIndex: (row.current_idea_index as number) ?? 0,
     selectedIdeas: (row.selected_ideas as BuildSession["selectedIdeas"]) ?? [],
@@ -22,13 +21,9 @@ export function rowToBuildSession(row: Record<string, unknown>): BuildSession {
     currentScriptId: (row.current_script_id as string | null) ?? null,
     cachedCanvasContext: (row.cached_canvas_context as string | null) ?? null,
     cachedCanvasContextAt: (row.cached_canvas_context_at as string | null) ?? null,
-    userInput: (row.user_input as string | null) ?? null,
     autoPilot: (row.auto_pilot as boolean) ?? false,
-    errorMessage: (row.error_message as string | null) ?? null,
-    tokenUsage: (row.token_usage as Record<string, unknown>) ?? {},
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
-    lastActivityAt: row.last_activity_at as string,
   };
 }
 
@@ -78,7 +73,7 @@ export async function getActiveBuildSessionForThread(
     .from("companion_build_sessions")
     .select("*")
     .eq("thread_id", threadId)
-    .in("status", ["running", "awaiting_user", "paused"])
+    .in("status", ["running", "paused"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -87,10 +82,11 @@ export async function getActiveBuildSessionForThread(
 }
 
 export interface UpdateBuildSessionPatch {
-  status?: BuildStatus;
-  currentState?: BuildStateName;
+  status?: BuildSession["status"];
+  phase?: string;
+  clientId?: string;
+  canvasStateId?: string | null;
   autoPilot?: boolean;
-  errorMessage?: string | null;
   ideas?: BuildSession["ideas"];
   currentIdeaIndex?: number;
   selectedIdeas?: BuildSession["selectedIdeas"];
@@ -99,9 +95,6 @@ export interface UpdateBuildSessionPatch {
   currentScriptId?: string | null;
   cachedCanvasContext?: string | null;
   cachedCanvasContextAt?: string | null;
-  userInput?: string | null;
-  tokenUsage?: Record<string, unknown>;
-  lastActivityAt?: string;
 }
 
 export async function updateBuildSession(
@@ -111,9 +104,10 @@ export async function updateBuildSession(
 ): Promise<BuildSession> {
   const dbPatch: Record<string, unknown> = {};
   if (patch.status !== undefined) dbPatch.status = patch.status;
-  if (patch.currentState !== undefined) dbPatch.current_state = patch.currentState;
+  if (patch.phase !== undefined) dbPatch.phase = patch.phase;
+  if (patch.clientId !== undefined) dbPatch.client_id = patch.clientId;
+  if (patch.canvasStateId !== undefined) dbPatch.canvas_state_id = patch.canvasStateId;
   if (patch.autoPilot !== undefined) dbPatch.auto_pilot = patch.autoPilot;
-  if (patch.errorMessage !== undefined) dbPatch.error_message = patch.errorMessage;
   if (patch.ideas !== undefined) dbPatch.ideas = patch.ideas;
   if (patch.currentIdeaIndex !== undefined) dbPatch.current_idea_index = patch.currentIdeaIndex;
   if (patch.selectedIdeas !== undefined) dbPatch.selected_ideas = patch.selectedIdeas;
@@ -122,10 +116,6 @@ export async function updateBuildSession(
   if (patch.currentScriptId !== undefined) dbPatch.current_script_id = patch.currentScriptId;
   if (patch.cachedCanvasContext !== undefined) dbPatch.cached_canvas_context = patch.cachedCanvasContext;
   if (patch.cachedCanvasContextAt !== undefined) dbPatch.cached_canvas_context_at = patch.cachedCanvasContextAt;
-  if (patch.userInput !== undefined) dbPatch.user_input = patch.userInput;
-  if (patch.tokenUsage !== undefined) dbPatch.token_usage = patch.tokenUsage;
-  dbPatch.last_activity_at = patch.lastActivityAt ?? new Date().toISOString();
-
   const { data, error } = await client
     .from("companion_build_sessions")
     .update(dbPatch)
