@@ -280,8 +280,8 @@ export function AssistantChat({
             </div>
             {greeting && (
               <p
-                className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug`}
-                style={{ letterSpacing: "-0.01em" }}
+                className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug font-caslon`}
+                style={{ letterSpacing: "0.02em" }}
               >
                 {greeting}
               </p>

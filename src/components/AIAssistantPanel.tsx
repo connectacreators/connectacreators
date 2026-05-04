@@ -181,7 +181,7 @@ export default function AIAssistantPanel({ wizardState, clientInfo, onAction, au
         {/* Centered greeting when no messages yet */}
         {messages.length === 0 && !loading && (
           <div className="flex-1 flex items-center justify-center min-h-[200px]">
-            <p className="text-xl font-semibold text-foreground/70 text-center">{greeting}</p>
+            <p className="text-xl font-light text-foreground/70 text-center font-caslon" style={{ letterSpacing: "0.02em" }}>{greeting}</p>
           </div>
         )}
 
