@@ -8,11 +8,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { corsHeaders } from "../_shared/cors.ts";
-import {
-  classifyState,
-  isTerminal,
-  nextState,
-} from "../_shared/build-fsm/states.ts";
+import { isTerminal, nextState } from "../_shared/build-fsm/states.ts";
 import {
   getBuildSession,
   updateBuildSession,
@@ -134,20 +130,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  const cls = classifyState(nxt);
-  const willPause = cls === "HARD_ASK" || (cls === "SOFT_ASK" && !fresh.autoPilot);
-
-  if (willPause) {
-    await updateBuildSession(admin, fresh.id, {
-      currentState: nxt,
-      status: "awaiting_user",
-    });
-    return new Response(JSON.stringify({ paused: true, state: nxt }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Auto-advance: persist next state and chain to ourselves.
+  // Always advance and chain to the next state's handler. The handler itself
+  // decides whether to pause (e.g. AWAITING_IDEA logs its question and pauses).
+  // This ensures every state's "ask the user" message actually fires before we
+  // set status to awaiting_user.
   await updateBuildSession(admin, fresh.id, { currentState: nxt });
   void fetch(`${SUPABASE_URL}/functions/v1/process-build-step`, {
     method: "POST",
