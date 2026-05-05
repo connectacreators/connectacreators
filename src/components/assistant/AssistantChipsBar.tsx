@@ -1,17 +1,6 @@
-// src/components/assistant/AssistantChipsBar.tsx
-//
-// Small horizontal scroll bar of context chips rendered above the assistant
-// input. Pure presentational — receives a string array and a click handler.
-// Lifted out of `src/components/canvas/CanvasAIPanel.tsx` (Phase B.1, Task 4).
-//
-// The chip *content* (which strings to show) is computed by the caller
-// (canvas uses `getDynamicChips` which is canvas-context-aware). This
-// component only renders.
-
 export interface AssistantChipsBarProps {
   chips: string[];
   onChip: (label: string) => void;
-  /** Disable all chip buttons — e.g. while a request is in-flight */
   disabled?: boolean;
   className?: string;
 }
@@ -28,7 +17,7 @@ export function AssistantChipsBar({
       className={className}
       style={{
         display: "flex",
-        gap: 5,
+        gap: 6,
         overflowX: "auto",
         scrollbarWidth: "none",
         WebkitOverflowScrolling: "touch" as any,
@@ -44,18 +33,39 @@ export function AssistantChipsBar({
           onClick={() => onChip(chip)}
           disabled={disabled}
           style={{
-            background: "transparent",
-            border: "1px solid rgba(255,255,255,0.08)",
-            color: "rgba(255,255,255,0.4)",
-            borderRadius: 8,
-            padding: "4px 9px",
+            position: "relative",
+            background: "none",
+            border: "none",
+            color: disabled ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.5)",
+            padding: "4px 10px",
             fontSize: 10,
             whiteSpace: "nowrap",
             flexShrink: 0,
-            cursor: "pointer",
-            opacity: disabled ? 0.4 : 1,
+            cursor: disabled ? "default" : "pointer",
           }}
         >
+          <svg
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              overflow: "hidden",
+              pointerEvents: "none",
+              opacity: disabled ? 0.4 : 1,
+            }}
+            viewBox="0 0 120 26"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M6,2.5 C30,1 90,1 112,2.5 C117,3 119,5.5 119,8.5 C119.5,13 119,18 118,21.5 C117,24.5 114,26 108,26.5 C80,27.5 40,27.5 14,26.5 C7,26 3,24 2,21 C1,17 1,11 2,7 C3,4 4.5,3 6,2.5 Z"
+              fill="none"
+              stroke="rgba(201,169,110,0.28)"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           {chip}
         </button>
       ))}

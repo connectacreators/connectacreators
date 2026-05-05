@@ -53,11 +53,11 @@ export interface AssistantMessage {
 // ── Model labels ───────────────────────────────────────────────────────────
 
 export const AI_MODELS = [
-  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "#3fb950", cost: "~3-8 cr" },
-  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "#0891b2", cost: "~15-25 cr" },
-  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "#a371f7", cost: "~60-100 cr" },
-  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "#3fb950", cost: "~3-8 cr" },
-  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "#f0883e", cost: "~10-20 cr" },
+  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "rgba(255,255,255,0.22)", cost: "~3-8 cr" },
+  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "rgba(255,255,255,0.22)", cost: "~15-25 cr" },
+  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "rgba(255,255,255,0.22)", cost: "~60-100 cr" },
+  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "rgba(255,255,255,0.22)", cost: "~3-8 cr" },
+  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "rgba(255,255,255,0.22)", cost: "~10-20 cr" },
 ] as const;
 
 export const MODEL_LABEL: Record<string, string> = Object.fromEntries(

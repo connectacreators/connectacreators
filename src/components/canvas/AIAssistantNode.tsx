@@ -1,6 +1,7 @@
 import { memo, useState, useEffect, useCallback, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer, useUpdateNodeInternals } from "@xyflow/react";
-import { Bot, X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Pencil, Check } from "lucide-react";
+import { X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Pencil, Check } from "lucide-react";
+import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 import CanvasAIPanel, { type CanvasContext } from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -602,8 +603,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div className="flex items-center gap-2">
-            <Bot className="w-3.5 h-3.5" style={{ color: '#e0e0e0' }} />
-            <span className="text-xs font-semibold" style={{ color: '#e0e0e0' }}>Connecta AI</span>
+            <img src={connectaFavicon} alt="" style={{ width: 14, height: 14, objectFit: "contain", opacity: 0.65, filter: "brightness(0) invert(1)", flexShrink: 0 }} />
+            <span className="font-caslon text-xs font-light" style={{ color: '#e0e0e0', letterSpacing: '0.04em' }}>Connecta AI</span>
             <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Draw edges from nodes to connect context</span>
           </div>
           {d.onDelete && (

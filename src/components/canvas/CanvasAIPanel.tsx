@@ -1757,7 +1757,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       {/* Input area — chips bar + AssistantTextInput. Lifted out of CanvasAIPanel
           in Phase B.1, Task 4. Canvas-context-aware bits (dynamic chips,
           mention nodes) are computed here and passed in as props. */}
-      <div ref={inputBoxRef} className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} border-t border-border flex-shrink-0`}>
+      <div ref={inputBoxRef} className={`${fullscreen ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-2"} flex-shrink-0`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className={fullscreen ? "max-w-3xl mx-auto w-full" : ""}>
           <AssistantChipsBar
             chips={dynamicChips}

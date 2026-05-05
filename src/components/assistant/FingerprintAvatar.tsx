@@ -6,7 +6,14 @@ export function FingerprintAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
     <img
       src={connectaFavicon}
       alt=""
-      style={{ width: dim, height: dim, objectFit: "contain", opacity: 0.75, flexShrink: 0 }}
+      style={{
+        width: dim,
+        height: dim,
+        objectFit: "contain",
+        opacity: 0.65,
+        filter: "brightness(0) invert(1)",
+        flexShrink: 0,
+      }}
     />
   );
 }
