@@ -581,11 +581,13 @@ export default function ViralVideoDetail() {
                 </div>
               )}
 
-              {/* Full transcript (collapsed) */}
+              {/* Full transcript or text-on-screen (collapsed) */}
               {video.transcript && (
                 <details className="mt-3">
                   <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
-                    ▼ Full transcript
+                    {(video.framework_meta as any)?.is_caption_style
+                      ? "▼ Text on screen"
+                      : "▼ Full transcript"}
                   </summary>
                   <pre className="mt-2 p-3 rounded-lg bg-muted/40 text-[11px] whitespace-pre-wrap font-sans text-foreground/90 max-h-64 overflow-y-auto">
                     {video.transcript}

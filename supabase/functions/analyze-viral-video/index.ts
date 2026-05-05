@@ -220,26 +220,79 @@ Deno.serve(async (req) => {
   // Even if visual analysis fails partially, we keep the transcript and continue
   const structureData = multimodalRes.ok ? multimodalJson : null;
 
-  // 6. Extract hook_text and cta_text from structure (if available) or fall back to transcript chunks
+  // 6. Detect caption-style videos (text-on-screen + background music)
+  // These are extremely common on Instagram: the audio is background music,
+  // actual content is text overlaid on video frames or a photo carousel.
+  // Whisper transcribes the song → garbage. We use visual_segments instead.
+  //
+  // Detection: visual_segments have text_on_screen data AND transcript is
+  // very short (< 40 words — likely music, not speech). We don't rely on
+  // detected_format because it's often null for this format.
+  const transcriptWordCount = transcript.split(/\s+/).filter(Boolean).length;
+  const hasVisualTextOnScreen =
+    Array.isArray(structureData?.visual_segments) &&
+    (structureData.visual_segments as any[]).some(
+      (s: any) => Array.isArray(s.text_on_screen) && s.text_on_screen.length > 0,
+    );
+  const isCaptionStyle =
+    (typeof structureData?.detected_format === "string" &&
+      structureData.detected_format.includes("CAPTION")) ||
+    (hasVisualTextOnScreen && transcriptWordCount < 40);
+  const transcriptLikelySong = isCaptionStyle;
+
+  // Derive "text on screen" from visual segments for caption-style videos
+  let visualTextSummary: string | null = null;
+  if (
+    (isCaptionStyle || transcriptLikelySong) &&
+    Array.isArray(structureData?.visual_segments) &&
+    structureData.visual_segments.length > 0
+  ) {
+    const lines: string[] = [];
+    for (const seg of (structureData.visual_segments as any[])) {
+      const texts = Array.isArray(seg.text_on_screen)
+        ? seg.text_on_screen.join(" / ")
+        : null;
+      const desc = typeof seg.description === "string" ? seg.description : null;
+      const line = texts ?? desc;
+      if (line?.trim()) lines.push(line.trim());
+    }
+    if (lines.length > 0) visualTextSummary = lines.join("\n");
+  }
+
+  // 6b. Extract hook_text and cta_text
   let hookText: string | null = null;
   let ctaText: string | null = null;
-  if (structureData?.sections && Array.isArray(structureData.sections)) {
+
+  if (visualTextSummary) {
+    // Caption-style: hook = first visual slide, CTA = last slide
+    const lines = visualTextSummary.split("\n");
+    hookText = lines[0] ?? null;
+    ctaText = lines[lines.length - 1] !== hookText ? (lines[lines.length - 1] ?? null) : null;
+  } else if (structureData?.sections && Array.isArray(structureData.sections)) {
     const hookSection = structureData.sections.find((s: any) => s.section === "hook");
     const ctaSection = structureData.sections.find((s: any) => s.section === "cta");
     hookText = hookSection?.actor_text ?? hookSection?.visual_cue ?? null;
     ctaText = ctaSection?.actor_text ?? ctaSection?.visual_cue ?? null;
   }
-  if (!hookText && transcript) {
-    // Fallback: first 30 words
+  if (!hookText && !transcriptLikelySong && transcript) {
     hookText = transcript.split(/\s+/).slice(0, 30).join(" ");
   }
-  if (!ctaText && transcript) {
-    // Fallback: last 30 words
+  if (!ctaText && !transcriptLikelySong && transcript) {
     const words = transcript.split(/\s+/);
     ctaText = words.slice(Math.max(0, words.length - 30)).join(" ");
   }
 
+  // For caption-style videos, replace the song-lyric transcript with the visual text
+  // so that search (which queries transcript column) finds the actual content.
+  const effectiveTranscript = (transcriptLikelySong && visualTextSummary)
+    ? visualTextSummary
+    : transcript;
+
   // 7. Haiku call for niche/audience/key_topics tagging
+  // Use visual text (not song lyrics) for caption-style videos.
+  const taggingText = (transcriptLikelySong && visualTextSummary)
+    ? visualTextSummary
+    : transcript;
   let nicheTags: string[] = [];
   let audience: string = "";
   let keyTopics: string[] = [];
@@ -258,7 +311,7 @@ Deno.serve(async (req) => {
         max_tokens: 600,
         messages: [{
           role: "user",
-          content: `You are tagging a viral short-form video for a creator-content database. Read the transcript and caption, then output ONLY a JSON object with these fields:
+          content: `You are tagging a viral short-form video for a creator-content database. Read the content and caption, then output ONLY a JSON object with these fields:
 
 {
   "niche_tags": ["<2-4 short niche labels, lowercase, e.g. 'personal branding', 'fitness', 'pest control sales'>"],
@@ -269,7 +322,7 @@ Deno.serve(async (req) => {
 
 CAPTION: ${(video.caption ?? "").slice(0, 400)}
 
-TRANSCRIPT: ${transcript.slice(0, 2500)}
+${isCaptionStyle || transcriptLikelySong ? "TEXT ON SCREEN (caption-style video):" : "TRANSCRIPT:"} ${taggingText.slice(0, 2500)}
 
 Output ONLY the JSON object, no commentary.`,
         }],
@@ -298,6 +351,7 @@ Output ONLY the JSON object, no commentary.`,
     key_topics: keyTopics,
     body_structure: bodyStructure,
     content_type: structureData?.detected_format ?? null,
+    is_caption_style: isCaptionStyle || transcriptLikelySong,  // caption/slideshow — no spoken words
     visual_pacing: {
       cuts_per_minute: structureData?.audio_features?.bpm_estimate ?? null,
       tempo: structureData?.audio_features?.energy ?? null,
@@ -312,7 +366,7 @@ Output ONLY the JSON object, no commentary.`,
   const { error: updateErr } = await admin
     .from("viral_videos")
     .update({
-      transcript,
+      transcript: effectiveTranscript,   // visual text for caption-style, audio for spoken
       hook_text: hookText,
       cta_text: ctaText,
       framework_meta: frameworkMeta,
