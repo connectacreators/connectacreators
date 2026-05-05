@@ -9,6 +9,13 @@ import {
   handleBuildTurn,
   shouldRouteToBuildMode,
 } from "./build-mode.ts";
+import { readCanvasContext } from "./canvasReader.ts";
+import { LEAD_TOOLS, handleLeadTool } from "./tools/leads.ts";
+import { FINANCE_TOOLS, handleFinanceTool } from "./tools/finances.ts";
+import { SCRIPT_TOOLS, handleScriptTool } from "./tools/scripts.ts";
+import { EDITING_TOOLS, handleEditingTool } from "./tools/editing.ts";
+import { INTELLIGENCE_TOOLS, handleIntelligenceTool } from "./tools/intelligence.ts";
+import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -351,6 +358,14 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
+  // Wave 2 tools
+  ...LEAD_TOOLS,
+  ...FINANCE_TOOLS,
+  ...SCRIPT_TOOLS,
+  ...EDITING_TOOLS,
+  // Wave 3 tools
+  ...INTELLIGENCE_TOOLS,
+  ...CLIENT_TOOLS,
 ];
 
 /**
@@ -637,7 +652,7 @@ YOUR RULES — FOLLOW EXACTLY:
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Script-building requests ("build me a script") are routed to a separate dedicated build flow before reaching you — you will not see them here. Just answer the user's other questions naturally.
-19. TOOLS: You have navigate_to_page, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, list_all_clients, get_client_info, get_hooks, get_client_strategy, save_memory, respond_to_user. Use them. Don't describe what you'd do — do it.
+19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, delete_memory, list_memories. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -1268,6 +1283,34 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             content: "Filled fields: " + Object.keys(fields).join(", "),
           });
         }
+
+        if (block.name === "open_client") {
+          const { client_name } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients")
+            .select("id, name")
+            .eq("user_id", user.id)
+            .ilike("name", `%${client_name}%`)
+            .limit(1)
+            .maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No client found matching "${client_name}"` });
+          } else {
+            actions.push({ type: "open_client", client_id: targetClient.id });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Navigating to ${targetClient.name}'s page.` });
+          }
+        }
+
+        // Wave 2 module handlers — try each module in order, use first non-null result
+        const moduleCtx = { adminClient, userId: user.id, client, actions };
+        const moduleResult =
+          await handleLeadTool(block, moduleCtx) ??
+          await handleFinanceTool(block, moduleCtx) ??
+          await handleScriptTool(block, moduleCtx) ??
+          await handleEditingTool(block, moduleCtx) ??
+          await handleIntelligenceTool(block, moduleCtx) ??
+          await handleClientTool(block, moduleCtx);
+        if (moduleResult) toolResults.push(moduleResult);
       }
 
       // Second Claude call to synthesize tool results into a recommendation.
