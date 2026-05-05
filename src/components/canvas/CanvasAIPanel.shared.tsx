@@ -109,7 +109,14 @@ export function renderInline(line: string): React.ReactNode[] {
       parts.push(
         <code
           key={key++}
-          className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono"
+          style={{
+            borderLeft: "1.5px solid rgba(201,169,110,0.4)",
+            paddingLeft: 5,
+            fontStyle: "italic",
+            fontFamily: "monospace",
+            fontSize: "0.9em",
+            color: "rgba(255,255,255,0.6)",
+          }}
         >
           {match[4]}
         </code>,
@@ -121,7 +128,7 @@ export function renderInline(line: string): React.ReactNode[] {
           href={match[5]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-cyan-400 underline hover:text-cyan-300 break-all"
+          style={{ color: "rgba(201,169,110,0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
           onClick={(e) => e.stopPropagation()}
         >
           {match[5]}
@@ -299,9 +306,9 @@ const LINE_COLORS: Record<string, { color: string; label: string }> = {
 };
 const SECTION_ORDER = ["hook", "body", "cta"] as const;
 const SECTION_COLORS: Record<string, string> = {
-  hook: "#f97316",
-  body: "#22d3ee",
-  cta: "#a78bfa",
+  hook: "rgba(255,255,255,0.32)",
+  body: "rgba(255,255,255,0.32)",
+  cta: "rgba(255,255,255,0.32)",
 };
 const MAX_PREVIEW_LINES = 5;
 
@@ -333,8 +340,6 @@ export function InlineScriptPreview({
   }, [script.lines]);
 
   const virality = script.virality_score ?? 0;
-  const badgeColor =
-    virality >= 8 ? "#4ade80" : virality >= 6 ? "#22d3ee" : "#f97316";
 
   const handleSave = async () => {
     onSave();
@@ -345,7 +350,7 @@ export function InlineScriptPreview({
     <div
       style={{
         background: "rgba(20, 20, 24, 0.85)",
-        border: "1px solid rgba(34, 211, 238, 0.25)",
+        border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 12,
         overflow: "hidden",
         backdropFilter: "blur(12px)",
@@ -359,16 +364,18 @@ export function InlineScriptPreview({
           alignItems: "center",
           gap: 8,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "rgba(34, 211, 238, 0.04)",
+          background: "transparent",
         }}
       >
-        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#22d3ee" }} />
+        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.45)" }} />
         <span
           style={{
             flex: 1,
             fontSize: 11,
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.9)",
+            fontWeight: 300,
+            fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
+            letterSpacing: "0.02em",
+            color: "rgba(255,255,255,0.85)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -378,16 +385,15 @@ export function InlineScriptPreview({
         </span>
         <span
           style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: badgeColor,
-            background: `${badgeColor}15`,
-            padding: "2px 7px",
-            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 300,
+            fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
+            color: "rgba(201,169,110,0.8)",
+            letterSpacing: "0.04em",
             whiteSpace: "nowrap",
           }}
         >
-          {virality.toFixed(1)}/10
+          {virality.toFixed(1)}
         </span>
       </div>
 
@@ -421,12 +427,12 @@ export function InlineScriptPreview({
               <div key={section} style={{ marginBottom: 6 }}>
                 <div
                   style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
+                    fontSize: 10,
+                    fontWeight: 300,
+                    fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
+                    letterSpacing: "0.06em",
+                    fontStyle: "italic",
                     color: sectionColor,
-                    opacity: 0.7,
                     marginBottom: 3,
                   }}
                 >
@@ -573,20 +579,20 @@ export function InlineScriptPreview({
 
 const THINKING_VERBS = [
   "Thinking",
-  "Connecting",
-  "Analyzing",
-  "Brainstorming",
   "Crafting",
-  "Processing",
-  "Reasoning",
-  "Exploring",
-  "Synthesizing",
-  "Considering",
-  "Evaluating",
   "Composing",
   "Reflecting",
-  "Understanding",
-  "Generating",
+  "Considering",
+  "Exploring",
+  "Reasoning",
+  "Analyzing",
+  "Connecting",
+  "Drafting",
+  "Weighing",
+  "Distilling",
+  "Searching",
+  "Reading",
+  "Writing",
 ];
 
 export function ThinkingAnimation() {

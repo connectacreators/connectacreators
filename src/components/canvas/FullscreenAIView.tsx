@@ -554,8 +554,8 @@ const FullscreenAIView = memo(function FullscreenAIView({
         style={{
           height: 44,
           flexShrink: 0,
-          background: "#1a1b1f",
-          borderBottom: "1px solid #2a2b30",
+          background: "#0e0e10",
+          borderBottom: "1px solid rgba(255,255,255,0.05)",
           display: "flex",
           alignItems: "center",
           padding: "0 16px",
@@ -595,10 +595,11 @@ const FullscreenAIView = memo(function FullscreenAIView({
         <div style={{ flex: 1, textAlign: "center" }}>
           <span
             style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "rgba(255,255,255,0.85)",
-              letterSpacing: 0.1,
+              fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
+              fontWeight: 300,
+              fontSize: 14,
+              letterSpacing: "0.04em",
+              color: "rgba(255,255,255,0.78)",
             }}
           >
             {selectedClient.name || "Client"}
@@ -717,20 +718,10 @@ const FullscreenAIView = memo(function FullscreenAIView({
 
       {/* Custom scrollbar styles */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: transparent;
-          border: 1px solid #22d3ee;
-          border-radius: 99px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(34,211,238,0.1);
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
       `}</style>
     </div>
   );

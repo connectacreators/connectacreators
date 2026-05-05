@@ -464,20 +464,33 @@ export function AssistantTextInput({
               style={{
                 width: 26,
                 height: 26,
-                border: "1.5px solid rgba(255,255,255,0.1)",
-                borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "rgba(255,255,255,0.5)",
+                color: "rgba(255,255,255,0.45)",
                 fontSize: 18,
                 fontWeight: 300,
                 lineHeight: 1,
                 background: "none",
+                border: "none",
                 cursor: "pointer",
                 flexShrink: 0,
+                position: "relative",
               }}
             >
+              <svg
+                style={{ position: "absolute", inset: -3, width: "calc(100% + 6px)", height: "calc(100% + 6px)", overflow: "visible", pointerEvents: "none" }}
+                viewBox="0 0 32 32"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M5,2.5 C10,1 22,1 27,2.5 C30,3.5 31.5,6 31.5,9 C32,15 32,20 31,25 C30,28.5 28,31 24,31.5 C18,32.5 11,32.5 7,31.5 C3.5,31 1.5,28.5 1,25 C0.5,20 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.18)"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                />
+              </svg>
               +
             </button>
             {plusMenuOpen && (
@@ -827,10 +840,9 @@ export function AssistantTextInput({
                   inset: 0,
                   width: 28,
                   height: 28,
-                  borderRadius: "50%",
-                  border: "1.5px solid rgba(239,68,68,0.4)",
-                  background: "rgba(239,68,68,0.1)",
-                  color: "#f87171",
+                  background: "transparent",
+                  border: "none",
+                  color: "rgba(255,255,255,0.45)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -841,6 +853,19 @@ export function AssistantTextInput({
                 }}
                 title="Stop generating"
               >
+                <svg
+                  style={{ position: "absolute", inset: -4, width: "calc(100% + 8px)", height: "calc(100% + 8px)", overflow: "visible", pointerEvents: "none" }}
+                  viewBox="0 0 36 36"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M5,2.5 C10,1 26,1 31,2.5 C34,3.5 35.5,6.5 35.5,10 C36,17 36,22 35,27.5 C34,31 32,33.5 28,34.5 C21,36 13,36 8,34.5 C4,33.5 1.5,31 1,27 C0.5,21 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.2)"
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 <Square className="w-3.5 h-3.5 fill-current" />
               </button>
             )}
@@ -853,9 +878,8 @@ export function AssistantTextInput({
                 inset: 0,
                 width: 28,
                 height: 28,
-                borderRadius: "50%",
                 background: "transparent",
-                border: "1.5px solid #c9a96e",
+                border: "none",
                 color: "#c9a96e",
                 display: "flex",
                 alignItems: "center",
@@ -867,6 +891,19 @@ export function AssistantTextInput({
               }}
               title="Send"
             >
+              <svg
+                style={{ position: "absolute", inset: -4, width: "calc(100% + 8px)", height: "calc(100% + 8px)", overflow: "visible", pointerEvents: "none" }}
+                viewBox="0 0 36 36"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M5,2.5 C10,1 26,1 31,2.5 C34,3.5 35.5,6.5 35.5,10 C36,17 36,22 35,27.5 C34,31 32,33.5 28,34.5 C21,36 13,36 8,34.5 C4,33.5 1.5,31 1,27 C0.5,21 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
+                  fill="none"
+                  stroke="#c9a96e"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+              </svg>
               <Send className="w-3.5 h-3.5" />
             </button>
             {/* Mic button */}

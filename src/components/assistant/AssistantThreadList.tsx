@@ -141,7 +141,7 @@ export function AssistantThreadList({
           compact ? "px-2 py-1.5" : "px-3 py-2",
           "border-l-2",
           isActive
-            ? "bg-cyan-400/10 border-cyan-400"
+            ? "bg-white/[0.04] border-white/20"
             : "border-transparent hover:bg-white/5",
         ].join(" ")}
       >
@@ -161,7 +161,7 @@ export function AssistantThreadList({
               onBlur={() => void handleRenameSave(thread.id)}
               onClick={(e) => e.stopPropagation()}
               className={[
-                "w-full bg-cyan-400/10 border border-cyan-400/40 rounded px-1.5 py-0.5",
+                "w-full bg-white/5 border border-white/20 rounded px-1.5 py-0.5",
                 "text-white outline-none",
                 compact ? "text-xs" : "text-sm",
               ].join(" ")}
@@ -200,23 +200,14 @@ export function AssistantThreadList({
                     "truncate block",
                     compact ? "text-xs" : "text-sm",
                     isActive
-                      ? "text-cyan-300 font-semibold"
-                      : "text-white/70",
+                      ? "text-white/90 font-medium"
+                      : "text-white/65",
                   ].join(" ")}
                 >
                   {thread.name}
                 </span>
                 {thread.origin && (
-                  <span
-                    className={[
-                      "flex-shrink-0 px-1.5 py-px rounded text-[9px] font-semibold uppercase tracking-wider",
-                      thread.origin === "canvas"
-                        ? "bg-lime-400/15 text-lime-300"
-                        : "bg-cyan-400/15 text-cyan-300",
-                    ].join(" ")}
-                  >
-                    {thread.origin === "canvas" ? "Canvas" : "Drawer"}
-                  </span>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.16)", flexShrink: 0, display: "inline-block" }} />
                 )}
               </div>
               <div className="text-[10px] text-white/30 leading-snug">
@@ -243,7 +234,7 @@ export function AssistantThreadList({
                   setRenamingId(thread.id);
                   setRenameValue(thread.name);
                 }}
-                className="p-1 rounded text-white/40 hover:text-cyan-300 hover:bg-white/5 transition-colors"
+                className="p-1 rounded text-white/40 hover:text-white/75 hover:bg-white/5 transition-colors"
               >
                 <Pencil className="w-3 h-3" />
               </button>
@@ -286,11 +277,15 @@ export function AssistantThreadList({
         <button
           onClick={() => void onCreate()}
           className={[
-            "flex items-center gap-1 rounded border border-cyan-400 text-cyan-400 hover:bg-cyan-400/10 transition-colors",
-            compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]",
+            "relative flex items-center gap-1 transition-colors",
+            compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-[11px]",
           ].join(" ")}
+          style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
           title="Start a new chat"
         >
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none" }} viewBox="0 0 70 22" preserveAspectRatio="none">
+            <path d="M5,2 C18,0.5 52,0.5 63,2 C67,2.5 69,5 69,7.5 C69.5,11 69,15 68,18 C67,20.5 64,22 59,22.5 C42,23.5 22,23.5 10,22.5 C5,22 2,20.5 2,18 C1,14 1,10 2,7 C2.5,4 3.5,2.5 5,2 Z" fill="none" stroke="rgba(201,169,110,0.25)" strokeWidth="1" strokeLinecap="round"/>
+          </svg>
           <Plus className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
           New
         </button>

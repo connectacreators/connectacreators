@@ -17,12 +17,9 @@ import {
   useState,
 } from "react";
 import {
-  Check,
   ChevronDown,
-  Copy,
   Image as ImageIcon,
   Loader2,
-  RotateCcw,
 } from "lucide-react";
 import { FingerprintAvatar } from "@/components/assistant";
 import { toast } from "sonner";
@@ -434,33 +431,33 @@ export function AssistantChat({
                         </>
                       );
                     })()}
-                    <div className="absolute top-0 right-0 flex flex-col gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                    <div className="absolute top-0 right-0 flex items-center gap-3 opacity-0 group-hover/msg:opacity-100 transition-opacity">
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(msg.content);
                           setCopiedIdx(i);
                           setTimeout(() => setCopiedIdx(null), 1500);
                         }}
-                        className="p-0.5 rounded text-muted-foreground hover:text-foreground"
-                        title="Copy response"
+                        className="text-[9px] transition-colors relative"
+                        style={{ color: copiedIdx === i ? "rgba(201,169,110,0.8)" : "rgba(255,255,255,0.28)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                        title="Copy"
                       >
-                        {copiedIdx === i ? (
-                          <Check className="w-3 h-3 text-green-400" />
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
+                        {copiedIdx === i ? "copied" : "copy"}
+                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.15)", borderRadius: 1 }} />
                       </button>
                       <button
                         onClick={() => onRegenerateFromMessage?.(i)}
-                        className="p-0.5 rounded text-muted-foreground hover:text-foreground"
+                        className="text-[9px] relative"
+                        style={{ color: "rgba(255,255,255,0.28)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
                         title="Regenerate"
                       >
-                        <RotateCcw className="w-3 h-3" />
+                        retry
+                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.15)", borderRadius: 1 }} />
                       </button>
                       {msg.downgraded && msg.actual_model && (
                         <span
-                          title={`This turn was automatically routed to ${MODEL_LABEL[msg.actual_model] || msg.actual_model} to save credits. Ask for "search", "look through", or "research" to keep your selected model.`}
-                          className="text-[9px] text-muted-foreground/60 ml-1 px-1.5 py-0 rounded border border-border/40"
+                          title={`Routed to ${MODEL_LABEL[msg.actual_model] || msg.actual_model}`}
+                          className="text-[9px] text-muted-foreground/60 px-1.5 py-0 rounded border border-border/40"
                         >
                           {MODEL_LABEL[msg.actual_model] || msg.actual_model}
                         </span>
@@ -505,6 +502,9 @@ export function AssistantChat({
                           strokeWidth="1.2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
+                          strokeDasharray={500}
+                          strokeDashoffset={500}
+                          style={{ animation: "scribbleDrawIn 0.5s cubic-bezier(0.4,0,0.2,1) 0.05s forwards" }}
                         />
                       </svg>
                       <div className={`px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}>
@@ -543,28 +543,28 @@ export function AssistantChat({
 
         {generatingImage && (
           <div className="flex gap-2 items-start">
-            <ImageIcon className="w-3.5 h-3.5 text-purple-400 mt-0.5 flex-shrink-0" />
+            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(201,169,110,0.6)" }} />
             <div className="min-w-0 flex-1">
               <div
-                className="rounded-lg border border-purple-500/20 bg-purple-500/5 overflow-hidden relative"
-                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1" }}
+                className="rounded-lg overflow-hidden relative"
+                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(201,169,110,0.15)", background: "rgba(201,169,110,0.03)" }}
               >
                 {/* Shimmer animation */}
                 <div
                   className="absolute inset-0"
                   style={{
                     background:
-                      "linear-gradient(90deg, transparent 0%, rgba(168,85,247,0.08) 50%, transparent 100%)",
+                      "linear-gradient(90deg, transparent 0%, rgba(201,169,110,0.07) 50%, transparent 100%)",
                     backgroundSize: "200% 100%",
                     animation: "shimmer 1.5s ease-in-out infinite",
                   }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
-                  <span className="text-[11px] text-purple-400 font-medium">
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(201,169,110,0.6)" }} />
+                  <span className="text-[11px] font-medium" style={{ color: "rgba(201,169,110,0.55)" }}>
                     Creating image…
                   </span>
-                  <span className="text-[10px] text-purple-400/60">
+                  <span className="text-[10px]" style={{ color: "rgba(201,169,110,0.35)" }}>
                     1024 × 1024
                   </span>
                 </div>
@@ -581,8 +581,12 @@ export function AssistantChat({
                 setShowScrollBtn(false);
                 setUnreadCount(0);
               }}
-              className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border shadow-lg text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              className="pointer-events-auto relative flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              style={{ background: "none", border: "none" }}
             >
+              <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none" }} viewBox="0 0 100 28" preserveAspectRatio="none">
+                <path d="M6,2.5 C25,1 75,1 92,2.5 C97,3 99,5.5 99,8.5 C99.5,13 99,19 98,22 C97,25 94,26.5 89,27 C65,28 30,28 12,27 C6,26.5 2,25 2,22 C1,17 1,11 2,7 C2.5,4 4,3 6,2.5 Z" fill="none" stroke="rgba(201,169,110,0.22)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               <ChevronDown className="w-3 h-3" />
               {unreadCount > 0 ? `${unreadCount} new` : "Latest"}
             </button>

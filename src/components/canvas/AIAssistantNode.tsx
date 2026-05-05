@@ -472,7 +472,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       data-tutorial-target="ai-node"
       className="glass-card rounded-2xl shadow-2xl flex flex-row relative"
       style={{ width: "100%", height: "100%", minWidth: "340px", minHeight: "400px",
-        ...(isDragOverAI ? { boxShadow: "0 0 0 2px rgba(34,211,238,0.6), 0 0 24px rgba(34,211,238,0.15)" } : {})
+        boxShadow: isDragOverAI ? "0 0 0 2px rgba(201,169,110,0.5), 0 8px 40px rgba(0,0,0,0.5)" : "0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
+        border: "1px solid rgba(255,255,255,0.07)",
       }}
       onDragOver={(e) => {
         const hasImage = Array.from(e.dataTransfer.items).some(i => i.kind === "file" && i.type.startsWith("image/"));
@@ -501,7 +502,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       {/* Drop overlay — only image drops on the AI node */}
       {isDragOverAI && (
         <div className="absolute inset-0 z-50 rounded-2xl pointer-events-none flex items-center justify-center"
-          style={{ background: "rgba(34,211,238,0.07)", border: "2px dashed rgba(34,211,238,0.5)" }}>
+          style={{ background: "rgba(201,169,110,0.06)", border: "2px dashed rgba(201,169,110,0.4)" }}>
           <div className="bg-card/90 backdrop-blur-sm border border-primary/30 rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
             <Bot className="w-6 h-6 text-primary" />
             <p className="text-xs font-semibold text-foreground">Drop image for AI</p>

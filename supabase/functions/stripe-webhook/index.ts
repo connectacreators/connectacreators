@@ -37,8 +37,6 @@ const PRODUCT_PLAN_MAP: Record<string, string> = {
   "prod_Tzx4OBg3PpYuES": "enterprise",
 };
 
-const TRIAL_CREDITS = 1000;
-
 function getDbStatus(sub: Stripe.Subscription): string {
   if (sub.cancel_at_period_end && (sub.status === "active" || sub.status === "trialing")) return "canceling";
   const map: Record<string, string> = {
