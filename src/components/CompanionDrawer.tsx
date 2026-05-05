@@ -16,7 +16,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bot, Eye, List, Maximize2, MessageSquare, X } from "lucide-react";
+import { Eye, List, Maximize2, MessageSquare, X } from "lucide-react";
+import { FingerprintAvatar } from "@/components/assistant";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useActiveBuildSessions } from "@/hooks/useActiveBuildSessions";
 import { BuildBanner } from "@/components/companion/BuildBanner";
@@ -329,7 +330,7 @@ export default function CompanionDrawer() {
           style={{ background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Bot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#e0e0e0" }} />
+            <FingerprintAvatar size="sm" />
             <span className="text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
               {companionName}
             </span>
@@ -432,13 +433,24 @@ function TabBtn({
     <button
       onClick={onClick}
       title={title}
-      className={
-        "w-7 h-7 rounded flex items-center justify-center transition-colors " +
-        (active
-          ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-          : "bg-white/[0.04] text-white/40 border border-transparent hover:text-white/70")
-      }
+      className="relative w-7 h-7 flex items-center justify-center transition-colors"
+      style={{ color: active ? "rgba(201,169,110,0.85)" : "rgba(255,255,255,0.28)" }}
     >
+      {/* gold side mark */}
+      <span
+        style={{
+          position: "absolute",
+          left: -8,
+          top: "50%",
+          transform: `translateY(-50%) scaleY(${active ? 1 : 0})`,
+          width: 1.5,
+          height: "55%",
+          background: "#c9a96e",
+          borderRadius: 2,
+          opacity: active ? 0.85 : 0,
+          transition: "transform 0.18s ease, opacity 0.18s ease",
+        }}
+      />
       <Icon className="w-3.5 h-3.5" />
     </button>
   );

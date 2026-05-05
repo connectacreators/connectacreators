@@ -620,10 +620,21 @@ export function ThinkingAnimation() {
       >
         {THINKING_VERBS[index]}
       </span>
-      <span className="flex gap-[3px] items-center">
-        <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce [animation-delay:0ms]" />
-        <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce [animation-delay:150ms]" />
-        <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce [animation-delay:300ms]" />
+      <span className="flex gap-[3px] items-end" style={{ height: 10 }}>
+        {([0, 150, 300] as const).map((delay) => (
+          <span
+            key={delay}
+            style={{
+              display: "inline-block",
+              width: 2.5,
+              height: 8,
+              borderRadius: 2,
+              background: "#c9a96e",
+              animation: `goldBarPulse 1.2s ease-in-out infinite`,
+              animationDelay: `${delay}ms`,
+            }}
+          />
+        ))}
       </span>
     </div>
   );

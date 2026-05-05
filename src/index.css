@@ -458,6 +458,11 @@ All colors MUST be HSL for consistency and theming.
   50%       { opacity: 0; }
 }
 
+@keyframes goldBarPulse {
+  0%, 100% { opacity: 0.25; transform: scaleY(0.5); }
+  50%       { opacity: 0.8;  transform: scaleY(1);   }
+}
+
 /* Visual Breakdown horizontal scrollbar — cream outline, no fill */
 .visual-breakdown-scroll::-webkit-scrollbar {
   height: 4px;

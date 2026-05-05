@@ -23,3 +23,4 @@ export type {
   ContextNode,
 } from "./AssistantContextPanel.tsx";
 export { AssistantMemoryEditor } from "./AssistantMemoryEditor.tsx";
+export { FingerprintAvatar } from "./FingerprintAvatar.tsx";

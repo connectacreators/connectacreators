@@ -238,19 +238,19 @@ export function AssistantTextInput({
         <div
           className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg"
           style={{
-            background:
-              "linear-gradient(90deg,rgba(34,211,238,0.12),rgba(14,165,233,0.08))",
-            border: "1px solid rgba(34,211,238,0.2)",
+            background: "rgba(201,169,110,0.08)",
+            border: "1px solid rgba(201,169,110,0.2)",
           }}
         >
           <span
-            className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0"
+            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{
-              boxShadow: "0 0 5px #22d3ee",
+              background: "#c9a96e",
+              boxShadow: "0 0 5px rgba(201,169,110,0.5)",
               animation: "pulse 1.5s infinite",
             }}
           />
-          <span className="text-[10px] text-primary/80 font-medium">
+          <span className="text-[10px] font-medium" style={{ color: "rgba(201,169,110,0.85)" }}>
             Deep Research mode · 100 credits per query
           </span>
         </div>
@@ -509,10 +509,9 @@ export function AssistantTextInput({
                   <button
                     type="button"
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
-                      isResearchMode
-                        ? "text-primary bg-primary/10"
-                        : "text-muted-foreground hover:bg-muted/60"
+                      isResearchMode ? "" : "text-muted-foreground hover:bg-muted/60"
                     }`}
+                    style={isResearchMode ? { color: "#c9a96e", background: "rgba(201,169,110,0.08)" } : undefined}
                     onClick={() => {
                       onToggleResearchMode();
                       setPlusMenuOpen(false);
@@ -593,8 +592,8 @@ export function AssistantTextInput({
                 gap: 4,
                 color:
                   generating || generateScriptDisabled
-                    ? "rgba(34,211,238,0.4)"
-                    : "#22d3ee",
+                    ? "rgba(201,169,110,0.4)"
+                    : "#c9a96e",
                 fontSize: 11,
                 fontWeight: 600,
                 background: "none",
@@ -708,9 +707,10 @@ export function AssistantTextInput({
                                 type="button"
                                 className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
                                   selectedModel === m.key
-                                    ? "bg-primary/10 border-l-2 border-l-primary text-foreground"
+                                    ? "border-l-2 text-foreground"
                                     : "text-muted-foreground hover:bg-muted/60"
                                 }`}
+                                style={selectedModel === m.key ? { borderLeftColor: "#c9a96e", background: "rgba(201,169,110,0.07)" } : undefined}
                                 onClick={() => {
                                   onModelChange?.(m.key);
                                   setModelDropdownOpen(false);
@@ -724,7 +724,7 @@ export function AssistantTextInput({
                                   {m.label}
                                 </span>
                                 {selectedModel === m.key && (
-                                  <Check className="w-3 h-3 ml-auto text-primary" />
+                                  <Check className="w-3 h-3 ml-auto" style={{ color: "#c9a96e" }} />
                                 )}
                                 <span
                                   className={`text-[10px] ${
@@ -780,7 +780,7 @@ export function AssistantTextInput({
                                 height: 16,
                                 borderRadius: 8,
                                 background: thinkingEnabled
-                                  ? "#0891b2"
+                                  ? "#c9a96e"
                                   : "rgba(255,255,255,0.15)",
                                 transition: "background 0.2s",
                               }}
@@ -855,8 +855,8 @@ export function AssistantTextInput({
                 height: 28,
                 borderRadius: "50%",
                 background: "transparent",
-                border: "1.5px solid #22d3ee",
-                color: "#22d3ee",
+                border: "1.5px solid #c9a96e",
+                color: "#c9a96e",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

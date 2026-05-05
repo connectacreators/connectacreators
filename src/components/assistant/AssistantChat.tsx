@@ -17,7 +17,6 @@ import {
   useState,
 } from "react";
 import {
-  Bot,
   Check,
   ChevronDown,
   Copy,
@@ -25,6 +24,7 @@ import {
   Loader2,
   RotateCcw,
 } from "lucide-react";
+import { FingerprintAvatar } from "@/components/assistant";
 import { toast } from "sonner";
 import { parseDeck, composeDeckAnswers, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
 import { QuestionDeckCard } from "@/components/canvas/QuestionDeckCard";
@@ -275,9 +275,7 @@ export function AssistantChat({
             className={`flex flex-col items-center justify-center flex-1 ${fullscreen ? "min-h-[60vh]" : "min-h-[200px]"} gap-3 px-3`}
             style={{ animation: "greetingFadeIn 0.5s ease both" }}
           >
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-primary" />
-            </div>
+            <FingerprintAvatar size="md" />
             {greeting && (
               <p
                 className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug font-caslon`}
@@ -311,7 +309,7 @@ export function AssistantChat({
                 </div>
               ) : msg.type === "script_preview" && msg.script_data ? (
                 <div className="flex gap-2 items-start">
-                  <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                  <FingerprintAvatar size="sm" />
                   <div className="min-w-0 flex-1">
                     {msg.script_data?.change_summary && (
                       <p
@@ -358,7 +356,8 @@ export function AssistantChat({
               ) : msg.is_research ? (
                 <div className="flex gap-2 items-start">
                   <svg
-                    className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0"
+                    className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                    style={{ color: "#c9a96e" }}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -370,7 +369,7 @@ export function AssistantChat({
                   </svg>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#c9a96e" }}>
                         Deep Research
                       </span>
                       {msg.source_count != null && msg.source_count > 0 && (
@@ -383,8 +382,8 @@ export function AssistantChat({
                     <MarkdownText text={msg.content} />
                     <button
                       onClick={() => handleSaveResearch(msg)}
-                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-primary/80 border border-primary/30 hover:border-primary/50 transition-colors"
-                      style={{ background: "rgba(34,211,238,0.08)" }}
+                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
+                      style={{ color: "rgba(201,169,110,0.85)", borderColor: "rgba(201,169,110,0.3)", background: "rgba(201,169,110,0.07)" }}
                     >
                       <svg
                         className="w-3 h-3"
@@ -403,7 +402,7 @@ export function AssistantChat({
                 </div>
               ) : (
                 <div className="flex gap-2 items-start group/msg">
-                  <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                  <FingerprintAvatar size="sm" />
                   <div className="text-foreground min-w-0 flex-1 relative pr-8">
                     {(() => {
                       const deck = parseDeck(msg.content);
@@ -486,10 +485,31 @@ export function AssistantChat({
                       answers={msg.meta.deck_answers}
                     />
                   ) : (
-                    <div
-                      className={`px-3 py-2 rounded-2xl rounded-tr-sm bg-muted ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}
-                    >
-                      {msg.content}
+                    <div className="relative">
+                      <svg
+                        style={{
+                          position: "absolute",
+                          inset: -3,
+                          width: "calc(100% + 6px)",
+                          height: "calc(100% + 6px)",
+                          overflow: "visible",
+                          pointerEvents: "none",
+                        }}
+                        viewBox="0 0 200 40"
+                        preserveAspectRatio="none"
+                      >
+                        <path
+                          d="M8,2 C60,0.5 140,0.5 188,2 C195,2.5 198,5 198,9 C199,17 199,28 198,33 C197,36.5 193,38.5 185,39 C130,40 70,40 18,39 C8,38.5 3,36 2,32 C1,26 1,14 2,8 C2.5,4.5 5,2.5 8,2 Z"
+                          fill="none"
+                          stroke="rgba(201,169,110,0.28)"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <div className={`px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}>
+                        {msg.content}
+                      </div>
                     </div>
                   )}
                   <button
@@ -516,7 +536,7 @@ export function AssistantChat({
 
         {(loading || generating) && !generatingImage && (
           <div className="flex gap-2 items-start">
-            <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+            <FingerprintAvatar size="sm" />
             <ThinkingAnimation />
           </div>
         )}
@@ -582,7 +602,8 @@ export function AssistantChat({
             <div className="flex gap-2 items-start px-1 py-1">
               {looksLikeResearch ? (
                 <svg
-                  className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0"
+                  className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                  style={{ color: "#c9a96e" }}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -593,17 +614,18 @@ export function AssistantChat({
                   <path d="M11 8v6M8 11h6" />
                 </svg>
               ) : (
-                <Bot className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                <FingerprintAvatar size="sm" />
               )}
-              <div className="text-foreground min-w-0 flex-1">
-                {liveText.includes("questions_deck") ? (
-                  <div className="text-xs text-muted-foreground italic">
-                    Preparing questions…
-                  </div>
-                ) : (
-                  <MarkdownText text={liveText + "​▋"} />
-                )}
-              </div>
+              {liveText.includes("questions_deck") ? (
+                <div className="text-xs text-muted-foreground italic">
+                  Preparing questions…
+                </div>
+              ) : (
+                <div className="text-foreground min-w-0 flex-1 inline">
+                  <MarkdownText text={liveText} />
+                  <span style={{ color: "rgba(201,169,110,0.7)", fontWeight: 400 }}>▋</span>
+                </div>
+              )}
             </div>
           );
         })()}
