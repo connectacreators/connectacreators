@@ -581,7 +581,15 @@ export async function handleAddVideoToCanvas(
     });
   }
 
-  return `VideoNode added to ${clientName}'s canvas. Video: @${video.channel_username ?? "unknown"} — ${(video.caption ?? "").slice(0, 100)}. The node will auto-transcribe when the user opens the canvas.`;
+  // Eagerly transcribe server-side so draft_script can ground on it immediately.
+  // Without this the client-side autoTranscribe flag only fires when the user
+  // opens the canvas — by then the AI has already tried and failed to draft.
+  const transcriptResult = await ensureFrameworkTranscript(video.id, ctx);
+  const transcriptNote = transcriptResult.transcript
+    ? ` Transcript ready (${transcriptResult.cached ? "was cached" : "just transcribed"}, ${transcriptResult.transcript.length} chars).`
+    : ` Transcription ${transcriptResult.error ? `failed (${transcriptResult.error.slice(0, 80)}) — will draft from caption` : "pending"}.`;
+
+  return `VideoNode added to ${clientName}'s canvas. Video: @${video.channel_username ?? "unknown"} — ${(video.caption ?? "").slice(0, 100)}.${transcriptNote}`;
 }
 
 // ── Tool 7: draft_script ──────────────────────────────────────────────────────
@@ -608,6 +616,20 @@ async function ensureFrameworkTranscript(
   if (!video) return { transcript: null, error: "video not found", cached: false };
   if (video.transcript && video.transcript.trim().length > 0) {
     return { transcript: video.transcript, error: null, cached: true };
+  }
+  // If client-side autoTranscribe already started, don't double-bill — wait a moment
+  // and try to read the result rather than firing a second transcription.
+  if (video.transcript_status === "processing") {
+    await new Promise(r => setTimeout(r, 4000));
+    const { data: refreshed } = await ctx.adminClient
+      .from("viral_videos")
+      .select("transcript")
+      .eq("id", videoId)
+      .maybeSingle();
+    if (refreshed?.transcript?.trim()) {
+      return { transcript: refreshed.transcript, error: null, cached: true };
+    }
+    // Still not ready — fall through and let this call transcribe it
   }
   if (!video.video_url) return { transcript: null, error: "no url", cached: false };
   if (!ctx.userAuthHeader) return { transcript: null, error: "no user auth available", cached: false };
