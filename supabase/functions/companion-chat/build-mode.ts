@@ -440,16 +440,19 @@ export async function handleBuildTurn(
 
       // Reload buildSession (it may have been updated by previous tool calls)
       const refreshed = await getBuildSession(adminClient, buildSession.id);
-      const ctx: BuildToolContext = {
-        adminClient,
-        userId: user.id,
-        client,
-        buildSession: refreshed ?? buildSession,
-        threadId,
-      };
 
       const toolResults: any[] = [];
       for (const block of toolUseBlocks) {
+        // Fresh progressIds accumulator per tool call so each tool only clears
+        // ITS OWN progress messages when it finishes.
+        const ctx: BuildToolContext = {
+          adminClient,
+          userId: user.id,
+          client,
+          buildSession: refreshed ?? buildSession,
+          threadId,
+          progressIds: [],
+        };
         console.log(`[build-mode] tool call: ${block.name}`);
         const result = await handleBuildTool(block.name, block.input, block.id, ctx);
         if (result) {

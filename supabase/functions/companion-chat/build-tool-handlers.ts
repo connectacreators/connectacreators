@@ -18,6 +18,9 @@ export interface BuildToolContext {
   client: { id: string; name: string | null };
   buildSession: BuildSession | null;
   threadId: string | null;
+  /** Accumulator: tool wrappers push inserted progress message IDs here so
+   * they can be cleared once the tool's work is done. */
+  progressIds?: string[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -28,14 +31,19 @@ export async function logBuildProgress(
   text: string,
   phase?: string,
 ): Promise<void> {
-  const { adminClient, buildSession, threadId } = ctx;
+  const { adminClient, buildSession, threadId, progressIds } = ctx;
   if (threadId) {
-    const { error: msgErr } = await adminClient.from("assistant_messages").insert({
-      thread_id: threadId,
-      role: "assistant",
-      content: { type: "text", text, is_progress: true },
-    });
+    const { data: inserted, error: msgErr } = await adminClient
+      .from("assistant_messages")
+      .insert({
+        thread_id: threadId,
+        role: "assistant",
+        content: { type: "text", text, is_progress: true },
+      })
+      .select("id")
+      .single();
     if (msgErr) console.warn("[logBuildProgress] insert failed:", msgErr.message);
+    if (inserted?.id && progressIds) progressIds.push(inserted.id);
   }
   if (phase && buildSession) {
     const { error: phaseErr } = await adminClient
@@ -44,6 +52,20 @@ export async function logBuildProgress(
       .eq("id", buildSession.id);
     if (phaseErr) console.warn("[logBuildProgress] phase update failed:", phaseErr.message);
   }
+}
+
+/** Delete all progress messages tracked in the context's progressIds. Called
+ * after the tool's work is done so the user sees them flash and disappear. */
+export async function clearBuildProgress(ctx: BuildToolContext): Promise<void> {
+  const ids = ctx.progressIds;
+  if (!ids || ids.length === 0) return;
+  const { error } = await ctx.adminClient
+    .from("assistant_messages")
+    .delete()
+    .in("id", ids);
+  if (error) console.warn("[clearBuildProgress] delete failed:", error.message);
+  // Reset the array so subsequent tools start fresh
+  ids.length = 0;
 }
 
 /** Check if the build has been paused by the user. */
@@ -676,6 +698,9 @@ export async function handleBuildTool(
     default:
       return null;
   }
+
+  // Tool's work is done — clear the progress messages so the spinners stop.
+  await clearBuildProgress(ctx);
 
   return { type: "tool_result", tool_use_id: toolUseId, content: content ?? "" };
 }
