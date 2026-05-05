@@ -1,13 +1,13 @@
 import { memo, useState, useEffect, useCallback, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer, useUpdateNodeInternals } from "@xyflow/react";
 import { X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Pencil, Check } from "lucide-react";
-import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 import CanvasAIPanel, { type CanvasContext } from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { loadCanvasChatMessages } from "@/lib/canvasChatBridge";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeChatSync } from "@/hooks/useRealtimeChatSync";
+import { useCompanion } from "@/contexts/CompanionContext";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -79,6 +79,7 @@ const MAX_MESSAGES = 30;
 const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   const d = data as AIAssistantData;
   const { user } = useAuth();
+  const { companionName } = useCompanion();
   const updateNodeInternals = useUpdateNodeInternals();
   const [generatedScript, setGeneratedScript] = useState<any>(null);
   const [refinementInput, setRefinementInput] = useState<string | null>(null);
@@ -604,9 +605,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div className="flex items-center gap-2">
-            <img src={connectaFavicon} alt="" style={{ width: 14, height: 14, objectFit: "contain", opacity: 0.65, filter: "brightness(0) invert(1)", flexShrink: 0 }} />
-            <span className="font-caslon text-xs font-light" style={{ color: '#e0e0e0', letterSpacing: '0.04em' }}>Connecta AI</span>
-            <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Draw edges from nodes to connect context</span>
+            <span className="font-caslon text-xs font-light" style={{ color: '#e0e0e0', letterSpacing: '0.04em' }}>{companionName}</span>
+            <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.22)' }}>Connect nodes to give me context, or just ask.</span>
           </div>
           {d.onDelete && (
             <button
