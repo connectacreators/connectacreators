@@ -366,15 +366,31 @@ serve(async (req) => {
     }
 
     // ── 8. Upsert to viral_videos ─────────────────────────────────────────────
-    const { error: upsertErr, count } = await supabase
+    const { data: inserted, error: upsertErr } = await supabase
       .from("viral_videos")
       .upsert(rows, { onConflict: "platform,apify_video_id", ignoreDuplicates: false })
-      .select("id", { count: "exact", head: true });
+      .select("id, outlier_score, views_count");
 
     if (upsertErr) throw new Error(`DB upsert failed: ${upsertErr.message}`);
 
+    // Trigger analyze-viral-video for qualifying rows (fire-and-forget background job)
+    if (inserted && Array.isArray(inserted)) {
+      for (const row of inserted) {
+        if (row && Number(row.outlier_score ?? 0) >= 5 && Number(row.views_count ?? 0) >= 500000) {
+          void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-viral-video`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ video_id: row.id }),
+          }).catch((e) => console.warn("[scrape-hashtag] analyze-viral-video trigger failed:", (e as Error).message));
+        }
+      }
+    }
+
     return json({
-      inserted: count ?? rows.length,
+      inserted: inserted?.length ?? rows.length,
       hashtags: cleanTags,
       profiles: cleanProfiles.length > 0 ? cleanProfiles : undefined,
       accounts_scraped: usernameList.length,

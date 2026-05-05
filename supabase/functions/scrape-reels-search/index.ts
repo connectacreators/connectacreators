@@ -292,12 +292,13 @@ serve(async (req) => {
     }
 
     // ── Upsert ────────────────────────────────────────────────────────────
-    const { error: upsertErr } = await adminClient
+    const { data: inserted, error: upsertErr } = await adminClient
       .from("viral_videos")
       .upsert(videosWithOutlier, {
         onConflict: "platform,apify_video_id",
         ignoreDuplicates: false,
-      });
+      })
+      .select("id, outlier_score, views_count");
 
     if (upsertErr) {
       console.error("[scrape-reels-search] Upsert error:", upsertErr);
@@ -305,6 +306,22 @@ serve(async (req) => {
     }
 
     console.log(`[scrape-reels-search] Upserted ${videosWithOutlier.length} videos for "${cleanQuery}"`);
+
+    // Trigger analyze-viral-video for qualifying rows (fire-and-forget background job)
+    if (inserted && Array.isArray(inserted)) {
+      for (const row of inserted) {
+        if (row && Number(row.outlier_score ?? 0) >= 5 && Number(row.views_count ?? 0) >= 500000) {
+          void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-viral-video`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ video_id: row.id }),
+          }).catch((e) => console.warn("[scrape-reels-search] analyze-viral-video trigger failed:", (e as Error).message));
+        }
+      }
+    }
 
     return json({
       inserted: videosWithOutlier.length,

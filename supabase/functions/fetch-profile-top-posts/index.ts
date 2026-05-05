@@ -191,12 +191,30 @@ async function saveToVault(
 
     if (videoRows.length === 0) return;
 
-    const { error: vErr } = await supabase
+    const { data: inserted, error: vErr } = await supabase
       .from("viral_videos")
-      .upsert(videoRows, { onConflict: "platform,apify_video_id", ignoreDuplicates: false });
+      .upsert(videoRows, { onConflict: "platform,apify_video_id", ignoreDuplicates: false })
+      .select("id, outlier_score, views_count");
 
     if (vErr) console.error("[fetch-profile-top-posts] videos upsert failed:", vErr.message);
-    else console.log(`[fetch-profile-top-posts] saved ${videoRows.length} videos for @${username} (${platform})`);
+    else {
+      console.log(`[fetch-profile-top-posts] saved ${videoRows.length} videos for @${username} (${platform})`);
+      // Trigger analyze-viral-video for qualifying rows (fire-and-forget background job)
+      if (inserted && Array.isArray(inserted)) {
+        for (const row of inserted) {
+          if (row && Number(row.outlier_score ?? 0) >= 5 && Number(row.views_count ?? 0) >= 500000) {
+            void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-viral-video`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ video_id: row.id }),
+            }).catch((e) => console.warn("[fetch-profile-top-posts] analyze-viral-video trigger failed:", (e as Error).message));
+          }
+        }
+      }
+    }
   } catch (e: any) {
     console.error("[fetch-profile-top-posts] saveToVault error:", e.message);
   }
