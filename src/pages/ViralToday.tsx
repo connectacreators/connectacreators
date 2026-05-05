@@ -167,6 +167,8 @@ interface ViralVideo {
   scraped_at: string;
   apify_video_id: string | null;
   hashtag_source?: string | null;
+  user_submitted?: boolean | null;
+  submitted_by?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -657,7 +659,21 @@ function VideoCard({
         {/* Channel + time */}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
-          <span className="text-[10px] text-muted-foreground">{timeAgo(video.posted_at)}</span>
+          {video.user_submitted ? (
+            <span
+              className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold"
+              style={{
+                background: "rgba(34,211,238,0.10)",
+                color: "rgba(34,211,238,0.95)",
+                border: "1px solid rgba(34,211,238,0.3)",
+              }}
+              title="You added this from /ai"
+            >
+              Submitted
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground">{timeAgo(video.posted_at)}</span>
+          )}
         </div>
 
         {/* Stats row */}
@@ -1023,6 +1039,27 @@ export default function ViralToday() {
         page++;
       }
 
+      // Always include the current user's own submissions, regardless of
+      // outlier/views/engagement/date filters — they're inserted with
+      // views_count=0 and outlier_score=null which the default filters
+      // exclude. Users expect to see what they just pasted.
+      if (user) {
+        const { data: mineData } = await supabase
+          .from("viral_videos")
+          .select("*")
+          .eq("submitted_by", user.id)
+          .eq("user_submitted", true)
+          .order("scraped_at", { ascending: false })
+          .limit(200);
+        const mine = (mineData ?? []) as ViralVideo[];
+        if (mine.length > 0) {
+          const seen = new Set(allVideos.map((v) => v.id));
+          const additions = mine.filter((v) => !seen.has(v.id));
+          // Show user-submitted on top so they're easy to find right after pasting.
+          allVideos = [...additions, ...allVideos];
+        }
+      }
+
       setVideos(allVideos);
       writeCache("viral_videos", allVideos);
       setCurrentPage(0);
@@ -1031,7 +1068,7 @@ export default function ViralToday() {
     } finally {
       setLoadingVideos(false);
     }
-  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement]);
+  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement, user]);
 
   // Mount-only: load channels + videos once when user becomes available
   const didMount = useRef(false);

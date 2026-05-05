@@ -518,6 +518,7 @@ serve(async (req) => {
       const buildResult = await handleBuildTurn({
         message,
         user: { id: user.id },
+        userAuthHeader: authHeader,
         client: { id: client.id, name: client.name },
         threadId: resolvedThreadId,
         adminClient,

@@ -122,7 +122,11 @@ serve(async (req) => {
   }
 
   try {
-    const { url, source } = await req.json();
+    const { url, source, viral_video_id } = await req.json() as {
+      url: string;
+      source?: string;
+      viral_video_id?: string | null;
+    };
     if (!url || typeof url !== "string") {
       return new Response(JSON.stringify({ error: "url is required" }), {
         status: 400,
@@ -130,7 +134,11 @@ serve(async (req) => {
       });
     }
 
-    const action = source === "competitor" ? "transcribe_competitor_post" : "add_video_to_vault";
+    const action = source === "competitor"
+      ? "transcribe_competitor_post"
+      : source === "build_mode"
+        ? "transcribe_for_build"
+        : "add_video_to_vault";
     const creditErr = await deductCredits(adminClient, user.id, action, CREDIT_COST);
     if (creditErr) {
       return new Response(creditErr, {
@@ -305,6 +313,23 @@ serve(async (req) => {
       } catch (e) {
         console.error("Facebook thumbnail fallback failed:", e);
       }
+    }
+
+    // If caller provided a viral_video_id, persist transcript so subsequent
+    // draft_script calls can reuse it without re-billing the user.
+    if (viral_video_id && typeof viral_video_id === "string") {
+      const update: Record<string, unknown> = {
+        transcript: transcription,
+        transcript_status: "done",
+        transcribed_at: new Date().toISOString(),
+        transcript_error: null,
+      };
+      if (thumbnailUrl) update.thumbnail_url = thumbnailUrl;
+      const { error: persistErr } = await adminClient
+        .from("viral_videos")
+        .update(update)
+        .eq("id", viral_video_id);
+      if (persistErr) console.warn("[transcribe-video] persist to viral_videos failed:", persistErr.message);
     }
 
     // Return cached video URL for frontend playback + metadata

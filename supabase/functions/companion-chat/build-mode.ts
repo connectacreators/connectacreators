@@ -22,6 +22,7 @@ import {
   handleBuildTool,
   type BuildToolContext,
   handleAddUrlToViralDatabase,
+  handleAddVideoToCanvas,
 } from "./build-tool-handlers.ts";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -107,15 +108,15 @@ const BUILD_TOOLS = [
   },
   {
     name: "draft_script",
-    description: "Write a script draft (HOOK/BODY/CTA) mirroring the framework's structure but adapted to the idea + client voice. Call AFTER add_video_to_canvas.",
+    description: "Write a script draft (HOOK/BODY/CTA) mirroring the framework's structure but adapted to the idea + client voice. The tool fetches the framework's full transcript from viral_videos by id (auto-transcribing on demand if needed) so the draft is grounded on real content, not just the caption. Call AFTER add_video_to_canvas — the same video_id you passed to add_video_to_canvas goes here.",
     input_schema: {
       type: "object",
       properties: {
         client_id: { type: "string", description: "The client's UUID" },
         idea_title: { type: "string", description: "The idea title" },
-        framework_caption: { type: "string", description: "The viral video caption to mirror" },
+        framework_video_id: { type: "string", description: "The viral_videos UUID of the chosen framework — same id passed to add_video_to_canvas" },
       },
-      required: ["client_id", "idea_title", "framework_caption"],
+      required: ["client_id", "idea_title", "framework_video_id"],
     },
   },
   {
@@ -149,6 +150,8 @@ interface PreProcessedUrl {
 
 async function preProcessUrls(
   message: string,
+  userId: string,
+  userAuthHeader: string | null,
   client: { id: string; name: string | null },
   threadId: string | null,
   buildSession: BuildSession | null,
@@ -159,10 +162,12 @@ async function preProcessUrls(
 
   const ctx: BuildToolContext = {
     adminClient,
-    userId: "", // unused for this helper
+    userId,
+    userAuthHeader,
     client,
     buildSession,
     threadId,
+    progressIds: [],
   };
 
   const results: PreProcessedUrl[] = [];
@@ -172,12 +177,29 @@ async function preProcessUrls(
       // Result text contains "Video ID: <id>" if successful
       const idMatch = resultText.match(/Video ID:\s*([0-9a-f-]+)/i);
       const userMatch = resultText.match(/@(\S+)\./);
-      if (idMatch) {
-        results.push({
-          url,
-          videoId: idMatch[1],
-          channelUsername: userMatch?.[1] ?? "unknown",
-        });
+      if (!idMatch) continue;
+
+      const videoId = idMatch[1];
+      results.push({
+        url,
+        videoId,
+        channelUsername: userMatch?.[1] ?? "unknown",
+      });
+
+      // Deterministically add to the canvas right now — don't rely on the LLM
+      // to remember to call add_video_to_canvas. This was a real bug: when
+      // users pasted their own URL after frameworks were already shown, the
+      // LLM would skip add_video_to_canvas and go straight to draft_script,
+      // leaving the wrong (or no) video on the canvas.
+      if (buildSession?.canvasStateId) {
+        try {
+          await handleAddVideoToCanvas(
+            { client_id: client.id, video_id: videoId },
+            ctx,
+          );
+        } catch (e) {
+          console.warn(`[build-mode] auto add_video_to_canvas failed for ${videoId}:`, (e as Error).message);
+        }
       }
     } catch (e) {
       console.warn(`[build-mode] preProcessUrls failed for ${url}:`, (e as Error).message);
@@ -212,10 +234,10 @@ function buildSystemPrompt(args: {
   const urlsBlock = preProcessedUrls.length > 0
     ? `
 
-URLS DETECTED IN THIS MESSAGE (already added to viral_videos):
+URLS DETECTED IN THIS MESSAGE (already added to viral_videos AND already placed on the canvas — do NOT call add_video_to_canvas again for them):
 ${preProcessedUrls.map((u) => `- ${u.url} → video_id=${u.videoId} (@${u.channelUsername})`).join("\n")}
 
-The user pasted these URLs as their own framework references. Use the first one as the framework: call add_video_to_canvas with video_id, then draft_script. Skip search_viral_frameworks.`
+The user pasted these URLs as their own framework references. The first URL is now the active framework. Call draft_script with framework_video_id=${preProcessedUrls[0].videoId}. Skip search_viral_frameworks. Do NOT name a different framework or attribute the script to a creator other than @${preProcessedUrls[0].channelUsername} — only the user's URL is the reference.`
     : "";
 
   return `You are an expert short-form video strategist helping a creator build their next script. You guide them through a step-by-step conversation, narrating what you're doing as you work.
@@ -239,7 +261,7 @@ THE WORKFLOW (follow this order — but skip steps that are already done above):
 1. ${isOnAiPage && !client.name ? "Ask which client to work on, then call resolve_client." : "Greet the user briefly. Ask: \"What idea is on your mind? Or say 'give me 5 ideas' and I'll suggest some based on their strategy.\""}
 2. If user wants suggestions: call get_canvas_context (only if not cached), then call generate_script_ideas. Present the 5 ideas as a numbered list. Ask: "Which idea(s) do you want to build? Reply with a number, multiple numbers, or 'all'."
 3. If user picks an IDEA (e.g., "1", "build idea 2", "first one"): map their pick to ideas[N-1] from the list, tell them which you're working on, then call search_viral_frameworks with that idea's title and keywords (or skip if URLs were pre-processed). Present 3 references with their URLs. Ask: "Which one feels right? Or paste your own."
-4. If user picks a FRAMEWORK (e.g., "1", "go with #1", "use the first one") AFTER frameworks were shown: the top match is already stored as current_framework_video_id (see context block above). Call add_video_to_canvas with that video_id, then call draft_script with the idea title and the framework's caption (use the caption from the references you just showed). Do NOT call search_viral_frameworks again. Show HOOK / BODY / CTA labels clearly. Ask: "Ready to generate?"
+4. If user picks a FRAMEWORK (e.g., "1", "go with #1", "use the first one") AFTER frameworks were shown: the top match is already stored as current_framework_video_id (see context block above). Call add_video_to_canvas with that video_id, then call draft_script with framework_video_id set to the SAME video_id. The tool fetches the framework's transcript itself — you do NOT pass a caption. Do NOT call search_viral_frameworks again. Show HOOK / BODY / CTA labels clearly. Ask: "Ready to generate?"
 5. If user approves (says "generate", "yes", "save it", "looks good", "go ahead"): IMMEDIATELY call save_script with the HOOK/BODY/CTA from the CURRENT SCRIPT DRAFT in your context above. Parse the HOOK / BODY / CTA sections from the draft text. Do NOT ask for confirmation again — the user already approved. After saving, say "Perfect! Now let's work on the next one." and loop to step 3 for the next idea.
 
 RULES:
@@ -248,7 +270,8 @@ RULES:
 - Tools insert their own progress messages — do NOT duplicate them. Just respond to the result.
 - Never call multiple tools in parallel unless they're truly independent (rare).
 - If a tool returns an error or "no results", tell the user clearly and offer alternatives. Do NOT retry the same tool with the same input.
-- If the user pastes URLs, they're already in viral_videos (see URLS DETECTED above). Skip search_viral_frameworks for that idea.
+- If the user pastes URLs, they're already in viral_videos AND on the canvas (see URLS DETECTED above). Skip search_viral_frameworks AND skip add_video_to_canvas for that URL — go straight to draft_script.
+- NEVER attribute a script to a framework or creator that isn't actually the chosen framework_video_id. If draft_script returns "(no framework content — generating ungrounded)", tell the user honestly that the script isn't grounded on a specific framework yet and ask if they want to paste a reference or wait for the canvas to transcribe.
 - NEVER navigate away from the chat. Everything happens here.
 - When you're waiting for the user (e.g., to pick an idea), respond with text only — no tool calls. The user will reply.
 
@@ -291,6 +314,9 @@ async function callClaude(args: CallClaudeArgs): Promise<any> {
 export interface HandleBuildTurnArgs {
   message: string;
   user: { id: string };
+  /** Bearer token forwarded from the original /ai request, used to call other
+   * edge functions (transcribe-video) on behalf of the user. */
+  userAuthHeader: string | null;
   client: { id: string; name: string | null };
   threadId: string;
   adminClient: SupabaseClient;
@@ -307,7 +333,7 @@ export interface HandleBuildTurnResult {
 export async function handleBuildTurn(
   args: HandleBuildTurnArgs,
 ): Promise<HandleBuildTurnResult> {
-  const { message, user, client, threadId, adminClient, isOnAiPage, buildTriggerMatched } = args;
+  const { message, user, userAuthHeader, client, threadId, adminClient, isOnAiPage, buildTriggerMatched } = args;
   let buildSession = args.existingBuildSession;
 
   console.log("[build-mode] starting turn", {
@@ -359,9 +385,12 @@ export async function handleBuildTurn(
     };
   }
 
-  // 2. Pre-process URLs in user message — auto-add to viral_videos
+  // 2. Pre-process URLs in user message — auto-add to viral_videos AND auto-place
+  //    on the canvas (don't trust the LLM to call add_video_to_canvas reliably).
   const preProcessedUrls = await preProcessUrls(
     message,
+    user.id,
+    userAuthHeader,
     client,
     threadId,
     buildSession,
@@ -448,6 +477,7 @@ export async function handleBuildTurn(
         const ctx: BuildToolContext = {
           adminClient,
           userId: user.id,
+          userAuthHeader,
           client,
           buildSession: refreshed ?? buildSession,
           threadId,

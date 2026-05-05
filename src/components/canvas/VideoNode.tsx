@@ -206,6 +206,13 @@ interface VideoData {
   cdnVideoUrl?: string | null;
   selectedSections?: string[];
   clientId?: string | null;
+  /** When this VideoNode mirrors a row in viral_videos, transcript + analysis
+   * results are persisted back to that row so the AI can ground future
+   * scripts on real content instead of just the caption. */
+  viralVideoId?: string | null;
+  /** Mark the node as auto-transcribe-on-mount (set by build-mode when it
+   * adds a video deterministically). */
+  autoTranscribe?: boolean;
   onUpdate?: (updates: Partial<VideoData>) => void;
   onDelete?: () => void;
   authToken?: string | null;
@@ -516,11 +523,16 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         });
       }
 
-      // Transcribe
+      // Transcribe — pass viral_video_id when this node mirrors a viral_videos row
+      // so transcribe-video persists the transcript back (and the AI can ground
+      // future scripts on it without re-billing).
       const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: urlInput.trim() }),
+        body: JSON.stringify({
+          url: urlInput.trim(),
+          viral_video_id: d.viralVideoId ?? undefined,
+        }),
       });
       const json = await res.json();
       console.log("[VideoNode] transcribe-video response:", JSON.stringify({

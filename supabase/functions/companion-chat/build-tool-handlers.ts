@@ -18,10 +18,16 @@ export interface BuildToolContext {
   client: { id: string; name: string | null };
   buildSession: BuildSession | null;
   threadId: string | null;
+  /** User's bearer token forwarded from the original /ai request. Used to
+   * call other edge functions (e.g. transcribe-video) on behalf of the user
+   * so credit deduction lands on the right account. */
+  userAuthHeader?: string | null;
   /** Accumulator: tool wrappers push inserted progress message IDs here so
    * they can be cleared once the tool's work is done. */
   progressIds?: string[];
 }
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -418,15 +424,24 @@ export async function handleAddUrlToViralDatabase(
     input.url.match(/tiktok\.com\/@([^/?]+)/i);
   const channelUsername = usernameMatch?.[1]?.replace(/^@/, "") ?? "unknown";
 
+  const platform = input.url.includes("tiktok")
+    ? "tiktok"
+    : /youtube\.com|youtu\.be/.test(input.url)
+      ? "youtube"
+      : "instagram";
+
   const { data: inserted, error } = await ctx.adminClient
     .from("viral_videos")
     .insert({
       video_url: input.url,
       channel_username: channelUsername,
       caption: "(user-submitted — pending enrichment)",
-      platform: input.url.includes("tiktok") ? "tiktok" : "instagram",
+      platform,
       views_count: 0,
       outlier_score: null,
+      user_submitted: true,
+      submitted_by: ctx.userId || null,
+      transcript_status: "pending",
     })
     .select("id")
     .single();
@@ -493,6 +508,8 @@ export async function handleAddVideoToCanvas(
       channel_username: video.channel_username,
       thumbnailUrl: video.thumbnail_url,
       views_count: video.views_count,
+      viralVideoId: video.id,
+      autoTranscribe: true,
     },
   });
 
@@ -513,28 +530,160 @@ export async function handleAddVideoToCanvas(
 
 // ── Tool 7: draft_script ──────────────────────────────────────────────────────
 
+/**
+ * Ensure the framework video has a transcript stored on viral_videos.transcript.
+ *
+ * Lazy: only transcribes when called (during draft_script). If the video is
+ * already transcribed, returns it instantly. Otherwise calls transcribe-video
+ * with the user's bearer token so credits land on the right account, persists
+ * the result, and returns it. Returns null if transcription fails so the
+ * caller can fall back to caption-only grounding.
+ */
+async function ensureFrameworkTranscript(
+  videoId: string,
+  ctx: BuildToolContext,
+): Promise<{ transcript: string | null; error: string | null; cached: boolean }> {
+  const { data: video } = await ctx.adminClient
+    .from("viral_videos")
+    .select("id, video_url, transcript, transcript_status, channel_username")
+    .eq("id", videoId)
+    .maybeSingle();
+
+  if (!video) return { transcript: null, error: "video not found", cached: false };
+  if (video.transcript && video.transcript.trim().length > 0) {
+    return { transcript: video.transcript, error: null, cached: true };
+  }
+  if (!video.video_url) return { transcript: null, error: "no url", cached: false };
+  if (!ctx.userAuthHeader) return { transcript: null, error: "no user auth available", cached: false };
+
+  // Mark processing so concurrent calls don't double-bill
+  await ctx.adminClient
+    .from("viral_videos")
+    .update({ transcript_status: "processing" })
+    .eq("id", videoId);
+
+  await logBuildProgress(
+    ctx,
+    `Transcribing @${video.channel_username ?? "video"}...`,
+    "Transcribing framework...",
+  );
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: ctx.userAuthHeader,
+      },
+      body: JSON.stringify({
+        url: video.video_url,
+        viral_video_id: videoId,
+        source: "build_mode",
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.transcription) {
+      const err = json.error ?? `HTTP ${res.status}`;
+      await ctx.adminClient
+        .from("viral_videos")
+        .update({ transcript_status: "failed", transcript_error: String(err).slice(0, 500) })
+        .eq("id", videoId);
+      return { transcript: null, error: String(err), cached: false };
+    }
+    // transcribe-video persists when viral_video_id is provided, but write here
+    // too so we don't depend on that.
+    await ctx.adminClient
+      .from("viral_videos")
+      .update({
+        transcript: json.transcription,
+        transcript_status: "done",
+        transcribed_at: new Date().toISOString(),
+        transcript_error: null,
+      })
+      .eq("id", videoId);
+    return { transcript: json.transcription as string, error: null, cached: false };
+  } catch (e) {
+    const msg = (e as Error).message;
+    await ctx.adminClient
+      .from("viral_videos")
+      .update({ transcript_status: "failed", transcript_error: msg.slice(0, 500) })
+      .eq("id", videoId);
+    return { transcript: null, error: msg, cached: false };
+  }
+}
+
 export async function handleDraftScript(
-  input: { client_id: string; idea_title: string; framework_caption: string },
+  input: { client_id: string; idea_title: string; framework_video_id: string },
   ctx: BuildToolContext,
 ): Promise<string> {
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
+
+  // Resolve the framework video — fall back to currentFrameworkVideoId if the
+  // LLM forgot to pass one (defensive).
+  const videoId = input.framework_video_id || ctx.buildSession?.currentFrameworkVideoId || "";
+  if (!videoId) {
+    return "Cannot draft: no framework video selected. Call add_video_to_canvas first or have the user paste a reference URL.";
+  }
+
+  const { data: framework } = await ctx.adminClient
+    .from("viral_videos")
+    .select("id, video_url, caption, channel_username, transcript, structure_analysis")
+    .eq("id", videoId)
+    .maybeSingle();
+
+  if (!framework) {
+    return `Framework video ${videoId} not found in viral_videos.`;
+  }
+
   await logBuildProgress(ctx, "Drafting your script...", "Drafting...");
 
-  const { data: clientRow } = await ctx.adminClient
-    .from("clients")
-    .select("name, onboarding_data")
-    .eq("id", input.client_id)
-    .maybeSingle();
+  // Try to ground on transcript. Lazy-transcribe if missing.
+  let transcriptResult = await ensureFrameworkTranscript(videoId, ctx);
+
+  const transcript = transcriptResult.transcript;
+  const caption = (framework.caption ?? "").trim();
+  const captionIsPlaceholder = caption === "(user-submitted — pending enrichment)";
+
+  const [{ data: clientRow }] = await Promise.all([
+    ctx.adminClient.from("clients").select("name, onboarding_data").eq("id", input.client_id).maybeSingle(),
+  ]);
 
   const od = (clientRow?.onboarding_data as any) ?? {};
   const canvasCtx = ctx.buildSession?.cachedCanvasContext ?? "";
 
-  const prompt = `Write a short-form video script. Use the SAME structural beats as the reference framework but adapt every line to match the new idea and creator.
+  // Build the framework reference block honestly: prefer transcript, fall back
+  // to caption only if no transcript is available. NEVER fabricate framework
+  // attribution if grounding is absent.
+  let frameworkBlock: string;
+  let groundingNote: string;
+  if (transcript && transcript.length > 50) {
+    frameworkBlock = `REFERENCE FRAMEWORK — actual spoken content from @${framework.channel_username ?? "creator"}:
+"""
+${transcript.slice(0, 2500)}
+"""
+
+Mirror its hook style, pacing, body beats, and CTA pattern — but rewrite every line for the new idea below.`;
+    groundingNote = transcriptResult.cached
+      ? `(grounded on cached transcript)`
+      : `(transcribed live for this draft)`;
+  } else if (caption.length > 0 && !captionIsPlaceholder) {
+    frameworkBlock = `REFERENCE FRAMEWORK CAPTION (transcript not available — only caption):
+${caption.slice(0, 800)}
+
+Mirror its hook style and tone where you can.`;
+    groundingNote = `(grounded on caption only — transcript ${transcriptResult.error ? `failed: ${transcriptResult.error.slice(0, 80)}` : "not available"})`;
+  } else {
+    frameworkBlock = `NO REFERENCE FRAMEWORK CONTENT AVAILABLE.
+
+Generate a generic short-form structure for the idea. Do NOT name or imply a specific framework or creator — you don't have one.`;
+    groundingNote = `(no framework content — generating ungrounded; tell the user)`;
+  }
+
+  const prompt = `Write a short-form video script. ${transcript ? "Use the SAME structural beats as the reference framework but adapt every line to match the new idea and creator." : "Adapt the reference (if any) to the new idea and creator."}
 
 NEW IDEA: ${input.idea_title}
 
-REFERENCE FRAMEWORK CAPTION (mirror its hook style, pacing, body structure, CTA pattern — not the words):
-${input.framework_caption.slice(0, 800)}
+${frameworkBlock}
 
 CREATOR:
 - Name: ${clientRow?.name ?? ""}
@@ -545,7 +694,7 @@ CREATOR:
 ${canvasCtx ? `CANVAS CONTEXT (use specific details from here — real numbers, real stories, real words from their notes):\n${canvasCtx.slice(0, 1500)}\n` : ""}
 
 RULES:
-- Keep the same structure as the framework (same number of body beats, same CTA pattern)
+- Keep the same structure as the framework when one is provided (same number of body beats, same CTA pattern)
 - Change the words and specific value to match the new idea
 - Use the creator's real details where possible
 - Output ONLY these three labeled sections, no other text:
@@ -568,7 +717,9 @@ CTA: <1 line>`;
     });
   }
 
-  return `Script draft:\n\n${draft}`;
+  // Return both the draft AND the grounding note so the LLM can be honest
+  // with the user about what was used as reference.
+  return `Script draft ${groundingNote}:\n\n${draft}`;
 }
 
 // ── Tool 8: save_script ───────────────────────────────────────────────────────
@@ -685,7 +836,7 @@ export async function handleBuildTool(
       break;
     case "draft_script":
       content = await handleDraftScript(
-        toolInput as { client_id: string; idea_title: string; framework_caption: string },
+        toolInput as { client_id: string; idea_title: string; framework_video_id: string },
         ctx,
       );
       break;
