@@ -10,6 +10,12 @@ import {
   shouldRouteToBuildMode,
 } from "./build-mode.ts";
 import { readCanvasContext } from "./canvasReader.ts";
+import { LEAD_TOOLS, handleLeadTool } from "./tools/leads.ts";
+import { FINANCE_TOOLS, handleFinanceTool } from "./tools/finances.ts";
+import { SCRIPT_TOOLS, handleScriptTool } from "./tools/scripts.ts";
+import { EDITING_TOOLS, handleEditingTool } from "./tools/editing.ts";
+import { INTELLIGENCE_TOOLS, handleIntelligenceTool } from "./tools/intelligence.ts";
+import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
