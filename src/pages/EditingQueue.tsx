@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
@@ -128,9 +129,11 @@ export default function EditingQueue() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [clientName, setClientName] = useState("");
-  const [items, setItems] = useState<EditingQueueItem[]>([]);
+  // Hydrate from cache so the queue renders instantly while we revalidate.
+  const cachedItems = clientId ? readCache<EditingQueueItem[]>(`editing_queue_${clientId}`, []) : [];
+  const [items, setItems] = useState<EditingQueueItem[]>(cachedItems);
 
-  const [fetching, setFetching] = useState(true);
+  const [fetching, setFetching] = useState(cachedItems.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
@@ -311,6 +314,7 @@ export default function EditingQueue() {
       }));
 
       setItems(mappedVideos);
+      if (clientId) writeCache(`editing_queue_${clientId}`, mappedVideos);
     } catch (e: any) {
       console.error("Error fetching editing queue:", e);
       setError(e.message || "Failed to fetch editing queue");

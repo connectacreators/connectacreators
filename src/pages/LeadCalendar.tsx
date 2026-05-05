@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -415,7 +416,8 @@ export default function LeadCalendar() {
   const DAY_NAMES = language === "en" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const DAY_NAMES_SHORT = language === "en" ? ["S", "M", "T", "W", "T", "F", "S"] : ["D", "L", "M", "M", "J", "V", "S"];
 
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const leadCalCacheKey = `lead_calendar_${urlClientId || "all"}`;
+  const [leads, setLeads] = useState<Lead[]>(() => readCache<Lead[]>(leadCalCacheKey, []));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>("all");
@@ -458,7 +460,9 @@ export default function LeadCalendar() {
         throw new Error(errData.error || `Error ${res.status}`);
       }
       const result = await res.json();
-      setLeads((result.leads || []).filter((l: Lead) => l.appointmentDate));
+      const filtered = (result.leads || []).filter((l: Lead) => l.appointmentDate);
+      setLeads(filtered);
+      writeCache(leadCalCacheKey, filtered);
     } catch (e: any) {
       console.error("Error fetching leads:", e);
       setError(e.message || (language === "en" ? "Error loading leads" : "Error al cargar leads"));

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,7 +164,10 @@ export default function LeadTracker() {
   const { clients } = useClients(isStaff);
   const navigate = useNavigate();
 
-  const [leads, setLeads] = useState<Lead[]>([]);
+  // Hydrate cached leads keyed by URL client (or "all" for global view).
+  const leadCacheKey = `leads_${urlClientId || "all"}`;
+  const cachedLeads = readCache<Lead[]>(leadCacheKey, []);
+  const [leads, setLeads] = useState<Lead[]>(cachedLeads);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -266,6 +270,7 @@ export default function LeadTracker() {
       });
 
       setLeads(fetchedLeads);
+      writeCache(leadCacheKey, fetchedLeads);
       if (result.statusOptions) setStatusOptions(result.statusOptions);
       if (result.sourceOptions) setSourceOptions(result.sourceOptions);
     } catch (e: any) {

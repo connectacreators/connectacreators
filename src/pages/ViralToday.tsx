@@ -4,6 +4,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -879,9 +880,9 @@ export default function ViralToday() {
   // View: videos | channels
   const [view, setView] = useState<"videos" | "channels" | "reels">(isAdmin ? "reels" : "videos");
 
-  // Data
-  const [videos, setVideos] = useState<ViralVideo[]>([]);
-  const [channels, setChannels] = useState<ViralChannel[]>([]);
+  // Data — hydrate from cache for instant render, refetch in background.
+  const [videos, setVideos] = useState<ViralVideo[]>(() => readCache<ViralVideo[]>("viral_videos", []));
+  const [channels, setChannels] = useState<ViralChannel[]>(() => readCache<ViralChannel[]>("viral_channels", []));
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
 
@@ -950,6 +951,7 @@ export default function ViralToday() {
       if (error) throw error;
       const channels = (data ?? []) as ViralChannel[];
       setChannels(channels);
+      writeCache("viral_channels", channels);
 
       // Clear stale Instagram/Facebook CDN avatar URLs so they re-cache on next scrape.
       // These URLs expire — storing them causes broken images until the channel is re-scraped.
@@ -1022,6 +1024,7 @@ export default function ViralToday() {
       }
 
       setVideos(allVideos);
+      writeCache("viral_videos", allVideos);
       setCurrentPage(0);
     } catch {
       toast.error("Error loading videos");

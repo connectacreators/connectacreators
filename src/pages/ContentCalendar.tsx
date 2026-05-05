@@ -3,6 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import {
   Loader2, ArrowLeft, ChevronLeft, ChevronRight, Download,
   CheckCircle, XCircle, ExternalLink, Calendar, AlertCircle, MessageSquare, Copy, Share2,
@@ -141,8 +142,10 @@ export default function ContentCalendar() {
   const { language } = useLanguage();
 
   const [clientName, setClientName] = useState("");
-  const [posts, setPosts] = useState<CalendarPost[]>([]);
-  const [fetching, setFetching] = useState(true);
+  // Hydrate from cache so events render instantly while we revalidate.
+  const cachedPosts = clientId ? readCache<CalendarPost[]>(`content_calendar_${clientId}`, []) : [];
+  const [posts, setPosts] = useState<CalendarPost[]>(cachedPosts);
+  const [fetching, setFetching] = useState(cachedPosts.length === 0);
   const [error, setError] = useState<string | null>(null);
 
   const todayForNav = useMemo(() => new Date(), []);
@@ -310,9 +313,12 @@ export default function ContentCalendar() {
           .from("clients").select("id, name").in("id", uniqueIds);
         const clientMap = new Map<string, string>();
         (clientsData || []).forEach((c: any) => clientMap.set(c.id, c.name));
-        setPosts(mappedData.map((p) => ({ ...p, client_name: clientMap.get(p.client_id) || "" })));
+        const enriched = mappedData.map((p) => ({ ...p, client_name: clientMap.get(p.client_id) || "" }));
+        setPosts(enriched);
+        if (clientId) writeCache(`content_calendar_${clientId}`, enriched);
       } else {
         setPosts(mappedData);
+        if (clientId) writeCache(`content_calendar_${clientId}`, mappedData);
       }
     } catch (e: any) {
       setError(e.message || "Failed to load calendar");
