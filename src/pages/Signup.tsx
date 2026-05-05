@@ -29,14 +29,12 @@ export default function Signup() {
       const { data: existing } = await supabase
         .from("clients").select("id").eq("user_id", user.id).maybeSingle();
       if (!existing) {
+        // Fallback safety net for any edge case where the trigger didn't fire
+        // (e.g. race during OAuth). Don't set credits — trust DB defaults.
         await supabase.from("clients").insert({
           user_id: user.id,
           name: user.user_metadata?.full_name || user.email,
           email: user.email,
-          plan_type: null,
-          subscription_status: null,
-          credits_balance: 1000,
-          credits_monthly_cap: 1000,
         });
       }
       navigate("/dashboard", { replace: true });
@@ -52,16 +50,17 @@ export default function Signup() {
     if (signupErr) { setError(signupErr.message); setLoading(false); return; }
     const { data: { user: newUser } } = await supabase.auth.getUser();
     if (newUser) {
-      await supabase.from("clients").upsert({
-        user_id: newUser.id,
-        name: fullName.trim(),
-        email: email,
-        phone: phone,
-        plan_type: null,
-        subscription_status: null,
-        credits_balance: 1000,
-        credits_monthly_cap: 1000,
-      }, { onConflict: "user_id", ignoreDuplicates: true });
+      // The handle_new_user trigger already created the client row with the
+      // correct default credits (1000/1000). Update only the fields we
+      // collect from the form. Don't touch credit columns here — trust the
+      // trigger so we can never accidentally regress the default.
+      await supabase.from("clients")
+        .update({
+          name: fullName.trim(),
+          email: email,
+          phone: phone,
+        })
+        .eq("user_id", newUser.id);
     }
     setLoading(false);
     navigate("/dashboard", { replace: true });
