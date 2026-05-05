@@ -92,10 +92,9 @@ export default function CompanionDrawer() {
       .limit(20);
     if (mode === "client" && activeClientId) {
       query = query.eq("client_id", activeClientId);
-    } else {
-      // Agency mode: drawer-origin threads not tied to a specific client
-      query = query.is("client_id", null);
     }
+    // Agency mode: show ALL user threads (drawer + canvas, all clients) so the
+    // drawer is in sync with the /ai page and previous conversations are visible.
     const { data, error } = await query;
     if (!error) setThreads((data ?? []) as ThreadRow[]);
   }, [user, mode, activeClientId]);
