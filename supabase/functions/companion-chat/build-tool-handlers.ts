@@ -30,18 +30,19 @@ export async function logBuildProgress(
 ): Promise<void> {
   const { adminClient, buildSession, threadId } = ctx;
   if (threadId) {
-    await adminClient.from("assistant_messages").insert({
+    const { error: msgErr } = await adminClient.from("assistant_messages").insert({
       thread_id: threadId,
       role: "assistant",
       content: { type: "text", text, is_progress: true },
-    }).catch(() => {});
+    });
+    if (msgErr) console.warn("[logBuildProgress] insert failed:", msgErr.message);
   }
   if (phase && buildSession) {
-    await adminClient
+    const { error: phaseErr } = await adminClient
       .from("companion_build_sessions")
       .update({ phase })
-      .eq("id", buildSession.id)
-      .catch(() => {});
+      .eq("id", buildSession.id);
+    if (phaseErr) console.warn("[logBuildProgress] phase update failed:", phaseErr.message);
   }
 }
 
@@ -355,9 +356,21 @@ Output ONLY a JSON array of exactly 3 ids: ["uuid1","uuid2","uuid3"]. Nothing el
     }
   }
 
+  // Mark this idea as the currently-selected one (calling search implies user picked it)
   if (ctx.buildSession && top3[0]?.id) {
+    const matchedIdea = ctx.buildSession.ideas.find(
+      (i) => i.title.toLowerCase() === input.idea_title.toLowerCase(),
+    ) ?? { title: input.idea_title, keywords: input.keywords };
+
+    const existingSelected = ctx.buildSession.selectedIdeas ?? [];
+    const alreadySelected = existingSelected.some(
+      (i) => i.title.toLowerCase() === input.idea_title.toLowerCase(),
+    );
+
     await updateBuildSession(ctx.adminClient, ctx.buildSession.id, {
       currentFrameworkVideoId: top3[0].id,
+      selectedIdeas: alreadySelected ? existingSelected : [matchedIdea],
+      currentIdeaIndex: 0,
       phase: "Frameworks found",
     });
   }
@@ -545,34 +558,56 @@ export async function handleSaveScript(
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
   await logBuildProgress(ctx, `Saving script to ${ctx.client.name ?? "client"}'s library...`, "Saving...");
 
-  const rawContent = [input.hook, input.body, input.cta].join("\n");
+  const rawContent = [
+    `HOOK: ${input.hook}`,
+    `BODY: ${input.body}`,
+    `CTA: ${input.cta}`,
+  ].join("\n\n");
 
   const { data: script, error: scriptErr } = await ctx.adminClient
     .from("scripts")
     .insert({
       client_id: input.client_id,
       title: input.title.slice(0, 120),
-      hook: input.hook,
-      body: input.body,
-      cta: input.cta,
       raw_content: rawContent,
+      idea_ganadora: input.title.slice(0, 120),
+      formato: "talking_head",
       status: "Idea",
-      category: "reach",
+      grabado: false,
     })
     .select("id")
     .single();
 
   if (scriptErr || !script) {
+    console.error("[save_script] insert failed:", scriptErr);
     return `Save failed: ${scriptErr?.message ?? "unknown error"}`;
   }
 
   const bodyLines = input.body.split("\n").map((l) => l.trim()).filter(Boolean);
   const lineRows = [
-    { script_id: script.id, line_index: 0, content: input.hook, line_type: "hook" },
-    ...bodyLines.map((line, i) => ({ script_id: script.id, line_index: i + 1, content: line, line_type: "body" })),
-    { script_id: script.id, line_index: bodyLines.length + 1, content: input.cta, line_type: "cta" },
+    { script_id: script.id, line_number: 1, line_type: "actor", section: "hook", text: input.hook },
+    ...bodyLines.map((line, i) => ({
+      script_id: script.id,
+      line_number: i + 2,
+      line_type: "actor",
+      section: "body",
+      text: line,
+    })),
+    {
+      script_id: script.id,
+      line_number: bodyLines.length + 2,
+      line_type: "actor",
+      section: "cta",
+      text: input.cta,
+    },
   ];
-  await ctx.adminClient.from("script_lines").insert(lineRows);
+  const { error: linesErr } = await ctx.adminClient.from("script_lines").insert(lineRows);
+  if (linesErr) {
+    console.error("[save_script] script_lines insert FAILED:", JSON.stringify(linesErr));
+    console.error("[save_script] payload was:", JSON.stringify(lineRows).slice(0, 500));
+  } else {
+    console.log("[save_script] inserted", lineRows.length, "script_lines");
+  }
 
   if (ctx.buildSession) {
     await updateBuildSession(ctx.adminClient, ctx.buildSession.id, {

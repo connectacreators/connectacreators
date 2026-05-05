@@ -6,15 +6,9 @@ import {
   appendMessage as assistantAppendMessage,
 } from "../_shared/assistant/threads.ts";
 import {
-  createBuildSession,
-  getBuildSession,
-  getActiveBuildSessionForThread,
-} from "../_shared/build-session/service.ts";
-import {
-  handleBuildTool,
-  logBuildProgress,
-  type BuildToolContext,
-} from "./build-tool-handlers.ts";
+  handleBuildTurn,
+  shouldRouteToBuildMode,
+} from "./build-mode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -357,19 +351,6 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
-  {
-    name: "build_script_full_pipeline",
-    description: "ATOMIC ORCHESTRATOR — Use this for ALL script creation requests in Auto mode. CANVAS-AWARE: this tool automatically reads the client's active canvas first. If a video with transcription already exists on the canvas, it reuses it (no re-fetch, no re-transcribe). If research/idea/framework notes already exist, the synthesis step uses them as context instead of inventing from scratch. So when a user says 'build a script' on a canvas that already has competitors mapped or hooks researched, this tool intelligently builds on what's there. Single call does: read canvas context → reuse or fetch reference video → transcribe (if needed) → visual breakdown (if needed) → generate research/idea/script informed by existing canvas notes → write nodes progressively with edges → save to scripts library.",
-    input_schema: {
-      type: "object",
-      properties: {
-        client_name: { type: "string", description: "The client's name" },
-        topic: { type: "string", description: "Optional topic/niche keyword to search viral videos. If not provided, infers from client industry." },
-        content_type: { type: "string", description: "reach | trust | convert. Determines hook framework. Pick based on what the client is most behind on per their strategy." },
-      },
-      required: ["client_name"],
-    },
-  },
 ];
 
 /**
@@ -488,7 +469,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
-    // Pre-resolve the companion thread ID for build session lookup and progress messages.
+    // Pre-resolve (or create) the companion thread ID — needed by both
+    // build-mode routing and the dual-write at the end of the function.
     const sentinel = "Active companion chat";
     const { data: _sentinelThread } = await adminClient
       .from("assistant_threads")
@@ -498,38 +480,21 @@ serve(async (req) => {
       .eq("origin", "drawer")
       .eq("title", sentinel)
       .maybeSingle();
-    const resolvedThreadId: string | null = _sentinelThread?.id ?? null;
+    let resolvedThreadId: string | null = _sentinelThread?.id ?? null;
 
-    // Load active build session (if any) for this user+client.
-    let activeBuildSession = await getActiveBuildSessionForThread(
+    // ── Build-mode routing ─────────────────────────────────────────────────────
+    // If there's an active build session OR the message contains a build trigger,
+    // delegate the entire request to build-mode.ts (which has its own focused
+    // system prompt + only the 8 build tools + multi-round Claude execution).
+    const buildRoute = await shouldRouteToBuildMode({
+      threadId: resolvedThreadId,
+      message,
       adminClient,
-      resolvedThreadId ?? "",
-    ).catch(() => null);
+    });
 
-    // If user is paused and sends a message, auto-resume.
-    if (activeBuildSession?.status === "paused") {
-      await adminClient
-        .from("companion_build_sessions")
-        .update({ status: "running", phase: "Resuming..." })
-        .eq("id", activeBuildSession.id);
-      activeBuildSession = { ...activeBuildSession, status: "running", phase: "Resuming..." };
-    }
-
-    // ── Conversational script builder bootstrap ──────────────────────────────────
-    // If user triggers a build and no session exists, create one then fall through
-    // to the LLM (which gets the build context in the system prompt and drives it).
-    const BUILD_TRIGGER = /\b(let'?s\s+)?(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
-    if (BUILD_TRIGGER.test(message) && !activeBuildSession) {
-      const { data: activeCanvas } = await adminClient
-        .from("canvas_states")
-        .select("id")
-        .eq("client_id", client.id)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      // Ensure sentinel thread exists for progress messages.
-      let buildThreadId = resolvedThreadId;
-      if (!buildThreadId) {
+    if (buildRoute.route) {
+      // Ensure thread exists (creating one if needed for first-time builds)
+      if (!resolvedThreadId) {
         const { data: newThread } = await adminClient
           .from("assistant_threads")
           .insert({
@@ -540,22 +505,33 @@ serve(async (req) => {
           })
           .select("id")
           .single();
-        buildThreadId = newThread?.id ?? null;
+        resolvedThreadId = newThread?.id ?? null;
       }
 
-      try {
-        const newSession = await createBuildSession(adminClient, {
-          userId: user.id,
-          clientId: client.id,
-          threadId: buildThreadId ?? "",
-          canvasStateId: activeCanvas?.id ?? null,
-          autoPilot: false,
-        });
-        activeBuildSession = newSession;
-      } catch (e) {
-        console.warn("[companion-chat] createBuildSession failed:", (e as Error).message);
+      if (!resolvedThreadId) {
+        return new Response(JSON.stringify({
+          reply: "Couldn't set up the build session. Please try again.",
+          actions: [],
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      // No early return — fall through to LLM which handles it conversationally.
+
+      const buildResult = await handleBuildTurn({
+        message,
+        user: { id: user.id },
+        client: { id: client.id, name: client.name },
+        threadId: resolvedThreadId,
+        adminClient,
+        isOnAiPage: !urlClientMatch,
+        existingBuildSession: buildRoute.existingSession,
+        buildTriggerMatched: buildRoute.triggerMatched,
+      });
+
+      return new Response(JSON.stringify({
+        reply: buildResult.reply,
+        actions: [],
+        thread_id: resolvedThreadId,
+        build_session_id: buildResult.buildSessionId,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Load memory, strategy, history in parallel
@@ -659,7 +635,7 @@ YOUR RULES — FOLLOW EXACTLY:
 15. NEVER respond with "Done.", "OK.", "Sure." Every response must tell the user (a) what you did, (b) what you found, (c) what the next step is.
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
-18. SCRIPT CREATION: When asked to build a script, use the 8 build tools (resolve_client, get_canvas_context, generate_script_ideas, search_viral_frameworks, add_url_to_viral_database, add_video_to_canvas, draft_script, save_script). Do NOT call build_script_full_pipeline — that is deprecated. If a build session is active, the ACTIVE SCRIPT BUILD context block above shows exactly where you are.
+18. SCRIPT CREATION: Script-building requests ("build me a script") are routed to a separate dedicated build flow before reaching you — you will not see them here. Just answer the user's other questions naturally.
 19. TOOLS: You have navigate_to_page, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, list_all_clients, get_client_info, get_hooks, get_client_strategy, save_memory, respond_to_user. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
@@ -669,66 +645,18 @@ ${autonomy_mode === "auto"
 - ALWAYS call respond_to_user alongside other tools so the user knows what you're doing. "On it." is banned. Be specific.
 - NEVER ask for permission or confirmation. The user selected Auto mode — they want you to act.
 
-SCRIPT CREATION IN AUTO MODE: When asked to build a script, call build_script_full_pipeline (the orchestrator that does everything atomically) AND respond_to_user in the SAME response. Two tools, that's it. Do NOT call navigate_to_page as your first action. The orchestrator handles all the work.
+For non-script tasks: Think — what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you're doing.
 
-For everything else (non-script tasks): Think: what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you're doing.`
+NOTE: Script-build requests are intercepted before reaching you. You don't need to handle "build me a script" here.`
   : autonomy_mode === "plan"
   ? "PLAN MODE: Before doing anything, write out a numbered plan of every step you will take. Ask the user to approve the plan. Only execute after they confirm."
   : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you are about to do in one sentence and wait for the user to confirm. Then execute once they say yes."
 }`;
 
-    // ── Build context injection ──────────────────────────────────────────────────
-    let buildContextBlock = "";
-    if (activeBuildSession) {
-      const bs = activeBuildSession;
-      const ideasStr = bs.ideas.length > 0
-        ? bs.ideas.map((idea: any, idx: number) => `${idx + 1}. ${idea.title}`).join("\n")
-        : "not yet";
-      const selectedStr = bs.selectedIdeas.length > 0
-        ? bs.selectedIdeas.map((idea: any) => idea.title).join(", ")
-        : "not yet";
-      const currentIdea = bs.selectedIdeas[bs.currentIdeaIndex]?.title ?? "none";
-
-      buildContextBlock = `
-
-━━━ ACTIVE SCRIPT BUILD ━━━
-Client: ${client.name ?? "unknown"} (id: ${client.id})
-Canvas: ${bs.canvasStateId ? "linked (id:" + bs.canvasStateId + ")" : "none"}
-
-What's been done:
-- Canvas context: ${bs.cachedCanvasContext !== null ? "cached ✓" : "not read yet"}
-- Ideas generated: ${ideasStr}
-- Ideas selected: ${selectedStr}
-- Current idea (${bs.currentIdeaIndex + 1}): ${currentIdea}
-- Framework video: ${bs.currentFrameworkVideoId ? "id:" + bs.currentFrameworkVideoId : "not chosen yet"}
-- Script draft: ${bs.currentScriptDraft ? "exists ✓" : "not yet"}
-- Script saved: ${bs.currentScriptId ? "yes (id:" + bs.currentScriptId + ")" : "no"}
-
-Status: ${bs.status}
-Build session id: ${bs.id}
-━━━━━━━━━━━━━━━━━━━━━━━━━
-
-You are in SCRIPT BUILD MODE. Rules:
-- Answer ANY question the user asks. After answering, return to the build.
-- Use the build tools to advance each step. Don't skip steps.
-- Tools insert their own progress messages. Do NOT duplicate with your own narration — respond to the tool result naturally.
-- NEVER call navigate_to_page during a build. Everything stays in this drawer.
-- NEVER call build_script_full_pipeline. Use the 8 build tools instead.
-- Present ideas and frameworks as numbered lists.
-- Show script draft with HOOK / BODY / CTA labels. After showing, ask "Ready to generate?"
-- After saving, say "Perfect! Now let's work on the next one." if more ideas remain.
-- If user pastes URLs (instagram.com, tiktok.com), call add_url_to_viral_database for each one.
-- Canvas context is cached — call get_canvas_context only once per session unless user asks to re-read.
-- If on /ai page (no URL client detected), ask which client to work on then call resolve_client.`;
-    }
-
-    const finalSystemPrompt = systemPrompt + buildContextBlock;
-
-    // When a build session is active, filter out build_script_full_pipeline so the
-    // LLM cannot call it regardless of mode. The 8 build tools replace it.
-    const effectiveTools = activeBuildSession
-      ? TOOLS.filter((t: any) => t.name !== "build_script_full_pipeline")
-      : TOOLS;
+    // Build mode is handled separately above (build-mode.ts). Here we just use
+    // the regular system prompt and full TOOLS array.
+    const finalSystemPrompt = systemPrompt;
+    const effectiveTools = TOOLS;
 
     // Save user message
     await adminClient.from("companion_messages").insert({
@@ -782,20 +710,6 @@ You are in SCRIPT BUILD MODE. Rules:
       const toolResults: any[] = [];
 
       for (const block of toolUseBlocks) {
-        // ── Build tool dispatcher ────────────────────────────────────────────────────
-        const buildCtx: BuildToolContext = {
-          adminClient,
-          userId: user.id,
-          client: { id: client.id, name: client.name ?? null },
-          buildSession: activeBuildSession,
-          threadId: resolvedThreadId,
-        };
-        const buildResult = await handleBuildTool(block.name, block.input, block.id, buildCtx);
-        if (buildResult) {
-          toolResults.push(buildResult);
-          continue;
-        }
-
         if (block.name === "respond_to_user") {
           // Pure text response wrapped as a tool call (used in auto mode)
           reply = block.input.message || "";
@@ -1339,436 +1253,6 @@ You are in SCRIPT BUILD MODE. Rules:
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Saved memory: " + key });
         }
 
-        if (block.name === "build_script_full_pipeline") {
-          const { client_name, topic, content_type } = block.input;
-          // 1. Look up client + onboarding + strategy
-          const { data: targetClient } = await adminClient
-            .from("clients").select("id, name, onboarding_data").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
-          if (!targetClient) {
-            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
-          } else {
-            const od = (targetClient.onboarding_data as any) || {};
-            const inferredTopic = topic || od.industry || od.uniqueOffer || "social media";
-            const inferredContentType = content_type || "reach";
-
-            // 2. Get or create active canvas (pick most recently updated if multiple)
-            let { data: canvasState } = await adminClient
-              .from("canvas_states").select("id, nodes, edges").eq("client_id", targetClient.id).eq("is_active", true).order("updated_at", { ascending: false }).limit(1).maybeSingle();
-            if (!canvasState) {
-              const { data: newCanvas } = await adminClient.from("canvas_states").insert({
-                client_id: targetClient.id, is_active: true, nodes: [], edges: [],
-              }).select("id, nodes, edges").single();
-              canvasState = newCanvas;
-            }
-            if (!canvasState) {
-              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Could not create canvas for " + targetClient.name });
-            } else {
-              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
-              const existingEdges = Array.isArray(canvasState.edges) ? canvasState.edges : [];
-
-              // ─── Read existing canvas context — Mario should reuse what's already there ───
-              const existingVideoNodes = existingNodes.filter((n: any) => n.type === "videoNode");
-              const existingTextNodes = existingNodes.filter((n: any) => n.type === "textNoteNode");
-              const existingCompetitors = existingNodes.filter((n: any) => n.type === "competitorProfileNode" || n.type === "instagramProfileNode");
-
-              // Tier 1: video already transcribed → full reuse (no fetch, no transcribe, no visual).
-              // Tier 2: video on canvas but not transcribed → use that URL, transcribe it now.
-              // Tier 3: no video on canvas → fetch from viral_videos DB.
-              const fullyReusableVideo = existingVideoNodes.find((n: any) =>
-                n.data?.transcription && (n.data.transcription as string).length > 100
-              );
-              const partialReusableVideo = !fullyReusableVideo
-                ? existingVideoNodes.find((n: any) => typeof n.data?.url === "string" && n.data.url.length > 0)
-                : null;
-
-              // Pipeline row count drives Y position for fresh fetches; reused videos use their own Y.
-              const pipelineRowCount = existingNodes.filter(
-                (n: any) => typeof n.id === "string" && n.id.startsWith("videoNode_pipeline_")
-              ).length;
-
-              // Build context summary so synthesis can leverage existing research/ideas/frameworks
-              const canvasContextLines: string[] = [];
-              if (existingTextNodes.length > 0) {
-                canvasContextLines.push(`EXISTING NOTES ON CANVAS (research, ideas, frameworks already explored — reuse what fits):`);
-                existingTextNodes.slice(0, 8).forEach((n: any, i: number) => {
-                  const text = (n.data?.noteText || "").slice(0, 600);
-                  if (text.trim()) canvasContextLines.push(`Note ${i + 1}: ${text}`);
-                });
-              }
-              if (existingCompetitors.length > 0) {
-                const handles = existingCompetitors.map((n: any) => `@${n.data?.username || n.data?.channel_username || "unknown"}`).filter(h => h !== "@unknown");
-                if (handles.length) canvasContextLines.push(`COMPETITORS ALREADY MAPPED: ${handles.join(", ")}`);
-              }
-              if (fullyReusableVideo) {
-                canvasContextLines.push(`VIDEO ALREADY ON CANVAS WITH TRANSCRIPTION — reuse it instead of fetching a new one.`);
-              } else if (partialReusableVideo) {
-                canvasContextLines.push(`VIDEO ON CANVAS BUT NOT TRANSCRIBED — use that URL and transcribe it now.`);
-              }
-              const canvasContext = canvasContextLines.join("\n\n");
-
-              // 3. Find viral video — three-tier reuse logic
-              let chosenVideo: any = null;
-              let reuseMode: "full" | "url-only" | "fetch" = "fetch";
-              let reusedNode: any = null;
-
-              if (fullyReusableVideo) {
-                chosenVideo = {
-                  channel_username: fullyReusableVideo.data?.channel_username || "",
-                  caption: fullyReusableVideo.data?.caption || fullyReusableVideo.data?.videoTitle || "",
-                  views_count: fullyReusableVideo.data?.views_count || 0,
-                  outlier_score: 0,
-                  video_url: fullyReusableVideo.data?.url || "",
-                };
-                reuseMode = "full";
-                reusedNode = fullyReusableVideo;
-              } else if (partialReusableVideo) {
-                chosenVideo = {
-                  channel_username: partialReusableVideo.data?.channel_username || "",
-                  caption: partialReusableVideo.data?.caption || partialReusableVideo.data?.videoTitle || "",
-                  views_count: partialReusableVideo.data?.views_count || 0,
-                  outlier_score: 0,
-                  video_url: partialReusableVideo.data?.url || "",
-                };
-                reuseMode = "url-only";
-                reusedNode = partialReusableVideo;
-              } else {
-                let { data: videos } = await adminClient
-                  .from("viral_videos")
-                  .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
-                  .ilike("caption", "%" + inferredTopic + "%")
-                  .gte("outlier_score", 3)
-                  .order("outlier_score", { ascending: false })
-                  .limit(5);
-                if (!videos || videos.length === 0) {
-                  const { data: fallback } = await adminClient
-                    .from("viral_videos")
-                    .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
-                    .gte("outlier_score", 5)
-                    .order("outlier_score", { ascending: false })
-                    .limit(5);
-                  videos = fallback || [];
-                }
-                if (videos && videos.length > 0) chosenVideo = videos[0];
-              }
-
-              if (!chosenVideo) {
-                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No viral videos to reference (none on canvas, none in viral_videos DB). Add some via Viral Today first." });
-              } else {
-                const ts = Date.now();
-                let nodesAccumulator = [...existingNodes];
-                let edgesAccumulator = [...existingEdges];
-                let videoNode: any;
-                let transcription = "";
-                let videoCacheUrl: string | null = null;
-
-                // Position downstream nodes — align with reused video's Y if reusing, else stack below pipeline rows
-                const reusedY = reusedNode?.position?.y ?? 0;
-                const reusedX = reusedNode?.position?.x ?? 50;
-                const rowY = reusedNode ? reusedY : pipelineRowCount * 700;
-                const colXBase = reusedNode ? reusedX : 50;
-
-                if (reuseMode === "full" && reusedNode) {
-                  // Tier 1: Full reuse — use existing transcription as-is
-                  videoNode = reusedNode;
-                  transcription = reusedNode.data?.transcription || "";
-                  videoCacheUrl = reusedNode.data?.videoUrl || null;
-                } else if (reuseMode === "url-only" && reusedNode) {
-                  // Tier 2: Reuse the URL but transcribe now (user dropped a URL but never clicked Go)
-                  videoNode = reusedNode;
-                  try {
-                    const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", Authorization: authHeader },
-                      body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
-                    });
-                    if (transcribeRes.ok) {
-                      const tdata = await transcribeRes.json();
-                      transcription = tdata.transcription || "";
-                      videoCacheUrl = tdata.videoUrl ?? null;
-                      // Update the EXISTING video node in place so user sees transcription appear on it
-                      nodesAccumulator = nodesAccumulator.map((n: any) =>
-                        n.id === reusedNode.id
-                          ? { ...n, data: { ...n.data, transcription, videoUrl: videoCacheUrl, thumbnail_url: tdata.thumbnail_url ?? n.data?.thumbnail_url ?? null } }
-                          : n
-                      );
-                      await adminClient.from("canvas_states")
-                        .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                        .eq("id", canvasState.id);
-                    } else {
-                      console.warn("[orchestrator] transcribe-video failed (url-only reuse):", transcribeRes.status);
-                    }
-                  } catch (tErr) {
-                    console.warn("[orchestrator] transcribe-video threw (url-only reuse):", tErr);
-                  }
-                } else {
-                  // Tier 3: Fresh fetch — write video node, then transcribe
-                  videoNode = {
-                    id: `videoNode_pipeline_${ts}`,
-                    type: "videoNode",
-                    position: { x: colXBase, y: rowY },
-                    data: {
-                      url: chosenVideo.video_url,
-                      videoTitle: (chosenVideo.caption || "").slice(0, 80),
-                      videoLabel: (chosenVideo.caption || "").slice(0, 80),
-                      channel_username: chosenVideo.channel_username || "",
-                      caption: (chosenVideo.caption || "").slice(0, 200),
-                    },
-                  };
-                  nodesAccumulator = [...existingNodes, videoNode];
-                  await adminClient.from("canvas_states")
-                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                    .eq("id", canvasState.id);
-
-                  try {
-                    const transcribeRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/transcribe-video`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", Authorization: authHeader },
-                      body: JSON.stringify({ url: chosenVideo.video_url, source: "competitor" }),
-                    });
-                    if (transcribeRes.ok) {
-                      const tdata = await transcribeRes.json();
-                      transcription = tdata.transcription || "";
-                      videoCacheUrl = tdata.videoUrl ?? null;
-                      nodesAccumulator = nodesAccumulator.map((n: any) =>
-                        n.id === videoNode.id
-                          ? { ...n, data: { ...n.data, transcription, videoUrl: videoCacheUrl, thumbnail_url: tdata.thumbnail_url ?? null } }
-                          : n
-                      );
-                      await adminClient.from("canvas_states")
-                        .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                        .eq("id", canvasState.id);
-                    } else {
-                      console.warn("[orchestrator] transcribe-video failed:", transcribeRes.status, await transcribeRes.text().catch(() => ""));
-                    }
-                  } catch (tErr) {
-                    console.warn("[orchestrator] transcribe-video threw:", tErr);
-                  }
-                }
-
-                // ─── STAGE 2b: Visual breakdown — only run when we did a fresh fetch ───
-                const visualPromise = reuseMode === "fetch" && transcription
-                  ? fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-video-multimodal`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", Authorization: authHeader },
-                      body: JSON.stringify({ url: chosenVideo.video_url, transcript: transcription }),
-                    }).then(async (r) => r.ok ? await r.json() : null).catch((e) => { console.warn("[orchestrator] visual analysis failed:", e); return null; })
-                  : Promise.resolve(null);
-
-                // 4. Call Claude internally to generate analysis + idea + script
-                const synthesisPrompt = `You are building a script for ${targetClient.name}. Generate the analysis, winning idea, and full script.
-
-CLIENT CONTEXT:
-- Industry: ${od.industry || "not specified"}
-- Target audience: ${od.targetClient || "not specified"}
-- Unique offer: ${od.uniqueOffer || "not specified"}
-- Story: ${od.story || "not specified"}
-- Instagram: @${od.instagram || "not specified"}
-
-VIRAL REFERENCE:
-- Creator: @${chosenVideo.channel_username}
-- Views: ${(chosenVideo.views_count || 0).toLocaleString()}
-- Caption/title: "${(chosenVideo.caption || "").slice(0, 400)}"
-${transcription ? `- ACTUAL TRANSCRIPTION (use this — it's the real spoken content):\n"""\n${transcription.slice(0, 2500)}\n"""` : "- (No transcription available — adapt from caption only.)"}
-
-CONTENT TYPE NEEDED: ${inferredContentType}
-${canvasContext ? `\n${canvasContext}\n\nIMPORTANT: If the existing notes already contain a relevant framework, hook type, or angle — REUSE it instead of inventing a new one. The user has already done research; build on it. Only invent a new framework if nothing on the canvas applies.` : ""}
-
-Generate JSON with this exact structure (no markdown, no explanation, just valid JSON):
-{
-  "research": {
-    "hook_type": "<storytelling | educational | comparison | authority | pattern_interrupt | curiosity_gap>",
-    "hook_text": "<the actual first line of the reference video — extract from caption>",
-    "why_it_works": "<2-3 sentences explaining the hook mechanism specifically>",
-    "how_to_adapt": "<1 sentence on how to apply to ${targetClient.name}'s specific story>"
-  },
-  "idea": {
-    "category": "<one of the 6 categories>",
-    "hook_sentence": "<the WINNING idea — first line of THE NEW script. Specific. Uses ${targetClient.name}'s real numbers/story. NOT generic.>",
-    "framework": "<vulnerability open / authority lead / problem-solution / etc.>",
-    "why_it_works": "<1 sentence on why this idea will stop the scroll for the target audience>"
-  },
-  "script": {
-    "title": "<short title — same as the hook_sentence or the core idea>",
-    "hook": "<the opening 1-2 sentences>",
-    "body": "<3-5 body lines, separated by \\n. Each line is one beat in the script.>",
-    "cta": "<the call to action — should match the client's CTA goal>"
-  }
-}`;
-
-                let synthesisRes: Response;
-                let synthesisText = "";
-                let synthesis: any = {};
-                try {
-                  synthesisRes = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST",
-                    headers: {
-                      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
-                      "anthropic-version": "2023-06-01",
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      model: "claude-sonnet-4-6",
-                      max_tokens: 2048,
-                      messages: [{ role: "user", content: synthesisPrompt }],
-                    }),
-                  });
-                  if (!synthesisRes.ok) {
-                    const errText = await synthesisRes.text();
-                    console.error("[orchestrator] Anthropic API error:", synthesisRes.status, errText);
-                    toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Anthropic API error: " + synthesisRes.status + " — " + errText.slice(0, 300) });
-                    continue;
-                  }
-                  const synthesisJson = await synthesisRes.json();
-                  synthesisText = synthesisJson.content?.[0]?.text || "";
-                  if (!synthesisText) {
-                    console.error("[orchestrator] Empty synthesis response:", JSON.stringify(synthesisJson).slice(0, 500));
-                    toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Empty response from synthesis. " + JSON.stringify(synthesisJson).slice(0, 300) });
-                    continue;
-                  }
-                  try {
-                    synthesis = JSON.parse(synthesisText);
-                  } catch {
-                    const match = synthesisText.match(/\{[\s\S]*\}/);
-                    if (match) synthesis = JSON.parse(match[0]);
-                  }
-                } catch (apiErr) {
-                  console.error("[orchestrator] Synthesis fetch threw:", apiErr);
-                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Synthesis call failed: " + String(apiErr).slice(0, 300) });
-                  continue;
-                }
-
-                if (!synthesis.script || !synthesis.idea || !synthesis.research) {
-                  console.error("[orchestrator] Incomplete synthesis:", synthesisText.slice(0, 500));
-                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Failed to generate script synthesis. Raw: " + synthesisText.slice(0, 500) });
-                } else {
-                  // ─── STAGE 3: Research node + edge from video → research ───
-                  const r = synthesis.research;
-                  const researchNode = {
-                    id: `textNoteNode_research_${ts}`,
-                    type: "textNoteNode",
-                    position: { x: colXBase + 320, y: rowY },
-                    data: {
-                      noteText: `HOOK TYPE: ${(r.hook_type || "").toUpperCase()}\n\nHook: "${r.hook_text || ""}"\n\nWhy it works: ${r.why_it_works || ""}\n\nHow to adapt: ${r.how_to_adapt || ""}`,
-                      noteHtml: `<p><strong>HOOK TYPE: ${(r.hook_type || "").toUpperCase()}</strong></p><p>Hook: "${r.hook_text || ""}"</p><p>Why it works: ${r.why_it_works || ""}</p><p>How to adapt: ${r.how_to_adapt || ""}</p>`,
-                    },
-                  };
-                  nodesAccumulator = [...nodesAccumulator, researchNode];
-                  edgesAccumulator = [...edgesAccumulator, {
-                    id: `edge_${ts}_v_r`, source: videoNode.id, target: researchNode.id, animated: true,
-                  }];
-                  await adminClient.from("canvas_states")
-                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                    .eq("id", canvasState.id);
-
-                  // ─── STAGE 4: Idea node + edge from research → idea ───
-                  const idea = synthesis.idea;
-                  const ideaNode = {
-                    id: `textNoteNode_idea_${ts}`,
-                    type: "textNoteNode",
-                    position: { x: colXBase + 630, y: rowY },
-                    data: {
-                      noteText: `WINNING IDEA — ${(idea.category || "").toUpperCase()}\n\n"${idea.hook_sentence || ""}"\n\nFramework: ${idea.framework || ""}\n\nWhy it works: ${idea.why_it_works || ""}`,
-                      noteHtml: `<p><strong>WINNING IDEA — ${(idea.category || "").toUpperCase()}</strong></p><p>"${idea.hook_sentence || ""}"</p><p>Framework: ${idea.framework || ""}</p><p>Why it works: ${idea.why_it_works || ""}</p>`,
-                    },
-                  };
-                  nodesAccumulator = [...nodesAccumulator, ideaNode];
-                  edgesAccumulator = [...edgesAccumulator, {
-                    id: `edge_${ts}_r_i`, source: researchNode.id, target: ideaNode.id, animated: true,
-                  }];
-                  await adminClient.from("canvas_states")
-                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                    .eq("id", canvasState.id);
-
-                  // ─── STAGE 5: Script node + edge from idea → script ───
-                  const sc = synthesis.script;
-                  const scriptNode = {
-                    id: `textNoteNode_script_${ts}`,
-                    type: "textNoteNode",
-                    position: { x: colXBase + 930, y: rowY },
-                    data: {
-                      noteText: `SCRIPT — ${(idea.category || "").toUpperCase()}\nFramework: ${idea.framework || ""}\n\nHOOK:\n${sc.hook || ""}\n\nBODY:\n${sc.body || ""}\n\nCTA:\n${sc.cta || ""}`,
-                      noteHtml: `<p><strong>SCRIPT — ${(idea.category || "").toUpperCase()}</strong></p><p>Framework: ${idea.framework || ""}</p><p><strong>HOOK:</strong></p><p>${(sc.hook || "").replace(/\n/g, "<br>")}</p><p><strong>BODY:</strong></p><p>${(sc.body || "").replace(/\n/g, "<br>")}</p><p><strong>CTA:</strong></p><p>${sc.cta || ""}</p>`,
-                      width: 320,
-                    },
-                  };
-                  nodesAccumulator = [...nodesAccumulator, scriptNode];
-                  edgesAccumulator = [...edgesAccumulator, {
-                    id: `edge_${ts}_i_s`, source: ideaNode.id, target: scriptNode.id, animated: true,
-                  }];
-                  await adminClient.from("canvas_states")
-                    .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                    .eq("id", canvasState.id);
-
-                  // 6. Save script to library
-                  const rawContent = [sc.hook || "", sc.body || "", sc.cta || ""].join("\n");
-                  const { data: scriptRow } = await adminClient
-                    .from("scripts")
-                    .insert({
-                      client_id: targetClient.id,
-                      title: sc.title || idea.hook_sentence || "Untitled",
-                      idea_ganadora: idea.hook_sentence || sc.title || "",
-                      raw_content: rawContent,
-                      formato: "talking_head",
-                      status: "complete",
-                    })
-                    .select("id")
-                    .single();
-                  if (scriptRow) {
-                    const bodyLines = (sc.body || "").split("\n").filter(Boolean);
-                    const lineRows = [
-                      { script_id: scriptRow.id, line_number: 1, line_type: "hook", section: "hook", text: sc.hook || "" },
-                      ...bodyLines.map((line: string, i: number) => ({
-                        script_id: scriptRow.id, line_number: i + 2, line_type: "body", section: "body", text: line,
-                      })),
-                      { script_id: scriptRow.id, line_number: bodyLines.length + 2, line_type: "cta", section: "cta", text: sc.cta || "" },
-                    ];
-                    await adminClient.from("script_lines").insert(lineRows);
-                  }
-
-                  // ─── STAGE 6: Wait for visual analysis & attach to video node ───
-                  const visualResult = await visualPromise;
-                  if (visualResult && Array.isArray(visualResult.visual_segments)) {
-                    nodesAccumulator = nodesAccumulator.map((n: any) =>
-                      n.id === videoNode.id
-                        ? { ...n, data: { ...n.data, videoAnalysis: visualResult } }
-                        : n
-                    );
-                    await adminClient.from("canvas_states")
-                      .update({ nodes: nodesAccumulator, edges: edgesAccumulator })
-                      .eq("id", canvasState.id);
-                  }
-
-                  // 7. Navigate to canvas (client-specific path)
-                  actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts?view=canvas` });
-
-                  const reuseLine = reuseMode === "full"
-                    ? `REUSED video already on canvas (saved a fetch + transcribe + visual analysis).`
-                    : reuseMode === "url-only"
-                    ? `REUSED video URL already on canvas — transcribed it now.`
-                    : `FRESH FETCH from viral_videos library.`;
-                  const contextLine = canvasContext
-                    ? `CANVAS CONTEXT used: ${existingTextNodes.length} existing notes, ${existingCompetitors.length} competitors mapped.`
-                    : "";
-
-                  const summary = `BUILT a complete script for ${targetClient.name}.
-
-${reuseLine}
-${contextLine}
-REFERENCE: @${chosenVideo.channel_username} (${(chosenVideo.views_count || 0).toLocaleString()} views) — ${r.hook_type} hook
-${transcription ? `TRANSCRIBED: ${transcription.length} chars of real audio captured` : "TRANSCRIPTION: failed (used caption only)"}
-${visualResult ? `VISUAL BREAKDOWN: ${visualResult.visual_segments?.length || 0} scenes analyzed` : ""}
-WINNING IDEA: "${idea.hook_sentence}"
-FRAMEWORK: ${idea.framework}
-
-The canvas now has the reference video connected to research → idea → script nodes via animated edges. The script is saved to the scripts library.
-
-Tell the user this in your respond_to_user — be specific about what you found, what the winning idea was, AND if you reused something from the canvas mention it (e.g. "I noticed you already had X on the canvas, so I built on that").`;
-                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: summary });
-                }
-              }
-            }
-          }
-        }
 
         if (block.name === "fill_onboarding_fields") {
           const { fields, navigate_to_onboarding } = block.input;
