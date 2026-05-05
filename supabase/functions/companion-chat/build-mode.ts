@@ -138,7 +138,21 @@ const BUILD_TOOLS = [
 
 // ── Build trigger ────────────────────────────────────────────────────────────
 
+// Matches "build me a script", "let's write a script", etc.
 export const BUILD_TRIGGER = /\b(let'?s\s+)?(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
+
+// Matches the framework-first flow: "replicate these videos", "I want to copy these"
+const FRAMEWORK_TRIGGER = /\b(replicate|copy|mimic|model|remix|base.*on|use.*as.*framework|want.*these|want.*to.*replicate|want.*to.*copy)\b/i;
+
+// Returns true if the message is a framework-first build trigger (user dropping URLs to replicate)
+function isFrameworkFirstTrigger(message: string): boolean {
+  const urlCount = (message.match(URL_RE) ?? []).length;
+  // 2+ URLs alone = framework-first (user clearly dropping a list of references)
+  if (urlCount >= 2) return true;
+  // 1+ URLs + explicit replication intent
+  if (urlCount >= 1 && FRAMEWORK_TRIGGER.test(message)) return true;
+  return false;
+}
 
 // ── URL pre-processing ───────────────────────────────────────────────────────
 
@@ -146,7 +160,20 @@ interface PreProcessedUrl {
   url: string;
   videoId: string;
   channelUsername: string;
+  // Populated after analysis (may be null if analysis timed out or failed)
+  hookText: string | null;
+  ctaText: string | null;
+  frameworkMeta: {
+    niche_tags?: string[];
+    audience?: string;
+    body_structure?: string;
+    content_type?: string | null;
+    visual_pacing?: { tempo?: string | null };
+  } | null;
 }
+
+const SUPABASE_URL_BUILD = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY_BUILD = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 async function preProcessUrls(
   message: string,
@@ -170,39 +197,77 @@ async function preProcessUrls(
     progressIds: [],
   };
 
-  const results: PreProcessedUrl[] = [];
-  for (const url of urls.slice(0, 3)) {
+  // Step 1: Add all URLs to viral_videos (up to 5)
+  const added: { url: string; videoId: string; channelUsername: string }[] = [];
+  for (const url of urls.slice(0, 5)) {
     try {
       const resultText = await handleAddUrlToViralDatabase({ url, client_id: client.id }, ctx);
-      // Result text contains "Video ID: <id>" if successful
       const idMatch = resultText.match(/Video ID:\s*([0-9a-f-]+)/i);
       const userMatch = resultText.match(/@(\S+)\./);
       if (!idMatch) continue;
+      added.push({ url, videoId: idMatch[1], channelUsername: userMatch?.[1] ?? "unknown" });
+    } catch (e) {
+      console.warn(`[build-mode] preProcessUrls add failed for ${url}:`, (e as Error).message);
+    }
+  }
+  if (added.length === 0) return [];
 
-      const videoId = idMatch[1];
+  const isSingleUrl = added.length === 1;
+
+  // Step 2: If single URL (existing flow) — auto-add to canvas, fire background analysis
+  if (isSingleUrl) {
+    const { url, videoId } = added[0];
+    if (buildSession?.canvasStateId) {
+      try {
+        await handleAddVideoToCanvas({ client_id: client.id, video_id: videoId }, ctx);
+      } catch (e) {
+        console.warn(`[build-mode] auto add_video_to_canvas failed for ${videoId}:`, (e as Error).message);
+      }
+    }
+    // Background analysis — don't wait
+    void fetch(`${SUPABASE_URL_BUILD}/functions/v1/analyze-viral-video`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY_BUILD}` },
+      body: JSON.stringify({ video_id: videoId, force: true }),
+    }).catch(() => {});
+    return [{ url, videoId, channelUsername: added[0].channelUsername, hookText: null, ctaText: null, frameworkMeta: null }];
+  }
+
+  // Step 3: Multiple URLs — trigger ALL analyses in parallel, wait up to 40s
+  // Don't auto-add to canvas yet — user picks which ones to build
+  console.log(`[build-mode] analyzing ${added.length} user-provided frameworks in parallel`);
+  const analysisPromises = added.map(({ videoId }) =>
+    Promise.race<any>([
+      fetch(`${SUPABASE_URL_BUILD}/functions/v1/analyze-viral-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY_BUILD}` },
+        body: JSON.stringify({ video_id: videoId, force: true }),
+      }).then((r) => r.json()).catch(() => null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 40_000)),
+    ])
+  );
+  await Promise.allSettled(analysisPromises);
+
+  // Step 4: Read back structural data for all videos
+  const results: PreProcessedUrl[] = [];
+  for (const { url, videoId, channelUsername } of added) {
+    try {
+      const { data: video } = await adminClient
+        .from("viral_videos")
+        .select("id, channel_username, hook_text, cta_text, framework_meta")
+        .eq("id", videoId)
+        .maybeSingle();
       results.push({
         url,
         videoId,
-        channelUsername: userMatch?.[1] ?? "unknown",
+        channelUsername: (video?.channel_username as string | null) ?? channelUsername,
+        hookText: (video?.hook_text as string | null) ?? null,
+        ctaText: (video?.cta_text as string | null) ?? null,
+        frameworkMeta: (video?.framework_meta as any) ?? null,
       });
-
-      // Deterministically add to the canvas right now — don't rely on the LLM
-      // to remember to call add_video_to_canvas. This was a real bug: when
-      // users pasted their own URL after frameworks were already shown, the
-      // LLM would skip add_video_to_canvas and go straight to draft_script,
-      // leaving the wrong (or no) video on the canvas.
-      if (buildSession?.canvasStateId) {
-        try {
-          await handleAddVideoToCanvas(
-            { client_id: client.id, video_id: videoId },
-            ctx,
-          );
-        } catch (e) {
-          console.warn(`[build-mode] auto add_video_to_canvas failed for ${videoId}:`, (e as Error).message);
-        }
-      }
     } catch (e) {
-      console.warn(`[build-mode] preProcessUrls failed for ${url}:`, (e as Error).message);
+      console.warn(`[build-mode] read-back failed for ${videoId}:`, (e as Error).message);
+      results.push({ url, videoId, channelUsername, hookText: null, ctaText: null, frameworkMeta: null });
     }
   }
   return results;
@@ -231,13 +296,50 @@ function buildSystemPrompt(args: {
     ? `${bs.currentIdeaIndex + 1}. ${currentIdea.title}`
     : "(none)";
 
+  const isSingleUrl = preProcessedUrls.length === 1;
+  const isMultiUrl = preProcessedUrls.length > 1;
+
   const urlsBlock = preProcessedUrls.length > 0
-    ? `
+    ? isSingleUrl
+      // ── Single URL: existing flow — auto-placed on canvas, go straight to draft ──
+      ? `
 
-URLS DETECTED IN THIS MESSAGE (already added to viral_videos AND already placed on the canvas — do NOT call add_video_to_canvas again for them):
-${preProcessedUrls.map((u) => `- ${u.url} → video_id=${u.videoId} (@${u.channelUsername})`).join("\n")}
+USER-PROVIDED FRAMEWORK (already added to viral_videos and placed on canvas):
+- video_id=${preProcessedUrls[0].videoId} (@${preProcessedUrls[0].channelUsername}) | ${preProcessedUrls[0].url}
 
-The user pasted these URLs as their own framework references. The first URL is now the active framework. Call draft_script with framework_video_id=${preProcessedUrls[0].videoId}. Skip search_viral_frameworks. Do NOT name a different framework or attribute the script to a creator other than @${preProcessedUrls[0].channelUsername} — only the user's URL is the reference.`
+Skip search_viral_frameworks. Proceed directly: ask what idea to build with this framework, then call draft_script with framework_video_id=${preProcessedUrls[0].videoId}.`
+
+      // ── Multiple URLs: show full breakdown, let user pick ──
+      : `
+
+USER PROVIDED ${preProcessedUrls.length} FRAMEWORK VIDEOS (already added to viral_videos):
+${preProcessedUrls.map((u, i) => {
+  const fm = u.frameworkMeta ?? {};
+  const niches = Array.isArray(fm.niche_tags) ? fm.niche_tags.join(", ") : "";
+  const tempo = fm.visual_pacing?.tempo ?? "";
+  const contentType = fm.content_type ?? "";
+  const analyzed = u.hookText || fm.body_structure;
+  return `${i + 1}. @${u.channelUsername} — video_id=${u.videoId}
+   ${analyzed
+     ? `Type: ${contentType || "unknown"}${tempo ? ` | Pacing: ${tempo}` : ""}${niches ? ` | Niche: ${niches}` : ""}
+   Hook: "${u.hookText ?? "(analyzing...)"}"
+   Body: ${fm.body_structure ?? "(analyzing...)"}
+   CTA: "${u.ctaText ?? "(analyzing...)"}"`
+     : `(analysis in progress — structure data not available yet)`}
+   URL: ${u.url}`;
+}).join("\n\n")}
+
+WORKFLOW FOR THIS MULTI-URL BUILD:
+1. Present the breakdown above to the user. Show them what you see in each framework.
+2. Ask: "Which of these do you want to build a script for? I can do all ${preProcessedUrls.length} or specific ones."
+3. For each video the user selects (in order):
+   a. Ask what IDEA to adapt into this framework's structure (or suggest one from their canvas context)
+   b. Call add_video_to_canvas with that video's video_id
+   c. Call draft_script with the framework_video_id
+   d. Show HOOK / BODY / CTA draft. Ask "Ready to generate?"
+   e. On approval, call save_script. Then move to the next one.
+4. NEVER call search_viral_frameworks — the user already provided the frameworks.
+5. NEVER auto-pick idea #1 silently — always confirm with the user which idea they want for each video.`
     : "";
 
   return `You are an expert short-form video strategist helping a creator build their next script. You guide them through a step-by-step conversation, narrating what you're doing as you work.
@@ -545,7 +647,7 @@ export async function shouldRouteToBuildMode(args: {
   message: string;
   adminClient: SupabaseClient;
 }): Promise<{ route: boolean; existingSession: BuildSession | null; triggerMatched: boolean }> {
-  const triggerMatched = BUILD_TRIGGER.test(args.message);
+  const triggerMatched = BUILD_TRIGGER.test(args.message) || isFrameworkFirstTrigger(args.message);
   let existingSession: BuildSession | null = null;
 
   if (args.threadId) {
