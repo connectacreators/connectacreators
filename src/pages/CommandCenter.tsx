@@ -446,26 +446,26 @@ export default function CommandCenter() {
                       <button
                         key={s}
                         onClick={() => setInput(s)}
-                        className="relative text-[11px] px-2.5 py-1 transition-colors overflow-visible"
+                        className="relative text-[11px] px-3 py-1.5 transition-colors"
                         style={{ color: "rgba(255,255,255,0.6)", background: "none", border: "none" }}
                       >
                         <svg
                           style={{
                             position: "absolute",
-                            inset: -2,
-                            width: "calc(100% + 4px)",
-                            height: "calc(100% + 4px)",
-                            overflow: "visible",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            overflow: "hidden",
                             pointerEvents: "none",
                           }}
-                          viewBox="0 0 160 28"
+                          viewBox="0 0 160 32"
                           preserveAspectRatio="none"
                         >
                           <path
-                            d="M6,2 C40,0.5 120,0.5 152,2 C157,2.5 159,5 159,8 C159.5,13 159,19 158,23 C157,26 154,27.5 148,28 C110,29 50,29 12,28 C5,27.5 2,25.5 2,22 C1,17 1,10 2,6 C2.5,3.5 4,2.5 6,2 Z"
+                            d="M8,3 C45,1 115,1 150,3 C156,3.5 158,6 158,10 C158.5,16 158,22 157,27 C156,30 152,32 144,32.5 C105,33.5 55,33.5 16,32.5 C7,32 3,29.5 2,26 C1,20 1,13 2,8 C3,5 5,3.5 8,3 Z"
                             fill="none"
-                            stroke="rgba(201,169,110,0.25)"
-                            strokeWidth="1.1"
+                            stroke="rgba(201,169,110,0.3)"
+                            strokeWidth="1.2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
@@ -490,93 +490,6 @@ export default function CommandCenter() {
               </div>
             </main>
 
-            {/* AI SEES — agency-mode context categories */}
-            <aside
-              className="w-[260px] flex flex-col"
-              style={{ background: "#1a1b1f", borderLeft: "1px solid #2a2b30" }}
-            >
-              <div
-                className="px-3 py-2.5 flex items-center justify-between"
-                style={{ borderBottom: "1px solid #2a2b30" }}
-              >
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.35)",
-                  }}
-                >
-                  {en ? "AI sees" : "AI ve"}
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
-                {(
-                  [
-                    {
-                      key: "strategy",
-                      label: en ? "Client strategies" : "Estrategias de clientes",
-                      sub: en ? "Vision, audience, voice" : "Visión, audiencia, voz",
-                      color: "#84cc16",
-                    },
-                    {
-                      key: "onboarding",
-                      label: en ? "Onboarding profiles" : "Perfiles de onboarding",
-                      sub: en ? "Brand, niche, goals" : "Marca, nicho, objetivos",
-                      color: "#22d3ee",
-                    },
-                    {
-                      key: "canvas",
-                      label: en ? "Canvas history" : "Historial de canvas",
-                      sub: en ? "Past scripts + research" : "Scripts y research previos",
-                      color: "#a78bfa",
-                    },
-                    {
-                      key: "editing",
-                      label: en ? "Editing queue" : "Cola de edición",
-                      sub: en ? "What's pending or shipped" : "Qué está pendiente o entregado",
-                      color: "#f59e0b",
-                    },
-                    {
-                      key: "memory",
-                      label: en ? "Memory facts" : "Memoria",
-                      sub: en ? "What I've learned about you" : "Lo que aprendí de ti",
-                      color: "#f472b6",
-                    },
-                  ]
-                ).map((c) => (
-                  <div
-                    key={c.key}
-                    className="flex items-start gap-2 px-3 py-2"
-                  >
-                    <div
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: c.color,
-                        flexShrink: 0,
-                        marginTop: 5,
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.75)" }}>
-                        {c.label}
-                      </div>
-                      <div className="text-[9px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-                        {c.sub}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="px-3 py-2 text-[10px]" style={{ borderTop: "1px solid #2a2b30", color: "rgba(255,255,255,0.32)", lineHeight: 1.5 }}>
-                {en
-                  ? "I read these on demand — not every prompt. Memory keeps the highlights."
-                  : "Los leo bajo demanda — no en cada prompt. La memoria guarda lo importante."}
-              </div>
-            </aside>
           </>
         ) : (
           /* Tasks tab — full-width Phase 1 task list */
