@@ -11,15 +11,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { AssistantMemoryEditor } from "@/components/assistant";
+import { useCompanion } from "@/contexts/CompanionContext";
 
 export default function Settings() {
   const { language } = useLanguage();
   const { user, role, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { companionName, setCompanionName, clientId } = useCompanion();
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiName, setAiName] = useState(companionName || "");
+  const [savingAiName, setSavingAiName] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -52,6 +56,27 @@ export default function Settings() {
         });
     }
   }, [user]);
+
+  useEffect(() => { setAiName(companionName || ""); }, [companionName]);
+
+  const handleSaveAiName = async () => {
+    if (!clientId) return;
+    const trimmed = aiName.trim() || "AI";
+    setSavingAiName(true);
+    try {
+      const { error } = await supabase.from("companion_state").upsert(
+        { client_id: clientId, companion_name: trimmed, companion_setup_done: true },
+        { onConflict: "client_id" }
+      );
+      if (error) throw error;
+      setCompanionName(trimmed);
+      toast.success(language === "es" ? "Nombre del asistente actualizado" : "Assistant name updated");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save");
+    } finally {
+      setSavingAiName(false);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -171,6 +196,37 @@ export default function Settings() {
               {tr(t.settings.saveChanges, language)}
             </Button>
           </BorderGlow>
+        </div>
+
+        {/* AI Assistant */}
+        <div className="glass-card rounded-xl p-6 space-y-5 mb-8">
+          <div>
+            <h2 className="font-caslon text-lg font-light text-foreground mb-1" style={{ letterSpacing: "0.02em" }}>
+              {language === "es" ? "Asistente de IA" : "AI Assistant"}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {language === "es" ? "Cambia el nombre de tu asistente cuando quieras." : "Rename your assistant any time."}
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+              {language === "es" ? "Nombre del asistente" : "Assistant name"}
+            </label>
+            <Input
+              value={aiName}
+              onChange={(e) => setAiName(e.target.value)}
+              maxLength={20}
+              placeholder={language === "es" ? "Ej: Mario, Luna, Atlas..." : "e.g. Mario, Luna, Atlas..."}
+            />
+          </div>
+          <Button
+            onClick={handleSaveAiName}
+            disabled={savingAiName || !aiName.trim() || aiName.trim() === companionName}
+            className="gap-2"
+          >
+            {savingAiName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {tr(t.settings.saveChanges, language)}
+          </Button>
         </div>
 
         {/* Change password */}
