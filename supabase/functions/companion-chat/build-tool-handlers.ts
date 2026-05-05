@@ -332,14 +332,20 @@ export async function handleSearchViralFrameworks(
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
   await logBuildProgress(ctx, `Searching viral frameworks for "${input.idea_title}"...`, "Searching frameworks...");
 
+  // Search both caption AND transcript for keyword matches
   const orFilter = input.keywords
     .filter((k) => k.length >= 3)
-    .map((k) => `caption.ilike.%${k.replace(/[%,]/g, "")}%`)
+    .flatMap((k) => {
+      const safe = k.replace(/[%,]/g, "");
+      return [`caption.ilike.%${safe}%`, `transcript.ilike.%${safe}%`];
+    })
     .join(",");
 
+  // Only consider analyzed videos — unanalyzed ones don't have enough signal to rank
   let query = ctx.adminClient
     .from("viral_videos")
-    .select("id, video_url, thumbnail_url, caption, channel_username, views_count, outlier_score")
+    .select("id, video_url, thumbnail_url, caption, channel_username, views_count, outlier_score, hook_text, cta_text, framework_meta, transcript")
+    .not("transcribed_at", "is", null)
     .order("outlier_score", { ascending: false, nullsFirst: false })
     .limit(25);
   if (orFilter) query = query.or(orFilter);
@@ -348,23 +354,58 @@ export async function handleSearchViralFrameworks(
   const pool = ((candidates as any[]) ?? []).filter((v) => (v.caption ?? "").trim().length > 0);
 
   if (pool.length === 0) {
-    return `No viral references found for "${input.idea_title}". Suggest the user paste 1-3 Instagram reel URLs and call add_url_to_viral_database for each.`;
+    const keywordList = input.keywords.filter((k) => k.length >= 3).join(", ");
+    return `No analyzed viral references match "${input.idea_title}" in the database.
+
+Best move: ask the user to find references on Instagram or TikTok and paste them. Tell them:
+
+Suggested keywords to search: ${keywordList || input.idea_title}
+
+Steps:
+1. Search those keywords on Instagram (or TikTok)
+2. Look for videos with at least 5x the channel's typical view count
+3. Paste 1-3 URLs back into this chat
+
+I'll add them to the viral database and use them as the framework.`;
   }
 
+  // Use Claude Haiku to rank by relevance (with all the new structural data)
   let top3 = pool.slice(0, 3);
   if (pool.length > 3) {
     const candidateBlock = pool
-      .map((v, i) => `${i + 1}. id=${v.id} | @${v.channel_username ?? "unknown"} | ${v.outlier_score ?? "?"}x | caption: ${(v.caption ?? "").slice(0, 200)}`)
-      .join("\n");
+      .map((v, i) => {
+        const fm = (v.framework_meta as any) ?? {};
+        const niches = Array.isArray(fm.niche_tags) ? fm.niche_tags.join(", ") : "";
+        const audience = fm.audience ?? "";
+        const contentType = fm.content_type ?? "";
+        const tempo = fm.visual_pacing?.tempo ?? "";
+        const bodyStructure = fm.body_structure ?? "";
+        return `${i + 1}. id=${v.id} | @${v.channel_username ?? "unknown"} | ${v.outlier_score ?? "?"}x
+   Niche: ${niches} | Audience: ${audience}
+   Type: ${contentType} | Pacing: ${tempo}
+   Hook: "${(v.hook_text ?? "").slice(0, 200)}"
+   Body: ${bodyStructure}
+   CTA: "${(v.cta_text ?? "").slice(0, 120)}"`;
+      })
+      .join("\n\n");
 
-    const rankPrompt = `Pick the 3 MOST RELEVANT video IDs for a script about this idea:
+    const rankPrompt = `Pick the 3 MOST RELEVANT video IDs for a script about this idea.
 
 IDEA: ${input.idea_title}
+
+Match priority (in order):
+1. HOOK STRUCTURE — does the candidate's hook open the same way the new script's hook should? (e.g., retrospective story → retrospective story, contrarian statement → contrarian, question → question)
+2. NICHE / AUDIENCE — does the niche overlap with the idea's subject?
+3. CONTENT TYPE + PACING — talking head / B-roll / tutorial — does the format fit?
+4. KEYWORD overlap (already filtered, secondary signal)
+
+Outlier score is a TIEBREAKER, not the main signal. Reject candidates that are off-topic or structurally wrong even if they have huge outliers.
 
 CANDIDATES:
 ${candidateBlock}
 
 Output ONLY a JSON array of exactly 3 ids: ["uuid1","uuid2","uuid3"]. Nothing else.`;
+
     try {
       let ranked = await callClaudeHaiku(rankPrompt);
       ranked = ranked.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
@@ -403,12 +444,27 @@ Output ONLY a JSON array of exactly 3 ids: ["uuid1","uuid2","uuid3"]. Nothing el
     });
   }
 
-  const result = top3.map((v, i) => {
-    const cap = (v.caption ?? "").slice(0, 150);
-    return `${i + 1}. @${v.channel_username ?? "unknown"} — ${v.outlier_score ?? "?"}x\n   Caption: ${cap}\n   URL: ${v.video_url ?? ""}\n   Thumbnail: ${v.thumbnail_url ?? ""}`;
-  }).join("\n\n");
+  // Format the output for the LLM — show structural data not just outlier
+  const result = top3
+    .map((v, i) => {
+      const fm = (v.framework_meta as any) ?? {};
+      const niches = Array.isArray(fm.niche_tags) ? fm.niche_tags.join(", ") : "";
+      const tempo = fm.visual_pacing?.tempo ?? "";
+      const contentType = fm.content_type ?? "";
+      return `${i + 1}. @${v.channel_username ?? "unknown"} — ${v.outlier_score ?? "?"}x
+   Niche: ${niches}${contentType ? ` | Type: ${contentType.replace(/_/g, " ")}` : ""}${tempo ? ` | Pacing: ${tempo}` : ""}
+   Hook: "${(v.hook_text ?? "").slice(0, 150)}"
+   URL: ${v.video_url ?? ""}
+   Thumbnail: ${v.thumbnail_url ?? ""}
+   ID: ${v.id}`;
+    })
+    .join("\n\n");
 
-  return `Top 3 viral references for "${input.idea_title}" (ranked by relevance):\n\n${result}\n\nDefault pick: #1 (@${top3[0]?.channel_username ?? "unknown"})`;
+  return `Top 3 viral references for "${input.idea_title}" (ranked by hook structure + niche fit):
+
+${result}
+
+Default pick: #1 (@${top3[0]?.channel_username ?? "unknown"})`;
 }
 
 // ── Tool 5: add_url_to_viral_database ─────────────────────────────────────────
