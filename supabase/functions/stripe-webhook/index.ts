@@ -140,46 +140,34 @@ async function syncSubscription(
     channel_scrapes_limit: planCfg.channel_scrapes_limit,
     subscription_status: dbStatus,
     stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
-    trial_ends_at: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
   };
 
-  // On subscription.created only: initialize credits
+  // On subscription.created: grant full plan credits immediately.
+  // There are no Stripe trial periods — the app's free trial is the 1,000
+  // credits every user gets from the DB default on signup. Any Stripe
+  // subscription (new or legacy) goes straight to the full plan cap.
   if (isNew) {
-    // Trial: grant 1000 credits. Full credits granted on first payment.
-    const isTrial = sub.status === "trialing";
-    const grantAmount = isTrial ? 1000 : planCfg.credits_monthly_cap;
-    if (isTrial) {
-      clientUpdate.credits_monthly_cap = 1000;
-    }
-    clientUpdate.credits_balance = grantAmount;
+    clientUpdate.credits_balance = planCfg.credits_monthly_cap;
     clientUpdate.credits_used = 0;
     clientUpdate.channel_scrapes_used = 0;
     clientUpdate.credits_reset_at = new Date(sub.current_period_end * 1000).toISOString();
 
     await adminClient.from("credit_transactions").insert({
       client_id: clientId,
-      action: isTrial ? "trial_grant" : "initial_grant",
-      credits: grantAmount,
-      metadata: { plan_type: planType, is_trial: isTrial },
+      action: "initial_grant",
+      credits: planCfg.credits_monthly_cap,
+      metadata: { plan_type: planType },
     });
-    logStep("Initialized credits", { grantAmount, isTrial });
+    logStep("Initialized credits", { grantAmount: planCfg.credits_monthly_cap });
   }
 
-  // When transitioning from trialing → active, don't touch credits here.
-  // Let invoice.payment_succeeded handle the full credit grant to avoid race conditions.
   if (!isNew) {
     const { data: currentClient } = await adminClient
       .from("clients")
       .select("subscription_status, plan_type, credits_balance, credits_monthly_cap")
       .eq("id", clientId)
       .maybeSingle();
-    if (currentClient?.subscription_status === "trialing" && dbStatus === "active") {
-      delete clientUpdate.credits_monthly_cap;
-      delete clientUpdate.credits_balance;
-      delete clientUpdate.credits_used;
-      delete clientUpdate.channel_scrapes_used;
-      logStep("Trial→active transition: skipping credit update (handled by invoice.payment_succeeded)");
-    } else if (currentClient?.plan_type && currentClient.plan_type !== planType) {
+    if (currentClient?.plan_type && currentClient.plan_type !== planType) {
       // Plan change detected (upgrade/downgrade via Stripe portal)
       const oldCap = currentClient.credits_monthly_cap ?? 0;
       const newCap = planCfg.credits_monthly_cap;
@@ -461,57 +449,28 @@ serve(async (req) => {
           }
         }
 
-        // Check if this is the first charge after trial
-        const { data: currentClient } = await adminClient
-          .from("clients")
-          .select("subscription_status, credits_monthly_cap")
-          .eq("id", clientId)
-          .maybeSingle();
+        // Monthly billing reset — single path, no trial distinction.
+        // The app has no Stripe trial period; the free trial is the 1,000
+        // credits every user gets on signup from the DB column default.
+        await adminClient.from("clients").update({
+          credits_balance: planCfg.credits_monthly_cap,
+          credits_monthly_cap: planCfg.credits_monthly_cap,
+          credits_used: 0,
+          channel_scrapes_used: 0,
+          subscription_status: "active",
+          trial_ends_at: null,
+          credits_reset_at: new Date(resetTimestamp * 1000).toISOString(),
+          pending_plan_type: null,
+          pending_plan_effective_date: null,
+        }).eq("id", clientId);
 
-        const isPostTrial = currentClient?.subscription_status === "trialing" || currentClient?.subscription_status === "trial";
-
-        if (isPostTrial) {
-          // First charge after trial — grant full plan credits
-          await adminClient.from("clients").update({
-            credits_balance: planCfg.credits_monthly_cap,
-            credits_monthly_cap: planCfg.credits_monthly_cap,
-            credits_used: 0,
-            channel_scrapes_used: 0,
-            subscription_status: "active",
-            trial_ends_at: null,
-            credits_reset_at: new Date(resetTimestamp * 1000).toISOString(),
-            pending_plan_type: null,
-            pending_plan_effective_date: null,
-          }).eq("id", clientId);
-
-          await adminClient.from("credit_transactions").insert({
-            client_id: clientId,
-            action: "initial_grant",
-            credits: planCfg.credits_monthly_cap,
-            metadata: { billing_period_end: resetTimestamp, plan_type: planType, post_trial: true },
-          });
-          logStep("Post-trial: granted full credits", { clientId, planType, credits: planCfg.credits_monthly_cap });
-        } else {
-          // Regular monthly renewal
-          await adminClient.from("clients").update({
-            credits_balance: planCfg.credits_monthly_cap,
-            credits_used: 0,
-            channel_scrapes_used: 0,
-            subscription_status: "active",
-            trial_ends_at: null,
-            credits_reset_at: new Date(resetTimestamp * 1000).toISOString(),
-            pending_plan_type: null,
-            pending_plan_effective_date: null,
-          }).eq("id", clientId);
-
-          await adminClient.from("credit_transactions").insert({
-            client_id: clientId,
-            action: "monthly_reset",
-            credits: planCfg.credits_monthly_cap,
-            metadata: { billing_period_end: resetTimestamp, plan_type: planType },
-          });
-          logStep("Credits reset for billing cycle", { clientId, planType, credits: planCfg.credits_monthly_cap });
-        }
+        await adminClient.from("credit_transactions").insert({
+          client_id: clientId,
+          action: "monthly_reset",
+          credits: planCfg.credits_monthly_cap,
+          metadata: { billing_period_end: resetTimestamp, plan_type: planType },
+        });
+        logStep("Credits reset for billing cycle", { clientId, planType, credits: planCfg.credits_monthly_cap });
         break;
       }
 
