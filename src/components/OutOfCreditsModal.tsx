@@ -8,14 +8,15 @@ import { X } from "lucide-react";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 
 const stripePromise = loadStripe(
   "pk_live_51T1wYhCp1qPE081LgFT3WQBCIjLkFTbpqRjKtVIgRk9rXZpQQJcVpWqJuafMFnKlhHFolIlYx7rIy1dSuH8hIjMz00rlJINFjF"
 );
 
 const PLANS = [
-  { key: "starter" as const, name: "Starter", price: 39, credits: "10,000", scrapes: 8, scripts: 75 },
-  { key: "growth" as const, name: "Growth", price: 79, credits: "30,000", scrapes: 15, scripts: 200, popular: true },
+  { key: "starter" as const,    name: "Starter",    price: 39,  credits: "10,000", scrapes: 8,  scripts: 75 },
+  { key: "growth" as const,     name: "Growth",     price: 79,  credits: "30,000", scrapes: 15, scripts: 200, recommended: true },
   { key: "enterprise" as const, name: "Enterprise", price: 139, credits: "75,000", scrapes: 25, scripts: 500 },
 ];
 
@@ -27,6 +28,7 @@ export default function OutOfCreditsModal() {
   const [phase, setPhase] = useState<"plans" | "checkout">("plans");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingKey, setLoadingKey] = useState<PlanKey | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleClose = () => {
@@ -48,13 +50,13 @@ export default function OutOfCreditsModal() {
   const handlePlanSelect = async (planKey: PlanKey) => {
     if (!user) return;
     setLoading(true);
+    setLoadingKey(planKey);
     setError(null);
     try {
       const { data: refreshed } = await supabase.auth.refreshSession();
       const session = refreshed?.session;
       if (!session) {
         setError("Session expired. Please sign in again.");
-        setLoading(false);
         return;
       }
       const { data, error: fnErr } = await supabase.functions.invoke(
@@ -66,7 +68,6 @@ export default function OutOfCreditsModal() {
       );
       if (fnErr || !data?.client_secret) {
         setError(fnErr?.message || "Failed to initialize payment");
-        setLoading(false);
         return;
       }
       setClientSecret(data.client_secret);
@@ -75,114 +76,101 @@ export default function OutOfCreditsModal() {
       setError(err.message || "Payment initialization failed");
     } finally {
       setLoading(false);
+      setLoadingKey(null);
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.7)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: "rgba(15,15,18,0.7)", backdropFilter: "blur(8px)" }}
       onClick={handleClose}
     >
-      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div
-          className="px-7 pt-7 pb-5 relative"
-          style={{ background: "linear-gradient(135deg, #0f172a, #1e293b)" }}
+      <div
+        className="w-full max-w-md rounded-2xl px-10 py-12 relative"
+        style={{ background: "#16171a", border: "1px solid rgba(255,255,255,0.08)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.05] transition-colors"
         >
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 flex items-center justify-center w-7 h-7 rounded-full transition-colors hover:bg-white/20"
-            style={{ background: "rgba(255,255,255,0.1)" }}
-          >
-            <X className="w-4 h-4 text-white" />
-          </button>
-          <p className="text-white text-xl font-bold mb-1.5">
-            You're out of credits!
-          </p>
-          <p className="text-slate-400 text-sm">
-            Choose a plan to keep going. Upgrade anytime, cancel anytime.
+          <X className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Header */}
+        <div className="text-center mb-7">
+          <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
+          <h2 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
+            You're out of credits
+          </h2>
+          <p className="text-xs text-muted-foreground mt-2 tracking-wide">
+            Choose a plan to keep going. Cancel anytime.
           </p>
         </div>
 
         {/* Plans phase */}
         {phase === "plans" && (
-          <div className="p-5 bg-slate-50 flex flex-col gap-3">
-            {PLANS.map((plan) => (
-              <button
-                key={plan.key}
-                onClick={() => handlePlanSelect(plan.key)}
-                disabled={loading}
-                className="w-full text-left rounded-xl p-4 flex items-center justify-between transition-all disabled:opacity-50 relative"
-                style={
-                  plan.popular
-                    ? { background: "#0f172a", border: "2px solid #3b82f6" }
-                    : { background: "#fff", border: "1.5px solid #e2e8f0" }
-                }
-              >
-                {plan.popular && (
-                  <span
-                    className="absolute -top-2.5 left-4 text-[11px] font-bold px-2.5 py-0.5 rounded-full"
-                    style={{ background: "#3b82f6", color: "#fff" }}
-                  >
-                    MOST POPULAR
-                  </span>
-                )}
-                <div>
-                  <p
-                    className={`font-bold text-[15px] ${
-                      plan.popular ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    {plan.name}
-                  </p>
-                  <p
-                    className={`text-xs mt-0.5 ${
-                      plan.popular ? "text-slate-400" : "text-slate-500"
-                    }`}
-                  >
-                    {plan.credits} credits · {plan.scripts} scripts ·{" "}
-                    {plan.scrapes} scrapes
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0 ml-4">
-                  <p
-                    className={`font-extrabold text-lg ${
-                      plan.popular ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    ${plan.price}
-                    <span className="text-xs font-normal text-slate-400">
-                      /mo
+          <div className="flex flex-col gap-3">
+            {PLANS.map((plan) => {
+              const isLoadingThis = loadingKey === plan.key;
+              return (
+                <button
+                  key={plan.key}
+                  onClick={() => handlePlanSelect(plan.key)}
+                  disabled={loading}
+                  className="group relative w-full text-left rounded-xl px-5 py-4 flex items-center justify-between transition-colors disabled:opacity-50"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: `1px solid rgba(255,255,255,${plan.recommended ? "0.18" : "0.08"})`,
+                  }}
+                  onMouseEnter={(e) => { if (!loading) e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = `rgba(255,255,255,${plan.recommended ? "0.18" : "0.08"})`; }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-caslon text-base text-foreground" style={{ letterSpacing: "0.04em" }}>
+                        {plan.name}
+                      </span>
+                      {plan.recommended && (
+                        <span className="text-[9px] font-medium tracking-[0.2em] uppercase text-foreground/50">
+                          recommended
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground/70">
+                      {plan.credits} credits · {plan.scripts} scripts · {plan.scrapes} scrapes
                     </span>
-                  </p>
-                  <span
-                    className="mt-1.5 inline-block text-xs font-semibold px-3 py-1 rounded-full"
-                    style={{
-                      background: plan.popular ? "#3b82f6" : "#0f172a",
-                      color: "#fff",
-                    }}
-                  >
-                    {loading ? "..." : `Choose ${plan.name}`}
-                  </span>
-                </div>
-              </button>
-            ))}
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <div className="text-foreground/85 text-base font-medium">
+                      ${plan.price}
+                      <span className="text-xs font-normal text-muted-foreground/60">/mo</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/60 mt-0.5">
+                      {isLoadingThis ? "loading…" : "select →"}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+
             {error && (
-              <p className="text-red-500 text-xs text-center">{error}</p>
+              <p className="text-red-400/80 text-xs text-center mt-1">{error}</p>
             )}
+
             <button
               onClick={handleClose}
-              className="text-slate-400 text-xs text-center mt-1 hover:text-slate-600 transition-colors"
+              className="text-xs text-muted-foreground/60 hover:text-foreground text-center mt-3 transition-colors"
             >
-              Maybe later — dismiss
+              Maybe later
             </button>
           </div>
         )}
 
         {/* Checkout phase */}
         {phase === "checkout" && clientSecret && (
-          <div className="p-5">
+          <div>
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
               options={{ clientSecret }}
@@ -194,7 +182,7 @@ export default function OutOfCreditsModal() {
                 setPhase("plans");
                 setClientSecret(null);
               }}
-              className="w-full text-center text-xs text-slate-400 hover:text-slate-600 mt-3 transition-colors"
+              className="w-full text-center text-xs text-muted-foreground/60 hover:text-foreground mt-4 transition-colors"
             >
               ← Back to plans
             </button>
