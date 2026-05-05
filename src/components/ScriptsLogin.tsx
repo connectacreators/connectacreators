@@ -85,27 +85,27 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col px-4 relative overflow-hidden" style={{ background: '#0e1117' }}>
-      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.10) 0%, transparent 60%)', filter: 'blur(120px)' }} />
-      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.06) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+    <div className="min-h-screen flex flex-col px-4 relative overflow-hidden" style={{ background: '#131315' }}>
+      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.04) 0%, transparent 60%)', filter: 'blur(120px)' }} />
 
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageToggle />
       </div>
 
       <div className="flex-1 flex items-center justify-center pt-12 relative z-10">
-        <div className="w-full max-w-sm rounded-2xl p-8 space-y-5" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="w-full max-w-md rounded-2xl px-10 py-12 space-y-6" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="text-center">
-            <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-4 opacity-90" />
-            <h1 className="font-caslon text-2xl sm:text-3xl font-light text-foreground whitespace-nowrap" style={{ letterSpacing: "0.02em" }}>
+            <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
+            <h1 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
               {(words[wordIndex] as any).pre}{" "}
-              <span className="inline-block relative" style={{ minWidth: "5ch" }}>
+              <span className="inline-block relative" style={{ minWidth: "4ch" }}>
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={(words[wordIndex] as any).word}
-                    initial={{ y: 14, opacity: 0, filter: "blur(4px)" }}
+                    initial={{ y: 12, opacity: 0, filter: "blur(4px)" }}
                     animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                    exit={{ y: -14, opacity: 0, filter: "blur(4px)" }}
+                    exit={{ y: -12, opacity: 0, filter: "blur(4px)" }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                     className="text-foreground/60 italic inline-block"
                   >

@@ -77,22 +77,22 @@ export default function Signup() {
 
   if (checkingAuth || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0e1117' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#131315' }}>
         <div className="animate-spin rounded-full h-6 w-6 border-b border-white/40" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: '#0e1117' }}>
-      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.10) 0%, transparent 60%)', filter: 'blur(120px)' }} />
-      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.06) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: '#131315' }}>
+      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.04) 0%, transparent 60%)', filter: 'blur(120px)' }} />
 
       <div className="w-full max-w-md relative z-10">
-        <div className="rounded-2xl p-8" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="text-center mb-7">
-            <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-4 opacity-90" />
-            <h1 className="font-caslon text-3xl font-light text-foreground" style={{ letterSpacing: "0.02em" }}>
+        <div className="rounded-2xl px-10 py-12" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="text-center mb-8">
+            <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
+            <h1 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
               {language === 'es' ? 'Crea tu cuenta' : 'Create your account'}
             </h1>
             <p className="text-muted-foreground text-xs mt-2 tracking-wide">
