@@ -535,8 +535,7 @@ export function AssistantChat({
         ))}
 
         {(loading || generating) && !generatingImage && (
-          <div className="flex gap-2 items-start">
-            <FingerprintAvatar size="sm" />
+          <div className="flex items-center">
             <ThinkingAnimation />
           </div>
         )}
