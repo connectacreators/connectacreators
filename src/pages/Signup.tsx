@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { t, tr } from "@/i18n/translations";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
+import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 
 export default function Signup() {
   const { user, signUpWithEmail, loading: authLoading, isAdmin } = useAuth();
@@ -20,27 +21,13 @@ export default function Signup() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  // On mount / auth change: if already authenticated, ensure client record exists then go to dashboard
   useEffect(() => {
     const checkUserState = async () => {
       if (authLoading) return;
-      if (!user) {
-        setCheckingAuth(false);
-        return;
-      }
-
-      if (isAdmin) {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      // Ensure client record exists (handles Google OAuth callback)
+      if (!user) { setCheckingAuth(false); return; }
+      if (isAdmin) { navigate("/dashboard", { replace: true }); return; }
       const { data: existing } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
+        .from("clients").select("id").eq("user_id", user.id).maybeSingle();
       if (!existing) {
         await supabase.from("clients").insert({
           user_id: user.id,
@@ -52,7 +39,6 @@ export default function Signup() {
           credits_monthly_cap: 1000,
         });
       }
-
       navigate("/dashboard", { replace: true });
     };
     checkUserState();
@@ -62,14 +48,8 @@ export default function Signup() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     const { error: signupErr } = await signUpWithEmail(email, password, fullName.trim());
-    if (signupErr) {
-      setError(signupErr.message);
-      setLoading(false);
-      return;
-    }
-
+    if (signupErr) { setError(signupErr.message); setLoading(false); return; }
     const { data: { user: newUser } } = await supabase.auth.getUser();
     if (newUser) {
       await supabase.from("clients").upsert({
@@ -83,7 +63,6 @@ export default function Signup() {
         credits_monthly_cap: 1000,
       }, { onConflict: "user_id", ignoreDuplicates: true });
     }
-
     setLoading(false);
     navigate("/dashboard", { replace: true });
   };
@@ -91,48 +70,47 @@ export default function Signup() {
   const handleGoogleSignup = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/signup`,
-      },
+      options: { redirectTo: `${window.location.origin}/signup` },
     });
     if (error) toast.error(error.message);
   };
 
   if (checkingAuth || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(218 33% 4%) 0%, hsl(210 8% 10%) 50%, hsl(218 33% 4%) 100%)' }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0e1117' }}>
+        <div className="animate-spin rounded-full h-6 w-6 border-b border-white/40" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: '#060a0f' }}>
-      <div className="absolute top-[-30%] left-[-10%] w-[800px] h-[800px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.18) 0%, transparent 60%)', filter: 'blur(80px)' }} />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(132,204,22,0.12) 0%, transparent 60%)', filter: 'blur(80px)' }} />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: '#0e1117' }}>
+      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.10) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.06) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+
       <div className="w-full max-w-md relative z-10">
-        <div className="rounded-2xl p-8 relative overflow-hidden" style={{ background: 'rgba(15,20,30,0.85)', border: '1px solid rgba(8,145,178,0.25)', boxShadow: '0 0 60px rgba(8,145,178,0.08), 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
-          <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ background: 'linear-gradient(90deg, transparent, rgba(8,145,178,0.6), rgba(132,204,22,0.4), transparent)' }} />
-          <div className="text-center mb-6">
-            <h1 className="text-xl font-bold tracking-wide text-gradient-brand">CONNECTA CREATORS</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {language === 'es' ? 'Crea tu cuenta gratis' : 'Create your free account'}
+        <div className="rounded-2xl p-8" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="text-center mb-7">
+            <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-4 opacity-90" />
+            <h1 className="font-caslon text-3xl font-light text-foreground" style={{ letterSpacing: "0.02em" }}>
+              {language === 'es' ? 'Crea tu cuenta' : 'Create your account'}
+            </h1>
+            <p className="text-muted-foreground text-xs mt-2 tracking-wide">
+              {language === 'es' ? 'Empieza gratis. Sin tarjeta requerida.' : 'Start free. No card required.'}
             </p>
           </div>
 
           <form onSubmit={handleEmailSignup} className="space-y-3">
-            <div className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">
-              {tr(t.signup.yourInfo, language)}
-            </div>
-
             <input
               type="text"
               placeholder={tr(t.signup.fullName, language)}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none transition-colors"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
             />
             <input
               type="email"
@@ -140,8 +118,10 @@ export default function Signup() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none transition-colors"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
             />
             <input
               type="password"
@@ -150,81 +130,75 @@ export default function Signup() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none transition-colors"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
             />
             <input
               type="tel"
               placeholder={tr(t.signup.phone, language)}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[rgba(8,145,178,0.6)] focus:shadow-[0_0_0_3px_rgba(8,145,178,0.15)]"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(8,145,178,0.3)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+              className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none transition-colors"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
             />
 
-            {/* Terms & Privacy checkbox */}
-            <label className="flex items-start gap-2.5 cursor-pointer select-none mt-1">
-              <div className="relative flex-shrink-0 mt-0.5">
-                <input
-                  type="checkbox"
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="sr-only"
-                />
-                <div
-                  onClick={() => setAgreedToTerms(v => !v)}
-                  className="w-4 h-4 rounded flex items-center justify-center transition-colors"
-                  style={{
-                    background: agreedToTerms ? 'rgba(8,145,178,0.9)' : 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${agreedToTerms ? 'rgba(8,145,178,0.9)' : 'rgba(8,145,178,0.3)'}`,
-                  }}
-                >
-                  {agreedToTerms && (
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground leading-relaxed">
+            {/* Terms checkbox — single click target via the input itself */}
+            <div className="flex items-start gap-2.5 mt-2">
+              <input
+                id="agree-terms"
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 cursor-pointer accent-white/80"
+              />
+              <label htmlFor="agree-terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none">
                 {language === 'es'
-                  ? <>Al marcar esta casilla, acepto la{' '}<a href="/privacy-policy" target="_blank" className="text-primary hover:underline">Política de Privacidad</a>{' '}y los{' '}<a href="/terms-and-conditions" target="_blank" className="text-primary hover:underline">Términos y Condiciones</a>{' '}de Connecta Creators.</>
-                  : <>By checking this box, I agree to the{' '}<a href="/privacy-policy" target="_blank" className="text-primary hover:underline">Privacy Policy</a>{' '}and{' '}<a href="/terms-and-conditions" target="_blank" className="text-primary hover:underline">Terms & Conditions</a>{' '}of Connecta Creators.</>
-                }
-              </span>
-            </label>
-
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-
-            <div className="flex items-center gap-3 my-3">
-              <div className="flex-1 h-px bg-white/[0.08]" />
-              <span className="text-muted-foreground text-xs">{tr(t.signup.orDivider, language)}</span>
-              <div className="flex-1 h-px bg-white/[0.08]" />
+                  ? <>Al marcar esta casilla, acepto la{' '}<a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-foreground/80 underline">Política de Privacidad</a>{' '}y los{' '}<a href="/terms-and-conditions" target="_blank" rel="noreferrer" className="text-foreground/80 underline">Términos</a>{' '}de Connecta Creators.</>
+                  : <>By checking this box, I agree to the{' '}<a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-foreground/80 underline">Privacy Policy</a>{' '}and{' '}<a href="/terms-and-conditions" target="_blank" rel="noreferrer" className="text-foreground/80 underline">Terms</a>{' '}of Connecta Creators.</>}
+              </label>
             </div>
 
+            {error && <p className="text-red-400 text-xs">{error}</p>}
+
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-white/[0.06]" />
+              <span className="text-muted-foreground/60 text-[10px] tracking-[0.2em] uppercase">{tr(t.signup.orDivider, language)}</span>
+              <div className="flex-1 h-px bg-white/[0.06]" />
+            </div>
+
+            {/* Google ghost button with scribble */}
             <button
               type="button"
               onClick={handleGoogleSignup}
               disabled={!agreedToTerms}
-              className="w-full py-2.5 rounded-lg text-foreground text-sm transition-colors flex items-center justify-center gap-2 hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }}
+              className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white/75 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed overflow-visible"
             >
-              <span className="text-orange-400 font-bold">G</span>
+              <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
+                <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
+              </svg>
+              <span className="text-orange-300/80 font-bold text-base">G</span>
               {tr(t.signup.signUpGoogle, language)}
             </button>
 
+            {/* Primary CTA — ghost with scribble */}
             <button
               type="submit"
               disabled={loading || !agreedToTerms}
-              style={{ background: 'linear-gradient(135deg, #0891B2, #84CC16)', boxShadow: '0 4px 20px rgba(8,145,178,0.35)' }}
-              className="w-full py-3 rounded-lg text-white font-bold text-sm transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative w-full inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white/85 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed overflow-visible mt-1"
             >
+              <svg className="scribble-btn" viewBox="0 0 320 48" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
+                <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,18 318,30 317,38 C316,44 306,46 285,47 C200,48 100,48 30,47 C12,46 2,43 2,38 C1,29 1,17 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
+              </svg>
               {loading ? "..." : (language === 'es' ? 'Crear cuenta gratis →' : 'Create free account →')}
             </button>
 
-            <p className="text-center text-xs text-muted-foreground mt-3">
+            <p className="text-center text-xs text-muted-foreground mt-4">
               {tr(t.signup.alreadyAccount, language)}{" "}
-              <a href="/scripts" className="text-primary hover:underline">
+              <a href="/scripts" className="text-foreground/80 underline">
                 {tr(t.signup.signInLink, language)}
               </a>
             </p>

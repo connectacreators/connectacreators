@@ -1,18 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import LanguageToggle from "@/components/LanguageToggle";
-import { Input } from "@/components/ui/input";
-import { LogIn, Mail, Loader2, KeyRound } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
-import connectaLoginLogo from "@/assets/connecta-logo-text-light.png";
-import connectaLoginLogoDark from "@/assets/connecta-logo-text-dark.png";
+import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 import { AnimatePresence, motion } from "framer-motion";
-import BorderGlow from "@/components/ui/BorderGlow";
 
 type Props = {
   onSignIn: () => void;
@@ -21,7 +16,6 @@ type Props = {
 
 export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const { language } = useLanguage();
   const [wordIndex, setWordIndex] = useState(0);
   const words = t.login.headlineWords[language];
@@ -52,10 +46,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
   const resolveEmail = async (input: string): Promise<string | null> => {
     if (input.includes("@")) return input;
     const { data, error } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("username", input.trim().toLowerCase())
-      .maybeSingle();
+      .from("profiles").select("email").eq("username", input.trim().toLowerCase()).maybeSingle();
     if (error || !data?.email) {
       toast.error(tr(t.login.userNotFound, language));
       return null;
@@ -71,11 +62,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
       if (!email) { setLoading(false); return; }
       const { error } = await signInWithEmail(email, password);
       if (error) toast.error(error.message);
-      else {
-        onSignIn();
-        navigate("/dashboard");
-      }
-    } catch (err) {
+      else { onSignIn(); navigate("/dashboard"); }
+    } catch {
       toast.error("Login failed");
     } finally {
       setLoading(false);
@@ -85,120 +73,154 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
   const handleGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
+      options: { redirectTo: `${window.location.origin}/dashboard` },
     });
     if (error) toast.error(error.message);
   };
 
+  const inputStyle = {
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    transition: 'border-color 0.2s',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background ambient-glow flex flex-col px-4" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="min-h-screen flex flex-col px-4 relative overflow-hidden" style={{ background: '#0e1117' }}>
+      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.10) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.06) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageToggle />
       </div>
-      <div className="flex-1 flex items-center justify-center pt-16">
-      <div className="w-full max-w-xs sm:max-w-sm glass-card rounded-2xl p-6 sm:p-8 space-y-4 sm:space-y-6">
-        <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground whitespace-nowrap">
-            {(words[wordIndex] as any).pre}{" "}
-            <span className="inline-block relative" style={{ minWidth: "7ch" }}>
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={(words[wordIndex] as any).word}
-                  initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
-                  animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                  exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="text-primary inline-block"
-                >
-                  {(words[wordIndex] as any).word}
-                </motion.span>
-              </AnimatePresence>
-            </span>{" "}
-            {tr(t.login.headlinePost, language)}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isForgot ? tr(t.login.forgotPrompt, language) : tr(t.login.signInToContinue, language)}
-          </p>
-        </div>
 
-        <div className="space-y-3">
-          {isForgot ? (
-            <>
-              <Input
-                placeholder={tr(t.login.emailOnly, language)}
-                type="email"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
-              />
-              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
-                <Button onClick={handleForgotPassword} className="w-full gap-2" disabled={loading}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4 text-[#94a3b8]" />}
+      <div className="flex-1 flex items-center justify-center pt-12 relative z-10">
+        <div className="w-full max-w-sm rounded-2xl p-8 space-y-5" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="text-center">
+            <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-4 opacity-90" />
+            <h1 className="font-caslon text-2xl sm:text-3xl font-light text-foreground whitespace-nowrap" style={{ letterSpacing: "0.02em" }}>
+              {(words[wordIndex] as any).pre}{" "}
+              <span className="inline-block relative" style={{ minWidth: "5ch" }}>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={(words[wordIndex] as any).word}
+                    initial={{ y: 14, opacity: 0, filter: "blur(4px)" }}
+                    animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+                    exit={{ y: -14, opacity: 0, filter: "blur(4px)" }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="text-foreground/60 italic inline-block"
+                  >
+                    {(words[wordIndex] as any).word}
+                  </motion.span>
+                </AnimatePresence>
+              </span>{" "}
+              {tr(t.login.headlinePost, language)}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-2 tracking-wide">
+              {isForgot ? tr(t.login.forgotPrompt, language) : tr(t.login.signInToContinue, language)}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {isForgot ? (
+              <>
+                <input
+                  type="email"
+                  placeholder={tr(t.login.emailOnly, language)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
+                  className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none"
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                />
+                <button
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white/85 hover:text-white transition-colors disabled:opacity-30 overflow-visible"
+                >
+                  <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
+                    <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
+                  </svg>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {tr(t.login.sendResetLink, language)}
-                </Button>
-              </BorderGlow>
-              <button onClick={() => setIsForgot(false)} className="text-sm text-primary hover:underline w-full text-center">
-                {tr(t.login.backToLogin, language)}
-              </button>
-            </>
-          ) : (
-            <>
-              <Input
-                placeholder={tr(t.login.emailPlaceholder, language)}
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-              />
-              <Input
-                placeholder={tr(t.login.password, language)}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
-              />
-              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
-                <Button onClick={handleEmailAuth} className="w-full gap-2" disabled={loading}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4 text-[#94a3b8]" />}
+                </button>
+                <button onClick={() => setIsForgot(false)} className="text-xs text-muted-foreground/70 hover:text-foreground underline w-full text-center">
+                  {tr(t.login.backToLogin, language)}
+                </button>
+              </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder={tr(t.login.emailPlaceholder, language)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none"
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                />
+                <input
+                  type="password"
+                  placeholder={tr(t.login.password, language)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
+                  className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none"
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                />
+                <button
+                  onClick={handleEmailAuth}
+                  disabled={loading}
+                  className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white/85 hover:text-white transition-colors disabled:opacity-30 overflow-visible"
+                >
+                  <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
+                    <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
+                  </svg>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {tr(t.login.signIn, language)}
-                </Button>
-              </BorderGlow>
-              <button onClick={() => setIsForgot(true)} className="text-sm text-muted-foreground hover:text-primary hover:underline w-full text-center">
-                {tr(t.login.forgotPassword, language)}
-              </button>
-            </>
+                </button>
+                <button onClick={() => setIsForgot(true)} className="text-xs text-muted-foreground/70 hover:text-foreground underline w-full text-center">
+                  {tr(t.login.forgotPassword, language)}
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-muted-foreground/60 text-[10px] tracking-[0.2em] uppercase">{tr(t.login.or, language)}</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
+          </div>
+
+          <button
+            onClick={handleGoogle}
+            className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white/75 hover:text-white transition-colors overflow-visible"
+          >
+            <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
+              <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
+            </svg>
+            <span className="text-orange-300/80 font-bold text-base">G</span>
+            {tr(t.login.continueGoogle, language)}
+          </button>
+
+          {!isForgot && (
+            <p className="text-center text-xs text-muted-foreground">
+              {tr(t.login.noAccount, language)}{" "}
+              <a href="/signup" className="text-foreground/80 underline">
+                {tr(t.login.signUp, language)}
+              </a>
+            </p>
           )}
         </div>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border/50" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="px-2 text-muted-foreground">{tr(t.login.or, language)}</span>
-          </div>
-        </div>
-
-        <Button onClick={handleGoogle} variant="outline" className="w-full gap-2 bg-gradient-to-b from-card to-muted/40 hover:from-card hover:to-muted/60">
-          <LogIn className="w-4 h-4" />
-          {tr(t.login.continueGoogle, language)}
-        </Button>
-
-        {!isForgot && (
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            {tr(t.login.noAccount, language)}{" "}
-            <a href="/signup" className="text-primary hover:underline font-medium">
-              {tr(t.login.signUp, language)}
-            </a>
-          </p>
-        )}
-      </div>
       </div>
 
-      <div className="py-6 flex justify-center">
-        <a href="/" className="cursor-pointer">
-          <img src={theme === "light" ? connectaLoginLogoDark : connectaLoginLogo} alt="Connecta" className="h-10 object-contain" />
+      <div className="py-6 flex justify-center relative z-10">
+        <a href="/" className="font-caslon text-base text-foreground/60 hover:text-foreground transition-colors" style={{ letterSpacing: "0.02em" }}>
+          Connecta
         </a>
       </div>
     </div>
