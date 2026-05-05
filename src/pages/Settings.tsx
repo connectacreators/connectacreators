@@ -172,7 +172,7 @@ export default function Settings() {
   return (
     <PageTransition className="flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 py-8 max-w-lg">
-        <h1 className="text-2xl font-bold text-foreground mb-8">{tr(t.settings.title, language)}</h1>
+        <h1 className="font-caslon text-2xl sm:text-3xl font-light text-foreground mb-8" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.title, language)}</h1>
 
         {/* Profile info */}
         <div className="glass-card rounded-xl p-6 space-y-5 mb-8">
@@ -231,7 +231,7 @@ export default function Settings() {
 
         {/* Change password */}
         <div className="glass-card rounded-xl p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">{tr(t.settings.changePassword, language)}</h2>
+          <h2 className="font-caslon text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.changePassword, language)}</h2>
           <div className="relative">
             <Input
               type={showPasswords ? "text" : "password"}
@@ -270,7 +270,7 @@ export default function Settings() {
 
         {/* Viral Feed settings */}
         <div className="glass-card rounded-xl p-6 space-y-4 mt-8">
-          <h2 className="text-lg font-semibold text-foreground">Viral Feed</h2>
+          <h2 className="font-caslon text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>Viral Feed</h2>
           <p className="text-sm text-muted-foreground">
             Set the minimum outlier score for videos shown in the Viral Reels feed. Higher = only the most viral content.
           </p>
@@ -319,7 +319,7 @@ export default function Settings() {
         {/* Delete Account — only for non-admin users */}
         {role !== "admin" && (
           <div className="glass-card rounded-xl p-6 space-y-4 mt-8 border border-red-500/20">
-            <h2 className="text-lg font-semibold text-red-400">Delete Account</h2>
+            <h2 className="font-caslon text-lg font-light text-red-400" style={{ letterSpacing: "0.02em" }}>Delete Account</h2>
             <p className="text-sm text-muted-foreground">
               This will permanently delete your account, cancel your subscription, and remove all your data. This action cannot be undone.
             </p>
