@@ -333,6 +333,24 @@ export default function LeadTracker() {
     }
   }, [authLoading, user, isSubscriber, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
 
+  // Refresh when AI writes to leads
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const scope = (e as CustomEvent).detail?.scope as string;
+      if (scope === "leads" || scope === "all") {
+        if (isSubscriber) {
+          fetchSubscriberLeads(true);
+        } else if (isStaff) {
+          fetchLeads(undefined, selectedClient !== "all" ? selectedClient : urlClientId || undefined, true);
+        } else {
+          fetchLeads(undefined, undefined, true);
+        }
+      }
+    };
+    window.addEventListener("ai:data-changed", handler);
+    return () => window.removeEventListener("ai:data-changed", handler);
+  }, [isSubscriber, isStaff, selectedClient, urlClientId, fetchLeads, fetchSubscriberLeads]);
+
   // Auto-refresh every 2 minutes
   useEffect(() => {
     if (!user || authLoading) return;

@@ -93,6 +93,18 @@ export default function ContractsPage() {
     if (!loading && user) fetchData();
   }, [loading, user, fetchData]);
 
+  // Refresh when AI writes to contracts
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const scope = (e as CustomEvent).detail?.scope as string;
+      if (scope === "contracts" || scope === "all") {
+        fetchData();
+      }
+    };
+    window.addEventListener("ai:data-changed", handler);
+    return () => window.removeEventListener("ai:data-changed", handler);
+  }, [fetchData]);
+
   const handleDownload = async (contract: Contract) => {
     const path = contract.current_storage_path ?? contract.original_storage_path;
     setDownloading(contract.id);

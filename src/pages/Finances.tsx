@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, PlusCircle, DollarSign, LayoutList, Table2, PieChart } from "lucide-react";
 import { toast } from "sonner";
@@ -48,7 +48,7 @@ export default function Finances() {
   const [incomeCatFilter, setIncomeCatFilter] = useState<FinanceCategory | null>(null);
   const [expenseCatFilter, setExpenseCatFilter] = useState<FinanceCategory | null>(null);
 
-  const { income, expenses, loading, createTransaction, updateTransaction, convertToRecurring, deleteTransaction } =
+  const { income, expenses, loading, createTransaction, updateTransaction, convertToRecurring, deleteTransaction, refresh } =
     useFinanceTransactions(month);
 
   const filteredIncome = useMemo(
@@ -68,6 +68,18 @@ export default function Finances() {
   const { parseEntry, loading: aiLoading } = useFinanceAI();
 
   const monthLabel = useMemo(() => formatMonthLabel(month), [month]);
+
+  // Refresh when AI writes to finances
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const scope = (e as CustomEvent).detail?.scope as string;
+      if (scope === "finances" || scope === "all") {
+        void refresh();
+      }
+    };
+    window.addEventListener("ai:data-changed", handler);
+    return () => window.removeEventListener("ai:data-changed", handler);
+  }, [refresh]);
 
   if (authLoading) {
     return (

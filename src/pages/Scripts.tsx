@@ -777,6 +777,18 @@ export default function Scripts() {
     }
   }, [searchParams, selectedClient]);
 
+  // Refresh when AI writes to scripts
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const scope = (e as CustomEvent).detail?.scope as string;
+      if ((scope === "scripts" || scope === "all") && selectedClient) {
+        fetchScriptsByClient(selectedClient.id);
+      }
+    };
+    window.addEventListener("ai:data-changed", handler);
+    return () => window.removeEventListener("ai:data-changed", handler);
+  }, [selectedClient, fetchScriptsByClient]);
+
   // Auto-open script by title from query param
   useEffect(() => {
     if (!autoOpenScriptTitle || scriptsLoading || scripts.length === 0) return;

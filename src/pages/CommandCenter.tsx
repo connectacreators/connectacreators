@@ -258,6 +258,7 @@ export default function CommandCenter() {
           companion_name: companionName,
           current_path: path,
           autonomy_mode: autonomyMode,
+          thread_id: activeThreadId ?? null,
         },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -282,6 +283,23 @@ export default function CommandCenter() {
             window.dispatchEvent(
               new CustomEvent("companion:fill-onboarding", {
                 detail: action.fields,
+              }),
+            );
+          }
+          if (action?.type === "open_client" && typeof action.client_id === "string") {
+            navigate(`/clients/${action.client_id}`);
+          }
+          if (action?.type === "refresh_data") {
+            window.dispatchEvent(
+              new CustomEvent("ai:data-changed", {
+                detail: { scope: action.scope ?? "all" },
+              }),
+            );
+          }
+          if (action?.type === "show_notification" && typeof action.message === "string") {
+            window.dispatchEvent(
+              new CustomEvent("ai:notification", {
+                detail: { message: action.message },
               }),
             );
           }

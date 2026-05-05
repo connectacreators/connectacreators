@@ -197,10 +197,7 @@ Caption only, no other text.`,
         }],
       }),
     });
-    if (!res.ok) {
-      return { type: "tool_result", tool_use_id: block.id, content: "Caption generation failed. Try again in a moment." };
-    }
-    const json = await res.json().catch(() => ({}));
+    const json = await res.json();
     const caption = (json.content?.[0]?.text as string ?? "").trim();
     return { type: "tool_result", tool_use_id: block.id, content: `Caption for "${client.name}" (${platform}):\n\n${caption}\n\n(This is a draft — copy it or ask me to adjust before saving.)` };
   }

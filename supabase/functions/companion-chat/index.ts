@@ -10,12 +10,6 @@ import {
   shouldRouteToBuildMode,
 } from "./build-mode.ts";
 import { readCanvasContext } from "./canvasReader.ts";
-import { LEAD_TOOLS, handleLeadTool } from "./tools/leads.ts";
-import { FINANCE_TOOLS, handleFinanceTool } from "./tools/finances.ts";
-import { SCRIPT_TOOLS, handleScriptTool } from "./tools/scripts.ts";
-import { EDITING_TOOLS, handleEditingTool } from "./tools/editing.ts";
-import { INTELLIGENCE_TOOLS, handleIntelligenceTool } from "./tools/intelligence.ts";
-import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,10 +25,24 @@ const TOOLS = [
       properties: {
         path: {
           type: "string",
-          description: "Page path. Options: /onboarding, /scripts, /vault, /viral-today, /editing-queue, /content-calendar, /subscription, /ai, /dashboard",
+          description: "Any valid app route. Static routes: /dashboard, /scripts, /vault, /viral-today, /editing-queue, /content-calendar, /subscription, /ai, /onboarding, /finances, /leads, /contracts. Dynamic routes: /clients/:clientId, /clients/:clientId/scripts, /clients/:clientId/scripts?view=canvas. Use open_client tool instead of navigate_to_page when navigating to a client by name.",
         },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "open_client",
+    description: "Navigate to a specific client's detail page. Use when you've just created a client, looked one up, or the user says 'go to [client name]'. Resolves the name to a UUID so the frontend can build the correct route.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: {
+          type: "string",
+          description: "The client's name to look up and navigate to",
+        },
+      },
+      required: ["client_name"],
     },
   },
   {
@@ -161,6 +169,20 @@ const TOOLS = [
         note_type: { type: "string", description: "text_note or research_note (default: text_note)" },
       },
       required: ["client_name", "content"],
+    },
+  },
+  {
+    name: "read_canvas",
+    description: "Read everything on a client's active Super Canvas — text notes, research notes, and voice/PDF transcriptions. Call this before making content decisions to see what research and ideas already exist, or when the user asks 'what\\'s on the canvas?'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: {
+          type: "string",
+          description: "The client's name",
+        },
+      },
+      required: ["client_name"],
     },
   },
   {
@@ -358,62 +380,31 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
-  // Wave 2 tools
-  ...LEAD_TOOLS,
-  ...FINANCE_TOOLS,
-  ...SCRIPT_TOOLS,
-  ...EDITING_TOOLS,
-  // Wave 3 tools
-  ...INTELLIGENCE_TOOLS,
-  ...CLIENT_TOOLS,
 ];
 
 /**
- * Phase A dual-write: in addition to existing companion_messages persistence,
- * write each turn into the new assistant_threads + assistant_messages tables.
- * Failures are logged but don't block the response. Read path still uses
- * companion_messages — the new tables are write-only until Phase B.
+ * Append the user + assistant messages to the already-resolved assistant_thread.
+ * Failures are logged but don't block the response.
  */
 async function dualWriteCompanionTurn(
   supabase: any,
   params: {
-    userId: string;
-    clientId: string;
+    threadId: string | null;
     userMessageText: string;
     assistantReplyText: string;
   },
 ): Promise<string | null> {
+  if (!params.threadId) return null;
   try {
-    const sentinel = "Active companion chat";
-    const { data: existing } = await supabase
-      .from("assistant_threads")
-      .select("id")
-      .eq("user_id", params.userId)
-      .eq("client_id", params.clientId)
-      .eq("origin", "drawer")
-      .eq("title", sentinel)
-      .maybeSingle();
-
-    let threadId = existing?.id;
-    if (!threadId) {
-      const t = await assistantCreateThread(supabase, {
-        userId: params.userId,
-        clientId: params.clientId,
-        origin: "drawer",
-        title: sentinel,
-      });
-      threadId = t.id;
-    }
-
-    await assistantAppendMessage(supabase, threadId, {
+    await assistantAppendMessage(supabase, params.threadId, {
       role: "user",
       content: { type: "text", text: params.userMessageText },
     });
-    await assistantAppendMessage(supabase, threadId, {
+    await assistantAppendMessage(supabase, params.threadId, {
       role: "assistant",
       content: { type: "text", text: params.assistantReplyText },
     });
-    return threadId ?? null;
+    return params.threadId;
   } catch (err) {
     console.warn("dualWriteCompanionTurn failed:", err instanceof Error ? err.message : err);
     return null;
@@ -429,11 +420,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { message, companion_name, current_path, autonomy_mode } = await req.json() as {
+    const { message, companion_name, current_path, autonomy_mode, thread_id: incomingThreadId } = await req.json() as {
       message: string;
       companion_name: string;
       current_path?: string;
       autonomy_mode?: "auto" | "ask" | "plan";
+      thread_id?: string | null;
     };
 
     if (!message?.trim()) {
@@ -484,18 +476,25 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
-    // Pre-resolve (or create) the companion thread ID — needed by both
-    // build-mode routing and the dual-write at the end of the function.
-    const sentinel = "Active companion chat";
-    const { data: _sentinelThread } = await adminClient
-      .from("assistant_threads")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("client_id", client.id)
-      .eq("origin", "drawer")
-      .eq("title", sentinel)
-      .maybeSingle();
-    let resolvedThreadId: string | null = _sentinelThread?.id ?? null;
+    // Use the incoming thread_id if the frontend provided one (continuing an existing chat).
+    // If null (user clicked "New Chat" or this is the very first message), create a fresh thread
+    // titled from the first 6 words of the message so the thread list shows meaningful names.
+    let resolvedThreadId: string | null = incomingThreadId ?? null;
+    if (!resolvedThreadId) {
+      const words = message.trim().split(/\s+/).slice(0, 6).join(" ");
+      const title = words.split(/\s+/).length > 3 ? words + "…" : "New chat";
+      const { data: newThread } = await adminClient
+        .from("assistant_threads")
+        .insert({
+          user_id: user.id,
+          client_id: client.id,
+          origin: "drawer",
+          title,
+        })
+        .select("id")
+        .single();
+      resolvedThreadId = newThread?.id ?? null;
+    }
 
     // ── Build-mode routing ─────────────────────────────────────────────────────
     // If there's an active build session OR the message contains a build trigger,
@@ -508,21 +507,6 @@ serve(async (req) => {
     });
 
     if (buildRoute.route) {
-      // Ensure thread exists (creating one if needed for first-time builds)
-      if (!resolvedThreadId) {
-        const { data: newThread } = await adminClient
-          .from("assistant_threads")
-          .insert({
-            user_id: user.id,
-            client_id: client.id,
-            origin: "drawer",
-            title: sentinel,
-          })
-          .select("id")
-          .single();
-        resolvedThreadId = newThread?.id ?? null;
-      }
-
       if (!resolvedThreadId) {
         return new Response(JSON.stringify({
           reply: "Couldn't set up the build session. Please try again.",
@@ -652,7 +636,7 @@ YOUR RULES — FOLLOW EXACTLY:
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Script-building requests ("build me a script") are routed to a separate dedicated build flow before reaching you — you will not see them here. Just answer the user's other questions naturally.
-19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, delete_memory, list_memories. Use them. Don't describe what you'd do — do it.
+19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -777,6 +761,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
               // Navigate to the client's scripts page
               actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
+              actions.push({ type: "refresh_data", scope: "scripts" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
             }
           }
@@ -871,10 +856,12 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             if (existing) {
               await adminClient.from("video_edits").update({ schedule_date: date, caption: caption || null }).eq("id", existing.id);
               actions.push({ type: "navigate", path: "/content-calendar" });
+              actions.push({ type: "refresh_data", scope: "calendar" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Scheduled '" + title + "' for " + date });
             } else {
               await adminClient.from("video_edits").insert({ client_id: targetClient.id, reel_title: title, schedule_date: date, caption: caption || null, status: "Not started", post_status: "Unpublished" });
               actions.push({ type: "navigate", path: "/content-calendar" });
+              actions.push({ type: "refresh_data", scope: "calendar" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Created and scheduled '" + title + "' for " + date });
             }
           }
@@ -895,6 +882,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               schedule_date: schedule_date || null,
             }).select("id").single();
             actions.push({ type: "navigate", path: "/editing-queue" });
+            actions.push({ type: "refresh_data", scope: "editing_queue" });
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "'" + title + "' added to editing queue for " + targetClient.name });
           }
         }
@@ -973,6 +961,23 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             } else {
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas found for " + targetClient.name + ". Have them open the Connecta AI canvas first." });
             }
+          }
+        }
+
+        if (block.name === "read_canvas") {
+          const { client_name } = block.input;
+          const { data: targetClient } = await adminClient
+            .from("clients")
+            .select("id, name")
+            .eq("user_id", user.id)
+            .ilike("name", `%${client_name}%`)
+            .limit(1)
+            .maybeSingle();
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No client found matching "${client_name}"` });
+          } else {
+            const context = await readCanvasContext(adminClient, targetClient.id);
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: context });
           }
         }
 
@@ -1144,6 +1149,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               ];
               await adminClient.from("script_lines").insert(lineRows);
               actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
+              actions.push({ type: "refresh_data", scope: "scripts" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script "${title}" saved to ${targetClient.name}'s scripts library.` });
             }
           }
@@ -1300,17 +1306,6 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Navigating to ${targetClient.name}'s page.` });
           }
         }
-
-        // Wave 2 module handlers — try each module in order, use first non-null result
-        const moduleCtx = { adminClient, userId: user.id, client, actions };
-        const moduleResult =
-          await handleLeadTool(block, moduleCtx) ??
-          await handleFinanceTool(block, moduleCtx) ??
-          await handleScriptTool(block, moduleCtx) ??
-          await handleEditingTool(block, moduleCtx) ??
-          await handleIntelligenceTool(block, moduleCtx) ??
-          await handleClientTool(block, moduleCtx);
-        if (moduleResult) toolResults.push(moduleResult);
       }
 
       // Second Claude call to synthesize tool results into a recommendation.
@@ -1388,8 +1383,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
     // Phase A dual-write to the new unified tables (non-blocking on failure).
     const threadId = await dualWriteCompanionTurn(adminClient, {
-      userId: user.id,
-      clientId: client.id,
+      threadId: resolvedThreadId,
       userMessageText: message,
       assistantReplyText: reply,
     });

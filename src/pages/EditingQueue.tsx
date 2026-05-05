@@ -327,6 +327,18 @@ export default function EditingQueue() {
     fetchQueue();
   }, [clientId, user]);
 
+  // Refresh when AI writes to editing_queue
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const scope = (e as CustomEvent).detail?.scope as string;
+      if (scope === "editing_queue" || scope === "all") {
+        fetchQueue();
+      }
+    };
+    window.addEventListener("ai:data-changed", handler);
+    return () => window.removeEventListener("ai:data-changed", handler);
+  }, [clientId, user]);
+
   // Realtime sync: refresh queue whenever any video_edit for this client changes
   useEffect(() => {
     if (!clientId || !user) return;

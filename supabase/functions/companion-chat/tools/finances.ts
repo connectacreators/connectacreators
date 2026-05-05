@@ -61,8 +61,7 @@ Output only JSON, nothing else.`,
       }],
     }),
   });
-  if (!res.ok) return null;
-  const json = await res.json().catch(() => ({}));
+  const json = await res.json();
   const text = (json.content?.[0]?.text as string ?? "").trim().replace(/^```json\s*/i, "").replace(/\s*```$/, "");
   try { return JSON.parse(text); } catch { return null; }
 }
@@ -92,14 +91,14 @@ export async function handleFinanceTool(
 
     const income = txns.filter((t: any) => t.type === "income");
     const expenses = txns.filter((t: any) => t.type === "expense");
-    const totalIncome = income.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
-    const totalExpenses = expenses.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+    const totalIncome = income.reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const totalExpenses = expenses.reduce((s: number, t: any) => s + Number(t.amount), 0);
     const net = totalIncome - totalExpenses;
 
     const incomeByCat: Record<string, number> = {};
-    for (const t of income) incomeByCat[t.category] = (incomeByCat[t.category] ?? 0) + (Number(t.amount) || 0);
+    for (const t of income) incomeByCat[t.category] = (incomeByCat[t.category] ?? 0) + Number(t.amount);
     const expenseByCat: Record<string, number> = {};
-    for (const t of expenses) expenseByCat[t.category] = (expenseByCat[t.category] ?? 0) + (Number(t.amount) || 0);
+    for (const t of expenses) expenseByCat[t.category] = (expenseByCat[t.category] ?? 0) + Number(t.amount);
 
     const lines = [
       `${month}/${year} — ${txns.length} transactions`,
@@ -144,7 +143,7 @@ export async function handleFinanceTool(
       adminClient.from("clients").select("id, name").eq("user_id", userId),
     ]);
 
-    const totalIncome = (txns ?? []).reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+    const totalIncome = (txns ?? []).reduce((s: number, t: any) => s + Number(t.amount), 0);
 
     const strategyRows = await Promise.all(
       (clients ?? []).map((c: any) =>
