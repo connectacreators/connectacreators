@@ -45,6 +45,18 @@ interface ViralVideo {
   posted_at: string | null;
   scraped_at: string;
   format_detection: FormatDetection | null;
+  transcript?: string | null;
+  hook_text?: string | null;
+  cta_text?: string | null;
+  framework_meta?: {
+    niche_tags?: string[];
+    audience?: string;
+    key_topics?: string[];
+    body_structure?: string;
+    content_type?: string | null;
+    visual_pacing?: { cuts_per_minute?: number | null; tempo?: string | null };
+  } | null;
+  transcribed_at?: string | null;
 }
 
 interface ClientOption {
@@ -507,6 +519,75 @@ export default function ViralVideoDetail() {
               </div>
             )}
           </div>
+
+          {/* ===== Breakdown Panel (only when analyzed) ===== */}
+          {video?.transcribed_at && video.framework_meta && (
+            <div className="rounded-xl border border-border/40 bg-card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold">Breakdown</h3>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">AI-analyzed</span>
+              </div>
+
+              {/* Top metadata strip */}
+              <div className="flex flex-wrap gap-2 mb-4 text-[11px]">
+                {video.framework_meta.content_type && (
+                  <span className="px-2 py-0.5 rounded bg-primary/10 text-primary">
+                    {String(video.framework_meta.content_type).replace(/_/g, " ")}
+                  </span>
+                )}
+                {video.framework_meta.visual_pacing?.tempo && (
+                  <span className="px-2 py-0.5 rounded bg-muted text-foreground/80">
+                    {video.framework_meta.visual_pacing.tempo} pacing
+                  </span>
+                )}
+                {(video.framework_meta.niche_tags ?? []).slice(0, 3).map((tag: string) => (
+                  <span key={tag} className="px-2 py-0.5 rounded bg-muted text-foreground/80">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              {/* Audience */}
+              {video.framework_meta.audience && (
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Audience</p>
+                  <p className="text-xs text-foreground">{video.framework_meta.audience}</p>
+                </div>
+              )}
+
+              {/* Hook / Body / CTA */}
+              {video.hook_text && (
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Hook</p>
+                  <p className="text-xs text-foreground italic">"{video.hook_text}"</p>
+                </div>
+              )}
+              {video.framework_meta.body_structure && (
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Body structure</p>
+                  <p className="text-xs text-foreground">{video.framework_meta.body_structure}</p>
+                </div>
+              )}
+              {video.cta_text && (
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">CTA</p>
+                  <p className="text-xs text-foreground italic">"{video.cta_text}"</p>
+                </div>
+              )}
+
+              {/* Full transcript (collapsed) */}
+              {video.transcript && (
+                <details className="mt-3">
+                  <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                    ▼ Full transcript
+                  </summary>
+                  <pre className="mt-2 p-3 rounded-lg bg-muted/40 text-[11px] whitespace-pre-wrap font-sans text-foreground/90 max-h-64 overflow-y-auto">
+                    {video.transcript}
+                  </pre>
+                </details>
+              )}
+            </div>
+          )}
 
           {/* ===== Card 2: Remix as Script ===== */}
           <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
