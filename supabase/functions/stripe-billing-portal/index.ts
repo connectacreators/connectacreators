@@ -378,21 +378,21 @@ serve(async (req) => {
           .maybeSingle();
 
         if (clientRow && clientRow.plan_type !== stripePlan) {
-          // Plan mismatch — sync from Stripe
+          // Plan mismatch — sync metadata only. NEVER write credit_balance
+          // from this endpoint. Stripe will fire customer.subscription.updated
+          // and the webhook is the single source of truth for credit grants
+          // (avoids B4: free re-grant by hitting /subscription on every load).
           clientUpdatePayload.plan_type = stripePlan;
-          clientUpdatePayload.credits_monthly_cap = cfg.credits_monthly_cap;
           clientUpdatePayload.channel_scrapes_limit = cfg.channel_scrapes_limit;
           clientUpdatePayload.script_limit = cfg.script_limit;
 
           const oldCap = clientRow.credits_monthly_cap ?? 0;
           if (cfg.credits_monthly_cap > oldCap) {
-            // Upgrade: full fresh allocation (prevents inflation on re-upgrades)
-            clientUpdatePayload.credits_balance = cfg.credits_monthly_cap;
-            clientUpdatePayload.credits_used = 0;
-          } else {
-            // Downgrade: keep current balance AND cap — user already paid for this cycle.
-            delete clientUpdatePayload.credits_monthly_cap;
+            // Upgrade: only raise the cap defensively. Webhook will refill balance.
+            clientUpdatePayload.credits_monthly_cap = cfg.credits_monthly_cap;
           }
+          // Downgrade: leave both balance and cap alone — webhook will apply
+          // the new cap on the next invoice.payment_succeeded.
 
           // Also sync subscriptions table
           await supabaseClient.from("subscriptions")
@@ -592,21 +592,9 @@ serve(async (req) => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      const currentCap = clientRow?.credits_monthly_cap ?? 0;
-      const currentBalance = clientRow?.credits_balance ?? 0;
-
-      let newBalance: number;
-      if (isTrial) {
-        newBalance = config.credits_monthly_cap;
-      } else if (isUpgrade) {
-        // Upgrade: full fresh allocation (prevents inflation on re-upgrades)
-        newBalance = config.credits_monthly_cap;
-      } else {
-        // Downgrade: keep current balance — user already paid for this cycle
-        newBalance = currentBalance;
-      }
-
-      // Update clients table: plan limits + credits cap
+      // Plan metadata only — credit balance writes are owned exclusively by
+      // stripe-webhook (B5/B6 fix: avoids double-write that wiped any
+      // credits spent in the gap between portal write and webhook fire).
       const clientUpdate: Record<string, any> = {
         plan_type: config.plan_type,
         script_limit: config.script_limit,
@@ -614,17 +602,16 @@ serve(async (req) => {
         facebook_integration_enabled: config.facebook_integration_enabled,
         subscription_status: "active",
         channel_scrapes_limit: config.channel_scrapes_limit,
-        credits_balance: newBalance,
         pending_plan_type: null,
         pending_plan_effective_date: null,
       };
-      // Upgrade/trial: set new (higher) cap and reset usage
+      // Upgrade/trial: raise cap immediately so the UI shows the new tier.
+      // Webhook (customer.subscription.updated → syncSubscription upgrade
+      // branch, then invoice.payment_succeeded) will set credits_balance
+      // and credits_used correctly within a few hundred ms.
       if (isTrial || isUpgrade) {
         clientUpdate.credits_monthly_cap = config.credits_monthly_cap;
-        clientUpdate.credits_used = 0;
       }
-      // Downgrade: keep current credits_monthly_cap — user paid for the full cycle.
-      // New cap applies at next billing reset via invoice.payment_succeeded.
       if (isTrial) {
         clientUpdate.trial_ends_at = null;
       }
@@ -684,17 +671,19 @@ serve(async (req) => {
         growth:     Deno.env.get("STRIPE_PRICE_GROWTH")     || "price_1TCX3SCp1qPE081LSkPmF8FN",
         enterprise: Deno.env.get("STRIPE_PRICE_ENTERPRISE") || "price_1TCX3SCp1qPE081LODOQradO",
       };
-      const PLAN_CREDITS: Record<string, number> = {
+      const PLAN_CAPS: Record<string, number> = {
         starter: 10000, growth: 30000, enterprise: 75000,
       };
 
       const planKey = Object.entries(END_TRIAL_PRICE_MAP).find(([_, v]) => v === priceId)?.[0];
       if (planKey) {
+        // Plan metadata only — webhook (invoice.payment_succeeded) sets
+        // credits_balance to the full cap once Stripe charges the card.
+        // Avoids double-write issue (B6) that wiped any usage between the
+        // portal write and the webhook fire.
         await supabaseClient.from("clients").update({
           subscription_status: "active",
-          credits_balance: PLAN_CREDITS[planKey],
-          credits_monthly_cap: PLAN_CREDITS[planKey],
-          credits_used: 0,
+          credits_monthly_cap: PLAN_CAPS[planKey],
           trial_ends_at: null,
         }).eq("user_id", user.id);
       }

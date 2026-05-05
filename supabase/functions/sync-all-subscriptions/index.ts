@@ -62,12 +62,17 @@ serve(async (req) => {
       const activeSub = subs.data.find(s => s.status === "active" || s.status === "trialing");
 
       if (!activeSub) {
-        // No active sub — check if canceled
+        // No active sub — check if canceled.
+        // PRESERVE credits — users keep what they haven't used until the
+        // monthly reset (matches stripe-webhook policy on subscription.deleted).
         const canceledSub = subs.data.find(s => s.status === "canceled");
         if (canceledSub && client.subscription_status !== "canceled") {
           await adminClient.from("clients").update({
             subscription_status: "canceled",
-            credits_balance: 0,
+            // pending_plan fields cleared so a future resubscribe doesn't
+            // accidentally trigger a stale downgrade reset
+            pending_plan_type: null,
+            pending_plan_effective_date: null,
           }).eq("id", client.id);
           results.push({ name: client.name, action: "marked_canceled", was: client.subscription_status });
         } else {

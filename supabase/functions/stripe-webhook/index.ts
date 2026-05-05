@@ -318,6 +318,26 @@ serve(async (req) => {
 
     logStep("Received event", { type: event.type, id: event.id });
 
+    // Idempotency guard (S1): Stripe retries webhooks on 5xx or timeout,
+    // and the same event.id may arrive multiple times. Without this guard,
+    // a retried invoice.payment_succeeded would re-grant credits and wipe
+    // any usage between the two deliveries.
+    const { error: dedupeErr } = await adminClient
+      .from("processed_stripe_events")
+      .insert({ event_id: event.id, event_type: event.type });
+    if (dedupeErr) {
+      // Postgres unique-violation error code is 23505. Treat as already-processed.
+      if (dedupeErr.code === "23505") {
+        logStep("Event already processed, skipping", { type: event.type, id: event.id });
+        return new Response(JSON.stringify({ received: true, deduped: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      // Any other DB error: log but continue — don't block delivery.
+      logStep("WARNING dedupe insert failed, processing anyway", { error: dedupeErr.message });
+    }
+
     switch (event.type) {
       case "customer.subscription.created": {
         const sub = event.data.object as Stripe.Subscription;
@@ -339,8 +359,14 @@ serve(async (req) => {
           // The subscription guard's hasCredits fallback lets them use remaining credits
           // until depleted, then redirects to /signup.
           // Top-up credits are also preserved (separate column).
+          // Also clear pending_plan_* fields so a stale downgrade row from the
+          // previous lifecycle can't trigger a wrong reset if user resubscribes (S5).
           await adminClient.from("clients")
-            .update({ subscription_status: "canceled" })
+            .update({
+              subscription_status: "canceled",
+              pending_plan_type: null,
+              pending_plan_effective_date: null,
+            })
             .eq("id", clientId);
 
           const userId = await getUserIdBySubscription(adminClient, sub);

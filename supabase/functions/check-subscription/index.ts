@@ -195,65 +195,51 @@ serve(async (req) => {
           : subscription.status === "trialing" ? "trialing" : "active";
         const TRIAL_CREDITS = 1000;
 
-        // Check current credits state FIRST
+        // READ-ONLY sync of plan metadata. Credit balances are NEVER mutated
+        // here — that responsibility lives exclusively in stripe-webhook
+        // (initial grant on subscription.created, monthly reset on
+        // invoice.payment_succeeded). Granting credits from this endpoint
+        // would let any user refresh /subscription to refill on demand
+        // (B2 in the credit audit).
         const primaryClientId = await getPrimaryClientId(supabaseClient, user.id);
         const { data: clientRow } = primaryClientId
-          ? await supabaseClient.from("clients").select("id, credits_balance").eq("id", primaryClientId).maybeSingle()
+          ? await supabaseClient
+              .from("clients")
+              .select("id, plan_type, credits_monthly_cap, subscription_status, channel_scrapes_limit, script_limit, lead_tracker_enabled, facebook_integration_enabled, trial_ends_at, stripe_customer_id")
+              .eq("id", primaryClientId)
+              .maybeSingle()
           : { data: null };
 
-        const currentBalance = clientRow?.credits_balance ?? 0;
-        const needsCredits = currentBalance === 0;
-        const grantAmount = subscription.status === "trialing" ? TRIAL_CREDITS : planData.credits_monthly_cap;
-
-        // Single update with ALL fields including credits
         const isTrial = subscription.status === "trialing";
+        const expectedCap = isTrial ? TRIAL_CREDITS : planData.credits_monthly_cap;
 
-        const clientUpdate: Record<string, any> = {
-          plan_type: planData.plan_type,
-          script_limit: planData.script_limit,
-          lead_tracker_enabled: planData.lead_tracker_enabled,
-          facebook_integration_enabled: planData.facebook_integration_enabled,
-          channel_scrapes_limit: planData.channel_scrapes_limit,
-          subscription_status: subscriptionStatus,
-          trial_ends_at: trialEndsAt,
-          stripe_customer_id: customerId,
-        };
-
-        // During trial, set trial credit cap. After trial, set full plan amount.
-        if (isTrial) {
-          clientUpdate.credits_monthly_cap = TRIAL_CREDITS;
-        } else {
-          clientUpdate.credits_monthly_cap = planData.credits_monthly_cap;
-        }
-
-        if (needsCredits) {
-          clientUpdate.credits_balance = grantAmount;
-          clientUpdate.credits_used = 0;
-          clientUpdate.channel_scrapes_used = 0;
-          clientUpdate.credits_reset_at = new Date(subscription.current_period_end * 1000).toISOString();
+        // Build a minimal patch — only include fields that have actually drifted.
+        // Avoids stomping admin-set custom caps on every UI load (B8).
+        const clientUpdate: Record<string, any> = {};
+        if (clientRow?.plan_type !== planData.plan_type) clientUpdate.plan_type = planData.plan_type;
+        if (clientRow?.script_limit !== planData.script_limit) clientUpdate.script_limit = planData.script_limit;
+        if (clientRow?.lead_tracker_enabled !== planData.lead_tracker_enabled) clientUpdate.lead_tracker_enabled = planData.lead_tracker_enabled;
+        if (clientRow?.facebook_integration_enabled !== planData.facebook_integration_enabled) clientUpdate.facebook_integration_enabled = planData.facebook_integration_enabled;
+        if (clientRow?.channel_scrapes_limit !== planData.channel_scrapes_limit) clientUpdate.channel_scrapes_limit = planData.channel_scrapes_limit;
+        if (clientRow?.subscription_status !== subscriptionStatus) clientUpdate.subscription_status = subscriptionStatus;
+        if (clientRow?.trial_ends_at !== trialEndsAt) clientUpdate.trial_ends_at = trialEndsAt;
+        if (clientRow?.stripe_customer_id !== customerId) clientUpdate.stripe_customer_id = customerId;
+        // Only set cap if missing or doesn't match the standard plan tier.
+        // Never overrides a higher admin-set cap.
+        if (clientRow?.credits_monthly_cap == null || clientRow.credits_monthly_cap < expectedCap) {
+          clientUpdate.credits_monthly_cap = expectedCap;
         }
 
         const updateTarget = primaryClientId || clientRow?.id;
-        const { error: updateError } = updateTarget
-          ? await supabaseClient.from("clients").update(clientUpdate).eq("id", updateTarget)
-          : { error: { message: "No client to update" } };
-
-        if (updateError) {
-          logStep("ERROR updating client", { error: updateError.message });
+        if (updateTarget && Object.keys(clientUpdate).length > 0) {
+          const { error: updateError } = await supabaseClient.from("clients").update(clientUpdate).eq("id", updateTarget);
+          if (updateError) {
+            logStep("ERROR updating client", { error: updateError.message });
+          } else {
+            logStep("Synced plan metadata", { fields: Object.keys(clientUpdate), subscriptionStatus });
+          }
         } else {
-          logStep("Updated client record", { ...planData, subscriptionStatus, creditsGranted: needsCredits ? grantAmount : "skipped" });
-        }
-
-        // Record credit transaction
-        if (needsCredits && clientRow?.id) {
-          await supabaseClient.from("credit_transactions").insert({
-            client_id: clientRow.id,
-            action: "initial_grant",
-            credits: grantAmount,
-            balance_after: grantAmount,
-            metadata: { plan_type: planData.plan_type, is_trial: subscription.status === "trialing" },
-          });
-          logStep("Initialized credits", { grantAmount, planType: planData.plan_type });
+          logStep("Plan metadata already in sync", { subscriptionStatus });
         }
 
         // Sync to subscriptions table for admin Subscribers page visibility

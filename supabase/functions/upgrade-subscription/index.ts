@@ -140,7 +140,12 @@ serve(async (req) => {
 
     logStep("Subscription upgraded", { newSubscriptionId: updatedSubscription.id });
 
-    // Update clients table
+    // Update clients table — plan metadata only.
+    // Credit balance writes are owned exclusively by stripe-webhook, which
+    // will fire customer.subscription.updated → invoice.payment_succeeded
+    // and apply the new cap + balance correctly.
+    // Also clear pending_plan_* so a stale downgrade row from a previous
+    // cycle can't trigger a wrong reset on the next webhook (B3).
     const config = PLAN_CONFIG[new_plan_type];
     await supabaseClient
       .from("clients")
@@ -151,6 +156,8 @@ serve(async (req) => {
         lead_tracker_enabled: config.lead_tracker_enabled,
         facebook_integration_enabled: config.facebook_integration_enabled,
         subscription_status: "active",
+        pending_plan_type: null,
+        pending_plan_effective_date: null,
       })
       .eq("id", primaryClientId);
 
