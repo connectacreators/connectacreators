@@ -101,13 +101,6 @@ serve(async (req) => {
         update.channel_scrapes_limit = planCfg.channel_scrapes_limit;
       }
 
-      // If transitioning from trialing to active, grant full credits
-      if (client.subscription_status === "trialing" && dbStatus === "active" && planCfg) {
-        update.credits_balance = planCfg.credits_monthly_cap;
-        update.credits_used = 0;
-        update.trial_ends_at = null;
-      }
-
       // Defensive date parsing (Stripe API version may return string or number)
       const safeDateISO = (raw: any): string | null => {
         if (!raw) return null;

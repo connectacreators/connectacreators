@@ -107,7 +107,6 @@ serve(async (req) => {
 
     let planData = null;
     let subscriptionEnd = null;
-    let trialEndsAt = null;
 
     if (hasActiveSub) {
       // Log the full subscription keys to understand the shape
@@ -165,10 +164,7 @@ serve(async (req) => {
 
       logStep("Resolved subscriptionEnd", { subscriptionEnd });
 
-      // Parse trial_end if subscription is trialing
-      if (subscription.status === "trialing" && subscription.trial_end) {
-        trialEndsAt = new Date(subscription.trial_end * 1000).toISOString();
-      }
+
 
       const productId = subscription.items.data[0].price.product as string;
       logStep("Active subscription found", { subscriptionId: subscription.id, status: subscription.status, productId, subscriptionEnd });
@@ -193,28 +189,18 @@ serve(async (req) => {
         const subscriptionStatus = subscription.cancel_at_period_end
           ? "canceling"
           : subscription.status === "trialing" ? "trialing" : "active";
-        const TRIAL_CREDITS = 1000;
-
         // READ-ONLY sync of plan metadata. Credit balances are NEVER mutated
-        // here — that responsibility lives exclusively in stripe-webhook
-        // (initial grant on subscription.created, monthly reset on
-        // invoice.payment_succeeded). Granting credits from this endpoint
-        // would let any user refresh /subscription to refill on demand
-        // (B2 in the credit audit).
+        // here — stripe-webhook is the single source of truth for credits.
         const primaryClientId = await getPrimaryClientId(supabaseClient, user.id);
         const { data: clientRow } = primaryClientId
           ? await supabaseClient
               .from("clients")
-              .select("id, plan_type, credits_monthly_cap, subscription_status, channel_scrapes_limit, script_limit, lead_tracker_enabled, facebook_integration_enabled, trial_ends_at, stripe_customer_id")
+              .select("id, plan_type, credits_monthly_cap, subscription_status, channel_scrapes_limit, script_limit, lead_tracker_enabled, facebook_integration_enabled, stripe_customer_id")
               .eq("id", primaryClientId)
               .maybeSingle()
           : { data: null };
 
-        const isTrial = subscription.status === "trialing";
-        const expectedCap = isTrial ? TRIAL_CREDITS : planData.credits_monthly_cap;
-
         // Build a minimal patch — only include fields that have actually drifted.
-        // Avoids stomping admin-set custom caps on every UI load (B8).
         const clientUpdate: Record<string, any> = {};
         if (clientRow?.plan_type !== planData.plan_type) clientUpdate.plan_type = planData.plan_type;
         if (clientRow?.script_limit !== planData.script_limit) clientUpdate.script_limit = planData.script_limit;
@@ -222,12 +208,10 @@ serve(async (req) => {
         if (clientRow?.facebook_integration_enabled !== planData.facebook_integration_enabled) clientUpdate.facebook_integration_enabled = planData.facebook_integration_enabled;
         if (clientRow?.channel_scrapes_limit !== planData.channel_scrapes_limit) clientUpdate.channel_scrapes_limit = planData.channel_scrapes_limit;
         if (clientRow?.subscription_status !== subscriptionStatus) clientUpdate.subscription_status = subscriptionStatus;
-        if (clientRow?.trial_ends_at !== trialEndsAt) clientUpdate.trial_ends_at = trialEndsAt;
         if (clientRow?.stripe_customer_id !== customerId) clientUpdate.stripe_customer_id = customerId;
-        // Only set cap if missing or doesn't match the standard plan tier.
-        // Never overrides a higher admin-set cap.
-        if (clientRow?.credits_monthly_cap == null || clientRow.credits_monthly_cap < expectedCap) {
-          clientUpdate.credits_monthly_cap = expectedCap;
+        // Cap: only raise if missing or below the plan tier — never overwrite a higher admin cap.
+        if (clientRow?.credits_monthly_cap == null || clientRow.credits_monthly_cap < planData.credits_monthly_cap) {
+          clientUpdate.credits_monthly_cap = planData.credits_monthly_cap;
         }
 
         const updateTarget = primaryClientId || clientRow?.id;
@@ -312,7 +296,6 @@ serve(async (req) => {
         subscribed: hasActiveSub,
         plan_type: planData?.plan_type || null,
         subscription_end: subscriptionEnd,
-        trial_ends_at: trialEndsAt,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
