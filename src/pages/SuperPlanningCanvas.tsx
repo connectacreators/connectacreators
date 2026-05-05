@@ -72,6 +72,12 @@ interface RemixVideo {
       use_transcript_as_template?: boolean;
     };
   } | null;
+  // Cached analysis fields — pre-populated from viral_videos table
+  transcription?: string | null;
+  hookText?: string | null;
+  ctaText?: string | null;
+  frameworkMeta?: { raw_structure?: any; content_type?: string | null; [key: string]: any } | null;
+  isPreAnalyzed?: boolean;
 }
 
 interface IncomingViralVideo {
@@ -947,11 +953,20 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           width: 240,
           data: {
             url: remixVideo.url,
-            autoTranscribe: true,
+            // Only auto-transcribe if we don't already have cached analysis
+            autoTranscribe: !remixVideo.isPreAnalyzed,
             channel_username: remixVideo.channel_username,
             caption: remixVideo.caption ?? undefined,
             authToken,
             clientId: selectedClient.id,
+            // Pre-fill cached analysis to skip re-transcription on canvas
+            ...(remixVideo.isPreAnalyzed ? {
+              transcription: remixVideo.transcription ?? undefined,
+              structure: remixVideo.frameworkMeta?.raw_structure ? {
+                sections: remixVideo.frameworkMeta.raw_structure,
+                detected_format: remixVideo.frameworkMeta.content_type ?? null,
+              } : undefined,
+            } : {}),
             onUpdate: (updates: any) =>
               setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
             onDelete: () => {

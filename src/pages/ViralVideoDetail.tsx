@@ -294,6 +294,12 @@ export default function ViralVideoDetail() {
           channel_username: video.channel_username,
           platform: video.platform,
           formatDetection: formatDetection ?? null,
+          // Cached analysis — skips re-transcription/re-analysis on canvas
+          transcription: video.transcript ?? null,
+          hookText: video.hook_text ?? null,
+          ctaText: video.cta_text ?? null,
+          frameworkMeta: video.framework_meta ?? null,
+          isPreAnalyzed: !!video.transcribed_at,
         },
       },
     });

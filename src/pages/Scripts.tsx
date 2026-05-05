@@ -465,6 +465,12 @@ export default function Scripts() {
     id: string; url: string | null; thumbnail_url: string | null;
     caption: string | null; channel_username: string; platform: string;
     formatDetection?: { format: string; confidence: number; wizard_config: { suggested_format?: string; prompt_hint?: string; use_transcript_as_template?: boolean } } | null;
+    // Cached analysis fields (set when video has already been transcribed/analyzed)
+    transcription?: string | null;
+    hookText?: string | null;
+    ctaText?: string | null;
+    frameworkMeta?: { raw_structure?: any; content_type?: string | null; [key: string]: any } | null;
+    isPreAnalyzed?: boolean;
   } | null>(null);
   const [incomingVideos, setIncomingVideos] = useState<any[] | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
