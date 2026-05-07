@@ -652,7 +652,8 @@ YOUR RULES — FOLLOW EXACTLY:
 15. NEVER respond with "Done.", "OK.", "Sure." Every response must tell the user (a) what you did, (b) what you found, (c) what the next step is.
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
-18. SCRIPT CREATION: Script-building requests ("build me a script") are routed to a separate dedicated build flow before reaching you — you will not see them here. Just answer the user's other questions naturally.
+18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
+18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
 19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
@@ -752,10 +753,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "create_script") {
           const { client_name, title, formato, lines } = block.input;
 
-          // Find the client
+          // Find the client (user-scoped to prevent cross-tenant matches)
           const { data: targetClient } = await adminClient
             .from("clients")
             .select("id, name")
+            .eq("user_id", user.id)
             .ilike("name", "%" + client_name + "%")
             .limit(1)
             .maybeSingle();
@@ -1016,7 +1018,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "add_video_to_canvas") {
           const { client_name, video_url, video_title, channel_username, reason } = block.input;
           const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1051,7 +1053,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "add_research_note_to_canvas") {
           const { client_name, hook_type, hook_text, why_it_works, how_to_adapt } = block.input;
           const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1083,7 +1085,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "add_idea_nodes_to_canvas") {
           const { client_name, ideas } = block.input;
           const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1118,7 +1120,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "add_script_draft_to_canvas") {
           const { client_name, title, category, framework, hook, body, cta } = block.input;
           const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1151,7 +1153,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "save_script_from_canvas") {
           const { client_name, title, hook, body, cta, category, framework } = block.input;
           const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1192,6 +1194,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           const { data: targetClient } = await adminClient
             .from("clients")
             .select("id, name")
+            .eq("user_id", user.id)
             .ilike("name", "%" + client_name + "%")
             .limit(1)
             .maybeSingle();
@@ -1245,6 +1248,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           const { data: targetClient } = await adminClient
             .from("clients")
             .select("id, name")
+            .eq("user_id", user.id)
             .ilike("name", "%" + client_name + "%")
             .limit(1)
             .maybeSingle();
@@ -1280,6 +1284,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           const { data: clientInfo } = await adminClient
             .from("clients")
             .select("name, email, onboarding_data")
+            .eq("user_id", user.id)
             .ilike("name", `%${client_name}%`)
             .limit(1)
             .maybeSingle();
