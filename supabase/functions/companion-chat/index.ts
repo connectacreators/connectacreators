@@ -17,6 +17,7 @@ import { EDITING_TOOLS, handleEditingTool } from "./tools/editing.ts";
 import { INTELLIGENCE_TOOLS, handleIntelligenceTool } from "./tools/intelligence.ts";
 import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
+import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -397,6 +398,8 @@ const TOOLS = [
   ...CLIENT_TOOLS,
   // Wave 4 tools
   ...RESEARCH_TOOLS,
+  // Wave 5 tools (analytics / cross-cutting reads)
+  ...ANALYTICS_TOOLS,
 ];
 
 /**
@@ -737,7 +740,7 @@ YOUR RULES — FOLLOW EXACTLY:
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
 18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
-19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files. Use them. Don't describe what you'd do — do it.
+19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files, get_post_performance, compare_clients, get_recent_activity. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -785,6 +788,10 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     const actions: any[] = [];
     let reply = "";
     let turn1Reply = "";
+    // 5 rounds is enough for the longest legitimate chains we see (e.g. resolve
+    // client → look up data → maybe one more lookup → respond). build-mode.ts
+    // uses 6 because the script-build flow has more discrete steps. If you
+    // raise this, also update the wall-clock budget consideration in the loop.
     const MAX_ROUNDS = 5;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -831,9 +838,15 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
       for (const block of toolUseBlocks) {
         if (block.name === "respond_to_user") {
-          // Pure text response wrapped as a tool call (used in auto mode)
-          reply = block.input.message || "";
-          if (round === 0) turn1Reply = reply;
+          // Pure text response wrapped as a tool call (used in auto mode).
+          // Only assign reply if we got a non-empty string — otherwise we
+          // overwrite a useful prior reply with "" and the user gets the
+          // "Let me try again" fallback.
+          const msg = typeof block.input.message === "string" ? block.input.message.trim() : "";
+          if (msg) {
+            reply = msg;
+            if (round === 0) turn1Reply = reply;
+          }
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
         }
 
@@ -1315,10 +1328,42 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
-            // Remove undefined values
+            // Build the patch with validation. The model has a track record of
+            // hallucinating numbers when "balancing the mix" — clamp anything
+            // suspect before we commit it.
             const patch: Record<string, any> = { client_id: targetClient.id };
-            const fields = ["posts_per_month","scripts_per_month","videos_edited_per_month","stories_per_week","mix_reach","mix_trust","mix_convert","manychat_active","manychat_keyword","cta_goal","ads_active","ads_budget","monthly_revenue_goal","monthly_revenue_actual"];
-            for (const f of fields) {
+            const numericNonNeg = ["posts_per_month","scripts_per_month","videos_edited_per_month","stories_per_week","ads_budget","monthly_revenue_goal","monthly_revenue_actual"];
+            const percentages = ["mix_reach","mix_trust","mix_convert"];
+            const validationNotes: string[] = [];
+
+            for (const f of numericNonNeg) {
+              if (updates[f] !== undefined) {
+                const n = Number(updates[f]);
+                if (Number.isFinite(n) && n >= 0) patch[f] = Math.round(n);
+                else validationNotes.push(`${f}=${updates[f]} (must be a non-negative number, ignored)`);
+              }
+            }
+            for (const f of percentages) {
+              if (updates[f] !== undefined) {
+                const n = Number(updates[f]);
+                if (Number.isFinite(n)) patch[f] = Math.max(0, Math.min(100, Math.round(n)));
+                else validationNotes.push(`${f}=${updates[f]} (must be a number 0-100, ignored)`);
+              }
+            }
+            // If all three mix percentages were touched and they sum to >100, warn but accept
+            // (the model can fix on the next round). If <100, accept silently — the user may
+            // be tweaking one slice.
+            if (["mix_reach","mix_trust","mix_convert"].every((f) => updates[f] !== undefined)) {
+              const sum = (patch.mix_reach ?? 0) + (patch.mix_trust ?? 0) + (patch.mix_convert ?? 0);
+              if (sum > 100) {
+                validationNotes.push(`mix percentages sum to ${sum}% (>100, will likely look wrong on the dashboard)`);
+              }
+            }
+            // Booleans + free-text fields pass through as-is
+            for (const f of ["manychat_active","ads_active"]) {
+              if (updates[f] !== undefined) patch[f] = !!updates[f];
+            }
+            for (const f of ["manychat_keyword","cta_goal"]) {
               if (updates[f] !== undefined) patch[f] = updates[f];
             }
 
@@ -1333,7 +1378,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 .filter(([k]) => k !== "client_id")
                 .map(([k, v]) => `${k}: ${v}`)
                 .join(", ");
-              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Strategy updated for " + targetClient.name + ". Changed: " + changed });
+              const notes = validationNotes.length > 0 ? ` (notes: ${validationNotes.join("; ")})` : "";
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Strategy updated for " + targetClient.name + ". Changed: " + changed + notes });
             }
           }
         }
@@ -1420,7 +1466,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           await handleEditingTool(block, moduleCtx) ??
           await handleIntelligenceTool(block, moduleCtx) ??
           await handleClientTool(block, moduleCtx) ??
-          await handleResearchTool(block, moduleCtx);
+          await handleResearchTool(block, moduleCtx) ??
+          await handleAnalyticsTool(block, moduleCtx);
         if (moduleResult) toolResults.push(moduleResult);
 
         // Fallback: ensure every tool_use_id has a matching tool_result, otherwise

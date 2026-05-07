@@ -28,11 +28,21 @@ async function dualWriteCanvasTurn(
 ) {
   try {
     // Ensure the assistant_threads row exists for this canvas chat (id reuse).
+    // SECURITY: if a row already exists with this id, verify it belongs to the
+    // caller. Without this check, anyone with a chatId could write into a
+    // thread owned by someone else.
     const { data: existing } = await supabase
       .from("assistant_threads")
-      .select("id")
+      .select("id, user_id")
       .eq("id", params.chatId)
       .maybeSingle();
+
+    if (existing && existing.user_id !== params.userId) {
+      console.warn(
+        `[ai-assistant] dualWriteCanvasTurn refused: chat ${params.chatId} owned by ${existing.user_id}, caller is ${params.userId}`,
+      );
+      return;
+    }
 
     if (!existing) {
       const { error: insertErr } = await supabase
@@ -1230,18 +1240,26 @@ serve(async (req) => {
             // receive the response without needing to refresh.
             if (chatId && finalContent) {
               try {
+                // SECURITY: include user_id in the lookup so a caller can't
+                // append assistant messages to another tenant's canvas chat
+                // by guessing/leaking its UUID.
                 const { data: chatRow } = await adminClient
                   .from("canvas_ai_chats")
-                  .select("messages")
+                  .select("messages, user_id")
                   .eq("id", chatId)
-                  .single();
-                if (chatRow) {
+                  .maybeSingle();
+                if (chatRow && chatRow.user_id !== userId) {
+                  console.warn(
+                    `[ai-assistant] refused chat append: chat ${chatId} owned by ${chatRow.user_id}, caller is ${userId}`,
+                  );
+                } else if (chatRow) {
                   const existing = Array.isArray(chatRow.messages) ? chatRow.messages : [];
                   const aiMsg = { role: "assistant", content: finalContent, credits_used: creditCost };
                   await adminClient
                     .from("canvas_ai_chats")
                     .update({ messages: [...existing, aiMsg], updated_at: new Date().toISOString() })
-                    .eq("id", chatId);
+                    .eq("id", chatId)
+                    .eq("user_id", userId);
                 }
               } catch (saveErr) {
                 console.error("[ai-assistant] server-side chat save failed:", saveErr);

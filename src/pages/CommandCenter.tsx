@@ -278,6 +278,13 @@ export default function CommandCenter() {
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
             navigate(action.path);
+          } else if (
+            action?.type !== "fill_onboarding" &&
+            action?.type !== "open_client" &&
+            action?.type !== "refresh_data" &&
+            action?.type !== "show_notification"
+          ) {
+            console.warn("[ai] unhandled action type:", action?.type, action);
           }
           if (action?.type === "fill_onboarding") {
             window.dispatchEvent(

@@ -240,6 +240,13 @@ export default function CompanionDrawer() {
           if (action?.type === "navigate" && typeof action.path === "string") {
             navigate(action.path);
             setIsOpen(false);
+          } else if (
+            action?.type !== "fill_onboarding" &&
+            action?.type !== "open_client" &&
+            action?.type !== "refresh_data" &&
+            action?.type !== "show_notification"
+          ) {
+            console.warn("[ai] unhandled action type:", action?.type, action);
           }
           if (action?.type === "fill_onboarding") {
             window.dispatchEvent(

@@ -666,8 +666,20 @@ export async function shouldRouteToBuildMode(args: {
     }
   }
 
+  // M5: an existing build session shouldn't capture every future message on
+  // the thread. If the user clearly switched topic ("what's my pipeline?",
+  // "log this expense"), let it fall through to companion-chat for this turn.
+  // Heuristic: route to build mode if EITHER the trigger fired OR the message
+  // looks build-flavored (URL drop, idea picking, framework pick, "yes/sure/
+  // do it" continuations, very short replies that are likely a continuation).
+  const looksLikeContinuation =
+    triggerMatched ||
+    /\b(idea\s*\d+|first\s+one|second\s+one|build\s+(it|this)|yes|sure|do\s+it|let'?s\s+go|that\s+one|use\s+(it|this)|the\s+\d+)\b/i.test(args.message) ||
+    /https?:\/\//i.test(args.message) ||
+    args.message.trim().split(/\s+/).length <= 3;
+
   return {
-    route: !!existingSession || triggerMatched,
+    route: triggerMatched || (!!existingSession && looksLikeContinuation),
     existingSession,
     triggerMatched,
   };

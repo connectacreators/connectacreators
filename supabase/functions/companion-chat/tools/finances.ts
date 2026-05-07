@@ -119,10 +119,20 @@ export async function handleFinanceTool(
     if (!parsed || !parsed.amount || !parsed.type || !parsed.category) {
       return { type: "tool_result", tool_use_id: block.id, content: `Could not parse transaction from: "${raw}". Please be more specific about the amount and type.` };
     }
+    // Validation: amount must be a positive finite number, type must be one of
+    // {income, expense}. Reject the row entirely if either is wrong rather than
+    // silently writing garbage to finance_transactions.
+    const amountNum = Number(parsed.amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: amount must be a positive number, got "${parsed.amount}".` };
+    }
+    if (parsed.type !== "income" && parsed.type !== "expense") {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: type must be "income" or "expense", got "${parsed.type}".` };
+    }
 
     const { error } = await adminClient.from("finance_transactions").insert({
       user_id: userId,
-      amount: parsed.amount,
+      amount: Math.round(amountNum * 100) / 100,
       type: parsed.type,
       category: parsed.category,
       description: parsed.description ?? raw.slice(0, 100),
