@@ -70,7 +70,7 @@ export async function handleScriptTool(
 
   if (block.name === "update_script_status") {
     const { client_name, script_title, status } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const script = await findScript(adminClient, client.id, script_title);
     if (!script) return { type: "tool_result", tool_use_id: block.id, content: `No script found matching "${script_title}" for ${client.name}` };
@@ -81,7 +81,7 @@ export async function handleScriptTool(
 
   if (block.name === "mark_script_recorded") {
     const { client_name, script_title } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const script = await findScript(adminClient, client.id, script_title);
     if (!script) return { type: "tool_result", tool_use_id: block.id, content: `No script found matching "${script_title}" for ${client.name}` };
@@ -92,7 +92,7 @@ export async function handleScriptTool(
 
   if (block.name === "delete_script") {
     const { client_name, script_title } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const script = await findScript(adminClient, client.id, script_title);
     if (!script) return { type: "tool_result", tool_use_id: block.id, content: `No script found matching "${script_title}" for ${client.name}` };

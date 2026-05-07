@@ -103,7 +103,7 @@ export async function handleEditingTool(
 
   if (block.name === "update_editing_status") {
     const { client_name, item_title, status } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, item_title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No editing item found matching "${item_title}" for ${client.name}` };
@@ -114,7 +114,7 @@ export async function handleEditingTool(
 
   if (block.name === "assign_editor") {
     const { client_name, item_title, editor_name } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, item_title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No editing item found matching "${item_title}" for ${client.name}` };
@@ -125,7 +125,7 @@ export async function handleEditingTool(
 
   if (block.name === "add_revision_notes") {
     const { client_name, item_title, notes } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, item_title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No editing item found matching "${item_title}" for ${client.name}` };
@@ -138,7 +138,7 @@ export async function handleEditingTool(
 
   if (block.name === "mark_post_published") {
     const { client_name, item_title } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, item_title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No item found matching "${item_title}" for ${client.name}` };
@@ -150,7 +150,7 @@ export async function handleEditingTool(
 
   if (block.name === "reschedule_post") {
     const { client_name, title, new_date } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No post found matching "${title}" for ${client.name}` };
@@ -161,7 +161,7 @@ export async function handleEditingTool(
 
   if (block.name === "generate_caption") {
     const { client_name, hook, platform = "instagram", cta_keyword } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: clientRow } = await adminClient.from("clients").select("onboarding_data").eq("id", client.id).maybeSingle();

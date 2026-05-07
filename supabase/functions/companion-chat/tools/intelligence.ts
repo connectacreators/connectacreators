@@ -1,5 +1,6 @@
 // supabase/functions/companion-chat/tools/intelligence.ts
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
+import { resolveClient } from "./types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -134,13 +135,7 @@ export async function handleIntelligenceTool(
     let query = adminClient.from("contracts").select("id, title, status, created_at, signed_at, client_id");
 
     if (client_name) {
-      const { data: clientRow } = await adminClient
-        .from("clients")
-        .select("id, name")
-        .eq("user_id", userId)
-        .ilike("name", `%${client_name}%`)
-        .limit(1)
-        .maybeSingle();
+      const clientRow = await resolveClient(ctx, client_name);
       if (!clientRow) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
       query = query.eq("client_id", clientRow.id);
     }
@@ -156,13 +151,7 @@ export async function handleIntelligenceTool(
 
   if (block.name === "send_contract") {
     const { client_name, contract_id } = block.input;
-    const { data: clientRow } = await adminClient
-      .from("clients")
-      .select("id, name")
-      .eq("user_id", userId)
-      .ilike("name", `%${client_name}%`)
-      .limit(1)
-      .maybeSingle();
+    const clientRow = await resolveClient(ctx, client_name);
     if (!clientRow) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/send-contract`, {

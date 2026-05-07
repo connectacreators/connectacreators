@@ -476,12 +476,22 @@ serve(async (req) => {
     let client: { id: string; name: string | null; onboarding_data: any } | null = null;
 
     if (urlClientId) {
+      // SECURITY: scope the URL-clientId lookup to user_id. Without this filter
+      // any authenticated user could navigate to /clients/<other-tenants-uuid>/
+      // and have the AI act on the victim's account.
       const { data: urlClient } = await adminClient
         .from("clients")
         .select("id, name, onboarding_data")
         .eq("id", urlClientId)
+        .eq("user_id", user.id)
         .maybeSingle();
-      if (urlClient) client = urlClient;
+      if (urlClient) {
+        client = urlClient;
+      } else {
+        console.warn(
+          `[companion-chat] User ${user.id} attempted to access client ${urlClientId} they don't own; falling back to own primary client.`,
+        );
+      }
     }
 
     // Fallback: user's own primary client
@@ -498,10 +508,51 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
+    // Centralized client lookup used by every inline handler. When the URL is
+    // locked to a specific client (urlClientId set) this short-circuits and
+    // returns that client unconditionally — the model's client_name argument
+    // is ignored. Otherwise it does a name-match scoped to the caller's
+    // user_id (no cross-tenant leakage).
+    const lockedClient = urlClientId ? { id: client.id, name: client.name } : null;
+    const lookupClient = async (clientName: string): Promise<{ id: string; name: string | null } | null> => {
+      if (lockedClient) {
+        if (clientName && lockedClient.name && !lockedClient.name.toLowerCase().includes(clientName.toLowerCase().split(/\s+/)[0])) {
+          console.warn(`[companion-chat] URL locked to "${lockedClient.name}", model asked for "${clientName}" — using locked.`);
+        }
+        return lockedClient;
+      }
+      const { data } = await adminClient
+        .from("clients")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .ilike("name", "%" + clientName + "%")
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    };
+
     // Use the incoming thread_id if the frontend provided one (continuing an existing chat).
     // If null (user clicked "New Chat" or this is the very first message), create a fresh thread
     // titled from the first 6 words of the message so the thread list shows meaningful names.
+    //
+    // SECURITY: verify the thread is owned by this user before trusting the
+    // ID. Without this check a malicious caller can pass any thread_id and
+    // pollute another user's transcript via dualWriteCompanionTurn.
     let resolvedThreadId: string | null = incomingThreadId ?? null;
+    if (resolvedThreadId) {
+      const { data: threadOwn } = await adminClient
+        .from("assistant_threads")
+        .select("id")
+        .eq("id", resolvedThreadId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!threadOwn) {
+        console.warn(
+          `[companion-chat] Rejected unowned thread_id ${resolvedThreadId} from user ${user.id}; creating a fresh thread.`,
+        );
+        resolvedThreadId = null;
+      }
+    }
     if (!resolvedThreadId) {
       const words = message.trim().split(/\s+/).slice(0, 6).join(" ");
       const title = words.split(/\s+/).length > 3 ? words + "…" : "New chat";
@@ -556,20 +607,47 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Load memory, strategy, history in parallel
+    // Load memory, strategy, history in parallel.
+    //
+    // History is loaded from assistant_messages keyed by THREAD ID, not from
+    // companion_messages keyed by client_id. The previous behavior smashed
+    // every chat for the same client into one 40-message blob, so unrelated
+    // threads bled into each other and the model got confused context from
+    // half-finished prior conversations.
     const [companionStateRes, strategyRes, historyRes] = await Promise.all([
       adminClient.from("companion_state").select("workflow_context").eq("client_id", client.id).maybeSingle(),
       adminClient.from("client_strategies").select("*").eq("client_id", client.id).maybeSingle(),
-      adminClient.from("companion_messages").select("role, content").eq("client_id", client.id).order("created_at", { ascending: false }).limit(40),
+      resolvedThreadId
+        ? adminClient.from("assistant_messages").select("role, content").eq("thread_id", resolvedThreadId).order("created_at", { ascending: false }).limit(40)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
 
     const savedMemories: Record<string, string> = companionStateRes.data?.workflow_context || {};
     const strat = strategyRes.data;
 
-    const priorMessages = ((historyRes.data || []) as any[]).reverse().map((m: any) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
+    // assistant_messages.content is jsonb of shape `{type: "text", text: "..."}`.
+    // Coerce to a plain string so Anthropic accepts the content.
+    const priorMessages = ((historyRes.data || []) as any[])
+      .reverse()
+      .map((m: any) => {
+        let text: string;
+        if (typeof m.content === "string") {
+          text = m.content;
+        } else if (m.content?.text) {
+          text = String(m.content.text);
+        } else if (Array.isArray(m.content)) {
+          text = m.content.map((b: any) => b?.text ?? "").join("");
+        } else {
+          text = "";
+        }
+        return { role: m.role as "user" | "assistant", content: text };
+      })
+      .filter((m: any) => m.content && m.content.length > 0);
+
+    // M1: ensure messages start with a user role — Anthropic 400s otherwise.
+    // Strips any leading assistant turns left over from a prior session.
+    const firstUserIdx = priorMessages.findIndex((m: any) => m.role === "user");
+    const cleanPriorMessages = firstUserIdx >= 0 ? priorMessages.slice(firstUserIdx) : [];
 
     // Build brand context from existing onboarding data
     const od = client.onboarding_data || {};
@@ -703,7 +781,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     // Multi-round Claude tool-use loop. Lets Claude chain tool calls
     // (e.g. get_client_info → find_viral_videos → respond) instead of stalling
     // after one round and falling back to "On it.".
-    const messages: any[] = [...priorMessages, { role: "user", content: message }];
+    const messages: any[] = [...cleanPriorMessages, { role: "user", content: message }];
     const actions: any[] = [];
     let reply = "";
     let turn1Reply = "";
@@ -729,7 +807,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       const result = await apiRes.json();
       if (!apiRes.ok) {
         console.error("[companion-chat] Claude API error:", result?.error || result);
-        if (!reply) reply = "Anthropic returned an error. Try again in a moment.";
+        const errMsg = `Anthropic returned an error (${apiRes.status}). Try again in a moment.`;
+        // If we already have a partial reply from earlier rounds, append the
+        // failure marker so the user knows the response was cut short rather
+        // than seeing a misleadingly complete-looking message.
+        reply = reply ? `${reply}\n\n— ${errMsg}` : errMsg;
         break;
       }
 
@@ -758,14 +840,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (block.name === "create_script") {
           const { client_name, title, formato, lines } = block.input;
 
-          // Find the client (user-scoped to prevent cross-tenant matches)
-          const { data: targetClient } = await adminClient
-            .from("clients")
-            .select("id, name")
-            .eq("user_id", user.id)
-            .ilike("name", "%" + client_name + "%")
-            .limit(1)
-            .maybeSingle();
+          // Honors URL lock when set; falls back to user-scoped name match.
+          const targetClient = await lookupClient(client_name);
 
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
@@ -862,7 +938,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "list_client_scripts") {
           const { client_name, limit = 5 } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -881,7 +957,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "schedule_content") {
           const { client_name, title, date, caption } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -909,7 +985,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "submit_to_editing_queue") {
           const { client_name, title, notes, schedule_date } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -929,7 +1005,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "get_editing_queue") {
           const { client_name } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -949,7 +1025,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "get_content_calendar") {
           const { client_name, days_ahead = 14 } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -974,7 +1050,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "create_canvas_note") {
           const { client_name, content, note_type = "text_note" } = block.input;
-          const { data: targetClient } = await adminClient.from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1006,13 +1082,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "read_canvas") {
           const { client_name } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients")
-            .select("id, name")
-            .eq("user_id", user.id)
-            .ilike("name", `%${client_name}%`)
-            .limit(1)
-            .maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No client found matching "${client_name}"` });
           } else {
@@ -1023,8 +1093,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "add_video_to_canvas") {
           const { client_name, video_url, video_title, channel_username, reason } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1058,8 +1127,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "add_research_note_to_canvas") {
           const { client_name, hook_type, hook_text, why_it_works, how_to_adapt } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1090,8 +1158,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "add_idea_nodes_to_canvas") {
           const { client_name, ideas } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1125,8 +1192,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "add_script_draft_to_canvas") {
           const { client_name, title, category, framework, hook, body, cta } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1158,8 +1224,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "save_script_from_canvas") {
           const { client_name, title, hook, body, cta, category, framework } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients").select("id, name").eq("user_id", user.id).ilike("name", "%" + client_name + "%").limit(1).maybeSingle();
+          const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
@@ -1197,13 +1262,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "get_client_strategy") {
           const { client_name } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients")
-            .select("id, name")
-            .eq("user_id", user.id)
-            .ilike("name", "%" + client_name + "%")
-            .limit(1)
-            .maybeSingle();
+          const targetClient = await lookupClient(client_name);
 
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
@@ -1251,13 +1310,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "update_client_strategy") {
           const { client_name, ...updates } = block.input;
-          const { data: targetClient } = await adminClient
-            .from("clients")
-            .select("id, name")
-            .eq("user_id", user.id)
-            .ilike("name", "%" + client_name + "%")
-            .limit(1)
-            .maybeSingle();
+          const targetClient = await lookupClient(client_name);
 
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
@@ -1287,13 +1340,12 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "get_client_info") {
           const { client_name } = block.input;
-          const { data: clientInfo } = await adminClient
-            .from("clients")
-            .select("name, email, onboarding_data")
-            .eq("user_id", user.id)
-            .ilike("name", `%${client_name}%`)
-            .limit(1)
-            .maybeSingle();
+          // If the URL is locked, ignore the name and pull info for the locked
+          // client directly. Otherwise name-match within the user's tenant.
+          const baseQuery = adminClient.from("clients").select("name, email, onboarding_data");
+          const { data: clientInfo } = await (lockedClient
+            ? baseQuery.eq("id", lockedClient.id).maybeSingle()
+            : baseQuery.eq("user_id", user.id).ilike("name", `%${client_name}%`).limit(1).maybeSingle());
           const info = clientInfo
             ? `Client: ${clientInfo.name} (${clientInfo.email})\n${JSON.stringify(clientInfo.onboarding_data || {}, null, 2)}`
             : `No client found matching "${client_name}"`;
@@ -1350,8 +1402,17 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           }
         }
 
-        // Wave 2 + 3 + 4 module handlers — try each in order, use first non-null result
-        const moduleCtx = { adminClient, userId: user.id, client, actions };
+        // Wave 2 + 3 + 4 module handlers — try each in order, use first non-null result.
+        // lockedClient is set when the user is on /clients/<id>/* so tools that take
+        // client_name will resolve to the URL-pinned client and ignore the model's
+        // argument (prevents the AI from acting on a different client of the same user).
+        const moduleCtx = {
+          adminClient,
+          userId: user.id,
+          client,
+          lockedClient: urlClientId ? { id: client.id, name: client.name } : null,
+          actions,
+        };
         const moduleResult =
           await handleLeadTool(block, moduleCtx) ??
           await handleFinanceTool(block, moduleCtx) ??
@@ -1385,6 +1446,39 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       // then loop so Claude can chain another tool or write a final reply.
       messages.push({ role: "assistant", content: result.content });
       messages.push({ role: "user", content: toolResults });
+    }
+
+    // H4: if we exhausted MAX_ROUNDS while still in tool_use, the model never
+    // wrote a final text reply. Force one with tool_choice: none so the user
+    // doesn't see a stuck-looking response.
+    if (!reply) {
+      try {
+        const finalRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1024,
+            system: finalSystemPrompt,
+            tools: effectiveTools,
+            tool_choice: { type: "none" },
+            messages,
+          }),
+        });
+        if (finalRes.ok) {
+          const finalResult = await finalRes.json();
+          const finalText = (finalResult.content || []).find(
+            (b: any) => b.type === "text",
+          );
+          if (finalText?.text) reply = finalText.text;
+        }
+      } catch (e) {
+        console.error("[companion-chat] Forced-text final round failed:", e);
+      }
     }
 
     if (!reply) {

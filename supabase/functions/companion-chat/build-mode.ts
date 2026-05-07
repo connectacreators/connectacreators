@@ -138,8 +138,10 @@ const BUILD_TOOLS = [
 
 // ── Build trigger ────────────────────────────────────────────────────────────
 
-// Matches "build me a script", "let's write a script", etc.
-export const BUILD_TRIGGER = /\b(let'?s\s+)?(build|write|create|make)\s+(me\s+)?a?\s*script\b/i;
+// Matches script-build intent broadly — "build me a script", "draft a script",
+// "give me 3 scripts", "I need a script", "generate scripts about X", etc.
+// Plurals via scripts?, optional count via \d+, optional article/me filler.
+export const BUILD_TRIGGER = /\b(let'?s\s+)?(build|write|create|make|draft|generate|need|give\s+me)\s+(me\s+)?(\d+\s+|a\s+|an\s+|some\s+)?\s*scripts?\b/i;
 
 // Matches the framework-first flow: "replicate these videos", "I want to copy these"
 const FRAMEWORK_TRIGGER = /\b(replicate|copy|mimic|model|remix|base.*on|use.*as.*framework|want.*these|want.*to.*replicate|want.*to.*copy)\b/i;

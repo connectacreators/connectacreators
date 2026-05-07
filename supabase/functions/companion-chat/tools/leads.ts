@@ -83,7 +83,7 @@ export async function handleLeadTool(
 
   if (block.name === "get_leads") {
     const { client_name, status, limit = 10 } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     let query = adminClient
@@ -106,7 +106,7 @@ export async function handleLeadTool(
 
   if (block.name === "get_pipeline_summary") {
     const { client_name } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: leads } = await adminClient
@@ -125,7 +125,7 @@ export async function handleLeadTool(
 
   if (block.name === "update_lead_status") {
     const { client_name, lead_name, new_status } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: lead } = await adminClient
@@ -144,7 +144,7 @@ export async function handleLeadTool(
 
   if (block.name === "add_lead_notes") {
     const { client_name, lead_name, notes } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: lead } = await adminClient
@@ -165,7 +165,7 @@ export async function handleLeadTool(
 
   if (block.name === "create_lead") {
     const { client_name, name, phone, email, source, notes } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: newLead, error } = await adminClient

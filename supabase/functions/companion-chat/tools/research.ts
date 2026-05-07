@@ -74,7 +74,7 @@ export async function handleResearchTool(
 
   if (block.name === "run_audience_analysis") {
     const { client_name } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: clientRow } = await adminClient.from("clients").select("onboarding_data").eq("id", client.id).maybeSingle();
@@ -99,7 +99,7 @@ export async function handleResearchTool(
 
   if (block.name === "get_instagram_top_posts") {
     const { client_name, limit = 6 } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: clientRow } = await adminClient.from("clients").select("onboarding_data").eq("id", client.id).maybeSingle();
@@ -156,7 +156,7 @@ export async function handleResearchTool(
 
   if (block.name === "list_vault_files") {
     const { client_name } = block.input;
-    const client = await resolveClient(adminClient, userId, client_name);
+    const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
     const { data: files } = await adminClient

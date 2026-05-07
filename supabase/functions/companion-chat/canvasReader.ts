@@ -35,29 +35,48 @@ export async function readCanvasContext(
   );
 
   const lines: string[] = [];
+  // Hard cap on the total bytes we send back to Claude. Without this a single
+  // packed canvas (12 text + 8 research + 6 transcripts at 800-1000 chars each)
+  // can produce ~22k chars and crowd out the rest of the conversation context.
+  const MAX_CHARS = 6000;
+  let used = 0;
+  let truncatedCount = 0;
+  const pushLine = (line: string): boolean => {
+    if (used + line.length + 1 > MAX_CHARS) {
+      truncatedCount++;
+      return false;
+    }
+    lines.push(line);
+    used += line.length + 1;
+    return true;
+  };
 
   if (mediaNodes.length > 0) {
-    lines.push("# Voice/PDF Transcripts:");
+    pushLine("# Voice/PDF Transcripts:");
     for (const n of mediaNodes.slice(0, 6)) {
       const text = ((n.data?.audioTranscription as string) ?? "").slice(0, 1000);
-      if (text.trim()) lines.push(`- ${text}`);
+      if (text.trim() && !pushLine(`- ${text}`)) break;
     }
   }
 
   if (textNodes.length > 0) {
-    lines.push("# Text Notes:");
+    pushLine("# Text Notes:");
     for (const n of textNodes.slice(0, 12)) {
       const text = ((n.data?.noteText as string) ?? "").slice(0, 800);
-      if (text.trim()) lines.push(`- ${text}`);
+      if (text.trim() && !pushLine(`- ${text}`)) break;
     }
   }
 
   if (researchNodes.length > 0) {
-    lines.push("# Research Notes:");
+    pushLine("# Research Notes:");
     for (const n of researchNodes.slice(0, 8)) {
       const text = ((n.data?.text as string) ?? "").slice(0, 800);
-      if (text.trim()) lines.push(`- ${text}`);
+      if (text.trim() && !pushLine(`- ${text}`)) break;
     }
+  }
+
+  if (truncatedCount > 0) {
+    lines.push(`(…${truncatedCount} more note(s) omitted to stay within context budget)`);
   }
 
   if (lines.length === 0) {
