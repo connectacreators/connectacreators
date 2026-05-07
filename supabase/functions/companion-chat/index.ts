@@ -18,6 +18,7 @@ import { INTELLIGENCE_TOOLS, handleIntelligenceTool } from "./tools/intelligence
 import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
 import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
+import { resolveClient } from "./tools/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -511,27 +512,18 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
     }
 
-    // Centralized client lookup used by every inline handler. When the URL is
-    // locked to a specific client (urlClientId set) this short-circuits and
-    // returns that client unconditionally — the model's client_name argument
-    // is ignored. Otherwise it does a name-match scoped to the caller's
-    // user_id (no cross-tenant leakage).
+    // Centralized client lookup used by every inline handler. Delegates to
+    // resolveClient (tools/types.ts) so we get the same multi-strategy fuzzy
+    // matching: direct ilike → punctuation-stripped → per-word → prefix.
+    // When the URL is locked, resolveClient short-circuits to that client.
     const lockedClient = urlClientId ? { id: client.id, name: client.name } : null;
     const lookupClient = async (clientName: string): Promise<{ id: string; name: string | null } | null> => {
-      if (lockedClient) {
-        if (clientName && lockedClient.name && !lockedClient.name.toLowerCase().includes(clientName.toLowerCase().split(/\s+/)[0])) {
-          console.warn(`[companion-chat] URL locked to "${lockedClient.name}", model asked for "${clientName}" — using locked.`);
-        }
-        return lockedClient;
-      }
-      const { data } = await adminClient
-        .from("clients")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .ilike("name", "%" + clientName + "%")
-        .limit(1)
-        .maybeSingle();
-      return data ?? null;
+      // Build a minimal ToolContext for resolveClient. actions is unused by
+      // resolveClient itself but the type requires it.
+      return await resolveClient(
+        { adminClient, userId: user.id, client, lockedClient, actions: [] },
+        clientName,
+      );
     };
 
     // Use the incoming thread_id if the frontend provided one (continuing an existing chat).
@@ -713,9 +705,10 @@ The methodology:
 
 WHAT CONNECTA DOES NOT DO: SEO, web design, traditional PR, email marketing, e-commerce, B2B/enterprise work.
 
-User's name: ${client.name || "there"}
 Currently on page: ${current_path || "unknown"}
-${urlClientId ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.` : ""}
+${urlClientId
+  ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.`
+  : `\nAGENCY VIEW: There is NO single active client on this page. The user is the agency owner managing many clients. Whenever they mention a client by name (e.g. "Dr Calvin", "make ideas for X", "what's Y's pipeline"), call the appropriate tool with that name as client_name — the lookup handles fuzzy matching (case, punctuation, partial names all work). NEVER assume the user IS the client; "${client.name}" is just the default credit/billing identity, not the work target. If you genuinely don't know which client they mean, call list_all_clients to see options.`}
 ${brandLines ? `\nOnboarding data:\n${brandLines}` : "\nNo onboarding data yet."}
 ${strategyContext}
 ${memoriesText}
