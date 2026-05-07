@@ -83,6 +83,88 @@ export interface AssistantChatProps {
   className?: string;
 }
 
+// ── User-bubble with hand-drawn outline that scales to content ────────────
+//
+// The original SVG path was designed for a 200×40 viewBox. With
+// preserveAspectRatio="none" + tall multi-line bubbles, the path's curves
+// distorted. This wrapper measures its own size with ResizeObserver and emits
+// a path in actual pixel coordinates so the hand-drawn corners stay correct
+// at any aspect ratio.
+function UserBubble({
+  text,
+  fullscreen,
+}: {
+  text: string;
+  fullscreen?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const obs = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r) setSize({ w: r.width, h: r.height });
+    });
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const { w, h } = size;
+  // Padding matches px-3 py-2 (12px / 8px). Path is drawn in actual pixel
+  // coordinates so the corner curves stay tight at every height.
+  const r = 8;
+  const path =
+    w > 0 && h > 0
+      ? `M${r},2 C${w * 0.32},0.5 ${w * 0.7},0.5 ${w - r},2 C${w - 3},2.5 ${w - 1},${
+          r - 3
+        } ${w - 1},${r} C${w},${h * 0.4} ${w},${h * 0.7} ${w - 1},${
+          h - r
+        } C${w - 3},${h - 3.5} ${w - r},${h - 1} ${w * 0.7},${
+          h - 1
+        } C${w * 0.45},${h - 0.2} ${w * 0.25},${h + 0.2} ${
+          r + 1
+        },${h - 1} C${r - 1},${h - 1.5} 2,${h - 4} 1,${
+          h - r
+        } C0,${h * 0.7} 0,${h * 0.4} 1,${r} C1.5,${
+          r - 3.5
+        } ${r - 3},2.5 ${r},2 Z`
+      : "";
+
+  return (
+    <div
+      ref={ref}
+      className={`relative px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}
+    >
+      {w > 0 && (
+        <svg
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            overflow: "visible",
+            pointerEvents: "none",
+          }}
+          viewBox={`0 0 ${w} ${h}`}
+          preserveAspectRatio="none"
+        >
+          <path
+            d={path}
+            fill="none"
+            stroke="rgba(201,169,110,0.28)"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
+      <span className="relative">{text}</span>
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function AssistantChat({
@@ -482,15 +564,7 @@ export function AssistantChat({
                       answers={msg.meta.deck_answers}
                     />
                   ) : (
-                    <div
-                      className={`px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}
-                      style={{
-                        border: "1px solid rgba(201,169,110,0.28)",
-                        borderRadius: 10,
-                      }}
-                    >
-                      {msg.content}
-                    </div>
+                    <UserBubble text={msg.content} fullscreen={fullscreen} />
                   )}
                   <button
                     onClick={() => onEditUserMessage?.(i, msg.content)}
@@ -604,9 +678,8 @@ export function AssistantChat({
                   Preparing questions…
                 </div>
               ) : (
-                <div className="text-foreground min-w-0 flex-1 inline">
+                <div className="text-foreground min-w-0 flex-1 streaming-bubble">
                   <MarkdownText text={liveText} />
-                  <span style={{ color: "rgba(201,169,110,0.7)", fontWeight: 400 }}>▋</span>
                 </div>
               )}
             </div>

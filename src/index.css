@@ -458,6 +458,32 @@ All colors MUST be HSL for consistency and theming.
   50%       { opacity: 0; }
 }
 
+/* Streaming bubble cursor — inline at the end of the last block of markdown.
+   Targets the most common terminal markdown blocks so the cursor "follows"
+   the typewriter as text grows, instead of rendering on a new line below. */
+.streaming-bubble > :last-child p:last-child::after,
+.streaming-bubble > :last-child li:last-child::after,
+.streaming-bubble > :last-child h1:last-child::after,
+.streaming-bubble > :last-child h2:last-child::after,
+.streaming-bubble > :last-child h3:last-child::after,
+.streaming-bubble > :last-child h4:last-child::after,
+.streaming-bubble > :last-child blockquote:last-child::after,
+.streaming-bubble > :last-child > p:last-child::after,
+.streaming-bubble > p:last-child::after,
+.streaming-bubble > ul:last-child > li:last-child::after,
+.streaming-bubble > ol:last-child > li:last-child::after,
+.streaming-bubble > h1:last-child::after,
+.streaming-bubble > h2:last-child::after,
+.streaming-bubble > h3:last-child::after,
+.streaming-bubble > blockquote:last-child::after {
+  content: "▋";
+  display: inline-block;
+  margin-left: 2px;
+  color: rgba(201, 169, 110, 0.7);
+  font-weight: 400;
+  animation: ai-cursor-blink 1s steps(2) infinite;
+}
+
 @keyframes goldBarPulse {
   0%, 100% { opacity: 0.25; transform: scaleY(0.5); }
   50%       { opacity: 0.8;  transform: scaleY(1);   }
