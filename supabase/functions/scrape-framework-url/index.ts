@@ -131,6 +131,12 @@ serve(async (req: Request) => {
       postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
     }
   }
+  // If we couldn't determine the original post time (VPS unavailable or
+  // payload missing the field), fall back to "now". Otherwise the row gets
+  // posted_at=NULL and the default Viral Today date filter (>= 12 months ago)
+  // silently excludes it because NULL fails the comparison — admin sees
+  // "Framework added" but can't find the video.
+  if (!postedAt) postedAt = new Date().toISOString();
 
   const niche_tags = extractNicheTags(caption);
   const framework_score = computeFrameworkScore(outlier, engagementRate, postedAt);
