@@ -694,43 +694,58 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       await adminClient.from("companion_messages").delete().in("id", toDelete);
     }
 
-    // First Claude call with tools
-    const firstRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4096,
-        system: finalSystemPrompt,
-        tools: effectiveTools,
-        // In auto mode, force Claude to always call a tool (never just output text)
-        ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
-        messages: [...priorMessages, { role: "user", content: message }],
-      }),
-    });
-
-    const firstResult = await firstRes.json();
+    // Multi-round Claude tool-use loop. Lets Claude chain tool calls
+    // (e.g. get_client_info → find_viral_videos → respond) instead of stalling
+    // after one round and falling back to "On it.".
+    const messages: any[] = [...priorMessages, { role: "user", content: message }];
     const actions: any[] = [];
     let reply = "";
-    let turn1Reply = ""; // preserve Turn 1 reply as fallback if Turn 2 only navigates
+    let turn1Reply = "";
+    const MAX_ROUNDS = 5;
 
-    // Process response — may have tool_use blocks
-    if (firstResult.stop_reason === "tool_use") {
-      const toolUseBlocks = firstResult.content.filter((b: any) => b.type === "tool_use");
-      const textBlocks = firstResult.content.filter((b: any) => b.type === "text");
-      if (textBlocks.length > 0) { reply = textBlocks[0].text; turn1Reply = reply; }
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 4096,
+          system: finalSystemPrompt,
+          tools: effectiveTools,
+          ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
+          messages,
+        }),
+      });
+      const result = await apiRes.json();
+      if (!apiRes.ok) {
+        console.error("[companion-chat] Claude API error:", result?.error || result);
+        if (!reply) reply = "Anthropic returned an error. Try again in a moment.";
+        break;
+      }
 
+      const textBlocks = (result.content || []).filter((b: any) => b.type === "text");
+      if (textBlocks[0]?.text) {
+        reply = textBlocks[0].text;
+        if (round === 0) turn1Reply = reply;
+      }
+
+      if (result.stop_reason !== "tool_use") {
+        if (!reply && round === 0) reply = "I'm here — what do you need?";
+        break;
+      }
+
+      const toolUseBlocks = (result.content || []).filter((b: any) => b.type === "tool_use");
       const toolResults: any[] = [];
 
       for (const block of toolUseBlocks) {
         if (block.name === "respond_to_user") {
           // Pure text response wrapped as a tool call (used in auto mode)
           reply = block.input.message || "";
-          turn1Reply = reply;
+          if (round === 0) turn1Reply = reply;
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
         }
 
@@ -1337,70 +1352,20 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         if (moduleResult) toolResults.push(moduleResult);
       }
 
-      // Second Claude call to synthesize tool results into a recommendation.
-      // Always run if there are real data lookups — even if reply was already set by
-      // respond_to_user in Turn 1 (e.g. "Let me look everything up..."). Without this,
-      // the lookup results are silently discarded and Mario never gives the recommendation.
-      const hasDataLookups = toolResults.some((r) =>
-        r.content !== "Message sent." && !String(r.content).startsWith("Navigating to")
+      // Surface orchestrator-built script results directly if we don't have a text reply yet.
+      const orchestratorResult = toolResults.find((r) =>
+        typeof r.content === "string" && r.content.startsWith("BUILT a complete script")
       );
-      if (!reply || hasDataLookups) {
-        const secondRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 1024,
-            system: finalSystemPrompt,
-            tools: effectiveTools,
-            ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
-            messages: [
-              ...priorMessages,
-              { role: "user", content: message },
-              { role: "assistant", content: firstResult.content },
-              { role: "user", content: toolResults },
-            ],
-          }),
-        });
-        const secondResult = await secondRes.json();
-        // In auto mode Mario uses respond_to_user tool; in ask/plan it outputs plain text
-        if (secondResult.stop_reason === "tool_use") {
-          const respondBlock = secondResult.content?.find(
-            (b: any) => b.type === "tool_use" && b.name === "respond_to_user"
-          );
-          const textBlock = secondResult.content?.find((b: any) => b.type === "text");
-          const secondReply = respondBlock?.input?.message || textBlock?.text;
-          if (secondReply) reply = secondReply;
-          // Capture any navigation actions from the second turn
-          const navBlock = secondResult.content?.find(
-            (b: any) => b.type === "tool_use" && b.name === "navigate_to_page"
-          );
-          if (navBlock?.input?.path) actions.push({ type: "navigate", path: navBlock.input.path });
-        } else {
-          const textBlock = secondResult.content?.find((b: any) => b.type === "text");
-          if (textBlock?.text) reply = textBlock.text;
-        }
-        // If Turn 2 only navigated (no text/respond_to_user), check for orchestrator result and surface that
-        if (!reply) {
-          const orchestratorResult = toolResults.find((r) =>
-            typeof r.content === "string" && r.content.startsWith("BUILT a complete script")
-          );
-          if (orchestratorResult) {
-            // Use the orchestrator summary directly as the reply
-            reply = orchestratorResult.content;
-          } else {
-            reply = turn1Reply || "On it.";
-          }
-        }
-      }
-    } else {
-      // Normal text response
-      const textBlock = firstResult.content?.find((b: any) => b.type === "text");
-      reply = textBlock?.text || "I'm here — what do you need?";
+      if (orchestratorResult && !reply) reply = orchestratorResult.content;
+
+      // Append this round's assistant turn + tool results to the conversation,
+      // then loop so Claude can chain another tool or write a final reply.
+      messages.push({ role: "assistant", content: result.content });
+      messages.push({ role: "user", content: toolResults });
+    }
+
+    if (!reply) {
+      reply = turn1Reply || "Let me try again — could you rephrase that?";
     }
 
     // Save assistant reply
