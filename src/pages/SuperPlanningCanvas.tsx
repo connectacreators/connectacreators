@@ -662,11 +662,16 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     // Clear saved script pointer so this new session creates a fresh queue entry on save
     localStorage.removeItem(`canvas_last_script_${userIdRef.current}_${selectedClient.id}`);
     try {
-      // Deactivate previous session first (required by partial unique index)
-      const prevId = activeSessionIdRef.current;
-      if (prevId) {
-        await supabase.from("canvas_states").update({ is_active: false }).eq("id", prevId);
-      }
+      // Deactivate ALL other active sessions for this (client, user) — not just
+      // the one tracked by activeSessionIdRef, which can be stale across tabs or
+      // after a failed operation. The partial unique index allows only one
+      // is_active=true per (client_id, user_id), so leaving stragglers causes 409.
+      await supabase
+        .from("canvas_states")
+        .update({ is_active: false })
+        .eq("client_id", selectedClient.id)
+        .eq("user_id", userIdRef.current)
+        .eq("is_active", true);
 
       // Insert new blank session
       const { data: newSession } = await supabase
@@ -704,10 +709,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     isSwitchingSessionRef.current = true;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     try {
-      // Deactivate previous first, then activate new (partial index constraint)
-      const prevId = activeSessionIdRef.current;
-      if (prevId) {
-        await supabase.from("canvas_states").update({ is_active: false }).eq("id", prevId);
+      // Deactivate ALL other active sessions for this (client, user), then
+      // activate the target. The partial unique index allows only one
+      // is_active=true per (client_id, user_id); relying on activeSessionIdRef
+      // alone misses stragglers from other tabs or failed prior ops, causing 409.
+      if (userIdRef.current) {
+        await supabase
+          .from("canvas_states")
+          .update({ is_active: false })
+          .eq("client_id", selectedClient.id)
+          .eq("user_id", userIdRef.current)
+          .eq("is_active", true)
+          .neq("id", session.id);
       }
       await supabase.from("canvas_states").update({ is_active: true }).eq("id", session.id);
 
@@ -885,6 +898,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
           // Ensure this session is marked active (may have been deactivated by a previous switch)
           if (!activeMeta.is_active) {
+            // Deactivate any racing active row for the same (client, owner) before flipping
+            // to avoid colliding with the partial unique index (one active per client+user).
+            await supabase
+              .from("canvas_states")
+              .update({ is_active: false })
+              .eq("client_id", selectedClient.id)
+              .eq("user_id", activeMeta.user_id)
+              .eq("is_active", true)
+              .neq("id", activeMeta.id);
             await supabase.from("canvas_states").update({ is_active: true }).eq("id", activeMeta.id);
           }
 

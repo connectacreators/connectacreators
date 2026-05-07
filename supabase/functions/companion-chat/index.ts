@@ -653,7 +653,7 @@ YOUR RULES — FOLLOW EXACTLY:
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Script-building requests ("build me a script") are routed to a separate dedicated build flow before reaching you — you will not see them here. Just answer the user's other questions naturally.
-19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files. Use them. Don't describe what you'd do — do it.
+19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -1350,6 +1350,18 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           await handleClientTool(block, moduleCtx) ??
           await handleResearchTool(block, moduleCtx);
         if (moduleResult) toolResults.push(moduleResult);
+
+        // Fallback: ensure every tool_use_id has a matching tool_result, otherwise
+        // Anthropic's next-round request 400s with "tool_use without tool_result".
+        if (!toolResults.some((r) => r.tool_use_id === block.id)) {
+          console.warn(`[companion-chat] Unhandled tool call: ${block.name}`);
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: `Tool "${block.name}" is not implemented or returned no result.`,
+            is_error: true,
+          });
+        }
       }
 
       // Surface orchestrator-built script results directly if we don't have a text reply yet.
