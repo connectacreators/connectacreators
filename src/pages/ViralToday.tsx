@@ -945,6 +945,7 @@ export default function ViralToday() {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [filterSource, setFilterSource] = useState("all"); // "all" | "channels" | "discovered"
   const [filterSort, setFilterSort] = useState("foryou");
+  const [showOnlyFeatured, setShowOnlyFeatured] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const videosPerPage = 100;
@@ -1504,6 +1505,11 @@ export default function ViralToday() {
       result = result.filter((v) => v.channel_id === null);
     }
 
+    // Top frameworks toggle — show only admin-curated featured frameworks
+    if (showOnlyFeatured) {
+      result = result.filter((v) => v.is_featured_framework === true);
+    }
+
     // Platform, date, outlier, views, engagement are filtered server-side in fetchVideos()
 
     // Smart search: hashtag_source match, strip #/@, partial words, joined words
@@ -1572,7 +1578,8 @@ export default function ViralToday() {
     filterViews !== "0" ||
     filterEngagement !== "0" ||
     filterSource !== "all" ||
-    selectedChannelIds.length > 0;
+    selectedChannelIds.length > 0 ||
+    showOnlyFeatured;
 
   const clearFilters = () => {
     setFilterDate("12months");
@@ -1585,6 +1592,7 @@ export default function ViralToday() {
     setSelectedChannelIds([]);
     setSearch("");
     setShowSeen(false);
+    setShowOnlyFeatured(false);
     setCurrentPage(0);
   };
 
@@ -1881,6 +1889,21 @@ export default function ViralToday() {
                     onChange={setFilterEngagement}
                     isActive={filterEngagement !== "0"}
                   />
+
+                  <button
+                    onClick={() => setShowOnlyFeatured((v) => !v)}
+                    className={`h-7 px-3 rounded-full text-[11px] font-medium border transition-all flex items-center gap-1 ${
+                      showOnlyFeatured
+                        ? "text-yellow-300 border-yellow-400/40 bg-yellow-400/10"
+                        : "text-white/70 border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                    }`}
+                    title="Show only admin-curated top frameworks"
+                  >
+                    <Star
+                      className={`w-3 h-3 ${showOnlyFeatured ? "fill-yellow-400 text-yellow-400" : ""}`}
+                    />
+                    Top Only
+                  </button>
 
                   {hasActiveFilters && (
                     <button

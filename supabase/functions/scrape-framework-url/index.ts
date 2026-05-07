@@ -38,6 +38,27 @@ function detectPlatform(url: string): "instagram" | "tiktok" | "youtube" {
   return "instagram";
 }
 
+// Extract the canonical video id from a public URL. Used as the apify_video_id
+// for upsert dedup so we don't fight the existing (platform, apify_video_id)
+// unique index.
+function extractVideoIdFromUrl(url: string, platform: string): string | null {
+  if (platform === "instagram") {
+    const m = url.match(/\/(?:reels?|p)\/([A-Za-z0-9_-]+)/);
+    return m?.[1] ?? null;
+  }
+  if (platform === "tiktok") {
+    const m = url.match(/\/video\/(\d+)/);
+    return m?.[1] ?? null;
+  }
+  if (platform === "youtube") {
+    const m = url.match(/[?&]v=([A-Za-z0-9_-]+)/)
+      ?? url.match(/youtu\.be\/([A-Za-z0-9_-]+)/)
+      ?? url.match(/\/shorts\/([A-Za-z0-9_-]+)/);
+    return m?.[1] ?? null;
+  }
+  return null;
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -113,6 +134,7 @@ serve(async (req: Request) => {
 
   const niche_tags = extractNicheTags(caption);
   const framework_score = computeFrameworkScore(outlier, engagementRate, postedAt);
+  const apifyVideoId = String(vpsData?.id ?? extractVideoIdFromUrl(url, platform) ?? `manual_${Date.now()}`);
 
   // Cache thumbnail if CDN URL
   let thumbnailUrl: string | null = vpsData?.thumbnail ?? null;
@@ -137,6 +159,7 @@ serve(async (req: Request) => {
       channel_username: channelUsername,
       platform,
       video_url: url,
+      apify_video_id: apifyVideoId,
       thumbnail_url: thumbnailUrl,
       caption,
       views_count: views,
@@ -149,7 +172,7 @@ serve(async (req: Request) => {
       is_featured_framework: true,
       niche_tags,
       framework_score,
-    }, { onConflict: "platform,video_url", ignoreDuplicates: false })
+    }, { onConflict: "platform,apify_video_id", ignoreDuplicates: false })
     .select("id")
     .single();
 
