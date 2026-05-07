@@ -467,6 +467,11 @@ serve(async (req) => {
     // If user is on /clients/:clientId/... use THAT client (URL trumps name-matching)
     const urlClientMatch = current_path?.match(/\/clients\/([0-9a-f-]{36})/i);
     const urlClientId = urlClientMatch?.[1] ?? null;
+    // When the user is on the dedicated AI chat surface (/ai), suppress
+    // auto-navigation actions emitted by data tools (create_script,
+    // schedule_content, etc.). Auto-navigation unmounts CommandCenter and
+    // closes the AI session — users came here to chat, not to be teleported.
+    const isOnAiSurface = current_path === "/ai" || current_path?.startsWith("/ai/") || false;
 
     let client: { id: string; name: string | null; onboarding_data: any } | null = null;
 
@@ -793,8 +798,9 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               }));
               await adminClient.from("script_lines").insert(lineRows);
 
-              // Navigate to the client's scripts page
-              actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
+              // Navigate to the client's scripts page (suppressed on /ai so
+              // we don't unmount the chat surface mid-conversation)
+              if (!isOnAiSurface) actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
               actions.push({ type: "refresh_data", scope: "scripts" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
             }
@@ -889,12 +895,12 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               .maybeSingle();
             if (existing) {
               await adminClient.from("video_edits").update({ schedule_date: date, caption: caption || null }).eq("id", existing.id);
-              actions.push({ type: "navigate", path: "/content-calendar" });
+              if (!isOnAiSurface) actions.push({ type: "navigate", path: "/content-calendar" });
               actions.push({ type: "refresh_data", scope: "calendar" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Scheduled '" + title + "' for " + date });
             } else {
               await adminClient.from("video_edits").insert({ client_id: targetClient.id, reel_title: title, schedule_date: date, caption: caption || null, status: "Not started", post_status: "Unpublished" });
-              actions.push({ type: "navigate", path: "/content-calendar" });
+              if (!isOnAiSurface) actions.push({ type: "navigate", path: "/content-calendar" });
               actions.push({ type: "refresh_data", scope: "calendar" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Created and scheduled '" + title + "' for " + date });
             }
@@ -915,7 +921,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               revisions: notes || null,
               schedule_date: schedule_date || null,
             }).select("id").single();
-            actions.push({ type: "navigate", path: "/editing-queue" });
+            if (!isOnAiSurface) actions.push({ type: "navigate", path: "/editing-queue" });
             actions.push({ type: "refresh_data", scope: "editing_queue" });
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "'" + title + "' added to editing queue for " + targetClient.name });
           }
@@ -990,7 +996,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             if (canvasState) {
               const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
               await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
-              actions.push({ type: "navigate", path: "/scripts?view=canvas" });
+              if (!isOnAiSurface) actions.push({ type: "navigate", path: "/scripts?view=canvas" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Note added to " + targetClient.name + "'s canvas." });
             } else {
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No active canvas found for " + targetClient.name + ". Have them open the Connecta AI canvas first." });
@@ -1044,7 +1050,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 },
               };
               await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
-              actions.push({ type: "navigate", path: "/scripts?view=canvas" });
+              if (!isOnAiSurface) actions.push({ type: "navigate", path: "/scripts?view=canvas" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Video node added to canvas for ${targetClient.name}: "${video_title}". The node will auto-transcribe when the canvas opens. Row position: ${rowY}.` });
             }
           }
@@ -1182,7 +1188,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 { script_id: script.id, line_number: bodyLines.length + 2, line_type: "cta", section: "cta", text: cta },
               ];
               await adminClient.from("script_lines").insert(lineRows);
-              actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
+              if (!isOnAiSurface) actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
               actions.push({ type: "refresh_data", scope: "scripts" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script "${title}" saved to ${targetClient.name}'s scripts library.` });
             }
