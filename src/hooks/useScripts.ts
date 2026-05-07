@@ -244,9 +244,12 @@ export function useScripts() {
         await supabase.from("script_lines").delete().eq("script_id", script.id);
       } else {
         // Resolve unique title — auto-rename to "Title (1)" etc. if a duplicate exists
+        console.log("[directSave] incoming ideaGanadora =", JSON.stringify(params.ideaGanadora));
         const resolvedTitle = await resolveUniqueTitle(params.clientId, params.ideaGanadora);
+        console.log("[directSave] resolveUniqueTitle returned =", JSON.stringify(resolvedTitle));
         if (resolvedTitle !== params.ideaGanadora.replace(/\s*\(\d+\)$/, '').trim()) {
           renamedTo = resolvedTitle;
+          console.log("[directSave] title was auto-renamed because base already existed for client", params.clientId);
         }
 
         const { data, error: scriptErr } = await supabase

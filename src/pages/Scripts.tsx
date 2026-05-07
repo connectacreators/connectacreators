@@ -1132,6 +1132,7 @@ export default function Scripts() {
   };
 
   const handleCategorize = async () => {
+    console.log("[scripts:handleCategorize] fired. scriptTitle state =", JSON.stringify(scriptTitle), "trimmed =", JSON.stringify(scriptTitle.trim()));
     if (!scriptInput.trim() || !selectedClient) return;
 
     // Parse script input — assign sections positionally (first=hook, last=cta, middle=body)
@@ -1171,10 +1172,12 @@ export default function Scripts() {
       }
     }
 
+    const ideaGanadoraToSave = scriptTitle.trim() || "Sin título";
+    console.log("[scripts:handleCategorize] sending to directSave: ideaGanadora =", JSON.stringify(ideaGanadoraToSave), "raw scriptTitle =", JSON.stringify(scriptTitle));
     const result = await directSave({
       clientId: selectedClient.id,
       lines: scriptLines,
-      ideaGanadora: scriptTitle.trim() || "Sin título",
+      ideaGanadora: ideaGanadoraToSave,
       target: "",
       formato: formato || "",
       inspirationUrl: inspirationUrl.trim() || undefined,
@@ -2379,7 +2382,16 @@ export default function Scripts() {
 
                  <p className="text-sm text-muted-foreground mb-4">{tr(t.scripts.pasteHint, language)}</p>
 
-                 <Input placeholder={tr(t.scripts.scriptTitle, language)} value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} className="mb-3" />
+                 <Input
+                   placeholder={tr(t.scripts.scriptTitle, language)}
+                   value={scriptTitle}
+                   onChange={(e) => {
+                     console.log("[scripts:title-input] onChange ->", JSON.stringify(e.target.value));
+                     setScriptTitle(e.target.value);
+                   }}
+                   onBlur={(e) => console.log("[scripts:title-input] onBlur ->", JSON.stringify(e.target.value), "state:", JSON.stringify(scriptTitle))}
+                   className="mb-3"
+                 />
                  <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
                  
                  {/* Vault Template Toggle */}
