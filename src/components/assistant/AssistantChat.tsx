@@ -482,35 +482,14 @@ export function AssistantChat({
                       answers={msg.meta.deck_answers}
                     />
                   ) : (
-                    <div className="relative">
-                      <svg
-                        style={{
-                          position: "absolute",
-                          inset: -3,
-                          width: "calc(100% + 6px)",
-                          height: "calc(100% + 6px)",
-                          overflow: "visible",
-                          pointerEvents: "none",
-                        }}
-                        viewBox="0 0 200 40"
-                        preserveAspectRatio="none"
-                      >
-                        <path
-                          d="M8,2 C60,0.5 140,0.5 188,2 C195,2.5 198,5 198,9 C199,17 199,28 198,33 C197,36.5 193,38.5 185,39 C130,40 70,40 18,39 C8,38.5 3,36 2,32 C1,26 1,14 2,8 C2.5,4.5 5,2.5 8,2 Z"
-                          fill="none"
-                          stroke="rgba(201,169,110,0.28)"
-                          strokeWidth="1.2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeDasharray={500}
-                          strokeDashoffset={500}
-                          vectorEffect="non-scaling-stroke"
-                          style={{ animation: "scribbleDrawIn 0.5s cubic-bezier(0.4,0,0.2,1) 0.05s forwards" }}
-                        />
-                      </svg>
-                      <div className={`px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}>
-                        {msg.content}
-                      </div>
+                    <div
+                      className={`px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}
+                      style={{
+                        border: "1px solid rgba(201,169,110,0.28)",
+                        borderRadius: 10,
+                      }}
+                    >
+                      {msg.content}
                     </div>
                   )}
                   <button
