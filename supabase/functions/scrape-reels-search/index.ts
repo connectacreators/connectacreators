@@ -18,6 +18,30 @@ const STOP_WORDS = new Set([
   "i", "my", "me", "we", "you", "your", "it", "its", "as", "from",
 ]);
 
+// ── Framework helpers ─────────────────────────────────────────────────────
+
+function extractNicheTags(caption: string | null, hashtagSource: string | null): string[] {
+  const tags: string[] = [];
+  if (hashtagSource) tags.push(hashtagSource.toLowerCase().trim());
+  if (caption) {
+    const matches = caption.match(/#([a-zA-Z][a-zA-Z0-9_]{1,49})/g) ?? [];
+    for (const m of matches) tags.push(m.slice(1).toLowerCase());
+  }
+  return [...new Set(tags)].slice(0, 20);
+}
+
+function computeFrameworkScore(
+  outlier: number,
+  engagement: number,
+  postedAt: string | null,
+  scrapedAt: string,
+): number {
+  const now = Date.now();
+  const ref = postedAt ? new Date(postedAt).getTime() : new Date(scrapedAt).getTime();
+  const daysSince = (now - ref) / 86_400_000;
+  return outlier * Math.log(1 + engagement) * Math.exp(-daysSince / 30);
+}
+
 async function fetchVpsWithRetry(url: string, init: RequestInit, retries = 2, delayMs = 6000): Promise<Response> {
   let res = await fetch(url, init);
   while (res.status === 503 && retries-- > 0) {
@@ -266,6 +290,13 @@ serve(async (req) => {
           scraped_at: new Date().toISOString(),
           apify_video_id: String(videoId),
           hashtag_source: cleanQuery,
+          niche_tags: extractNicheTags(caption.slice(0, 600), cleanQuery),
+          framework_score: computeFrameworkScore(
+            Number(post.outlier_score) || 1,
+            engagementRate,
+            postedAt,
+            new Date().toISOString(),
+          ),
         };
       })
       .filter((v): v is NonNullable<typeof v> =>

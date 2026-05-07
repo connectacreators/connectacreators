@@ -11,12 +11,13 @@ import {
   Loader2, TrendingUp, Instagram, Search, ChevronDown, X,
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
-  Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare,
+  Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCredits } from "@/hooks/useCredits";
+import { getAuthToken } from "@/lib/getAuthToken";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
 
 // ── Language support ──────────────────────────────────────────────────────
@@ -169,6 +170,9 @@ interface ViralVideo {
   hashtag_source?: string | null;
   user_submitted?: boolean | null;
   submitted_by?: string | null;
+  is_featured_framework?: boolean;
+  niche_tags?: string[];
+  framework_score?: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -506,7 +510,7 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
 
 // Video card
 function VideoCard({
-  video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo,
+  video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured,
 }: {
   video: ViralVideo;
   isAdmin?: boolean;
@@ -515,6 +519,7 @@ function VideoCard({
   onToggleSelect?: (video: ViralVideo) => void;
   onSeen?: (id: string) => void;
   onClickVideo?: (id: string) => void;
+  onToggleFeatured?: (video: ViralVideo) => void;
 }) {
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? Instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
@@ -620,28 +625,56 @@ function VideoCard({
           )}
         </div>
 
-        {/* Top-right: trash (admin) or external link (non-admin) */}
-        {isAdmin ? (
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 z-10 hover:bg-red-600/80 transition-colors"
-            title="Remove video"
-          >
-            {deleting ? <Loader2 className="w-3 h-3 text-white animate-spin" /> : <Trash2 className="w-3 h-3 text-white/80" />}
-          </button>
-        ) : (
-          <a
-            href={video.video_url ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 z-10 hover:bg-black/80 transition-colors"
-            title="Open original"
-          >
-            <ExternalLink className="w-3 h-3 text-white/80" />
-          </a>
-        )}
+        {/* Top-right: star (featured) + trash (admin) or external link (non-admin) */}
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+          {/* Featured star — admin can toggle, non-admin sees read-only when featured */}
+          {(video.is_featured_framework || isAdmin) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isAdmin && onToggleFeatured) onToggleFeatured(video);
+              }}
+              className={cn(
+                "w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border transition-colors",
+                video.is_featured_framework
+                  ? "border-yellow-400/60 hover:bg-yellow-500/20"
+                  : "border-white/10 hover:border-yellow-400/40",
+                !isAdmin && "cursor-default",
+              )}
+              title={video.is_featured_framework ? "Top Framework" : "Mark as Top Framework"}
+              disabled={!isAdmin}
+            >
+              <Star
+                className={cn(
+                  "w-3 h-3",
+                  video.is_featured_framework ? "text-yellow-400 fill-yellow-400" : "text-white/40",
+                )}
+              />
+            </button>
+          )}
+
+          {isAdmin ? (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-red-600/80 transition-colors"
+              title="Remove video"
+            >
+              {deleting ? <Loader2 className="w-3 h-3 text-white animate-spin" /> : <Trash2 className="w-3 h-3 text-white/80" />}
+            </button>
+          ) : (
+            <a
+              href={video.video_url ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors"
+              title="Open original"
+            >
+              <ExternalLink className="w-3 h-3 text-white/80" />
+            </a>
+          )}
+        </div>
 
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
@@ -915,6 +948,10 @@ export default function ViralToday() {
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const videosPerPage = 100;
+
+  // Admin: paste URL to add framework
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [pastingUrl, setPastingUrl] = useState(false);
 
   // ── Feed algorithm state ──────────────────────────────────────────────────
   // initialInteractions is the snapshot from DB at mount — used for "For You" sort's unseen_bonus.
@@ -1365,6 +1402,47 @@ export default function ViralToday() {
     setVideos((prev) => prev.filter((v) => v.channel_id !== id));
   };
 
+  const handleToggleFeatured = async (video: ViralVideo) => {
+    const next = !video.is_featured_framework;
+    const { error } = await supabase
+      .from("viral_videos")
+      .update({ is_featured_framework: next })
+      .eq("id", video.id);
+    if (error) {
+      toast.error("Failed to update framework status");
+      return;
+    }
+    setVideos((prev) =>
+      prev.map((v) => (v.id === video.id ? { ...v, is_featured_framework: next } : v))
+    );
+    toast.success(next ? "Marked as Top Framework" : "Removed from Top Frameworks");
+  };
+
+  const handlePasteUrl = async () => {
+    if (!pasteUrl.trim() || pastingUrl) return;
+    setPastingUrl(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-framework-url`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ url: pasteUrl.trim() }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add framework");
+      toast.success(`Framework added — @${data.channel_username}`);
+      setPasteUrl("");
+      fetchVideos();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to add framework");
+    } finally {
+      setPastingUrl(false);
+    }
+  };
+
   const handleDiscoverSearch = async () => {
     if (!search.trim() || isDiscovering) return;
     setIsDiscovering(true);
@@ -1662,6 +1740,38 @@ export default function ViralToday() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
+                {/* Admin: Add Framework by URL */}
+                {isAdmin && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="relative flex-1 max-w-sm">
+                      <input
+                        type="url"
+                        value={pasteUrl}
+                        onChange={(e) => setPasteUrl(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handlePasteUrl()}
+                        placeholder="Add framework by URL (Instagram or TikTok)"
+                        className="w-full h-8 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm px-3 pr-8 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-yellow-500/60"
+                      />
+                      {pasteUrl && (
+                        <button
+                          onClick={() => setPasteUrl("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      onClick={handlePasteUrl}
+                      disabled={!pasteUrl.trim() || pastingUrl}
+                      className="h-8 px-3 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5"
+                    >
+                      {pastingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
+                      {pastingUrl ? "Adding…" : "Add Framework"}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Search + sort bar */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="relative flex-1 max-w-lg">
@@ -1839,6 +1949,7 @@ export default function ViralToday() {
                             selected={selectedVideos.has(v.id)}
                             onToggleSelect={toggleVideoSelect}
                             onClickVideo={reportClick}
+                            onToggleFeatured={isAdmin ? handleToggleFeatured : undefined}
                           />
                         ))}
                       </AnimatePresence>

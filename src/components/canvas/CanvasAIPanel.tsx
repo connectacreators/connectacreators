@@ -1129,7 +1129,6 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     console.log("[chat] sendMessage: notifying parent, ref:", typeof onMessagesChangeRef.current, "msgs:", updated.length);
     onMessagesChangeRef.current?.(updated); // persist user message immediately
     setInput(""); (window as any).__canvasAIDraftInput = null; if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
-    setAtMentionQuery(null);
     setLoading(true);
 
     try {
