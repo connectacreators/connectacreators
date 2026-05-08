@@ -91,6 +91,7 @@ export default function CommandCenter() {
     loadingTasks,
     refreshTasks,
     autonomyMode,
+    setAutonomyMode,
   } = useCompanion();
   const { mode, clientId: urlClientId } = useAssistantMode();
   const path = useCurrentPath();
@@ -659,6 +660,32 @@ export default function CommandCenter() {
                     ))}
                   </div>
                 )}
+                {/* Autonomy mode toggle — Auto / Ask / Plan. Persisted via
+                    CompanionContext so the drawer and /ai stay in sync. */}
+                <div className="flex items-center justify-end gap-1 mb-2 px-1">
+                  <span className="text-[10px] text-white/35 mr-1">Mode:</span>
+                  {(["auto", "ask", "plan"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setAutonomyMode(m)}
+                      className="text-[10px] font-medium px-2.5 py-0.5 rounded-md transition-all"
+                      style={{
+                        background: autonomyMode === m ? "rgba(201,169,110,0.15)" : "transparent",
+                        color: autonomyMode === m ? "rgba(201,169,110,0.95)" : "rgba(255,255,255,0.4)",
+                        border: `1px solid ${autonomyMode === m ? "rgba(201,169,110,0.35)" : "rgba(255,255,255,0.08)"}`,
+                      }}
+                      title={
+                        m === "auto"
+                          ? "Auto — Robby acts without confirming"
+                          : m === "ask"
+                            ? "Ask — Robby confirms before changing data"
+                            : "Plan — Robby writes a plan and waits for approval"
+                      }
+                    >
+                      {m[0].toUpperCase() + m.slice(1)}
+                    </button>
+                  ))}
+                </div>
                 <AssistantTextInput
                   value={input}
                   onChange={setInput}
@@ -670,6 +697,53 @@ export default function CommandCenter() {
                       ? "Ask anything..."
                       : "Pregunta lo que sea..."
                   }
+                  promptPresets={[
+                    {
+                      name: en ? "Morning brief" : "Resumen del día",
+                      description: en
+                        ? "What changed since yesterday + open alerts"
+                        : "Qué cambió desde ayer + alertas pendientes",
+                      prompt: en
+                        ? "Give me my morning brief — what changed in the last 24h and what needs my attention today?"
+                        : "Dame mi resumen del día — qué cambió en las últimas 24h y qué necesita mi atención hoy.",
+                    },
+                    {
+                      name: en ? "What's stuck?" : "¿Qué está atorado?",
+                      description: en
+                        ? "Overdue edits, stale leads, scripts not recorded"
+                        : "Edits vencidos, leads viejos, scripts sin grabar",
+                      prompt: en
+                        ? "Show me everything that's stuck or overdue across my clients."
+                        : "Muéstrame todo lo que está atorado o vencido en mis clientes.",
+                    },
+                    {
+                      name: en ? "Weekly plan" : "Plan semanal",
+                      description: en
+                        ? "Generate a 5-day content plan for one client"
+                        : "Genera un plan de 5 días para un cliente",
+                      prompt: en
+                        ? "Generate a 5-day content plan for [client name]."
+                        : "Genera un plan de 5 días para [nombre del cliente].",
+                    },
+                    {
+                      name: en ? "Build a script" : "Construir un script",
+                      description: en
+                        ? "End-to-end: idea → framework → script → schedule"
+                        : "De principio a fin: idea → framework → script → calendario",
+                      prompt: en
+                        ? "Let's build a script for [client name]."
+                        : "Construyamos un script para [nombre del cliente].",
+                    },
+                    {
+                      name: en ? "Catch me up on a client" : "Ponme al día sobre un cliente",
+                      description: en
+                        ? "Status, recent activity, what's next"
+                        : "Estado, actividad reciente, próximos pasos",
+                      prompt: en
+                        ? "Catch me up on [client name] — recent activity and what's next."
+                        : "Ponme al día sobre [nombre del cliente] — actividad reciente y próximos pasos.",
+                    },
+                  ]}
                 />
               </div>
             </main>
