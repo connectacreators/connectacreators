@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
@@ -903,24 +904,82 @@ export default function LeadTracker() {
                           <SelectItem value="custom">{language === "en" ? "Custom range" : "Rango personalizado"}</SelectItem>
                         </SelectContent>
                       </Select>
-                      {dateFilter === "custom" && (
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <Input
-                            type="date"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                            className="h-9 bg-background/50 border-border/50 text-xs"
-                            placeholder="From"
-                          />
-                          <Input
-                            type="date"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                            className="h-9 bg-background/50 border-border/50 text-xs"
-                            placeholder="To"
-                          />
-                        </div>
-                      )}
+                      {dateFilter === "custom" && (() => {
+                        const formatLocal = (d: Date) => {
+                          const yr = d.getFullYear();
+                          const mo = String(d.getMonth() + 1).padStart(2, "0");
+                          const dy = String(d.getDate()).padStart(2, "0");
+                          return `${yr}-${mo}-${dy}`;
+                        };
+                        const fmtLabel = (s: string) =>
+                          parseLocalDate(s).toLocaleDateString(language === "en" ? "en-US" : "es-ES", {
+                            month: "short", day: "numeric", year: "numeric",
+                          });
+                        const fromDate = dateFrom ? parseLocalDate(dateFrom) : undefined;
+                        const toDate = dateTo ? parseLocalDate(dateTo) : undefined;
+                        const triggerCls = "h-9 w-full px-3 inline-flex items-center justify-between gap-1.5 rounded-md bg-background/50 border border-border/50 text-xs text-foreground hover:bg-background/80 transition-colors";
+                        return (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button type="button" className={triggerCls}>
+                                  <span className={dateFrom ? "" : "text-muted-foreground"}>
+                                    {dateFrom ? fmtLabel(dateFrom) : (language === "en" ? "From" : "Desde")}
+                                  </span>
+                                  <Calendar className="w-3.5 h-3.5 opacity-60" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarPicker
+                                  mode="single"
+                                  selected={fromDate}
+                                  onSelect={(d) => setDateFrom(d ? formatLocal(d) : "")}
+                                  initialFocus
+                                />
+                                {dateFrom && (
+                                  <div className="border-t p-2 flex justify-end">
+                                    <button
+                                      className="text-xs text-destructive hover:underline"
+                                      onClick={() => setDateFrom("")}
+                                    >
+                                      {language === "en" ? "Clear" : "Limpiar"}
+                                    </button>
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button type="button" className={triggerCls}>
+                                  <span className={dateTo ? "" : "text-muted-foreground"}>
+                                    {dateTo ? fmtLabel(dateTo) : (language === "en" ? "To" : "Hasta")}
+                                  </span>
+                                  <Calendar className="w-3.5 h-3.5 opacity-60" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarPicker
+                                  mode="single"
+                                  selected={toDate}
+                                  onSelect={(d) => setDateTo(d ? formatLocal(d) : "")}
+                                  initialFocus
+                                  disabled={fromDate ? { before: fromDate } : undefined}
+                                />
+                                {dateTo && (
+                                  <div className="border-t p-2 flex justify-end">
+                                    <button
+                                      className="text-xs text-destructive hover:underline"
+                                      onClick={() => setDateTo("")}
+                                    >
+                                      {language === "en" ? "Clear" : "Limpiar"}
+                                    </button>
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        );
+                      })()}
                     </div>
                     {activeCount > 0 && (
                       <button
