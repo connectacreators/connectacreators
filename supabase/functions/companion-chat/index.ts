@@ -637,6 +637,30 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Open-alerts count for the system-prompt insert. Cheap (count-only) and
+    // gives the model a hint to call get_open_alerts when relevant. Scoped
+    // by the same access model as the get_open_alerts tool.
+    let openAlertsCount = 0;
+    try {
+      let alertQ = adminClient
+        .from("companion_alerts")
+        .select("id", { count: "exact", head: true })
+        .is("dismissed_at", null);
+      if (!isAdmin) {
+        const allowed = accessibleClientIds ?? [];
+        if (allowed.length === 0) {
+          // No accessible clients → no alerts. Skip the count entirely.
+          alertQ = alertQ.eq("id", "00000000-0000-0000-0000-000000000000");
+        } else {
+          alertQ = alertQ.or(`user_id.eq.${user.id},client_id.in.(${allowed.join(",")})`);
+        }
+      }
+      const { count } = await alertQ;
+      openAlertsCount = count ?? 0;
+    } catch (e) {
+      console.warn("[companion-chat] alert count failed (non-fatal):", e);
+    }
+
     // Load memory, strategy, history in parallel.
     //
     // History is loaded from assistant_messages keyed by THREAD ID, not from
@@ -744,6 +768,7 @@ Currently on page: ${current_path || "unknown"}
 ${urlClientId
   ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.`
   : `\nAGENCY VIEW: There is NO single active client on this page. The user is the agency owner managing many clients. Whenever they mention a client by name (e.g. "Dr Calvin", "make ideas for X", "what's Y's pipeline"), call the appropriate tool with that name as client_name — the lookup handles fuzzy matching (case, punctuation, partial names all work). NEVER assume the user IS the client; "${client.name}" is just the default credit/billing identity, not the work target. If you genuinely don't know which client they mean, call list_all_clients to see options.`}
+${openAlertsCount > 0 ? `\nALERTS: There are ${openAlertsCount} open alert(s) the user hasn't dismissed (stuck clients, overdue scripts, stale leads, etc.). When the user opens a fresh conversation OR asks "what's up", "what needs attention", "catch me up", call get_open_alerts to surface 1-2 of the most relevant items in your reply. Do NOT dump the full list every turn — be selective and conversational.` : ""}
 ${brandLines ? `\nOnboarding data:\n${brandLines}` : "\nNo onboarding data yet."}
 ${strategyContext}
 ${memoriesText}
@@ -768,7 +793,7 @@ YOUR RULES — FOLLOW EXACTLY:
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
 18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
-19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files, get_post_performance, compare_clients, get_recent_activity. Use them. Don't describe what you'd do — do it.
+19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files, get_post_performance, compare_clients, get_recent_activity, get_open_alerts, dismiss_alert. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"

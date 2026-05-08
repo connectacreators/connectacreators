@@ -39,6 +39,22 @@ export const INTELLIGENCE_TOOLS: ToolDef[] = [
       required: ["client_name", "contract_id"],
     },
   },
+  {
+    name: "get_open_alerts",
+    description: "Read the proactive alerts the system has surfaced for this user: stuck clients (no posts 14d+), approved scripts not recorded after 7d, video edits past deadline, leads with overdue follow-ups, clients behind monthly revenue goal. Call this when the user opens a fresh conversation, asks 'what needs my attention?', or any time you want to coach them on what's most urgent. Returns up to 10 alerts ranked by severity then recency. Mention the most relevant 1-2 in your response — don't dump the whole list.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "dismiss_alert",
+    description: "Mark a specific alert as handled or no longer relevant. Use after the user has addressed the issue or explicitly said they don't want to see it again. Pass the alert id from get_open_alerts.",
+    input_schema: {
+      type: "object",
+      properties: {
+        alert_id: { type: "string", description: "UUID of the alert to dismiss" },
+      },
+      required: ["alert_id"],
+    },
+  },
 ];
 
 export async function handleIntelligenceTool(
@@ -166,6 +182,66 @@ export async function handleIntelligenceTool(
 
     actions.push({ type: "refresh_data", scope: "contracts" });
     return { type: "tool_result", tool_use_id: block.id, content: `Contract sent to ${clientRow.name}.` };
+  }
+
+  if (block.name === "get_open_alerts") {
+    // Admins see alerts across the whole agency; non-admins see alerts
+    // scoped to clients they own or subscribe to. The companion_alerts
+    // table is keyed on user_id (the client owner), so for admins we drop
+    // the user_id filter; for subscribers we filter by accessibleClientIds.
+    let q = ctx.adminClient
+      .from("companion_alerts")
+      .select("id, kind, severity, title, body, client_id, created_at")
+      .is("dismissed_at", null);
+    if (!ctx.isAdmin) {
+      const allowed = ctx.accessibleClientIds ?? [];
+      if (allowed.length === 0) return { type: "tool_result", tool_use_id: block.id, content: "No open alerts." };
+      // Either the alert directly targets this user, or it concerns a
+      // client they subscribe to.
+      q = q.or(`user_id.eq.${ctx.userId},client_id.in.(${allowed.join(",")})`);
+    }
+    // severity sort: high → normal → low. Postgres orders text alphabetically
+    // and "high" < "low" < "normal", so we have to compute a numeric rank
+    // client-side. Fetch a generous window and sort in JS.
+    const { data: alerts } = await q.order("created_at", { ascending: false }).limit(50);
+    if (!alerts || alerts.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "No open alerts. Everything looks on track." };
+    }
+    const sevRank: Record<string, number> = { high: 0, normal: 1, low: 2 };
+    const sorted = [...alerts]
+      .sort((a, b) => (sevRank[a.severity] ?? 1) - (sevRank[b.severity] ?? 1))
+      .slice(0, 10);
+    const lines = sorted.map((a) =>
+      `[${a.severity}] (id: ${a.id}) ${a.title}${a.body ? "\n  " + a.body : ""}`,
+    );
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `${alerts.length} open alert(s); top ${sorted.length}:\n\n${lines.join("\n\n")}`,
+    };
+  }
+
+  if (block.name === "dismiss_alert") {
+    const { alert_id } = block.input;
+    if (!alert_id) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: alert_id is required." };
+    }
+    // Build update: set dismissed_at = now(); ownership filter for non-admins.
+    let q = ctx.adminClient
+      .from("companion_alerts")
+      .update({ dismissed_at: new Date().toISOString() })
+      .eq("id", alert_id);
+    if (!ctx.isAdmin) {
+      const allowed = ctx.accessibleClientIds ?? [];
+      if (allowed.length === 0) {
+        return { type: "tool_result", tool_use_id: block.id, content: "No alerts you can dismiss." };
+      }
+      q = q.or(`user_id.eq.${ctx.userId},client_id.in.(${allowed.join(",")})`);
+    }
+    const { data, error } = await q.select("id").maybeSingle();
+    if (error) return { type: "tool_result", tool_use_id: block.id, content: `Failed to dismiss: ${error.message}` };
+    if (!data) return { type: "tool_result", tool_use_id: block.id, content: `Alert ${alert_id} not found or not accessible.` };
+    return { type: "tool_result", tool_use_id: block.id, content: `Alert dismissed.` };
   }
 
   return null;
