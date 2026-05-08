@@ -86,8 +86,10 @@ export async function handleIntelligenceTool(
     });
 
     const lines = rows.map(r => {
-      const stalled = r.scripts === 0 && r.scriptsTarget > 0 ? " ⚠ NO SCRIPTS" : "";
-      return `${r.name}: ${r.scripts}/${r.scriptsTarget} scripts · ${r.videos}/${r.videosTarget} videos · ${r.posts}/${r.postsTarget} posts${stalled} (last script: ${r.lastScript})`;
+      // No emojis — rule 2 of the system prompt forbids them, and the model
+      // gets confused when tool output contradicts its own output rules.
+      const stalled = r.scripts === 0 && r.scriptsTarget > 0 ? " [STALLED — no scripts this month]" : "";
+      return `${r.name}: ${r.scripts}/${r.scriptsTarget} scripts, ${r.videos}/${r.videosTarget} videos, ${r.posts}/${r.postsTarget} posts${stalled} (last script: ${r.lastScript})`;
     });
 
     return { type: "tool_result", tool_use_id: block.id, content: `All clients — ${now.toLocaleString("en-US", { month: "long" })} ${now.getFullYear()}:\n${lines.join("\n")}` };

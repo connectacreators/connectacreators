@@ -18,6 +18,10 @@ export interface BuildToolContext {
   client: { id: string; name: string | null };
   buildSession: BuildSession | null;
   threadId: string | null;
+  /** True when the caller has the admin role. Admins (agency owners) can
+   *  resolve clients they don't personally own — required for the agency
+   *  workflow where one user manages many client accounts. */
+  isAdmin?: boolean;
   /** User's bearer token forwarded from the original /ai request. Used to
    * call other edge functions (e.g. transcribe-video) on behalf of the user
    * so credit deduction lands on the right account. */
@@ -134,13 +138,46 @@ export async function handleResolveClient(
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
   await logBuildProgress(ctx, "On it — looking up client...", "Resolving client...");
 
-  const { data: targetClient } = await ctx.adminClient
-    .from("clients")
-    .select("id, name, onboarding_data")
-    .eq("user_id", ctx.userId)
-    .ilike("name", `%${input.client_name}%`)
-    .limit(1)
-    .maybeSingle();
+  // Multi-strategy fuzzy lookup, admin-aware. Admins can resolve clients
+  // across the agency (so Roberto-the-owner can build for "Dr Calvin's Clinic"
+  // even though that client is owned by drcalvinsclinic@gmail.com). Non-admins
+  // are tenant-scoped.
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^\w\s]+/g, "").replace(/\s+/g, " ").trim();
+  const baseQuery = () => {
+    let q = ctx.adminClient.from("clients").select("id, name, onboarding_data");
+    if (!ctx.isAdmin) q = q.eq("user_id", ctx.userId);
+    return q;
+  };
+
+  // Strategy 1: direct ilike substring
+  let targetClient: any = null;
+  const direct = await baseQuery().ilike("name", `%${input.client_name}%`).limit(1).maybeSingle();
+  if (direct.data) targetClient = direct.data;
+
+  // Strategies 2-4: fetch full list, do JS-side fuzzy
+  if (!targetClient) {
+    const { data: allClients } = await baseQuery();
+    if (allClients && allClients.length > 0) {
+      const nq = norm(input.client_name);
+      const candidates = allClients.map((c: any) => ({ ...c, normalized: norm(c.name ?? "") }));
+      // Substring of normalized
+      targetClient = candidates.find((c: any) => c.normalized.includes(nq))
+        // Per-word match
+        ?? (() => {
+          const words = nq.split(/\s+/).filter((w: string) => w.length >= 2);
+          if (words.length === 0) return null;
+          return candidates.find((c: any) => words.every((w: string) => c.normalized.includes(w)));
+        })()
+        // Single-word prefix
+        ?? (() => {
+          const words = nq.split(/\s+/).filter((w: string) => w.length >= 2);
+          if (words.length !== 1) return null;
+          return candidates.find((c: any) => c.normalized.startsWith(words[0]));
+        })()
+        ?? null;
+    }
+  }
 
   if (!targetClient) {
     return `No client found matching "${input.client_name}". Ask the user to clarify the name.`;

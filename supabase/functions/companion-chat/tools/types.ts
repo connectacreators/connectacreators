@@ -10,6 +10,11 @@ export interface ToolContext {
    *  ignore the model's name argument. Null on /ai (admin multi-client) or
    *  any other surface without a URL lock. */
   lockedClient: { id: string; name: string | null } | null;
+  /** True when the caller has the "admin" role in user_roles. Admins are
+   *  the agency owners — they should be able to look up clients they don't
+   *  own (e.g., Roberto managing Dr Calvin). When isAdmin is true,
+   *  resolveClient drops the user_id filter so cross-tenant matches resolve. */
+  isAdmin: boolean;
   /** Mutable array — handlers push action objects here */
   actions: Array<{ type: string; [key: string]: unknown }>;
 }
@@ -66,11 +71,16 @@ export async function resolveClient(
   }
   if (!clientName?.trim()) return null;
 
+  // Build the base query. Admins can look up any client (agency model);
+  // non-admins are scoped to clients they own.
+  const baseQuery = () => {
+    let q = ctx.adminClient.from("clients").select("id, name");
+    if (!ctx.isAdmin) q = q.eq("user_id", ctx.userId);
+    return q;
+  };
+
   // Strategy 1: direct substring (case-insensitive). Cheap, hits the common case.
-  const direct = await ctx.adminClient
-    .from("clients")
-    .select("id, name")
-    .eq("user_id", ctx.userId)
+  const direct = await baseQuery()
     .ilike("name", `%${clientName}%`)
     .limit(1)
     .maybeSingle();
@@ -84,12 +94,9 @@ export async function resolveClient(
   const normalizedQuery = norm(clientName);
 
   // Strategy 2: normalized substring on a likely-small client list. Pull all
-  // user's clients once and do the matching in JS since Postgres can't easily
-  // strip punctuation in a single ilike.
-  const { data: allClients, error: listErr } = await ctx.adminClient
-    .from("clients")
-    .select("id, name")
-    .eq("user_id", ctx.userId);
+  // accessible clients once and do the matching in JS since Postgres can't
+  // easily strip punctuation in a single ilike.
+  const { data: allClients, error: listErr } = await baseQuery();
   if (listErr) {
     console.warn("[resolveClient] client list query failed:", listErr.message);
     return null;

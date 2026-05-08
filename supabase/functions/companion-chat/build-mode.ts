@@ -196,6 +196,9 @@ async function preProcessUrls(
     client,
     buildSession,
     threadId,
+    // preProcessUrls path doesn't currently know admin status; leave undefined.
+    // resolve_client isn't called from this path, so admin-aware lookup
+    // doesn't apply here.
     progressIds: [],
   };
 
@@ -427,6 +430,9 @@ export interface HandleBuildTurnArgs {
   isOnAiPage: boolean;
   existingBuildSession: BuildSession | null;
   buildTriggerMatched: boolean;
+  /** True when caller has the admin role; lets resolve_client look up
+   *  clients across the agency instead of only those owned by this user_id. */
+  isAdmin?: boolean;
 }
 
 export interface HandleBuildTurnResult {
@@ -437,7 +443,7 @@ export interface HandleBuildTurnResult {
 export async function handleBuildTurn(
   args: HandleBuildTurnArgs,
 ): Promise<HandleBuildTurnResult> {
-  const { message, user, userAuthHeader, client, threadId, adminClient, isOnAiPage, buildTriggerMatched } = args;
+  const { message, user, userAuthHeader, client, threadId, adminClient, isOnAiPage, buildTriggerMatched, isAdmin } = args;
   let buildSession = args.existingBuildSession;
 
   console.log("[build-mode] starting turn", {
@@ -585,6 +591,7 @@ export async function handleBuildTurn(
           client,
           buildSession: refreshed ?? buildSession,
           threadId,
+          isAdmin,
           progressIds: [],
         };
         console.log(`[build-mode] tool call: ${block.name}`);
