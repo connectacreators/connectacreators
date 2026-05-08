@@ -21,6 +21,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -31,6 +32,7 @@ import { useCompanion } from "@/contexts/CompanionContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useActiveChat } from "@/hooks/useActiveChat";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AssistantChat,
@@ -108,8 +110,17 @@ export default function CommandCenter() {
       ];
 
   // ── Thread / chat state ────────────────────────────────────────────────
+  // activeThreadId is persisted via useActiveChat so the same conversation
+  // continues if the user navigates between /ai and any drawer-enabled page.
   const [threads, setThreads] = useState<ThreadRow[]>([]);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const { activeThreadId, setActiveChat, clearActiveChat } = useActiveChat();
+  const setActiveThreadId = useCallback(
+    (next: string | null) => {
+      if (next) setActiveChat(next, null);
+      else clearActiveChat();
+    },
+    [setActiveChat, clearActiveChat],
+  );
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -231,6 +242,45 @@ export default function CommandCenter() {
     setMessages([]);
     setRightTab("chat");
   }, []);
+
+  const handleDeleteThread = useCallback(
+    async (threadId: string) => {
+      const { error } = await supabase
+        .from("assistant_threads")
+        .delete()
+        .eq("id", threadId);
+      if (error) {
+        console.error("[CommandCenter] delete thread failed:", error);
+        toast.error(en ? "Could not delete chat" : "No se pudo eliminar el chat");
+        return;
+      }
+      setThreads((prev) => prev.filter((t) => t.id !== threadId));
+      if (activeThreadId === threadId) {
+        setActiveThreadId(null);
+        setMessages([]);
+      }
+      toast.success(en ? "Chat deleted" : "Chat eliminado");
+    },
+    [activeThreadId, en],
+  );
+
+  const handleRenameThread = useCallback(
+    async (threadId: string, newName: string) => {
+      const { error } = await supabase
+        .from("assistant_threads")
+        .update({ title: newName })
+        .eq("id", threadId);
+      if (error) {
+        console.error("[CommandCenter] rename thread failed:", error);
+        toast.error(en ? "Could not rename chat" : "No se pudo renombrar el chat");
+        return;
+      }
+      setThreads((prev) =>
+        prev.map((t) => (t.id === threadId ? { ...t, title: newName } : t)),
+      );
+    },
+    [en],
+  );
 
   // ── Send a message via companion-chat (dual-writes to new tables) ──────
   const handleSend = useCallback(async () => {
@@ -444,6 +494,8 @@ export default function CommandCenter() {
                 activeThreadId={activeThreadId}
                 onSelect={handleSelectThread}
                 onCreate={handleNewThread}
+                onDelete={handleDeleteThread}
+                onRename={handleRenameThread}
                 groupByDate
                 variant="full"
                 className="flex-1 min-h-0"
