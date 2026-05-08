@@ -157,6 +157,12 @@ function UserBubble({
             strokeLinecap="round"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
+            pathLength={1}
+            style={{
+              strokeDasharray: 1,
+              strokeDashoffset: 1,
+              animation: "userBubbleDraw 0.55s ease-out forwards",
+            }}
           />
         </svg>
       )}
