@@ -891,8 +891,10 @@ CTA: <1 line>`;
   }
 
   // Return both the draft AND the grounding note so the LLM can be honest
-  // with the user about what was used as reference.
-  return `Script draft ${groundingNote}:\n\n${draft}`;
+  // with the user about what was used as reference. Prepending a TITLE: line
+  // gives the frontend a deterministic way to render the script-preview card
+  // with the actual idea title (instead of a placeholder).
+  return `Script draft ${groundingNote}:\n\nTITLE: ${input.idea_title}\n\n${draft}`;
 }
 
 // ── Tool 8: save_script ───────────────────────────────────────────────────────

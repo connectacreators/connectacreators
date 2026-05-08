@@ -43,10 +43,12 @@ import {
 import type { AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
 
 // Detect a build-mode script draft in an assistant message. draft_script
-// emits a strict format: HOOK: ...\nBODY: ...\nCTA: ... — this regex pulls
-// out the three sections so we can render InlineScriptPreview.
-function parseScriptDraft(text: string): { hook: string; body: string; cta: string } | null {
+// emits a strict format: TITLE: ...\nHOOK: ...\nBODY: ...\nCTA: ... — this
+// regex pulls out the four sections so we can render InlineScriptPreview
+// with the real title.
+function parseScriptDraft(text: string): { title?: string; hook: string; body: string; cta: string } | null {
   if (!/HOOK:/i.test(text) || !/BODY:/i.test(text) || !/CTA:/i.test(text)) return null;
+  const titleMatch = /TITLE:\s*([^\n]+)/i.exec(text);
   const hookMatch = /HOOK:\s*([\s\S]*?)(?=\n\s*BODY:)/i.exec(text);
   const bodyMatch = /BODY:\s*([\s\S]*?)(?=\n\s*CTA:)/i.exec(text);
   const ctaMatch = /CTA:\s*([\s\S]*?)(?:\n\n|$)/i.exec(text);
@@ -55,7 +57,8 @@ function parseScriptDraft(text: string): { hook: string; body: string; cta: stri
   const body = bodyMatch[1].trim();
   const cta = ctaMatch[1].trim();
   if (!hook || !body || !cta) return null;
-  return { hook, body, cta };
+  const title = titleMatch?.[1]?.trim();
+  return { title, hook, body, cta };
 }
 
 interface ThreadRow {
@@ -466,7 +469,7 @@ export default function CommandCenter() {
               hook: draft.hook,
               body: draft.body,
               cta: draft.cta,
-              idea_title: "Pending — Robby will use the title from chat context",
+              idea_title: draft.title ?? "Untitled draft",
             } as any,
           });
         }
