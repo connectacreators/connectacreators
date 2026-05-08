@@ -743,6 +743,25 @@ export async function handleDraftScript(
 ): Promise<string> {
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
 
+  // ── Duplicate check (before burning an LLM call) ─────────────────────────
+  // If a script with this idea title already exists for this client, surface
+  // it now instead of generating a near-identical draft the user will then
+  // have to triage. Save_script also re-checks, but catching it here is
+  // cheaper and more conversational.
+  const titleProbe = (input.idea_title ?? "").trim();
+  if (titleProbe) {
+    const { data: existing } = await ctx.adminClient
+      .from("scripts")
+      .select("id, title, status, created_at")
+      .eq("client_id", input.client_id)
+      .ilike("idea_ganadora", titleProbe)
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      return `A script titled "${existing.title}" already exists for ${ctx.client.name ?? "this client"} (id: ${existing.id}, ${String(existing.status ?? "draft")}). Do NOT draft a duplicate. Ask the user: "That one's already in the library — want me to open it for review, or draft a variant with a different angle?"`;
+    }
+  }
+
   // Resolve the framework video — fall back to currentFrameworkVideoId if the
   // LLM forgot to pass one (defensive).
   const videoId = input.framework_video_id || ctx.buildSession?.currentFrameworkVideoId || "";
@@ -854,21 +873,54 @@ export async function handleSaveScript(
   ctx: BuildToolContext,
 ): Promise<string> {
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
+
+  // ── Input validation ──────────────────────────────────────────────────────
+  // Refuse to save a script row if any of the three load-bearing sections is
+  // empty. Without this guard the model can save a stub (empty hook/body/cta)
+  // when draft_script earlier failed silently — the user then sees a script
+  // in their library with zero lines, which is what motivated this fix.
+  const trimmedTitle = (input.title ?? "").trim();
+  const trimmedHook = (input.hook ?? "").trim();
+  const trimmedBody = (input.body ?? "").trim();
+  const trimmedCta = (input.cta ?? "").trim();
+  if (!trimmedTitle) {
+    return "Refused to save: title is empty. Re-run draft_script and try again.";
+  }
+  if (!trimmedHook || !trimmedBody || !trimmedCta) {
+    return `Refused to save: script content is incomplete (hook=${trimmedHook ? "ok" : "EMPTY"}, body=${trimmedBody ? "ok" : "EMPTY"}, cta=${trimmedCta ? "ok" : "EMPTY"}). draft_script must have failed. Re-run draft_script with a valid framework_video_id and try again.`;
+  }
+
+  // ── Duplicate detection ───────────────────────────────────────────────────
+  // The user's library shouldn't accumulate duplicates. If a script with the
+  // same idea_ganadora already exists for this client, surface that instead
+  // of creating yet another row. The model can offer to open the existing
+  // one or build a variant with a different angle.
+  const { data: dup } = await ctx.adminClient
+    .from("scripts")
+    .select("id, title, status, created_at")
+    .eq("client_id", input.client_id)
+    .ilike("idea_ganadora", trimmedTitle)
+    .limit(1)
+    .maybeSingle();
+  if (dup) {
+    return `Refused to save: a script titled "${dup.title}" already exists for ${ctx.client.name ?? "this client"} (id: ${dup.id}, created ${String(dup.created_at).slice(0, 10)}). Tell the user — offer to open the existing one OR build a variant under a different title.`;
+  }
+
   await logBuildProgress(ctx, `Saving script to ${ctx.client.name ?? "client"}'s library...`, "Saving...");
 
   const rawContent = [
-    `HOOK: ${input.hook}`,
-    `BODY: ${input.body}`,
-    `CTA: ${input.cta}`,
+    `HOOK: ${trimmedHook}`,
+    `BODY: ${trimmedBody}`,
+    `CTA: ${trimmedCta}`,
   ].join("\n\n");
 
   const { data: script, error: scriptErr } = await ctx.adminClient
     .from("scripts")
     .insert({
       client_id: input.client_id,
-      title: input.title.slice(0, 120),
+      title: trimmedTitle.slice(0, 120),
       raw_content: rawContent,
-      idea_ganadora: input.title.slice(0, 120),
+      idea_ganadora: trimmedTitle.slice(0, 120),
       formato: "talking_head",
       status: "Idea",
       grabado: false,
@@ -881,9 +933,9 @@ export async function handleSaveScript(
     return `Save failed: ${scriptErr?.message ?? "unknown error"}`;
   }
 
-  const bodyLines = input.body.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bodyLines = trimmedBody.split("\n").map((l) => l.trim()).filter(Boolean);
   const lineRows = [
-    { script_id: script.id, line_number: 1, line_type: "actor", section: "hook", text: input.hook },
+    { script_id: script.id, line_number: 1, line_type: "actor", section: "hook", text: trimmedHook },
     ...bodyLines.map((line, i) => ({
       script_id: script.id,
       line_number: i + 2,
@@ -896,16 +948,20 @@ export async function handleSaveScript(
       line_number: bodyLines.length + 2,
       line_type: "actor",
       section: "cta",
-      text: input.cta,
+      text: trimmedCta,
     },
   ];
   const { error: linesErr } = await ctx.adminClient.from("script_lines").insert(lineRows);
   if (linesErr) {
+    // CRITICAL: don't leave an orphan script row with zero lines. Roll back
+    // the parent script so the user's library doesn't fill up with empty
+    // entries (the bug that motivated this validation pass).
     console.error("[save_script] script_lines insert FAILED:", JSON.stringify(linesErr));
     console.error("[save_script] payload was:", JSON.stringify(lineRows).slice(0, 500));
-  } else {
-    console.log("[save_script] inserted", lineRows.length, "script_lines");
+    await ctx.adminClient.from("scripts").delete().eq("id", script.id);
+    return `Save failed: could not write script lines (${linesErr.message}). Rolled back the empty script row. Try again.`;
   }
+  console.log("[save_script] inserted", lineRows.length, "script_lines");
 
   if (ctx.buildSession) {
     await updateBuildSession(ctx.adminClient, ctx.buildSession.id, {
@@ -914,7 +970,7 @@ export async function handleSaveScript(
     });
   }
 
-  return `Script "${input.title}" saved to ${ctx.client.name ?? "client"}'s library (id: ${script.id}). The user can view it in their scripts section. Next step: ask the user if they want to submit this to the editing queue (and optionally schedule a post date) — call submit_to_editing_after_save and schedule_post_after_save to chain the rest of the workflow without leaving this chat.`;
+  return `Script "${trimmedTitle}" saved to ${ctx.client.name ?? "client"}'s library (id: ${script.id}, ${lineRows.length} lines). The user can view it in their scripts section. Next step: ask the user if they want to submit this to the editing queue (and optionally schedule a post date) — call submit_to_editing_after_save and schedule_post_after_save to chain the rest of the workflow without leaving this chat.`;
 }
 
 // ── Tool 9: submit_to_editing_after_save ─────────────────────────────────────
