@@ -1117,17 +1117,25 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
+            // Footage status comes from any of: footage, file_url,
+            // file_submission, storage_path, storage_url. If ANY is set, the
+            // editor has raw material to work with. Surface this so Robby
+            // doesn't tell the user "find out if the editor has the footage"
+            // when it's already been uploaded.
             const { data: items } = await adminClient
               .from("video_edits")
-              .select("reel_title, status, assignee, schedule_date, post_status")
+              .select("reel_title, status, assignee, schedule_date, post_status, footage, file_url, file_submission, storage_path, storage_url, deadline")
               .eq("client_id", targetClient.id)
               .is("deleted_at", null)
               .order("created_at", { ascending: false })
               .limit(10);
-            const info = (items || []).map((i: any) =>
-              (i.reel_title || "Untitled") + " — " + i.status + (i.assignee ? " (editor: " + i.assignee + ")" : " (no editor)") + (i.schedule_date ? " — posts " + i.schedule_date : "")
-            ).join("\n");
-            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Editing queue for " + targetClient.name + ":\n" + info });
+            const info = (items || []).map((i: any) => {
+              const hasFootage = !!(i.footage || i.file_url || i.file_submission || i.storage_path || i.storage_url);
+              const footageMark = hasFootage ? "[footage attached]" : "[no footage uploaded yet]";
+              const deadlineMark = i.deadline ? ` deadline ${String(i.deadline).slice(0, 10)}` : "";
+              return `${i.reel_title || "Untitled"} — ${i.status}${i.assignee ? ` (editor: ${i.assignee})` : " (no editor)"} ${footageMark}${i.schedule_date ? ` — posts ${String(i.schedule_date).slice(0, 10)}` : ""}${deadlineMark}`;
+            }).join("\n");
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Editing queue for ${targetClient.name}:\n${info}` });
           }
         }
 

@@ -116,7 +116,9 @@ begin
     and s.created_at < now() - interval '7 days'
   on conflict (user_id, dedupe_key) where dismissed_at is null do nothing;
 
-  -- 3. edit_overdue — video_edits past deadline, not yet Done.
+  -- 3. edit_overdue — video_edits past deadline, not yet Done. Body now
+  -- includes footage status so Robby doesn't claim the editor needs to
+  -- chase the footage when it's already attached.
   insert into companion_alerts (user_id, client_id, kind, severity, title, body, payload, dedupe_key)
   select
     c.user_id,
@@ -124,8 +126,20 @@ begin
     'edit_overdue',
     'high',
     'Edit past deadline: ' || ve.reel_title,
-    'For ' || c.name || ': "' || ve.reel_title || '" was due ' || to_char(ve.deadline, 'YYYY-MM-DD') || ' and is still ' || coalesce(ve.status, 'not started') || '.',
-    jsonb_build_object('video_edit_id', ve.id, 'deadline', ve.deadline, 'status', ve.status, 'assignee', ve.assignee),
+    'For ' || c.name || ': "' || ve.reel_title || '" was due ' || to_char(ve.deadline, 'YYYY-MM-DD') ||
+    ' and is still ' || coalesce(ve.status, 'not started') ||
+    case
+      when coalesce(ve.footage, ve.file_url, ve.file_submission, ve.storage_path, ve.storage_url) is not null
+        then '. Footage IS attached — the bottleneck is the editor, not the client.'
+      else '. No footage uploaded yet — the client still needs to film.'
+    end,
+    jsonb_build_object(
+      'video_edit_id', ve.id,
+      'deadline', ve.deadline,
+      'status', ve.status,
+      'assignee', ve.assignee,
+      'has_footage', coalesce(ve.footage, ve.file_url, ve.file_submission, ve.storage_path, ve.storage_url) is not null
+    ),
     'edit_overdue:' || ve.id::text
   from video_edits ve
   join clients c on c.id = ve.client_id
