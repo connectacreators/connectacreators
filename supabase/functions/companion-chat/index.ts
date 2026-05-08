@@ -726,19 +726,37 @@ serve(async (req) => {
     if (strat) {
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
       const iso = monthStart.toISOString();
-      const [{ count: scriptsThisMonth }, { count: videosThisMonth }, { count: postsThisMonth }] = await Promise.all([
+      // "Videos completed this month" uses updated_at (when the edit became
+      // Done), not created_at — so edits started in prior months but
+      // finished this month count correctly. Also pull the queue's full
+      // shape so Robby can answer "what's left?" honestly.
+      const [
+        { count: scriptsThisMonth },
+        { count: videosCompletedThisMonth },
+        { count: postsThisMonth },
+        { count: editsInProgress },
+        { count: editsNeedsRevision },
+        { count: editsTotalQueued },
+      ] = await Promise.all([
         adminClient.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", client.id).gte("created_at", iso),
-        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).eq("status", "Done").is("deleted_at", null).gte("created_at", iso),
+        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).eq("status", "Done").is("deleted_at", null).gte("updated_at", iso),
         adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).gte("schedule_date", iso.slice(0,10)).is("deleted_at", null),
+        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).is("deleted_at", null).neq("status", "Done").neq("status", "Needs Revision"),
+        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).is("deleted_at", null).eq("status", "Needs Revision"),
+        adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", client.id).is("deleted_at", null).neq("status", "Done"),
       ]);
       const s = scriptsThisMonth ?? 0;
-      const v = videosThisMonth ?? 0;
+      const v = videosCompletedThisMonth ?? 0;
       const p = postsThisMonth ?? 0;
+      const queued = editsTotalQueued ?? 0;
+      const inProg = editsInProgress ?? 0;
+      const needsRev = editsNeedsRevision ?? 0;
       const analysis = strat.audience_analysis as any;
       strategyContext = `
 CLIENT STRATEGY (read this before every decision):
 Monthly targets: ${strat.scripts_per_month} scripts / ${strat.videos_edited_per_month} videos edited / ${strat.posts_per_month} posts scheduled
-This month so far: ${s}/${strat.scripts_per_month} scripts · ${v}/${strat.videos_edited_per_month} videos · ${p}/${strat.posts_per_month} posts
+This month so far: ${s}/${strat.scripts_per_month} scripts · ${v}/${strat.videos_edited_per_month} videos completed · ${p}/${strat.posts_per_month} posts scheduled
+Editing queue right now: ${queued} total in queue (${inProg} in progress, ${needsRev} needs revision). NEVER claim "nothing in the editing queue" if this number is > 0.
 Content mix goal: ${strat.mix_reach}% reach / ${strat.mix_trust}% trust / ${strat.mix_convert}% convert
 ManyChat: ${strat.manychat_active ? `active — keyword: "${strat.manychat_keyword || "not set"}"` : "NOT SET UP — should be a priority"}
 CTA goal: ${strat.cta_goal || "not set"}
@@ -1400,10 +1418,26 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
             const iso = monthStart.toISOString();
 
-            const [{ count: scriptCount }, { count: videoCount }, { count: calCount }] = await Promise.all([
+            // videoCount uses updated_at (when the edit became Done) instead
+            // of created_at (when it was queued). Edits started in prior
+            // months but completed THIS month should still count.
+            // Plus surface in-progress + needs-revision so Robby can
+            // honestly say "X done, Y in progress, Z need revision" instead
+            // of falsely claiming "nothing in the editing queue".
+            const [
+              { count: scriptCount },
+              { count: videoCount },
+              { count: calCount },
+              { count: editsInProgress },
+              { count: editsNeedsRevision },
+              { count: editsTotalQueued },
+            ] = await Promise.all([
               adminClient.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).gte("created_at", iso),
-              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).eq("status", "Done").is("deleted_at", null).gte("created_at", iso),
+              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).eq("status", "Done").is("deleted_at", null).gte("updated_at", iso),
               adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).gte("schedule_date", iso.slice(0, 10)).is("deleted_at", null),
+              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).is("deleted_at", null).neq("status", "Done").neq("status", "Needs Revision"),
+              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).is("deleted_at", null).eq("status", "Needs Revision"),
+              adminClient.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", targetClient.id).is("deleted_at", null).neq("status", "Done"),
             ]);
 
             const s = strat || { posts_per_month: 20, scripts_per_month: 20, videos_edited_per_month: 20, stories_per_week: 10, mix_reach: 60, mix_trust: 30, mix_convert: 10, manychat_active: false, manychat_keyword: null, cta_goal: "manychat", ads_active: false, ads_budget: 0, monthly_revenue_goal: 0, monthly_revenue_actual: 0 };
@@ -1412,7 +1446,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             const summaryLines = [
               "Strategy for " + targetClient.name + ":",
               "Monthly targets: " + s.scripts_per_month + " scripts, " + s.videos_edited_per_month + " videos edited, " + s.posts_per_month + " posts scheduled",
-              "This month so far: " + (scriptCount || 0) + " scripts, " + (videoCount || 0) + " videos done, " + (calCount || 0) + " posts scheduled",
+              "This month so far: " + (scriptCount || 0) + " scripts, " + (videoCount || 0) + " videos completed, " + (calCount || 0) + " posts scheduled",
+              "Editing queue right now: " + (editsTotalQueued || 0) + " total (" + (editsInProgress || 0) + " in progress, " + (editsNeedsRevision || 0) + " needs revision). DO NOT say 'nothing in the queue' if this is > 0.",
               "Content mix: " + s.mix_reach + "% reach / " + s.mix_trust + "% trust / " + s.mix_convert + "% convert",
               "Stories per week: " + s.stories_per_week,
               "ManyChat: " + (s.manychat_active ? "active, keyword: " + (s.manychat_keyword || "not set") : "NOT SET UP — priority action"),
