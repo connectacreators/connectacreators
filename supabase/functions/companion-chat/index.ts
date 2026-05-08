@@ -29,13 +29,13 @@ const corsHeaders = {
 const TOOLS = [
   {
     name: "navigate_to_page",
-    description: "Navigate the user to a specific page in the app. Only call this when the user EXPLICITLY asks to GO TO or OPEN a page. NEVER call this when the user wants you to SEARCH, FIND, or LOOK UP something — for that use the appropriate data tool: find_viral_videos for the Viral Today database, get_leads for leads, get_finances for transactions, etc. On the /ai surface, navigation unmounts the chat session, so prefer data tools over navigation whenever possible.",
+    description: "Navigate the user to a specific page in the app. Only call this when the user EXPLICITLY asks to GO TO or OPEN a page. NEVER call this when the user wants you to SEARCH, FIND, or LOOK UP something — for that use the appropriate data tool: find_viral_videos for the Viral Today database, get_leads for leads, get_finances for transactions, etc. When the user asks to open a CLIENT-SPECIFIC page (\"open Dr Calvin's leads\", \"take me to Acme's editing queue\"), call list_all_clients or get_client_info FIRST to resolve the client_id, then build the path with that id (e.g. /clients/<id>/leads). The drawer auto-opens on the destination so the chat continues there.",
     input_schema: {
       type: "object",
       properties: {
         path: {
           type: "string",
-          description: "Any valid app route. Static routes: /dashboard, /scripts, /vault, /viral-today, /editing-queue, /content-calendar, /subscription, /ai, /onboarding, /finances, /leads, /contracts. Dynamic routes: /clients/:clientId, /clients/:clientId/scripts, /clients/:clientId/scripts?view=canvas. Use open_client tool instead of navigate_to_page when navigating to a client by name.",
+          description: "Any valid app route. Static (agency-wide) routes: /dashboard, /scripts, /vault, /viral-today, /editing-queue, /content-calendar, /subscription, /ai, /onboarding, /finances, /leads, /contracts, /clients, /lead-calendar, /master-database, /trainings, /subscribers, /settings. Client-specific dynamic routes (use this when the user names a client): /clients/<id>, /clients/<id>/scripts, /clients/<id>/scripts?view=canvas, /clients/<id>/leads, /clients/<id>/lead-calendar, /clients/<id>/booking-settings, /clients/<id>/vault, /clients/<id>/editing-queue, /clients/<id>/content-calendar, /clients/<id>/contracts, /clients/<id>/database, /clients/<id>/landing-page, /clients/<id>/followup-automation. Use open_client tool when navigating to a client's MAIN page; use navigate_to_page with /clients/<id>/<section> for any specific section.",
         },
       },
       required: ["path"],

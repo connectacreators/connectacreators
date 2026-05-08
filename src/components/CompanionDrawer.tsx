@@ -73,7 +73,7 @@ export default function CompanionDrawer() {
   // activeThreadId is persisted via useActiveChat so the conversation
   // continues when the user navigates between pages or between the drawer
   // and the /ai surface.
-  const { activeThreadId, setActiveChat, clearActiveChat, wasUpdatedRecently } = useActiveChat();
+  const { activeThreadId, setActiveChat, clearActiveChat } = useActiveChat();
   const setActiveThreadId = useCallback(
     (next: string | null) => {
       if (next) setActiveChat(next, null);
@@ -82,16 +82,9 @@ export default function CompanionDrawer() {
     [setActiveChat, clearActiveChat],
   );
 
-  // Auto-open the drawer when the user lands on a page with a freshly active
-  // chat (e.g., AI on /ai called navigate_to_page → user arrives here with
-  // a thread set within the last 60s). Only fires once on mount; user can
-  // close manually and we won't keep re-opening.
-  useEffect(() => {
-    if (activeThreadId && wasUpdatedRecently) {
-      setIsOpen(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // (Auto-open detection moved to CompanionBubble — that component is
+  // always mounted, while CompanionDrawer only mounts when isOpen=true,
+  // so the detection has to happen outside the drawer.)
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);

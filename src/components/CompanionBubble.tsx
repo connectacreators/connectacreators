@@ -1,8 +1,10 @@
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveChat } from "@/hooks/useActiveChat";
 import CompanionDrawer from "./CompanionDrawer";
 
 /**
@@ -16,6 +18,29 @@ export default function CompanionBubble() {
   const { language } = useLanguage();
   const location = useLocation();
   const en = language === "en";
+
+  // Auto-open the drawer when the user lands on a page with a freshly
+  // active chat — i.e., the AI just navigated us here AND the chat was
+  // recent (within 60s). Lives here, not in CompanionDrawer, because the
+  // drawer is only mounted when isOpen=true; this needs to fire while the
+  // drawer is closed. Uses a ref to fire only ONCE per route change so we
+  // don't fight the user if they manually close it.
+  const { activeThreadId, wasUpdatedRecently } = useActiveChat();
+  const lastAutoOpenedRouteRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Only auto-open on routes that aren't /ai (the bubble is hidden there
+    // anyway, and CommandCenter handles its own state).
+    if (location.pathname === "/ai") return;
+    // Only fire once per (route + activeThread) combo so re-renders don't
+    // re-open after the user closes manually.
+    const key = `${location.pathname}::${activeThreadId ?? ""}`;
+    if (lastAutoOpenedRouteRef.current === key) return;
+    if (activeThreadId && wasUpdatedRecently && !isOpen) {
+      setIsOpen(true);
+      lastAutoOpenedRouteRef.current = key;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, activeThreadId, wasUpdatedRecently]);
 
   const badgeCount = tasks.filter(
     (t) => t.priority === "red" || t.priority === "amber",
