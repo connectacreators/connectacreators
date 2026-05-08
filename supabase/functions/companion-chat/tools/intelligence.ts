@@ -121,6 +121,8 @@ export async function handleIntelligenceTool(
 
     const priorities: string[] = [];
 
+    // No emojis — rule 2 of the system prompt forbids them. Use bracketed
+    // severity tags so the model can paraphrase honestly.
     for (const c of clients) {
       const [{ count: scripts }, { count: scriptTarget }, { data: toRecord }, { data: inReview }, { data: dueSoon }] = await Promise.all([
         adminClient.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", c.id).gte("created_at", monthStart),
@@ -131,16 +133,16 @@ export async function handleIntelligenceTool(
       ]);
 
       if ((scripts ?? 0) === 0 && (scriptTarget as number) > 0) {
-        priorities.push(`🔴 ${c.name} — no scripts this month (target: ${scriptTarget})`);
+        priorities.push(`[urgent] ${c.name} — no scripts this month (target: ${scriptTarget})`);
       }
       for (const s of toRecord ?? []) {
-        priorities.push(`🟡 ${c.name} — "${s.idea_ganadora ?? s.title}" approved, not recorded yet`);
+        priorities.push(`[to-record] ${c.name} — "${s.idea_ganadora ?? s.title}" approved, not recorded yet`);
       }
       for (const r of inReview ?? []) {
-        priorities.push(`🔵 ${c.name} — "${r.reel_title}" in review`);
+        priorities.push(`[in-review] ${c.name} — "${r.reel_title}" in review`);
       }
       for (const d of dueSoon ?? []) {
-        priorities.push(`📅 ${c.name} — "${d.reel_title}" due ${d.schedule_date}`);
+        priorities.push(`[due-soon] ${c.name} — "${d.reel_title}" due ${d.schedule_date}`);
       }
     }
 

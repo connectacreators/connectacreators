@@ -78,6 +78,18 @@ export const ANALYTICS_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "get_morning_brief",
+    description:
+      "One-shot 'what changed since I logged off' summary. Returns: scripts created in last 24h, leads added, edits status-changed, posts published, contracts signed — plus a count of open alerts. Call this proactively when the user opens a fresh /ai conversation with a vague greeting like 'morning', 'hey', 'what's up'. Don't dump the whole thing — pick the 1-2 things that actually need their attention.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_overdue_items",
+    description:
+      "Cross-cutting overdue list: video_edits past their deadline that aren't Done, leads whose next_follow_up_at is in the past and aren't closed, scripts approved >7d ago that haven't been recorded. Use when the user asks 'what's stuck?' or 'what's behind?'. Complements the alerts pipeline — alerts batch every 6h, this is fresh.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
     name: "bulk_schedule_posts",
     description:
       "Schedule N posts for one client in a single call. Each item creates or updates a video_edits row with schedule_date set. Use after generate_week_plan when the user confirms, or any time the user wants to batch-schedule.",
@@ -330,6 +342,72 @@ Output ${numPosts} lines, nothing else.`;
       tool_use_id: block.id,
       content: `Draft ${numPosts}-day plan for ${client.name} starting ${tomorrow}:\n\n${planText}\n\nIf the user approves, call bulk_schedule_posts with these items (each line's TITLE and DATE — caption optional). If they want changes, regenerate with adjusted mix or different start date.`,
     };
+  }
+
+  if (block.name === "get_morning_brief") {
+    // Resolve every client_id this caller can see; for non-admins use the
+    // shared accessible-set, for admins skip the filter.
+    const { data: userClients } = await adminClient.from("clients").select("id, name").eq("user_id", userId);
+    const clientIds = (userClients ?? []).map((c: any) => c.id);
+    const idLookup = Object.fromEntries((userClients ?? []).map((c: any) => [c.id, c.name]));
+    if (clientIds.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Morning brief: no clients in your account yet." };
+    }
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const [scriptsRes, leadsRes, editsRes, contractsRes, alertsRes] = await Promise.all([
+      adminClient.from("scripts").select("client_id, idea_ganadora, status, created_at").in("client_id", clientIds).gte("created_at", since).order("created_at", { ascending: false }).limit(8),
+      adminClient.from("leads").select("client_id, name, status, created_at").in("client_id", clientIds).gte("created_at", since).order("created_at", { ascending: false }).limit(8),
+      adminClient.from("video_edits").select("client_id, reel_title, status, post_status, updated_at").in("client_id", clientIds).is("deleted_at", null).gte("updated_at", since).order("updated_at", { ascending: false }).limit(8),
+      adminClient.from("contracts").select("client_id, title, status, created_at").in("client_id", clientIds).gte("created_at", since).order("created_at", { ascending: false }).limit(5),
+      adminClient.from("companion_alerts").select("id", { count: "exact", head: true }).eq("user_id", userId).is("dismissed_at", null),
+    ]);
+    const lines: string[] = [];
+    const alertCount = alertsRes.count ?? 0;
+    if (alertCount > 0) lines.push(`${alertCount} open alert(s) — call get_open_alerts for the urgent ones.`);
+    for (const s of scriptsRes.data ?? []) lines.push(`new script · ${idLookup[s.client_id] ?? "?"} · "${s.idea_ganadora ?? "untitled"}"`);
+    for (const l of leadsRes.data ?? []) lines.push(`new lead · ${idLookup[l.client_id] ?? "?"} · ${l.name} (${l.status ?? "new"})`);
+    for (const e of editsRes.data ?? []) lines.push(`edit update · ${idLookup[e.client_id] ?? "?"} · "${e.reel_title}" → ${e.status ?? "?"}${e.post_status === "Published" ? " · PUBLISHED" : ""}`);
+    for (const c of contractsRes.data ?? []) lines.push(`contract · ${idLookup[c.client_id] ?? "?"} · "${c.title ?? "untitled"}" (${c.status ?? "draft"})`);
+    if (lines.length === 0) return { type: "tool_result", tool_use_id: block.id, content: "Morning brief: nothing changed in the last 24 hours." };
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Morning brief — last 24h:\n${lines.join("\n")}`,
+    };
+  }
+
+  if (block.name === "get_overdue_items") {
+    const { data: userClients } = await adminClient.from("clients").select("id, name").eq("user_id", userId);
+    const clientIds = (userClients ?? []).map((c: any) => c.id);
+    const idLookup = Object.fromEntries((userClients ?? []).map((c: any) => [c.id, c.name]));
+    if (clientIds.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "No clients to check." };
+    }
+    const nowIso = new Date().toISOString();
+    const sevenAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const [editsRes, leadsRes, scriptsRes] = await Promise.all([
+      adminClient.from("video_edits").select("client_id, reel_title, status, deadline, assignee, footage, file_url, file_submission, storage_path, storage_url").in("client_id", clientIds).is("deleted_at", null).lt("deadline", nowIso).neq("status", "Done").neq("status", "Published").order("deadline", { ascending: true }).limit(15),
+      adminClient.from("leads").select("client_id, name, status, next_follow_up_at").in("client_id", clientIds).lt("next_follow_up_at", nowIso).not("status", "in", "(lost,booked,closed,won)").order("next_follow_up_at", { ascending: true }).limit(15),
+      adminClient.from("scripts").select("client_id, idea_ganadora, title, created_at").in("client_id", clientIds).eq("status", "Approved").eq("grabado", false).lt("created_at", sevenAgo).order("created_at", { ascending: true }).limit(15),
+    ]);
+    const blocks: string[] = [];
+    if ((editsRes.data ?? []).length > 0) {
+      const editLines = editsRes.data!.map((e: any) => {
+        const hasFootage = !!(e.footage || e.file_url || e.file_submission || e.storage_path || e.storage_url);
+        return `  ${idLookup[e.client_id] ?? "?"} · "${e.reel_title}" · ${e.status ?? "not started"} · due ${String(e.deadline).slice(0, 10)} · ${hasFootage ? "footage attached" : "NO FOOTAGE YET"}${e.assignee ? ` · ${e.assignee}` : ""}`;
+      });
+      blocks.push(`Edits past deadline (${editsRes.data!.length}):\n${editLines.join("\n")}`);
+    }
+    if ((leadsRes.data ?? []).length > 0) {
+      const leadLines = leadsRes.data!.map((l: any) => `  ${idLookup[l.client_id] ?? "?"} · ${l.name} · ${l.status ?? "?"} · followup was ${String(l.next_follow_up_at).slice(0, 10)}`);
+      blocks.push(`Leads with overdue follow-up (${leadsRes.data!.length}):\n${leadLines.join("\n")}`);
+    }
+    if ((scriptsRes.data ?? []).length > 0) {
+      const scriptLines = scriptsRes.data!.map((s: any) => `  ${idLookup[s.client_id] ?? "?"} · "${s.idea_ganadora ?? s.title ?? "untitled"}" · approved ${String(s.created_at).slice(0, 10)}`);
+      blocks.push(`Scripts approved >7d ago, not recorded (${scriptsRes.data!.length}):\n${scriptLines.join("\n")}`);
+    }
+    if (blocks.length === 0) return { type: "tool_result", tool_use_id: block.id, content: "Nothing overdue. You're caught up." };
+    return { type: "tool_result", tool_use_id: block.id, content: blocks.join("\n\n") };
   }
 
   if (block.name === "bulk_schedule_posts") {

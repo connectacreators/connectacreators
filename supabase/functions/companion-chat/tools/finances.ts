@@ -100,15 +100,27 @@ export async function handleFinanceTool(
     const expenseByCat: Record<string, number> = {};
     for (const t of expenses) expenseByCat[t.category] = (expenseByCat[t.category] ?? 0) + Number(t.amount);
 
-    const lines = [
+    // Markdown table output — easier for the model to scan and quote back.
+    const fmt = (n: number) => "$" + n.toLocaleString();
+    const incomeRows = Object.entries(incomeByCat)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => `| Income | ${cat} | ${fmt(amt)} |`);
+    const expenseRows = Object.entries(expenseByCat)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => `| Expense | ${cat} | ${fmt(amt)} |`);
+    const table = [
       `${month}/${year} — ${txns.length} transactions`,
-      `Income: $${totalIncome.toLocaleString()}`,
-      ...Object.entries(incomeByCat).map(([k, v]) => `  ${k}: $${v.toLocaleString()}`),
-      `Expenses: $${totalExpenses.toLocaleString()}`,
-      ...Object.entries(expenseByCat).map(([k, v]) => `  ${k}: $${v.toLocaleString()}`),
-      `Net: $${net.toLocaleString()}`,
+      "",
+      "| Type | Category | Amount |",
+      "|---|---|---|",
+      ...incomeRows,
+      ...expenseRows,
+      "",
+      `Income total: ${fmt(totalIncome)}`,
+      `Expense total: ${fmt(totalExpenses)}`,
+      `Net: ${fmt(net)}`,
     ];
-    return { type: "tool_result", tool_use_id: block.id, content: lines.join("\n") };
+    return { type: "tool_result", tool_use_id: block.id, content: table.join("\n") };
   }
 
   if (block.name === "log_transaction") {

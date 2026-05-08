@@ -70,6 +70,48 @@ export const LEAD_TOOLS: ToolDef[] = [
       required: ["client_name", "name"],
     },
   },
+  {
+    name: "bulk_update_lead_status",
+    description: "Update status on multiple leads at once. Use when the user is sweeping the pipeline (\"mark these 4 as booked\", \"these 3 are lost\"). Each item: lead_name + new_status.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        updates: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              lead_name: { type: "string" },
+              new_status: { type: "string", description: "new | contacted | interested | booked | lost | closed" },
+            },
+            required: ["lead_name", "new_status"],
+          },
+        },
+      },
+      required: ["client_name", "updates"],
+    },
+  },
+  {
+    name: "draft_lead_outreach",
+    description: "Generate a personalized first-touch DM/email per lead. Reads the lead's notes + the client's onboarding voice + offer to write a short, on-brand message. Returns the drafts as text — does NOT send anything. Use when the user says \"draft DMs for these leads\" or \"what should I send X?\". The user can copy-paste from chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        lead_names: {
+          type: "array",
+          items: { type: "string" },
+          description: "Names of leads to draft for. Up to 5 per call.",
+        },
+        channel: {
+          type: "string",
+          description: "Default 'dm'. Use 'email' for longer-form. The model adjusts tone and length.",
+        },
+      },
+      required: ["client_name", "lead_names"],
+    },
+  },
 ];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -196,6 +238,126 @@ export async function handleLeadTool(
 
     actions.push({ type: "refresh_data", scope: "leads" });
     return { type: "tool_result", tool_use_id: block.id, content: `Created lead "${name}" for ${client.name}${email ? " — follow-up sequence triggered." : "."}` };
+  }
+
+  if (block.name === "bulk_update_lead_status") {
+    const { client_name, updates } = block.input;
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: updates must be a non-empty array." };
+    }
+    if (updates.length > 25) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: too many updates (${updates.length}). Cap is 25 per call.` };
+    }
+    const lines: string[] = [];
+    let touched = 0;
+    for (const u of updates) {
+      const leadName = String(u?.lead_name ?? "").trim();
+      const newStatus = String(u?.new_status ?? "").trim();
+      if (!leadName || !newStatus) {
+        lines.push(`SKIP: missing lead_name or new_status — ${JSON.stringify(u).slice(0, 80)}`);
+        continue;
+      }
+      const { data: lead } = await adminClient
+        .from("leads")
+        .select("id, name")
+        .eq("client_id", client.id)
+        .ilike("name", `%${leadName}%`)
+        .limit(1)
+        .maybeSingle();
+      if (!lead) { lines.push(`MISS "${leadName}" — no lead matched`); continue; }
+      const { error } = await adminClient.from("leads").update({ status: newStatus }).eq("id", lead.id);
+      if (error) lines.push(`FAIL "${lead.name}": ${error.message}`);
+      else { touched += 1; lines.push(`OK ${lead.name} → ${newStatus}`); }
+    }
+    actions.push({ type: "refresh_data", scope: "leads" });
+    return { type: "tool_result", tool_use_id: block.id, content: `Updated ${touched}/${updates.length} for ${client.name}:\n${lines.join("\n")}` };
+  }
+
+  if (block.name === "draft_lead_outreach") {
+    const { client_name, lead_names, channel = "dm" } = block.input;
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    if (!Array.isArray(lead_names) || lead_names.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: lead_names must be a non-empty array." };
+    }
+    if (lead_names.length > 5) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: cap is 5 leads per call (got ${lead_names.length}).` };
+    }
+
+    const { data: clientRow } = await adminClient.from("clients").select("name, onboarding_data").eq("id", client.id).maybeSingle();
+    const od = (clientRow?.onboarding_data as any) ?? {};
+    const voiceBlock = [
+      `Creator: ${od.clientName ?? client.name}`,
+      `Industry: ${od.industry ?? "?"}`,
+      `Offer: ${od.uniqueOffer ?? "?"}`,
+      `Audience: ${od.targetClient ?? "?"}`,
+      `Voice / values: ${od.uniqueValues ?? "conversational, direct"}`,
+    ].join("\n");
+
+    // Resolve each lead and pull its notes for personalization
+    const drafts: string[] = [];
+    for (const name of lead_names.slice(0, 5)) {
+      const trimmed = String(name).trim();
+      if (!trimmed) continue;
+      const { data: lead } = await adminClient
+        .from("leads")
+        .select("id, name, status, source, notes")
+        .eq("client_id", client.id)
+        .ilike("name", `%${trimmed}%`)
+        .limit(1)
+        .maybeSingle();
+      if (!lead) {
+        drafts.push(`--- ${trimmed} ---\n(No lead matched.)`);
+        continue;
+      }
+      const prompt = `Write a short ${channel === "email" ? "first-touch email" : "first-touch DM"} from the creator below to a new lead.
+
+CREATOR PROFILE:
+${voiceBlock}
+
+LEAD:
+- Name: ${lead.name}
+- Status: ${lead.status ?? "new"}
+- Source: ${lead.source ?? "unknown"}
+- Notes: ${lead.notes ?? "(none)"}
+
+RULES:
+- ${channel === "email" ? "Subject line on first line, then a 4-6 sentence body" : "Single short DM (3-5 sentences max)"}
+- First-person, sound human, no buzzwords
+- Reference something specific from the notes if available; otherwise lead with the creator's offer
+- End with a clear, low-friction CTA (a single yes/no question)
+- No emojis, no hashtags
+
+Output the message only, no preamble.`;
+
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: channel === "email" ? 400 : 200,
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+        if (!res.ok) {
+          drafts.push(`--- ${lead.name} ---\n(Generation failed: HTTP ${res.status})`);
+          continue;
+        }
+        const json = await res.json();
+        const text = (json.content?.[0]?.text as string ?? "").trim();
+        drafts.push(`--- ${lead.name} (${channel}) ---\n${text || "(empty draft)"}`);
+      } catch (e) {
+        drafts.push(`--- ${lead.name} ---\n(Error: ${(e as Error).message})`);
+      }
+    }
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Drafted ${drafts.length} ${channel}(s) for ${client.name}. Copy whichever you like — nothing has been sent.\n\n${drafts.join("\n\n")}`,
+    };
   }
 
   return null;

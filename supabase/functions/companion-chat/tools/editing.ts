@@ -69,7 +69,7 @@ export const EDITING_TOOLS: ToolDef[] = [
   },
   {
     name: "generate_caption",
-    description: "Generate an Instagram or TikTok caption for a post using the client's brand voice. Returns the caption text for the user to review — does NOT auto-save.",
+    description: "Generate an Instagram or TikTok caption for a post using the client's brand voice. Returns the caption text. If auto_apply_to_title is provided, the generated caption is also written to that video_edits row's caption column (matched by title).",
     input_schema: {
       type: "object",
       properties: {
@@ -77,8 +77,31 @@ export const EDITING_TOOLS: ToolDef[] = [
         hook: { type: "string", description: "The video hook or main message to base the caption on" },
         platform: { type: "string", description: "instagram (default) or tiktok" },
         cta_keyword: { type: "string", description: "ManyChat keyword trigger to include (optional)" },
+        auto_apply_to_title: { type: "string", description: "Optional: title (or partial) of the video_edits row this caption is for. If set, the generated caption is automatically saved to that row." },
       },
       required: ["client_name", "hook"],
+    },
+  },
+  {
+    name: "bulk_reschedule_posts",
+    description: "Move multiple scheduled posts to new dates in one call. Use when the user reshuffles a whole week (\"push everything from this week to next week\") or shifts multiple posts at once. Each item: title (or partial) + new_date (YYYY-MM-DD).",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              new_date: { type: "string", description: "YYYY-MM-DD" },
+            },
+            required: ["title", "new_date"],
+          },
+        },
+      },
+      required: ["client_name", "items"],
     },
   },
 ];
@@ -160,7 +183,7 @@ export async function handleEditingTool(
   }
 
   if (block.name === "generate_caption") {
-    const { client_name, hook, platform = "instagram", cta_keyword } = block.input;
+    const { client_name, hook, platform = "instagram", cta_keyword, auto_apply_to_title } = block.input;
     const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
@@ -199,7 +222,54 @@ Caption only, no other text.`,
     });
     const json = await res.json();
     const caption = (json.content?.[0]?.text as string ?? "").trim();
-    return { type: "tool_result", tool_use_id: block.id, content: `Caption for "${client.name}" (${platform}):\n\n${caption}\n\n(This is a draft — copy it or ask me to adjust before saving.)` };
+
+    // Optional: auto-apply the generated caption to a specific video_edits row.
+    let appliedNote = "";
+    if (caption && auto_apply_to_title) {
+      const item = await findEditItem(adminClient, client.id, String(auto_apply_to_title));
+      if (item) {
+        const { error: applyErr } = await adminClient.from("video_edits").update({ caption }).eq("id", item.id);
+        if (applyErr) {
+          appliedNote = `\n\n(Could not auto-apply: ${applyErr.message})`;
+        } else {
+          actions.push({ type: "refresh_data", scope: "calendar" });
+          actions.push({ type: "refresh_data", scope: "editing_queue" });
+          appliedNote = `\n\nSaved to "${item.reel_title}" automatically.`;
+        }
+      } else {
+        appliedNote = `\n\n(No video_edits row matched "${auto_apply_to_title}" — copy the caption manually.)`;
+      }
+    }
+    return { type: "tool_result", tool_use_id: block.id, content: `Caption for "${client.name}" (${platform}):\n\n${caption}${appliedNote || "\n\n(This is a draft — copy it or pass auto_apply_to_title next time to save automatically.)"}` };
+  }
+
+  if (block.name === "bulk_reschedule_posts") {
+    const { client_name, items } = block.input;
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    if (!Array.isArray(items) || items.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: items must be a non-empty array." };
+    }
+    if (items.length > 14) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: cap is 14 per call (got ${items.length}).` };
+    }
+    const lines: string[] = [];
+    let touched = 0;
+    for (const it of items) {
+      const title = String(it?.title ?? "").trim();
+      const newDate = String(it?.new_date ?? "").trim();
+      if (!title || !newDate) {
+        lines.push(`SKIP: missing title or new_date — ${JSON.stringify(it).slice(0, 80)}`);
+        continue;
+      }
+      const item = await findEditItem(adminClient, client.id, title);
+      if (!item) { lines.push(`MISS "${title}" — no post matched`); continue; }
+      const { error } = await adminClient.from("video_edits").update({ schedule_date: newDate }).eq("id", item.id);
+      if (error) lines.push(`FAIL "${item.reel_title}": ${error.message}`);
+      else { touched += 1; lines.push(`OK "${item.reel_title}" → ${newDate}`); }
+    }
+    actions.push({ type: "refresh_data", scope: "calendar" });
+    return { type: "tool_result", tool_use_id: block.id, content: `Rescheduled ${touched}/${items.length} for ${client.name}:\n${lines.join("\n")}` };
   }
 
   return null;

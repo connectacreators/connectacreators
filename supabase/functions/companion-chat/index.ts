@@ -133,7 +133,7 @@ const TOOLS = [
   },
   {
     name: "submit_to_editing_queue",
-    description: "Submit a script or content to the editing queue so an editor can work on it. Use when footage is uploaded or a script is ready for production.",
+    description: "Submit a script or content to the editing queue so an editor can work on it. Use when footage is uploaded or a script is ready for production. If you don't know who to assign, call get_weekly_priorities or get_all_clients_status first to see who's lightest on workload.",
     input_schema: {
       type: "object",
       properties: {
@@ -141,6 +141,8 @@ const TOOLS = [
         title: { type: "string", description: "The content title or script name" },
         notes: { type: "string", description: "Optional instructions for the editor" },
         schedule_date: { type: "string", description: "Optional target post date (YYYY-MM-DD)" },
+        editor_name: { type: "string", description: "Optional: assign to a specific editor by name" },
+        deadline: { type: "string", description: "Optional YYYY-MM-DD deadline for the edit" },
       },
       required: ["client_name", "title"],
     },
@@ -797,7 +799,7 @@ YOUR RULES — FOLLOW EXACTLY:
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
 18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
 18c. PREVIEW BIG ACTIONS: Before executing (a) 3+ writes in one turn (e.g. bulk_schedule_posts of 5 posts) OR (b) ANY destructive action (delete_script, update_lead_status to lost/closed, send_contract, mark_post_published, large strategy changes), call propose_plan first with a structured list of steps. Then ASK the user "approve to proceed?" in your reply. ONLY when the user says yes/approve/go-ahead, call confirm_plan(plan_id) and execute the steps. If the user says no, call reject_plan(plan_id). Do NOT propose for single-step non-destructive writes — those should just execute. The autonomy mode field overrides this: in "auto" mode skip the proposal and execute; in "ask" or "plan" modes follow this rule strictly.
-19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files, get_post_performance, compare_clients, get_recent_activity, get_open_alerts, dismiss_alert, generate_week_plan, bulk_schedule_posts, propose_plan, confirm_plan, reject_plan. Use them. Don't describe what you'd do — do it.
+19. TOOLS: navigate_to_page, open_client, fill_onboarding_fields, create_script, list_client_scripts, find_viral_videos, schedule_content, submit_to_editing_queue, get_editing_queue, get_content_calendar, create_canvas_note, read_canvas, list_all_clients, get_client_info, get_hooks, get_client_strategy, update_client_strategy, save_memory, delete_memory, list_memories, respond_to_user, add_video_to_canvas, add_research_note_to_canvas, add_idea_nodes_to_canvas, add_script_draft_to_canvas, save_script_from_canvas, get_leads, get_pipeline_summary, update_lead_status, add_lead_notes, create_lead, get_finances, log_transaction, get_revenue_vs_goal, update_script_status, mark_script_recorded, delete_script, update_editing_status, assign_editor, add_revision_notes, mark_post_published, reschedule_post, generate_caption, get_all_clients_status, get_weekly_priorities, get_contracts, send_contract, create_client, run_audience_analysis, get_instagram_top_posts, deep_research, scrape_viral_channel, list_vault_files, get_post_performance, compare_clients, get_recent_activity, get_open_alerts, dismiss_alert, generate_week_plan, bulk_schedule_posts, propose_plan, confirm_plan, reject_plan, get_morning_brief, get_overdue_items, draft_lead_outreach, bulk_update_lead_status, bulk_reschedule_posts. Use them. Don't describe what you'd do — do it.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -1092,22 +1094,27 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         }
 
         if (block.name === "submit_to_editing_queue") {
-          const { client_name, title, notes, schedule_date } = block.input;
+          const { client_name, title, notes, schedule_date, editor_name, deadline } = block.input;
           const targetClient = await lookupClient(client_name);
           if (!targetClient) {
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Client not found: " + client_name });
           } else {
-            const { data: ve } = await adminClient.from("video_edits").insert({
+            const insertPayload: Record<string, unknown> = {
               client_id: targetClient.id,
               reel_title: title,
               status: "Not started",
               post_status: "Unpublished",
               revisions: notes || null,
               schedule_date: schedule_date || null,
-            }).select("id").single();
+            };
+            if (editor_name) insertPayload.assignee = editor_name;
+            if (deadline) insertPayload.deadline = deadline;
+            await adminClient.from("video_edits").insert(insertPayload).select("id").single();
             if (!isOnAiSurface) actions.push({ type: "navigate", path: "/editing-queue" });
             actions.push({ type: "refresh_data", scope: "editing_queue" });
-            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "'" + title + "' added to editing queue for " + targetClient.name });
+            const assigneeNote = editor_name ? ` (assigned to ${editor_name})` : " (unassigned)";
+            const deadlineNote = deadline ? `, deadline ${deadline}` : "";
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `"${title}" added to editing queue for ${targetClient.name}${assigneeNote}${deadlineNote}.` });
           }
         }
 
