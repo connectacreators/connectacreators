@@ -42,6 +42,22 @@ import {
 } from "@/components/assistant";
 import type { AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
 
+// Detect a build-mode script draft in an assistant message. draft_script
+// emits a strict format: HOOK: ...\nBODY: ...\nCTA: ... — this regex pulls
+// out the three sections so we can render InlineScriptPreview.
+function parseScriptDraft(text: string): { hook: string; body: string; cta: string } | null {
+  if (!/HOOK:/i.test(text) || !/BODY:/i.test(text) || !/CTA:/i.test(text)) return null;
+  const hookMatch = /HOOK:\s*([\s\S]*?)(?=\n\s*BODY:)/i.exec(text);
+  const bodyMatch = /BODY:\s*([\s\S]*?)(?=\n\s*CTA:)/i.exec(text);
+  const ctaMatch = /CTA:\s*([\s\S]*?)(?:\n\n|$)/i.exec(text);
+  if (!hookMatch || !bodyMatch || !ctaMatch) return null;
+  const hook = hookMatch[1].trim();
+  const body = bodyMatch[1].trim();
+  const cta = ctaMatch[1].trim();
+  if (!hook || !body || !cta) return null;
+  return { hook, body, cta };
+}
+
 interface ThreadRow {
   id: string;
   title: string | null;
@@ -283,10 +299,14 @@ export default function CommandCenter() {
   );
 
   // ── Send a message via companion-chat (dual-writes to new tables) ──────
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || sending || !user) return;
-    const text = input.trim();
-    setInput("");
+  // Accepts an optional override so callers (e.g. the InlineScriptPreview
+  // Approve button) can send a synthetic message without going through the
+  // input field.
+  const handleSend = useCallback(async (override?: string) => {
+    const raw = override ?? input;
+    if (!raw.trim() || sending || !user) return;
+    const text = raw.trim();
+    if (!override) setInput("");
     setSending(true);
 
     const optimistic: MsgRow = {
@@ -404,26 +424,56 @@ export default function CommandCenter() {
   ]);
 
   // ── MsgRow[] → AssistantMessage[] for AssistantChat ────────────────────
+  //
+  // When an assistant message contains a script draft (HOOK / BODY / CTA
+  // labels in the canonical build-mode output format), we synthesize an
+  // additional script_preview message right after it so AssistantChat
+  // renders the InlineScriptPreview component with an Approve button.
+  // The synthetic message is UI-only — it never lands in the DB.
   const chatMessages: AssistantMessage[] = useMemo(() => {
-    return messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map<AssistantMessage>((m) => {
-        const c: any = m.content;
-        let content = "";
-        if (typeof c === "string") {
-          content = c;
-        } else if (c && typeof c === "object" && typeof c.text === "string") {
-          content = c.text;
-        } else {
-          content = JSON.stringify(c ?? "");
-        }
-        return {
-          role: m.role as "user" | "assistant",
-          content,
-          is_progress: (m.content as any)?.is_progress === true,
-        };
+    const out: AssistantMessage[] = [];
+    for (const m of messages.filter((mm) => mm.role === "user" || mm.role === "assistant")) {
+      const c: any = m.content;
+      let content = "";
+      if (typeof c === "string") {
+        content = c;
+      } else if (c && typeof c === "object" && typeof c.text === "string") {
+        content = c.text;
+      } else {
+        content = JSON.stringify(c ?? "");
+      }
+      out.push({
+        role: m.role as "user" | "assistant",
+        content,
+        is_progress: (m.content as any)?.is_progress === true,
       });
+
+      if (m.role === "assistant" && content) {
+        const draft = parseScriptDraft(content);
+        if (draft) {
+          out.push({
+            role: "assistant",
+            content: "",
+            type: "script_preview",
+            script_data: {
+              hook: draft.hook,
+              body: draft.body,
+              cta: draft.cta,
+              idea_title: "Pending — Robby will use the title from chat context",
+            } as any,
+          });
+        }
+      }
+    }
+    return out;
   }, [messages]);
+
+  // Send "approve and save" when the user clicks Save on an inline preview.
+  // Robby has the title in conversation context — letting him call
+  // save_script keeps the title source-of-truth in chat instead of the UI.
+  const handleApproveScript = useCallback(async () => {
+    await handleSend("Approve and save this script — use the title we just discussed.");
+  }, [handleSend]);
 
   // ── Task filtering (preserve Phase 1 priorities) ───────────────────────
   // Existing tasks shape uses priority red/amber/blue. Map onto:
@@ -521,6 +571,7 @@ export default function CommandCenter() {
                   messages={chatMessages}
                   loading={sending}
                   variant="full"
+                  onSaveScript={handleApproveScript}
                   greeting={
                     displayName
                       ? en
