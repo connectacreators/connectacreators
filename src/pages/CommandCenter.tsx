@@ -327,13 +327,15 @@ export default function CommandCenter() {
       if (Array.isArray(data?.actions)) {
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
-            // We're already on /ai (CommandCenter is the /ai surface). If the
-            // model decided to navigate elsewhere, opening in the same tab
-            // unmounts the chat session mid-conversation. Open a new tab
-            // instead so the chat survives. Same-origin navigations only —
-            // never let an action open external URLs.
+            // Navigate in the same tab. The active thread is persisted via
+            // useActiveChat (localStorage), so the destination's
+            // CompanionDrawer will auto-resume the conversation. Refuse
+            // non-relative paths so an AI action can't open external URLs.
             if (action.path.startsWith("/")) {
-              window.open(action.path, "_blank", "noopener,noreferrer");
+              // Refresh the active-chat timestamp so the destination drawer
+              // recognizes this as a fresh nav and auto-opens.
+              if (activeThreadId) setActiveChat(activeThreadId, null);
+              navigate(action.path);
             } else {
               console.warn("[ai] refused non-relative navigation:", action.path);
             }

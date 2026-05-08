@@ -962,9 +962,13 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           if (platform) query = query.eq("platform", platform);
           const { data: videos } = await query;
 
-          // Helper: build IG/TikTok search keywords from a topic so the user
-          // can manually scout when our DB has no match.
+          // Helper: build IG/TikTok search keywords from a topic so an ADMIN
+          // can manually scout when our DB has no match. Gated to admins —
+          // non-admin subscribers shouldn't be encouraged to scrape directly,
+          // since the puppeteer-backed VPS scraper can get rate-limited or
+          // banned if every user runs ad-hoc searches.
           const buildSearchHints = (t: string | undefined): string => {
+            if (!isAdmin) return "";
             if (!t || !t.trim()) return "";
             const cleaned = t.toLowerCase().replace(/[^\w\s]+/g, "").trim();
             const words = cleaned.split(/\s+/).filter(Boolean);
@@ -979,7 +983,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             const tiktokSearch = `https://www.tiktok.com/tag/${hashtag}`;
             return [
               "",
-              "If our DB has no good fit, suggest the user search manually:",
+              "ADMIN-ONLY hints (do NOT share with non-admin users — they can't scout safely):",
               `Hashtags to try: ${variants.join(", ")}`,
               `Instagram explore: ${igSearch}`,
               `TikTok tag: ${tiktokSearch}`,
