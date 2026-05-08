@@ -22,6 +22,10 @@ export interface BuildToolContext {
    *  resolve clients they don't personally own — required for the agency
    *  workflow where one user manages many client accounts. */
   isAdmin?: boolean;
+  /** For non-admin subscribers, the set of client_ids they have access to:
+   *  union of clients they own + clients in subscriber_clients. null for
+   *  admins (no filter). */
+  accessibleClientIds?: string[] | null;
   /** User's bearer token forwarded from the original /ai request. Used to
    * call other edge functions (e.g. transcribe-video) on behalf of the user
    * so credit deduction lands on the right account. */
@@ -138,15 +142,21 @@ export async function handleResolveClient(
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
   await logBuildProgress(ctx, "On it — looking up client...", "Resolving client...");
 
-  // Multi-strategy fuzzy lookup, admin-aware. Admins can resolve clients
-  // across the agency (so Roberto-the-owner can build for "Dr Calvin's Clinic"
-  // even though that client is owned by drcalvinsclinic@gmail.com). Non-admins
-  // are tenant-scoped.
+  // Multi-strategy fuzzy lookup, admin-aware AND subscriber-aware.
+  //  - Admins: see every client across the agency.
+  //  - Non-admins: limited to the union of clients they own + clients they
+  //    subscribe to via subscriber_clients (the agency-staff access pattern).
+  // This matches what resolveClient does in tools/types.ts; duplicated here
+  // because build mode doesn't share the ToolContext shape.
   const norm = (s: string) =>
     s.toLowerCase().replace(/[^\w\s]+/g, "").replace(/\s+/g, " ").trim();
   const baseQuery = () => {
     let q = ctx.adminClient.from("clients").select("id, name, onboarding_data");
-    if (!ctx.isAdmin) q = q.eq("user_id", ctx.userId);
+    if (!ctx.isAdmin) {
+      const allowed = ctx.accessibleClientIds ?? [];
+      if (allowed.length === 0) q = q.eq("id", "00000000-0000-0000-0000-000000000000");
+      else q = q.in("id", allowed);
+    }
     return q;
   };
 

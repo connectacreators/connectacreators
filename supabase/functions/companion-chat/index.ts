@@ -18,7 +18,7 @@ import { INTELLIGENCE_TOOLS, handleIntelligenceTool } from "./tools/intelligence
 import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
 import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
-import { resolveClient } from "./tools/types.ts";
+import { resolveClient, getAccessibleClientIds } from "./tools/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -468,16 +468,18 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    // Admins (agency owners) can read/write across tenants — they see clients
-    // they don't personally own. Non-admins are tenant-scoped to clients
-    // where clients.user_id = caller. Loaded once and threaded through every
-    // client lookup so the same rule applies inline + in module handlers.
+    // Resolve the caller's access model once and thread it through every tool.
+    //  - Admins (agency owners) see every client.
+    //  - Non-admins see clients they own (clients.user_id = caller) UNION
+    //    clients they subscribe to via the subscriber_clients junction.
+    // Computed in parallel: role read + accessible-client-ids fetch.
     const { data: roleRow } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .maybeSingle();
     const isAdmin = roleRow?.role === "admin";
+    const accessibleClientIds = await getAccessibleClientIds(adminClient, user.id, isAdmin);
 
     // If user is on /clients/:clientId/... use THAT client (URL trumps name-matching)
     const urlClientMatch = current_path?.match(/\/clients\/([0-9a-f-]{36})/i);
@@ -491,31 +493,50 @@ serve(async (req) => {
     let client: { id: string; name: string | null; onboarding_data: any } | null = null;
 
     if (urlClientId) {
-      // SECURITY: scope the URL-clientId lookup. Admins (agency owners) can
-      // load any client; non-admins must own the client by user_id. Without
-      // the non-admin check any authenticated user could craft a URL to any
-      // client UUID and have the AI act on it.
-      let urlQuery = adminClient
-        .from("clients")
-        .select("id, name, onboarding_data")
-        .eq("id", urlClientId);
-      if (!isAdmin) urlQuery = urlQuery.eq("user_id", user.id);
-      const { data: urlClient } = await urlQuery.maybeSingle();
-      if (urlClient) {
-        client = urlClient;
+      // SECURITY: scope the URL-clientId lookup. Admins can load any client.
+      // Non-admins must either own the client OR subscribe to it via the
+      // subscriber_clients junction (the agency-staff access pattern).
+      const allowed = isAdmin || (accessibleClientIds?.includes(urlClientId) ?? false);
+      if (allowed) {
+        const { data: urlClient } = await adminClient
+          .from("clients")
+          .select("id, name, onboarding_data")
+          .eq("id", urlClientId)
+          .maybeSingle();
+        if (urlClient) client = urlClient;
       } else {
         console.warn(
-          `[companion-chat] User ${user.id} (admin=${isAdmin}) attempted to access client ${urlClientId} they don't own; falling back to own primary client.`,
+          `[companion-chat] User ${user.id} (admin=${isAdmin}) attempted to access client ${urlClientId} they don't have access to; falling back.`,
         );
       }
     }
 
-    // Fallback: user's own primary client
+    // Fallback: user's primary client. Try the subscriber_clients junction
+    // first (the canonical "primary" mechanism for non-admin agency users)
+    // before falling back to a directly-owned client.
+    if (!client) {
+      const { data: primarySub } = await adminClient
+        .from("subscriber_clients")
+        .select("client_id")
+        .eq("subscriber_user_id", user.id)
+        .eq("is_primary", true)
+        .maybeSingle();
+      const primaryId = primarySub?.client_id;
+      if (primaryId) {
+        const { data: subClient } = await adminClient
+          .from("clients")
+          .select("id, name, onboarding_data")
+          .eq("id", primaryId)
+          .maybeSingle();
+        if (subClient) client = subClient;
+      }
+    }
     if (!client) {
       const { data: ownClient } = await adminClient
         .from("clients")
         .select("id, name, onboarding_data")
         .eq("user_id", user.id)
+        .limit(1)
         .maybeSingle();
       if (ownClient) client = ownClient;
     }
@@ -533,7 +554,7 @@ serve(async (req) => {
       // Build a minimal ToolContext for resolveClient. actions is unused by
       // resolveClient itself but the type requires it.
       return await resolveClient(
-        { adminClient, userId: user.id, client, lockedClient, isAdmin, actions: [] },
+        { adminClient, userId: user.id, client, lockedClient, isAdmin, accessibleClientIds, actions: [] },
         clientName,
       );
     };
@@ -605,6 +626,7 @@ serve(async (req) => {
         existingBuildSession: buildRoute.existingSession,
         buildTriggerMatched: buildRoute.triggerMatched,
         isAdmin,
+        accessibleClientIds,
       });
 
       return new Response(JSON.stringify({
@@ -912,10 +934,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         }
 
         if (block.name === "list_all_clients") {
-          // Admins see every client across the agency. Non-admins see only
-          // clients they personally own.
+          // Admins see every client across the agency. Non-admins see the
+          // union of clients they own + clients they subscribe to.
           let q = adminClient.from("clients").select("id, name, email, onboarding_data");
-          if (!isAdmin) q = q.eq("user_id", user.id);
+          if (!isAdmin) {
+            const allowed = accessibleClientIds ?? [];
+            if (allowed.length === 0) q = q.eq("id", "00000000-0000-0000-0000-000000000000");
+            else q = q.in("id", allowed);
+          }
           const { data: allClients } = await q.order("name");
           const summary = (allClients || []).map((c: any) => {
             const od = c.onboarding_data || {};
@@ -1464,6 +1490,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           client,
           lockedClient: urlClientId ? { id: client.id, name: client.name } : null,
           isAdmin,
+          accessibleClientIds,
           actions,
         };
         const moduleResult =

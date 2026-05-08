@@ -10,13 +10,42 @@ export interface ToolContext {
    *  ignore the model's name argument. Null on /ai (admin multi-client) or
    *  any other surface without a URL lock. */
   lockedClient: { id: string; name: string | null } | null;
-  /** True when the caller has the "admin" role in user_roles. Admins are
-   *  the agency owners — they should be able to look up clients they don't
-   *  own (e.g., Roberto managing Dr Calvin). When isAdmin is true,
-   *  resolveClient drops the user_id filter so cross-tenant matches resolve. */
+  /** True when the caller has the "admin" role in user_roles. Admins (agency
+   *  owners) can look up any client; resolveClient skips access filtering
+   *  entirely when isAdmin is true. */
   isAdmin: boolean;
+  /** For non-admins, the set of client_ids the caller has access to: union
+   *  of clients they own directly (clients.user_id = caller) and clients
+   *  they subscribe to via the subscriber_clients junction table. null
+   *  when isAdmin is true (no filter). */
+  accessibleClientIds: string[] | null;
   /** Mutable array — handlers push action objects here */
   actions: Array<{ type: string; [key: string]: unknown }>;
+}
+
+/**
+ * Resolve every client_id the caller can act on. Returns null for admins
+ * (no filter — they see everything) and a deduped array of UUIDs for
+ * non-admins. Combines:
+ *   - clients owned directly (clients.user_id = caller)
+ *   - clients granted via the subscriber_clients junction table
+ *
+ * Cheap: at most two indexed selects against tiny tables. Cache once per
+ * request rather than per tool call.
+ */
+export async function getAccessibleClientIds(
+  adminClient: SupabaseClient,
+  userId: string,
+  isAdmin: boolean,
+): Promise<string[] | null> {
+  if (isAdmin) return null;
+  const [ownedRes, subscribedRes] = await Promise.all([
+    adminClient.from("clients").select("id").eq("user_id", userId),
+    adminClient.from("subscriber_clients").select("client_id").eq("subscriber_user_id", userId),
+  ]);
+  const owned = (ownedRes.data ?? []).map((r: { id: string }) => r.id);
+  const subscribed = (subscribedRes.data ?? []).map((r: { client_id: string }) => r.client_id);
+  return Array.from(new Set([...owned, ...subscribed]));
 }
 
 export interface ToolDef {
@@ -71,11 +100,21 @@ export async function resolveClient(
   }
   if (!clientName?.trim()) return null;
 
-  // Build the base query. Admins can look up any client (agency model);
-  // non-admins are scoped to clients they own.
+  // Build the base query. Admins look up any client (agency model). Non-admins
+  // are restricted to the union of clients they own + clients they subscribe
+  // to via subscriber_clients (computed once per request and cached on ctx).
   const baseQuery = () => {
     let q = ctx.adminClient.from("clients").select("id, name");
-    if (!ctx.isAdmin) q = q.eq("user_id", ctx.userId);
+    if (!ctx.isAdmin) {
+      const allowed = ctx.accessibleClientIds ?? [];
+      if (allowed.length === 0) {
+        // Empty allow-list still needs an unsatisfiable filter so we don't
+        // accidentally return all rows. Use a sentinel UUID that can't exist.
+        q = q.eq("id", "00000000-0000-0000-0000-000000000000");
+      } else {
+        q = q.in("id", allowed);
+      }
+    }
     return q;
   };
 

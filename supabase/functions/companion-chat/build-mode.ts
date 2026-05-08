@@ -433,6 +433,8 @@ export interface HandleBuildTurnArgs {
   /** True when caller has the admin role; lets resolve_client look up
    *  clients across the agency instead of only those owned by this user_id. */
   isAdmin?: boolean;
+  /** Pre-computed access set for non-admins (owned + subscribed clients). */
+  accessibleClientIds?: string[] | null;
 }
 
 export interface HandleBuildTurnResult {
@@ -443,7 +445,7 @@ export interface HandleBuildTurnResult {
 export async function handleBuildTurn(
   args: HandleBuildTurnArgs,
 ): Promise<HandleBuildTurnResult> {
-  const { message, user, userAuthHeader, client, threadId, adminClient, isOnAiPage, buildTriggerMatched, isAdmin } = args;
+  const { message, user, userAuthHeader, client, threadId, adminClient, isOnAiPage, buildTriggerMatched, isAdmin, accessibleClientIds } = args;
   let buildSession = args.existingBuildSession;
 
   console.log("[build-mode] starting turn", {
@@ -592,6 +594,7 @@ export async function handleBuildTurn(
           buildSession: refreshed ?? buildSession,
           threadId,
           isAdmin,
+          accessibleClientIds,
           progressIds: [],
         };
         console.log(`[build-mode] tool call: ${block.name}`);
