@@ -914,7 +914,128 @@ export async function handleSaveScript(
     });
   }
 
-  return `Script "${input.title}" saved to ${ctx.client.name ?? "client"}'s library (id: ${script.id}). The user can view it in their scripts section.`;
+  return `Script "${input.title}" saved to ${ctx.client.name ?? "client"}'s library (id: ${script.id}). The user can view it in their scripts section. Next step: ask the user if they want to submit this to the editing queue (and optionally schedule a post date) — call submit_to_editing_after_save and schedule_post_after_save to chain the rest of the workflow without leaving this chat.`;
+}
+
+// ── Tool 9: submit_to_editing_after_save ─────────────────────────────────────
+//
+// End-to-end build closeout. After save_script lands the script in the
+// scripts library, this tool creates a video_edits row so the editor team
+// can pick it up. Optional: assign to a specific editor and set a deadline
+// for when raw footage should be ready.
+
+export async function handleSubmitToEditingAfterSave(
+  input: { script_title: string; deadline?: string; editor_name?: string; revision_notes?: string },
+  ctx: BuildToolContext,
+): Promise<string> {
+  if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
+  if (!ctx.client?.id) return "No client in this build session — call resolve_client first.";
+
+  await logBuildProgress(ctx, `Adding "${input.script_title}" to ${ctx.client.name ?? "client"}'s editing queue...`, "Submitting to editing...");
+
+  const insertPayload: Record<string, unknown> = {
+    client_id: ctx.client.id,
+    reel_title: input.script_title.slice(0, 120),
+    status: "Not started",
+    post_status: "Unpublished",
+  };
+  if (input.deadline) insertPayload.deadline = input.deadline;
+  if (input.revision_notes) insertPayload.revisions = input.revision_notes;
+  if (input.editor_name) insertPayload.assignee = input.editor_name;
+
+  const { data: edit, error } = await ctx.adminClient
+    .from("video_edits")
+    .insert(insertPayload)
+    .select("id, reel_title, assignee, deadline")
+    .single();
+
+  if (error || !edit) {
+    console.error("[submit_to_editing_after_save] insert failed:", error);
+    return `Could not add to editing queue: ${error?.message ?? "unknown error"}`;
+  }
+
+  const assigneeNote = edit.assignee ? ` Assigned to ${edit.assignee}.` : " Unassigned (no editor specified).";
+  const deadlineNote = edit.deadline ? ` Deadline: ${edit.deadline}.` : "";
+  return `"${edit.reel_title}" added to editing queue (id: ${edit.id}).${assigneeNote}${deadlineNote} Next: ask the user if they want to set a post date (call schedule_post_after_save) so this lands on the calendar.`;
+}
+
+// ── Tool 10: schedule_post_after_save ────────────────────────────────────────
+//
+// Pin the saved script to a calendar date. Updates the existing video_edits
+// row from submit_to_editing_after_save (matched by reel_title) or creates
+// a new one if the user skipped the editing-queue step.
+
+export async function handleSchedulePostAfterSave(
+  input: { script_title: string; post_date: string; caption?: string },
+  ctx: BuildToolContext,
+): Promise<string> {
+  if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
+  if (!ctx.client?.id) return "No client in this build session — call resolve_client first.";
+
+  await logBuildProgress(ctx, `Scheduling "${input.script_title}" for ${input.post_date}...`, "Scheduling post...");
+
+  // Find the existing edit row from submit_to_editing_after_save, if any.
+  const { data: existing } = await ctx.adminClient
+    .from("video_edits")
+    .select("id")
+    .eq("client_id", ctx.client.id)
+    .ilike("reel_title", `%${input.script_title.slice(0, 80)}%`)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const update: Record<string, unknown> = { schedule_date: input.post_date };
+  if (input.caption) update.caption = input.caption;
+
+  if (existing) {
+    await ctx.adminClient.from("video_edits").update(update).eq("id", existing.id);
+    return `"${input.script_title}" scheduled for ${input.post_date} on ${ctx.client.name ?? "client"}'s calendar.${input.caption ? " Caption set." : ""}`;
+  }
+
+  // No prior edit row — create one with the schedule baked in.
+  const { error } = await ctx.adminClient.from("video_edits").insert({
+    client_id: ctx.client.id,
+    reel_title: input.script_title.slice(0, 120),
+    status: "Not started",
+    post_status: "Unpublished",
+    schedule_date: input.post_date,
+    caption: input.caption ?? null,
+  });
+  if (error) return `Could not schedule: ${error.message}`;
+  return `"${input.script_title}" scheduled for ${input.post_date}. (No prior editing-queue row found, so I created one.)`;
+}
+
+// ── Tool 11: get_editor_workload ─────────────────────────────────────────────
+//
+// In-progress edit counts grouped by assignee. The model uses this to
+// suggest who to assign to before calling submit_to_editing_after_save.
+
+export async function handleGetEditorWorkload(
+  _input: Record<string, never>,
+  ctx: BuildToolContext,
+): Promise<string> {
+  const { data: rows } = await ctx.adminClient
+    .from("video_edits")
+    .select("assignee, status")
+    .is("deleted_at", null)
+    .neq("status", "Done")
+    .neq("post_status", "Published");
+
+  if (!rows || rows.length === 0) return "Nobody has anything in progress right now.";
+
+  const byEditor: Record<string, number> = {};
+  let unassigned = 0;
+  for (const r of rows) {
+    if (!r.assignee) unassigned += 1;
+    else byEditor[r.assignee] = (byEditor[r.assignee] ?? 0) + 1;
+  }
+
+  const lines = Object.entries(byEditor)
+    .sort((a, b) => a[1] - b[1])
+    .map(([name, count]) => `${name}: ${count} in progress`);
+  if (unassigned > 0) lines.push(`(${unassigned} unassigned)`);
+  return `Editor workload (in-progress edits):\n${lines.join("\n")}\n\nLightest load is at the top — suggest that name to the user.`;
 }
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
@@ -970,6 +1091,21 @@ export async function handleBuildTool(
         toolInput as { client_id: string; title: string; hook: string; body: string; cta: string },
         ctx,
       );
+      break;
+    case "submit_to_editing_after_save":
+      content = await handleSubmitToEditingAfterSave(
+        toolInput as { script_title: string; deadline?: string; editor_name?: string; revision_notes?: string },
+        ctx,
+      );
+      break;
+    case "schedule_post_after_save":
+      content = await handleSchedulePostAfterSave(
+        toolInput as { script_title: string; post_date: string; caption?: string },
+        ctx,
+      );
+      break;
+    case "get_editor_workload":
+      content = await handleGetEditorWorkload({}, ctx);
       break;
     default:
       return null;

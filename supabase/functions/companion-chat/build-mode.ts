@@ -121,7 +121,7 @@ const BUILD_TOOLS = [
   },
   {
     name: "save_script",
-    description: "Save the approved draft to the client's library. Only call after user approval ('yes', 'generate', 'looks good'). Does NOT navigate.",
+    description: "Save the approved draft to the client's library. Only call after user approval ('yes', 'generate', 'looks good'). Does NOT navigate. After this succeeds, the build is NOT done — propose chaining submit_to_editing_after_save and optionally schedule_post_after_save so the user gets the script all the way to the calendar without leaving this chat.",
     input_schema: {
       type: "object",
       properties: {
@@ -132,6 +132,38 @@ const BUILD_TOOLS = [
         cta: { type: "string", description: "Call to action" },
       },
       required: ["client_id", "title", "hook", "body", "cta"],
+    },
+  },
+  {
+    name: "get_editor_workload",
+    description: "List in-progress edits per assignee, lightest-load editor at the top. Call BEFORE submit_to_editing_after_save when the user hasn't named an editor — suggest the name with the lightest load and confirm with the user.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "submit_to_editing_after_save",
+    description: "After save_script lands the script, add it to the editing queue so the editor team can work on it. Optionally pass an editor_name (call get_editor_workload first if unsure), a deadline (YYYY-MM-DD when raw footage is expected), or revision_notes (instructions for the editor). Use this to keep the workflow flowing in chat instead of forcing the user to switch to the editing-queue page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        script_title: { type: "string", description: "Title of the script just saved (use the same title passed to save_script)" },
+        deadline: { type: "string", description: "Optional YYYY-MM-DD deadline for footage / first cut" },
+        editor_name: { type: "string", description: "Optional — name of the editor to assign. If unsure, call get_editor_workload first." },
+        revision_notes: { type: "string", description: "Optional notes for the editor (rough cut style, music, pacing, etc.)" },
+      },
+      required: ["script_title"],
+    },
+  },
+  {
+    name: "schedule_post_after_save",
+    description: "Pin the saved script to a calendar date. If submit_to_editing_after_save already ran for this title, this updates that row; otherwise it creates a new editing-queue entry pre-scheduled. Use after submit_to_editing_after_save when the user knows when they want it to go live.",
+    input_schema: {
+      type: "object",
+      properties: {
+        script_title: { type: "string", description: "Title of the script (same as save_script)" },
+        post_date: { type: "string", description: "Target post date in YYYY-MM-DD" },
+        caption: { type: "string", description: "Optional caption to save with the post" },
+      },
+      required: ["script_title", "post_date"],
     },
   },
 ];
@@ -369,7 +401,13 @@ THE WORKFLOW (follow this order — but skip steps that are already done above):
 2. If user wants suggestions: call get_canvas_context (only if not cached), then call generate_script_ideas. Present the 5 ideas as a numbered list. Ask: "Which idea(s) do you want to build? Reply with a number, multiple numbers, or 'all'."
 3. If user picks an IDEA (e.g., "1", "build idea 2", "first one"): map their pick to ideas[N-1] from the list, tell them which you're working on, then call search_viral_frameworks with that idea's title and keywords (or skip if URLs were pre-processed). Present 3 references with their URLs. Ask: "Which one feels right? Or paste your own."
 4. If user picks a FRAMEWORK (e.g., "1", "go with #1", "use the first one") AFTER frameworks were shown: the top match is already stored as current_framework_video_id (see context block above). Call add_video_to_canvas with that video_id, then call draft_script with framework_video_id set to the SAME video_id. The tool fetches the framework's transcript itself — you do NOT pass a caption. Do NOT call search_viral_frameworks again. Show HOOK / BODY / CTA labels clearly. Ask: "Ready to generate?"
-5. If user approves (says "generate", "yes", "save it", "looks good", "go ahead"): IMMEDIATELY call save_script with the HOOK/BODY/CTA from the CURRENT SCRIPT DRAFT in your context above. Parse the HOOK / BODY / CTA sections from the draft text. Do NOT ask for confirmation again — the user already approved. After saving, say "Perfect! Now let's work on the next one." and loop to step 3 for the next idea.
+5. If user approves (says "generate", "yes", "save it", "looks good", "go ahead"): IMMEDIATELY call save_script with the HOOK/BODY/CTA from the CURRENT SCRIPT DRAFT in your context above. Parse the HOOK / BODY / CTA sections from the draft text. Do NOT ask for confirmation again — the user already approved.
+6. AFTER save_script SUCCEEDS, the build is NOT done. Take the user end-to-end without forcing them to leave chat:
+   a. Say one short sentence confirming the save, then ask: "Want me to send it to editing? Any specific editor?"
+   b. If the user says yes but doesn't name an editor, call get_editor_workload, suggest the lightest-loaded editor, then call submit_to_editing_after_save with that editor_name. If the user names an editor, skip workload and submit directly.
+   c. After submit_to_editing_after_save, ask: "When should this go live? Give me a date or say skip." If they give a date, call schedule_post_after_save with the same script_title.
+   d. Once both submit + schedule are done (or user says skip), say "Done — script in [editor]'s queue, scheduled for [date]." and only THEN loop back to step 3 for the next idea if the user wanted multiple scripts.
+   e. If the user explicitly says "just save it" or "skip editing": don't push, just confirm the save and offer to start the next idea.
 
 RULES:
 - Answer ANY question the user asks. Off-topic questions get answered briefly, then return to the build.
@@ -606,7 +644,7 @@ export async function handleBuildTurn(
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: `Unknown tool: ${block.name}. The available tools are: resolve_client, get_canvas_context, generate_script_ideas, search_viral_frameworks, add_url_to_viral_database, add_video_to_canvas, draft_script, save_script.`,
+            content: `Unknown tool: ${block.name}. The available tools are: resolve_client, get_canvas_context, generate_script_ideas, search_viral_frameworks, add_url_to_viral_database, add_video_to_canvas, draft_script, save_script, get_editor_workload, submit_to_editing_after_save, schedule_post_after_save.`,
           });
         }
       }
