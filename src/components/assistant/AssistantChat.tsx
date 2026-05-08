@@ -51,6 +51,12 @@ export interface AssistantChatProps {
   variant?: "compact" | "full";
   /** Caller's "save script" handler */
   onSaveScript?: (script: ScriptResult) => Promise<void> | void;
+  /** Approve a plan proposal — caller decides what to do with the plan_id
+   *  (typically: send a "yes, execute plan_id" message that triggers the
+   *  model's confirm_plan tool). */
+  onApprovePlan?: (planId: string) => void;
+  /** Reject a plan proposal. */
+  onRejectPlan?: (planId: string) => void;
   /** Open the script in the full editor (canvas-side) */
   onExpandScript?: (script: ScriptResult) => void;
   /** Caller's "save research to canvas" handler — receives raw markdown */
@@ -182,6 +188,8 @@ export function AssistantChat({
   generatingImage = false,
   variant = "compact",
   onSaveScript,
+  onApprovePlan,
+  onRejectPlan,
   onExpandScript,
   onSaveResearchToCanvas,
   onRegenerateFromMessage,
@@ -391,6 +399,54 @@ export function AssistantChat({
                 <div className="flex items-center gap-1.5 text-muted-foreground/60">
                   <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
                   <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic`}>{msg.content}</span>
+                </div>
+              ) : msg.type === "plan_proposal" && msg.plan_data ? (
+                <div className="flex gap-2 items-start">
+                  <FingerprintAvatar size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="rounded-xl p-4"
+                      style={{
+                        border: "1px solid rgba(201,169,110,0.3)",
+                        background: "rgba(201,169,110,0.04)",
+                      }}
+                    >
+                      <p className="text-[11px] uppercase tracking-wider text-[rgba(201,169,110,0.7)] mb-2">
+                        Plan proposed — needs your approval
+                      </p>
+                      <p className={`${fullscreen ? "text-sm" : "text-xs"} text-foreground font-semibold mb-3`}>
+                        {msg.plan_data.summary}
+                      </p>
+                      <ol className={`${fullscreen ? "text-sm" : "text-xs"} text-muted-foreground space-y-1.5 mb-4 pl-5 list-decimal`}>
+                        {msg.plan_data.steps.slice(0, 12).map((s, idx) => (
+                          <li key={idx}>{s.description ?? s.tool ?? "(unnamed step)"}</li>
+                        ))}
+                      </ol>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onApprovePlan?.(msg.plan_data!.plan_id)}
+                          className="flex-1 py-1.5 px-3 rounded-lg text-[11px] font-semibold transition-opacity hover:opacity-90"
+                          style={{
+                            background: "rgba(201,169,110,0.85)",
+                            color: "#1a1a1a",
+                          }}
+                        >
+                          Approve & execute
+                        </button>
+                        <button
+                          onClick={() => onRejectPlan?.(msg.plan_data!.plan_id)}
+                          className="py-1.5 px-3 rounded-lg text-[11px] font-medium transition-opacity hover:opacity-90"
+                          style={{
+                            background: "transparent",
+                            color: "rgba(255,255,255,0.5)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : msg.type === "script_preview" && msg.script_data ? (
                 <div className="flex gap-2 items-start">

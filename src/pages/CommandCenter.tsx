@@ -140,6 +140,13 @@ export default function CommandCenter() {
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Latest pending plan proposal — rendered as an inline card under the
+  // assistant's reply with Approve / Reject buttons. Cleared when the
+  // user clicks either, or when a new plan arrives. Only one shown at a
+  // time so old proposals don't pile up.
+  const [latestPlan, setLatestPlan] = useState<
+    { plan_id: string; summary: string; steps: Array<{ tool?: string; description?: string }> } | null
+  >(null);
 
   // ── Right-tab state (Chat vs Tasks) ────────────────────────────────────
   const [rightTab, setRightTab] = useState<RightTab>("chat");
@@ -368,14 +375,14 @@ export default function CommandCenter() {
           ) {
             console.warn("[ai] unhandled action type:", action?.type, action);
           }
-          if (action?.type === "plan_proposal") {
-            // Lightweight handler: surface as a toast for now. Future work:
-            // render a checklist card with explicit Approve/Reject buttons.
-            const stepCount = Array.isArray(action.steps) ? action.steps.length : 0;
-            toast.message(
-              typeof action.summary === "string" ? action.summary : "Robby proposed a plan",
-              { description: `${stepCount} step${stepCount === 1 ? "" : "s"} — reply 'yes' to approve or 'no' to skip.` },
-            );
+          if (action?.type === "plan_proposal" && typeof action.plan_id === "string") {
+            // Render the plan as an inline card with Approve / Reject buttons.
+            // Only the most-recent plan is shown — older proposals get cleared.
+            setLatestPlan({
+              plan_id: action.plan_id,
+              summary: typeof action.summary === "string" ? action.summary : "Plan proposed",
+              steps: Array.isArray(action.steps) ? action.steps : [],
+            });
           }
           if (action?.type === "fill_onboarding") {
             window.dispatchEvent(
@@ -465,8 +472,31 @@ export default function CommandCenter() {
         }
       }
     }
+    // Append the latest plan_proposal card as a synthetic message AFTER the
+    // last assistant message (so the user sees it under Robby's reply that
+    // proposed it). Cleared on approve/reject.
+    if (latestPlan) {
+      out.push({
+        role: "assistant",
+        content: "",
+        type: "plan_proposal",
+        plan_data: latestPlan,
+      });
+    }
     return out;
-  }, [messages]);
+  }, [messages, latestPlan]);
+
+  const handleApprovePlan = useCallback(async (planId: string) => {
+    setLatestPlan(null);
+    await handleSend(`Yes — approve plan ${planId} and execute it.`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRejectPlan = useCallback(async (planId: string) => {
+    setLatestPlan(null);
+    await handleSend(`Reject plan ${planId} — don't run it.`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Send "approve and save" when the user clicks Save on an inline preview.
   // Robby has the title in conversation context — letting him call
@@ -572,6 +602,8 @@ export default function CommandCenter() {
                   loading={sending}
                   variant="full"
                   onSaveScript={handleApproveScript}
+                  onApprovePlan={handleApprovePlan}
+                  onRejectPlan={handleRejectPlan}
                   greeting={
                     displayName
                       ? en

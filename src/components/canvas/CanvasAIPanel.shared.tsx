@@ -34,13 +34,21 @@ export interface DeckMeta {
 export interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
-  type?: "text" | "image" | "script_preview";
+  type?: "text" | "image" | "script_preview" | "plan_proposal";
   is_progress?: boolean;
   image_b64?: string;
   _blobUrl?: string;
   revised_prompt?: string;
   credits_used?: number;
   script_data?: ScriptResult;
+  /** Set when type === "plan_proposal" — the multi-step plan the AI wants
+   *  the user to approve before executing. Rendered as a card with
+   *  Approve / Reject buttons. */
+  plan_data?: {
+    plan_id: string;
+    summary: string;
+    steps: Array<{ tool?: string; description?: string }>;
+  };
   _imagePreview?: string;
   is_research?: boolean;
   source_count?: number;

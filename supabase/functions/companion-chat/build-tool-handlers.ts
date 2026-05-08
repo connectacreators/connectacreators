@@ -788,12 +788,40 @@ export async function handleDraftScript(
   const caption = (framework.caption ?? "").trim();
   const captionIsPlaceholder = caption === "(user-submitted — pending enrichment)";
 
-  const [{ data: clientRow }] = await Promise.all([
+  // Pull client + voice samples in parallel. Voice samples are the client's
+  // 2-3 most recent COMPLETE scripts that have actual lines — used to ground
+  // the draft on the creator's real voice instead of generic
+  // "conversational, direct" filler.
+  const [{ data: clientRow }, { data: voiceScripts }] = await Promise.all([
     ctx.adminClient.from("clients").select("name, onboarding_data").eq("id", input.client_id).maybeSingle(),
+    ctx.adminClient
+      .from("scripts")
+      .select("idea_ganadora, title, raw_content, created_at, grabado")
+      .eq("client_id", input.client_id)
+      .eq("status", "complete")
+      .not("raw_content", "is", null)
+      .order("grabado", { ascending: false })  // recorded scripts first (real-voice signal)
+      .order("created_at", { ascending: false })
+      .limit(3),
   ]);
 
   const od = (clientRow?.onboarding_data as any) ?? {};
   const canvasCtx = ctx.buildSession?.cachedCanvasContext ?? "";
+
+  // Build a voice-samples block. Trim each script's raw_content to keep total
+  // size sane; if the client has no past scripts, fall back to the onboarding
+  // tone field. Past scripts beat self-described tone every time.
+  const voiceBlock = (() => {
+    const samples = (voiceScripts ?? []).filter((s: any) => typeof s.raw_content === "string" && s.raw_content.trim().length > 50);
+    if (samples.length === 0) return "";
+    const formatted = samples.map((s: any, i: number) => {
+      const title = s.idea_ganadora ?? s.title ?? `Past script ${i + 1}`;
+      // Trim per-script to ~600 chars so 3 samples ≈ 1800 chars max.
+      const body = String(s.raw_content).trim().slice(0, 600);
+      return `--- ${title} ---\n${body}`;
+    }).join("\n\n");
+    return `VOICE SAMPLES — the creator's actual past scripts (match this tone, vocabulary, sentence rhythm):\n${formatted}\n`;
+  })();
 
   // Build the framework reference block honestly: prefer transcript, fall back
   // to caption only if no transcript is available. NEVER fabricate framework
@@ -835,12 +863,13 @@ CREATOR:
 - Voice: ${od.tone ?? "conversational, direct"}
 - Audience: ${od.audience ?? ""}
 
+${voiceBlock}
 ${canvasCtx ? `CANVAS CONTEXT (use specific details from here — real numbers, real stories, real words from their notes):\n${canvasCtx.slice(0, 1500)}\n` : ""}
 
 RULES:
 - Keep the same structure as the framework when one is provided (same number of body beats, same CTA pattern)
 - Change the words and specific value to match the new idea
-- Use the creator's real details where possible
+- ${voiceBlock ? "Match the voice from the VOICE SAMPLES above — same vocabulary, same sentence rhythm, same energy. Do NOT default to generic short-form copy." : "Use the creator's real details where possible"}
 - Output ONLY these three labeled sections, no other text:
 
 HOOK: <1-2 punchy lines>
