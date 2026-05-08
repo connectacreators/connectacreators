@@ -57,6 +57,51 @@ export const ANALYTICS_TOOLS: ToolDef[] = [
       },
     },
   },
+  {
+    name: "generate_week_plan",
+    description:
+      "Draft a 7-day content plan for a client sized to their strategy targets (mix of reach/trust/convert) and grounded in their onboarding voice. Returns a numbered list of post ideas with proposed dates and content type. The user can then say 'schedule them' and you call bulk_schedule_posts with the items. Use this for the weekly-planning workflow on Sundays/Mondays.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        start_date: {
+          type: "string",
+          description: "Optional YYYY-MM-DD start date for the 7-day plan. Defaults to tomorrow.",
+        },
+        posts: {
+          type: "number",
+          description: "How many posts to plan. Default 5 (matches a typical 5-7 reels/week cadence).",
+        },
+      },
+      required: ["client_name"],
+    },
+  },
+  {
+    name: "bulk_schedule_posts",
+    description:
+      "Schedule N posts for one client in a single call. Each item creates or updates a video_edits row with schedule_date set. Use after generate_week_plan when the user confirms, or any time the user wants to batch-schedule.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        items: {
+          type: "array",
+          description: "List of posts to schedule",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              date: { type: "string", description: "YYYY-MM-DD" },
+              caption: { type: "string", description: "Optional caption text" },
+            },
+            required: ["title", "date"],
+          },
+        },
+      },
+      required: ["client_name", "items"],
+    },
+  },
 ];
 
 export async function handleAnalyticsTool(
@@ -198,6 +243,151 @@ export async function handleAnalyticsTool(
       type: "tool_result",
       tool_use_id: block.id,
       content: `${events.length} event(s) in last ${days_back} days${client_name ? ` for ${client_name}` : ""}:\n${lines.join("\n")}`,
+    };
+  }
+
+  if (block.name === "generate_week_plan") {
+    const { client_name, start_date, posts = 5 } = block.input;
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+
+    // Pull the planning ingredients in parallel: strategy targets, onboarding
+    // voice, last 14d of titles so we don't repeat ourselves.
+    const tomorrow = start_date ?? new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const fourteenAgo = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    const [stratRes, clientRes, recentEditsRes] = await Promise.all([
+      adminClient.from("client_strategies").select("posts_per_month, scripts_per_month, mix_reach, mix_trust, mix_convert, manychat_active, manychat_keyword, cta_goal").eq("client_id", client.id).maybeSingle(),
+      adminClient.from("clients").select("onboarding_data").eq("id", client.id).maybeSingle(),
+      adminClient.from("video_edits").select("reel_title, schedule_date").eq("client_id", client.id).is("deleted_at", null).gte("created_at", fourteenAgo).limit(15),
+    ]);
+    const strat = stratRes.data ?? {} as any;
+    const od = (clientRes.data?.onboarding_data as any) ?? {};
+    const recentTitles = (recentEditsRes.data ?? []).map((r: any) => r.reel_title).filter(Boolean);
+
+    const mixReach = strat.mix_reach ?? 60;
+    const mixTrust = strat.mix_trust ?? 30;
+    const mixConvert = strat.mix_convert ?? 10;
+    const numPosts = Math.max(1, Math.min(posts ?? 5, 7));
+
+    // How many of each kind, rounded so the totals match numPosts.
+    const reachCount = Math.round((mixReach / 100) * numPosts);
+    const trustCount = Math.round((mixTrust / 100) * numPosts);
+    const convertCount = Math.max(0, numPosts - reachCount - trustCount);
+
+    const prompt = `You are planning a ${numPosts}-day short-form content calendar for one creator.
+
+CREATOR PROFILE:
+- Name: ${od.clientName ?? client.name}
+- Industry: ${od.industry ?? "unknown"}
+- Audience: ${od.targetClient ?? "unknown"}
+- Offer: ${od.uniqueOffer ?? "unknown"}
+- Voice / values: ${od.uniqueValues ?? "unspecified"}
+- Story / origin: ${od.story ?? "unspecified"}
+- Story-with-numbers / backstory: ${od.storyNumbers ?? "unspecified"}
+
+STRATEGY:
+- Monthly post target: ${strat.posts_per_month ?? "unset"}
+- Content mix: ${mixReach}% reach / ${mixTrust}% trust / ${mixConvert}% convert
+- ManyChat: ${strat.manychat_active ? `active, keyword "${strat.manychat_keyword ?? "?"}"` : "not active"}
+- CTA goal: ${strat.cta_goal ?? "unset"}
+
+RECENT POSTS (last 14d — DO NOT repeat angles):
+${recentTitles.length > 0 ? recentTitles.map((t: string) => `- ${t}`).join("\n") : "(none — fresh slate)"}
+
+Plan exactly ${numPosts} posts (${reachCount} reach, ${trustCount} trust, ${convertCount} convert), one per consecutive day starting ${tomorrow}.
+
+For each post, output ONE line in this exact format (no markdown, no preamble):
+DATE | TYPE | TITLE | HOOK_ANGLE | WHY_IT_FITS
+
+Where:
+- DATE is YYYY-MM-DD starting from ${tomorrow}
+- TYPE is one of: reach, trust, convert
+- TITLE is a 4-8 word working title
+- HOOK_ANGLE is a 5-12 word hook idea
+- WHY_IT_FITS is one short sentence
+
+Output ${numPosts} lines, nothing else.`;
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 800,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { type: "tool_result", tool_use_id: block.id, content: `Plan generation failed: ${err.error?.message ?? res.statusText}` };
+    }
+    const json = await res.json();
+    const planText = (json.content?.[0]?.text as string ?? "").trim();
+    if (!planText) return { type: "tool_result", tool_use_id: block.id, content: "Plan generator returned empty output. Try again." };
+
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Draft ${numPosts}-day plan for ${client.name} starting ${tomorrow}:\n\n${planText}\n\nIf the user approves, call bulk_schedule_posts with these items (each line's TITLE and DATE — caption optional). If they want changes, regenerate with adjusted mix or different start date.`,
+    };
+  }
+
+  if (block.name === "bulk_schedule_posts") {
+    const { client_name, items } = block.input;
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    if (!Array.isArray(items) || items.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: items must be a non-empty array." };
+    }
+    if (items.length > 14) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: too many items (${items.length}). Cap is 14 per call.` };
+    }
+
+    const results: string[] = [];
+    let updated = 0;
+    let inserted = 0;
+    for (const item of items) {
+      const title = String(item?.title ?? "").trim();
+      const date = String(item?.date ?? "").trim();
+      const caption = item?.caption ? String(item.caption) : null;
+      if (!title || !date) {
+        results.push(`SKIP: missing title or date — ${JSON.stringify(item).slice(0, 80)}`);
+        continue;
+      }
+      // Prefer updating an existing video_edits row matched by title.
+      const { data: existing } = await adminClient
+        .from("video_edits")
+        .select("id")
+        .eq("client_id", client.id)
+        .ilike("reel_title", `%${title.slice(0, 80)}%`)
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        const update: Record<string, unknown> = { schedule_date: date };
+        if (caption) update.caption = caption;
+        const { error } = await adminClient.from("video_edits").update(update).eq("id", existing.id);
+        if (error) results.push(`FAIL update "${title}": ${error.message}`);
+        else { updated += 1; results.push(`UPDATED "${title}" → ${date}`); }
+      } else {
+        const { error } = await adminClient.from("video_edits").insert({
+          client_id: client.id,
+          reel_title: title.slice(0, 120),
+          status: "Not started",
+          post_status: "Unpublished",
+          schedule_date: date,
+          caption,
+        });
+        if (error) results.push(`FAIL insert "${title}": ${error.message}`);
+        else { inserted += 1; results.push(`SCHEDULED "${title}" → ${date}`); }
+      }
+    }
+    actions.push({ type: "refresh_data", scope: "calendar" });
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Bulk schedule for ${client.name}: ${inserted} new + ${updated} updated.\n\n${results.join("\n")}`,
     };
   }
 
