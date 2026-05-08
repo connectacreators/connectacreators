@@ -277,7 +277,16 @@ export default function CommandCenter() {
       if (Array.isArray(data?.actions)) {
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
-            navigate(action.path);
+            // We're already on /ai (CommandCenter is the /ai surface). If the
+            // model decided to navigate elsewhere, opening in the same tab
+            // unmounts the chat session mid-conversation. Open a new tab
+            // instead so the chat survives. Same-origin navigations only —
+            // never let an action open external URLs.
+            if (action.path.startsWith("/")) {
+              window.open(action.path, "_blank", "noopener,noreferrer");
+            } else {
+              console.warn("[ai] refused non-relative navigation:", action.path);
+            }
           } else if (
             action?.type !== "fill_onboarding" &&
             action?.type !== "open_client" &&

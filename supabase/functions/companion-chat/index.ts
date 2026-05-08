@@ -28,7 +28,7 @@ const corsHeaders = {
 const TOOLS = [
   {
     name: "navigate_to_page",
-    description: "Navigate the user to a specific page in the app. Use this when the user needs to go somewhere or after you've completed an action.",
+    description: "Navigate the user to a specific page in the app. Only call this when the user EXPLICITLY asks to GO TO or OPEN a page. NEVER call this when the user wants you to SEARCH, FIND, or LOOK UP something — for that use the appropriate data tool: find_viral_videos for the Viral Today database, get_leads for leads, get_finances for transactions, etc. On the /ai surface, navigation unmounts the chat session, so prefer data tools over navigation whenever possible.",
     input_schema: {
       type: "object",
       properties: {
@@ -93,7 +93,7 @@ const TOOLS = [
   },
   {
     name: "find_viral_videos",
-    description: "Search for viral videos by topic or niche to use as content inspiration. Returns videos with high outlier scores sorted by performance. Use this when looking for viral references for a client's content.",
+    description: "Search the Viral Today database for viral video references by topic or niche. THIS IS the Viral Today page — the user does NOT need to navigate there to search; this tool queries the same data. Returns videos sorted by outlier score. If no exact matches in our DB, the result includes suggested Instagram/TikTok hashtags + search keywords the user can run manually. Use this anytime the user asks to 'find references', 'search Viral Today', 'look for viral [topic]', etc.",
     input_schema: {
       type: "object",
       properties: {
@@ -961,6 +961,32 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           if (topic) query = query.ilike("caption", "%" + topic + "%");
           if (platform) query = query.eq("platform", platform);
           const { data: videos } = await query;
+
+          // Helper: build IG/TikTok search keywords from a topic so the user
+          // can manually scout when our DB has no match.
+          const buildSearchHints = (t: string | undefined): string => {
+            if (!t || !t.trim()) return "";
+            const cleaned = t.toLowerCase().replace(/[^\w\s]+/g, "").trim();
+            const words = cleaned.split(/\s+/).filter(Boolean);
+            const hashtag = words.join("");
+            const variants = [
+              `#${hashtag}`,
+              `#${hashtag}tips`,
+              `#${hashtag}reels`,
+              ...(words.length > 1 ? [`#${words[0]}`] : []),
+            ];
+            const igSearch = `https://www.instagram.com/explore/tags/${hashtag}/`;
+            const tiktokSearch = `https://www.tiktok.com/tag/${hashtag}`;
+            return [
+              "",
+              "If our DB has no good fit, suggest the user search manually:",
+              `Hashtags to try: ${variants.join(", ")}`,
+              `Instagram explore: ${igSearch}`,
+              `TikTok tag: ${tiktokSearch}`,
+              `Search keywords (paste into IG/TikTok search): "${t}", "${t} viral", "${t} hook", "${t} tips"`,
+            ].join("\n");
+          };
+
           if (!videos || videos.length === 0) {
             // Fallback: top viral videos regardless of caption match
             const { data: fallback } = await adminClient
@@ -972,12 +998,16 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             const info = (fallback || []).map((v: any) =>
               "@" + v.channel_username + " (" + v.platform + ") — " + (v.views_count || 0).toLocaleString() + " views, outlier score " + v.outlier_score + ". Caption: " + (v.caption || "").slice(0, 100)
             ).join("\n\n");
-            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No exact matches for topic. Top viral videos:\n" + info });
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: `No exact matches in our database for "${topic ?? ""}". Top viral videos overall:\n${info}\n${buildSearchHints(topic)}`,
+            });
           } else {
             const info = videos.map((v: any) =>
               "@" + v.channel_username + " (" + v.platform + ") — " + (v.views_count || 0).toLocaleString() + " views, outlier score " + v.outlier_score + ". Caption: " + (v.caption || "").slice(0, 150)
             ).join("\n\n");
-            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: videos.length + " viral videos found:\n\n" + info });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: videos.length + " viral videos found in our DB:\n\n" + info });
           }
         }
 
