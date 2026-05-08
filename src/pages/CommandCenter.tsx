@@ -343,9 +343,19 @@ export default function CommandCenter() {
             action?.type !== "fill_onboarding" &&
             action?.type !== "open_client" &&
             action?.type !== "refresh_data" &&
-            action?.type !== "show_notification"
+            action?.type !== "show_notification" &&
+            action?.type !== "plan_proposal"
           ) {
             console.warn("[ai] unhandled action type:", action?.type, action);
+          }
+          if (action?.type === "plan_proposal") {
+            // Lightweight handler: surface as a toast for now. Future work:
+            // render a checklist card with explicit Approve/Reject buttons.
+            const stepCount = Array.isArray(action.steps) ? action.steps.length : 0;
+            toast.message(
+              typeof action.summary === "string" ? action.summary : "Robby proposed a plan",
+              { description: `${stepCount} step${stepCount === 1 ? "" : "s"} — reply 'yes' to approve or 'no' to skip.` },
+            );
           }
           if (action?.type === "fill_onboarding") {
             window.dispatchEvent(

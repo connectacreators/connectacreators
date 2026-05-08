@@ -270,10 +270,14 @@ export default function CompanionDrawer() {
             action?.type !== "fill_onboarding" &&
             action?.type !== "open_client" &&
             action?.type !== "refresh_data" &&
-            action?.type !== "show_notification"
+            action?.type !== "show_notification" &&
+            action?.type !== "plan_proposal"
           ) {
             console.warn("[ai] unhandled action type:", action?.type, action);
           }
+          // plan_proposal is recognized but rendered inline in chat — the
+          // tool_result already includes the numbered step list, so the user
+          // sees the plan in Robby's reply. No extra UI surface needed yet.
           if (action?.type === "fill_onboarding") {
             window.dispatchEvent(
               new CustomEvent("companion:fill-onboarding", {
