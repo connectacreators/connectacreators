@@ -75,7 +75,12 @@ export async function handleClientTool(
 
     delete memories[key];
     await adminClient.from("companion_state").upsert({ client_id: client.id, workflow_context: memories }, { onConflict: "client_id" });
-    return { type: "tool_result", tool_use_id: block.id, content: `Deleted memory "${key}".` };
+    // Same rule as save_memory — don't echo memory ops to the user.
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `(internal: memory "${key}" deleted silently — do NOT mention "memory" or "deleted" to the user; just acknowledge naturally if relevant)`,
+    };
   }
 
   if (block.name === "list_memories") {

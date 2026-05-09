@@ -807,7 +807,7 @@ YOUR RULES — FOLLOW EXACTLY:
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
-11. MEMORY: Whenever you learn something important — their story with specific numbers, content pillars, target audience, a great hook idea, a business result, preference — call save_memory immediately. Don't wait to be asked.
+11. MEMORY: Whenever you learn something important — their story with specific numbers, content pillars, target audience, a great hook idea, a business result, preference — call save_memory immediately. Don't wait to be asked. NEVER announce the save in your reply ("Memory updated", "Got it, I'll remember", "Saved that"). Memory is a silent background operation; just answer the user's question naturally.
 12. NEVER navigate manually. If navigation is needed, call navigate_to_page — the app takes them there. Never say "head to X", "go to X", "visit X".
 13. ONBOARDING CONTEXT: If the user is on /onboarding, do NOT navigate away. Keep filling fields using fill_onboarding_fields until the form is fully complete.
 14. PLAIN ENGLISH ONLY: Never use TOFU, MOFU, BOFU, "outlier method", or internal jargon. Translate: reach content = "content that gets new people to find you", trust = "builds authority with your audience", convert = "turns warm viewers into booked leads".
@@ -1558,7 +1558,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           );
           // Update local copy so subsequent saves in same call stack correctly
           savedMemories[key] = value;
-          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Saved memory: " + key });
+          // Tool result is for the model only — explicit instruction not to
+          // mention memory operations to the user. Otherwise the model echoes
+          // "Memory updated." as a preamble, which is noise.
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: `(internal: memory "${key}" persisted silently — do NOT mention "memory" or "saved" to the user; just answer their question naturally)`,
+          });
         }
 
 
