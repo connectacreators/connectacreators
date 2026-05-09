@@ -801,8 +801,15 @@ export default function LeadCalendar() {
               })()}
 
               {/* ===== MONTH VIEW ===== */}
-              {viewMode === "month" && (
-                <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden flex-1">
+              {viewMode === "month" && (() => {
+                const firstDow = getFirstDayOfWeek(viewYear, viewMonth);
+                const daysInMonth = getDaysInMonth(viewYear, viewMonth);
+                const monthRows = Math.ceil((firstDow + daysInMonth) / 7);
+                return (
+                <div
+                  className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden"
+                  style={{ gridTemplateRows: `auto repeat(${monthRows}, minmax(72px, 110px))` }}
+                >
                   {DAY_NAMES.map((d, i) => (
                     <div key={d} className="bg-muted p-1 sm:p-2 text-center text-[10px] sm:text-xs font-semibold text-muted-foreground">
                       <span className="hidden sm:inline">{d}</span>
@@ -847,7 +854,8 @@ export default function LeadCalendar() {
                     );
                   })}
                 </div>
-              )}
+                );
+              })()}
 
 
               {leads.length === 0 && !loading && (
