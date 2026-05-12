@@ -1,4 +1,10 @@
 // supabase/functions/companion-chat/tools/client.ts
+//
+// This module used to also own delete_memory + list_memories that wrote to
+// the abandoned companion_state.workflow_context. Those were duplicating
+// (and shadowing) the canonical implementations in tools/memories.ts —
+// causing Anthropic 400s on duplicate tool names. Removed.
+
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 
 export const CLIENT_TOOLS: ToolDef[] = [
@@ -16,33 +22,13 @@ export const CLIENT_TOOLS: ToolDef[] = [
       required: ["name"],
     },
   },
-  {
-    name: "delete_memory",
-    description: "Remove a stored memory key for the current client. Use when the user says 'forget that X' or 'that's no longer true'.",
-    input_schema: {
-      type: "object",
-      properties: {
-        key: { type: "string", description: "The memory key to delete (e.g. 'main_story', 'content_pillars')" },
-      },
-      required: ["key"],
-    },
-  },
-  {
-    name: "list_memories",
-    description: "Show all stored memories for the current client. Use when the user asks 'what do you know about this client?' or 'what have you saved?'",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
 ];
 
 export async function handleClientTool(
   block: { id: string; name: string; input: Record<string, any> },
   ctx: ToolContext,
 ): Promise<ToolResult | null> {
-  const { adminClient, userId, client, actions } = ctx;
+  const { adminClient, userId, actions } = ctx;
 
   if (block.name === "create_client") {
     const { name, email, industry, package: pkg } = block.input;
@@ -60,42 +46,6 @@ export async function handleClientTool(
 
     actions.push({ type: "open_client", client_id: newClient.id });
     return { type: "tool_result", tool_use_id: block.id, content: `Created client "${newClient.name}". Navigating to their page now.` };
-  }
-
-  if (block.name === "delete_memory") {
-    const { key } = block.input;
-    const { data: state } = await adminClient
-      .from("companion_state")
-      .select("workflow_context")
-      .eq("client_id", client.id)
-      .maybeSingle();
-
-    const memories = { ...(state?.workflow_context ?? {}) };
-    if (!(key in memories)) return { type: "tool_result", tool_use_id: block.id, content: `No memory found with key "${key}".` };
-
-    delete memories[key];
-    await adminClient.from("companion_state").upsert({ client_id: client.id, workflow_context: memories }, { onConflict: "client_id" });
-    // Same rule as save_memory — don't echo memory ops to the user.
-    return {
-      type: "tool_result",
-      tool_use_id: block.id,
-      content: `(internal: memory "${key}" deleted silently — do NOT mention "memory" or "deleted" to the user; just acknowledge naturally if relevant)`,
-    };
-  }
-
-  if (block.name === "list_memories") {
-    const { data: state } = await adminClient
-      .from("companion_state")
-      .select("workflow_context")
-      .eq("client_id", client.id)
-      .maybeSingle();
-
-    const memories = state?.workflow_context ?? {};
-    const keys = Object.keys(memories);
-    if (keys.length === 0) return { type: "tool_result", tool_use_id: block.id, content: "No memories saved for this client yet." };
-
-    const lines = keys.map(k => `${k}: ${String(memories[k]).slice(0, 200)}`);
-    return { type: "tool_result", tool_use_id: block.id, content: `${keys.length} saved memories:\n${lines.join("\n")}` };
   }
 
   return null;
