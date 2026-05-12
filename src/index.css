@@ -55,6 +55,15 @@ All colors MUST be HSL for consistency and theming.
 
     --radius: 0.75rem;
 
+    /* Neutral opacity scale — workhorse layer for /ai chat surface and beyond.
+       Use these instead of inventing ad-hoc opacities. Cyan owns interaction;
+       lime owns success; cream owns AI identity (streaming cursor). */
+    --surface-1: rgba(255, 255, 255, 0.03);  /* glass surface bg */
+    --surface-2: rgba(255, 255, 255, 0.06);  /* hover bg, user bubble bg */
+    --line-1:    rgba(255, 255, 255, 0.08);  /* borders, dividers */
+    --text-1:    rgba(255, 255, 255, 0.35);  /* secondary text, inactive icons */
+    --text-2:    rgba(255, 255, 255, 0.6);   /* primary text */
+
     /* Connecta Custom Design Tokens */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);

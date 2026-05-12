@@ -483,9 +483,9 @@ function TabBtn({
       onClick={onClick}
       title={title}
       className="relative w-7 h-7 flex items-center justify-center transition-colors"
-      style={{ color: active ? "rgba(201,169,110,0.85)" : "rgba(255,255,255,0.28)" }}
+      style={{ color: active ? "rgba(34,211,238,0.95)" : "rgba(255,255,255,0.28)" }}
     >
-      {/* gold side mark */}
+      {/* cyan side mark */}
       <span
         style={{
           position: "absolute",
@@ -494,9 +494,9 @@ function TabBtn({
           transform: `translateY(-50%) scaleY(${active ? 1 : 0})`,
           width: 1.5,
           height: "55%",
-          background: "#c9a96e",
+          background: "#22d3ee",
           borderRadius: 2,
-          opacity: active ? 0.85 : 0,
+          opacity: active ? 0.9 : 0,
           transition: "transform 0.18s ease, opacity 0.18s ease",
         }}
       />

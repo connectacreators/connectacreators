@@ -60,7 +60,7 @@ export function AssistantChipsBar({
             <path
               d="M6,2.5 C30,1 90,1 112,2.5 C117,3 119,5.5 119,8.5 C119.5,13 119,18 118,21.5 C117,24.5 114,26 108,26.5 C80,27.5 40,27.5 14,26.5 C7,26 3,24 2,21 C1,17 1,11 2,7 C3,4 4.5,3 6,2.5 Z"
               fill="none"
-              stroke="rgba(201,169,110,0.28)"
+              stroke="rgba(34,211,238,0.35)"
               strokeWidth="1.1"
               strokeLinecap="round"
               strokeLinejoin="round"

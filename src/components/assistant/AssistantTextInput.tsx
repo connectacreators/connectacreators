@@ -238,19 +238,19 @@ export function AssistantTextInput({
         <div
           className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg"
           style={{
-            background: "rgba(201,169,110,0.08)",
-            border: "1px solid rgba(201,169,110,0.2)",
+            background: "rgba(34,211,238,0.08)",
+            border: "1px solid rgba(34,211,238,0.2)",
           }}
         >
           <span
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{
-              background: "#c9a96e",
-              boxShadow: "0 0 5px rgba(201,169,110,0.5)",
+              background: "#22d3ee",
+              boxShadow: "0 0 5px rgba(34,211,238,0.5)",
               animation: "pulse 1.5s infinite",
             }}
           />
-          <span className="text-[10px] font-medium" style={{ color: "rgba(201,169,110,0.85)" }}>
+          <span className="text-[10px] font-medium" style={{ color: "rgba(34,211,238,0.85)" }}>
             Deep Research mode · 100 credits per query
           </span>
         </div>
@@ -285,10 +285,10 @@ export function AssistantTextInput({
         className="relative rounded-xl border"
         style={{
           background: imageMode
-            ? "rgba(168,85,247,0.05)"
+            ? "rgba(34,211,238,0.05)"
             : "rgba(255,255,255,0.04)",
           borderColor: imageMode
-            ? "rgba(168,85,247,0.25)"
+            ? "rgba(34,211,238,0.3)"
             : "rgba(255,255,255,0.1)",
         }}
       >
@@ -378,8 +378,8 @@ export function AssistantTextInput({
                   <span
                     key={i}
                     style={{
-                      background: "rgba(59,130,246,0.18)",
-                      color: "#60a5fa",
+                      background: "rgba(34,211,238,0.18)",
+                      color: "#22d3ee",
                       borderRadius: 3,
                       padding: "0 1px",
                     }}
@@ -504,7 +504,7 @@ export function AssistantTextInput({
                     type="button"
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
                       imageMode
-                        ? "text-purple-400 bg-purple-500/10"
+                        ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
                         : "text-muted-foreground hover:bg-muted/60"
                     }`}
                     onClick={() => {
@@ -524,7 +524,7 @@ export function AssistantTextInput({
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
                       isResearchMode ? "" : "text-muted-foreground hover:bg-muted/60"
                     }`}
-                    style={isResearchMode ? { color: "#c9a96e", background: "rgba(201,169,110,0.08)" } : undefined}
+                    style={isResearchMode ? { color: "#22d3ee", background: "rgba(34,211,238,0.08)" } : undefined}
                     onClick={() => {
                       onToggleResearchMode();
                       setPlusMenuOpen(false);
@@ -605,8 +605,8 @@ export function AssistantTextInput({
                 gap: 4,
                 color:
                   generating || generateScriptDisabled
-                    ? "rgba(201,169,110,0.4)"
-                    : "#c9a96e",
+                    ? "rgba(34,211,238,0.4)"
+                    : "#22d3ee",
                 fontSize: 11,
                 fontWeight: 600,
                 background: "none",
@@ -723,7 +723,7 @@ export function AssistantTextInput({
                                     ? "border-l-2 text-foreground"
                                     : "text-muted-foreground hover:bg-muted/60"
                                 }`}
-                                style={selectedModel === m.key ? { borderLeftColor: "#c9a96e", background: "rgba(201,169,110,0.07)" } : undefined}
+                                style={selectedModel === m.key ? { borderLeftColor: "#22d3ee", background: "rgba(34,211,238,0.07)" } : undefined}
                                 onClick={() => {
                                   onModelChange?.(m.key);
                                   setModelDropdownOpen(false);
@@ -737,7 +737,7 @@ export function AssistantTextInput({
                                   {m.label}
                                 </span>
                                 {selectedModel === m.key && (
-                                  <Check className="w-3 h-3 ml-auto" style={{ color: "#c9a96e" }} />
+                                  <Check className="w-3 h-3 ml-auto" style={{ color: "#22d3ee" }} />
                                 )}
                                 <span
                                   className={`text-[10px] ${
@@ -793,7 +793,7 @@ export function AssistantTextInput({
                                 height: 16,
                                 borderRadius: 8,
                                 background: thinkingEnabled
-                                  ? "#c9a96e"
+                                  ? "#22d3ee"
                                   : "rgba(255,255,255,0.15)",
                                 transition: "background 0.2s",
                               }}
@@ -880,7 +880,7 @@ export function AssistantTextInput({
                 height: 28,
                 background: "transparent",
                 border: "none",
-                color: "#c9a96e",
+                color: "#22d3ee",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -899,7 +899,7 @@ export function AssistantTextInput({
                 <path
                   d="M5,2.5 C10,1 26,1 31,2.5 C34,3.5 35.5,6.5 35.5,10 C36,17 36,22 35,27.5 C34,31 32,33.5 28,34.5 C21,36 13,36 8,34.5 C4,33.5 1.5,31 1,27 C0.5,21 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
                   fill="none"
-                  stroke="#c9a96e"
+                  stroke="#22d3ee"
                   strokeWidth="1.2"
                   strokeLinecap="round"
                 />
@@ -943,9 +943,9 @@ export function AssistantTextInput({
 
       {/* Image mode indicator */}
       {imageMode && (
-        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-purple-500/5 rounded-lg w-fit">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-          <span className="text-[10px] text-purple-400">
+        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-[rgba(34,211,238,0.05)] rounded-lg w-fit">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#22d3ee]" />
+          <span className="text-[10px] text-[#22d3ee]">
             Image mode · DALL-E 3 · ~150 cr
           </span>
         </div>

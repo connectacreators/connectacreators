@@ -35,7 +35,7 @@ export function AssistantContextPanel({
   nodes,
   typeColorMap,
   typeLabelMap,
-  fallbackColor = "#888",
+  fallbackColor = "rgba(255,255,255,0.35)",
   collapsed = false,
   onToggleCollapsed,
   emptyMessage = "No nodes on canvas yet",

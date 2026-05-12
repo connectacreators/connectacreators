@@ -336,11 +336,11 @@ export function AssistantChat({
                     <div
                       className="rounded-xl p-4"
                       style={{
-                        border: "1px solid rgba(201,169,110,0.3)",
-                        background: "rgba(201,169,110,0.04)",
+                        border: "1px solid rgba(34,211,238,0.3)",
+                        background: "rgba(34,211,238,0.04)",
                       }}
                     >
-                      <p className="text-[11px] uppercase tracking-wider text-[rgba(201,169,110,0.7)] mb-2">
+                      <p className="text-[11px] uppercase tracking-wider text-[rgba(34,211,238,0.85)] mb-2">
                         Plan proposed — needs your approval
                       </p>
                       <p className={`${fullscreen ? "text-sm" : "text-xs"} text-foreground font-semibold mb-3`}>
@@ -356,8 +356,8 @@ export function AssistantChat({
                           onClick={() => onApprovePlan?.(msg.plan_data!.plan_id)}
                           className="flex-1 py-1.5 px-3 rounded-lg text-[11px] font-semibold transition-opacity hover:opacity-90"
                           style={{
-                            background: "rgba(201,169,110,0.85)",
-                            color: "#1a1a1a",
+                            background: "hsl(var(--primary))",
+                            color: "hsl(var(--primary-foreground))",
                           }}
                         >
                           Approve & execute
@@ -404,12 +404,12 @@ export function AssistantChat({
                 </div>
               ) : msg.type === "image" && (msg._blobUrl || msg.image_b64) ? (
                 <div className="flex gap-2 items-start">
-                  <ImageIcon className="w-3.5 h-3.5 text-purple-400 mt-0.5 flex-shrink-0" />
+                  <ImageIcon className="w-3.5 h-3.5 text-[#22d3ee] mt-0.5 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <img
                       src={resolveImageUrl(msg)}
                       alt={msg.revised_prompt || "Generated image"}
-                      className="rounded-lg max-w-full border border-purple-500/20"
+                      className="rounded-lg max-w-full border border-[rgba(34,211,238,0.3)]"
                     />
                     {msg.revised_prompt && (
                       <p className="text-[10px] text-muted-foreground mt-1.5 italic">
@@ -417,7 +417,7 @@ export function AssistantChat({
                       </p>
                     )}
                     {msg.credits_used && (
-                      <p className="text-[10px] text-purple-400/70 mt-0.5">
+                      <p className="text-[10px] text-[#22d3ee]/70 mt-0.5">
                         {msg.credits_used} credits
                       </p>
                     )}
@@ -427,7 +427,7 @@ export function AssistantChat({
                 <div className="flex gap-2 items-start">
                   <svg
                     className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                    style={{ color: "#c9a96e" }}
+                    style={{ color: "#22d3ee" }}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -439,7 +439,7 @@ export function AssistantChat({
                   </svg>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#c9a96e" }}>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "rgba(34,211,238,0.85)" }}>
                         Deep Research
                       </span>
                       {msg.source_count != null && msg.source_count > 0 && (
@@ -453,7 +453,7 @@ export function AssistantChat({
                     <button
                       onClick={() => handleSaveResearch(msg)}
                       className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
-                      style={{ color: "rgba(201,169,110,0.85)", borderColor: "rgba(201,169,110,0.3)", background: "rgba(201,169,110,0.07)" }}
+                      style={{ color: "rgba(34,211,238,0.85)", borderColor: "rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.08)" }}
                     >
                       <svg
                         className="w-3 h-3"
@@ -512,7 +512,7 @@ export function AssistantChat({
                           setTimeout(() => setCopiedIdx(null), 1500);
                         }}
                         className="text-[9px] transition-colors relative"
-                        style={{ color: copiedIdx === i ? "rgba(201,169,110,0.8)" : "rgba(255,255,255,0.28)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                        style={{ color: copiedIdx === i ? "rgba(34,211,238,0.85)" : "rgba(255,255,255,0.28)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
                         title="Copy"
                       >
                         {copiedIdx === i ? "copied" : "copy"}
@@ -587,28 +587,28 @@ export function AssistantChat({
 
         {generatingImage && (
           <div className="flex gap-2 items-start">
-            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(201,169,110,0.6)" }} />
+            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(34,211,238,0.6)" }} />
             <div className="min-w-0 flex-1">
               <div
                 className="rounded-lg overflow-hidden relative"
-                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(201,169,110,0.15)", background: "rgba(201,169,110,0.03)" }}
+                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(34,211,238,0.15)", background: "rgba(34,211,238,0.03)" }}
               >
                 {/* Shimmer animation */}
                 <div
                   className="absolute inset-0"
                   style={{
                     background:
-                      "linear-gradient(90deg, transparent 0%, rgba(201,169,110,0.07) 50%, transparent 100%)",
+                      "linear-gradient(90deg, transparent 0%, rgba(34,211,238,0.07) 50%, transparent 100%)",
                     backgroundSize: "200% 100%",
                     animation: "shimmer 1.5s ease-in-out infinite",
                   }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(201,169,110,0.6)" }} />
-                  <span className="text-[11px] font-medium" style={{ color: "rgba(201,169,110,0.55)" }}>
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(34,211,238,0.6)" }} />
+                  <span className="text-[11px] font-medium" style={{ color: "rgba(34,211,238,0.55)" }}>
                     Creating image…
                   </span>
-                  <span className="text-[10px]" style={{ color: "rgba(201,169,110,0.35)" }}>
+                  <span className="text-[10px]" style={{ color: "rgba(34,211,238,0.35)" }}>
                     1024 × 1024
                   </span>
                 </div>
@@ -629,7 +629,7 @@ export function AssistantChat({
               style={{ background: "none", border: "none" }}
             >
               <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none" }} viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M6,2.5 C25,1 75,1 92,2.5 C97,3 99,5.5 99,8.5 C99.5,13 99,19 98,22 C97,25 94,26.5 89,27 C65,28 30,28 12,27 C6,26.5 2,25 2,22 C1,17 1,11 2,7 C2.5,4 4,3 6,2.5 Z" fill="none" stroke="rgba(201,169,110,0.22)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6,2.5 C25,1 75,1 92,2.5 C97,3 99,5.5 99,8.5 C99.5,13 99,19 98,22 C97,25 94,26.5 89,27 C65,28 30,28 12,27 C6,26.5 2,25 2,22 C1,17 1,11 2,7 C2.5,4 4,3 6,2.5 Z" fill="none" stroke="rgba(34,211,238,0.3)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <ChevronDown className="w-3 h-3" />
               {unreadCount > 0 ? `${unreadCount} new` : "Latest"}
@@ -651,7 +651,7 @@ export function AssistantChat({
               {looksLikeResearch ? (
                 <svg
                   className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                  style={{ color: "#c9a96e" }}
+                  style={{ color: "#22d3ee" }}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"

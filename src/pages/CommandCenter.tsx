@@ -649,7 +649,7 @@ export default function CommandCenter() {
                           <path
                             d="M8,3 C45,1 115,1 150,3 C156,3.5 158,6 158,10 C158.5,16 158,22 157,27 C156,30 152,32 144,32.5 C105,33.5 55,33.5 16,32.5 C7,32 3,29.5 2,26 C1,20 1,13 2,8 C3,5 5,3.5 8,3 Z"
                             fill="none"
-                            stroke="rgba(201,169,110,0.3)"
+                            stroke="rgba(34,211,238,0.35)"
                             strokeWidth="1.2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -670,9 +670,9 @@ export default function CommandCenter() {
                       onClick={() => setAutonomyMode(m)}
                       className="text-[10px] font-medium px-2.5 py-0.5 rounded-md transition-all"
                       style={{
-                        background: autonomyMode === m ? "rgba(201,169,110,0.15)" : "transparent",
-                        color: autonomyMode === m ? "rgba(201,169,110,0.95)" : "rgba(255,255,255,0.4)",
-                        border: `1px solid ${autonomyMode === m ? "rgba(201,169,110,0.35)" : "rgba(255,255,255,0.08)"}`,
+                        background: autonomyMode === m ? "rgba(34,211,238,0.15)" : "transparent",
+                        color: autonomyMode === m ? "rgba(34,211,238,0.95)" : "rgba(255,255,255,0.4)",
+                        border: `1px solid ${autonomyMode === m ? "rgba(34,211,238,0.35)" : "rgba(255,255,255,0.08)"}`,
                       }}
                       title={
                         m === "auto"

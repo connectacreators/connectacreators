@@ -141,7 +141,7 @@ export function AssistantThreadList({
           compact ? "px-2 py-1.5" : "px-3 py-2",
           "border-l-2",
           isActive
-            ? "bg-white/[0.04] border-white/20"
+            ? "bg-[rgba(34,211,238,0.08)] border-[rgba(34,211,238,0.5)] hover:bg-[rgba(34,211,238,0.12)]"
             : "border-transparent hover:bg-white/5",
         ].join(" ")}
       >
@@ -284,7 +284,7 @@ export function AssistantThreadList({
           title="Start a new chat"
         >
           <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none" }} viewBox="0 0 70 22" preserveAspectRatio="none">
-            <path d="M5,2 C18,0.5 52,0.5 63,2 C67,2.5 69,5 69,7.5 C69.5,11 69,15 68,18 C67,20.5 64,22 59,22.5 C42,23.5 22,23.5 10,22.5 C5,22 2,20.5 2,18 C1,14 1,10 2,7 C2.5,4 3.5,2.5 5,2 Z" fill="none" stroke="rgba(201,169,110,0.25)" strokeWidth="1" strokeLinecap="round"/>
+            <path d="M5,2 C18,0.5 52,0.5 63,2 C67,2.5 69,5 69,7.5 C69.5,11 69,15 68,18 C67,20.5 64,22 59,22.5 C42,23.5 22,23.5 10,22.5 C5,22 2,20.5 2,18 C1,14 1,10 2,7 C2.5,4 3.5,2.5 5,2 Z" fill="none" stroke="rgba(34,211,238,0.35)" strokeWidth="1" strokeLinecap="round"/>
           </svg>
           <Plus className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
           New
