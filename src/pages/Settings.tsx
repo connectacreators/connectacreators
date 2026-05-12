@@ -10,7 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BorderGlow from "@/components/ui/BorderGlow";
-import { AssistantMemoryEditor } from "@/components/assistant";
+// AssistantMemoryEditor disabled until memory subsystem is re-enabled.
+// import { AssistantMemoryEditor } from "@/components/assistant";
 import { useCompanion } from "@/contexts/CompanionContext";
 
 export default function Settings() {
@@ -313,8 +314,9 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Assistant memories */}
-        <AssistantMemoryEditor />
+        {/* Assistant memories — disabled for now; component + table preserved
+            for future reactivation. Uncomment to bring back. */}
+        {/* <AssistantMemoryEditor /> */}
 
         {/* Delete Account — only for non-admin users */}
         {role !== "admin" && (

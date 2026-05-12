@@ -19,7 +19,9 @@ import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
 import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
 import { PLAN_TOOLS, handlePlanTool } from "./tools/plans.ts";
-import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
+// Memory subsystem disabled for now — tools/memories.ts and the
+// assistant_memories table remain in place for future reactivation.
+// import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
 import { resolveClient, getAccessibleClientIds } from "./tools/types.ts";
 
 const corsHeaders = {
@@ -391,8 +393,8 @@ const TOOLS = [
   ...ANALYTICS_TOOLS,
   // Wave 6 tools (preview-and-approve plan flow)
   ...PLAN_TOOLS,
-  // Wave 7 — first-class memory subsystem (replaces inline save_memory).
-  ...MEMORY_TOOLS,
+  // Memory subsystem disabled for now — see import comment above.
+  // ...MEMORY_TOOLS,
 ];
 
 /**
@@ -660,14 +662,15 @@ serve(async (req) => {
     // every chat for the same client into one 40-message blob, so unrelated
     // threads bled into each other and the model got confused context from
     // half-finished prior conversations.
-    const [memoriesRes, strategyRes, historyRes] = await Promise.all([
-      loadMemoriesForPrompt(adminClient, user.id, client.id),
+    const [strategyRes, historyRes] = await Promise.all([
       adminClient.from("client_strategies").select("*").eq("client_id", client.id).maybeSingle(),
       resolvedThreadId
         ? adminClient.from("assistant_messages").select("role, content").eq("thread_id", resolvedThreadId).order("created_at", { ascending: false }).limit(40)
         : Promise.resolve({ data: [] as any[] }),
     ]);
-    const { clientBlock: clientMemoryBlock, userBlock: userMemoryBlock } = memoriesRes;
+    // Memory blocks intentionally empty — memory subsystem disabled.
+    const clientMemoryBlock = "";
+    const userMemoryBlock = "";
     const strat = strategyRes.data;
 
     // assistant_messages.content is jsonb of shape `{type: "text", text: "..."}`.
@@ -751,8 +754,9 @@ Revenue goal: $${strat.monthly_revenue_goal}/month · this month: $${strat.month
 ${analysis?.summary ? `\nAUDIENCE ANALYSIS (from Instagram scrape):\nAudience alignment: ${analysis.audience_score}/10 — ${analysis.audience_detail}\nContent uniqueness: ${analysis.uniqueness_score}/10 — ${analysis.uniqueness_detail}\nSummary: ${analysis.summary}` : ""}`;
     }
 
-    // Memory blocks loaded by loadMemoriesForPrompt above — both client-scoped
-    // and user-scoped (agency owner level), pinned-first, capped at 40 each.
+    // Memory subsystem currently disabled — memoriesText is empty.
+    // (When re-enabled, restore loadMemoriesForPrompt() above and concat
+    // userMemoryBlock + clientMemoryBlock here.)
     const memoriesText = `${userMemoryBlock}${clientMemoryBlock}`;
 
     const name = companion_name || "AI";
@@ -791,7 +795,7 @@ YOUR RULES — FOLLOW EXACTLY:
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
-11. MEMORY: First-class memory has TWO scopes. (a) save_memory(scope:"client") for facts about THIS client (methodology, voice samples, primary editor, recurring blocker, winning hook, content pillars). (b) save_memory(scope:"user") for the agency OWNER's preferences/defaults that apply across all clients (autonomy default, niche preferences, working hours). Save proactively when you learn something WORTH REMEMBERING NEXT WEEK — skip session-only details, mood notes, one-off clarifications. When the user says "remember X" or "forget X" explicitly, set user_requested:true so we confirm the action briefly in your reply ("Got it — saved as [editor_name]"); for background saves leave user_requested:false and stay silent. Use pin_memory on the load-bearing facts (methodology, voice, primary editor) so they never auto-evict at the 40-cap. Use list_memories to self-check before saving a duplicate; use delete_memory when a memory becomes wrong.
+11. MEMORY: Long-term memory is currently disabled. If the user says "remember X" or "forget X", explain briefly that you don't have persistent memory right now — they should rely on the active conversation thread (which IS preserved per chat). Do not call any save_memory / delete_memory / list_memories tools (they're not registered). Within a single conversation, you have full thread history; across conversations, you have client_strategies + onboarding_data injected at the top of every prompt.
 12. NEVER navigate manually. If navigation is needed, call navigate_to_page — the app takes them there. Never say "head to X", "go to X", "visit X".
 13. ONBOARDING CONTEXT: If the user is on /onboarding, do NOT navigate away. Keep filling fields using fill_onboarding_fields until the form is fully complete.
 14. PLAIN ENGLISH ONLY: Never use TOFU, MOFU, BOFU, "outlier method", or internal jargon. Translate: reach content = "content that gets new people to find you", trust = "builds authority with your audience", convert = "turns warm viewers into booked leads".
@@ -801,7 +805,7 @@ YOUR RULES — FOLLOW EXACTLY:
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
 18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
 18c. PREVIEW BIG ACTIONS: Before executing (a) 3+ writes in one turn (e.g. bulk_schedule_posts of 5 posts) OR (b) ANY destructive action (delete_script, update_lead_status to lost/closed, send_contract, mark_post_published, large strategy changes), call propose_plan first with a structured list of steps. Then ASK the user "approve to proceed?" in your reply. ONLY when the user says yes/approve/go-ahead, call confirm_plan(plan_id) and execute the steps. If the user says no, call reject_plan(plan_id). Do NOT propose for single-step non-destructive writes — those should just execute. The autonomy mode field overrides this: in "auto" mode skip the proposal and execute; in "ask" or "plan" modes follow this rule strictly.
-19. USE TOOLS: every tool you have is documented in your tool descriptions — read them and call the right one. Don't describe what you'd do or paraphrase — do it. If the user asks something that maps to a tool (read or write), call the tool first, then summarize the result conversationally. Memory tools: save_memory, delete_memory, list_memories, pin_memory, unpin_memory — see rule 11.
+19. USE TOOLS: every tool you have is documented in your tool descriptions — read them and call the right one. Don't describe what you'd do or paraphrase — do it. If the user asks something that maps to a tool (read or write), call the tool first, then summarize the result conversationally.
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
@@ -1588,8 +1592,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           await handleClientTool(block, moduleCtx) ??
           await handleResearchTool(block, moduleCtx) ??
           await handleAnalyticsTool(block, moduleCtx) ??
-          await handlePlanTool(block, moduleCtx) ??
-          await handleMemoryTool(block, moduleCtx);
+          await handlePlanTool(block, moduleCtx);
+        // handleMemoryTool removed while memory is disabled.
         if (moduleResult) toolResults.push(moduleResult);
 
         // Fallback: ensure every tool_use_id has a matching tool_result, otherwise
