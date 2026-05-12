@@ -97,7 +97,10 @@ function UserBubble({
   fullscreen?: boolean;
 }) {
   return (
-    <div className={`px-3 py-2 ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}>
+    <div
+      className={`px-4 py-2.5 rounded-2xl ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}
+      style={{ background: "rgba(255,255,255,0.06)" }}
+    >
       {text}
     </div>
   );
