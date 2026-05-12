@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Robby bubble — visual options</title>
+  <style>
+    /* Pull real Connecta tokens so colors match the live app */
+    :root {
+      --bg: #161a1f;
+      --card: #1b1e22;
+      --border: #262626;
+      --text: #e2e8f0;
+      --muted: rgba(255,255,255,0.45);
+      --primary: #0891B2;        /* cyan */
+      --primary-light: #06B6D4;
+      --gold: rgba(201,169,110,1);
+      --gold-soft: rgba(201,169,110,0.55);
+      --gold-line: rgba(201,169,110,0.28);
+      --lime: #84CC16;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 120px;
+    }
+    h1 {
+      font-family: 'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      font-size: 28px;
+      margin: 0 0 8px;
+    }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005));
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-head {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title { font-size: 13px; font-weight: 600; }
+    .card-tag {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stage {
+      flex: 1;
+      min-height: 240px;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(8,145,178,0.08), transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(132,204,22,0.04), transparent 50%),
+        var(--bg);
+      position: relative;
+      padding: 20px;
+    }
+    .stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 100% 32px;
+      pointer-events: none;
+    }
+    .fake-text {
+      position: absolute;
+      left: 24px; right: 24px; top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .fake-text .row { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.04); }
+    .fake-text .row.w70 { width: 70%; }
+    .fake-text .row.w50 { width: 50%; }
+    .fake-text .row.w90 { width: 90%; }
+    .corner {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+    }
+    .notes {
+      padding: 12px 16px 16px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    .notes b { color: var(--text); font-weight: 600; }
+
+    /* ── Shared pill base ───────────────────────────────────────────── */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 14px 8px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+    .pill:hover { transform: translateY(-1px); }
+    .avatar {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .avatar img { width: 18px; height: 18px; }
+    .count {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 999px;
+      margin-left: 4px;
+    }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Option A: Cream/gold pencil-stroke ─────────────────────────── */
+    .pill.gold {
+      background: rgba(20,22,26,0.85);
+      backdrop-filter: blur(12px);
+      color: rgba(255,255,255,0.92);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .pill.gold svg.stroke {
+      position: absolute; inset: 0; pointer-events: none;
+      width: 100%; height: 100%;
+    }
+    .pill.gold .avatar { background: rgba(201,169,110,0.12); }
+    .pill.gold .count {
+      background: rgba(201,169,110,0.16);
+      color: var(--gold);
+      border: 1px solid rgba(201,169,110,0.35);
+    }
+    .pill.gold .dot { background: var(--gold); box-shadow: 0 0 8px var(--gold-soft); }
+
+    /* ── Option B: Cyan brand ───────────────────────────────────────── */
+    .pill.cyan {
+      background: var(--card);
+      color: rgba(255,255,255,0.92);
+      border: 1px solid rgba(8,145,178,0.45);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(6,182,212,0.05);
+    }
+    .pill.cyan .avatar { background: rgba(8,145,178,0.16); }
+    .pill.cyan .count {
+      background: var(--primary);
+      color: white;
+    }
+    .pill.cyan .dot { background: var(--primary-light); box-shadow: 0 0 10px rgba(6,182,212,0.7); }
+
+    /* ── Option C: Glass / frosted ──────────────────────────────────── */
+    .pill.glass {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.10);
+      backdrop-filter: blur(20px) saturate(140%);
+      -webkit-backdrop-filter: blur(20px) saturate(140%);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+    }
+    .pill.glass .avatar { background: rgba(255,255,255,0.08); }
+    .pill.glass .count {
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.9);
+    }
+    .pill.glass .dot { background: rgba(255,255,255,0.7); }
+
+    /* ── Option D: Solid dark, minimal ──────────────────────────────── */
+    .pill.dark {
+      background: #1b1e22;
+      color: rgba(255,255,255,0.88);
+      border: 1px solid transparent;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
+    .pill.dark:hover { border-color: rgba(255,255,255,0.08); }
+    .pill.dark .avatar { background: rgba(255,255,255,0.05); }
+    .pill.dark .count {
+      background: #ef4444;
+      color: white;
+    }
+    .pill.dark .dot { background: #ef4444; }
+
+    /* ── Option E: Ambient orb (no chrome) ──────────────────────────── */
+    .orb {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .orb::before {
+      content: '';
+      position: absolute;
+      inset: -20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,169,110,0.25), transparent 60%);
+      animation: pulse 3s ease-in-out infinite;
+    }
+    .orb::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,169,110,0.4), rgba(201,169,110,0.05) 70%);
+      filter: blur(8px);
+    }
+    .orb img {
+      position: relative;
+      width: 36px; height: 36px;
+      filter: drop-shadow(0 0 6px rgba(201,169,110,0.5));
+    }
+    .orb .count {
+      position: absolute;
+      top: -2px; right: -2px;
+      background: #ef4444;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 2px solid var(--bg);
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* ── Option F: Stacked card ─────────────────────────────────────── */
+    .stacked {
+      background: rgba(20,22,26,0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(201,169,110,0.18);
+      border-radius: 14px;
+      padding: 12px 14px;
+      cursor: pointer;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      width: 240px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stacked .top { display: flex; align-items: center; gap: 9px; }
+    .stacked .top .name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.95);
+    }
+    .stacked .top .badge {
+      margin-left: auto;
+      background: rgba(201,169,110,0.15);
+      color: var(--gold);
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(201,169,110,0.35);
+      font-weight: 700;
+    }
+    .stacked .preview {
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.45;
+      font-style: italic;
+    }
+    .stacked .avatar { background: rgba(201,169,110,0.12); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Robby — visual directions</h1>
+    <p class="sub">Six options rendered on the real Connecta dashboard background. Hover each to feel the interaction.</p>
+
+    <div class="grid">
+
+      <!-- Current state for reference -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">0 — Current</div>
+          <div class="card-tag">REFERENCE</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <button style="
+              width:52px;height:52px;
+              background:#1E293B;
+              border:none;
+              border-radius:50%;
+              box-shadow:0 4px 24px rgba(0,0,0,0.5);
+              display:inline-flex;align-items:center;justify-content:center;
+              position:relative;cursor:pointer;
+            ">
+              <img src="/favicon-transparent.png" style="width:36px;height:36px;" />
+              <span style="position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">4</span>
+            </button>
+          </div>
+        </div>
+        <div class="notes">
+          <b>What you have today.</b> Dark slate circle, fingerprint logo, red count badge. The "every SaaS support chat" archetype.
+        </div>
+      </div>
+
+      <!-- A: Cream/gold pencil-stroke pill -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">A — Cream / gold pill</div>
+          <div class="card-tag">AI IDENTITY</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <button class="pill gold">
+              <svg class="stroke" viewBox="0 0 200 40" preserveAspectRatio="none">
+                <path d="M20,3 C60,1 140,1 180,3 C190,4 197,9 197,18 C198,28 197,34 192,36 C150,38 60,38 18,36 C8,34 3,28 3,18 C3,9 10,4 20,3 Z"
+                      fill="none" stroke="rgba(201,169,110,0.55)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span class="avatar"><img src="/favicon-transparent.png" /></span>
+              <span>Robby</span>
+              <span class="dot"></span>
+              <span class="count">4</span>
+            </button>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Why this one.</b> Hand-drawn gold outline matches the AI bubbles inside the chat surface. Robby reads as <i>one continuous AI identity</i> across the app, not a generic widget. Glass-dark fill so it lifts off the page without shouting.
+        </div>
+      </div>
+
+      <!-- B: Cyan brand pill -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">B — Cyan brand pill</div>
+          <div class="card-tag">PRIMARY COLOR</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <button class="pill cyan">
+              <span class="avatar"><img src="/favicon-transparent.png" /></span>
+              <span>Robby</span>
+              <span class="count">4</span>
+            </button>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Brand-forward.</b> Borrows your primary cyan, treats Robby like a system action button. Bolder, more product-like. Loses the "AI feel" — looks like a CTA.
+        </div>
+      </div>
+
+      <!-- C: Glass / frosted pill -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">C — Glass / frosted</div>
+          <div class="card-tag">RECEDES</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <button class="pill glass">
+              <span class="avatar"><img src="/favicon-transparent.png" /></span>
+              <span>Robby</span>
+              <span class="count">4</span>
+            </button>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Apple-style.</b> Backdrop-blur, almost invisible. Best when you want the page content to dominate. Risk: too quiet — new users may not notice it.
+        </div>
+      </div>
+
+      <!-- D: Solid dark minimal -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">D — Solid dark, minimal</div>
+          <div class="card-tag">BORING ON PURPOSE</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <button class="pill dark">
+              <span class="avatar"><img src="/favicon-transparent.png" /></span>
+              <span>Robby</span>
+              <span class="count">4</span>
+            </button>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Boring on purpose.</b> Same card color as everything else. Disappears into the page rhythm. The count dot is the only signal something is alive.
+        </div>
+      </div>
+
+      <!-- E: Ambient orb -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">E — Ambient orb (no pill)</div>
+          <div class="card-tag">ALTERNATIVE</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <button class="orb">
+              <img src="/favicon-transparent.png" />
+              <span class="count">4</span>
+            </button>
+          </div>
+        </div>
+        <div class="notes">
+          <b>If you change your mind on the pill.</b> No hard container at all — just a glowing logo with a soft halo that pulses. Magical, but ambiguous: new users may not realize it's clickable.
+        </div>
+      </div>
+
+      <!-- F: Stacked card with preview text -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">F — Card with last nudge</div>
+          <div class="card-tag">LOUDEST</div>
+        </div>
+        <div class="stage">
+          <div class="fake-text">
+            <div class="row w70"></div>
+            <div class="row w90"></div>
+            <div class="row w50"></div>
+          </div>
+          <div class="corner">
+            <div class="stacked">
+              <div class="top">
+                <span class="avatar"><img src="/favicon-transparent.png" /></span>
+                <span class="name">Robby</span>
+                <span class="badge">4</span>
+              </div>
+              <div class="preview">"Two things need your attention right now…"</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Useful but heavy.</b> Surfaces Robby's last nudge as a preview, so users don't have to click to know why it's pulsing. Great for engagement, but takes more space and competes with page content.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
