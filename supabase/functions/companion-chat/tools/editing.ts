@@ -84,6 +84,32 @@ export const EDITING_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "set_caption",
+    description: "Overwrite the caption on an editing queue item. Use when the user dictates a caption directly (does not call the AI to generate one — use generate_caption for that).",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+        caption: { type: "string" },
+      },
+      required: ["client_name", "item_title", "caption"],
+    },
+  },
+  {
+    name: "rename_editing_item",
+    description: "Rename the reel title on an editing queue item.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string", description: "Current title or partial title." },
+        new_title: { type: "string" },
+      },
+      required: ["client_name", "item_title", "new_title"],
+    },
+  },
+  {
     name: "update_editing_status",
     description: "Update the status of an item in the editing queue.",
     input_schema: {
@@ -383,6 +409,37 @@ export async function handleEditingTool(
     await adminClient.from("video_edits").delete().eq("id", r.item.id);
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" permanently deleted. This cannot be undone.` };
+  }
+
+  if (block.name === "set_caption") {
+    const { client_name, item_title, caption } = block.input as { client_name: string; item_title: string; caption: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
+    }
+    await adminClient.from("video_edits").update({ caption }).eq("id", r.item.id);
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    actions.push({ type: "refresh_data", scope: "calendar" });
+    return { type: "tool_result", tool_use_id: block.id, content: `Caption updated for "${r.item.reel_title}".` };
+  }
+
+  if (block.name === "rename_editing_item") {
+    const { client_name, item_title, new_title } = block.input as { client_name: string; item_title: string; new_title: string };
+    const trimmed = new_title.trim();
+    if (!trimmed) return { type: "tool_result", tool_use_id: block.id, content: "Refused: new_title must be non-empty." };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
+    }
+    await adminClient.from("video_edits").update({ reel_title: trimmed }).eq("id", r.item.id);
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" renamed to "${trimmed}".` };
   }
 
   if (block.name === "mark_post_published") {
