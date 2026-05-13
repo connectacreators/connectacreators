@@ -277,15 +277,17 @@ export function AssistantThreadList({
         <button
           onClick={() => void onCreate()}
           className={[
-            "relative flex items-center gap-1 transition-colors",
+            "flex items-center gap-1 rounded-full transition-colors",
             compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-[11px]",
           ].join(" ")}
-          style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(34,211,238,0.35)",
+            color: "rgba(255,255,255,0.6)",
+            cursor: "pointer",
+          }}
           title="Start a new chat"
         >
-          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none" }} viewBox="0 0 70 22" preserveAspectRatio="none">
-            <path d="M5,2 C18,0.5 52,0.5 63,2 C67,2.5 69,5 69,7.5 C69.5,11 69,15 68,18 C67,20.5 64,22 59,22.5 C42,23.5 22,23.5 10,22.5 C5,22 2,20.5 2,18 C1,14 1,10 2,7 C2.5,4 3.5,2.5 5,2 Z" fill="none" stroke="rgba(34,211,238,0.35)" strokeWidth="1" strokeLinecap="round"/>
-          </svg>
           <Plus className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
           New
         </button>
