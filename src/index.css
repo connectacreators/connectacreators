@@ -546,6 +546,19 @@ All colors MUST be HSL for consistency and theming.
   stroke: rgba(201,169,110,0.7) !important;
 }
 
+/* CHATS sidebar list — hide the scrollbar entirely (still scrolls).
+   Class is referenced by AssistantThreadList; the missing rule was
+   letting the OS-default (blue on macOS Chrome) scrollbar show through. */
+.custom-scrollbar {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE / legacy Edge */
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;                  /* Chrome / Safari / Edge */
+}
+
 /* Visual Breakdown horizontal scrollbar — cream outline, no fill */
 .visual-breakdown-scroll::-webkit-scrollbar {
   height: 4px;
