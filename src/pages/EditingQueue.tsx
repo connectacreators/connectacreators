@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
@@ -127,6 +127,7 @@ export default function EditingQueue() {
   const { clientId } = useParams<{ clientId: string }>();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { language } = useLanguage();
   const [clientName, setClientName] = useState("");
   // Hydrate from cache so the queue renders instantly while we revalidate.
@@ -326,6 +327,83 @@ export default function EditingQueue() {
   useEffect(() => {
     fetchQueue();
   }, [clientId, user]);
+
+  // AI deep-link: read URL params on mount, apply to component state,
+  // then strip them from the URL so refresh doesn't re-open the modal.
+  // Runs once items have loaded so item_id can resolve to a row.
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    const itemId = searchParams.get("item_id");
+    const modal = searchParams.get("modal");
+    const status = searchParams.get("status");
+    const postStatus = searchParams.get("post_status");
+    const assignee = searchParams.get("assignee");
+    const search = searchParams.get("search");
+    const sort = searchParams.get("sort");
+    const dir = searchParams.get("dir");
+
+    let consumedAny = false;
+
+    if (search) { setSearchQuery(search); consumedAny = true; }
+    if (sort) { setSortCol(sort); consumedAny = true; }
+    if (dir === "asc" || dir === "desc") { setSortDir(dir as 'asc' | 'desc'); consumedAny = true; }
+
+    if (itemId) {
+      const item = items.find((i) => i.id === itemId);
+      if (item) {
+        consumedAny = true;
+        // Modal routing — match the modal param to the existing state setter.
+        switch (modal) {
+          case "revisions":
+            setRevisionDialogItem(item);
+            setRevisionText(item.revisions ?? "");
+            break;
+          case "review":
+            setReviewItem(item);
+            setReviewModalOpen(true);
+            break;
+          case "footage":
+            setFootageViewerItem(item);
+            break;
+          case "caption":
+            setCaptionEditItem(item);
+            setCaptionEditValue(item.caption ?? "");
+            break;
+          case "deadline":
+            setDeadlineOpenId(item.id);
+            break;
+          case "schedule":
+            setScheduleItem(item);
+            setScheduleDate(item.scheduledDate ?? "");
+            break;
+          case "delete":
+            setDeleteConfirmItem(item);
+            break;
+          default:
+            // No modal — just scroll to the row (handled by row ref below).
+            break;
+        }
+      }
+    }
+
+    // Filter params — note these don't have setters in the current
+    // EditingQueue; status/post_status/assignee filtering happens via
+    // searchQuery + the user typing. For now, treat status/assignee as
+    // search hints so the row is at least findable. Real filter dropdowns
+    // can come later.
+    if (status || postStatus || assignee) {
+      const hint = [status, postStatus, assignee].filter(Boolean).join(" ");
+      if (hint) {
+        setSearchQuery((prev) => prev || hint);
+        consumedAny = true;
+      }
+    }
+
+    if (consumedAny) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [items.length]);
 
   // Refresh when AI writes to editing_queue
   useEffect(() => {
