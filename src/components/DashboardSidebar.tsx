@@ -340,7 +340,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         <button onClick={() => navigate("/")} className="focus:outline-none">
           <span
             className="font-caslon text-2xl text-foreground hover:opacity-80 transition-opacity"
-            style={{ letterSpacing: "-0.015em", fontWeight: 800 }}
+            style={{ letterSpacing: "-0.022em", fontWeight: 800 }}
           >
             Connecta
           </span>
