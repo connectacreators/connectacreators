@@ -13,7 +13,7 @@ AS $$
 BEGIN
   RETURN QUERY
   WITH due AS (
-    SELECT t.id
+    SELECT t.id AS target_id
     FROM public.scheduled_post_targets t
     JOIN public.scheduled_posts p ON p.id = t.scheduled_post_id
     WHERE t.status = 'pending'
@@ -27,7 +27,7 @@ BEGIN
   )
   UPDATE public.scheduled_post_targets t
   SET status = 'publishing', attempt_count = t.attempt_count + 1
-  WHERE t.id IN (SELECT id FROM due)
+  WHERE t.id IN (SELECT due.target_id FROM due)
   RETURNING t.id, t.scheduled_post_id, t.platform, t.attempt_count;
 END;
 $$;
