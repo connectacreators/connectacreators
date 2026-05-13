@@ -18,6 +18,23 @@ export const EDITING_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "set_editing_queue_view",
+    description: "Filter and sort the editing queue view in the user's browser. Use when the user asks 'show me only X status', 'sort by deadline', 'find everything assigned to Y', etc. If client_name is omitted, applies to the master view.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Client name. Omit for master view." },
+        status: { type: "string", description: "Filter by item status: not-started | in-progress | in-review | done" },
+        post_status: { type: "string", description: "Filter by post status: unpublished | scheduled | published" },
+        assignee: { type: "string", description: "Filter by assignee name" },
+        search: { type: "string", description: "Pre-fill the search box" },
+        sort_by: { type: "string", description: "Column to sort by: title | status | assignee | deadline | revisions | post_status" },
+        sort_dir: { type: "string", description: "Sort direction: asc | desc" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "update_editing_status",
     description: "Update the status of an item in the editing queue.",
     input_schema: {
@@ -180,6 +197,51 @@ export async function handleEditingTool(
     const where = targetClientName ?? "master queue";
     const what = modal ? ` and opened the ${modal} view` : "";
     return { type: "tool_result", tool_use_id: block.id, content: `Opened "${result.item.reel_title}" in ${where}${what}.` };
+  }
+
+  if (block.name === "set_editing_queue_view") {
+    const { client_name, status, post_status, assignee, search, sort_by, sort_dir } = block.input as {
+      client_name?: string;
+      status?: string;
+      post_status?: string;
+      assignee?: string;
+      search?: string;
+      sort_by?: string;
+      sort_dir?: string;
+    };
+
+    let targetClientId: string | null = null;
+    if (client_name) {
+      const c = await resolveClient(ctx, client_name);
+      if (!c) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+      targetClientId = c.id;
+    }
+
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (post_status) params.set("post_status", post_status);
+    if (assignee) params.set("assignee", assignee);
+    if (search) params.set("search", search);
+    if (sort_by) params.set("sort", sort_by);
+    if (sort_dir === "asc" || sort_dir === "desc") params.set("dir", sort_dir);
+
+    if (Array.from(params.keys()).length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "No filter or sort provided — nothing to apply." };
+    }
+
+    const basePath = targetClientId
+      ? `/clients/${targetClientId}/editing-queue`
+      : `/editing-queue`;
+    const path = `${basePath}?${params.toString()}`;
+    actions.push({ type: "navigate", path });
+
+    const parts: string[] = [];
+    if (status) parts.push(`status=${status}`);
+    if (post_status) parts.push(`post_status=${post_status}`);
+    if (assignee) parts.push(`assignee=${assignee}`);
+    if (search) parts.push(`search="${search}"`);
+    if (sort_by) parts.push(`sort=${sort_by}${sort_dir ? ` ${sort_dir}` : ""}`);
+    return { type: "tool_result", tool_use_id: block.id, content: `Applied: ${parts.join(", ")}.` };
   }
 
   if (block.name === "update_editing_status") {
