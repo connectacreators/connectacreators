@@ -195,7 +195,9 @@ Click Connect
 
 ### 4.4 Token encryption
 
-v1: pgcrypto `pgp_sym_encrypt` with `SCHEDULER_TOKEN_KEY` env var. Key set per environment (different in local vs prod). RLS still required as a second layer.
+v1: **AES-GCM in the edge function layer** (Web Crypto API). `SCHEDULER_TOKEN_KEY` env var holds a base64-encoded 32-byte key. The key never enters Postgres; tokens are encrypted before INSERT and decrypted after SELECT inside the edge functions only. Reading the plaintext requires going through an edge function — direct SQL queries see only base64 ciphertext. RLS remains as a second layer.
+
+(Earlier draft suggested pgcrypto; AES-GCM in Deno was chosen because it removes the need for SQL-side key management and `SECURITY DEFINER` decryption functions.)
 
 Migration to Supabase Vault is a follow-up if needed.
 
