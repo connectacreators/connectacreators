@@ -1,14 +1,27 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
-// This page is opened in a POPUP by StepConfigModal.
-// It receives ?code=...&state=... from Facebook OAuth redirect.
-// After processing, it postMessages the result to the opener and closes.
+// This page receives ?code=...&state=... from Facebook OAuth redirect.
+//
+// Two flows, distinguished by `purpose` encoded in state:
+//   - purpose: "leads"      (default) — opened in a POPUP; postMessages result, closes
+//   - purpose: "scheduler"  — full-page redirect; renders page picker inline, navigates back
+
+type Status = "loading" | "success" | "error" | "pick_page";
+
+interface PageOption { page_id: string; page_name: string; has_instagram: boolean }
 
 export default function FacebookCallback() {
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<Status>("loading");
   const [message, setMessage] = useState("Connecting your Facebook account...");
+  const [pages, setPages] = useState<PageOption[]>([]);
+  const [purpose, setPurpose] = useState<"leads" | "scheduler">("leads");
+  const [returnPath, setReturnPath] = useState<string>("/dashboard");
+  const [clientId, setClientId] = useState<string>("");
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -18,101 +31,145 @@ export default function FacebookCallback() {
 
     if (error) {
       const reason = url.searchParams.get("error_description") || "Permission denied";
-      setStatus("error");
-      setMessage(reason);
-      window.opener?.postMessage(
-        { type: "FACEBOOK_AUTH_ERROR", error: reason },
-        window.location.origin
-      );
-      setTimeout(() => window.close(), 2500);
+      handleError(reason, "leads");
       return;
     }
 
     if (!code || !stateParam) {
-      setStatus("error");
-      setMessage("Invalid callback — missing code or state.");
-      window.opener?.postMessage(
-        { type: "FACEBOOK_AUTH_ERROR", error: "Missing callback params" },
-        window.location.origin
-      );
-      setTimeout(() => window.close(), 2500);
+      handleError("Invalid callback — missing code or state.", "leads");
       return;
     }
 
-    // Decode state to get client_id
-    let clientId = "";
-    let returnPath = "/dashboard";
+    // Decode state
+    let stateObj: { client_id: string; return_path: string; purpose?: "leads" | "scheduler" };
     try {
-      const stateObj = JSON.parse(atob(stateParam));
-      clientId = stateObj.client_id;
-      returnPath = stateObj.return_path;
+      stateObj = JSON.parse(atob(stateParam));
     } catch {
-      setStatus("error");
-      setMessage("Invalid state parameter.");
-      window.opener?.postMessage(
-        { type: "FACEBOOK_AUTH_ERROR", error: "Bad state" },
-        window.location.origin
-      );
-      setTimeout(() => window.close(), 2500);
+      handleError("Invalid state parameter.", "leads");
       return;
     }
 
-    // Call facebook-oauth edge function to exchange code and save pages
-    supabase.functions
-      .invoke("facebook-oauth", {
-        body: {
-          action: "callback",
-          code,
-          client_id: clientId,
-          state: stateParam,
-        },
-      })
-      .then(({ data, error: invokeError }) => {
-        if (invokeError || !data?.success) {
-          const errMsg =
-            invokeError?.message || data?.error || "Connection failed";
-          setStatus("error");
-          setMessage(errMsg);
-          window.opener?.postMessage(
-            { type: "FACEBOOK_AUTH_ERROR", error: errMsg },
-            window.location.origin
-          );
-          setTimeout(() => window.close(), 3000);
-          return;
-        }
+    const p = stateObj.purpose ?? "leads";
+    setPurpose(p);
+    setReturnPath(stateObj.return_path);
+    setClientId(stateObj.client_id);
 
-        // Success
-        setStatus("success");
-        setMessage(
-          `Connected ${data.pages?.length || 0} Facebook page(s) successfully!`
-        );
-        // Send pages data back to parent
-        window.opener?.postMessage(
-          {
-            type: "FACEBOOK_AUTH_SUCCESS",
-            pages: data.pages,
-            client_id: clientId,
-          },
-          window.location.origin
-        );
-        setTimeout(() => window.close(), 2000);
-      });
+    if (p === "scheduler") {
+      void runSchedulerCallback(code, stateObj.client_id, stateParam);
+    } else {
+      void runLeadsCallback(code, stateObj.client_id, stateParam);
+    }
   }, []);
+
+  // ── Legacy leads flow (popup + postMessage) ─────────────────────────
+  async function runLeadsCallback(code: string, client_id: string, stateParam: string) {
+    const { data, error: invokeError } = await supabase.functions.invoke("facebook-oauth", {
+      body: { action: "callback", code, client_id, state: stateParam },
+    });
+    if (invokeError || !data?.success) {
+      const errMsg = invokeError?.message || data?.error || "Connection failed";
+      handleError(errMsg, "leads");
+      return;
+    }
+    setStatus("success");
+    setMessage(`Connected ${data.pages?.length || 0} Facebook page(s) successfully!`);
+    window.opener?.postMessage(
+      { type: "FACEBOOK_AUTH_SUCCESS", pages: data.pages, client_id },
+      window.location.origin,
+    );
+    setTimeout(() => window.close(), 2000);
+  }
+
+  // ── New scheduler flow (full-page redirect, page picker inline) ─────
+  async function runSchedulerCallback(code: string, client_id: string, stateParam: string) {
+    const { data, error: invokeError } = await supabase.functions.invoke("facebook-oauth", {
+      body: { action: "connect_for_scheduling", code, client_id, state: stateParam },
+    });
+    if (invokeError || data?.error) {
+      handleError(invokeError?.message || data?.error || "Connection failed", "scheduler");
+      return;
+    }
+    if (data?.needs_page_pick) {
+      setPages(data.pages || []);
+      setStatus("pick_page");
+      return;
+    }
+    finishScheduler(data);
+  }
+
+  async function pickPage(page_id: string) {
+    setStatus("loading");
+    setMessage("Connecting page...");
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code")!;
+    const stateParam = url.searchParams.get("state")!;
+    const { data, error: invokeError } = await supabase.functions.invoke("facebook-oauth", {
+      body: { action: "connect_for_scheduling", code, client_id: clientId, state: stateParam, page_id },
+    });
+    if (invokeError || data?.error) {
+      handleError(invokeError?.message || data?.error || "Connection failed", "scheduler");
+      return;
+    }
+    finishScheduler(data);
+  }
+
+  function finishScheduler(data: any) {
+    setStatus("success");
+    const fbName = data?.facebook?.page_name ?? "(page)";
+    const igHandle = data?.instagram?.username ? `@${data.instagram.username}` : null;
+    setMessage(igHandle ? `Connected ${fbName} + ${igHandle}.` : `Connected ${fbName}. ${data?.ig_warning ?? ""}`);
+    setTimeout(() => navigate(returnPath), 1500);
+  }
+
+  function handleError(reason: string, p: "leads" | "scheduler") {
+    setStatus("error");
+    setMessage(reason);
+    if (p === "leads") {
+      window.opener?.postMessage(
+        { type: "FACEBOOK_AUTH_ERROR", error: reason },
+        window.location.origin,
+      );
+      setTimeout(() => window.close(), 2500);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4 p-8">
+      <div className="text-center space-y-4 p-8 max-w-md">
         {status === "loading" && (
           <>
             <Loader2 className="w-12 h-12 animate-spin text-blue-400 mx-auto" />
             <p className="text-sm text-muted-foreground">{message}</p>
           </>
         )}
+        {status === "pick_page" && (
+          <div className="space-y-3 text-left">
+            <h2 className="text-lg font-semibold text-center">Pick a Facebook Page</h2>
+            <p className="text-sm text-muted-foreground text-center">
+              This Page's content will be posted to. Pages with a linked Instagram Business account connect both.
+            </p>
+            <div className="space-y-2">
+              {pages.map((p) => (
+                <Button
+                  key={p.page_id}
+                  variant="outline"
+                  className="w-full justify-between"
+                  onClick={() => pickPage(p.page_id)}
+                >
+                  <span>{p.page_name}</span>
+                  {p.has_instagram && <span className="text-xs text-primary">+ Instagram</span>}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
         {status === "success" && (
           <>
             <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto" />
             <p className="text-sm text-green-400 font-medium">{message}</p>
-            <p className="text-xs text-muted-foreground">Closing window...</p>
+            <p className="text-xs text-muted-foreground">
+              {purpose === "scheduler" ? "Redirecting..." : "Closing window..."}
+            </p>
           </>
         )}
         {status === "error" && (
@@ -120,7 +177,11 @@ export default function FacebookCallback() {
             <XCircle className="w-12 h-12 text-red-400 mx-auto" />
             <p className="text-sm text-red-400 font-medium">Connection failed</p>
             <p className="text-xs text-muted-foreground">{message}</p>
-            <p className="text-xs text-muted-foreground">Closing window...</p>
+            {purpose === "scheduler" ? (
+              <Button onClick={() => navigate(returnPath)} className="mt-2">Back</Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">Closing window...</p>
+            )}
           </>
         )}
       </div>

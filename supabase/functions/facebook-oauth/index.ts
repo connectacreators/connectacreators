@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { upsertConnection } from "../_shared/socialConnections.ts";
 
 const FB_APP_ID = Deno.env.get("FACEBOOK_APP_ID")!;
 const FB_APP_SECRET = Deno.env.get("FACEBOOK_APP_SECRET")!;
@@ -18,23 +19,34 @@ serve(async (req) => {
   if (req.method === "GET" && url.searchParams.get("action") === "get_url") {
     const clientId = url.searchParams.get("client_id") || "";
     const returnPath = url.searchParams.get("return_path") || "/dashboard";
+    const purpose = (url.searchParams.get("purpose") || "leads") as "leads" | "scheduler";
 
-    // State encodes both client_id and return_path for CSRF + context
+    // State encodes client_id, return_path, and purpose for CSRF + context
     const state = btoa(
       JSON.stringify({
         client_id: clientId,
         return_path: returnPath,
+        purpose,
         nonce: crypto.randomUUID(),
       })
     );
 
-    const scope = [
+    const SCOPE_LEADS = [
       "pages_show_list",
       "leads_retrieval",
       "pages_manage_metadata",
       "pages_read_engagement",
       "pages_manage_ads",
-    ].join(",");
+    ];
+
+    const SCOPE_SCHEDULER = [
+      ...SCOPE_LEADS,
+      "pages_manage_posts",
+      "instagram_basic",
+      "instagram_content_publish",
+    ];
+
+    const scope = (purpose === "scheduler" ? SCOPE_SCHEDULER : SCOPE_LEADS).join(",");
 
     const oauthUrl = new URL("https://www.facebook.com/v19.0/dialog/oauth");
     oauthUrl.searchParams.set("client_id", FB_APP_ID);
@@ -125,6 +137,127 @@ serve(async (req) => {
       return json({ success: true, pages: insertedPages });
     } catch (err) {
       console.error("Callback error:", err);
+      return jsonError(String(err), 500);
+    }
+  }
+
+  // ─── ACTION: connect_for_scheduling ─────────────────────────────
+  // Same code-exchange flow as `callback` but writes to social_connections
+  // and also creates an instagram row if the Page has a linked IG Business
+  // account. Used when the user OAuth's from the scheduler's "Connect" UI.
+  if (action === "connect_for_scheduling") {
+    const { code, client_id, state, page_id: requestedPageId } = body;
+    if (!code || !client_id) return jsonError("Missing code or client_id", 400);
+
+    try {
+      // 1. Exchange code for short-lived user token
+      const tokenRes = await fetch(
+        `${FB_API}/oauth/access_token?` +
+          new URLSearchParams({ client_id: FB_APP_ID, client_secret: FB_APP_SECRET, redirect_uri: REDIRECT_URI, code })
+      );
+      if (!tokenRes.ok) return jsonError("Token exchange failed", 400);
+      const { access_token: shortLivedToken } = await tokenRes.json();
+
+      // 2. Exchange for long-lived user token
+      const longRes = await fetch(
+        `${FB_API}/oauth/access_token?` +
+          new URLSearchParams({
+            grant_type: "fb_exchange_token",
+            client_id: FB_APP_ID,
+            client_secret: FB_APP_SECRET,
+            fb_exchange_token: shortLivedToken,
+          })
+      );
+      if (!longRes.ok) return jsonError("Long-lived token exchange failed", 400);
+      const { access_token: longLivedUserToken } = await longRes.json();
+
+      // 3. List pages (include instagram_business_account so we can also wire IG)
+      const pagesRes = await fetch(
+        `${FB_API}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedUserToken}`
+      );
+      if (!pagesRes.ok) return jsonError("Failed to fetch pages", 400);
+      const pagesData = await pagesRes.json();
+      const pages: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }> =
+        pagesData.data || [];
+
+      if (pages.length === 0) {
+        return jsonError("No Facebook Pages found for this user.", 400);
+      }
+
+      // 4. If front-end picked a specific page, use it; otherwise return the
+      //    list so the front-end can ask the user to pick.
+      if (!requestedPageId) {
+        return json({
+          needs_page_pick: true,
+          pages: pages.map((p) => ({
+            page_id: p.id,
+            page_name: p.name,
+            has_instagram: Boolean(p.instagram_business_account?.id),
+          })),
+        });
+      }
+
+      const chosen = pages.find((p) => p.id === requestedPageId);
+      if (!chosen) return jsonError("Chosen page not found in user's accounts", 400);
+
+      // 5. Fetch IG Business account username if linked
+      let igAccountId: string | null = chosen.instagram_business_account?.id ?? null;
+      let igUsername: string | null = null;
+      if (igAccountId) {
+        const igRes = await fetch(
+          `${FB_API}/${igAccountId}?fields=username&access_token=${chosen.access_token}`
+        );
+        if (igRes.ok) {
+          const igData = await igRes.json();
+          igUsername = igData.username || null;
+        }
+      }
+
+      // 6. Resolve who connected (try Authorization header → JWT sub)
+      let connectedBy: string | null = null;
+      const authHeader = req.headers.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        try {
+          const jwt = authHeader.slice(7);
+          const payload = JSON.parse(atob(jwt.split(".")[1]));
+          connectedBy = payload.sub ?? null;
+        } catch { /* ignore */ }
+      }
+
+      // 7. Upsert Facebook connection
+      await upsertConnection(supabase, {
+        client_id,
+        platform: "facebook",
+        account_label: chosen.name,
+        platform_account_id: chosen.id,
+        access_token: chosen.access_token,
+        token_expires_at: null, // Page tokens don't expire
+        scopes: ["pages_manage_posts", "pages_read_engagement", "pages_show_list"],
+        connected_by: connectedBy,
+      });
+
+      let igConnection = null;
+      if (igAccountId) {
+        igConnection = await upsertConnection(supabase, {
+          client_id,
+          platform: "instagram",
+          account_label: igUsername ? `@${igUsername}` : `IG (${igAccountId})`,
+          platform_account_id: igAccountId,
+          access_token: chosen.access_token, // Page token works for IG Graph
+          token_expires_at: null,
+          scopes: ["instagram_basic", "instagram_content_publish"],
+          connected_by: connectedBy,
+        });
+      }
+
+      return json({
+        success: true,
+        facebook: { page_id: chosen.id, page_name: chosen.name },
+        instagram: igAccountId ? { ig_user_id: igAccountId, username: igUsername } : null,
+        ig_warning: igAccountId ? null : "This Page isn't linked to an Instagram Business account.",
+      });
+    } catch (err) {
+      console.error("connect_for_scheduling error:", err);
       return jsonError(String(err), 500);
     }
   }
