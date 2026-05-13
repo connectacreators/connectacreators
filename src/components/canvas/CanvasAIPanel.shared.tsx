@@ -13,6 +13,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, FileText, Save } from "lucide-react";
 import type { DeckAnswer, DeckQuestion } from "@/lib/parseDeck";
+import robbyThinking from "@/assets/robby-thinking.webp";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -631,28 +632,23 @@ export function ThinkingAnimation() {
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
+      <img
+        src={robbyThinking}
+        alt=""
+        aria-hidden="true"
+        style={{
+          width: 22,
+          height: 22,
+          opacity: 0.85,
+          flexShrink: 0,
+        }}
+      />
       <span
         className="text-[11px] text-muted-foreground/80 font-medium transition-opacity duration-200"
         style={{ opacity: fade ? 1 : 0 }}
       >
         {THINKING_VERBS[index]}
-      </span>
-      <span className="flex gap-[3px] items-end" style={{ height: 10 }}>
-        {([0, 150, 300] as const).map((delay) => (
-          <span
-            key={delay}
-            style={{
-              display: "inline-block",
-              width: 2.5,
-              height: 8,
-              borderRadius: 2,
-              background: "#c9a96e",
-              animation: `goldBarPulse 1.2s ease-in-out infinite`,
-              animationDelay: `${delay}ms`,
-            }}
-          />
-        ))}
       </span>
     </div>
   );
