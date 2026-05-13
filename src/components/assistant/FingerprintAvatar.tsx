@@ -15,7 +15,7 @@ export function FingerprintAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
         flexShrink: 0,
         // Vertically center the small variant with the first line of text-base
         // (line-height ~26px). Without this, the 16px icon sits at the top.
-        marginTop: size === "sm" ? 3 : 0,
+        marginTop: size === "sm" ? 5 : 0,
       }}
     />
   );

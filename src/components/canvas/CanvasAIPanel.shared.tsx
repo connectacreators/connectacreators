@@ -161,7 +161,7 @@ export function MarkdownText({ text }: { text: string }) {
       nodes.push(
         <ul
           key={`ul-${i}`}
-          className="list-disc list-inside space-y-0.5 my-1"
+          className="list-disc list-inside space-y-0.5 my-1 [&:first-child]:mt-0"
         >
           {bulletGroup}
         </ul>,
@@ -180,7 +180,7 @@ export function MarkdownText({ text }: { text: string }) {
       nodes.push(
         <p
           key={i}
-          className="font-semibold text-foreground mt-2 mb-0.5"
+          className="font-semibold text-foreground mt-2 mb-0.5 [&:first-child]:mt-0"
         >
           {renderInline(text)}
         </p>,
