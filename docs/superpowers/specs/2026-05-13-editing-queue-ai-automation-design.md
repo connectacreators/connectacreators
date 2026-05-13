@@ -151,15 +151,10 @@ This spec adds one rule:
 
 ### Automated tests
 
-One file: `supabase/functions/companion-chat/tools/editing.test.ts`.
-
-- Resolver returns a single item for exact match.
-- Resolver returns ambiguous error with 3 candidates when 3+ partial matches
-  exist.
-- Each mutation tool round-trips: read item → mutate → re-read → assert.
-- Bulk tools cap at 14 and return structured per-item results.
-- `permanent_delete_editing_item` always emits `propose_plan` even with
-  `autonomy_mode=auto`.
+Deferred. The repo has no existing Deno test setup for edge functions, and
+the user opted to ship fast and validate via chat-based smoke tests. If
+recurring resolver misses or mutation bugs show up, we'll add a test
+scaffold then (one-time setup, then tests are cheap to add per tool).
 
 ### Rollout sequence
 
@@ -183,7 +178,7 @@ One file: `supabase/functions/companion-chat/tools/editing.test.ts`.
   the `TOOLS` array, add a brief tool-inventory blurb to the system prompt.
 - `src/pages/EditingQueue.tsx` — URL param effect (~40 lines).
 - `src/pages/MasterEditingQueue.tsx` — same URL param effect (~40 lines).
-- `supabase/functions/companion-chat/tools/editing.test.ts` — new test file.
+- No test file in this phase (see Automated tests section).
 
 ## Out of scope
 
