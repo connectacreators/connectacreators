@@ -1,8 +1,22 @@
 // supabase/functions/companion-chat/tools/editing.ts
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
+import { resolveEditingItem, ambiguousMessage } from "../_shared/editing-resolver.ts";
 
 export const EDITING_TOOLS: ToolDef[] = [
+  {
+    name: "open_editing_item",
+    description: "Open a specific editing-queue item in the user's browser, optionally opening a modal on it (revisions / review / footage / caption / deadline / schedule / delete). Use this when the user asks to 'show me X', 'open the revisions for Y', 'let me see the footage for Z', etc. Resolves the item by partial title. If client_name is omitted, navigates to the master editing queue.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Client name. Omit to navigate to the admin master view." },
+        item_title: { type: "string", description: "Title or partial title of the editing item to open." },
+        modal: { type: "string", description: "Optional modal to open on the item: revisions | review | footage | caption | deadline | schedule | delete" },
+      },
+      required: ["item_title"],
+    },
+  },
   {
     name: "update_editing_status",
     description: "Update the status of an item in the editing queue.",
@@ -123,6 +137,50 @@ export async function handleEditingTool(
   ctx: ToolContext,
 ): Promise<ToolResult | null> {
   const { adminClient, userId, actions } = ctx;
+
+  if (block.name === "open_editing_item") {
+    const { client_name, item_title, modal } = block.input as { client_name?: string; item_title: string; modal?: string };
+    const validModals = ["revisions", "review", "footage", "caption", "deadline", "schedule", "delete"];
+    if (modal && !validModals.includes(modal)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid modal "${modal}". Use one of: ${validModals.join(", ")}.` };
+    }
+
+    let targetClientId: string | null = null;
+    let targetClientName: string | null = null;
+    if (client_name) {
+      const c = await resolveClient(ctx, client_name);
+      if (!c) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+      targetClientId = c.id;
+      targetClientName = c.name ?? null;
+    }
+
+    const result = await resolveEditingItem(
+      adminClient,
+      targetClientId,
+      ctx.accessibleClientIds,
+      item_title,
+    );
+    if (!result.ok) {
+      if (result.reason === "ambiguous") {
+        return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, result.candidates) };
+      }
+      return { type: "tool_result", tool_use_id: block.id, content: `No editing item found matching "${item_title}"${targetClientName ? ` for ${targetClientName}` : ""}.` };
+    }
+
+    // Build the navigation URL.
+    const params = new URLSearchParams();
+    params.set("item_id", result.item.id);
+    if (modal) params.set("modal", modal);
+    const basePath = targetClientId
+      ? `/clients/${targetClientId}/editing-queue`
+      : `/editing-queue`;
+    const path = `${basePath}?${params.toString()}`;
+
+    actions.push({ type: "navigate", path });
+    const where = targetClientName ?? "master queue";
+    const what = modal ? ` and opened the ${modal} view` : "";
+    return { type: "tool_result", tool_use_id: block.id, content: `Opened "${result.item.reel_title}" in ${where}${what}.` };
+  }
 
   if (block.name === "update_editing_status") {
     const { client_name, item_title, status } = block.input;
