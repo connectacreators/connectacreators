@@ -742,8 +742,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         const aiIdx = restoredNodes.findIndex(n => n.id === AI_NODE_ID);
         if (aiIdx !== -1) {
           const ai = restoredNodes[aiIdx];
-          if ((ai.width ?? 0) < 680) restoredNodes[aiIdx] = { ...ai, width: 680 };
-          if ((ai.height ?? 0) < 780) restoredNodes[aiIdx] = { ...restoredNodes[aiIdx], height: 780 };
+          if ((ai.width ?? 0) < 1100) restoredNodes[aiIdx] = { ...ai, width: 1100 };
+          if ((ai.height ?? 0) < 880) restoredNodes[aiIdx] = { ...restoredNodes[aiIdx], height: 880 };
         }
         lastSavedJsonRef.current = "";
         setNodes(restoredNodes);
@@ -924,8 +924,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             const aiIdx = restoredNodes.findIndex(n => n.id === AI_NODE_ID);
             if (aiIdx !== -1) {
               const ai = restoredNodes[aiIdx];
-              if ((ai.width ?? 0) < 680) restoredNodes[aiIdx] = { ...ai, width: 680 };
-              if ((ai.height ?? 0) < 780) restoredNodes[aiIdx] = { ...restoredNodes[aiIdx], height: 780 };
+              if ((ai.width ?? 0) < 1100) restoredNodes[aiIdx] = { ...ai, width: 1100 };
+              if ((ai.height ?? 0) < 880) restoredNodes[aiIdx] = { ...restoredNodes[aiIdx], height: 880 };
             }
             setNodes(restoredNodes);
             setEdges((activeData.edges as Edge[]) || []);
@@ -1088,8 +1088,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       id: AI_NODE_ID,
       type: "aiAssistantNode",
       position: { x: 760, y: 60 },
-      width: 680,
-      height: 780,
+      width: 1100,
+      height: 880,
       deletable: false,
       data: {
         canvasContextRef,
