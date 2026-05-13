@@ -35,6 +35,55 @@ export const EDITING_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "set_deadline",
+    description: "Set or clear a deadline on an editing queue item. Pass deadline=null to clear.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+        deadline: { type: "string", description: "YYYY-MM-DD, or null to clear" },
+      },
+      required: ["client_name", "item_title", "deadline"],
+    },
+  },
+  {
+    name: "delete_editing_item",
+    description: "Soft-delete an editing queue item (moves it to trash; can be restored).",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+      },
+      required: ["client_name", "item_title"],
+    },
+  },
+  {
+    name: "restore_editing_item",
+    description: "Restore a soft-deleted editing queue item from the trash.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+      },
+      required: ["client_name", "item_title"],
+    },
+  },
+  {
+    name: "permanent_delete_editing_item",
+    description: "Permanently delete an editing queue item. UNRECOVERABLE. Must be confirmed by user via propose_plan first, regardless of autonomy mode.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+      },
+      required: ["client_name", "item_title"],
+    },
+  },
+  {
     name: "update_editing_status",
     description: "Update the status of an item in the editing queue.",
     input_schema: {
@@ -277,6 +326,63 @@ export async function handleEditingTool(
     await adminClient.from("video_edits").update({ revisions: `${existing}[${timestamp}] ${notes}` }).eq("id", item.id);
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `Revision notes added to "${item.reel_title}".` };
+  }
+
+  if (block.name === "set_deadline") {
+    const { client_name, item_title, deadline } = block.input as { client_name: string; item_title: string; deadline: string | null };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
+    }
+    const newDeadline = deadline === null || deadline === "" ? null : deadline;
+    await adminClient.from("video_edits").update({ deadline: newDeadline }).eq("id", r.item.id);
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: newDeadline ? `Deadline for "${r.item.reel_title}" set to ${newDeadline}.` : `Deadline cleared for "${r.item.reel_title}".` };
+  }
+
+  if (block.name === "delete_editing_item") {
+    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No live editing item matched "${item_title}" for ${client.name}.` };
+    }
+    await adminClient.from("video_edits").update({ deleted_at: new Date().toISOString() }).eq("id", r.item.id);
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" moved to trash. Use restore_editing_item to bring it back.` };
+  }
+
+  if (block.name === "restore_editing_item") {
+    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyDeleted: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No trashed editing item matched "${item_title}" for ${client.name}.` };
+    }
+    await adminClient.from("video_edits").update({ deleted_at: null }).eq("id", r.item.id);
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" restored from trash.` };
+  }
+
+  if (block.name === "permanent_delete_editing_item") {
+    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title);
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
+    }
+    await adminClient.from("video_edits").delete().eq("id", r.item.id);
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" permanently deleted. This cannot be undone.` };
   }
 
   if (block.name === "mark_post_published") {
