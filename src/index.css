@@ -150,10 +150,11 @@ All colors MUST be HSL for consistency and theming.
   }
 
   /* Brand wordmark — bundled webfont so the logo renders identically across
-     devices, including those without Big Caslon installed. Lora is a
-     well-balanced contemporary serif with calligraphic roots. */
+     devices, including those without Big Caslon installed. Libre Caslon
+     Text is the closest free webfont to Big Caslon Bold (same Caslon
+     lineage, true 700 weight). */
   .font-wordmark {
-    font-family: 'Lora', 'Big Caslon', 'Book Antiqua', Georgia, serif;
+    font-family: 'Libre Caslon Text', 'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif;
   }
 
   .nav-side-mark::before {
