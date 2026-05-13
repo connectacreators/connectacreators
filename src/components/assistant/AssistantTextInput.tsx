@@ -478,19 +478,6 @@ export function AssistantTextInput({
                 position: "relative",
               }}
             >
-              <svg
-                style={{ position: "absolute", inset: -3, width: "calc(100% + 6px)", height: "calc(100% + 6px)", overflow: "visible", pointerEvents: "none" }}
-                viewBox="0 0 32 32"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M5,2.5 C10,1 22,1 27,2.5 C30,3.5 31.5,6 31.5,9 C32,15 32,20 31,25 C30,28.5 28,31 24,31.5 C18,32.5 11,32.5 7,31.5 C3.5,31 1.5,28.5 1,25 C0.5,20 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.18)"
-                  strokeWidth="1.1"
-                  strokeLinecap="round"
-                />
-              </svg>
               +
             </button>
             {plusMenuOpen && (
@@ -853,19 +840,6 @@ export function AssistantTextInput({
                 }}
                 title="Stop generating"
               >
-                <svg
-                  style={{ position: "absolute", inset: -4, width: "calc(100% + 8px)", height: "calc(100% + 8px)", overflow: "visible", pointerEvents: "none" }}
-                  viewBox="0 0 36 36"
-                  preserveAspectRatio="none"
-                >
-                  <path
-                    d="M5,2.5 C10,1 26,1 31,2.5 C34,3.5 35.5,6.5 35.5,10 C36,17 36,22 35,27.5 C34,31 32,33.5 28,34.5 C21,36 13,36 8,34.5 C4,33.5 1.5,31 1,27 C0.5,21 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.2)"
-                    strokeWidth="1.1"
-                    strokeLinecap="round"
-                  />
-                </svg>
                 <Square className="w-3.5 h-3.5 fill-current" />
               </button>
             )}
@@ -891,19 +865,6 @@ export function AssistantTextInput({
               }}
               title="Send"
             >
-              <svg
-                style={{ position: "absolute", inset: -4, width: "calc(100% + 8px)", height: "calc(100% + 8px)", overflow: "visible", pointerEvents: "none" }}
-                viewBox="0 0 36 36"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M5,2.5 C10,1 26,1 31,2.5 C34,3.5 35.5,6.5 35.5,10 C36,17 36,22 35,27.5 C34,31 32,33.5 28,34.5 C21,36 13,36 8,34.5 C4,33.5 1.5,31 1,27 C0.5,21 0.5,14 1,9 C1.5,5.5 3,3.5 5,2.5 Z"
-                  fill="none"
-                  stroke="#22d3ee"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                />
-              </svg>
               <Send className="w-3.5 h-3.5" />
             </button>
             {/* Mic button */}

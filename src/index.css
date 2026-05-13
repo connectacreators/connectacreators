@@ -503,6 +503,12 @@ All colors MUST be HSL for consistency and theming.
   to   { stroke-dashoffset: 0;   }
 }
 
+.assistant-chip:not(:disabled):hover {
+  background: rgba(255,255,255,0.07) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  color: rgba(255,255,255,0.85) !important;
+}
+
 /* ReactFlow handle rebrand — gold instead of default blue */
 .react-flow__handle {
   width: 8px !important;
