@@ -54,6 +54,13 @@ serve(async (req) => {
     oauthUrl.searchParams.set("scope", scope);
     oauthUrl.searchParams.set("response_type", "code");
     oauthUrl.searchParams.set("state", state);
+    // For the scheduler flow, force Meta to re-prompt for any previously-declined
+    // permissions. Without rerequest, users who clicked "Continue without granting
+    // Pages" on a prior connect silently get re-approved with the same degraded
+    // scope set, resulting in "0 pages found".
+    if (purpose === "scheduler") {
+      oauthUrl.searchParams.set("auth_type", "rerequest");
+    }
 
     return new Response(
       JSON.stringify({ url: oauthUrl.toString(), state }),
