@@ -625,12 +625,15 @@ export function AssistantChat({
                 setShowScrollBtn(false);
                 setUnreadCount(0);
               }}
-              className="pointer-events-auto relative flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-              style={{ background: "none", border: "none" }}
+              className="pointer-events-auto assistant-chip flex items-center gap-1.5 px-3 py-1.5 text-[11px]"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 999,
+                color: "rgba(255,255,255,0.6)",
+                transition: "background 160ms ease, border-color 160ms ease, color 160ms ease",
+              }}
             >
-              <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none" }} viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M6,2.5 C25,1 75,1 92,2.5 C97,3 99,5.5 99,8.5 C99.5,13 99,19 98,22 C97,25 94,26.5 89,27 C65,28 30,28 12,27 C6,26.5 2,25 2,22 C1,17 1,11 2,7 C2.5,4 4,3 6,2.5 Z" fill="none" stroke="rgba(34,211,238,0.3)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
               <ChevronDown className="w-3 h-3" />
               {unreadCount > 0 ? `${unreadCount} new` : "Latest"}
             </button>

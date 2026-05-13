@@ -631,30 +631,15 @@ export default function CommandCenter() {
                       <button
                         key={s}
                         onClick={() => setInput(s)}
-                        className="relative text-[11px] px-3 py-1.5 transition-colors"
-                        style={{ color: "rgba(255,255,255,0.6)", background: "none", border: "none" }}
+                        className="assistant-chip text-[11px] px-3 py-1.5"
+                        style={{
+                          color: "rgba(255,255,255,0.6)",
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 999,
+                          transition: "background 160ms ease, border-color 160ms ease, color 160ms ease",
+                        }}
                       >
-                        <svg
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
-                            overflow: "hidden",
-                            pointerEvents: "none",
-                          }}
-                          viewBox="0 0 160 32"
-                          preserveAspectRatio="none"
-                        >
-                          <path
-                            d="M8,3 C45,1 115,1 150,3 C156,3.5 158,6 158,10 C158.5,16 158,22 157,27 C156,30 152,32 144,32.5 C105,33.5 55,33.5 16,32.5 C7,32 3,29.5 2,26 C1,20 1,13 2,8 C3,5 5,3.5 8,3 Z"
-                            fill="none"
-                            stroke="rgba(34,211,238,0.35)"
-                            strokeWidth="1.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
                         {s}
                       </button>
                     ))}
