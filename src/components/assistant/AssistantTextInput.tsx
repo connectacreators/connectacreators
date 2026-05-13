@@ -16,7 +16,6 @@ import { createPortal } from "react-dom";
 import {
   Send,
   Loader2,
-  Wand2,
   Image as ImageIcon,
   ChevronUp,
   Check,
@@ -606,11 +605,7 @@ export function AssistantTextInput({
                 flexShrink: 0,
               }}
             >
-              {generating ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Wand2 className="w-3 h-3" />
-              )}
+              {generating && <Loader2 className="w-3 h-3 animate-spin" />}
               {generating ? "Generating..." : "Generate Script"}
             </button>
           )}
