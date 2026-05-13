@@ -361,6 +361,80 @@ export default function MasterEditingQueue() {
     loadCounts();
   }, [items]);
 
+  const urlParamsConsumedRef = useRef(false);
+
+  useEffect(() => {
+    if (urlParamsConsumedRef.current) return;
+    if (items.length === 0) return;
+    urlParamsConsumedRef.current = true;
+
+    const itemId = searchParams.get("item_id");
+    const modal = searchParams.get("modal");
+    const status = searchParams.get("status");
+    const postStatus = searchParams.get("post_status");
+    const assignee = searchParams.get("assignee");
+    const search = searchParams.get("search");
+    const sort = searchParams.get("sort");
+    const dir = searchParams.get("dir");
+
+    let consumedAny = false;
+
+    const VALID_SORT_COLS = ["client", "title", "status", "post_status", "assignee", "revisions", "deadline"];
+
+    if (search) {
+      console.warn("MasterEditingQueue: search param received but no text search input on this page");
+      consumedAny = true;
+    }
+    if (sort && VALID_SORT_COLS.includes(sort)) { setSortCol(sort); consumedAny = true; }
+    if (dir === "asc" || dir === "desc") { setSortDir(dir as 'asc' | 'desc'); consumedAny = true; }
+
+    if (itemId) {
+      const item = items.find((i) => i.id === itemId);
+      if (item) {
+        consumedAny = true;
+        switch (modal) {
+          case "revisions":
+            setRevisionDialogItem(item);
+            setRevisionText(item.revisions ?? "");
+            break;
+          case "review":
+            setReviewItem(item);
+            setReviewModalOpen(true);
+            break;
+          case "footage":
+            setFootageViewerItem(item);
+            break;
+          case "caption":
+            setCaptionEditItem(item);
+            setCaptionEditValue(item.caption ?? "");
+            break;
+          case "deadline":
+            console.warn("MasterEditingQueue: modal=deadline requested but setDeadlineOpenId does not exist on this page");
+            break;
+          case "schedule":
+            setScheduleItem(item);
+            setScheduleDate(item.scheduledDate ?? "");
+            break;
+          case "delete":
+            setDeleteConfirmItem(item);
+            break;
+          default:
+            break;
+        }
+      }
+    }
+
+    if (status || postStatus || assignee) {
+      console.warn("MasterEditingQueue: status/post_status/assignee filter params received but this page has no filter dropdowns yet");
+      consumedAny = true;
+    }
+
+    if (consumedAny) {
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
   const filteredItems = selectedClient === "all"
     ? items
     : items.filter((item) => item.clientId === selectedClient);
@@ -762,83 +836,6 @@ export default function MasterEditingQueue() {
       </div>
     );
   };
-
-  const urlParamsConsumedRef = useRef(false);
-
-  useEffect(() => {
-    if (urlParamsConsumedRef.current) return;
-    if (items.length === 0) return;
-    urlParamsConsumedRef.current = true;
-
-    const itemId = searchParams.get("item_id");
-    const modal = searchParams.get("modal");
-    const status = searchParams.get("status");
-    const postStatus = searchParams.get("post_status");
-    const assignee = searchParams.get("assignee");
-    const search = searchParams.get("search");
-    const sort = searchParams.get("sort");
-    const dir = searchParams.get("dir");
-
-    let consumedAny = false;
-
-    const VALID_SORT_COLS = ["client", "title", "status", "post_status", "assignee", "revisions", "deadline"];
-
-    if (search) {
-      console.warn("MasterEditingQueue: search param received but this page has no text search state — ignoring");
-      consumedAny = true;
-    }
-    if (sort && VALID_SORT_COLS.includes(sort)) { setSortCol(sort); consumedAny = true; }
-    if (dir === "asc" || dir === "desc") { setSortDir(dir as 'asc' | 'desc'); consumedAny = true; }
-
-    if (itemId) {
-      const item = items.find((i) => i.id === itemId);
-      if (item) {
-        consumedAny = true;
-        switch (modal) {
-          case "revisions":
-            setRevisionDialogItem(item);
-            setRevisionText(item.revisions ?? "");
-            break;
-          case "review":
-            setReviewItem(item);
-            setReviewModalOpen(true);
-            break;
-          case "footage":
-            setFootageViewerItem(item);
-            break;
-          case "caption":
-            setCaptionEditItem(item);
-            setCaptionEditValue(item.caption ?? "");
-            break;
-          case "deadline":
-            console.warn("MasterEditingQueue: modal=deadline requested but no setter on this page");
-            break;
-          case "schedule":
-            setScheduleItem(item);
-            setScheduleDate(item.scheduledDate ?? "");
-            break;
-          case "delete":
-            setDeleteConfirmItem(item);
-            break;
-          default:
-            break;
-        }
-      }
-    }
-
-    if (status || postStatus || assignee) {
-      const hint = [status, postStatus, assignee].filter(Boolean).join(" ");
-      if (hint) {
-        console.warn("MasterEditingQueue: status/post_status/assignee URL params received but no text search state — ignoring hint:", hint);
-        consumedAny = true;
-      }
-    }
-
-    if (consumedAny) {
-      setSearchParams({}, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length]);
 
   return (
 
