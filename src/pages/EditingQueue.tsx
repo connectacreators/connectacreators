@@ -30,6 +30,8 @@ import FootageUploadDialog from '@/components/FootageUploadDialog';
 import FootagePanel from '@/components/FootagePanel';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
+import { useSchedulerEnabled } from "@/lib/featureFlags";
+import { PublishComposer } from "@/components/scheduler/PublishComposer";
 
 interface EditingQueueItem {
   id: string;
@@ -151,6 +153,9 @@ export default function EditingQueue() {
   // Schedule post modal
   const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  // New beta-only composer (autopost / schedule / draft to FB+IG)
+  const { enabled: schedulerEnabled } = useSchedulerEnabled();
+  const [composerItem, setComposerItem] = useState<EditingQueueItem | null>(null);
   const [scheduling, setScheduling] = useState(false);
 
   // Inline editing for caption
@@ -1040,11 +1045,20 @@ export default function EditingQueue() {
                                       </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem
-                                      onClick={() => { setScheduleItem(item); setScheduleDate(item.scheduledDate || ""); }}
+                                      onClick={() => {
+                                        if (schedulerEnabled) {
+                                          setComposerItem(item);
+                                        } else {
+                                          setScheduleItem(item);
+                                          setScheduleDate(item.scheduledDate || "");
+                                        }
+                                      }}
                                       className="text-xs"
                                     >
                                       <Calendar className="w-3.5 h-3.5 mr-2" />
-                                      {item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Add Schedule"}
+                                      {schedulerEnabled
+                                        ? (item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Schedule / Publish")
+                                        : (item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Add Schedule")}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => { setCaptionEditItem(item); setCaptionEditValue(item.caption || ''); }}
@@ -1301,6 +1315,17 @@ export default function EditingQueue() {
       </Dialog>
 
       {/* Schedule Post Modal */}
+      {composerItem && schedulerEnabled && clientId && (
+        <PublishComposer
+          open={Boolean(composerItem)}
+          onClose={() => setComposerItem(null)}
+          clientId={clientId}
+          editingQueueId={composerItem.id}
+          videoUrl={composerItem.fileSubmissionUrl ?? composerItem.storageUrl ?? ""}
+          initialCaption={composerItem.caption ?? ""}
+        />
+      )}
+
       <Dialog open={!!scheduleItem} onOpenChange={() => setScheduleItem(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
