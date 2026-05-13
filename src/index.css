@@ -504,7 +504,7 @@ All colors MUST be HSL for consistency and theming.
   content: "▋";
   display: inline-block;
   margin-left: 2px;
-  color: rgba(201, 169, 110, 0.7);
+  color: rgba(34, 211, 238, 0.85);
   font-weight: 400;
   animation: ai-cursor-blink 1s steps(2) infinite;
 }

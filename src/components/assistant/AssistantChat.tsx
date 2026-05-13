@@ -581,7 +581,7 @@ export function AssistantChat({
           </div>
         ))}
 
-        {(loading || generating) && !generatingImage && (
+        {(loading || generating) && !generatingImage && streamingContent === null && remoteStreamingContent === null && (
           <div className="flex items-center">
             <ThinkingAnimation />
           </div>
