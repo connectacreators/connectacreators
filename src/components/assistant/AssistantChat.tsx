@@ -327,7 +327,7 @@ export function AssistantChat({
               msg.is_progress ? (
                 <div className="flex items-center gap-1.5 text-muted-foreground/60">
                   <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
-                  <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic font-caslon`}>{msg.content}</span>
+                  <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic font-caslon tracking-normal`}>{msg.content}</span>
                 </div>
               ) : msg.type === "plan_proposal" && msg.plan_data ? (
                 <div className="flex gap-2 items-start">
@@ -449,7 +449,7 @@ export function AssistantChat({
                         </span>
                       )}
                     </div>
-                    <div className="font-caslon">
+                    <div className="font-caslon tracking-normal">
                       <MarkdownText text={msg.content} />
                     </div>
                     <button
@@ -478,7 +478,7 @@ export function AssistantChat({
                   <div className="text-foreground min-w-0 flex-1 relative pr-8">
                     {(() => {
                       const deck = parseDeck(msg.content);
-                      if (!deck) return <div className="font-caslon"><MarkdownText text={msg.content} /></div>;
+                      if (!deck) return <div className="font-caslon tracking-normal"><MarkdownText text={msg.content} /></div>;
                       const alreadyAnswered = visibleMessages
                         .slice(i + 1)
                         .some(
@@ -487,13 +487,13 @@ export function AssistantChat({
                         );
                       if (alreadyAnswered) {
                         return deck.preamble ? (
-                          <div className="font-caslon"><MarkdownText text={deck.preamble} /></div>
+                          <div className="font-caslon tracking-normal"><MarkdownText text={deck.preamble} /></div>
                         ) : null;
                       }
                       return (
                         <>
                           {deck.preamble && (
-                            <div className="mb-2 font-caslon">
+                            <div className="mb-2 font-caslon tracking-normal">
                               <MarkdownText text={deck.preamble} />
                             </div>
                           )}
@@ -674,7 +674,7 @@ export function AssistantChat({
                   Preparing questions…
                 </div>
               ) : (
-                <div className="text-foreground min-w-0 flex-1 streaming-bubble font-caslon">
+                <div className="text-foreground min-w-0 flex-1 streaming-bubble font-caslon tracking-normal">
                   <MarkdownText text={liveText} />
                 </div>
               )}
