@@ -210,6 +210,44 @@ export const EDITING_TOOLS: ToolDef[] = [
       required: ["client_name", "items"],
     },
   },
+  {
+    name: "bulk_delete_editing_items",
+    description: "Soft-delete multiple editing items in one call. Capped at 14 per call.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_titles: { type: "array", items: { type: "string" } },
+      },
+      required: ["client_name", "item_titles"],
+    },
+  },
+  {
+    name: "bulk_assign_editor",
+    description: "Assign an editor to multiple items in one call. Capped at 14.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_titles: { type: "array", items: { type: "string" } },
+        editor_name: { type: "string" },
+      },
+      required: ["client_name", "item_titles", "editor_name"],
+    },
+  },
+  {
+    name: "bulk_update_status",
+    description: "Set status on multiple items in one call. Capped at 14. status: Not started | In progress | In review | Done.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_titles: { type: "array", items: { type: "string" } },
+        status: { type: "string" },
+      },
+      required: ["client_name", "item_titles", "status"],
+    },
+  },
 ];
 
 async function findEditItem(adminClient: any, clientId: string, titlePartial: string) {
@@ -553,6 +591,70 @@ Caption only, no other text.`,
     }
     actions.push({ type: "refresh_data", scope: "calendar" });
     return { type: "tool_result", tool_use_id: block.id, content: `Rescheduled ${touched}/${items.length} for ${client.name}:\n${lines.join("\n")}` };
+  }
+
+  // Shared helper for bulk operations — resolves each title and runs `mutate`
+  // for the resolved item id. Returns the per-item status string.
+  async function runBulk(
+    client_name: string,
+    item_titles: unknown,
+    mutate: (id: string) => Promise<{ error: unknown }>,
+    actionVerb: string,
+  ): Promise<ToolResult> {
+    if (!Array.isArray(item_titles) || item_titles.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: item_titles must be a non-empty array." };
+    }
+    if (item_titles.length > 14) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: cap is 14 per call (got ${item_titles.length}).` };
+    }
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+
+    const lines: string[] = [];
+    let touched = 0;
+    for (const raw of item_titles) {
+      const title = String(raw ?? "").trim();
+      if (!title) { lines.push("SKIP: empty title"); continue; }
+      const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, title);
+      if (!r.ok) {
+        if (r.reason === "ambiguous") lines.push(`AMBIGUOUS "${title}" — ${r.candidates.length} matches`);
+        else lines.push(`MISS "${title}"`);
+        continue;
+      }
+      const res = await mutate(r.item.id);
+      if (res.error) lines.push(`FAIL "${r.item.reel_title}": ${(res.error as { message?: string }).message ?? "unknown"}`);
+      else { touched += 1; lines.push(`OK "${r.item.reel_title}"`); }
+    }
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `${actionVerb} ${touched}/${item_titles.length} for ${client.name}:\n${lines.join("\n")}` };
+  }
+
+  if (block.name === "bulk_delete_editing_items") {
+    const { client_name, item_titles } = block.input as { client_name: string; item_titles: string[] };
+    return runBulk(client_name, item_titles, async (id) => {
+      const { error } = await adminClient.from("video_edits").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+      return { error };
+    }, "Soft-deleted");
+  }
+
+  if (block.name === "bulk_assign_editor") {
+    const { client_name, item_titles, editor_name } = block.input as { client_name: string; item_titles: string[]; editor_name: string };
+    return runBulk(client_name, item_titles, async (id) => {
+      const { error } = await adminClient.from("video_edits").update({ assignee: editor_name }).eq("id", id);
+      return { error };
+    }, `Assigned to ${editor_name}:`);
+  }
+
+  if (block.name === "bulk_update_status") {
+    const { client_name, item_titles, status } = block.input as { client_name: string; item_titles: string[]; status: string };
+    const valid = ["Not started", "In progress", "In review", "Done"];
+    if (!valid.includes(status)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid status "${status}". Use one of: ${valid.join(", ")}.` };
+    }
+    return runBulk(client_name, item_titles, async (id) => {
+      const { error } = await adminClient.from("video_edits").update({ status }).eq("id", id);
+      return { error };
+    }, `Set status to "${status}":`);
   }
 
   return null;
