@@ -142,12 +142,10 @@ All colors MUST be HSL for consistency and theming.
   }
 
   /* Brand wordmark — bundled webfont so the logo renders identically across
-     devices, including those without Big Caslon installed. Fraunces is a
-     distinctive modern serif with high contrast at display sizes. */
+     devices, including those without Big Caslon installed. Lora is a
+     well-balanced contemporary serif with calligraphic roots. */
   .font-wordmark {
-    font-family: 'Fraunces', 'Big Caslon', 'Book Antiqua', Georgia, serif;
-    font-variation-settings: 'opsz' 144;
-    font-feature-settings: 'ss01' on;
+    font-family: 'Lora', 'Big Caslon', 'Book Antiqua', Georgia, serif;
   }
 
   .nav-side-mark::before {
