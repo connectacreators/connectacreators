@@ -134,7 +134,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
   const [generatedScript, setGeneratedScript] = useState<any>(null);
 
   // Right panel collapsed state
-  const [contextPanelCollapsed, setContextPanelCollapsed] = useState(false);
+  const [contextPanelCollapsed, setContextPanelCollapsed] = useState(true);
 
   // ─── Live chat sync (broadcast-based) ───
   const isRemoteUpdateRef = useRef(false);

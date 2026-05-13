@@ -190,7 +190,7 @@ export function MarkdownText({ text }: { text: string }) {
     else if (/^[-*]\s/.test(trimmed)) {
       const text = trimmed.replace(/^[-*]\s/, "");
       bulletGroup.push(
-        <li key={i} className="text-xs leading-relaxed">
+        <li key={i} className="leading-relaxed">
           {renderInline(text)}
         </li>,
       );
@@ -200,7 +200,7 @@ export function MarkdownText({ text }: { text: string }) {
       flushBullets();
       const text = trimmed.replace(/^\d+\.\s/, "");
       nodes.push(
-        <p key={i} className="text-xs leading-relaxed pl-3">
+        <p key={i} className="leading-relaxed pl-3">
           • {renderInline(text)}
         </p>,
       );
@@ -293,7 +293,7 @@ export function MarkdownText({ text }: { text: string }) {
     else {
       flushBullets();
       nodes.push(
-        <p key={i} className="text-xs leading-relaxed">
+        <p key={i} className="leading-relaxed">
           {renderInline(trimmed)}
         </p>,
       );
