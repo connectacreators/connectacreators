@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useSchedulerEnabled } from "@/lib/featureFlags";
+import { Share2 } from "lucide-react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -37,6 +39,8 @@ export default function ClientDetail() {
   const [editLoading, setEditLoading] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const { enabled: schedulerEnabled } = useSchedulerEnabled();
 
   // Notion mapping state (admin-only)
   const [showNotionDialog, setShowNotionDialog] = useState(false);
@@ -209,6 +213,13 @@ export default function ClientDetail() {
       { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "text-emerald-400", path: `/clients/${clientId}/landing-page` },
       { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "text-cyan-400", action: "database" },
       { label: "Contracts", description: language === "en" ? "Upload, sign & send contracts" : "Sube, firma y envía contratos", icon: ScrollText, color: "text-amber-400", path: `/clients/${clientId}/contracts` },
+      ...(schedulerEnabled ? [{
+        label: language === "en" ? "Social Accounts" : "Cuentas Sociales",
+        description: language === "en" ? "Connect Facebook & Instagram for scheduling" : "Conectar Facebook e Instagram para programación",
+        icon: Share2,
+        color: "text-pink-400",
+        path: `/clients/${clientId}/social-accounts`,
+      }] : []),
     ],
   };
 
