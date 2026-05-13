@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -139,6 +141,12 @@ All colors MUST be HSL for consistency and theming.
   .font-caslon {
     font-family: 'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif;
     letter-spacing: 0.06em;
+  }
+
+  /* Body-text cut of Caslon — for AI message prose. Wider apertures and
+     lining figures vs Big Caslon's display cut. Used by AssistantChat. */
+  .font-caslon-text {
+    font-family: 'Libre Caslon Text', 'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif;
   }
 
   /* Brand wordmark — bundled webfont so the logo renders identically across
