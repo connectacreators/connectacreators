@@ -151,7 +151,11 @@ export function renderInline(line: string): React.ReactNode[] {
 
 /** Render full markdown text: headings, bullets, numbered lists, paragraphs */
 export function MarkdownText({ text }: { text: string }) {
-  const lines = text.split("\n");
+  // Strip leading whitespace so the first rendered element is real content,
+  // not an empty-line spacer. This is what makes [&:first-child]:mt-0 fire on
+  // a leading heading or bullet list, which keeps the fingerprint icon aligned
+  // with the first line of text.
+  const lines = text.replace(/^\s+/, "").split("\n");
   const nodes: React.ReactNode[] = [];
   let bulletGroup: React.ReactNode[] = [];
   let i = 0;
