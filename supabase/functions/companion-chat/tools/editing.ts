@@ -24,11 +24,11 @@ export const EDITING_TOOLS: ToolDef[] = [
       type: "object",
       properties: {
         client_name: { type: "string", description: "Client name. Omit for master view." },
-        status: { type: "string", description: "Filter by item status: not-started | in-progress | in-review | done" },
-        post_status: { type: "string", description: "Filter by post status: unpublished | scheduled | published" },
+        status: { type: "string", description: "Filter by item status: Not started | In progress | In review | Done" },
+        post_status: { type: "string", description: "Filter by post status: Unpublished | Scheduled | Published" },
         assignee: { type: "string", description: "Filter by assignee name" },
         search: { type: "string", description: "Pre-fill the search box" },
-        sort_by: { type: "string", description: "Column to sort by: title | status | assignee | deadline | revisions | post_status" },
+        sort_by: { type: "string", description: "Column to sort by: title | status | assignee | deadline | revisions | post_status | client (master view only)" },
         sort_dir: { type: "string", description: "Sort direction: asc | desc" },
       },
       required: [],
@@ -402,7 +402,10 @@ export async function handleEditingTool(
       return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
     }
     const newDeadline = deadline === null || deadline === "" ? null : deadline;
-    await adminClient.from("video_edits").update({ deadline: newDeadline }).eq("id", r.item.id);
+    const { error: updErr } = await adminClient.from("video_edits").update({ deadline: newDeadline }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: newDeadline ? `Deadline for "${r.item.reel_title}" set to ${newDeadline}.` : `Deadline cleared for "${r.item.reel_title}".` };
   }
@@ -416,7 +419,10 @@ export async function handleEditingTool(
       if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
       return { type: "tool_result", tool_use_id: block.id, content: `No live editing item matched "${item_title}" for ${client.name}.` };
     }
-    await adminClient.from("video_edits").update({ deleted_at: new Date().toISOString() }).eq("id", r.item.id);
+    const { error: updErr } = await adminClient.from("video_edits").update({ deleted_at: new Date().toISOString() }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" moved to trash. Use restore_editing_item to bring it back.` };
   }
@@ -430,7 +436,10 @@ export async function handleEditingTool(
       if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
       return { type: "tool_result", tool_use_id: block.id, content: `No trashed editing item matched "${item_title}" for ${client.name}.` };
     }
-    await adminClient.from("video_edits").update({ deleted_at: null }).eq("id", r.item.id);
+    const { error: updErr } = await adminClient.from("video_edits").update({ deleted_at: null }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" restored from trash.` };
   }
@@ -444,7 +453,10 @@ export async function handleEditingTool(
       if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
       return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
     }
-    await adminClient.from("video_edits").delete().eq("id", r.item.id);
+    const { error: delErr } = await adminClient.from("video_edits").delete().eq("id", r.item.id);
+    if (delErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Delete failed for "${r.item.reel_title}": ${delErr.message}` };
+    }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" permanently deleted. This cannot be undone.` };
   }
@@ -458,7 +470,10 @@ export async function handleEditingTool(
       if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
       return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
     }
-    await adminClient.from("video_edits").update({ caption }).eq("id", r.item.id);
+    const { error: updErr } = await adminClient.from("video_edits").update({ caption }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     actions.push({ type: "refresh_data", scope: "calendar" });
     return { type: "tool_result", tool_use_id: block.id, content: `Caption updated for "${r.item.reel_title}".` };
@@ -475,7 +490,10 @@ export async function handleEditingTool(
       if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
       return { type: "tool_result", tool_use_id: block.id, content: `No editing item matched "${item_title}" for ${client.name}.` };
     }
-    await adminClient.from("video_edits").update({ reel_title: trimmed }).eq("id", r.item.id);
+    const { error: updErr } = await adminClient.from("video_edits").update({ reel_title: trimmed }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" renamed to "${trimmed}".` };
   }
@@ -615,7 +633,7 @@ Caption only, no other text.`,
     for (const raw of item_titles) {
       const title = String(raw ?? "").trim();
       if (!title) { lines.push("SKIP: empty title"); continue; }
-      const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, title);
+      const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, title, { onlyLive: true });
       if (!r.ok) {
         if (r.reason === "ambiguous") lines.push(`AMBIGUOUS "${title}" — ${r.candidates.length} matches`);
         else lines.push(`MISS "${title}"`);
