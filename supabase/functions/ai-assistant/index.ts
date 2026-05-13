@@ -211,8 +211,8 @@ function classifyIntent(text: string): "deep" | "light" | "medium" {
   // editing the last response rather than asking for new reasoning.
   const lightPatterns: RegExp[] = [
     /^(?:no|nope|nah|yes|yep|yeah|ok|okay|sure|cool|try\s+again|again|different|another|one\s+more|next|continue|more)[\s!.?]*$/,
-    /^(?:make\s+it\s+)?(?:shorter|longer|tighter|punchier|sharper|simpler|clearer|cleaner|bolder|softer|rougher|smoother)[\s!.?]*$/,
-    /^(?:shorter|longer|tighter|punchier|sharper|simpler|clearer|cleaner|bolder|softer|rougher|smoother)[\s!.?]*$/,
+    /^(?:make\s+it\s+)?(?:shorter|longer|larger|smaller|bigger|tighter|punchier|sharper|simpler|clearer|cleaner|bolder|softer|rougher|smoother)[\s!.?]*$/,
+    /^(?:shorter|longer|larger|smaller|bigger|tighter|punchier|sharper|simpler|clearer|cleaner|bolder|softer|rougher|smoother)[\s!.?]*$/,
     /^(?:fix|tweak|polish|edit)\s+(?:that|this|it|line\s+\d+)[\s!.?]*$/,
     /^(?:now|then)?\s*(?:make|put)\s+it\s+(?:more|less)\s+\w+[\s!.?]*$/,
     /^(?:cut|remove|drop)\s+(?:that|the\s+\w+|it)[\s!.?]*$/,
@@ -1003,10 +1003,13 @@ serve(async (req) => {
       if (isIdeation) return requestedModel;
       const intent = classifyIntent(latestUserText);
       if (intent === "deep") return requestedModel;                 // keep Opus/Sonnet
-      if (intent === "light") return "claude-haiku-4-5";            // downgrade all the way
-      return requestedModel === "claude-opus-4"
-        ? "claude-sonnet-4-5"                                       // medium → Sonnet from Opus
-        : requestedModel;                                           // Sonnet requested → keep Sonnet
+      if (intent === "light") return "claude-haiku-4-5";            // tiny edit follow-up → Haiku
+      // medium intent: honor the user's selection. The previous
+      // Opus→Sonnet swap here silently downgraded legit creative work
+      // whenever the "deep" regex missed (e.g. "give me 15 funny ideas"
+      // doesn't match because "funny" sits between the number and noun).
+      // Trust the picker — only the short-edit "light" path downgrades now.
+      return requestedModel;
     })();
     const config = MODEL_CONFIG[routedModelKey] || requestedConfig;
     const model = config.apiModel;
