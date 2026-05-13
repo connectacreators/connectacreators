@@ -171,6 +171,7 @@ export default function EditingQueue() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const lastCheckedIndexRef = useRef<number>(-1);
+  const urlParamsConsumedRef = useRef(false);
 
   // Caption edit dialog
   const [captionEditItem, setCaptionEditItem] = useState<EditingQueueItem | null>(null);
@@ -332,7 +333,9 @@ export default function EditingQueue() {
   // then strip them from the URL so refresh doesn't re-open the modal.
   // Runs once items have loaded so item_id can resolve to a row.
   useEffect(() => {
+    if (urlParamsConsumedRef.current) return;
     if (items.length === 0) return;
+    urlParamsConsumedRef.current = true;
 
     const itemId = searchParams.get("item_id");
     const modal = searchParams.get("modal");
@@ -345,8 +348,10 @@ export default function EditingQueue() {
 
     let consumedAny = false;
 
-    if (search) { setSearchQuery(search); consumedAny = true; }
-    if (sort) { setSortCol(sort); consumedAny = true; }
+    const VALID_SORT_COLS = ["title", "status", "post_status", "assignee", "revisions", "deadline"];
+
+    if (search) { setSearchQuery((prev) => prev || search); consumedAny = true; }
+    if (sort && VALID_SORT_COLS.includes(sort)) { setSortCol(sort); consumedAny = true; }
     if (dir === "asc" || dir === "desc") { setSortDir(dir as 'asc' | 'desc'); consumedAny = true; }
 
     if (itemId) {
@@ -403,6 +408,7 @@ export default function EditingQueue() {
     if (consumedAny) {
       setSearchParams({}, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
 
   // Refresh when AI writes to editing_queue
