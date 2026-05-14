@@ -16,9 +16,11 @@ import {
 interface Props {
   post: ScheduledPostRow;
   onClick: () => void;
+  /** Show the client name above the caption — useful in the global view */
+  showClientName?: boolean;
 }
 
-export function ScheduledPostCard({ post, onClick }: Props) {
+export function ScheduledPostCard({ post, onClick, showClientName }: Props) {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const approve = useApproveScheduledPost();
@@ -101,6 +103,11 @@ export function ScheduledPostCard({ post, onClick }: Props) {
       </div>
 
       <div className="flex-1 min-w-0 space-y-1.5">
+        {showClientName && post.client_name && (
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {post.client_name}
+          </p>
+        )}
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-medium line-clamp-2 leading-snug">
             {post.caption.slice(0, 120) || "(no caption)"}

@@ -157,7 +157,9 @@ export default function ContentCalendar() {
   const [fetching, setFetching] = useState(cachedPosts.length === 0);
   const [error, setError] = useState<string | null>(null);
 
-  // Beta-only scheduler panel above the calendar
+  // Beta-only scheduler panel above the calendar. When no clientId is in
+  // the URL (the global "All Clients" view), the hook fetches across all
+  // clients the user has access to via RLS.
   const { enabled: schedulerEnabled } = useSchedulerEnabled();
   const [schedFilter, setSchedFilter] = useState<PostFilter>("all");
   const { data: scheduledPosts = [] } = useScheduledPosts(
@@ -540,9 +542,9 @@ export default function ContentCalendar() {
           )}
 
           {/* Scheduler beta panel — visible only when scheduler is enabled and we're scoped to a client */}
-          {schedulerEnabled && clientId && (
+          {schedulerEnabled && (
             <div className="space-y-3 mb-6">
-              <ReauthBanner clientId={clientId} />
+              {clientId && <ReauthBanner clientId={clientId} />}
               <Tabs value={schedFilter} onValueChange={(v) => setSchedFilter(v as PostFilter)}>
                 <TabsList>
                   <TabsTrigger value="all">All</TabsTrigger>
@@ -559,6 +561,7 @@ export default function ContentCalendar() {
                     key={p.id}
                     post={p}
                     onClick={() => setDetailPost(p)}
+                    showClientName={!clientId}
                   />
                 ))}
                 {scheduledPosts.length === 0 && (
