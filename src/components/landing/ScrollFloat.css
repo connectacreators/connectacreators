@@ -5,12 +5,12 @@
 
 .scroll-float-text {
   display: inline-block;
-  font-family: 'EB Garamond', Georgia, serif;
-  font-size: clamp(2rem, 6vw, 6rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  text-align: center;
-  line-height: 1.05;
+  /* Inherit typography from the parent containerClassName (e.g. section-h2)
+     instead of overriding with a fixed clamp. ScrollFloat is style-neutral. */
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: inherit;
 }
 
 .scroll-float .char {

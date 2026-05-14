@@ -1428,7 +1428,10 @@ export default function LandingPageNew() {
           >
             <div style={{ minWidth: 0 }}>
               <span className="eyebrow">The Jarvis</span>
-              <h2 className="section-h2" style={{ margin: "16px 0 22px" }}>
+              <ScrollFloat
+                containerClassName="section-h2"
+                stagger={0.025}
+              >
                 <em className="soft">The brain.</em>
                 <br />
                 It plans before{" "}
@@ -1438,7 +1441,7 @@ export default function LandingPageNew() {
                 >
                   you post.
                 </span>
-              </h2>
+              </ScrollFloat>
               <div className="section-lede" style={{ marginBottom: 28, position: "relative" }}>
                 <ProxText>Super Canvas studies your brand voice, your audience, what's spiking on the feed, and what your last 50 posts taught it. Then it lays out the next 30 days — visually, editably, in one place.</ProxText>
               </div>
@@ -1571,7 +1574,7 @@ export default function LandingPageNew() {
 
             <div>
               <span className="eyebrow eyebrow-honey">Viral Today</span>
-              <h2 className="section-h2" style={{ margin: "16px 0 22px", color: "var(--ink)" }}>
+              <ScrollFloat containerClassName="section-h2" stagger={0.025}>
                 What's working <em style={{ color: "rgba(10,14,18,0.55)", fontStyle: "italic", fontWeight: 400 }}>right now,</em>
                 <br />
                 <span
@@ -1580,7 +1583,7 @@ export default function LandingPageNew() {
                 >
                   sorted for you.
                 </span>
-              </h2>
+              </ScrollFloat>
               <div className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)", position: "relative" }}>
                 <ProxText>Connecta scans the feeds your audience is on, flags outlier videos that beat their channel's average by 8× or more, and shows you the hooks before everyone else copies them.</ProxText>
               </div>
@@ -1630,11 +1633,14 @@ export default function LandingPageNew() {
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <div className="scroll-rise">
             <span className="eyebrow">The pipeline</span>
-            <h2 className="section-h2" style={{ margin: "16px auto 22px", maxWidth: 760 }}>
+            <ScrollFloat
+              containerClassName="section-h2"
+              stagger={0.025}
+            >
               The production layer
               <br />
               <em className="soft">underneath the strategy.</em>
-            </h2>
+            </ScrollFloat>
             <div className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center", position: "relative" }}>
               <ProxText>Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval — so nothing dies in a Slack thread.</ProxText>
             </div>
@@ -1733,9 +1739,12 @@ export default function LandingPageNew() {
               <span className="pill pill-honey" style={{ marginBottom: 18 }}>
                 <span className="pill-dot" /> Coming late 2026
               </span>
-              <h2 className="section-h2" style={{ margin: "12px 0 18px", fontSize: "clamp(36px, 4.6vw, 52px)" }}>
+              <ScrollFloat
+                containerClassName="section-h2 section-h2--smaller"
+                stagger={0.025}
+              >
                 Soon, <em className="honey">the last mile.</em>
-              </h2>
+              </ScrollFloat>
               <div className="section-lede" style={{ marginBottom: 24, position: "relative" }}>
                 <ProxText>Strategy → production → publish. We're closing the loop. Hit one button and your week ships to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested.</ProxText>
               </div>

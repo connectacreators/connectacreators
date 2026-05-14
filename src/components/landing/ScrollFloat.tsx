@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import React, {
+  Fragment,
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  type MutableRefObject,
+} from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import "./ScrollFloat.css";
@@ -6,7 +13,7 @@ import "./ScrollFloat.css";
 gsap.registerPlugin(ScrollTrigger);
 
 interface ScrollFloatProps {
-  children: string;
+  children: React.ReactNode;
   scrollContainerRef?: MutableRefObject<HTMLElement | null>;
   containerClassName?: string;
   textClassName?: string;
@@ -15,6 +22,38 @@ interface ScrollFloatProps {
   scrollStart?: string;
   scrollEnd?: string;
   stagger?: number;
+}
+
+/**
+ * Recursively walks any React.ReactNode and replaces every character in
+ * every string descendant with a <span className="char">. Inline elements
+ * (em, span, br, etc.) are preserved — only the text inside them gets
+ * split. This lets ScrollFloat keep italic/colored emphasis intact while
+ * still animating each letter on scroll.
+ */
+function splitToChars(node: React.ReactNode, keyBase = "0"): React.ReactNode {
+  if (node == null || typeof node === "boolean") return null;
+  if (typeof node === "string") {
+    return Array.from(node).map((ch, i) => (
+      <span className="char" key={`${keyBase}-${i}`}>
+        {ch === " " ? " " : ch}
+      </span>
+    ));
+  }
+  if (typeof node === "number") {
+    return splitToChars(String(node), keyBase);
+  }
+  if (Array.isArray(node)) {
+    return node.map((c, i) => (
+      <Fragment key={`${keyBase}-${i}`}>{splitToChars(c, `${keyBase}-${i}`)}</Fragment>
+    ));
+  }
+  if (isValidElement(node)) {
+    const element = node as React.ReactElement<{ children?: React.ReactNode }>;
+    const { children } = element.props;
+    return cloneElement(element, {}, splitToChars(children, keyBase));
+  }
+  return node;
 }
 
 export default function ScrollFloat({
@@ -29,15 +68,6 @@ export default function ScrollFloat({
   stagger = 0.03,
 }: ScrollFloatProps) {
   const containerRef = useRef<HTMLHeadingElement | null>(null);
-
-  const splitText = useMemo(() => {
-    const text = typeof children === "string" ? children : "";
-    return text.split("").map((char, index) => (
-      <span className="char" key={index}>
-        {char === " " ? " " : char}
-      </span>
-    ));
-  }, [children]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -80,11 +110,11 @@ export default function ScrollFloat({
       tween.scrollTrigger?.kill();
       tween.kill();
     };
-  }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger]);
+  }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger, children]);
 
   return (
     <h2 ref={containerRef} className={`scroll-float ${containerClassName}`}>
-      <span className={`scroll-float-text ${textClassName}`}>{splitText}</span>
+      <span className={`scroll-float-text ${textClassName}`}>{splitToChars(children)}</span>
     </h2>
   );
 }

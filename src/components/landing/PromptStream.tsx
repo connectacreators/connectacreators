@@ -99,12 +99,13 @@ export default function PromptStream({
           </g>
         </svg>
         {/* Animated marquee text following the same curve.
-            direction="left" makes the text travel FROM the mic (path start)
-            TOWARD the right margin (path end). */}
+            direction="right" makes startOffset increase → characters shift
+            forward along the path → new text enters at the mic and exits
+            at the right margin. Text appears to flow OUT of the bubble. */}
         <CurvedLoop
           marqueeText={trackText}
           speed={0.65}
-          direction="left"
+          direction="right"
           interactive={false}
           pathD={RIGHT_PATH}
           viewBox="0 0 900 300"
