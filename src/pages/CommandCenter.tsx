@@ -632,8 +632,16 @@ export default function CommandCenter() {
         {rightTab === "chat" ? (
           <>
             {/* CHATS sidebar — collapsible via header button or Cmd/Ctrl+. */}
-            {chatsSidebarOpen && (
-              <aside className="w-[260px] bg-[#1a1b1f] border-r border-white/[0.04] flex flex-col">
+            <aside
+              className="bg-[#1a1b1f] border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0"
+              style={{
+                width: chatsSidebarOpen ? 260 : 0,
+                borderRightWidth: chatsSidebarOpen ? 1 : 0,
+                transition: "width 260ms cubic-bezier(0.22, 1, 0.36, 1), border-right-width 260ms ease",
+              }}
+              aria-hidden={!chatsSidebarOpen}
+            >
+              <div className="w-[260px] flex-shrink-0 flex flex-col flex-1 min-h-0">
                 <AssistantThreadList
                   threads={threadListItems}
                   activeThreadId={activeThreadId}
@@ -645,8 +653,8 @@ export default function CommandCenter() {
                   variant="full"
                   className="flex-1 min-h-0"
                 />
-              </aside>
-            )}
+              </div>
+            </aside>
 
             {/* Chat column */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
