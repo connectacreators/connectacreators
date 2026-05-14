@@ -30,6 +30,8 @@ import FootageUploadDialog from '@/components/FootageUploadDialog';
 import FootagePanel from '@/components/FootagePanel';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
+import { useSchedulerEnabled } from "@/lib/featureFlags";
+import { PublishComposer } from "@/components/scheduler/PublishComposer";
 
 interface EditingQueueItem {
   id: string;
@@ -134,6 +136,9 @@ export default function MasterEditingQueue() {
   const [deleting, setDeleting] = useState(false);
   const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  // New beta-only composer drawer (autopost / schedule / draft to FB+IG)
+  const { enabled: schedulerEnabled } = useSchedulerEnabled();
+  const [composerItem, setComposerItem] = useState<EditingQueueItem | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [updatingLifecycle, setUpdatingLifecycle] = useState<string | null>(null);
@@ -463,8 +468,12 @@ export default function MasterEditingQueue() {
             setDeadlineOpenId(item.id);
             break;
           case "schedule":
-            setScheduleItem(item);
-            setScheduleDate(item.scheduledDate ?? "");
+            if (schedulerEnabled) {
+              setComposerItem(item);
+            } else {
+              setScheduleItem(item);
+              setScheduleDate(item.scheduledDate ?? "");
+            }
             break;
           case "delete":
             setDeleteConfirmItem(item);
@@ -1508,6 +1517,17 @@ export default function MasterEditingQueue() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {composerItem && schedulerEnabled && composerItem.clientId && (
+        <PublishComposer
+          open={Boolean(composerItem)}
+          onClose={() => setComposerItem(null)}
+          clientId={composerItem.clientId}
+          editingQueueId={composerItem.id}
+          videoUrl={composerItem.fileSubmissionUrl ?? composerItem.storageUrl ?? ""}
+          initialCaption={composerItem.caption ?? ""}
+        />
+      )}
 
       {/* Schedule Post Dialog */}
       <Dialog open={!!scheduleItem} onOpenChange={() => setScheduleItem(null)}>
