@@ -36,7 +36,9 @@ function splitToChars(node: React.ReactNode, keyBase = "0"): React.ReactNode {
   if (typeof node === "string") {
     return Array.from(node).map((ch, i) => (
       <span className="char" key={`${keyBase}-${i}`}>
-        {ch === " " ? " " : ch}
+        {/* Inner .prox-letter so proximity tracker animates the title
+            character; GSAP animates the outer .char's transform. */}
+        <span className="prox-letter">{ch === " " ? " " : ch}</span>
       </span>
     ));
   }
