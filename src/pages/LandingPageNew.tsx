@@ -879,8 +879,8 @@ export default function LandingPageNew() {
       setTimeout(lockWidths, 100);
     }
 
-    const RADIUS = 65;
-    const DELTA = 80; // wght: 400 → 480, very subtle
+    const RADIUS = 70;
+    const DELTA = 220; // wght: 400 → 620, noticeably bolder where the cursor lands
     let raf: number | null = null;
     let posX = -9999;
     let posY = -9999;
