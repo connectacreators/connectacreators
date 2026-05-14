@@ -23,7 +23,7 @@ import { exportToCSV } from "@/utils/csvExport";
 import FootageUploadDialog from '@/components/FootageUploadDialog';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
-import { lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { LIFECYCLE_VALUES, lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -35,8 +35,6 @@ const fadeUp = {
 };
 
 const STATUS_OPTIONS = ["New Lead", "Follow-up 1", "Follow-up 2", "Follow-up 3", "Booked", "Canceled"];
-const VIDEO_STATUS_OPTIONS = ["Not started", "In progress", "Done"];
-const POST_STATUS_OPTIONS = ["Unpublished", "Need Revision", "Scheduled", "Done"];
 
 const formatPhoneNumber = (phone: string): string => {
   if (!phone) return "";
@@ -97,14 +95,13 @@ export default function MasterDatabase() {
     client_id: "",
     script_id: "",
     file_url: "",
-    status: "Not started",
+    lifecycle_status: "Not started" as LifecycleStatus,
     reel_title: "",
     assignee: "",
     script_url: "",
     revisions: "",
     footage: "",
     file_submission: "",
-    post_status: "Unpublished",
     schedule_date: "",
   });
 
@@ -121,11 +118,10 @@ export default function MasterDatabase() {
   const [newVideoRow, setNewVideoRow] = useState({
     client_id: "",
     reel_title: "",
-    status: "Not started",
+    lifecycle_status: "Not started" as LifecycleStatus,
     assignee: "",
     footage: "",
     file_submission: "",
-    post_status: "Unpublished",
   });
 
   const [editQueueFilter, setEditQueueFilter] = useState(false);
@@ -363,13 +359,12 @@ export default function MasterDatabase() {
     const exportData = filteredVideos.map((video) => ({
       Client: video.client_name || "Unknown",
       "Reel Title": video.reel_title || "-",
-      Status: video.status,
+      Status: (video.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(video.status, video.post_status),
       Assignee: video.assignee || "-",
       Script: video.script_url || "-",
       Revisions: video.revisions || "-",
       Footage: video.footage || "-",
       "File Submission": video.file_submission || "-",
-      "Post Status": video.post_status || "-",
       "Schedule Date": video.schedule_date ? new Date(video.schedule_date).toLocaleDateString() : "-",
       Created: new Date(video.created_at).toLocaleDateString(),
     }));
@@ -509,14 +504,13 @@ export default function MasterDatabase() {
       const payload = {
         script_id: videoForm.script_id || null,
         file_url: videoForm.file_url || "",
-        status: videoForm.status,
+        ...lifecycleUpdate(videoForm.lifecycle_status),
         reel_title: videoForm.reel_title.trim(),
         assignee: videoForm.assignee || null,
         script_url: videoForm.script_url || null,
         revisions: videoForm.revisions || null,
         footage: videoForm.footage || null,
         file_submission: videoForm.file_submission || null,
-        post_status: videoForm.post_status || "Unpublished",
         schedule_date: videoForm.schedule_date || null,
       };
       if (editingVideoId) {
@@ -559,14 +553,13 @@ export default function MasterDatabase() {
       client_id: video.client_id,
       script_id: video.script_id || "",
       file_url: video.file_url || "",
-      status: video.status,
+      lifecycle_status: (video.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(video.status, video.post_status),
       reel_title: video.reel_title || "",
       assignee: video.assignee || "",
       script_url: video.script_url || "",
       revisions: video.revisions || "",
       footage: video.footage || "",
       file_submission: video.file_submission || "",
-      post_status: video.post_status || "Unpublished",
       schedule_date: video.schedule_date ? video.schedule_date.split("T")[0] : "",
     });
     setEditingVideoId(video.id);
@@ -578,14 +571,13 @@ export default function MasterDatabase() {
       client_id: isSubscriber ? (ownClientId || "") : "",
       script_id: "",
       file_url: "",
-      status: "Not started",
+      lifecycle_status: "Not started",
       reel_title: "",
       assignee: "",
       script_url: "",
       revisions: "",
       footage: "",
       file_submission: "",
-      post_status: "Unpublished",
       schedule_date: "",
     });
   };
@@ -628,15 +620,14 @@ export default function MasterDatabase() {
       await videoService.createVideoEdit({
         client_id: newVideoRow.client_id,
         reel_title: newVideoRow.reel_title.trim(),
-        status: newVideoRow.status,
+        ...lifecycleUpdate(newVideoRow.lifecycle_status),
         assignee: newVideoRow.assignee || null,
         footage: newVideoRow.footage || null,
         file_submission: newVideoRow.file_submission || null,
-        post_status: newVideoRow.post_status || "Unpublished",
         file_url: "",
       });
       toast.success("Video created");
-      setNewVideoRow({ client_id: "", reel_title: "", status: "Not started", assignee: "", footage: "", file_submission: "", post_status: "Unpublished" });
+      setNewVideoRow({ client_id: "", reel_title: "", lifecycle_status: "Not started", assignee: "", footage: "", file_submission: "" });
       await loadAllData();
     } catch (error) {
       console.error("Error saving video:", error);
@@ -660,10 +651,9 @@ export default function MasterDatabase() {
         await supabase.from("scripts").update({ [scriptField]: value || null }).eq("id", videoId);
         setAllVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, [field]: value } : v));
       } else {
-        // Dual-write: when changing post_status, also update lifecycle_status + legacy status
-        if (field === "post_status" && value) {
-          const lifecycle = deriveFromLegacy(undefined, value);
-          const dualWriteUpdates = lifecycleUpdate(lifecycle);
+        // Unified status writes go through lifecycleUpdate to keep legacy columns in sync
+        if (field === "lifecycle_status" && value) {
+          const dualWriteUpdates = lifecycleUpdate(value as LifecycleStatus);
           await videoService.updateVideo(videoId, dualWriteUpdates);
           setAllVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, ...dualWriteUpdates } : v));
         } else {
@@ -1148,7 +1138,6 @@ export default function MasterDatabase() {
                             <th className="text-left p-3 font-semibold">Revisions</th>
                             <th className="text-left p-3 font-semibold">Reviews</th>
                             <th className="text-left p-3 font-semibold">Footage</th>
-                            <th className="text-left p-3 font-semibold">Post Status</th>
                             <th className="text-left p-3 font-semibold">Schedule</th>
                             <th className="text-left p-3 font-semibold">Caption</th>
                             <th className="text-center p-3 font-semibold">Actions</th>
@@ -1157,7 +1146,7 @@ export default function MasterDatabase() {
                         <tbody>
                           {filteredVideos.length === 0 && (
                             <tr className="border-b border-border/20 bg-background/30">
-                              <td colSpan={12} className="p-6 text-center text-muted-foreground">
+                              <td colSpan={11} className="p-6 text-center text-muted-foreground">
                                 <Clapperboard className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
                                 <p>{searchVideos.trim() ? "No videos match your search" : "No videos found. Add your first video below."}</p>
                               </td>
@@ -1177,16 +1166,23 @@ export default function MasterDatabase() {
                                 />
                               </td>
                               <td className="p-3">
-                                <Select value={video.status || "Not started"} onValueChange={(value) => handleInlineVideoUpdate(video.id, "status", value)}>
-                                  <SelectTrigger className="h-7 text-xs border-0 bg-transparent p-0 w-auto min-w-[100px] focus:ring-0 shadow-none">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="text-xs">
-                                    {VIDEO_STATUS_OPTIONS.map((opt) => (
-                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                {isScript ? (
+                                  <span className="text-xs text-muted-foreground">{video.status || "—"}</span>
+                                ) : (
+                                  <Select
+                                    value={(video.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(video.status, video.post_status)}
+                                    onValueChange={(value) => handleInlineVideoUpdate(video.id, "lifecycle_status", value)}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent p-0 w-auto min-w-[120px] focus:ring-0 shadow-none">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="text-xs">
+                                      {LIFECYCLE_VALUES.map((opt) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
                               </td>
                               <td className="p-3">
                                 {isScript ? <span className="text-muted-foreground">-</span> : (
@@ -1252,20 +1248,6 @@ export default function MasterDatabase() {
                               </td>
                               <td className="p-3">
                                 {isScript ? <span className="text-muted-foreground">-</span> : (
-                                  <Select value={video.post_status || "Unpublished"} onValueChange={(value) => handleInlineVideoUpdate(video.id, "post_status", value)}>
-                                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent p-0 w-auto min-w-[100px] focus:ring-0 shadow-none">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="text-xs">
-                                      {POST_STATUS_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              </td>
-                              <td className="p-3">
-                                {isScript ? <span className="text-muted-foreground">-</span> : (
                                   <input
                                     type="date"
                                     defaultValue={video.schedule_date ? video.schedule_date.split("T")[0] : ""}
@@ -1319,10 +1301,10 @@ export default function MasterDatabase() {
                               <input type="text" placeholder="Reel title" value={newVideoRow.reel_title} onChange={(e) => setNewVideoRow({ ...newVideoRow, reel_title: e.target.value })} className="w-full px-2 py-1 text-xs rounded bg-background border border-border/40 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
                             </td>
                             <td className="p-3">
-                              <Select value={newVideoRow.status} onValueChange={(value) => setNewVideoRow({ ...newVideoRow, status: value })}>
+                              <Select value={newVideoRow.lifecycle_status} onValueChange={(value) => setNewVideoRow({ ...newVideoRow, lifecycle_status: value as LifecycleStatus })}>
                                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent className="text-xs">
-                                  {VIDEO_STATUS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                                  {LIFECYCLE_VALUES.map((opt) => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                                 </SelectContent>
                               </Select>
                             </td>
@@ -1334,14 +1316,6 @@ export default function MasterDatabase() {
                             <td className="p-3 text-muted-foreground text-xs">-</td>
                             <td className="p-3">
                               <input type="text" placeholder="Footage URL" value={newVideoRow.footage} onChange={(e) => setNewVideoRow({ ...newVideoRow, footage: e.target.value })} className="w-full px-2 py-1 text-xs rounded bg-background border border-border/40 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                            </td>
-                            <td className="p-3">
-                              <Select value={newVideoRow.post_status} onValueChange={(value) => setNewVideoRow({ ...newVideoRow, post_status: value })}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent className="text-xs">
-                                  {POST_STATUS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                                </SelectContent>
-                              </Select>
                             </td>
                             <td className="p-3 text-muted-foreground text-xs">-</td>
                             <td className="p-3 text-muted-foreground text-xs">-</td>
@@ -1520,10 +1494,10 @@ export default function MasterDatabase() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select value={videoForm.status} onValueChange={(value) => setVideoForm({ ...videoForm, status: value })}>
+                <Select value={videoForm.lifecycle_status} onValueChange={(value) => setVideoForm({ ...videoForm, lifecycle_status: value as LifecycleStatus })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {VIDEO_STATUS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                    {LIFECYCLE_VALUES.map((opt) => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1548,20 +1522,9 @@ export default function MasterDatabase() {
               <Label>File Submission (Google Drive)</Label>
               <Input placeholder="https://drive.google.com/..." value={videoForm.file_submission} onChange={(e) => setVideoForm({ ...videoForm, file_submission: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Post Status</Label>
-                <Select value={videoForm.post_status} onValueChange={(value) => setVideoForm({ ...videoForm, post_status: value })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {POST_STATUS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Schedule Date</Label>
-                <Input type="date" value={videoForm.schedule_date} onChange={(e) => setVideoForm({ ...videoForm, schedule_date: e.target.value })} />
-              </div>
+            <div className="space-y-2">
+              <Label>Schedule Date</Label>
+              <Input type="date" value={videoForm.schedule_date} onChange={(e) => setVideoForm({ ...videoForm, schedule_date: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
