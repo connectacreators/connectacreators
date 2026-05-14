@@ -27,12 +27,10 @@ function SuperCanvasMock() {
       className="relative w-full overflow-hidden"
       style={{
         height: 460,
-        background:
-          "linear-gradient(135deg, #1A1F26 0%, #0F1318 100%)",
-        border: "1px solid rgba(234, 230, 220, 0.10)",
+        background: "#15181E",
+        border: "1.5px solid #0A0E12",
         borderRadius: 22,
-        boxShadow:
-          "0 60px 120px -30px rgba(0,0,0,0.6), 0 0 80px -20px rgba(143,208,213,0.10)",
+        boxShadow: "6px 6px 0 #0A0E12",
       }}
     >
       {/* Title strip — editorial, not code-editor */}
@@ -238,11 +236,13 @@ function ViralTodayMock() {
   ];
   return (
     <div
-      className="card"
       style={{
         padding: 22,
-        background:
-          "linear-gradient(180deg, var(--graphite) 0%, #15191F 100%)",
+        background: "#FBF8EE",
+        border: "1.5px solid var(--ink)",
+        boxShadow: "5px 5px 0 var(--ink)",
+        borderRadius: 20,
+        color: "var(--ink)",
       }}
     >
       <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
@@ -383,21 +383,22 @@ export default function LandingPageNew() {
       {/* ===== Announcement banner ===== */}
       <div
         style={{
-          background: "linear-gradient(90deg, rgba(224,165,96,0.10) 0%, rgba(143,208,213,0.10) 100%)",
-          borderBottom: "1px solid var(--line)",
+          background: "var(--honey)",
+          color: "var(--ink)",
+          borderBottom: "1.5px solid var(--ink)",
           padding: "10px 24px",
           textAlign: "center",
           fontSize: 13,
-          color: "var(--bone-2)",
           fontFamily: "'Figtree', sans-serif",
+          fontWeight: 500,
         }}
       >
         <span style={{ marginRight: 6 }}>
-          <Flame size={11} style={{ display: "inline-block", color: "var(--honey)", marginRight: 6, marginBottom: -1 }} />
-          <strong style={{ color: "var(--bone)", fontWeight: 600 }}>Viral Today is live.</strong>
+          <Flame size={11} style={{ display: "inline-block", color: "var(--ink)", marginRight: 6, marginBottom: -1 }} />
+          <strong style={{ fontWeight: 700 }}>Viral Today is live.</strong>
         </span>
         Spot trends before your feed catches on.{" "}
-        <Link to="/scripts" className="scribble-link" style={{ color: "var(--aqua)", fontWeight: 500, marginLeft: 4 }}>
+        <Link to="/scripts" style={{ color: "var(--ink)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
           Try it →
         </Link>
       </div>
@@ -519,10 +520,7 @@ export default function LandingPageNew() {
       `}</style>
 
       {/* ===== HERO ===== */}
-      <section style={{ position: "relative", paddingTop: 80, paddingBottom: 60, overflow: "hidden" }}>
-        <div className="ribbon-glow" />
-        <div className="grain" />
-
+      <section className="bg-ink" style={{ position: "relative", paddingTop: 80, paddingBottom: 60, overflow: "hidden" }}>
         {/* Curved marginalia */}
         <div
           className="curl curl-hide-mobile"
@@ -636,12 +634,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Real track record (replaces fake logo strip) ===== */}
-      <section style={{ padding: "80px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          className="glow-honey"
-          style={{ position: "absolute", top: "-30%", left: "50%", transform: "translateX(-50%)", width: 700, height: 300, opacity: 0.25 }}
-        />
+      <section className="bg-warm" style={{ padding: "80px 0", borderTop: "1.5px solid var(--ink)", borderBottom: "1.5px solid var(--ink)", position: "relative" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
@@ -685,13 +678,11 @@ export default function LandingPageNew() {
                 key={i}
                 style={{
                   textAlign: "center",
-                  padding: "32px 28px",
+                  padding: "36px 28px",
                   borderRadius: 20,
-                  border: "1px solid var(--line)",
-                  background:
-                    s.accent === "honey"
-                      ? "linear-gradient(180deg, rgba(224,165,96,0.05) 0%, transparent 100%)"
-                      : "linear-gradient(180deg, rgba(143,208,213,0.05) 0%, transparent 100%)",
+                  border: "1.5px solid var(--ink)",
+                  background: s.accent === "honey" ? "#2A2114" : "#16202A",
+                  boxShadow: "4px 4px 0 var(--ink)",
                 }}
               >
                 <div
@@ -753,12 +744,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
-      <section id="brain" style={{ padding: "140px 0", position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          className="glow-aqua"
-          style={{ position: "absolute", top: "-10%", left: "-10%", width: 480, height: 480, opacity: 0.4 }}
-        />
+      <section id="brain" className="bg-cool" style={{ padding: "140px 0", position: "relative" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
@@ -821,7 +807,9 @@ export default function LandingPageNew() {
                 className="card"
                 style={{
                   padding: 24,
-                  background: "linear-gradient(135deg, var(--graphite) 0%, #15191F 100%)",
+                  background: "var(--graphite)",
+                  border: "1.5px solid var(--ink)",
+                  boxShadow: "5px 5px 0 var(--ink)",
                   position: "relative",
                 }}
               >
@@ -883,16 +871,11 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Section 2 — VIRAL TODAY ===== */}
-      <section id="viral" style={{ padding: "120px 0", borderTop: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          className="glow-honey"
-          style={{ position: "absolute", top: "30%", right: "-15%", width: 600, height: 400, opacity: 0.35 }}
-        />
+      {/* ===== Section 2 — VIRAL TODAY (Bone inverse — the page flip) ===== */}
+      <section id="viral" className="bg-bone" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)", borderBottom: "1.5px solid var(--ink)", position: "relative" }}>
         <div
           className="curl curl-hide-mobile scroll-rise"
-          style={{ top: 80, left: "8%", transform: "rotate(-5deg)" }}
+          style={{ top: 80, left: "8%", transform: "rotate(-5deg)", color: "rgba(10,14,18,0.32)" }}
         >
           before the algorithm catches on
         </div>
@@ -913,12 +896,12 @@ export default function LandingPageNew() {
 
             <div>
               <span className="eyebrow eyebrow-honey">Viral Today</span>
-              <h2 className="section-h2" style={{ margin: "16px 0 22px" }}>
-                What's working <em className="soft">right now,</em>
+              <h2 className="section-h2" style={{ margin: "16px 0 22px", color: "var(--ink)" }}>
+                What's working <em style={{ color: "rgba(10,14,18,0.55)", fontStyle: "italic", fontWeight: 400 }}>right now,</em>
                 <br />
-                <em className="honey">sorted for you.</em>
+                <em style={{ color: "#A85B1F", fontStyle: "italic", fontWeight: 500 }}>sorted for you.</em>
               </h2>
-              <p className="section-lede" style={{ marginBottom: 28 }}>
+              <p className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)" }}>
                 Connecta scans the feeds your audience is on, flags outlier videos that beat
                 their channel's average by 8× or more, and shows you the hooks before everyone
                 else copies them.
@@ -932,16 +915,24 @@ export default function LandingPageNew() {
                 ].map((s, i) => (
                   <div
                     key={i}
-                    className="card"
-                    style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 6 }}
+                    style={{
+                      padding: "20px 18px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      background: "#FBF8EE",
+                      border: "1.5px solid var(--ink)",
+                      borderRadius: 14,
+                      boxShadow: "3px 3px 0 var(--ink)",
+                    }}
                   >
-                    <span style={{ fontFamily: "'Figtree', monospace", fontSize: 11, color: "var(--honey)", letterSpacing: "0.1em", fontWeight: 700 }}>
+                    <span style={{ fontFamily: "'Figtree', sans-serif", fontSize: 11, color: "#A85B1F", letterSpacing: "0.1em", fontWeight: 700 }}>
                       {s.num}
                     </span>
-                    <div className="serif" style={{ fontSize: 17, color: "var(--bone)", letterSpacing: "-0.005em" }}>
+                    <div className="serif" style={{ fontSize: 17, color: "var(--ink)", letterSpacing: "-0.005em" }}>
                       {s.title}
                     </div>
-                    <div style={{ fontSize: 12.5, color: "var(--bone-3)", lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12.5, color: "rgba(10,14,18,0.55)", lineHeight: 1.5 }}>
                       {s.body}
                     </div>
                   </div>
@@ -957,7 +948,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 3 — PIPELINE (Editing / Calendar / Companion) ===== */}
-      <section id="pipeline" style={{ padding: "120px 0", borderTop: "1px solid var(--line)", position: "relative" }}>
+      <section id="pipeline" className="bg-ink" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)", position: "relative" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <div className="scroll-rise">
             <span className="eyebrow">The pipeline</span>
@@ -1051,12 +1042,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 4 — PUBLISHING teaser ===== */}
-      <section style={{ padding: "100px 0", borderTop: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          className="glow-honey"
-          style={{ position: "absolute", top: "20%", left: "-10%", width: 500, height: 300, opacity: 0.25 }}
-        />
+      <section className="bg-warm" style={{ padding: "100px 0", borderTop: "1.5px solid var(--ink)", position: "relative" }}>
         <div className="scroll-rise" style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
           <div
             style={{
@@ -1139,7 +1125,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 5 — TESTIMONIAL ===== */}
-      <section style={{ padding: "120px 0", borderTop: "1px solid var(--line)", textAlign: "center" }}>
+      <section className="bg-deep" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)", textAlign: "center" }}>
         <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
           <div
             className="serif"
@@ -1184,7 +1170,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 6 — PRICING ===== */}
-      <section id="pricing" style={{ padding: "120px 0", borderTop: "1px solid var(--line)", background: "rgba(234,230,220,0.015)" }}>
+      <section id="pricing" className="bg-cool" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
           <div className="scroll-rise" style={{ textAlign: "center", marginBottom: 56 }}>
             <span className="eyebrow">Pricing</span>
@@ -1340,12 +1326,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== FINAL CTA ===== */}
-      <section style={{ padding: "140px 0", borderTop: "1px solid var(--line)", textAlign: "center", position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          className="glow-aqua"
-          style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 700, height: 400, opacity: 0.5 }}
-        />
+      <section className="bg-ink" style={{ padding: "140px 0", borderTop: "1.5px solid var(--ink)", textAlign: "center", position: "relative" }}>
         <div
           className="curl curl-hide-mobile scroll-rise"
           style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)" }}
@@ -1388,7 +1369,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== FOOTER ===== */}
-      <footer style={{ padding: "60px 0 40px", borderTop: "1px solid var(--line)" }}>
+      <footer className="bg-deep" style={{ padding: "60px 0 40px", borderTop: "1.5px solid var(--ink)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
           <div
             style={{
