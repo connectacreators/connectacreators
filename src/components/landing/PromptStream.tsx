@@ -49,17 +49,16 @@ export default function PromptStream({
         <div className="prompt-stream-track">{trackText}</div>
       </div>
 
-      {/* LEFT: animated curling italic prompt text on a spiral-wrap path
-          (matches wisprflow's "thought-cloud" feel — text comes in from upper-right,
-          wraps around the lower-left, then swings back up). */}
+      {/* LEFT: animated curling italic prompt text on a flowing swoop path
+          (single direction — no loop-back so text never goes upside-down). */}
       <div className="prompt-stream-left">
         <CurvedLoop
           marqueeText={promptText}
-          speed={0.4}
+          speed={0.5}
           direction="right"
           interactive={false}
-          pathD="M 780 60 C 460 -60 80 80 60 280 C 40 440 320 480 580 380 C 760 320 760 200 580 220"
-          viewBox="0 0 820 500"
+          pathD="M 720 30 C 420 -40 120 60 80 180 C 50 280 240 320 520 290"
+          viewBox="0 0 760 320"
           className="thin-italic"
         />
       </div>

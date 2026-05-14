@@ -8,7 +8,7 @@
 .prompt-stream {
   position: relative;
   width: 100%;
-  height: 260px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,14 +16,14 @@
   user-select: none;
 }
 
-/* -------- LEFT: curling prompt text (CurvedLoop on a spiral path) -------- */
+/* -------- LEFT: curling prompt text (CurvedLoop on a swoop path) -------- */
 .prompt-stream-left {
   position: absolute;
   left: -2%;
-  top: -40px;
-  bottom: -40px;
-  width: 48%;
-  max-width: 640px;
+  top: -20px;
+  bottom: -20px;
+  width: 44%;
+  max-width: 560px;
   pointer-events: none;
 }
 .prompt-stream-left .curved-loop-jacket {
@@ -38,32 +38,31 @@
 /* -------- RIGHT: tilted dark banner -------- */
 .prompt-stream-banner {
   position: absolute;
-  right: -10%;
+  right: -8%;
   top: 50%;
-  width: 78%;
-  height: 60px;
+  width: 62%;
+  height: 52px;
   background: var(--ink, #0A0E12);
-  border: 1.5px solid var(--ink, #0A0E12);
+  border: 1.5px solid rgba(234, 230, 220, 0.20);
   border-radius: 999px;
   overflow: hidden;
-  transform: translateY(-50%) rotate(-5deg);
+  transform: translateY(-50%) rotate(-6deg);
   display: flex;
   align-items: center;
-  box-shadow: 4px 4px 0 rgba(10, 14, 18, 0.85);
 }
 
 .prompt-stream-track {
   display: inline-block;
   white-space: nowrap;
-  animation: ps-marquee 38s linear infinite;
+  animation: ps-marquee 42s linear infinite;
   color: var(--bone, #EAE6DC);
   font-family: 'EB Garamond', Georgia, serif;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.10em;
-  font-size: 18px;
-  padding-left: 36px;
-  line-height: 60px;
+  font-size: 15px;
+  padding-left: 28px;
+  line-height: 52px;
 }
 
 @keyframes ps-marquee {
@@ -78,11 +77,11 @@
   background: var(--ink, #0A0E12);
   border: 2px solid var(--bone, #EAE6DC);
   border-radius: 999px;
-  padding: 14px 26px;
+  padding: 11px 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 8px var(--ink, #0A0E12), 4px 4px 0 var(--ink, #0A0E12);
+  box-shadow: 0 0 0 6px var(--ink, #0A0E12);
 }
 
 .prompt-stream-pill svg rect {

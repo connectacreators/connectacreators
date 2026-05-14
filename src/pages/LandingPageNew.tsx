@@ -1260,7 +1260,7 @@ export default function LandingPageNew() {
             width: "100vw",
             marginLeft: "calc(50% - 50vw)",
             marginRight: "calc(50% - 50vw)",
-            marginTop: 64,
+            marginTop: 24,
           }}
         >
           <PromptStream />
