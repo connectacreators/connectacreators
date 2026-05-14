@@ -901,7 +901,11 @@ export default function LandingPageNew() {
         if (el.dataset.proxLocked) return;
         const r = el.getBoundingClientRect();
         if (r.width === 0) return;
-        el.style.minWidth = `${r.width}px`;
+        // Lock as fixed width (not min-width) so the box can't GROW when
+        // glyphs get heavier at wght 620 — that growth was pushing the
+        // last word to the next line on hover. +1.5px buffer so bolder
+        // glyphs render comfortably inside the locked slot.
+        el.style.width = `${r.width + 1.5}px`;
         el.dataset.proxLocked = "true";
       });
       rectsDirty = true;
