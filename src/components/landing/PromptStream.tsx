@@ -71,26 +71,32 @@ export default function PromptStream({
           (right:0). preserveAspectRatio="none" so x=900 always hits the
           literal right margin. */}
       <div className="prompt-stream-right">
-        {/* Dark band: bone outline + ink fill stacked on the same curve */}
+        {/* Dark band: bone outline + ink fill stacked on the same curve.
+            The band is shifted UP ~6 viewBox units so the band is centered on
+            the text's visual center (the text baseline sits on the path, but
+            the text visual center is ~5px above the baseline because ascenders
+            are taller than descenders). */}
         <svg
           className="prompt-stream-right-band"
           viewBox="0 0 900 300"
           preserveAspectRatio="none"
         >
-          <path
-            d={RIGHT_PATH}
-            stroke="rgba(234, 230, 220, 0.22)"
-            strokeWidth="40"
-            fill="none"
-            strokeLinecap="round"
-          />
-          <path
-            d={RIGHT_PATH}
-            stroke="var(--ink, #0A0E12)"
-            strokeWidth="36"
-            fill="none"
-            strokeLinecap="round"
-          />
+          <g transform="translate(0, -6)">
+            <path
+              d={RIGHT_PATH}
+              stroke="rgba(234, 230, 220, 0.22)"
+              strokeWidth="40"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <path
+              d={RIGHT_PATH}
+              stroke="var(--ink, #0A0E12)"
+              strokeWidth="36"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </g>
         </svg>
         {/* Animated marquee text following the same curve.
             direction="left" makes the text travel FROM the mic (path start)

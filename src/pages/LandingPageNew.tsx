@@ -759,8 +759,8 @@ function ViralTodayMock() {
           <div key={i} className="vt-card">
             <div className={`vt-thumb ${r.tone === "honey" ? "honey" : ""}`}>{r.letter}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="vt-meta">{r.meta}</div>
-              <div className="vt-title">{r.title}</div>
+              <div className="vt-meta"><ProxText>{r.meta}</ProxText></div>
+              <div className="vt-title"><ProxText>{r.title}</ProxText></div>
               <div className="flex items-center gap-2" style={{ flexWrap: "wrap" }}>
                 <span className={`vt-score ${r.tone === "aqua" ? "aqua" : ""}`}>
                   {r.score}
@@ -812,12 +812,14 @@ function PipelineCard({
         <Icon size={20} strokeWidth={1.6} />
       </div>
       <div>
-        <span className="eyebrow">{eyebrow}</span>
+        <span className="eyebrow"><ProxText>{eyebrow}</ProxText></span>
       </div>
       <h3 className="serif" style={{ fontSize: 24, lineHeight: 1.1, margin: 0, letterSpacing: "-0.01em" }}>
-        {title}
+        <ProxText>{title}</ProxText>
       </h3>
-      <p style={{ fontSize: 14, color: "var(--bone-2)", margin: 0, lineHeight: 1.6 }}>{body}</p>
+      <div style={{ fontSize: 14, color: "var(--bone-2)", margin: 0, lineHeight: 1.6 }}>
+        <ProxText>{body}</ProxText>
+      </div>
       {children && (
         <div
           style={{
@@ -1525,14 +1527,14 @@ export default function LandingPageNew() {
                       </span>
                       <div>
                         <div className="serif" style={{ fontSize: 14, color: "var(--bone)" }}>
-                          {row.title}
+                          <ProxText>{row.title}</ProxText>
                         </div>
                         <div style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 1 }}>
-                          {row.platform}
+                          <ProxText>{row.platform}</ProxText>
                         </div>
                       </div>
                       <span className={`pill pill-${row.pill}`} style={{ fontSize: 10 }}>
-                        {row.status}
+                        <ProxText>{row.status}</ProxText>
                       </span>
                     </div>
                   ))}
@@ -1605,10 +1607,10 @@ export default function LandingPageNew() {
                       {s.num}
                     </span>
                     <div className="serif" style={{ fontSize: 17, color: "var(--ink)", letterSpacing: "-0.005em" }}>
-                      {s.title}
+                      <ProxText>{s.title}</ProxText>
                     </div>
                     <div style={{ fontSize: 12.5, color: "rgba(10,14,18,0.55)", lineHeight: 1.5 }}>
-                      {s.body}
+                      <ProxText>{s.body}</ProxText>
                     </div>
                   </div>
                 ))}
