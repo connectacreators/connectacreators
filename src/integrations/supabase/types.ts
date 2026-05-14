@@ -2520,6 +2520,7 @@ export type Database = {
           file_url: string
           footage: string | null
           id: string
+          lifecycle_status: string
           post_status: string | null
           record_expires_at: string | null
           reel_title: string | null
@@ -2547,6 +2548,7 @@ export type Database = {
           file_url: string
           footage?: string | null
           id?: string
+          lifecycle_status?: string
           post_status?: string | null
           record_expires_at?: string | null
           reel_title?: string | null
@@ -2574,6 +2576,7 @@ export type Database = {
           file_url?: string
           footage?: string | null
           id?: string
+          lifecycle_status?: string
           post_status?: string | null
           record_expires_at?: string | null
           reel_title?: string | null
