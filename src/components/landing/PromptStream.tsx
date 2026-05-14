@@ -80,14 +80,14 @@ export default function PromptStream({
           <path
             d={RIGHT_PATH}
             stroke="rgba(234, 230, 220, 0.22)"
-            strokeWidth="68"
+            strokeWidth="40"
             fill="none"
             strokeLinecap="round"
           />
           <path
             d={RIGHT_PATH}
             stroke="var(--ink, #0A0E12)"
-            strokeWidth="64"
+            strokeWidth="36"
             fill="none"
             strokeLinecap="round"
           />
