@@ -58,6 +58,7 @@ export default function CompanionDrawer() {
     companionName,
     clientId: ownClientId,
     autonomyMode,
+    setAutonomyMode,
     setIsOpen,
   } = useCompanion();
   const { user } = useAuth();
@@ -442,6 +443,32 @@ export default function CompanionDrawer() {
                 />
               </div>
               <div className="p-2 border-t border-white/[0.04]">
+                {/* Autonomy mode toggle — Auto / Ask / Plan. Shares state
+                    with /ai via CompanionContext so the choice persists. */}
+                <div className="flex items-center justify-end gap-1 mb-1.5 px-1">
+                  <span className="text-[9px] text-white/35 mr-1">Mode:</span>
+                  {(["auto", "ask", "plan"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setAutonomyMode(m)}
+                      className="text-[9px] font-medium px-2 py-0.5 rounded-md transition-all"
+                      style={{
+                        background: autonomyMode === m ? "rgba(34,211,238,0.15)" : "transparent",
+                        color: autonomyMode === m ? "rgba(34,211,238,0.95)" : "rgba(255,255,255,0.4)",
+                        border: `1px solid ${autonomyMode === m ? "rgba(34,211,238,0.35)" : "rgba(255,255,255,0.08)"}`,
+                      }}
+                      title={
+                        m === "auto"
+                          ? "Auto — Robby acts without confirming"
+                          : m === "ask"
+                            ? "Ask — Robby confirms before changing data"
+                            : "Plan — Robby writes a plan and waits for approval"
+                      }
+                    >
+                      {m[0].toUpperCase() + m.slice(1)}
+                    </button>
+                  ))}
+                </div>
                 <AssistantTextInput
                   value={input}
                   onChange={setInput}
