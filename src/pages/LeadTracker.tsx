@@ -24,14 +24,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   Popover,
@@ -51,7 +43,6 @@ import {
   Users,
   Save,
   LayoutList,
-  Table2,
   Columns3,
   TrendingUp,
   Clock,
@@ -211,11 +202,14 @@ export default function LeadTracker() {
   const [deleting, setDeleting] = useState(false);
 
   // View mode state (with localStorage persistence)
-  const [viewMode, setViewMode] = useState<"cards" | "table" | "kanban" | "chart">(() => {
-    return (localStorage.getItem("leadTrackerViewMode") as "cards" | "table" | "kanban" | "chart") || "cards";
+  const [viewMode, setViewMode] = useState<"cards" | "kanban" | "chart">(() => {
+    const stored = localStorage.getItem("leadTrackerViewMode");
+    // Migrate legacy "table" preference → cards (table view was removed).
+    if (stored === "table") return "cards";
+    return (stored as "cards" | "kanban" | "chart") || "cards";
   });
 
-  const toggleView = (mode: "cards" | "table" | "kanban" | "chart") => {
+  const toggleView = (mode: "cards" | "kanban" | "chart") => {
     setViewMode(mode);
     localStorage.setItem("leadTrackerViewMode", mode);
   };
@@ -1083,13 +1077,6 @@ export default function LeadTracker() {
                 <LayoutList className="w-4 h-4" />
               </button>
               <button
-                onClick={() => toggleView("table")}
-                className={`px-3 py-2 text-sm transition-all border-r border-cyan-400/20 ${viewMode === "table" ? "bg-teal-500/20 text-teal-300" : "text-muted-foreground hover:text-foreground"}`}
-                title="Table view"
-              >
-                <Table2 className="w-4 h-4" />
-              </button>
-              <button
                 onClick={() => toggleView("kanban")}
                 className={`px-3 py-2 text-sm transition-all border-r border-cyan-400/20 ${viewMode === "kanban" ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
                 title="Kanban view"
@@ -1331,86 +1318,6 @@ export default function LeadTracker() {
           />
         )}
 
-        {!loading && filtered.length > 0 && viewMode === "table" && (
-          <div className="overflow-x-auto rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Campaign</TableHead>
-                  {isStaff && <TableHead>Client</TableHead>}
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((lead, idx) => (
-                  <TableRow
-                    key={lead.id}
-                    onClick={() => openLeadDetail(lead)}
-                    className="cursor-pointer hover:bg-accent/10"
-                  >
-                    <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{lead.fullName || na}</TableCell>
-                    <TableCell>
-                      {lead.leadStatus && (
-                        <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[lead.leadStatus] || "bg-muted text-muted-foreground"}`}>
-                          {lead.leadStatus}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {lead.leadSource && (
-                        <Badge variant="secondary" className={`text-[10px] ${SOURCE_COLORS[lead.leadSource] || ""}`}>
-                          {lead.leadSource}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{lead.email || na}</TableCell>
-                    <TableCell className="text-xs">
-                      {lead.phone ? (
-                        <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">
-                          {lead.phone}
-                        </a>
-                      ) : (
-                        na
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {lead.createdDate ? new Date(lead.createdDate).toLocaleDateString("es-MX") : na}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{lead.campaignName || ""}</TableCell>
-                    {isStaff && <TableCell className="text-xs">{lead.client || ""}</TableCell>}
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => handleDeleteLead(lead, e)}
-                        disabled={deleting && confirmDeleteId === lead.id}
-                        className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md transition-all ${
-                          confirmDeleteId === lead.id
-                            ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                            : "text-muted-foreground/40 hover:text-red-400 hover:bg-red-500/10"
-                        }`}
-                        title={confirmDeleteId === lead.id ? "Click again to confirm" : "Delete lead"}
-                      >
-                        {deleting && confirmDeleteId === lead.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                        {confirmDeleteId === lead.id && <span>Sure?</span>}
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
       </div>
       </PageTransition>
 
