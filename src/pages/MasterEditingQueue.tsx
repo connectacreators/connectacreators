@@ -9,6 +9,8 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -366,6 +368,27 @@ export default function MasterEditingQueue() {
 
   const urlParamsConsumedRef = useRef(false);
 
+  // Deadline editor — single Popover open at a time, identified by item.id.
+  const [deadlineOpenId, setDeadlineOpenId] = useState<string | null>(null);
+  const [, setSavingDeadline] = useState(false);
+  async function handleDeadlineSave(itemId: string, date: Date | undefined) {
+    const value = date ? date.toISOString() : null;
+    setDeadlineOpenId(null);
+    setSavingDeadline(true);
+    const { error } = await supabase.from("video_edits").update({ deadline: value }).eq("id", itemId);
+    setSavingDeadline(false);
+    if (error) { toast.error("Failed to save deadline"); return; }
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, deadline: value } : i));
+  }
+  function getDeadlineColor(deadline: string | null | undefined) {
+    if (!deadline) return "text-muted-foreground/50";
+    const diff = new Date(deadline).getTime() - Date.now();
+    if (diff < 0) return "text-destructive";
+    if (diff < 86400000 * 2) return "text-orange-400";
+    if (diff < 86400000 * 5) return "text-yellow-400";
+    return "text-muted-foreground";
+  }
+
   // AI plan preview — rows the AI says it's about to mutate get a subtle
   // opacity pulse until the plan resolves (approve / reject / 60s timeout).
   const [previewIds, setPreviewIds] = useState<Set<string>>(new Set());
@@ -437,7 +460,7 @@ export default function MasterEditingQueue() {
             setCaptionEditValue(item.caption ?? "");
             break;
           case "deadline":
-            console.warn("MasterEditingQueue: modal=deadline requested but setDeadlineOpenId does not exist on this page");
+            setDeadlineOpenId(item.id);
             break;
           case "schedule":
             setScheduleItem(item);
@@ -1195,21 +1218,33 @@ export default function MasterEditingQueue() {
 
                         {/* Deadline */}
                         <TableCell onClick={e => e.stopPropagation()} className="whitespace-nowrap">
-                          {item.deadline ? (
-                            <span className={`text-xs font-medium ${
-                              (() => {
-                                const diff = new Date(item.deadline).getTime() - Date.now();
-                                if (diff < 0) return 'text-destructive';
-                                if (diff < 86400000 * 2) return 'text-orange-400';
-                                if (diff < 86400000 * 5) return 'text-yellow-400';
-                                return 'text-muted-foreground';
-                              })()
-                            }`}>
-                              {new Date(item.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground/30">—</span>
-                          )}
+                          <Popover open={deadlineOpenId === item.id} onOpenChange={open => setDeadlineOpenId(open ? item.id : null)}>
+                            <PopoverTrigger asChild>
+                              <button className={`text-xs font-medium hover:opacity-70 transition-opacity whitespace-nowrap ${getDeadlineColor(item.deadline)}`}>
+                                {item.deadline
+                                  ? new Date(item.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                  : <span className="text-muted-foreground/50">+ Add deadline</span>}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarPicker
+                                mode="single"
+                                selected={item.deadline ? new Date(item.deadline) : undefined}
+                                onSelect={date => handleDeadlineSave(item.id, date)}
+                                initialFocus
+                              />
+                              {item.deadline && (
+                                <div className="border-t p-2 flex justify-end">
+                                  <button
+                                    className="text-xs text-destructive hover:underline"
+                                    onClick={() => handleDeadlineSave(item.id, undefined)}
+                                  >
+                                    Clear deadline
+                                  </button>
+                                </div>
+                              )}
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
 
                         {/* Files — merged Footage + File Submission */}
