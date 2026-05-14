@@ -14,7 +14,6 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial {
   --ink:        #0A0E12;
   --graphite:   #1A1F26;
-  --graphite-2: #232932;
   --bone:       #EAE6DC;
   --bone-2:     rgba(234, 230, 220, 0.62);
   --bone-3:     rgba(234, 230, 220, 0.38);
@@ -34,6 +33,7 @@ html, body, #root { margin: 0; padding: 0; }
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "ss01", "ss02";
+  padding-bottom: 18px;
 }
 
 .landing-editorial * { box-sizing: border-box; }
@@ -243,33 +243,50 @@ html, body, #root { margin: 0; padding: 0; }
   box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
 }
 
-/* ---------- Section background tones ----------
-   Solid colors. Each section gets a different tone for variety.
+/* ---------- Section types — only two backgrounds, only two ----------
+   Page body is Ink. Bone sections are rounded inset panels that nest
+   in the page like turning a magazine spread.
    ---------- */
-.landing-editorial .bg-ink         { background: var(--ink); }
-.landing-editorial .bg-graphite    { background: var(--graphite); }
-.landing-editorial .bg-warm        { background: #1F1A14; }   /* honey-tinted dark */
-.landing-editorial .bg-cool        { background: #131820; }   /* aqua-tinted dark */
-.landing-editorial .bg-deep        { background: #07090C; }   /* deeper than ink */
-.landing-editorial .bg-bone        { background: var(--bone); color: var(--ink); }
+.landing-editorial .bg-ink {
+  background: var(--ink);
+  color: var(--bone);
+}
+.landing-editorial .panel-bone {
+  background: var(--bone);
+  color: var(--ink);
+  border-radius: 40px;
+  margin: 0 18px;
+  position: relative;
+}
+@media (max-width: 768px) {
+  .landing-editorial .panel-bone { border-radius: 28px; margin: 0 10px; }
+}
 
-/* Inverse text colors inside the Bone section */
-.landing-editorial .bg-bone .eyebrow         { color: #6B4A20; }
-.landing-editorial .bg-bone .eyebrow-honey   { color: #6B4A20; }
-.landing-editorial .bg-bone .section-lede    { color: rgba(10, 14, 18, 0.65); }
-.landing-editorial .bg-bone .serif-italic    { color: rgba(10, 14, 18, 0.55); }
-.landing-editorial .bg-bone em.soft          { color: rgba(10, 14, 18, 0.55); }
-.landing-editorial .bg-bone .pill-aqua       { background: var(--aqua); color: var(--ink); border: 1px solid var(--ink); }
-.landing-editorial .bg-bone .pill-honey      { background: var(--honey); color: var(--ink); border: 1px solid var(--ink); }
-.landing-editorial .bg-bone .pill-muted      { background: rgba(10, 14, 18, 0.06); color: rgba(10, 14, 18, 0.55); }
-.landing-editorial .bg-bone .card {
+/* Inverse text + element colors inside Bone panels */
+.landing-editorial .panel-bone .eyebrow         { color: #8B5A1F; }
+.landing-editorial .panel-bone .eyebrow-honey   { color: #8B5A1F; }
+.landing-editorial .panel-bone .section-lede    { color: rgba(10, 14, 18, 0.65); }
+.landing-editorial .panel-bone .section-h2      { color: var(--ink); }
+.landing-editorial .panel-bone em.soft          { color: rgba(10, 14, 18, 0.45); }
+.landing-editorial .panel-bone em.honey         { color: #A85B1F; }
+.landing-editorial .panel-bone em.aqua          { color: #2A6F77; }
+.landing-editorial .panel-bone .pill-aqua       { background: var(--aqua); color: var(--ink); border: 1px solid var(--ink); }
+.landing-editorial .panel-bone .pill-honey      { background: var(--honey); color: var(--ink); border: 1px solid var(--ink); }
+.landing-editorial .panel-bone .pill-muted      { background: rgba(10, 14, 18, 0.06); color: rgba(10, 14, 18, 0.55); }
+.landing-editorial .panel-bone .card,
+.landing-editorial .panel-bone [data-card] {
   background: #FBF8EE;
   border: 1.5px solid var(--ink);
+  border-radius: 20px;
   box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
 }
-.landing-editorial .bg-bone .card-lift:hover {
+.landing-editorial .panel-bone .card-lift:hover {
   transform: translate(-2px, -2px);
   box-shadow: 5px 5px 0 var(--ink);
+}
+.landing-editorial .panel-bone .scribble-link::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6'><path d='M2 3.5 Q 12 1, 22 3 T 42 3 T 62 3 T 82 3 T 98 3' stroke='%230A0E12' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
 }
 
 /* ---------- Super Canvas mockup ---------- */

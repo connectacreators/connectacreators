@@ -383,14 +383,15 @@ export default function LandingPageNew() {
       {/* ===== Announcement banner ===== */}
       <div
         style={{
-          background: "var(--honey)",
+          background: "var(--bone)",
           color: "var(--ink)",
-          borderBottom: "1.5px solid var(--ink)",
           padding: "10px 24px",
           textAlign: "center",
           fontSize: 13,
           fontFamily: "'Figtree', sans-serif",
           fontWeight: 500,
+          margin: "12px 18px 0",
+          borderRadius: 999,
         }}
       >
         <span style={{ marginRight: 6 }}>
@@ -633,8 +634,8 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Real track record (replaces fake logo strip) ===== */}
-      <section className="bg-warm" style={{ padding: "80px 0", borderTop: "1.5px solid var(--ink)", borderBottom: "1.5px solid var(--ink)", position: "relative" }}>
+      {/* ===== Real track record — bone panel ===== */}
+      <section className="panel-bone" style={{ padding: "80px 0", marginTop: 24 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
@@ -676,12 +677,13 @@ export default function LandingPageNew() {
             ].map((s, i) => (
               <div
                 key={i}
+                data-card
                 style={{
                   textAlign: "center",
                   padding: "36px 28px",
-                  borderRadius: 20,
+                  background: "#FBF8EE",
                   border: "1.5px solid var(--ink)",
-                  background: s.accent === "honey" ? "#2A2114" : "#16202A",
+                  borderRadius: 24,
                   boxShadow: "4px 4px 0 var(--ink)",
                 }}
               >
@@ -692,7 +694,7 @@ export default function LandingPageNew() {
                     lineHeight: 1.0,
                     letterSpacing: "-0.03em",
                     fontWeight: 500,
-                    color: s.accent === "honey" ? "var(--honey)" : "var(--aqua)",
+                    color: s.accent === "honey" ? "#A85B1F" : "#2A6F77",
                     fontStyle: "italic",
                   }}
                 >
@@ -704,7 +706,7 @@ export default function LandingPageNew() {
                     fontSize: 12,
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
-                    color: "var(--bone-2)",
+                    color: "rgba(10,14,18,0.65)",
                     fontWeight: 600,
                     marginTop: 12,
                   }}
@@ -715,7 +717,7 @@ export default function LandingPageNew() {
                   style={{
                     margin: "12px auto 0",
                     fontSize: 14,
-                    color: "var(--bone-3)",
+                    color: "rgba(10,14,18,0.55)",
                     maxWidth: 380,
                     lineHeight: 1.55,
                   }}
@@ -734,7 +736,7 @@ export default function LandingPageNew() {
               fontFamily: "'EB Garamond', serif",
               fontStyle: "italic",
               fontSize: 16,
-              color: "var(--bone-3)",
+              color: "rgba(10,14,18,0.50)",
               letterSpacing: "0.005em",
             }}
           >
@@ -744,7 +746,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
-      <section id="brain" className="bg-cool" style={{ padding: "140px 0", position: "relative" }}>
+      <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
@@ -871,8 +873,8 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Section 2 — VIRAL TODAY (Bone inverse — the page flip) ===== */}
-      <section id="viral" className="bg-bone" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)", borderBottom: "1.5px solid var(--ink)", position: "relative" }}>
+      {/* ===== Section 2 — VIRAL TODAY (Bone panel) ===== */}
+      <section id="viral" className="panel-bone" style={{ padding: "120px 0", position: "relative", marginTop: 24 }}>
         <div
           className="curl curl-hide-mobile scroll-rise"
           style={{ top: 80, left: "8%", transform: "rotate(-5deg)", color: "rgba(10,14,18,0.32)" }}
@@ -948,7 +950,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 3 — PIPELINE (Editing / Calendar / Companion) ===== */}
-      <section id="pipeline" className="bg-ink" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)", position: "relative" }}>
+      <section id="pipeline" className="bg-ink" style={{ padding: "120px 0", marginTop: 24, position: "relative" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <div className="scroll-rise">
             <span className="eyebrow">The pipeline</span>
@@ -1042,7 +1044,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 4 — PUBLISHING teaser ===== */}
-      <section className="bg-warm" style={{ padding: "100px 0", borderTop: "1.5px solid var(--ink)", position: "relative" }}>
+      <section className="panel-bone" style={{ padding: "100px 0", marginTop: 24, position: "relative" }}>
         <div className="scroll-rise" style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
           <div
             style={{
@@ -1125,7 +1127,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 5 — TESTIMONIAL ===== */}
-      <section className="bg-deep" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)", textAlign: "center" }}>
+      <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center" }}>
         <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
           <div
             className="serif"
@@ -1170,7 +1172,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 6 — PRICING ===== */}
-      <section id="pricing" className="bg-cool" style={{ padding: "120px 0", borderTop: "1.5px solid var(--ink)" }}>
+      <section id="pricing" className="panel-bone" style={{ padding: "120px 0", marginTop: 24 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
           <div className="scroll-rise" style={{ textAlign: "center", marginBottom: 56 }}>
             <span className="eyebrow">Pricing</span>
@@ -1326,7 +1328,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== FINAL CTA ===== */}
-      <section className="bg-ink" style={{ padding: "140px 0", borderTop: "1.5px solid var(--ink)", textAlign: "center", position: "relative" }}>
+      <section className="bg-ink" style={{ padding: "140px 0", marginTop: 24, textAlign: "center", position: "relative" }}>
         <div
           className="curl curl-hide-mobile scroll-rise"
           style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)" }}
@@ -1369,7 +1371,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== FOOTER ===== */}
-      <footer className="bg-deep" style={{ padding: "60px 0 40px", borderTop: "1.5px solid var(--ink)" }}>
+      <footer className="bg-ink" style={{ padding: "60px 0 40px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
           <div
             style={{
