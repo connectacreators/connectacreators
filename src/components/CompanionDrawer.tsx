@@ -252,6 +252,10 @@ export default function CompanionDrawer() {
 
       // Execute any actions returned by the AI
       if (Array.isArray(data?.actions)) {
+        // If this turn produced a plan proposal, KEEP the drawer open so the
+        // plan card stays visible. Otherwise navigate actions close it to
+        // reveal the destination page.
+        const hasPlanProposal = data.actions.some((a: any) => a?.type === "plan_proposal");
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
             // Refresh the active-chat timestamp so the destination drawer
@@ -259,11 +263,12 @@ export default function CompanionDrawer() {
             // the conversation.
             if (activeThreadId) setActiveChat(activeThreadId, null);
             navigate(action.path);
-            setIsOpen(false);
+            if (!hasPlanProposal) setIsOpen(false);
           } else if (
             action?.type !== "fill_onboarding" &&
             action?.type !== "open_client" &&
             action?.type !== "refresh_data" &&
+            action?.type !== "highlight_items" &&
             action?.type !== "show_notification" &&
             action?.type !== "plan_proposal"
           ) {
