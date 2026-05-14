@@ -24,6 +24,7 @@ import doodleMessy from "@/assets/doodle-messy.png";
 import CurvedLoop from "@/components/landing/CurvedLoop";
 import ScrollFloat from "@/components/landing/ScrollFloat";
 import VariableProximity from "@/components/landing/VariableProximity";
+import PromptStream from "@/components/landing/PromptStream";
 
 /* =============================================================================
    The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
@@ -820,9 +821,6 @@ export default function LandingPageNew() {
   const [scrolled, setScrolled] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
-  const proximityContainerRef = useRef<HTMLDivElement | null>(null);
-  const heroSubRef = useRef<HTMLDivElement | null>(null);
-  const finalSubRef = useRef<HTMLDivElement | null>(null);
 
   // ESC closes the video modal
   useEffect(() => {
@@ -1103,7 +1101,6 @@ export default function LandingPageNew() {
           </h1>
 
           <div
-            ref={heroSubRef}
             data-reveal="3"
             style={{
               fontSize: "clamp(15px, 1.6vw, 19px)",
@@ -1117,47 +1114,20 @@ export default function LandingPageNew() {
             <VariableProximity
               label="Connecta plans your next 30 days of content before you open the app. Hooks that land, posts that book — strategy, scripts, and schedule done for you."
               fromFontVariationSettings="'wght' 400"
-              toFontVariationSettings="'wght' 800"
-              containerRef={heroSubRef}
-              radius={160}
-              falloff="gaussian"
+              toFontVariationSettings="'wght' 540"
+              containerRef={scrollRoot}
+              radius={90}
+              falloff="linear"
             />
           </div>
 
-          {/* CurvedLoop — sits right above the buttons, smile-arc dips down to "wrap" them */}
           <div
             data-reveal="4"
-            style={{
-              position: "relative",
-              zIndex: 0,
-              width: "100vw",
-              marginLeft: "calc(50% - 50vw)",
-              marginRight: "calc(50% - 50vw)",
-              padding: "0 4%",
-              marginTop: 12,
-              marginBottom: -40,
-              pointerEvents: "none",
-            }}
-          >
-            <div style={{ pointerEvents: "auto" }}>
-              <CurvedLoop
-                marqueeText="STRATEGY ✦ SCRIPTS ✦ FIND VIRAL REELS ✦ SCHEDULE ✦ EDITING QUEUE ✦ GO VIRAL ✦ GET CLIENTS ✦ AI COMPANION ✦ "
-                speed={1.1}
-                curveAmount={180}
-                interactive
-              />
-            </div>
-          </div>
-
-          <div
-            data-reveal="5"
             style={{
               display: "flex",
               gap: 12,
               justifyContent: "center",
               flexWrap: "wrap",
-              position: "relative",
-              zIndex: 2,
             }}
           >
             <Link to="/scripts" className="btn btn-aqua btn-large">
@@ -1173,7 +1143,7 @@ export default function LandingPageNew() {
           </div>
 
           <div
-            data-reveal="6"
+            data-reveal="5"
             style={{
               marginTop: 18,
               fontSize: 12.5,
@@ -1183,6 +1153,21 @@ export default function LandingPageNew() {
           >
             Free to try · No credit card · Cancel anytime
           </div>
+        </div>
+
+        {/* PromptStream — prompt → AI pill → output banner, full viewport width */}
+        <div
+          data-reveal="6"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            width: "100vw",
+            marginLeft: "calc(50% - 50vw)",
+            marginRight: "calc(50% - 50vw)",
+            marginTop: 64,
+          }}
+        >
+          <PromptStream />
         </div>
       </section>
 
@@ -1355,11 +1340,16 @@ export default function LandingPageNew() {
                   you post.
                 </span>
               </h2>
-              <p className="section-lede" style={{ marginBottom: 28 }}>
-                Super Canvas studies your brand voice, your audience, what's spiking on the
-                feed, and what your last 50 posts taught it. Then it lays out the next 30
-                days — visually, editably, in one place.
-              </p>
+              <div className="section-lede" style={{ marginBottom: 28, position: "relative" }}>
+                <VariableProximity
+                  label="Super Canvas studies your brand voice, your audience, what's spiking on the feed, and what your last 50 posts taught it. Then it lays out the next 30 days — visually, editably, in one place."
+                  fromFontVariationSettings="'wght' 400"
+                  toFontVariationSettings="'wght' 540"
+                  containerRef={scrollRoot}
+                  radius={90}
+                  falloff="linear"
+                />
+              </div>
 
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 14 }}>
                 {[
@@ -1499,11 +1489,16 @@ export default function LandingPageNew() {
                   sorted for you.
                 </span>
               </h2>
-              <p className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)" }}>
-                Connecta scans the feeds your audience is on, flags outlier videos that beat
-                their channel's average by 8× or more, and shows you the hooks before everyone
-                else copies them.
-              </p>
+              <div className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)", position: "relative" }}>
+                <VariableProximity
+                  label="Connecta scans the feeds your audience is on, flags outlier videos that beat their channel's average by 8× or more, and shows you the hooks before everyone else copies them."
+                  fromFontVariationSettings="'wght' 400"
+                  toFontVariationSettings="'wght' 540"
+                  containerRef={scrollRoot}
+                  radius={90}
+                  falloff="linear"
+                />
+              </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 32 }}>
                 {[
@@ -1555,10 +1550,16 @@ export default function LandingPageNew() {
               <br />
               <em className="soft">underneath the strategy.</em>
             </h2>
-            <p className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center" }}>
-              Plans only matter if they ship. The pipeline tracks every video from idea to
-              edit to approval — so nothing dies in a Slack thread.
-            </p>
+            <div className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center", position: "relative" }}>
+              <VariableProximity
+                label="Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval — so nothing dies in a Slack thread."
+                fromFontVariationSettings="'wght' 400"
+                toFontVariationSettings="'wght' 540"
+                containerRef={scrollRoot}
+                radius={90}
+                falloff="linear"
+              />
+            </div>
           </div>
 
           <div
@@ -1657,10 +1658,16 @@ export default function LandingPageNew() {
               <h2 className="section-h2" style={{ margin: "12px 0 18px", fontSize: "clamp(36px, 4.6vw, 52px)" }}>
                 Soon, <em className="honey">the last mile.</em>
               </h2>
-              <p className="section-lede" style={{ marginBottom: 24 }}>
-                Strategy → production → publish. We're closing the loop. Hit one button and your week ships
-                to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested.
-              </p>
+              <div className="section-lede" style={{ marginBottom: 24, position: "relative" }}>
+                <VariableProximity
+                  label="Strategy → production → publish. We're closing the loop. Hit one button and your week ships to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested."
+                  fromFontVariationSettings="'wght' 400"
+                  toFontVariationSettings="'wght' 540"
+                  containerRef={scrollRoot}
+                  radius={90}
+                  falloff="linear"
+                />
+              </div>
               <a
                 href="#"
                 className="btn btn-ghost"
@@ -1755,10 +1762,7 @@ export default function LandingPageNew() {
             My editor finally knows what's next, and my strategy isn't a vibe anymore — it's a screen.
             <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
           </div>
-          <div
-            ref={proximityContainerRef}
-            style={{ display: "inline-flex", alignItems: "center", gap: 14, position: "relative" }}
-          >
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, position: "relative" }}>
             <div
               style={{
                 width: 52,
@@ -1781,16 +1785,23 @@ export default function LandingPageNew() {
                 <VariableProximity
                   label="Aria Wells"
                   fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 800"
-                  containerRef={proximityContainerRef}
-                  radius={180}
-                  falloff="gaussian"
+                  toFontVariationSettings="'wght' 540"
+                  containerRef={scrollRoot}
+                  radius={90}
+                  falloff="linear"
                   className="serif"
                   style={{ fontSize: 17, color: "var(--bone)" }}
                 />
               </div>
               <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
-                Creator · 2.4M followers · runs her own brand
+                <VariableProximity
+                  label="Creator · 2.4M followers · runs her own brand"
+                  fromFontVariationSettings="'wght' 400"
+                  toFontVariationSettings="'wght' 540"
+                  containerRef={scrollRoot}
+                  radius={90}
+                  falloff="linear"
+                />
               </div>
             </div>
           </div>
@@ -1856,7 +1867,6 @@ export default function LandingPageNew() {
           </h2>
 
           <div
-            ref={finalSubRef}
             style={{
               fontSize: 18,
               color: "rgba(10,14,18,0.65)",
@@ -1869,10 +1879,10 @@ export default function LandingPageNew() {
             <VariableProximity
               label="No credit card. Bring your existing chaos — Connecta will fold it neatly into a 30-day plan within five minutes."
               fromFontVariationSettings="'wght' 400"
-              toFontVariationSettings="'wght' 800"
-              containerRef={finalSubRef}
-              radius={160}
-              falloff="gaussian"
+              toFontVariationSettings="'wght' 540"
+              containerRef={scrollRoot}
+              radius={90}
+              falloff="linear"
             />
           </div>
           <Link to="/scripts" className="btn btn-honey btn-large">
@@ -1919,9 +1929,16 @@ export default function LandingPageNew() {
                   CONNECTA
                 </span>
               </Link>
-              <p style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6 }}>
-                The AI strategist for creators and the brands they work with.
-              </p>
+              <div style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6, position: "relative" }}>
+                <VariableProximity
+                  label="The AI strategist for creators and the brands they work with."
+                  fromFontVariationSettings="'wght' 400"
+                  toFontVariationSettings="'wght' 540"
+                  containerRef={scrollRoot}
+                  radius={90}
+                  falloff="linear"
+                />
+              </div>
             </div>
             {[
               { title: "Product", items: ["Super Canvas", "Viral Today", "Editing Queue", "Calendar", "Companion AI", "Publishing (soon)"] },
