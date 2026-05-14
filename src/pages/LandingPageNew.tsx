@@ -901,11 +901,13 @@ export default function LandingPageNew() {
         if (el.dataset.proxLocked) return;
         const r = el.getBoundingClientRect();
         if (r.width === 0) return;
-        // Lock as fixed width (not min-width) so the box can't GROW when
-        // glyphs get heavier at wght 620 — that growth was pushing the
-        // last word to the next line on hover. +1.5px buffer so bolder
-        // glyphs render comfortably inside the locked slot.
-        el.style.width = `${r.width + 1.5}px`;
+        // Body words (.prox-word) get a 1.5px buffer so heavier glyphs don't
+        // push the last word to a new line on hover. Title characters
+        // (.prox-letter) get NO buffer — that 1.5px × ~30 letters per H2
+        // added up to noticeable letter-spacing. Without the buffer, bolder
+        // glyphs overflow their slot by ~1px (compositor-only, no layout).
+        const buffer = el.classList.contains("prox-letter") ? 0 : 1.5;
+        el.style.width = `${r.width + buffer}px`;
         el.dataset.proxLocked = "true";
       });
       rectsDirty = true;
