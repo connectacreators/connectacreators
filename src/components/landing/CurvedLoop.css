@@ -1,0 +1,27 @@
+.curved-loop-jacket {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.curved-loop-svg {
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  width: 100%;
+  aspect-ratio: 100 / 12;
+  overflow: visible;
+  display: block;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 4.2rem;
+  fill: var(--bone, #EAE6DC);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.curved-loop-svg.honey { fill: var(--honey, #E0A560); }
+.curved-loop-svg.aqua  { fill: var(--aqua, #8FD0D5); }
+.curved-loop-svg.ink   { fill: var(--ink, #0A0E12); }

@@ -21,6 +21,9 @@ import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import doodleSelfie from "@/assets/doodle-selfie.png";
 import doodleMessy from "@/assets/doodle-messy.png";
+import CurvedLoop from "@/components/landing/CurvedLoop";
+import ScrollFloat from "@/components/landing/ScrollFloat";
+import VariableProximity from "@/components/landing/VariableProximity";
 
 /* =============================================================================
    The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
@@ -815,7 +818,19 @@ function PipelineCard({
 export default function LandingPageNew() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
+  const proximityContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // ESC closes the video modal
+  useEffect(() => {
+    if (!videoOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVideoOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [videoOpen]);
 
   // sticky nav state
   useEffect(() => {
@@ -905,13 +920,14 @@ export default function LandingPageNew() {
             <span
               className="serif"
               style={{
-                fontSize: 24,
+                fontSize: 22,
                 color: "var(--bone)",
-                letterSpacing: "-0.005em",
+                letterSpacing: "0.04em",
                 fontWeight: 700,
+                textTransform: "uppercase",
               }}
             >
-              connecta
+              CONNECTA
             </span>
           </Link>
 
@@ -1108,14 +1124,15 @@ export default function LandingPageNew() {
             }}
           >
             <Link to="/scripts" className="btn btn-aqua btn-large">
-              Start free for 14 days <ArrowRight size={16} />
+              Get started <ArrowRight size={16} />
             </Link>
-            <a
-              href="#brain"
+            <button
+              type="button"
+              onClick={() => setVideoOpen(true)}
               className="btn btn-ghost btn-large"
             >
-              ▶ Watch the 90-sec tour
-            </a>
+              ▶ Watch the 90-sec demo
+            </button>
           </div>
 
           <div
@@ -1127,22 +1144,27 @@ export default function LandingPageNew() {
               letterSpacing: "0.02em",
             }}
           >
-            No credit card · Cancel anytime · Made in Los Angeles
+            Free to try · No credit card · Cancel anytime
           </div>
         </div>
 
-        {/* Hero mockup — the real product demo video */}
+        {/* CurvedLoop — brand marquee replaces the video that used to sit here */}
         <div
           data-reveal="6"
           style={{
             position: "relative",
             zIndex: 1,
-            maxWidth: 980,
+            maxWidth: 1280,
             margin: "60px auto 0",
             padding: "0 32px",
           }}
         >
-          <DemoVideoPlayer />
+          <CurvedLoop
+            marqueeText="STRATEGY ✦ SCRIPTS ✦ SCHEDULE ✦ GO VIRAL ✦ GET CLIENTS ✦ "
+            speed={1.4}
+            curveAmount={260}
+            interactive
+          />
         </div>
       </section>
 
@@ -1715,7 +1737,10 @@ export default function LandingPageNew() {
             My editor finally knows what's next, and my strategy isn't a vibe anymore — it's a screen.
             <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 14 }}>
+          <div
+            ref={proximityContainerRef}
+            style={{ display: "inline-flex", alignItems: "center", gap: 14, position: "relative" }}
+          >
             <div
               style={{
                 width: 52,
@@ -1734,8 +1759,21 @@ export default function LandingPageNew() {
               A
             </div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontWeight: 600, fontSize: 15, color: "var(--bone)" }}>Aria Wells</div>
-              <div style={{ fontSize: 12.5, color: "var(--bone-3)" }}>Creator · 2.4M followers · runs her own brand</div>
+              <div style={{ fontSize: 17, color: "var(--bone)" }}>
+                <VariableProximity
+                  label="Aria Wells"
+                  fromFontVariationSettings="'wght' 500"
+                  toFontVariationSettings="'wght' 800"
+                  containerRef={proximityContainerRef}
+                  radius={110}
+                  falloff="gaussian"
+                  className="serif"
+                  style={{ fontSize: 17, color: "var(--bone)" }}
+                />
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
+                Creator · 2.4M followers · runs her own brand
+              </div>
             </div>
           </div>
         </div>
@@ -1743,50 +1781,79 @@ export default function LandingPageNew() {
 
       {/* ===== Pricing section removed — no pricing on the landing page ===== */}
 
-      {/* ===== FINAL CTA ===== */}
-      <section className="bg-ink" style={{ padding: "140px 0", marginTop: 24, textAlign: "center", position: "relative" }}>
+      {/* ===== FINAL CTA — bone panel with rounded corners ===== */}
+      <section
+        className="panel-bone"
+        style={{
+          padding: "140px 0",
+          marginTop: 24,
+          textAlign: "center",
+          position: "relative",
+        }}
+      >
         <div
           className="curl curl-hide-mobile scroll-rise"
-          style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)" }}
+          style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)", color: "rgba(10,14,18,0.30)" }}
         >
           a calmer creator economy starts here
         </div>
         <div
           className="curl curl-hide-mobile scroll-rise"
-          style={{ top: 80, right: "8%", transform: "rotate(6deg)" }}
+          style={{ top: 80, right: "8%", transform: "rotate(6deg)", color: "rgba(10,14,18,0.30)" }}
         >
           — your strategy team in a screen
         </div>
 
-        <div className="scroll-rise" style={{ maxWidth: 880, margin: "0 auto", padding: "0 32px", position: "relative" }}>
+        <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 32px", position: "relative" }}>
+          {/* ScrollFloat — characters rise as you scroll to this section */}
+          <ScrollFloat
+            animationDuration={1}
+            ease="back.inOut(2)"
+            scrollStart="center bottom+=30%"
+            scrollEnd="bottom bottom-=30%"
+            stagger={0.02}
+            containerClassName="serif"
+            textClassName="serif"
+          >
+            Stop guessing.
+          </ScrollFloat>
+
           <h2
             className="serif"
             style={{
-              fontSize: "clamp(48px, 8vw, 96px)",
+              fontSize: "clamp(40px, 6vw, 80px)",
               lineHeight: 1.0,
               letterSpacing: "-0.025em",
               fontWeight: 500,
-              margin: "0 0 24px",
+              margin: "8px 0 28px",
+              color: "var(--ink)",
             }}
           >
-            Stop guessing.
-            <br />
             <span
-              className="scribble-under aqua"
-              style={{ display: "inline-block", color: "var(--aqua)", fontStyle: "italic", fontWeight: 500 }}
+              className="scribble-under honey"
+              style={{ display: "inline-block", color: "#A85B1F", fontStyle: "italic", fontWeight: 500 }}
             >
               Start directing.
             </span>
           </h2>
-          <p style={{ fontSize: 18, color: "var(--bone-2)", maxWidth: 560, margin: "0 auto 36px", lineHeight: 1.55 }}>
-            14 days free. No credit card. Bring your existing chaos — Connecta will fold it
-            neatly into a 30-day plan within five minutes.
+
+          <p
+            style={{
+              fontSize: 18,
+              color: "rgba(10,14,18,0.65)",
+              maxWidth: 560,
+              margin: "0 auto 36px",
+              lineHeight: 1.55,
+            }}
+          >
+            No credit card. Bring your existing chaos — Connecta will fold it neatly into a
+            30-day plan within five minutes.
           </p>
-          <Link to="/scripts" className="btn btn-aqua btn-large">
+          <Link to="/scripts" className="btn btn-honey btn-large">
             Get started <ArrowRight size={16} />
           </Link>
-          <div style={{ marginTop: 18, fontSize: 12.5, color: "var(--bone-3)" }}>
-            Free trial · cancel anytime · made in LA
+          <div style={{ marginTop: 18, fontSize: 12.5, color: "rgba(10,14,18,0.45)" }}>
+            Free to try · cancel anytime
           </div>
         </div>
       </section>
@@ -1816,13 +1883,14 @@ export default function LandingPageNew() {
                 <span
                   className="serif"
                   style={{
-                    fontSize: 28,
+                    fontSize: 26,
                     color: "var(--bone)",
-                    letterSpacing: "-0.005em",
+                    letterSpacing: "0.04em",
                     fontWeight: 700,
+                    textTransform: "uppercase",
                   }}
                 >
-                  connecta
+                  CONNECTA
                 </span>
               </Link>
               <p style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6 }}>
@@ -1871,7 +1939,7 @@ export default function LandingPageNew() {
               gap: 10,
             }}
           >
-            <div>© 2026 Connecta. Made in Los Angeles.</div>
+            <div>© 2026 Connecta. All rights reserved.</div>
             <div style={{ display: "flex", gap: 18 }}>
               <a href="#" className="scribble-link">Privacy</a>
               <a href="#" className="scribble-link">Terms</a>
@@ -1880,6 +1948,69 @@ export default function LandingPageNew() {
           </div>
         </div>
       </footer>
+
+      {/* ===== Video modal — triggered by "Watch the 90-sec demo" ===== */}
+      {videoOpen && (
+        <div
+          onClick={() => setVideoOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(10,14,18,0.85)",
+            backdropFilter: "blur(12px)",
+            display: "grid",
+            placeItems: "center",
+            padding: "32px",
+            animation: "le-fade-in 220ms ease-out",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 1000,
+              borderRadius: 22,
+              border: "1.5px solid var(--ink)",
+              boxShadow: "8px 8px 0 var(--ink), 0 60px 120px -30px rgba(0,0,0,0.7)",
+              overflow: "hidden",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setVideoOpen(false)}
+              aria-label="Close demo"
+              style={{
+                position: "absolute",
+                top: 14,
+                right: 14,
+                zIndex: 2,
+                width: 38,
+                height: 38,
+                borderRadius: "50%",
+                background: "var(--bone)",
+                border: "1.5px solid var(--ink)",
+                cursor: "pointer",
+                display: "grid",
+                placeItems: "center",
+                color: "var(--ink)",
+                boxShadow: "2px 2px 0 var(--ink)",
+              }}
+            >
+              <X size={16} />
+            </button>
+            <DemoVideoPlayer />
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes le-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
