@@ -20,9 +20,9 @@ import ThemedVideoPlayer from "@/components/ThemedVideoPlayer";
 import { videoUploadService } from "@/services/videoUploadService";
 import { useSchedulerEnabled } from "@/lib/featureFlags";
 import { useScheduledPosts, type PostFilter, type ScheduledPostRow } from "@/lib/hooks/useScheduledPosts";
-import { PostDetailsModal } from "@/components/scheduler/PostDetailsModal";
 import { ReauthBanner } from "@/components/scheduler/ReauthBanner";
 import { ScheduledPostCard } from "@/components/scheduler/ScheduledPostCard";
+import { PublishComposer } from "@/components/scheduler/PublishComposer";
 import { resolveVideoUrl } from "@/lib/videoUrl";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
@@ -166,7 +166,7 @@ export default function ContentCalendar() {
     schedulerEnabled ? (clientId ?? null) : null,
     schedFilter,
   );
-  const [detailPost, setDetailPost] = useState<ScheduledPostRow | null>(null);
+  const [editingPost, setEditingPost] = useState<ScheduledPostRow | null>(null);
 
   const todayForNav = useMemo(() => new Date(), []);
   const [currentDate, setCurrentDate] = useState(
@@ -560,7 +560,7 @@ export default function ContentCalendar() {
                   <ScheduledPostCard
                     key={p.id}
                     post={p}
-                    onClick={() => setDetailPost(p)}
+                    onClick={() => setEditingPost(p)}
                     showClientName={!clientId}
                   />
                 ))}
@@ -568,8 +568,24 @@ export default function ContentCalendar() {
                   <p className="text-sm text-muted-foreground p-3">No posts in this view.</p>
                 )}
               </div>
-              {detailPost && (
-                <PostDetailsModal post={detailPost} onClose={() => setDetailPost(null)} />
+              {editingPost && (
+                <PublishComposer
+                  open
+                  onClose={() => setEditingPost(null)}
+                  clientId={editingPost.client_id}
+                  editingQueueId={editingPost.editing_queue_id ?? ""}
+                  videoUrl={editingPost.video_url}
+                  initialCaption={editingPost.caption}
+                  existingPost={{
+                    id: editingPost.id,
+                    caption: editingPost.caption,
+                    mode: editingPost.mode,
+                    scheduled_at: editingPost.scheduled_at,
+                    status: editingPost.status,
+                    client_approved_at: editingPost.client_approved_at,
+                    targetedPlatforms: editingPost.targets.map((t) => t.platform),
+                  }}
+                />
               )}
             </div>
           )}

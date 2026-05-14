@@ -18,6 +18,17 @@ import { AlertTriangle } from "lucide-react";
 
 const SKIP_APPROVAL_WARNING_KEY = "scheduler_skip_approval_warning_v1";
 
+interface ExistingPost {
+  id: string;
+  caption: string;
+  mode: "draft" | "scheduled" | "autopost";
+  scheduled_at: string | null;
+  status: string;
+  client_approved_at: string | null;
+  /** Platforms currently targeted by this post */
+  targetedPlatforms: Array<"facebook" | "instagram" | "tiktok" | "youtube">;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -27,6 +38,13 @@ interface Props {
   initialCaption: string;
   /** Browser timezone, e.g. "America/New_York" */
   defaultTimezone?: string;
+  /**
+   * When set, the composer opens in EDIT mode: hydrates fields from the
+   * existing scheduled_posts row, and submit performs an UPDATE instead
+   * of an INSERT. Targets are reconciled (deletes removed platforms,
+   * inserts new ones).
+   */
+  existingPost?: ExistingPost;
 }
 
 type Mode = "autopost" | "scheduled" | "draft";
@@ -54,17 +72,32 @@ export function PublishComposer(p: Props) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   useEffect(() => {
-    if (p.open) {
+    if (!p.open) return;
+    setResolvedVideo(null);
+    void resolveVideoUrl(p.videoUrl).then(setResolvedVideo);
+
+    if (p.existingPost) {
+      // Hydrate from existing scheduled_posts row for edit mode
+      setCaption(p.existingPost.caption);
+      setSelectedPlatforms(p.existingPost.targetedPlatforms);
+      setMode(p.existingPost.mode);
+      if (p.existingPost.scheduled_at) {
+        const d = new Date(p.existingPost.scheduled_at);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        setDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+        setTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+      } else {
+        setDate("");
+        setTime("");
+      }
+    } else {
       setCaption(p.initialCaption);
       setSelectedPlatforms([]);
       setMode("scheduled");
       setDate("");
       setTime("");
-      // Resolve storage path / drive URL to something playable
-      setResolvedVideo(null);
-      void resolveVideoUrl(p.videoUrl).then(setResolvedVideo);
     }
-  }, [p.open, p.initialCaption, p.videoUrl]);
+  }, [p.open, p.initialCaption, p.videoUrl, p.existingPost]);
 
   const connByPlatform = useMemo(() => {
     const m: Partial<Record<Plat, typeof conns[number]>> = {};
@@ -78,10 +111,14 @@ export function PublishComposer(p: Props) {
     );
   };
 
-  const buttonLabel =
-    mode === "autopost"  ? "Publish now" :
-    mode === "scheduled" ? "Schedule" :
-    "Save draft";
+  const isEditing = Boolean(p.existingPost);
+  const buttonLabel = isEditing
+    ? (mode === "autopost" ? "Save & publish now" : "Save changes")
+    : mode === "autopost" ? "Publish now"
+    : mode === "scheduled" ? "Schedule"
+    : "Save draft";
+
+  const dialogTitle = isEditing ? "Edit post" : "Publish";
 
   /**
    * Submit entrypoint. For "Publish now" (autopost) mode, gates behind a
@@ -124,52 +161,107 @@ export function PublishComposer(p: Props) {
     setSubmitting(true);
     try {
       const user = (await supabase.auth.getUser()).data.user;
+      let postId: string;
 
-      const { data: post, error: postErr } = await supabase.from("scheduled_posts").insert({
-        client_id: p.clientId,
-        editing_queue_id: p.editingQueueId,
-        video_url: p.videoUrl,
-        caption,
-        mode,
-        scheduled_at: scheduledAt,
-        timezone: tz,
-        status: mode === "draft" ? "draft" : "scheduled",
-        created_by: user?.id ?? null,
-        // Admin override: skip the approval gate for "Publish now" submissions.
-        // Voids client-verification audit trail by design.
-        client_approved_at: bypassApproval ? new Date().toISOString() : null,
-        client_approved_by: bypassApproval ? (user?.id ?? null) : null,
-      }).select().single();
-      if (postErr) throw postErr;
+      if (p.existingPost) {
+        // EDIT mode — UPDATE the scheduled_posts row + reconcile targets
+        postId = p.existingPost.id;
+        const updatePayload: Record<string, unknown> = {
+          caption,
+          mode,
+          scheduled_at: scheduledAt,
+          timezone: tz,
+          status: mode === "draft" ? "draft" : "scheduled",
+        };
+        if (bypassApproval) {
+          updatePayload.client_approved_at = new Date().toISOString();
+          updatePayload.client_approved_by = user?.id ?? null;
+        }
+        const { error: uErr } = await supabase
+          .from("scheduled_posts")
+          .update(updatePayload)
+          .eq("id", postId);
+        if (uErr) throw uErr;
 
-      if (mode !== "draft" && selectedPlatforms.length > 0) {
-        const targets = selectedPlatforms
-          .map((plat) => {
-            const conn = connByPlatform[plat];
-            if (!conn) return null;
-            return {
-              scheduled_post_id: post.id,
-              social_connection_id: conn.id,
-              platform: plat,
-              status: "pending" as const,
-            };
-          })
-          .filter(Boolean);
-        const { error: tErr } = await supabase.from("scheduled_post_targets").insert(targets as any);
-        if (tErr) throw tErr;
+        // Reconcile targets: remove ones no longer selected, add new ones.
+        const wanted = new Set(selectedPlatforms);
+        const had = new Set(p.existingPost.targetedPlatforms);
+        const toRemove = [...had].filter((plat) => !wanted.has(plat as any));
+        const toAdd = [...wanted].filter((plat) => !had.has(plat as any));
+
+        if (toRemove.length) {
+          await supabase
+            .from("scheduled_post_targets")
+            .delete()
+            .eq("scheduled_post_id", postId)
+            .in("platform", toRemove);
+        }
+        if (mode !== "draft" && toAdd.length) {
+          const rows = toAdd
+            .map((plat) => {
+              const conn = connByPlatform[plat as Plat];
+              if (!conn) return null;
+              return {
+                scheduled_post_id: postId,
+                social_connection_id: conn.id,
+                platform: plat,
+                status: "pending" as const,
+              };
+            })
+            .filter(Boolean);
+          if (rows.length) await supabase.from("scheduled_post_targets").insert(rows as any);
+        }
+      } else {
+        // CREATE mode
+        const { data: post, error: postErr } = await supabase.from("scheduled_posts").insert({
+          client_id: p.clientId,
+          editing_queue_id: p.editingQueueId,
+          video_url: p.videoUrl,
+          caption,
+          mode,
+          scheduled_at: scheduledAt,
+          timezone: tz,
+          status: mode === "draft" ? "draft" : "scheduled",
+          created_by: user?.id ?? null,
+          // Admin override: skip the approval gate for "Publish now" submissions.
+          // Voids client-verification audit trail by design.
+          client_approved_at: bypassApproval ? new Date().toISOString() : null,
+          client_approved_by: bypassApproval ? (user?.id ?? null) : null,
+        }).select().single();
+        if (postErr) throw postErr;
+        postId = post.id;
+
+        if (mode !== "draft" && selectedPlatforms.length > 0) {
+          const targets = selectedPlatforms
+            .map((plat) => {
+              const conn = connByPlatform[plat];
+              if (!conn) return null;
+              return {
+                scheduled_post_id: postId,
+                social_connection_id: conn.id,
+                platform: plat,
+                status: "pending" as const,
+              };
+            })
+            .filter(Boolean);
+          const { error: tErr } = await supabase.from("scheduled_post_targets").insert(targets as any);
+          if (tErr) throw tErr;
+        }
       }
 
       // If we bypassed approval, kick the dispatcher so it fires immediately
       // instead of waiting for the next 60-second cron tick.
       if (bypassApproval) {
         await supabase.functions.invoke("publish-scheduled-posts", {
-          body: { force_post_id: post.id },
+          body: { force_post_id: postId },
         });
       }
 
       // Surface what just happened
       let successMsg: string;
-      if (mode === "draft") {
+      if (p.existingPost) {
+        successMsg = "Changes saved";
+      } else if (mode === "draft") {
         successMsg = "Saved as draft";
       } else if (bypassApproval) {
         successMsg = "Publishing now — client approval bypassed";
@@ -194,7 +286,7 @@ export function PublishComposer(p: Props) {
     <Dialog open={p.open} onOpenChange={(o) => !o && p.onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Publish</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

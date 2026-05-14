@@ -14,6 +14,7 @@ export interface ScheduledPostRow {
   id: string;
   client_id: string;
   client_name?: string | null;
+  editing_queue_id: string | null;
   video_url: string;
   caption: string;
   mode: "draft" | "scheduled" | "autopost";
@@ -27,7 +28,7 @@ export interface ScheduledPostRow {
 
 export type PostFilter = "all" | "awaiting_approval" | "approved" | "drafts" | "published" | "failed";
 
-const SELECT = "id, client_id, video_url, caption, mode, scheduled_at, status, client_approved_at, client_approved_by, created_at, clients(name), targets:scheduled_post_targets(id, platform, status, platform_post_url, last_error, attempt_count)";
+const SELECT = "id, client_id, editing_queue_id, video_url, caption, mode, scheduled_at, status, client_approved_at, client_approved_by, created_at, clients(name), targets:scheduled_post_targets(id, platform, status, platform_post_url, last_error, attempt_count)";
 
 /**
  * Fetches scheduled posts. When clientId is null, fetches across all
