@@ -49,17 +49,20 @@ export default function PromptStream({
         <div className="prompt-stream-track">{trackText}</div>
       </div>
 
-      {/* LEFT: long single-arc curve from the left viewport edge into the mic.
-          Path enters at lower-left, arcs up and over, and lands at mid-right
-          where it meets the center mic. No loop-back, text never inverts. */}
+      {/* LEFT: a real undulating curve from the left margin into the mic.
+          ViewBox matches container aspect (900x300 = 3:1, same as the
+          left half × 240px) so x=0 lands at the actual left viewport edge
+          and x=900 lands at center (mic position). Path uses three C
+          segments for a long S-wave journey: bottom-left rises over the
+          top, dips, rises into the mic at mid-height. */}
       <div className="prompt-stream-left">
         <CurvedLoop
           marqueeText={promptText}
           speed={0.5}
           direction="right"
           interactive={false}
-          pathD="M 20 280 C 120 60 400 -20 600 60 C 740 110 800 180 820 230"
-          viewBox="0 0 840 320"
+          pathD="M 0 240 C 60 -20 280 -40 420 40 C 520 90 500 200 620 200 C 740 200 840 100 900 150"
+          viewBox="0 0 900 300"
           className="thin-italic"
         />
       </div>

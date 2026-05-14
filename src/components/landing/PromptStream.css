@@ -34,21 +34,22 @@
   width: 100%;
 }
 
-/* -------- RIGHT: starts at the mic (center), runs off the right edge -------- */
+/* -------- RIGHT: starts at the mic (center), exits at right margin -------- */
 .prompt-stream-banner {
   position: absolute;
-  left: calc(50% + 30px);   /* starts just past the mic */
-  right: -10%;              /* extends past the right viewport edge */
+  left: 50%;            /* starts exactly at the mic — mic sits on top via z-index */
+  right: 0;             /* ends at the right margin of the viewport */
   top: 50%;
   height: 56px;
   background: var(--ink, #0A0E12);
   border: 1.5px solid rgba(234, 230, 220, 0.20);
   border-radius: 999px;
   overflow: hidden;
-  transform: translateY(-50%) rotate(-6deg);
+  transform: translateY(-50%) rotate(-7deg);
   transform-origin: left center;
   display: flex;
   align-items: center;
+  z-index: 1;           /* below the mic (z-index 2) */
 }
 
 .prompt-stream-track {
