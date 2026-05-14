@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>10 Silent Logo Marks — Connecta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0E12;
+    --bone: #EAE6DC;
+    --bone-warm: #FBF8EE;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Figtree', sans-serif;
+    background: var(--ink);
+    color: var(--bone);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-head {
+    text-align: center;
+    padding: 60px 28px 32px;
+  }
+  .page-head .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(143, 208, 213, 0.14);
+    color: #8FD0D5;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.16em;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .page-head h1 {
+    font-family: 'EB Garamond', serif;
+    font-size: 56px; font-weight: 500;
+    letter-spacing: -0.02em; line-height: 1.0;
+    margin: 0 0 14px;
+  }
+  .page-head h1 em { color: #E0A560; font-style: italic; }
+  .page-head p { color: rgba(234, 230, 220, 0.62); font-size: 15px; max-width: 620px; margin: 0 auto; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    max-width: 1240px;
+    margin: 32px auto 64px;
+    padding: 0 28px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .tile {
+    background: var(--bone);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 24px;
+    box-shadow: 5px 5px 0 var(--ink);
+    overflow: hidden;
+  }
+  .tile-pair {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .canvas {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    position: relative;
+    padding: 32px;
+  }
+  .canvas.bone { background: var(--bone-warm); }
+  .canvas.ink  { background: var(--ink); border-left: 1.5px solid var(--ink); }
+  .canvas svg { width: 50%; height: 50%; }
+  .num {
+    position: absolute; top: 12px; left: 16px;
+    font-family: 'Figtree', monospace;
+    font-size: 10px; letter-spacing: 0.18em;
+    font-weight: 700;
+  }
+  .canvas.bone .num { color: rgba(10, 14, 18, 0.45); }
+  .canvas.ink .num  { color: rgba(234, 230, 220, 0.40); }
+
+  .body {
+    padding: 22px 26px 24px;
+  }
+  .body .sub {
+    font-family: 'Figtree', sans-serif;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #A85B1F;
+    margin-bottom: 6px;
+  }
+  .body h3 {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px; font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  .body p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: rgba(10, 14, 18, 0.68);
+  }
+  .body .meaning {
+    margin-top: 10px;
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: rgba(10, 14, 18, 0.50);
+  }
+
+  .footer-note {
+    text-align: center;
+    padding: 40px 28px 80px;
+    color: rgba(234, 230, 220, 0.55);
+    font-size: 14px;
+  }
+  .footer-note .serif {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px;
+    color: var(--bone);
+    display: block;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .footer-note em { color: #E0A560; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="badge">Pure marks</div>
+  <h1>10 silent logos, <em>one color each.</em></h1>
+  <p>No wordmark, no second color, no decoration. Each mark is rendered twice — once ink on bone, once bone on ink — so you can see it works in both directions. Pick a direction and refine it yourself.</p>
+</div>
+
+<div class="grid">
+
+  <!-- 01 — Infinity Knot -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">01</span>
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 30 40 C 30 16, 56 16, 60 40 C 64 64, 90 64, 90 40 C 90 16, 64 16, 60 40 C 56 64, 30 64, 30 40 Z"
+            stroke="var(--ink)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 30 40 C 30 16, 56 16, 60 40 C 64 64, 90 64, 90 40 C 90 16, 64 16, 60 40 C 56 64, 30 64, 30 40 Z"
+            stroke="var(--bone)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Knot</div>
+      <h3>The Infinity Knot</h3>
+      <p>One continuous loop that crosses itself in the middle. No start, no end. Strategic, intentional, woven.</p>
+      <div class="meaning">— what's tied together stays.</div>
+    </div>
+  </div>
+
+  <!-- 02 — Linked Dots -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">02</span>
+        <svg viewBox="0 0 120 60" fill="none">
+          <circle cx="22" cy="30" r="13" fill="var(--ink)" />
+          <path d="M 36 30 Q 60 6, 84 30" stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" />
+          <circle cx="98" cy="30" r="13" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 60" fill="none">
+          <circle cx="22" cy="30" r="13" fill="var(--bone)" />
+          <path d="M 36 30 Q 60 6, 84 30" stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" />
+          <circle cx="98" cy="30" r="13" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Connection</div>
+      <h3>The Bridge</h3>
+      <p>Two filled circles, an arc between them. The mark for everything Connecta does — joining one to another.</p>
+      <div class="meaning">— the simplest version of the whole product.</div>
+    </div>
+  </div>
+
+  <!-- 03 — 4-Point Spark -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">03</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 4 L 56 44 L 96 50 L 56 56 L 50 96 L 44 56 L 4 50 L 44 44 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 4 L 56 44 L 96 50 L 56 56 L 50 96 L 44 56 L 4 50 L 44 44 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Spark</div>
+      <h3>The Four-Point Star</h3>
+      <p>A long-armed sparkle — the kind that floats around a viral post. Tall vertical axis, narrow horizontal. Recognizable at any size.</p>
+      <div class="meaning">— for the moment something pops.</div>
+    </div>
+  </div>
+
+  <!-- 04 — Compass Rose -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">04</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 4 L 56 44 L 96 50 L 56 56 L 50 96 L 44 56 L 4 50 L 44 44 Z
+               M 50 50 L 75 25 L 56 56 L 25 75 L 44 44 L 75 75 L 56 44 L 25 25 Z"
+            fill="var(--ink)" fill-rule="evenodd"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 4 L 56 44 L 96 50 L 56 56 L 50 96 L 44 56 L 4 50 L 44 44 Z
+               M 50 50 L 75 25 L 56 56 L 25 75 L 44 44 L 75 75 L 56 44 L 25 25 Z"
+            fill="var(--bone)" fill-rule="evenodd"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Direction</div>
+      <h3>The Compass Star</h3>
+      <p>Eight-point star: long primary axes + short diagonal counters. Reads as a compass rose, a north star, a strategy mark.</p>
+      <div class="meaning">— here's where you're going.</div>
+    </div>
+  </div>
+
+  <!-- 05 — Eye -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">05</span>
+        <svg viewBox="0 0 120 60" fill="none">
+          <path
+            d="M 6 30 Q 60 -6, 114 30 Q 60 66, 6 30 Z"
+            fill="none" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"
+          />
+          <circle cx="60" cy="30" r="9" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 60" fill="none">
+          <path
+            d="M 6 30 Q 60 -6, 114 30 Q 60 66, 6 30 Z"
+            fill="none" stroke="var(--bone)" stroke-width="5" stroke-linejoin="round"
+          />
+          <circle cx="60" cy="30" r="9" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Vision</div>
+      <h3>The Eye</h3>
+      <p>Almond outline + solid pupil. Sees what's about to happen. The Jarvis-as-oracle move, distilled to two shapes.</p>
+      <div class="meaning">— it watches the feeds so you don't have to.</div>
+    </div>
+  </div>
+
+  <!-- 06 — Lasso Spiral -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">06</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 12 Q 18 18, 18 50 Q 18 82, 50 86 Q 84 82, 84 50 Q 84 22, 56 19 Q 32 22, 32 48 Q 32 70, 54 70 Q 70 70, 70 50"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 12 Q 18 18, 18 50 Q 18 82, 50 86 Q 84 82, 84 50 Q 84 22, 56 19 Q 32 22, 32 48 Q 32 70, 54 70 Q 70 70, 70 50"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Lasso</h3>
+      <p>A single line that spirals in twice — like a lasso loop drawn quickly with a pen. Carries the page's hand-drawn personality.</p>
+      <div class="meaning">— catch it before it gets away.</div>
+    </div>
+  </div>
+
+  <!-- 07 — Aperture / Opening -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">07</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <g fill="var(--ink)" stroke="none">
+            <path d="M 50 6 L 76 26 Q 60 36, 50 50 Q 50 30, 50 6 Z" />
+            <path d="M 50 6 L 24 26 Q 40 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(120 50 50)" />
+            <path d="M 50 6 L 76 26 Q 60 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(120 50 50)" />
+            <path d="M 50 6 L 24 26 Q 40 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(240 50 50)" />
+            <path d="M 50 6 L 76 26 Q 60 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(240 50 50)" />
+            <path d="M 50 6 L 24 26 Q 40 36, 50 50 Q 50 30, 50 6 Z" />
+          </g>
+          <circle cx="50" cy="50" r="6" fill="var(--bone-warm)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <g fill="var(--bone)" stroke="none">
+            <path d="M 50 6 L 76 26 Q 60 36, 50 50 Q 50 30, 50 6 Z" />
+            <path d="M 50 6 L 24 26 Q 40 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(120 50 50)" />
+            <path d="M 50 6 L 76 26 Q 60 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(120 50 50)" />
+            <path d="M 50 6 L 24 26 Q 40 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(240 50 50)" />
+            <path d="M 50 6 L 76 26 Q 60 36, 50 50 Q 50 30, 50 6 Z" transform="rotate(240 50 50)" />
+            <path d="M 50 6 L 24 26 Q 40 36, 50 50 Q 50 30, 50 6 Z" />
+          </g>
+          <circle cx="50" cy="50" r="6" fill="var(--ink)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Creator</div>
+      <h3>The Aperture</h3>
+      <p>Six petals spiraling inward toward a tiny center hole. The camera iris, the bloom opening, the focus point. Geometric and ownable.</p>
+      <div class="meaning">— focus is the whole job.</div>
+    </div>
+  </div>
+
+  <!-- 08 — Wave / Signal -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">08</span>
+        <svg viewBox="0 0 100 80" fill="none">
+          <path d="M 14 40 Q 50 40, 86 40" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0" />
+          <path d="M 20 50 Q 50 16, 80 50" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" fill="none" />
+          <path d="M 28 58 Q 50 30, 72 58" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" fill="none" />
+          <path d="M 36 66 Q 50 46, 64 66" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" fill="none" />
+          <circle cx="50" cy="72" r="6" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 80" fill="none">
+          <path d="M 20 50 Q 50 16, 80 50" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" fill="none" />
+          <path d="M 28 58 Q 50 30, 72 58" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" fill="none" />
+          <path d="M 36 66 Q 50 46, 64 66" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" fill="none" />
+          <circle cx="50" cy="72" r="6" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Broadcast</div>
+      <h3>The Signal</h3>
+      <p>Three nested arcs over a filled dot — a wifi signal, a sonic bloom, a content ripple. The mark for reach.</p>
+      <div class="meaning">— send one, hear thousands.</div>
+    </div>
+  </div>
+
+  <!-- 09 — Quote Mark -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">09</span>
+        <svg viewBox="0 0 100 80" fill="none">
+          <path
+            d="M 22 22 Q 22 8, 36 8 Q 50 8, 50 22 Q 50 40, 32 56 Q 26 60, 22 60 Q 28 50, 32 38 Q 26 38, 22 34 Q 18 30, 22 22 Z"
+            fill="var(--ink)"
+          />
+          <path
+            d="M 56 22 Q 56 8, 70 8 Q 84 8, 84 22 Q 84 40, 66 56 Q 60 60, 56 60 Q 62 50, 66 38 Q 60 38, 56 34 Q 52 30, 56 22 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 80" fill="none">
+          <path
+            d="M 22 22 Q 22 8, 36 8 Q 50 8, 50 22 Q 50 40, 32 56 Q 26 60, 22 60 Q 28 50, 32 38 Q 26 38, 22 34 Q 18 30, 22 22 Z"
+            fill="var(--bone)"
+          />
+          <path
+            d="M 56 22 Q 56 8, 70 8 Q 84 8, 84 22 Q 84 40, 66 56 Q 60 60, 56 56 Q 62 50, 66 38 Q 60 38, 56 34 Q 52 30, 56 22 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Voice</div>
+      <h3>The Quote</h3>
+      <p>A pair of curly serif quotation marks. Pure typography turned into pure symbol. The mark for "we publish you."</p>
+      <div class="meaning">— a creator is just a voice you can hear.</div>
+    </div>
+  </div>
+
+  <!-- 10 — Asterism / 3-dot strategy -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">10</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <line x1="22" y1="22" x2="50" y2="50" stroke="var(--ink)" stroke-width="3" />
+          <line x1="78" y1="22" x2="50" y2="50" stroke="var(--ink)" stroke-width="3" />
+          <line x1="50" y1="50" x2="50" y2="82" stroke="var(--ink)" stroke-width="3" />
+          <circle cx="22" cy="22" r="9" fill="var(--ink)" />
+          <circle cx="78" cy="22" r="9" fill="var(--ink)" />
+          <circle cx="50" cy="82" r="9" fill="var(--ink)" />
+          <circle cx="50" cy="50" r="6" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <line x1="22" y1="22" x2="50" y2="50" stroke="var(--bone)" stroke-width="3" />
+          <line x1="78" y1="22" x2="50" y2="50" stroke="var(--bone)" stroke-width="3" />
+          <line x1="50" y1="50" x2="50" y2="82" stroke="var(--bone)" stroke-width="3" />
+          <circle cx="22" cy="22" r="9" fill="var(--bone)" />
+          <circle cx="78" cy="22" r="9" fill="var(--bone)" />
+          <circle cx="50" cy="82" r="9" fill="var(--bone)" />
+          <circle cx="50" cy="50" r="6" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Strategy</div>
+      <h3>The Asterism</h3>
+      <p>Three outer dots + one inner dot, joined by thin lines. A constellation. A canvas reduced to its essential shape — the Super Canvas as a glyph.</p>
+      <div class="meaning">— a plan, drawn in three points.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  <span class="serif">Pure marks. <em>One color, no text.</em></span>
+  Each renders on light and dark with equal weight. Pick a direction — the proportions, line weight, and exact shape are starting points you'll refine.
+</div>
+
+</body>
+</html>
