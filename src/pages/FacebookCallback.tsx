@@ -22,6 +22,9 @@ export default function FacebookCallback() {
   const [purpose, setPurpose] = useState<"leads" | "scheduler">("leads");
   const [returnPath, setReturnPath] = useState<string>("/dashboard");
   const [clientId, setClientId] = useState<string>("");
+  // Echoed back to the edge fn on the second call so it doesn't re-exchange
+  // the single-use OAuth code.
+  const [userToken, setUserToken] = useState<string | null>(null);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -80,17 +83,35 @@ export default function FacebookCallback() {
     setTimeout(() => window.close(), 2000);
   }
 
+  // Raw fetch so we can read the response body on non-2xx — supabase-js's
+  // functions.invoke wraps errors in a generic "non-2xx status code" message
+  // that hides the actual reason.
+  async function callEdgeFn(body: Record<string, unknown>): Promise<{ data: any; error: string | null }> {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+    const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/facebook-oauth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}` },
+      body: JSON.stringify(body),
+    });
+    let parsed: any = null;
+    try { parsed = await res.json(); } catch { /* non-json body */ }
+    if (!res.ok) {
+      const detail = parsed?.error || (await res.text().catch(() => "")) || `HTTP ${res.status}`;
+      return { data: null, error: `(${res.status}) ${detail}` };
+    }
+    return { data: parsed, error: parsed?.error ?? null };
+  }
+
   // ── New scheduler flow (full-page redirect, page picker inline) ─────
   async function runSchedulerCallback(code: string, client_id: string, stateParam: string) {
-    const { data, error: invokeError } = await supabase.functions.invoke("facebook-oauth", {
-      body: { action: "connect_for_scheduling", code, client_id, state: stateParam },
+    const { data, error } = await callEdgeFn({
+      action: "connect_for_scheduling", code, client_id, state: stateParam,
     });
-    if (invokeError || data?.error) {
-      handleError(invokeError?.message || data?.error || "Connection failed", "scheduler");
-      return;
-    }
+    if (error) { handleError(error, "scheduler"); return; }
     if (data?.needs_page_pick) {
       setPages(data.pages || []);
+      setUserToken(data.user_token ?? null);
       setStatus("pick_page");
       return;
     }
@@ -101,15 +122,12 @@ export default function FacebookCallback() {
     setStatus("loading");
     setMessage("Connecting page...");
     const url = new URL(window.location.href);
-    const code = url.searchParams.get("code")!;
     const stateParam = url.searchParams.get("state")!;
-    const { data, error: invokeError } = await supabase.functions.invoke("facebook-oauth", {
-      body: { action: "connect_for_scheduling", code, client_id: clientId, state: stateParam, page_id },
+    // Reuse the user_token from the first call — the OAuth code is single-use.
+    const { data, error } = await callEdgeFn({
+      action: "connect_for_scheduling", client_id: clientId, state: stateParam, page_id, user_token: userToken,
     });
-    if (invokeError || data?.error) {
-      handleError(invokeError?.message || data?.error || "Connection failed", "scheduler");
-      return;
-    }
+    if (error) { handleError(error, "scheduler"); return; }
     finishScheduler(data);
   }
 

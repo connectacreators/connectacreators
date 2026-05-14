@@ -152,31 +152,49 @@ serve(async (req) => {
   // Same code-exchange flow as `callback` but writes to social_connections
   // and also creates an instagram row if the Page has a linked IG Business
   // account. Used when the user OAuth's from the scheduler's "Connect" UI.
+  //
+  // Called twice: first without page_id (returns the page list + user_token),
+  // second with the chosen page_id AND the user_token echoed back. The OAuth
+  // code is consumed on the first call only — we cannot exchange it a second
+  // time because Meta single-uses it.
   if (action === "connect_for_scheduling") {
-    const { code, client_id, state, page_id: requestedPageId } = body;
-    if (!code || !client_id) return jsonError("Missing code or client_id", 400);
+    const { code, client_id, state, page_id: requestedPageId, user_token: providedUserToken } = body;
+    if (!client_id) return jsonError("Missing client_id", 400);
+    if (!code && !providedUserToken) return jsonError("Missing code or user_token", 400);
 
     try {
-      // 1. Exchange code for short-lived user token
-      const tokenRes = await fetch(
-        `${FB_API}/oauth/access_token?` +
-          new URLSearchParams({ client_id: FB_APP_ID, client_secret: FB_APP_SECRET, redirect_uri: REDIRECT_URI, code })
-      );
-      if (!tokenRes.ok) return jsonError("Token exchange failed", 400);
-      const { access_token: shortLivedToken } = await tokenRes.json();
+      let longLivedUserToken: string;
 
-      // 2. Exchange for long-lived user token
-      const longRes = await fetch(
-        `${FB_API}/oauth/access_token?` +
-          new URLSearchParams({
-            grant_type: "fb_exchange_token",
-            client_id: FB_APP_ID,
-            client_secret: FB_APP_SECRET,
-            fb_exchange_token: shortLivedToken,
-          })
-      );
-      if (!longRes.ok) return jsonError("Long-lived token exchange failed", 400);
-      const { access_token: longLivedUserToken } = await longRes.json();
+      if (providedUserToken) {
+        // Second call (page picked) — reuse the token from the first call.
+        longLivedUserToken = providedUserToken;
+      } else {
+        // First call — exchange the OAuth code once.
+        const tokenRes = await fetch(
+          `${FB_API}/oauth/access_token?` +
+            new URLSearchParams({ client_id: FB_APP_ID, client_secret: FB_APP_SECRET, redirect_uri: REDIRECT_URI, code })
+        );
+        if (!tokenRes.ok) {
+          const err = await tokenRes.text();
+          return jsonError(`Token exchange failed: ${err}`, 400);
+        }
+        const { access_token: shortLivedToken } = await tokenRes.json();
+
+        const longRes = await fetch(
+          `${FB_API}/oauth/access_token?` +
+            new URLSearchParams({
+              grant_type: "fb_exchange_token",
+              client_id: FB_APP_ID,
+              client_secret: FB_APP_SECRET,
+              fb_exchange_token: shortLivedToken,
+            })
+        );
+        if (!longRes.ok) {
+          const err = await longRes.text();
+          return jsonError(`Long-lived token exchange failed: ${err}`, 400);
+        }
+        ({ access_token: longLivedUserToken } = await longRes.json());
+      }
 
       // 3. List pages (include instagram_business_account so we can also wire IG)
       const pagesRes = await fetch(
@@ -192,7 +210,9 @@ serve(async (req) => {
       }
 
       // 4. If front-end picked a specific page, use it; otherwise return the
-      //    list so the front-end can ask the user to pick.
+      //    list so the front-end can ask the user to pick. We echo the user
+      //    token back so the second call doesn't need to re-exchange the
+      //    single-use OAuth code.
       if (!requestedPageId) {
         return json({
           needs_page_pick: true,
@@ -201,6 +221,7 @@ serve(async (req) => {
             page_name: p.name,
             has_instagram: Boolean(p.instagram_business_account?.id),
           })),
+          user_token: longLivedUserToken,
         });
       }
 
