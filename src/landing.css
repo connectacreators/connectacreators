@@ -199,14 +199,15 @@ html, body, #root { margin: 0; padding: 0; }
 
 .landing-editorial .section-h2 {
   font-family: 'EB Garamond', Georgia, serif;
-  font-size: clamp(40px, 5.5vw, 64px);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  font-size: clamp(32px, 4.4vw, 52px);
+  line-height: 1.08;
+  letter-spacing: -0.018em;
   font-weight: 500;
   margin: 0;
+  padding-bottom: 0.18em; /* breathing room for the scribble-under ::after */
 }
 .landing-editorial .section-h2--smaller {
-  font-size: clamp(36px, 4.6vw, 52px);
+  font-size: clamp(28px, 3.6vw, 42px);
 }
 
 .landing-editorial .section-lede {

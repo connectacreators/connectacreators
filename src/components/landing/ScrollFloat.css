@@ -1,16 +1,28 @@
 .scroll-float {
-  overflow: hidden;
   margin: 0;
+  /* No overflow: hidden — it was clipping the .scribble-under ::after
+     pseudo-elements that sit below the text baseline. */
 }
 
 .scroll-float-text {
-  display: inline-block;
   /* Inherit typography from the parent containerClassName (e.g. section-h2)
      instead of overriding with a fixed clamp. ScrollFloat is style-neutral. */
-  font: inherit;
+  display: inline;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
   letter-spacing: inherit;
   line-height: inherit;
   text-align: inherit;
+  color: inherit;
+}
+
+.scroll-float .char {
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 .scroll-float .char {
