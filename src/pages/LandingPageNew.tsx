@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import "../landing.css";
 import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
+import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 
 /* =============================================================================
    The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
@@ -71,109 +72,6 @@ function WordRise({
         </span>
       ))}
     </>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   Peeking editorial character — a creator with a phone showing
-   a rising chart. Inline SVG, ink stroke + bone/aqua/honey fills.
-   ───────────────────────────────────────────────────────────── */
-function PeekingCreator({ style }: { style?: React.CSSProperties }) {
-  return (
-    <svg
-      viewBox="0 0 200 240"
-      xmlns="http://www.w3.org/2000/svg"
-      style={style}
-      aria-hidden
-    >
-      {/* Hair squiggles */}
-      <path
-        d="M 70 32 Q 76 22, 86 28 Q 96 20, 104 28 Q 113 22, 122 30 Q 130 28, 132 38"
-        stroke="#0A0E12"
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* Head */}
-      <circle cx="100" cy="52" r="22" fill="#FBF8EE" stroke="#0A0E12" strokeWidth="2.5" />
-      {/* Glasses */}
-      <circle cx="92" cy="50" r="5" fill="none" stroke="#0A0E12" strokeWidth="1.8" />
-      <circle cx="108" cy="50" r="5" fill="none" stroke="#0A0E12" strokeWidth="1.8" />
-      <line x1="97" y1="50" x2="103" y2="50" stroke="#0A0E12" strokeWidth="1.8" strokeLinecap="round" />
-      {/* Smile */}
-      <path d="M 93 60 Q 100 64, 107 60" stroke="#0A0E12" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      {/* Neck */}
-      <line x1="100" y1="74" x2="100" y2="86" stroke="#0A0E12" strokeWidth="2.5" />
-      {/* Body / sweater */}
-      <path
-        d="M 64 116 Q 72 86, 100 86 Q 128 86, 136 116 L 138 200 L 62 200 Z"
-        fill="#E0A560"
-        stroke="#0A0E12"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-      {/* Collar stripe */}
-      <path
-        d="M 80 96 Q 100 100, 120 96"
-        stroke="#0A0E12"
-        strokeWidth="2"
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* Arm raised holding phone */}
-      <path
-        d="M 138 116 Q 154 100, 168 82"
-        stroke="#0A0E12"
-        strokeWidth="2.5"
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* Phone body */}
-      <rect
-        x="150"
-        y="48"
-        width="26"
-        height="42"
-        rx="5"
-        fill="#0A0E12"
-        stroke="#0A0E12"
-        strokeWidth="2.5"
-      />
-      {/* Phone screen */}
-      <rect x="153" y="53" width="20" height="32" rx="2" fill="#8FD0D5" />
-      {/* Rising chart inside screen */}
-      <path
-        d="M 155 76 L 159 71 L 163 73 L 167 67 L 171 62"
-        stroke="#0A0E12"
-        strokeWidth="1.8"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Tiny arrowhead */}
-      <path
-        d="M 171 62 L 168 63 M 171 62 L 170 65"
-        stroke="#0A0E12"
-        strokeWidth="1.6"
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* Sparkle viral indicators */}
-      <path
-        d="M 180 38 L 184 34 L 180 30 L 176 34 Z"
-        fill="#E0A560"
-        stroke="#0A0E12"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <circle cx="186" cy="68" r="3" fill="#8FD0D5" stroke="#0A0E12" strokeWidth="1.6" />
-      <g stroke="#0A0E12" strokeWidth="2" strokeLinecap="round">
-        <line x1="186" y1="22" x2="190" y2="22" />
-        <line x1="188" y1="20" x2="188" y2="24" />
-      </g>
-      {/* Hands at waist */}
-      <circle cx="64" cy="120" r="6" fill="#FBF8EE" stroke="#0A0E12" strokeWidth="2" />
-    </svg>
   );
 }
 
@@ -830,16 +728,20 @@ export default function LandingPageNew() {
 
       {/* ===== Real track record — bone panel ===== */}
       <section className="panel-bone" style={{ padding: "80px 0 90px", marginTop: 24, position: "relative", overflow: "visible" }}>
-        {/* Peeking creator — pokes up from the top-right of the bone panel into the ink page above */}
-        <PeekingCreator
+        {/* Sticker — peeks from the top-right of the bone panel into the ink page above */}
+        <img
+          src={miroodlesLaptopEye}
+          alt=""
+          aria-hidden
           style={{
             position: "absolute",
-            top: -110,
-            right: "6%",
-            width: 110,
-            height: 168,
+            top: -100,
+            right: "5%",
+            width: 170,
+            height: "auto",
             zIndex: 5,
             pointerEvents: "none",
+            transform: "rotate(-6deg)",
           }}
         />
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", position: "relative" }}>
