@@ -190,6 +190,17 @@ function PlanCard({
             letterSpacing: "-0.01em",
           }}
         >
+          <span
+            style={{
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              fontWeight: 800,
+              fontSize: "0.85em",
+              marginRight: 6,
+            }}
+          >
+            PLAN:
+          </span>
           {plan.summary || "My plan"}
         </p>
         <div className="space-y-1.5 mb-3">
@@ -215,22 +226,6 @@ function PlanCard({
               </span>
               <span className="text-foreground flex-1 leading-snug">
                 {s.description ?? s.tool ?? "(unnamed step)"}
-                {s.tool && s.description && (
-                  <span
-                    className="ml-2 inline-block"
-                    style={{
-                      fontFamily: "'SF Mono', Menlo, Consolas, monospace",
-                      fontSize: 10,
-                      padding: "1px 6px",
-                      borderRadius: 4,
-                      background: "rgba(201,169,110,0.08)",
-                      color: "rgba(201,169,110,0.75)",
-                      verticalAlign: "1px",
-                    }}
-                  >
-                    {s.tool}
-                  </span>
-                )}
               </span>
             </div>
           ))}
