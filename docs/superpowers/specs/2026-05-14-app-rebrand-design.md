@@ -1,6 +1,6 @@
 # Whole-App Rebrand — Color + Font Enforcement
 
-**Status:** PARKED — re-brainstorm before executing. Landing-page plan ships first; this one is dormant until the user revisits.
+**Status:** SUPERSEDED — re-brainstormed 2026-05-14. The active spec is `2026-05-14-app-editorial-rebrand-design.md`. This file is kept as the original draft for history only; do not implement from this one.
 **Date:** 2026-05-14
 **Scope:** Every authenticated and unauthenticated route inside `src/` — replace current dark cyan/lime palette with Ink + Aqua + Honey · enforce EB Garamond + Figtree as the only two font families allowed
 **Companion plan:** `2026-05-14-landing-page-redesign-design.md` — that one ships first as a scoped pilot, this one cascades the same system across the rest of the app
