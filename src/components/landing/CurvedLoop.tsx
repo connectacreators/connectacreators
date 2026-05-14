@@ -12,6 +12,8 @@ interface CurvedLoopProps {
   pathD?: string;
   /** Override the default 0 0 1440 120 viewBox */
   viewBox?: string;
+  /** SVG preserveAspectRatio — "none" stretches to container edges */
+  preserveAspectRatio?: string;
 }
 
 export default function CurvedLoop({
@@ -23,6 +25,7 @@ export default function CurvedLoop({
   interactive = true,
   pathD: pathDProp,
   viewBox = "0 0 1440 120",
+  preserveAspectRatio = "xMidYMid meet",
 }: CurvedLoopProps) {
   const text = useMemo(() => {
     const hasTrailing = /\s| $/.test(marqueeText);
@@ -124,7 +127,11 @@ export default function CurvedLoop({
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
     >
-      <svg className={`curved-loop-svg ${className || ""}`} viewBox={viewBox}>
+      <svg
+        className={`curved-loop-svg ${className || ""}`}
+        viewBox={viewBox}
+        preserveAspectRatio={preserveAspectRatio}
+      >
         <text
           ref={measureRef}
           xmlSpace="preserve"
