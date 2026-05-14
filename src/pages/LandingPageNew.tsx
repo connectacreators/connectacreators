@@ -1061,7 +1061,6 @@ export default function LandingPageNew() {
           fontWeight: 500,
           margin: "12px 18px 0",
           borderRadius: 999,
-          border: "1.5px solid var(--bone)",
         }}
       >
         <span style={{ marginRight: 6 }}>
@@ -1074,13 +1073,15 @@ export default function LandingPageNew() {
         </Link>
       </div>
 
-      {/* ===== Floating nav — wisprflow style: bone pill with ink text, side margins, sticky ===== */}
+      {/* ===== Floating nav — wisprflow style: bone pill, centered, compact width ===== */}
       <nav
         style={{
           position: "sticky",
           top: 12,
           zIndex: 50,
-          margin: "12px 18px 0",
+          maxWidth: 760,
+          width: "calc(100% - 36px)",
+          margin: "12px auto 0",
           background: "var(--bone)",
           color: "var(--ink)",
           border: "1.5px solid var(--ink)",
