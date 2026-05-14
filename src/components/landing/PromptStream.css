@@ -16,26 +16,23 @@
   user-select: none;
 }
 
-/* -------- LEFT: curling prompt text -------- */
-.prompt-stream-curve {
+/* -------- LEFT: curling prompt text (CurvedLoop on a spiral path) -------- */
+.prompt-stream-left {
   position: absolute;
-  left: 2%;
-  top: 0;
-  bottom: 0;
-  width: 42%;
-  max-width: 520px;
-  height: 100%;
+  left: -2%;
+  top: -40px;
+  bottom: -40px;
+  width: 48%;
+  max-width: 640px;
   pointer-events: none;
-  overflow: visible;
 }
-
-.prompt-stream-text {
-  font-family: 'EB Garamond', Georgia, serif;
-  font-style: italic;
-  font-size: 15px;
-  fill: rgba(234, 230, 220, 0.36);
-  letter-spacing: 0.005em;
-  font-weight: 400;
+.prompt-stream-left .curved-loop-jacket {
+  height: 100%;
+  width: 100%;
+}
+.prompt-stream-left .curved-loop-svg {
+  height: 100%;
+  width: 100%;
 }
 
 /* -------- RIGHT: tilted dark banner -------- */

@@ -33,3 +33,19 @@
 .curved-loop-svg.honey { fill: var(--honey, #E0A560); }
 .curved-loop-svg.aqua  { fill: var(--aqua, #8FD0D5); }
 .curved-loop-svg.ink   { fill: var(--ink, #0A0E12); }
+
+/* Thin italic variant — for "prompt stream" stream-of-consciousness curves */
+.curved-loop-svg.thin-italic {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.15rem;
+  text-transform: none;
+  letter-spacing: 0.005em;
+  fill: rgba(234, 230, 220, 0.38);
+  aspect-ratio: unset;
+  height: 100%;
+}
+@media (max-width: 768px) {
+  .curved-loop-svg.thin-italic { font-size: 0.85rem; }
+}

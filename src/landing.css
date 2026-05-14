@@ -545,6 +545,18 @@ html, body, #root { margin: 0; padding: 0; }
   user-select: none;
 }
 
+/* ---------- Proximity weight (subtle bold on cursor approach) ----------
+   Global cursor tracker sets --prox-wght per-word. Width is locked on first
+   measurement so weight changes don't shift surrounding text. */
+.landing-editorial .prox-word,
+.landing-editorial .prox-letter {
+  display: inline-block;
+  text-align: center;
+  font-variation-settings: 'wght' var(--prox-wght, 400);
+  transition: font-variation-settings 110ms ease-out;
+  white-space: pre;
+}
+
 /* ---------- Letter-by-letter rise (motion only, no opacity) ---------- */
 @keyframes le-letter-rise {
   0%   { transform: translateY(34px) rotate(-3deg); }

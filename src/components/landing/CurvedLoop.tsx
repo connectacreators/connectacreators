@@ -8,6 +8,10 @@ interface CurvedLoopProps {
   curveAmount?: number;
   direction?: "left" | "right";
   interactive?: boolean;
+  /** Override the default smile arc with a custom path */
+  pathD?: string;
+  /** Override the default 0 0 1440 120 viewBox */
+  viewBox?: string;
 }
 
 export default function CurvedLoop({
@@ -17,6 +21,8 @@ export default function CurvedLoop({
   curveAmount = 400,
   direction = "left",
   interactive = true,
+  pathD: pathDProp,
+  viewBox = "0 0 1440 120",
 }: CurvedLoopProps) {
   const text = useMemo(() => {
     const hasTrailing = /\s| $/.test(marqueeText);
@@ -30,9 +36,8 @@ export default function CurvedLoop({
   const [offset, setOffset] = useState(0);
   const uid = useId();
   const pathId = `curve-${uid.replace(/:/g, "")}`;
-  // Single smile arc — dips down in the middle so text can "wrap" UI elements
-  // placed directly below it. Wide ends, deep middle.
-  const pathD = `M-100,30 Q 720,${30 + curveAmount} 1540,30`;
+  // Default: single smile arc. Caller can pass a custom pathD to draw their own.
+  const pathD = pathDProp ?? `M-100,30 Q 720,${30 + curveAmount} 1540,30`;
 
   const dragRef = useRef(false);
   const lastXRef = useRef(0);
@@ -119,7 +124,7 @@ export default function CurvedLoop({
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
     >
-      <svg className="curved-loop-svg" viewBox="0 0 1440 120">
+      <svg className={`curved-loop-svg ${className || ""}`} viewBox={viewBox}>
         <text
           ref={measureRef}
           xmlSpace="preserve"

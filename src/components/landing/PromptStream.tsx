@@ -1,5 +1,5 @@
-import { useId } from "react";
 import "./PromptStream.css";
+import CurvedLoop from "./CurvedLoop";
 
 interface PromptStreamProps {
   /**
@@ -39,8 +39,6 @@ export default function PromptStream({
   outputText = DEFAULT_OUTPUT,
   className,
 }: PromptStreamProps) {
-  const uid = useId();
-  const pathId = `prompt-curve-${uid.replace(/:/g, "")}`;
   // Triple the output text so the marquee can loop seamlessly.
   const trackText = outputText + outputText + outputText;
 
@@ -51,20 +49,20 @@ export default function PromptStream({
         <div className="prompt-stream-track">{trackText}</div>
       </div>
 
-      {/* LEFT: curling italic prompt text that sweeps in toward the center */}
-      <svg className="prompt-stream-curve" viewBox="0 0 420 320" preserveAspectRatio="xMidYMid meet">
-        <path
-          id={pathId}
-          d="M 410 20 C 250 -10 60 100 60 200 C 60 295 230 330 360 260"
-          fill="none"
-          stroke="transparent"
+      {/* LEFT: animated curling italic prompt text on a spiral-wrap path
+          (matches wisprflow's "thought-cloud" feel — text comes in from upper-right,
+          wraps around the lower-left, then swings back up). */}
+      <div className="prompt-stream-left">
+        <CurvedLoop
+          marqueeText={promptText}
+          speed={0.4}
+          direction="right"
+          interactive={false}
+          pathD="M 780 60 C 460 -60 80 80 60 280 C 40 440 320 480 580 380 C 760 320 760 200 580 220"
+          viewBox="0 0 820 500"
+          className="thin-italic"
         />
-        <text className="prompt-stream-text">
-          <textPath href={`#${pathId}`} startOffset="0">
-            {promptText}
-          </textPath>
-        </text>
-      </svg>
+      </div>
 
       {/* CENTER: animated waveform pill — the AI assistant indicator */}
       <div className="prompt-stream-pill">

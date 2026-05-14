@@ -21,9 +21,10 @@ import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import doodleSelfie from "@/assets/doodle-selfie.png";
 import doodleMessy from "@/assets/doodle-messy.png";
+import yuppiesBubble from "@/assets/yuppies-bubble.png";
+import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
 import CurvedLoop from "@/components/landing/CurvedLoop";
 import ScrollFloat from "@/components/landing/ScrollFloat";
-import VariableProximity from "@/components/landing/VariableProximity";
 import PromptStream from "@/components/landing/PromptStream";
 
 /* =============================================================================
@@ -50,7 +51,7 @@ function LetterRise({
       {Array.from(text).map((ch, i) => (
         <span
           key={i}
-          className="letter-rise"
+          className="letter-rise prox-letter"
           style={{ animationDelay: `${delay + i * step}s` }}
         >
           {ch === " " ? " " : ch}
@@ -58,6 +59,26 @@ function LetterRise({
       ))}
     </>
   );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ProxText — splits text into word spans tagged for proximity weight.
+   The global mouse tracker in LandingPageNew sets --prox-wght on each
+   word based on cursor distance, fattening only what's directly under
+   the cursor. Width is locked on mount so no layout shift.
+   ───────────────────────────────────────────────────────────── */
+function ProxText({ children }: { children: string }) {
+  const parts = children.split(" ");
+  const out: React.ReactNode[] = [];
+  parts.forEach((word, i) => {
+    out.push(
+      <span key={`w-${i}`} className="prox-word">
+        {word}
+      </span>
+    );
+    if (i < parts.length - 1) out.push(" ");
+  });
+  return <>{out}</>;
 }
 
 function WordRise({
@@ -832,6 +853,68 @@ export default function LandingPageNew() {
     return () => window.removeEventListener("keydown", onKey);
   }, [videoOpen]);
 
+  // Global proximity-weight tracker. Locks word/letter widths after fonts
+  // load (no text expansion), then on every mousemove updates --prox-wght
+  // for spans within `radius` of the cursor.
+  useEffect(() => {
+    const root = scrollRoot.current;
+    if (!root) return;
+
+    const lockWidths = () => {
+      const targets = root.querySelectorAll<HTMLElement>(".prox-word, .prox-letter");
+      targets.forEach((el) => {
+        if (el.dataset.proxLocked) return;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0) return;
+        el.style.minWidth = `${r.width}px`;
+        el.dataset.proxLocked = "true";
+      });
+    };
+    if ((document as Document & { fonts?: FontFaceSet }).fonts) {
+      (document as Document & { fonts: FontFaceSet }).fonts.ready.then(lockWidths);
+      // Also run after a tick in case ready already fired
+      setTimeout(lockWidths, 50);
+      setTimeout(lockWidths, 500);
+    } else {
+      setTimeout(lockWidths, 100);
+    }
+
+    const RADIUS = 65;
+    const DELTA = 80; // wght: 400 → 480, very subtle
+    let raf: number | null = null;
+    let posX = -9999;
+    let posY = -9999;
+
+    const onMove = (e: MouseEvent) => {
+      posX = e.clientX;
+      posY = e.clientY;
+      if (raf !== null) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const targets = root.querySelectorAll<HTMLElement>(".prox-word, .prox-letter");
+        targets.forEach((el) => {
+          const r = el.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const dist = Math.hypot(posX - cx, posY - cy);
+          if (dist < RADIUS) {
+            const t = 1 - dist / RADIUS;
+            const w = Math.round(400 + DELTA * t);
+            el.style.setProperty("--prox-wght", String(w));
+          } else if (el.style.getPropertyValue("--prox-wght")) {
+            el.style.removeProperty("--prox-wght");
+          }
+        });
+      });
+    };
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      if (raf !== null) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   // sticky nav state
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
@@ -1010,21 +1093,41 @@ export default function LandingPageNew() {
 
       {/* ===== HERO ===== */}
       <section className="bg-ink" style={{ position: "relative", paddingTop: 80, paddingBottom: 60, overflow: "hidden" }}>
-        {/* Curved marginalia */}
-        <div
-          className="curl curl-hide-mobile"
-          data-reveal="7"
-          style={{ top: 120, left: "4%", "--curl-rot": "rotate(-9deg)", transform: "rotate(-9deg)" } as React.CSSProperties}
-        >
-          — for creators who'd rather create
-        </div>
-        <div
-          className="curl curl-hide-mobile"
-          data-reveal="7"
-          style={{ top: 220, right: "3%", "--curl-rot": "rotate(7deg)", transform: "rotate(7deg)" } as React.CSSProperties}
-        >
-          no more 14 tabs, no more notion graveyard, just the next move
-        </div>
+        {/* Yuppies decorative stickers replace the text marginalia */}
+        <InteractiveSticker
+          src={yuppiesBubble}
+          baseRotation={-8}
+          maxOffset={10}
+          radius={220}
+          style={{
+            position: "absolute",
+            top: 100,
+            left: "3%",
+            width: 260,
+            height: "auto",
+            opacity: 0.62,
+            zIndex: 0,
+            pointerEvents: "none",
+            display: "block",
+          }}
+        />
+        <InteractiveSticker
+          src={yuppiesMagnifyingGlass}
+          baseRotation={6}
+          maxOffset={10}
+          radius={220}
+          style={{
+            position: "absolute",
+            top: 180,
+            right: "2%",
+            width: 280,
+            height: "auto",
+            opacity: 0.62,
+            zIndex: 0,
+            pointerEvents: "none",
+            display: "block",
+          }}
+        />
 
         <div
           style={{
@@ -1111,14 +1214,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <VariableProximity
-              label="Connecta plans your next 30 days of content before you open the app. Hooks that land, posts that book — strategy, scripts, and schedule done for you."
-              fromFontVariationSettings="'wght' 400"
-              toFontVariationSettings="'wght' 540"
-              containerRef={scrollRoot}
-              radius={90}
-              falloff="linear"
-            />
+            <ProxText>Connecta plans your next 30 days of content before you open the app. Hooks that land, posts that book — strategy, scripts, and schedule done for you.</ProxText>
           </div>
 
           <div
@@ -1341,14 +1437,7 @@ export default function LandingPageNew() {
                 </span>
               </h2>
               <div className="section-lede" style={{ marginBottom: 28, position: "relative" }}>
-                <VariableProximity
-                  label="Super Canvas studies your brand voice, your audience, what's spiking on the feed, and what your last 50 posts taught it. Then it lays out the next 30 days — visually, editably, in one place."
-                  fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 540"
-                  containerRef={scrollRoot}
-                  radius={90}
-                  falloff="linear"
-                />
+                <ProxText>Super Canvas studies your brand voice, your audience, what's spiking on the feed, and what your last 50 posts taught it. Then it lays out the next 30 days — visually, editably, in one place.</ProxText>
               </div>
 
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1490,14 +1579,7 @@ export default function LandingPageNew() {
                 </span>
               </h2>
               <div className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)", position: "relative" }}>
-                <VariableProximity
-                  label="Connecta scans the feeds your audience is on, flags outlier videos that beat their channel's average by 8× or more, and shows you the hooks before everyone else copies them."
-                  fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 540"
-                  containerRef={scrollRoot}
-                  radius={90}
-                  falloff="linear"
-                />
+                <ProxText>Connecta scans the feeds your audience is on, flags outlier videos that beat their channel's average by 8× or more, and shows you the hooks before everyone else copies them.</ProxText>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 32 }}>
@@ -1551,14 +1633,7 @@ export default function LandingPageNew() {
               <em className="soft">underneath the strategy.</em>
             </h2>
             <div className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center", position: "relative" }}>
-              <VariableProximity
-                label="Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval — so nothing dies in a Slack thread."
-                fromFontVariationSettings="'wght' 400"
-                toFontVariationSettings="'wght' 540"
-                containerRef={scrollRoot}
-                radius={90}
-                falloff="linear"
-              />
+              <ProxText>Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval — so nothing dies in a Slack thread.</ProxText>
             </div>
           </div>
 
@@ -1659,14 +1734,7 @@ export default function LandingPageNew() {
                 Soon, <em className="honey">the last mile.</em>
               </h2>
               <div className="section-lede" style={{ marginBottom: 24, position: "relative" }}>
-                <VariableProximity
-                  label="Strategy → production → publish. We're closing the loop. Hit one button and your week ships to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested."
-                  fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 540"
-                  containerRef={scrollRoot}
-                  radius={90}
-                  falloff="linear"
-                />
+                <ProxText>Strategy → production → publish. We're closing the loop. Hit one button and your week ships to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested.</ProxText>
               </div>
               <a
                 href="#"
@@ -1781,27 +1849,11 @@ export default function LandingPageNew() {
               A
             </div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 17, color: "var(--bone)" }}>
-                <VariableProximity
-                  label="Aria Wells"
-                  fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 540"
-                  containerRef={scrollRoot}
-                  radius={90}
-                  falloff="linear"
-                  className="serif"
-                  style={{ fontSize: 17, color: "var(--bone)" }}
-                />
+              <div className="serif" style={{ fontSize: 17, color: "var(--bone)" }}>
+                <ProxText>Aria Wells</ProxText>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
-                <VariableProximity
-                  label="Creator · 2.4M followers · runs her own brand"
-                  fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 540"
-                  containerRef={scrollRoot}
-                  radius={90}
-                  falloff="linear"
-                />
+                <ProxText>Creator · 2.4M followers · runs her own brand</ProxText>
               </div>
             </div>
           </div>
@@ -1876,14 +1928,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <VariableProximity
-              label="No credit card. Bring your existing chaos — Connecta will fold it neatly into a 30-day plan within five minutes."
-              fromFontVariationSettings="'wght' 400"
-              toFontVariationSettings="'wght' 540"
-              containerRef={scrollRoot}
-              radius={90}
-              falloff="linear"
-            />
+            <ProxText>No credit card. Bring your existing chaos — Connecta will fold it neatly into a 30-day plan within five minutes.</ProxText>
           </div>
           <Link to="/scripts" className="btn btn-honey btn-large">
             Get started <ArrowRight size={16} />
@@ -1930,14 +1975,7 @@ export default function LandingPageNew() {
                 </span>
               </Link>
               <div style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6, position: "relative" }}>
-                <VariableProximity
-                  label="The AI strategist for creators and the brands they work with."
-                  fromFontVariationSettings="'wght' 400"
-                  toFontVariationSettings="'wght' 540"
-                  containerRef={scrollRoot}
-                  radius={90}
-                  falloff="linear"
-                />
+                <ProxText>The AI strategist for creators and the brands they work with.</ProxText>
               </div>
             </div>
             {[
