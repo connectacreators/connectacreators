@@ -209,11 +209,13 @@ serve(async (req) => {
         pagesData.data || [];
 
       if (pages.length === 0) {
-        // Diagnostic: fetch granted permissions + identify the FB user so we know
-        // whether this is a "no pages" or a "scope not granted" problem.
+        // Diagnostic: gather info about FB user + permissions + businesses to
+        // distinguish "no pages" from "scope not granted" from "Business
+        // Manager pages without Facebook Access".
         let grantedScopes: string[] = [];
         let deniedScopes: string[] = [];
         let fbUser: { id?: string; name?: string } = {};
+        let businesses: Array<{ id: string; name: string }> = [];
         try {
           const permRes = await fetch(`${FB_API}/me/permissions?access_token=${longLivedUserToken}`);
           if (permRes.ok) {
@@ -228,18 +230,31 @@ serve(async (req) => {
           const meRes = await fetch(`${FB_API}/me?fields=id,name&access_token=${longLivedUserToken}`);
           if (meRes.ok) fbUser = await meRes.json();
         } catch { /* ignore */ }
+        try {
+          const bizRes = await fetch(`${FB_API}/me/businesses?fields=id,name&access_token=${longLivedUserToken}`);
+          if (bizRes.ok) {
+            const bizData = await bizRes.json();
+            businesses = bizData.data || [];
+          }
+        } catch { /* ignore */ }
 
         const diag = {
           fb_user: fbUser,
           granted: grantedScopes,
           declined: deniedScopes,
+          businesses,
           raw_pages_response: pagesData,
         };
         console.log("0 pages diagnostic:", JSON.stringify(diag));
+
+        const bizSummary = businesses.length > 0
+          ? `In ${businesses.length} Business Manager(s): ${businesses.map((b) => b.name).join(", ")}. Pages there require "Facebook Access" on each Page (Business Settings → People → ${fbUser.name} → Pages → enable Facebook Access).`
+          : "Not in any Business Manager — Pages should appear directly. They aren't, which is unusual.";
+
         return jsonError(
           `No Facebook Pages found. FB user: ${fbUser.name ?? fbUser.id ?? "unknown"}. ` +
           `Granted: ${grantedScopes.join(",") || "(none)"}. ` +
-          `Declined: ${deniedScopes.join(",") || "(none)"}.`,
+          `Declined: ${deniedScopes.join(",") || "(none)"}. ${bizSummary}`,
           400
         );
       }
