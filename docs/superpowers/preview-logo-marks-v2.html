@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>20 More Silent Marks — Connecta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0E12;
+    --bone: #EAE6DC;
+    --bone-warm: #FBF8EE;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Figtree', sans-serif;
+    background: var(--ink);
+    color: var(--bone);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-head {
+    text-align: center;
+    padding: 56px 28px 28px;
+  }
+  .page-head .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(143, 208, 213, 0.14);
+    color: #8FD0D5;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.16em;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .page-head h1 {
+    font-family: 'EB Garamond', serif;
+    font-size: 56px; font-weight: 500;
+    letter-spacing: -0.02em; line-height: 1.0;
+    margin: 0 0 14px;
+  }
+  .page-head h1 em { color: #E0A560; font-style: italic; }
+  .page-head p { color: rgba(234, 230, 220, 0.62); font-size: 15px; max-width: 640px; margin: 0 auto 22px; }
+
+  .kept-row {
+    display: inline-flex;
+    gap: 18px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: rgba(224, 165, 96, 0.12);
+    font-size: 12px;
+    color: rgba(234, 230, 220, 0.80);
+    align-items: center;
+  }
+  .kept-row strong { color: #E0A560; font-weight: 600; letter-spacing: 0.04em; }
+
+  .section-header {
+    text-align: center;
+    padding: 44px 28px 14px;
+  }
+  .section-header h2 {
+    font-family: 'EB Garamond', serif;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .section-header h2 em { color: rgba(234, 230, 220, 0.62); font-style: italic; font-weight: 400; }
+  .section-header .sub {
+    font-family: 'Figtree', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #E0A560;
+    font-weight: 600;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    max-width: 1240px;
+    margin: 18px auto 24px;
+    padding: 0 28px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .tile {
+    background: var(--bone);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 24px;
+    box-shadow: 5px 5px 0 var(--ink);
+    overflow: hidden;
+  }
+  .tile-pair {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .canvas {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    position: relative;
+    padding: 32px;
+    overflow: hidden;
+  }
+  .canvas.bone { background: var(--bone-warm); }
+  .canvas.ink  { background: var(--ink); border-left: 1.5px solid var(--ink); color: var(--bone); }
+  .canvas svg { width: 60%; height: 60%; }
+  .num {
+    position: absolute; top: 12px; left: 16px;
+    font-family: 'Figtree', monospace;
+    font-size: 10px; letter-spacing: 0.18em;
+    font-weight: 700;
+  }
+  .canvas.bone .num { color: rgba(10, 14, 18, 0.45); }
+  .canvas.ink .num  { color: rgba(234, 230, 220, 0.40); }
+
+  /* Type-glyph logos — use the actual EB Garamond font */
+  .canvas .glyph {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(72px, 16vw, 130px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    user-select: none;
+  }
+  .canvas .glyph.roman { font-style: normal; }
+  .canvas .glyph.semi { font-weight: 600; }
+  .canvas.bone .glyph { color: var(--ink); }
+  .canvas.ink  .glyph { color: var(--bone); }
+
+  .body {
+    padding: 22px 26px 24px;
+  }
+  .body .sub {
+    font-family: 'Figtree', sans-serif;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #A85B1F;
+    margin-bottom: 6px;
+  }
+  .body h3 {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px; font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  .body p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: rgba(10, 14, 18, 0.68);
+  }
+  .body .meaning {
+    margin-top: 10px;
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: rgba(10, 14, 18, 0.50);
+  }
+
+  .footer-note {
+    text-align: center;
+    padding: 40px 28px 80px;
+    color: rgba(234, 230, 220, 0.55);
+    font-size: 14px;
+  }
+  .footer-note .serif {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px;
+    color: var(--bone);
+    display: block;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .footer-note em { color: #E0A560; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="badge">More silent marks</div>
+  <h1>20 more, <em>typographic & hand-drawn.</em></h1>
+  <p>Leaning into the two directions you liked. Numbered 11–30 to continue from the previous batch. All single-color, no text, no decoration — just a mark.</p>
+  <div class="kept-row">
+    <span><strong>Kept so far:</strong> 06 The Lasso · 09 The Quote</span>
+  </div>
+</div>
+
+<div class="section-header">
+  <div class="sub">Typographic marks</div>
+  <h2>Glyphs as logos <em>— punctuation as identity.</em></h2>
+</div>
+
+<div class="grid">
+
+  <!-- 11 — Ampersand -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">11</span><span class="glyph">&amp;</span></div>
+      <div class="canvas ink"><span class="glyph">&amp;</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Ampersand</h3>
+      <p>The most beautiful character in any serif font, and the only one that literally means "and." Connecta in one glyph: the link between creator and outcome.</p>
+      <div class="meaning">— creators &amp; brands. Audiences &amp; reach.</div>
+    </div>
+  </div>
+
+  <!-- 12 — Pilcrow -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">12</span><span class="glyph">¶</span></div>
+      <div class="canvas ink"><span class="glyph">¶</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Pilcrow</h3>
+      <p>The paragraph mark — the editor's invisible sign that a thought changes direction. A pure editorial signal of "this is where the new thing begins."</p>
+      <div class="meaning">— a new paragraph in your story.</div>
+    </div>
+  </div>
+
+  <!-- 13 — Section sign -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">13</span><span class="glyph">§</span></div>
+      <div class="canvas ink"><span class="glyph">§</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Section</h3>
+      <p>Twin curves stacked — looks like a treble clef, an editorial chapter mark, an ampersand's quieter cousin. Very literary, very ownable.</p>
+      <div class="meaning">— chapter one of your career.</div>
+    </div>
+  </div>
+
+  <!-- 14 — At sign -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">14</span><span class="glyph">@</span></div>
+      <div class="canvas ink"><span class="glyph">@</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The At-Sign</h3>
+      <p>The handle. Where every creator lives. In EB Garamond italic, the @ becomes architectural rather than tech-y — like a hand-drawn snail.</p>
+      <div class="meaning">— @ is just a creator's name.</div>
+    </div>
+  </div>
+
+  <!-- 15 — Apostrophe -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">15</span><span class="glyph">&rsquo;</span></div>
+      <div class="canvas ink"><span class="glyph">&rsquo;</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Apostrophe</h3>
+      <p>Half of a quote mark. A single curl. The smallest possible signal of "voice" — what every creator is selling. Minimalist twin of #09 The Quote.</p>
+      <div class="meaning">— a voice in one stroke.</div>
+    </div>
+  </div>
+
+  <!-- 16 — Asterisk -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">16</span><span class="glyph roman" style="font-style: normal; font-weight: 600;">*</span></div>
+      <div class="canvas ink"><span class="glyph roman" style="font-style: normal; font-weight: 600;">*</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Asterisk</h3>
+      <p>Six-curve typographic asterisk — a footnote call, a sparkle, a wildcard. Anthropic-coded but in EB Garamond's drawing it reads as ink, not silicon.</p>
+      <div class="meaning">— there's always a footnote.</div>
+    </div>
+  </div>
+
+  <!-- 17 — Tilde -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">17</span><span class="glyph">~</span></div>
+      <div class="canvas ink"><span class="glyph">~</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Tilde</h3>
+      <p>The wave. Approximately. Almost. The mark of fluidity, of "this rhymes with that." The most casual punctuation in a creator's vocabulary.</p>
+      <div class="meaning">— viral ≈ inevitable.</div>
+    </div>
+  </div>
+
+  <!-- 18 — Em dash -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">18</span><span class="glyph">—</span></div>
+      <div class="canvas ink"><span class="glyph">—</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Em-Dash</h3>
+      <p>A pause inside the sentence. The most overused punctuation by writers — and by AI. Used right, it's a brand signature. Pure horizontal.</p>
+      <div class="meaning">— the pause that makes you keep reading.</div>
+    </div>
+  </div>
+
+  <!-- 19 — Section II / interrobang -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">19</span><span class="glyph">‽</span></div>
+      <div class="canvas ink"><span class="glyph">‽</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Interrobang</h3>
+      <p>A question and an exclamation, fused. The single punctuation for every viral hook. Disbelief and curiosity in one mark.</p>
+      <div class="meaning">— wait, really‽</div>
+    </div>
+  </div>
+
+  <!-- 20 — Curly Brace { -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone"><span class="num">20</span><span class="glyph">{</span></div>
+      <div class="canvas ink"><span class="glyph">{</span></div>
+    </div>
+    <div class="body">
+      <div class="sub">Glyph</div>
+      <h3>The Brace</h3>
+      <p>The opening of a set. A bracket around what's possible. In EB Garamond it feels architectural and considered — not coder-y.</p>
+      <div class="meaning">— { everything that could happen next }</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-header">
+  <div class="sub">Hand-drawn marks</div>
+  <h2>Single gestures <em>— pen on paper, ink on page.</em></h2>
+</div>
+
+<div class="grid">
+
+  <!-- 21 — Comma with long tail -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">21</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 20 Q 36 20, 36 38 Q 36 52, 50 54 Q 54 54, 56 50 Q 56 70, 38 88 Q 32 92, 28 92"
+            stroke="var(--ink)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 50 20 Q 36 20, 36 38 Q 36 52, 50 54 Q 54 54, 56 50 Q 56 70, 38 88 Q 32 92, 28 92"
+            stroke="var(--bone)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Long Comma</h3>
+      <p>One unbroken pen stroke — a comma with an exaggerated descending tail. Breath, pause, continuation. Calligraphic and personal.</p>
+      <div class="meaning">— stop for a second, but don't stop.</div>
+    </div>
+  </div>
+
+  <!-- 22 — Brushstroke -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">22</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 12 60 Q 28 32, 50 50 T 88 40"
+            stroke="var(--ink)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 12 60 Q 28 32, 50 50 T 88 40"
+            stroke="var(--bone)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Brushstroke</h3>
+      <p>A single ink-brush sweep. A Japanese sumi-e mark. Confidence in one motion — no second-guessing. Personality in the rhythm.</p>
+      <div class="meaning">— one move, the whole story.</div>
+    </div>
+  </div>
+
+  <!-- 23 — Loose knot ribbon -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">23</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 22 48 C 30 30, 50 30, 50 50 C 50 70, 70 70, 78 52 C 70 50, 50 50, 50 50 C 50 50, 30 50, 22 48 Z"
+            stroke="var(--ink)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 22 48 C 30 30, 50 30, 50 50 C 50 70, 70 70, 78 52 C 70 50, 50 50, 50 50 C 50 50, 30 50, 22 48 Z"
+            stroke="var(--bone)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Bow</h3>
+      <p>A ribbon tied in a single gesture. Like a thank-you note, like a wrapped gift. Connection that's done with care, not just done.</p>
+      <div class="meaning">— what you make for someone, not at them.</div>
+    </div>
+  </div>
+
+  <!-- 24 — Squiggle wave -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">24</span>
+        <svg viewBox="0 0 100 60" fill="none">
+          <path
+            d="M 8 30 Q 22 12, 36 30 T 64 30 T 92 30"
+            stroke="var(--ink)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 60" fill="none">
+          <path
+            d="M 8 30 Q 22 12, 36 30 T 64 30 T 92 30"
+            stroke="var(--bone)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Squiggle</h3>
+      <p>A sine wave drawn in a single gesture — the underline you see throughout the landing page, lifted as its own mark. Pure rhythm.</p>
+      <div class="meaning">— the heartbeat of the page, on its own.</div>
+    </div>
+  </div>
+
+  <!-- 25 — Hand-drawn check -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">25</span>
+        <svg viewBox="0 0 100 80" fill="none">
+          <path
+            d="M 10 46 Q 22 38, 36 64 Q 56 28, 90 12"
+            stroke="var(--ink)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 80" fill="none">
+          <path
+            d="M 10 46 Q 22 38, 36 64 Q 56 28, 90 12"
+            stroke="var(--bone)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Check</h3>
+      <p>A check mark drawn with momentum — long tail going up + to the right, like it's still in motion. Done, shipped, posted. The action verb.</p>
+      <div class="meaning">— that one is sent.</div>
+    </div>
+  </div>
+
+  <!-- 26 — Hand arrow -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">26</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 14 78 Q 38 50, 80 22"
+            stroke="var(--ink)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+          <path
+            d="M 62 18 L 84 18 L 84 38"
+            stroke="var(--ink)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 14 78 Q 38 50, 80 22"
+            stroke="var(--bone)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+          <path
+            d="M 62 18 L 84 18 L 84 38"
+            stroke="var(--bone)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Up-Right Arrow</h3>
+      <p>Two pen strokes — a rising curve + an arrowhead. Growth, charted by hand. Reads as "going up" without being a generic chart.</p>
+      <div class="meaning">— viral isn't an accident.</div>
+    </div>
+  </div>
+
+  <!-- 27 — Asterism (three asterisks) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">27</span>
+        <svg viewBox="0 0 100 80" fill="none">
+          <g fill="var(--ink)">
+            <path d="M 30 24 L 33 38 L 47 41 L 33 44 L 30 58 L 27 44 L 13 41 L 27 38 Z" />
+            <path d="M 70 24 L 73 38 L 87 41 L 73 44 L 70 58 L 67 44 L 53 41 L 67 38 Z" transform="translate(-20 16)" />
+            <path d="M 70 24 L 73 38 L 87 41 L 73 44 L 70 58 L 67 44 L 53 41 L 67 38 Z" />
+          </g>
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 80" fill="none">
+          <g fill="var(--bone)">
+            <path d="M 30 24 L 33 38 L 47 41 L 33 44 L 30 58 L 27 44 L 13 41 L 27 38 Z" />
+            <path d="M 70 24 L 73 38 L 87 41 L 73 44 L 70 58 L 67 44 L 53 41 L 67 38 Z" transform="translate(-20 16)" />
+            <path d="M 70 24 L 73 38 L 87 41 L 73 44 L 70 58 L 67 44 L 53 41 L 67 38 Z" />
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Asterism</h3>
+      <p>Three asterisks in a triangle — the literary asterism, used in books to mark a scene break too soft for a chapter title. Three stars, no caption.</p>
+      <div class="meaning">— between scenes, something happens.</div>
+    </div>
+  </div>
+
+  <!-- 28 — Crescent comma -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">28</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 30 14 C 14 30, 14 70, 30 86 C 50 78, 60 56, 60 50 C 60 44, 50 22, 30 14 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 30 14 C 14 30, 14 70, 30 86 C 50 78, 60 56, 60 50 C 60 44, 50 22, 30 14 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Crescent</h3>
+      <p>A crescent moon, drawn as one teardrop shape. Could be a phase, a pause, a vessel. The most metaphorical of the set.</p>
+      <div class="meaning">— quiet half of something whole.</div>
+    </div>
+  </div>
+
+  <!-- 29 — Sketched circle with center mark -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">29</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 16 50 Q 16 14, 50 14 Q 88 14, 88 50 Q 88 86, 50 88 Q 12 86, 14 48"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+          <circle cx="50" cy="50" r="6" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 16 50 Q 16 14, 50 14 Q 88 14, 88 50 Q 88 86, 50 88 Q 12 86, 14 48"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+          <circle cx="50" cy="50" r="6" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Sketched Target</h3>
+      <p>A hand-drawn imperfect circle with a small filled dot at the center. The mark for "we know exactly what to do next."</p>
+      <div class="meaning">— aimed, deliberately.</div>
+    </div>
+  </div>
+
+  <!-- 30 — Naked scribble (just the underline, no text above) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">30</span>
+        <svg viewBox="0 0 100 40" fill="none" preserveAspectRatio="xMidYMid meet">
+          <path
+            d="M 4 22 Q 16 6, 30 18 Q 46 28, 58 14 Q 76 4, 94 18"
+            stroke="var(--ink)" stroke-width="8" fill="none" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 40" fill="none" preserveAspectRatio="xMidYMid meet">
+          <path
+            d="M 4 22 Q 16 6, 30 18 Q 46 28, 58 14 Q 76 4, 94 18"
+            stroke="var(--bone)" stroke-width="8" fill="none" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hand-drawn</div>
+      <h3>The Naked Scribble</h3>
+      <p>The scribble underline you see everywhere on the landing — pulled off any word, standing on its own. Pure brand DNA. Looks great wide and stretched, narrower at favicon.</p>
+      <div class="meaning">— underline without anything to underline.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  <span class="serif">Pick one (or mash up two). <em>I'll generate weight + line variants.</em></span>
+  Glyph-based picks: refine the typeface, weight, and italic angle. Hand-drawn picks: refine the stroke, wobble, and ratio.
+</div>
+
+</body>
+</html>
