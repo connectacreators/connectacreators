@@ -719,7 +719,7 @@ export default function LandingPageNew() {
             <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
               <LetterRise text="Go " delay={0.25} step={0.04} />
               <span
-                className="serif-italic scribble-hover honey"
+                className="serif-italic scribble-hover"
                 style={{
                   display: "inline-block",
                   color: "var(--honey)",
@@ -754,7 +754,7 @@ export default function LandingPageNew() {
             <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
               <LetterRise text="Get " delay={0.68} step={0.04} />
               <span
-                className="serif-italic scribble-hover aqua"
+                className="serif-italic"
                 style={{
                   display: "inline-block",
                   color: "var(--aqua)",
