@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
+import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
@@ -48,6 +49,7 @@ interface EditingQueueItem {
   revisions: string | null;
   revisionPropName: string | null;
   postStatus: string | null;
+  lifecycleStatus: LifecycleStatus;
   scheduledDate: string | null;
   lastEdited: string;
   source?: 'notion' | 'db' | 'script';
@@ -141,14 +143,13 @@ export default function EditingQueue() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [updatingLifecycle, setUpdatingLifecycle] = useState<string | null>(null);
 
   const [revisionDialogItem, setRevisionDialogItem] = useState<EditingQueueItem | null>(null);
   const [revisionText, setRevisionText] = useState("");
   const [savingRevision, setSavingRevision] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<EditingQueueItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const [updatingPostStatus, setUpdatingPostStatus] = useState<string | null>(null);
 
   // Schedule post modal
   const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
@@ -260,8 +261,7 @@ export default function EditingQueue() {
       let aVal: string | number = '';
       let bVal: string | number = '';
       if (sortCol === 'title') { aVal = a.title ?? ''; bVal = b.title ?? ''; }
-      else if (sortCol === 'status') { aVal = a.status ?? ''; bVal = b.status ?? ''; }
-      else if (sortCol === 'post_status') { aVal = a.postStatus ?? ''; bVal = b.postStatus ?? ''; }
+      else if (sortCol === 'lifecycle_status') { aVal = LIFECYCLE_VALUES.indexOf(a.lifecycleStatus); bVal = LIFECYCLE_VALUES.indexOf(b.lifecycleStatus); }
       else if (sortCol === 'assignee') { aVal = a.assignee ?? ''; bVal = b.assignee ?? ''; }
       else if (sortCol === 'revisions') { aVal = unresolvedCounts[a.id] ?? 0; bVal = unresolvedCounts[b.id] ?? 0; }
       else if (sortCol === 'deadline') { aVal = a.deadline ?? '9999'; bVal = b.deadline ?? '9999'; }
@@ -309,7 +309,7 @@ export default function EditingQueue() {
     try {
       const { data, error: videoErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, file_submission, script_url, assignee, assignee_user_id, revisions, post_status, schedule_date, deadline, created_at, footage, caption, script_id, upload_source, storage_path, storage_url, scripts(title, idea_ganadora)")
+        .select("id, reel_title, status, post_status, lifecycle_status, file_submission, script_url, assignee, assignee_user_id, revisions, schedule_date, deadline, created_at, footage, caption, script_id, upload_source, storage_path, storage_url, scripts(title, idea_ganadora)")
         .eq("client_id", clientId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -333,6 +333,7 @@ export default function EditingQueue() {
         revisions: v.revisions || null,
         revisionPropName: null,
         postStatus: v.post_status || null,
+        lifecycleStatus: (v.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(v.status, v.post_status),
         scheduledDate: v.schedule_date || null,
         lastEdited: v.created_at,
         caption: v.caption ?? null,
@@ -377,7 +378,7 @@ export default function EditingQueue() {
 
     let consumedAny = false;
 
-    const VALID_SORT_COLS = ["title", "status", "post_status", "assignee", "revisions", "deadline"];
+    const VALID_SORT_COLS = ["title", "lifecycle_status", "assignee", "revisions", "deadline"];
 
     if (search) { setSearchQuery((prev) => prev || search); consumedAny = true; }
     if (sort && VALID_SORT_COLS.includes(sort)) { setSortCol(sort); consumedAny = true; }
@@ -498,7 +499,24 @@ export default function EditingQueue() {
     loadCounts();
   }, [items]);
 
-  const handleStatusChange = async (pageId: string, newStatus: string) => {
+  const handleLifecycleChange = async (pageId: string, newLifecycle: LifecycleStatus) => {
+    setUpdatingLifecycle(pageId);
+    try {
+      const { error } = await supabase.from("video_edits").update(lifecycleUpdate(newLifecycle)).eq("id", pageId);
+      if (error) throw error;
+      const { status: newStatus, post_status: newPostStatus } = lifecycleUpdate(newLifecycle);
+      setItems((prev) => prev.map((i) => i.id === pageId ? { ...i, lifecycleStatus: newLifecycle, status: newStatus, postStatus: newPostStatus } : i));
+      setSelectedItem((prev) => prev && prev.id === pageId ? { ...prev, lifecycleStatus: newLifecycle, status: newStatus, postStatus: newPostStatus } : prev);
+      toast.success(language === "en" ? "Status updated" : "Estado actualizado");
+    } catch (e: any) {
+      console.error("Error updating lifecycle status:", e);
+      toast.error(language === "en" ? "Failed to update status" : "Error al actualizar estado");
+    } finally {
+      setUpdatingLifecycle(null);
+    }
+  };
+
+  const _unused_handleStatusChange = async (pageId: string, newStatus: string) => {
     setUpdatingStatus(pageId);
     try {
       const { error } = await supabase.from("video_edits").update({ status: newStatus }).eq("id", pageId);
@@ -633,8 +651,7 @@ export default function EditingQueue() {
     }
   };
 
-  const handlePostStatusChange = async (pageId: string, newPostStatus: string) => {
-    setUpdatingPostStatus(pageId);
+  const _unused_handlePostStatusChange = async (pageId: string, newPostStatus: string) => {
     try {
       const { error } = await supabase.from("video_edits").update({ post_status: newPostStatus }).eq("id", pageId);
       if (error) throw error;
@@ -644,8 +661,6 @@ export default function EditingQueue() {
     } catch (e: any) {
       console.error("Error updating post status:", e);
       toast.error(language === "en" ? "Failed to update post status" : "Error al actualizar estado");
-    } finally {
-      setUpdatingPostStatus(null);
     }
   };
 
@@ -692,8 +707,7 @@ export default function EditingQueue() {
   const handleExportCSV = () => {
     const exportData = filteredItems.map((item) => ({
       Title: item.title,
-      Status: item.status,
-      "Post Status": item.postStatus || "—",
+      Status: item.lifecycleStatus,
       Assignee: item.assignee || "—",
       Revisions: item.revisions || "—",
       "Scheduled Date": item.scheduledDate || "—",
@@ -817,8 +831,7 @@ export default function EditingQueue() {
                           />
                         </TableHead>
                         <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('title')}>{language === "en" ? "Title" : "Título"}<SortIcon col="title" /></TableHead>
-                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('status')}>Status<SortIcon col="status" /></TableHead>
-                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('post_status')}>{language === "en" ? "Post Status" : "Estado Post"}<SortIcon col="post_status" /></TableHead>
+                        <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('lifecycle_status')}>Status<SortIcon col="lifecycle_status" /></TableHead>
                         <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('assignee')}>{language === "en" ? "Assignee" : "Asignado"}<SortIcon col="assignee" /></TableHead>
                         <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground whitespace-nowrap" onClick={() => handleSort('revisions')}>{language === "en" ? "Revisions" : "Revisiones"}<SortIcon col="revisions" /></TableHead>
                         <TableHead className="font-semibold cursor-pointer select-none hover:text-foreground whitespace-nowrap" onClick={() => handleSort('deadline')}>Deadline<SortIcon col="deadline" /></TableHead>
@@ -868,66 +881,38 @@ export default function EditingQueue() {
                               )}
                             </TableCell>
 
-                            {/* Title — left border colored by status */}
+                            {/* Title — left border colored by lifecycle status */}
                             <TableCell
                               className="font-medium text-foreground max-w-xs"
-                              style={{ borderLeft: `3px solid ${getRowStatusBorderColor(item.status)}`, paddingLeft: '13px' }}
+                              style={{ borderLeft: `3px solid ${getRowStatusBorderColor(item.lifecycleStatus)}`, paddingLeft: '13px' }}
                             >
                               <span className="truncate block max-w-[200px]">{item.title}</span>
                             </TableCell>
 
-                            {/* Status */}
+                            {/* Lifecycle Status */}
                             <TableCell onClick={e => e.stopPropagation()}>
                               {item.source === 'script' ? (
-                                <StatusBadge status={item.status} />
+                                <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[item.lifecycleStatus].bg} ${LIFECYCLE_STYLE[item.lifecycleStatus].text} ${LIFECYCLE_STYLE[item.lifecycleStatus].border}`}>
+                                  {item.lifecycleStatus}
+                                </span>
                               ) : (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === item.id}>
-                                      <StatusBadge status={item.status} />
-                                      {updatingStatus !== item.id && <ChevronDown className="w-3 h-3 opacity-60" />}
-                                      {updatingStatus === item.id && <Loader2 className="w-3 h-3 animate-spin" />}
-                                    </button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                                    {STATUS_OPTIONS.map((s) => (
-                                      <DropdownMenuItem key={s} onClick={() => handleStatusChange(item.id, s)} className={item.status === s ? "font-bold" : ""}>
-                                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
-                                        {s}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
-                            </TableCell>
-
-                            {/* Post Status */}
-                            <TableCell onClick={e => e.stopPropagation()}>
-                              {item.source === 'script' ? (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              ) : (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingPostStatus === item.id}>
-                                      {updatingPostStatus === item.id ? (
-                                        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                                      ) : item.postStatus ? (
-                                        <div className="flex items-center gap-1">
-                                          <StatusBadge status={item.postStatus} />
-                                          <ChevronDown className="w-3 h-3 opacity-60" />
-                                        </div>
+                                    <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingLifecycle === item.id}>
+                                      {updatingLifecycle === item.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">
-                                          {language === "en" ? "Set status" : "Establecer estado"}
-                                          <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                                        <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[item.lifecycleStatus].bg} ${LIFECYCLE_STYLE[item.lifecycleStatus].text} ${LIFECYCLE_STYLE[item.lifecycleStatus].border}`}>
+                                          {item.lifecycleStatus}
+                                          <ChevronDown className="w-3 h-3 opacity-60" />
                                         </span>
                                       )}
                                     </button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                                    {POST_STATUS_OPTIONS.map((s) => (
-                                      <DropdownMenuItem key={s} onClick={() => handlePostStatusChange(item.id, s)} className={`text-xs ${item.postStatus === s ? "font-bold" : ""}`}>
-                                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s === "Published" ? "bg-emerald-400" : s === "Needs Revision" ? "bg-destructive" : s === "Scheduled" ? "bg-primary" : "bg-muted-foreground"}`} />
+                                    {LIFECYCLE_VALUES.map((s) => (
+                                      <DropdownMenuItem key={s} onClick={() => handleLifecycleChange(item.id, s)} className={`text-xs ${item.lifecycleStatus === s ? "font-bold" : ""}`}>
+                                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${LIFECYCLE_STYLE[s].bg.replace('bg-', 'bg-').replace('/15', '')} border ${LIFECYCLE_STYLE[s].border}`} />
                                         {s}
                                       </DropdownMenuItem>
                                     ))}
@@ -1220,7 +1205,7 @@ export default function EditingQueue() {
               </div>
             ) : null}
 
-            {/* Status, Assignee & Revisions in modal */}
+            {/* Lifecycle Status, Assignee & Revisions in modal */}
             {selectedItem && (
               <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-2">
@@ -1229,25 +1214,25 @@ export default function EditingQueue() {
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingStatus === selectedItem.id}>
-                        {updatingStatus === selectedItem.id ? (
+                      <button className="inline-flex items-center gap-1 focus:outline-none" disabled={updatingLifecycle === selectedItem.id}>
+                        {updatingLifecycle === selectedItem.id ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
                         ) : (
-                          <>
-                            <StatusBadge status={selectedItem.status} />
+                          <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].bg} ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].text} ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].border}`}>
+                            {selectedItem.lifecycleStatus}
                             <ChevronDown className="w-3 h-3 opacity-60" />
-                          </>
+                          </span>
                         )}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                      {STATUS_OPTIONS.map((s) => (
+                      {LIFECYCLE_VALUES.map((s) => (
                         <DropdownMenuItem
                           key={s}
-                          onClick={() => handleStatusChange(selectedItem.id, s)}
-                          className={selectedItem.status === s ? "font-bold" : ""}
+                          onClick={() => handleLifecycleChange(selectedItem.id, s)}
+                          className={`text-xs ${selectedItem.lifecycleStatus === s ? "font-bold" : ""}`}
                         >
-                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${LIFECYCLE_STYLE[s].bg.replace('/15', '')} border ${LIFECYCLE_STYLE[s].border}`} />
                           {s}
                         </DropdownMenuItem>
                       ))}
@@ -1421,8 +1406,9 @@ export default function EditingQueue() {
           }}
           onStatusChanged={(newStatus) => {
             const id = reviewItem.id;
-            setItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
-            setSelectedItem(prev => prev && prev.id === id ? { ...prev, status: newStatus } : prev);
+            const derived = deriveFromLegacy(newStatus, undefined);
+            setItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus, lifecycleStatus: derived } : i));
+            setSelectedItem(prev => prev && prev.id === id ? { ...prev, status: newStatus, lifecycleStatus: derived } : prev);
           }}
         />
       )}

@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import connectaLogo from "@/assets/connecta-login-logo.png";
 import {
-  Loader2, Play, ExternalLink, Download, ChevronDown, MessageSquare, Save,
+  Loader2, Play, ExternalLink, Download, MessageSquare, Save,
   Clapperboard, Globe, Calendar, CalendarPlus,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +22,7 @@ interface QueueItem {
   title: string;
   status: string;
   postStatus: string | null;
+  lifecycleStatus: LifecycleStatus;
   fileSubmissionUrl: string | null;
   footageUrl: string | null;
   scriptUrl: string | null;
@@ -35,8 +35,6 @@ interface QueueItem {
   source?: "db";
 }
 
-const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
-const POST_STATUS_OPTIONS = ["Scheduled", "Needs Revision", "Approved", "Done"];
 
 function extractGoogleDriveFileId(url: string): string | null {
   const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -78,8 +76,6 @@ export default function PublicEditingQueue() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [updatingPostStatus, setUpdatingPostStatus] = useState<string | null>(null);
   const [revisionDialogItem, setRevisionDialogItem] = useState<QueueItem | null>(null);
   const [revisionText, setRevisionText] = useState("");
   const [savingRevision, setSavingRevision] = useState(false);
@@ -110,7 +106,7 @@ export default function PublicEditingQueue() {
 
       const { data: dbVideos, error: dbErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, post_status, file_submission, script_url, assignee, revisions, footage, schedule_date, caption, client_id, clients(name)")
+        .select("id, reel_title, status, post_status, lifecycle_status, file_submission, script_url, assignee, revisions, footage, schedule_date, caption, client_id, clients(name)")
         .in("client_id", clientIds)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -122,6 +118,7 @@ export default function PublicEditingQueue() {
         title: v.reel_title || "Untitled",
         status: v.status || "Not started",
         postStatus: v.post_status ?? null,
+        lifecycleStatus: (v.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(v.status, v.post_status),
         fileSubmissionUrl: v.file_submission || null,
         footageUrl: v.footage || null,
         scriptUrl: v.script_url || null,
@@ -143,34 +140,6 @@ export default function PublicEditingQueue() {
   };
 
   useEffect(() => { fetchQueue(); }, [clientId]);
-
-  const handleStatusChange = async (item: QueueItem, newStatus: string) => {
-    setUpdatingStatus(item.id);
-    try {
-      const { error } = await supabase.from("video_edits").update({ status: newStatus }).eq("id", item.id);
-      if (error) throw error;
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, status: newStatus } : i)));
-      toast.success("Status updated");
-    } catch {
-      toast.error("Failed to update status");
-    } finally {
-      setUpdatingStatus(null);
-    }
-  };
-
-  const handlePostStatusChange = async (item: QueueItem, newStatus: string) => {
-    setUpdatingPostStatus(item.id);
-    try {
-      const { error } = await supabase.from("video_edits").update({ post_status: newStatus }).eq("id", item.id);
-      if (error) throw error;
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, postStatus: newStatus } : i)));
-      toast.success("Post status updated");
-    } catch {
-      toast.error("Failed to update post status");
-    } finally {
-      setUpdatingPostStatus(null);
-    }
-  };
 
   const handleOpenRevisions = (item: QueueItem) => {
     setRevisionDialogItem(item);
@@ -268,7 +237,6 @@ export default function PublicEditingQueue() {
                     {isMaster && <TableHead>Client</TableHead>}
                     <TableHead>Title</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Post Status</TableHead>
                     <TableHead>Assignee</TableHead>
                     <TableHead>Revisions</TableHead>
                     <TableHead>Footage</TableHead>
@@ -295,73 +263,11 @@ export default function PublicEditingQueue() {
                         {/* Title */}
                         <TableCell className="font-medium text-foreground text-sm">{item.title}</TableCell>
 
-                        {/* Status */}
+                        {/* Lifecycle Status (read-only badge) */}
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                className="inline-flex items-center gap-1 focus:outline-none"
-                                disabled={updatingStatus === item.id}
-                              >
-                                <Badge variant="outline" className={`${getStatusClassName(item.status)} cursor-pointer`}>
-                                  {updatingStatus === item.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      {item.status}
-                                      <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                                    </>
-                                  )}
-                                </Badge>
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                              {STATUS_OPTIONS.map((s) => (
-                                <DropdownMenuItem
-                                  key={s}
-                                  onClick={() => handleStatusChange(item, s)}
-                                  className={item.status === s ? "font-bold" : ""}
-                                >
-                                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotColor(s)}`} />
-                                  {s}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-
-                        {/* Post Status */}
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                className="inline-flex items-center gap-1 focus:outline-none"
-                                disabled={updatingPostStatus === item.id}
-                              >
-                                <Badge variant="outline" className="cursor-pointer text-xs">
-                                  {updatingPostStatus === item.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      {item.postStatus || "—"}
-                                      <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                                    </>
-                                  )}
-                                </Badge>
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
-                              {POST_STATUS_OPTIONS.map((s) => (
-                                <DropdownMenuItem
-                                  key={s}
-                                  onClick={() => handlePostStatusChange(item, s)}
-                                  className={item.postStatus === s ? "font-bold" : ""}
-                                >
-                                  {s}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[item.lifecycleStatus].bg} ${LIFECYCLE_STYLE[item.lifecycleStatus].text} ${LIFECYCLE_STYLE[item.lifecycleStatus].border}`}>
+                            {item.lifecycleStatus}
+                          </span>
                         </TableCell>
 
                         {/* Assignee */}
@@ -492,9 +398,9 @@ export default function PublicEditingQueue() {
             <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span>{selectedItem?.title}</span>
               {selectedItem && (
-                <Badge variant="outline" className={getStatusClassName(selectedItem.status)}>
-                  {selectedItem.status}
-                </Badge>
+                <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].bg} ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].text} ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].border}`}>
+                  {selectedItem.lifecycleStatus}
+                </span>
               )}
             </DialogTitle>
           </DialogHeader>
