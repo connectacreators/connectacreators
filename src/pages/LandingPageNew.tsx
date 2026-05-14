@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import "../landing.css";
+import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 
 /* =============================================================================
    The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
@@ -585,19 +586,12 @@ export default function LandingPageNew() {
             justifyContent: "space-between",
           }}
         >
-          <Link to="/" style={{ display: "inline-flex", alignItems: "baseline", gap: 0 }}>
-            <span
-              className="serif"
-              style={{ fontSize: 26, color: "var(--bone)", letterSpacing: "-0.01em", fontWeight: 500 }}
-            >
-              Connect
-            </span>
-            <span
-              className="serif-italic"
-              style={{ fontSize: 26, color: "var(--honey)", letterSpacing: "-0.01em" }}
-            >
-              a
-            </span>
+          <Link to="/" style={{ display: "inline-flex", alignItems: "center" }} aria-label="Connecta">
+            <img
+              src={logoHandBone}
+              alt="Connecta"
+              style={{ height: 38, width: "auto", display: "block" }}
+            />
           </Link>
 
           <div
@@ -1615,9 +1609,12 @@ export default function LandingPageNew() {
             }}
           >
             <div>
-              <Link to="/" style={{ display: "inline-flex", alignItems: "baseline", marginBottom: 14 }}>
-                <span className="serif" style={{ fontSize: 24, color: "var(--bone)" }}>Connect</span>
-                <span className="serif-italic" style={{ fontSize: 24, color: "var(--honey)" }}>a</span>
+              <Link to="/" style={{ display: "inline-flex", marginBottom: 14 }} aria-label="Connecta">
+                <img
+                  src={logoHandBone}
+                  alt="Connecta"
+                  style={{ height: 44, width: "auto", display: "block" }}
+                />
               </Link>
               <p style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6 }}>
                 The AI strategist for creators and the brands they work with.
