@@ -106,6 +106,183 @@ function UserBubble({
   );
 }
 
+// Hand-drawn gold-pencil outline for the plan card — same ResizeObserver
+// pattern as UserBubble used to use, so the wobbled corners stay tight at
+// any height as the step list grows.
+function PlanCard({
+  plan,
+  fullscreen,
+  onApprove,
+  onReject,
+}: {
+  plan: {
+    plan_id: string;
+    summary: string;
+    steps: Array<{ tool?: string; description?: string }>;
+  };
+  fullscreen?: boolean;
+  onApprove?: (planId: string) => void;
+  onReject?: (planId: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const obs = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r) setSize({ w: r.width, h: r.height });
+    });
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const { w, h } = size;
+  const r = 10;
+  const path =
+    w > 0 && h > 0
+      ? `M${r},2 C${w * 0.32},0.5 ${w * 0.7},0.5 ${w - r},2 C${w - 3},2.5 ${w - 1},${
+          r - 3
+        } ${w - 1},${r} C${w},${h * 0.4} ${w},${h * 0.7} ${w - 1},${
+          h - r
+        } C${w - 3},${h - 3.5} ${w - r},${h - 1} ${w * 0.7},${
+          h - 1
+        } C${w * 0.45},${h - 0.2} ${w * 0.25},${h + 0.2} ${
+          r + 1
+        },${h - 1} C${r - 1},${h - 1.5} 2,${h - 4} 1,${
+          h - r
+        } C0,${h * 0.7} 0,${h * 0.4} 1,${r} C1.5,${
+          r - 3.5
+        } ${r - 3},2.5 ${r},2 Z`
+      : "";
+
+  return (
+    <div ref={ref} className="relative" style={{ padding: "16px 18px" }}>
+      {w > 0 && (
+        <svg
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            overflow: "visible",
+            pointerEvents: "none",
+          }}
+          viewBox={`0 0 ${w} ${h}`}
+          preserveAspectRatio="none"
+        >
+          <path
+            d={path}
+            fill="none"
+            stroke="rgba(201,169,110,0.4)"
+            strokeWidth="1.1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
+      <div className="relative">
+        <p
+          className={`${fullscreen ? "text-sm" : "text-[13px]"} font-bold mb-3 font-caslon-text`}
+          style={{
+            color: "rgba(201,169,110,1)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {plan.summary || "My plan"}
+        </p>
+        <div className="space-y-1.5 mb-3">
+          {plan.steps.slice(0, 12).map((s, idx) => (
+            <div
+              key={idx}
+              className={`${fullscreen ? "text-sm" : "text-xs"} flex items-start gap-2.5`}
+            >
+              <span
+                className="inline-flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: "rgba(201,169,110,0.12)",
+                  color: "rgba(201,169,110,1)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  marginTop: 1,
+                }}
+              >
+                {idx + 1}
+              </span>
+              <span className="text-foreground flex-1 leading-snug">
+                {s.description ?? s.tool ?? "(unnamed step)"}
+                {s.tool && s.description && (
+                  <span
+                    className="ml-2 inline-block"
+                    style={{
+                      fontFamily: "'SF Mono', Menlo, Consolas, monospace",
+                      fontSize: 10,
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      background: "rgba(201,169,110,0.08)",
+                      color: "rgba(201,169,110,0.75)",
+                      verticalAlign: "1px",
+                    }}
+                  >
+                    {s.tool}
+                  </span>
+                )}
+              </span>
+            </div>
+          ))}
+          {plan.steps.length > 12 && (
+            <div
+              className={`${fullscreen ? "text-sm" : "text-xs"} text-muted-foreground`}
+              style={{ paddingLeft: 28 }}
+            >
+              + {plan.steps.length - 12} more
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-4 pt-2">
+          <span className="text-[10px] text-muted-foreground">
+            {plan.steps.length} action{plan.steps.length !== 1 ? "s" : ""}
+          </span>
+          <div className="flex gap-4 ml-auto">
+            <button
+              onClick={() => onApprove?.(plan.plan_id)}
+              className="text-xs font-semibold transition-opacity hover:opacity-75"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "rgba(201,169,110,1)",
+                borderBottom: "1px solid rgba(201,169,110,0.45)",
+                paddingBottom: 1,
+                cursor: "pointer",
+              }}
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => onReject?.(plan.plan_id)}
+              className="text-xs transition-opacity hover:opacity-75"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "rgba(255,255,255,0.45)",
+                borderBottom: "1px solid rgba(255,255,255,0.15)",
+                paddingBottom: 1,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function AssistantChat({
@@ -333,112 +510,12 @@ export function AssistantChat({
                 <div className="flex gap-2 items-start">
                   <FingerprintAvatar size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div
-                      className="rounded-xl"
-                      style={{
-                        background: "rgba(34,211,238,0.04)",
-                        border: "1px solid rgba(34,211,238,0.25)",
-                        borderLeft: "3px solid #06B6D4",
-                        padding: "14px 16px",
-                      }}
-                    >
-                      <p
-                        className="text-[11px] mb-3"
-                        style={{
-                          color: "rgba(34,211,238,0.9)",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {msg.plan_data.summary || "Plan — needs your approval"}
-                      </p>
-                      <div className="space-y-1.5 mb-3">
-                        {msg.plan_data.steps.slice(0, 12).map((s, idx) => (
-                          <div
-                            key={idx}
-                            className={`${fullscreen ? "text-sm" : "text-xs"} flex items-start gap-2.5`}
-                          >
-                            <span
-                              className="inline-flex items-center justify-center flex-shrink-0"
-                              style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: "50%",
-                                background: "rgba(34,211,238,0.12)",
-                                color: "#06B6D4",
-                                fontSize: 10,
-                                fontWeight: 700,
-                                marginTop: 1,
-                              }}
-                            >
-                              {idx + 1}
-                            </span>
-                            <span className="text-foreground flex-1 leading-snug">
-                              {s.description ?? s.tool ?? "(unnamed step)"}
-                              {s.tool && s.description && (
-                                <span
-                                  className="ml-2 inline-block"
-                                  style={{
-                                    fontFamily:
-                                      "'SF Mono', Menlo, Consolas, monospace",
-                                    fontSize: 10,
-                                    padding: "1px 6px",
-                                    borderRadius: 4,
-                                    background: "rgba(255,255,255,0.06)",
-                                    color: "rgba(255,255,255,0.55)",
-                                    verticalAlign: "1px",
-                                  }}
-                                >
-                                  {s.tool}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                        {msg.plan_data.steps.length > 12 && (
-                          <div
-                            className={`${fullscreen ? "text-sm" : "text-xs"} text-muted-foreground`}
-                            style={{ paddingLeft: 28 }}
-                          >
-                            + {msg.plan_data.steps.length - 12} more
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        className="flex items-center gap-2 pt-2"
-                        style={{
-                          borderTop: "1px solid rgba(255,255,255,0.05)",
-                        }}
-                      >
-                        <span className="text-[10px] text-muted-foreground">
-                          {msg.plan_data.steps.length} action
-                          {msg.plan_data.steps.length !== 1 ? "s" : ""}
-                        </span>
-                        <div className="flex gap-2 ml-auto">
-                          <button
-                            onClick={() => onApprovePlan?.(msg.plan_data!.plan_id)}
-                            className="py-1.5 px-3 rounded-md text-[11px] font-semibold transition-opacity hover:opacity-85"
-                            style={{
-                              background: "rgba(34,211,238,0.18)",
-                              color: "#06B6D4",
-                              border: "1px solid rgba(34,211,238,0.4)",
-                            }}
-                          >
-                            Run
-                          </button>
-                          <button
-                            onClick={() => onRejectPlan?.(msg.plan_data!.plan_id)}
-                            className="py-1.5 px-3 rounded-md text-[11px] font-medium transition-opacity hover:opacity-85"
-                            style={{
-                              background: "transparent",
-                              color: "rgba(255,255,255,0.5)",
-                              border: "1px solid rgba(255,255,255,0.1)",
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <PlanCard
+                      plan={msg.plan_data}
+                      fullscreen={fullscreen}
+                      onApprove={onApprovePlan}
+                      onReject={onRejectPlan}
+                    />
                   </div>
                 </div>
               ) : msg.type === "script_preview" && msg.script_data ? (
