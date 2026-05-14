@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import "../landing.css";
 import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
+import logoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import handsLike from "@/assets/hands-like.png";
 import brainDoodle from "@/assets/brain-doodle.png";
@@ -1048,11 +1049,11 @@ export default function LandingPageNew() {
 
   return (
     <div className="landing-editorial" ref={scrollRoot}>
-      {/* ===== Announcement banner ===== */}
+      {/* ===== Inverted banner (ink bg, bone text) on top of the page ===== */}
       <div
         style={{
-          background: "var(--bone)",
-          color: "var(--ink)",
+          background: "var(--ink)",
+          color: "var(--bone)",
           padding: "10px 24px",
           textAlign: "center",
           fontSize: 13,
@@ -1060,55 +1061,57 @@ export default function LandingPageNew() {
           fontWeight: 500,
           margin: "12px 18px 0",
           borderRadius: 999,
+          border: "1.5px solid var(--bone)",
         }}
       >
         <span style={{ marginRight: 6 }}>
-          <Flame size={11} style={{ display: "inline-block", color: "var(--ink)", marginRight: 6, marginBottom: -1 }} />
+          <Flame size={11} style={{ display: "inline-block", color: "var(--honey)", marginRight: 6, marginBottom: -1 }} />
           <strong style={{ fontWeight: 700 }}>Viral Today is live.</strong>
         </span>
         Spot trends before your feed catches on.{" "}
-        <Link to="/scripts" style={{ color: "var(--ink)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
+        <Link to="/scripts" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
           Try it →
         </Link>
       </div>
 
-      {/* ===== Nav ===== */}
+      {/* ===== Floating nav — wisprflow style: bone pill with ink text, side margins, sticky ===== */}
       <nav
         style={{
           position: "sticky",
-          top: 0,
+          top: 12,
           zIndex: 50,
-          backdropFilter: scrolled ? "blur(18px)" : "none",
-          background: scrolled ? "rgba(10,14,18,0.78)" : "transparent",
-          borderBottom: scrolled ? "1px solid var(--line)" : "1px solid transparent",
-          transition: "all 220ms ease",
+          margin: "12px 18px 0",
+          background: "var(--bone)",
+          color: "var(--ink)",
+          border: "1.5px solid var(--ink)",
+          borderRadius: 999,
+          boxShadow: "3px 3px 0 var(--ink)",
         }}
       >
         <div
           style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "18px 32px",
+            padding: "12px 24px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 16,
           }}
         >
           <Link
             to="/"
-            style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "var(--ink)" }}
             aria-label="Connecta"
           >
             <img
-              src={logoHandBone}
+              src={logoHandInk}
               alt=""
-              style={{ height: 36, width: "auto", display: "block" }}
+              style={{ height: 30, width: "auto", display: "block" }}
             />
             <span
               className="serif"
               style={{
-                fontSize: 22,
-                color: "var(--bone)",
+                fontSize: 20,
+                color: "var(--ink)",
                 letterSpacing: "0.04em",
                 fontWeight: 700,
                 textTransform: "uppercase",
@@ -1122,10 +1125,11 @@ export default function LandingPageNew() {
             className="hidden-mobile"
             style={{
               display: "flex",
-              gap: 30,
+              gap: 28,
               fontSize: 14,
-              color: "var(--bone-2)",
+              color: "rgba(10,14,18,0.72)",
               fontFamily: "'Figtree', sans-serif",
+              fontWeight: 500,
             }}
           >
             <a href="#brain" className="scribble-link">The Brain</a>
@@ -1138,13 +1142,14 @@ export default function LandingPageNew() {
               to="/scripts"
               style={{
                 fontSize: 14,
-                color: "var(--bone-2)",
+                color: "rgba(10,14,18,0.72)",
                 fontFamily: "'Figtree', sans-serif",
+                fontWeight: 500,
               }}
             >
               Sign in
             </Link>
-            <Link to="/scripts" className="btn btn-aqua">
+            <Link to="/scripts" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
               Get started
             </Link>
           </div>
@@ -1156,7 +1161,7 @@ export default function LandingPageNew() {
             style={{
               background: "transparent",
               border: "none",
-              color: "var(--bone)",
+              color: "var(--ink)",
               cursor: "pointer",
               padding: 8,
               display: "none",
@@ -1169,13 +1174,16 @@ export default function LandingPageNew() {
         {mobileOpen && (
           <div
             style={{
-              borderTop: "1px solid var(--line)",
-              padding: "16px 32px 22px",
-              background: "rgba(10,14,18,0.95)",
+              borderTop: "1.5px solid var(--ink)",
+              padding: "16px 24px 22px",
+              background: "var(--bone)",
+              color: "var(--ink)",
               display: "flex",
               flexDirection: "column",
               gap: 14,
               fontSize: 15,
+              borderBottomLeftRadius: 28,
+              borderBottomRightRadius: 28,
             }}
           >
             <a href="#brain" onClick={() => setMobileOpen(false)}>The Brain</a>
