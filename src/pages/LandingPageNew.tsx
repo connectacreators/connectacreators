@@ -1453,7 +1453,7 @@ export default function LandingPageNew() {
                     className={`scribble-under ${s.accent === "honey" ? "honey" : "aqua"}`}
                     style={{ display: "inline-block" }}
                   >
-                    {s.num}
+                    <ProxText>{s.num}</ProxText>
                   </span>
                 </div>
                 <div
@@ -1467,9 +1467,9 @@ export default function LandingPageNew() {
                     marginTop: 12,
                   }}
                 >
-                  {s.kicker}
+                  <ProxText>{s.kicker}</ProxText>
                 </div>
-                <p
+                <div
                   style={{
                     margin: "12px auto 0",
                     fontSize: 14,
@@ -1478,8 +1478,8 @@ export default function LandingPageNew() {
                     lineHeight: 1.55,
                   }}
                 >
-                  {s.body}
-                </p>
+                  <ProxText>{s.body}</ProxText>
+                </div>
               </div>
             ))}
           </div>
