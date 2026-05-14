@@ -95,6 +95,28 @@ curl -X DELETE "https://api.supabase.com/v1/projects/hxojqrilwhhrvloiwmfo/secret
 ```
 Then schedule a post 2 min out. After it fires, the post should be visible on DJ R3.'s Reels tab AND @r3.productions' Reels tab. The `platform_post_url` columns will have real Meta URLs.
 
+### Composer redesign — Metricool-style polish (deferred, Phase A.1)
+
+User wants the composer to look like Metricool's "Create new post" UI. Reference screenshots saved in session history. Constraints: their brand only (no emojis, font-caslon headers, dark theme with pink/teal accents).
+
+**Target features (in priority order):**
+1. **Platform tabs at top** — circular brand-colored icons for FB / IG / TikTok / YT (instead of current checkbox list). Click a tab to switch active platform context.
+2. **Live phone preview pane on the right** — renders the 9:16 video with platform-specific UI overlay (TikTok-style icons on TikTok tab, IG-style on IG tab, etc.). Toggle button for mobile/desktop preview.
+3. **Per-platform character counters** — visible at bottom-right of caption area. TikTok 2200, IG 2200, FB ~63k, YT 5000.
+4. **Single-click datetime picker** in footer — replaces the current radio + 3 inputs.
+5. **Split-button schedule** — primary action "Schedule" with dropdown for "Post now" / "Save as draft".
+6. **Collapsible per-network presets sections** — initially empty, future home for pinned comments, location tags, audience targeting.
+7. **"Edit by network" toggle** (biggest change — needs schema migration) — when ON, each platform tab has its own caption. Add `caption_overrides jsonb` column on `scheduled_posts`. Publisher reads `caption_overrides[platform] ?? caption`.
+
+**Files this would touch:**
+- `src/components/scheduler/PublishComposer.tsx` — major rewrite
+- New: `src/components/scheduler/PreviewPhone.tsx` — phone mockup component
+- New: `src/components/scheduler/PlatformTab.tsx` — tab button with brand icon
+- New migration: `scheduled_posts.caption_overrides` jsonb column (only if "Edit by network" is in scope)
+- `publish-to-meta/index.ts` — read caption from override if present
+
+**Estimate:** ~half day for full parity, ~2 hours for visual polish without "Edit by network". Decide after Stage 1+2 tests pass.
+
 ### Later — open to non-admin users (Phase D — GA)
 
 Requires:
@@ -115,6 +137,14 @@ Until App Review, only app admins/developers/testers can OAuth.
 - Apply for quota raise (default 10K units/day = ~6 uploads)
 - Write `youtube-oauth` and `publish-to-youtube` edge functions
 - Enable YouTube in `SocialAccountsTab`
+
+## Where we are in testing (resume point)
+
+**State as of last session:** Robert/Connecta Creators Business Portfolio + DJ R3. successfully connected. Social Accounts page shows green checkmarks on Facebook (DJ R3.) and Instagram (@r3.productions). DRY_RUN_SCHEDULER is still ON.
+
+**Immediate next action:** Run the test plan below (Stage 1 = dry-run). When that passes, disable DRY_RUN_SCHEDULER and run Stage 2 = real post to DJ R3. + @r3.productions.
+
+After Stage 2 passes, decide on the Metricool-style composer redesign (see "Composer redesign" section above).
 
 ## Test plan (next thing to do)
 
