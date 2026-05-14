@@ -136,6 +136,13 @@ export async function handlePlanTool(
           if (r.ok) itemIds.push(r.item.id);
         }
         if (itemIds.length > 0) {
+          // Navigate the user to the editing queue so they can SEE the pulse
+          // and the affected rows before the plan card asks for approval. Use
+          // the per-client URL when we have a resolved client; else master.
+          const path = resolvedClientId
+            ? `/clients/${resolvedClientId}/editing-queue`
+            : `/editing-queue`;
+          actions.push({ type: "navigate", path });
           actions.push({
             type: "highlight_items",
             scope: "editing_queue",
