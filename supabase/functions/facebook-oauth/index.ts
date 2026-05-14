@@ -44,6 +44,10 @@ serve(async (req) => {
       "pages_manage_posts",
       "instagram_basic",
       "instagram_content_publish",
+      // Required to see Pages that are owned by a Business Portfolio
+      // (Meta's new name for Business Manager). Without this scope, both
+      // /me/accounts and /me/businesses silently omit them.
+      "business_management",
     ];
 
     const scope = (purpose === "scheduler" ? SCOPE_SCHEDULER : SCOPE_LEADS).join(",");
@@ -208,8 +212,8 @@ serve(async (req) => {
       const pages: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }> =
         pagesData.data || [];
 
-      // Fallback: if /me/accounts is empty, /me/promotable_pages sometimes
-      // returns NPE-migrated Pages that /me/accounts misses.
+      // Fallback 1: /me/promotable_pages sometimes returns NPE-migrated Pages
+      // that /me/accounts misses.
       let promotablePages: typeof pages = [];
       if (pages.length === 0) {
         try {
@@ -223,8 +227,45 @@ serve(async (req) => {
         } catch { /* ignore */ }
       }
 
-      // Use whichever returned something
-      const allPages = pages.length > 0 ? pages : promotablePages;
+      // Fallback 2: Pages owned by a Business Portfolio. Both /me/accounts and
+      // /me/promotable_pages omit these even when the user has Full Control.
+      // Requires business_management scope.
+      let businessPages: typeof pages = [];
+      if (pages.length === 0 && promotablePages.length === 0) {
+        try {
+          const bizRes = await fetch(`${FB_API}/me/businesses?fields=id,name&access_token=${longLivedUserToken}`);
+          if (bizRes.ok) {
+            const bizData = await bizRes.json();
+            const bizList: Array<{ id: string; name: string }> = bizData.data || [];
+            for (const biz of bizList) {
+              const ownedRes = await fetch(
+                `${FB_API}/${biz.id}/owned_pages?fields=id,name,access_token,instagram_business_account&access_token=${longLivedUserToken}`,
+              );
+              if (ownedRes.ok) {
+                const ownedData = await ownedRes.json();
+                businessPages.push(...(ownedData.data || []));
+              }
+              // Also try client_pages — pages the business has been delegated access to
+              const clientRes = await fetch(
+                `${FB_API}/${biz.id}/client_pages?fields=id,name,access_token,instagram_business_account&access_token=${longLivedUserToken}`,
+              );
+              if (clientRes.ok) {
+                const clientData = await clientRes.json();
+                businessPages.push(...(clientData.data || []));
+              }
+            }
+          }
+        } catch (e) { console.warn("Business pages fallback error:", e); }
+      }
+
+      // Deduplicate by id (a page can appear via multiple endpoints)
+      const merged = [...pages, ...promotablePages, ...businessPages];
+      const seen = new Set<string>();
+      const allPages = merged.filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
 
       if (allPages.length === 0) {
         // Diagnostic: gather info about FB user + permissions + businesses to
