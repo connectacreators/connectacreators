@@ -23,6 +23,7 @@ import { useScheduledPosts, type PostFilter, type ScheduledPostRow } from "@/lib
 import { PostDetailsModal } from "@/components/scheduler/PostDetailsModal";
 import { ReauthBanner } from "@/components/scheduler/ReauthBanner";
 import { ScheduledPostCard } from "@/components/scheduler/ScheduledPostCard";
+import { resolveVideoUrl } from "@/lib/videoUrl";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
@@ -908,6 +909,21 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
       videoUploadService.getSignedVideoUrl(post.storage_path).then(setSupabaseVideoUrl).catch(() => setSupabaseVideoUrl(null));
     }
   }, [isSupabaseVideo, post.storage_path]);
+
+  // Fallback resolver for file_submission_url when it's neither a Drive link
+  // nor recognized as a Supabase upload — handles raw storage paths and
+  // signs them so the video plays inline instead of showing a download link.
+  const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (post.file_submission_url && !isSupabaseVideo) {
+      const driveId = extractGoogleDriveFileId(post.file_submission_url);
+      if (!driveId) {
+        void resolveVideoUrl(post.file_submission_url).then((u) => { if (!cancelled) setFallbackVideoUrl(u); });
+      }
+    }
+    return () => { cancelled = true; };
+  }, [post.file_submission_url, isSupabaseVideo]);
   // These are now only computed when the modal is actually open with a post
   const driveId = post.file_submission_url ? extractGoogleDriveFileId(post.file_submission_url) : null;
   const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
@@ -988,6 +1004,10 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
               allow="autoplay"
               allowFullScreen
             />
+          </div>
+        ) : fallbackVideoUrl ? (
+          <div style={{ aspectRatio: '16 / 9' }}>
+            <ThemedVideoPlayer src={fallbackVideoUrl} className="h-full" maxHeight="100%" />
           </div>
         ) : post.file_submission_url ? (
           <a href={post.file_submission_url} target="_blank" rel="noopener noreferrer"
