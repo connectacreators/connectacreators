@@ -18,6 +18,165 @@ import "../landing.css";
    ============================================================================= */
 
 /* ─────────────────────────────────────────────────────────────
+   Letter-by-letter rise — motion only, no opacity.
+   Each character translates up + rotates with a stagger.
+   Spaces become non-breaking inside a phrase so words stay together.
+   ───────────────────────────────────────────────────────────── */
+function LetterRise({
+  text,
+  delay = 0,
+  step = 0.035,
+}: {
+  text: string;
+  delay?: number;
+  step?: number;
+}) {
+  return (
+    <>
+      {Array.from(text).map((ch, i) => (
+        <span
+          key={i}
+          className="letter-rise"
+          style={{ animationDelay: `${delay + i * step}s` }}
+        >
+          {ch === " " ? " " : ch}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function WordRise({
+  text,
+  delay = 0,
+  step = 0.08,
+}: {
+  text: string;
+  delay?: number;
+  step?: number;
+}) {
+  const words = text.split(" ");
+  return (
+    <>
+      {words.map((word, i) => (
+        <span key={i}>
+          <span
+            className="word-rise"
+            style={{ animationDelay: `${delay + i * step}s` }}
+          >
+            {word}
+          </span>
+          {i < words.length - 1 ? " " : ""}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Peeking editorial character — a creator with a phone showing
+   a rising chart. Inline SVG, ink stroke + bone/aqua/honey fills.
+   ───────────────────────────────────────────────────────────── */
+function PeekingCreator({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      viewBox="0 0 200 240"
+      xmlns="http://www.w3.org/2000/svg"
+      style={style}
+      aria-hidden
+    >
+      {/* Hair squiggles */}
+      <path
+        d="M 70 32 Q 76 22, 86 28 Q 96 20, 104 28 Q 113 22, 122 30 Q 130 28, 132 38"
+        stroke="#0A0E12"
+        strokeWidth="3"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Head */}
+      <circle cx="100" cy="52" r="22" fill="#FBF8EE" stroke="#0A0E12" strokeWidth="2.5" />
+      {/* Glasses */}
+      <circle cx="92" cy="50" r="5" fill="none" stroke="#0A0E12" strokeWidth="1.8" />
+      <circle cx="108" cy="50" r="5" fill="none" stroke="#0A0E12" strokeWidth="1.8" />
+      <line x1="97" y1="50" x2="103" y2="50" stroke="#0A0E12" strokeWidth="1.8" strokeLinecap="round" />
+      {/* Smile */}
+      <path d="M 93 60 Q 100 64, 107 60" stroke="#0A0E12" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      {/* Neck */}
+      <line x1="100" y1="74" x2="100" y2="86" stroke="#0A0E12" strokeWidth="2.5" />
+      {/* Body / sweater */}
+      <path
+        d="M 64 116 Q 72 86, 100 86 Q 128 86, 136 116 L 138 200 L 62 200 Z"
+        fill="#E0A560"
+        stroke="#0A0E12"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      {/* Collar stripe */}
+      <path
+        d="M 80 96 Q 100 100, 120 96"
+        stroke="#0A0E12"
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Arm raised holding phone */}
+      <path
+        d="M 138 116 Q 154 100, 168 82"
+        stroke="#0A0E12"
+        strokeWidth="2.5"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Phone body */}
+      <rect
+        x="150"
+        y="48"
+        width="26"
+        height="42"
+        rx="5"
+        fill="#0A0E12"
+        stroke="#0A0E12"
+        strokeWidth="2.5"
+      />
+      {/* Phone screen */}
+      <rect x="153" y="53" width="20" height="32" rx="2" fill="#8FD0D5" />
+      {/* Rising chart inside screen */}
+      <path
+        d="M 155 76 L 159 71 L 163 73 L 167 67 L 171 62"
+        stroke="#0A0E12"
+        strokeWidth="1.8"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Tiny arrowhead */}
+      <path
+        d="M 171 62 L 168 63 M 171 62 L 170 65"
+        stroke="#0A0E12"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Sparkle viral indicators */}
+      <path
+        d="M 180 38 L 184 34 L 180 30 L 176 34 Z"
+        fill="#E0A560"
+        stroke="#0A0E12"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="186" cy="68" r="3" fill="#8FD0D5" stroke="#0A0E12" strokeWidth="1.6" />
+      <g stroke="#0A0E12" strokeWidth="2" strokeLinecap="round">
+        <line x1="186" y1="22" x2="190" y2="22" />
+        <line x1="188" y1="20" x2="188" y2="24" />
+      </g>
+      {/* Hands at waist */}
+      <circle cx="64" cy="120" r="6" fill="#FBF8EE" stroke="#0A0E12" strokeWidth="2" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
    Super Canvas mockup — the screenshot moment.
    Node-based strategy visualization. One node "live" pulsing.
    ───────────────────────────────────────────────────────────── */
@@ -554,7 +713,6 @@ export default function LandingPageNew() {
 
           <h1
             className="serif"
-            data-reveal="2"
             style={{
               fontSize: "clamp(52px, 10vw, 144px)",
               lineHeight: 0.98,
@@ -564,11 +722,33 @@ export default function LandingPageNew() {
               marginBottom: 26,
             }}
           >
-            <span style={{ display: "block" }}>
-              Go <em className="serif-italic" style={{ color: "var(--honey)" }}>Viral,</em>
+            <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
+              <LetterRise text="Go " delay={0.25} step={0.04} />
+              <span
+                className="serif-italic scribble-under honey draw"
+                style={{
+                  display: "inline-block",
+                  color: "var(--honey)",
+                  fontWeight: 400,
+                  ["--scribble-delay" as never]: "0.95s",
+                }}
+              >
+                <LetterRise text="Viral," delay={0.40} step={0.04} />
+              </span>
             </span>
-            <span style={{ display: "block" }}>
-              Get <em className="serif-italic" style={{ color: "var(--aqua)" }}>Clients.</em>
+            <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
+              <LetterRise text="Get " delay={0.68} step={0.04} />
+              <span
+                className="serif-italic scribble-under aqua draw"
+                style={{
+                  display: "inline-block",
+                  color: "var(--aqua)",
+                  fontWeight: 400,
+                  ["--scribble-delay" as never]: "1.30s",
+                }}
+              >
+                <LetterRise text="Clients." delay={0.85} step={0.04} />
+              </span>
             </span>
           </h1>
 
@@ -635,7 +815,19 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Real track record — bone panel ===== */}
-      <section className="panel-bone" style={{ padding: "80px 0", marginTop: 24 }}>
+      <section className="panel-bone" style={{ padding: "80px 0 90px", marginTop: 24, position: "relative", overflow: "visible" }}>
+        {/* Peeking creator — pokes up from the top-right of the bone panel into the ink page above */}
+        <PeekingCreator
+          style={{
+            position: "absolute",
+            top: -110,
+            right: "6%",
+            width: 110,
+            height: 168,
+            zIndex: 5,
+            pointerEvents: "none",
+          }}
+        />
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
@@ -644,12 +836,12 @@ export default function LandingPageNew() {
               fontSize: 11,
               letterSpacing: "0.22em",
               textTransform: "uppercase",
-              color: "var(--bone-3)",
+              color: "rgba(10,14,18,0.45)",
               fontWeight: 600,
               marginBottom: 36,
             }}
           >
-            What Connecta has built for creators
+            What Connecta has built <span className="scribble-under ink" style={{ display: "inline-block" }}>for creators</span>
           </div>
 
           <div
@@ -688,7 +880,7 @@ export default function LandingPageNew() {
                 }}
               >
                 <div
-                  className="serif"
+                  className="serif scroll-rise"
                   style={{
                     fontSize: "clamp(56px, 8vw, 96px)",
                     lineHeight: 1.0,
@@ -698,7 +890,12 @@ export default function LandingPageNew() {
                     fontStyle: "italic",
                   }}
                 >
-                  {s.num}
+                  <span
+                    className={`scribble-under ${s.accent === "honey" ? "honey" : "aqua"}`}
+                    style={{ display: "inline-block" }}
+                  >
+                    {s.num}
+                  </span>
                 </div>
                 <div
                   style={{
@@ -762,7 +959,13 @@ export default function LandingPageNew() {
               <h2 className="section-h2" style={{ margin: "16px 0 22px" }}>
                 <em className="soft">The brain.</em>
                 <br />
-                It plans before <em className="aqua">you post.</em>
+                It plans before{" "}
+                <span
+                  className="scribble-under aqua"
+                  style={{ display: "inline-block", fontStyle: "italic", color: "var(--aqua)", fontWeight: 500 }}
+                >
+                  you post.
+                </span>
               </h2>
               <p className="section-lede" style={{ marginBottom: 28 }}>
                 Super Canvas studies your brand voice, your audience, what's spiking on the
@@ -901,7 +1104,12 @@ export default function LandingPageNew() {
               <h2 className="section-h2" style={{ margin: "16px 0 22px", color: "var(--ink)" }}>
                 What's working <em style={{ color: "rgba(10,14,18,0.55)", fontStyle: "italic", fontWeight: 400 }}>right now,</em>
                 <br />
-                <em style={{ color: "#A85B1F", fontStyle: "italic", fontWeight: 500 }}>sorted for you.</em>
+                <span
+                  className="scribble-under honey"
+                  style={{ display: "inline-block", color: "#A85B1F", fontStyle: "italic", fontWeight: 500 }}
+                >
+                  sorted for you.
+                </span>
               </h2>
               <p className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)" }}>
                 Connecta scans the feeds your audience is on, flags outlier videos that beat
@@ -1255,21 +1463,21 @@ export default function LandingPageNew() {
               >
                 {plan.featured && (
                   <span
+                    className="scribble-circle"
                     style={{
                       position: "absolute",
-                      top: 22,
-                      right: 22,
-                      background: "var(--honey)",
-                      color: "var(--ink)",
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
+                      top: 18,
+                      right: 18,
+                      color: "#A85B1F",
+                      fontFamily: "'EB Garamond', serif",
+                      fontStyle: "italic",
+                      fontSize: 16,
+                      fontWeight: 500,
+                      letterSpacing: "0.01em",
+                      transform: "rotate(4deg)",
                     }}
                   >
-                    Most loved
+                    most loved
                   </span>
                 )}
                 <div>
@@ -1355,7 +1563,12 @@ export default function LandingPageNew() {
           >
             Stop guessing.
             <br />
-            <em className="aqua">Start directing.</em>
+            <span
+              className="scribble-under aqua"
+              style={{ display: "inline-block", color: "var(--aqua)", fontStyle: "italic", fontWeight: 500 }}
+            >
+              Start directing.
+            </span>
           </h2>
           <p style={{ fontSize: 18, color: "var(--bone-2)", maxWidth: 560, margin: "0 auto 36px", lineHeight: 1.55 }}>
             14 days free. No credit card. Bring your existing chaos — Connecta will fold it

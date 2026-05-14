@@ -399,7 +399,7 @@ html, body, #root { margin: 0; padding: 0; }
 }
 .landing-editorial .vt-score.aqua { background: var(--aqua); color: var(--ink); }
 
-/* ---------- Scribble underline (signature motif from existing app) ---------- */
+/* ---------- Scribble underline (hover variant — nav links) ---------- */
 .landing-editorial .scribble-link {
   position: relative;
   display: inline-block;
@@ -420,6 +420,100 @@ html, body, #root { margin: 0; padding: 0; }
 }
 .landing-editorial .scribble-link:hover::after { transform: scaleX(1); }
 
+/* ---------- Always-on scribble underlines (hand-drawn) ---------- */
+.landing-editorial .scribble-under {
+  position: relative;
+  display: inline-block;
+}
+.landing-editorial .scribble-under::after {
+  content: "";
+  position: absolute;
+  left: -3%;
+  right: -3%;
+  bottom: -0.14em;
+  height: 0.28em;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+/* hand-drawn wobble — same SVG, different stroke colors */
+.landing-editorial .scribble-under.aqua::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18' preserveAspectRatio='none'><path d='M4 11 Q 22 4, 44 9 Q 68 14, 92 8 Q 118 2, 144 10 Q 168 16, 196 9' stroke='%238FD0D5' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>");
+}
+.landing-editorial .scribble-under.honey::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18' preserveAspectRatio='none'><path d='M4 11 Q 22 4, 44 9 Q 68 14, 92 8 Q 118 2, 144 10 Q 168 16, 196 9' stroke='%23E0A560' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>");
+}
+.landing-editorial .scribble-under.ink::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18' preserveAspectRatio='none'><path d='M4 11 Q 22 4, 44 9 Q 68 14, 92 8 Q 118 2, 144 10 Q 168 16, 196 9' stroke='%230A0E12' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>");
+}
+.landing-editorial .scribble-under.bone::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18' preserveAspectRatio='none'><path d='M4 11 Q 22 4, 44 9 Q 68 14, 92 8 Q 118 2, 144 10 Q 168 16, 196 9' stroke='%23EAE6DC' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>");
+}
+
+/* Animated scribble — wipes in from left, no opacity */
+@keyframes le-scribble-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+.landing-editorial .scribble-under.draw::after {
+  animation: le-scribble-wipe 0.8s cubic-bezier(0.4, 0, 0.4, 1) backwards;
+  animation-delay: var(--scribble-delay, 0.8s);
+}
+
+/* Lasso circle scribble — wraps a badge or word */
+.landing-editorial .scribble-circle {
+  position: relative;
+  display: inline-block;
+  padding: 6px 14px;
+}
+.landing-editorial .scribble-circle::after {
+  content: "";
+  position: absolute;
+  inset: -8px -16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none'><path d='M 14 38 Q 12 14, 96 10 Q 186 12, 192 40 Q 194 64, 100 66 Q 14 66, 12 42' stroke='%23E0A560' stroke-width='2.5' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+  transform: rotate(-2deg);
+}
+.landing-editorial .scribble-circle.aqua::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none'><path d='M 14 38 Q 12 14, 96 10 Q 186 12, 192 40 Q 194 64, 100 66 Q 14 66, 12 42' stroke='%238FD0D5' stroke-width='2.5' fill='none' stroke-linecap='round'/></svg>");
+}
+.landing-editorial .scribble-circle.ink::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none'><path d='M 14 38 Q 12 14, 96 10 Q 186 12, 192 40 Q 194 64, 100 66 Q 14 66, 12 42' stroke='%230A0E12' stroke-width='2.5' fill='none' stroke-linecap='round'/></svg>");
+}
+
+/* Arrow scribble — hand-drawn arrow callout */
+.landing-editorial .scribble-arrow {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---------- Letter-by-letter rise (motion only, no opacity) ---------- */
+@keyframes le-letter-rise {
+  0%   { transform: translateY(34px) rotate(-3deg); }
+  55%  { transform: translateY(-8px) rotate(1.2deg); }
+  82%  { transform: translateY(3px) rotate(-0.4deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+.landing-editorial .letter-rise {
+  display: inline-block;
+  animation: le-letter-rise 0.78s cubic-bezier(0.34, 1.5, 0.64, 1) backwards;
+}
+
+/* Word-by-word rise — coarser stagger, less DOM weight for H2s */
+@keyframes le-word-rise {
+  0%   { transform: translateY(40px) rotate(-1.5deg); }
+  60%  { transform: translateY(-6px) rotate(0.4deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+.landing-editorial .word-rise {
+  display: inline-block;
+  animation: le-word-rise 0.75s cubic-bezier(0.34, 1.5, 0.64, 1) backwards;
+}
+
 /* ---------- Responsive tweaks ---------- */
 @media (max-width: 980px) {
   .landing-editorial .curl { font-size: 13px; max-width: 180px; }
@@ -435,9 +529,13 @@ html, body, #root { margin: 0; padding: 0; }
   .landing-editorial [data-reveal],
   .landing-editorial .scroll-rise,
   .landing-editorial .curl[data-reveal],
-  .landing-editorial .sc-canvas-line {
+  .landing-editorial .sc-canvas-line,
+  .landing-editorial .letter-rise,
+  .landing-editorial .word-rise,
+  .landing-editorial .scribble-under.draw::after {
     animation: none !important;
     transform: none !important;
     stroke-dashoffset: 0 !important;
+    clip-path: none !important;
   }
 }
