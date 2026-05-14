@@ -363,7 +363,7 @@ export default function SelectPlan() {
                         borderRadius={10}
                         backgroundColor="#141416"
                         glowColor="187 80 70"
-                        colors={['#06B6D4', '#22d3ee', '#84CC16']}
+                        colors={['#8FD0D5', '#8FD0D5', '#E0A560']}
                         edgeSensitivity={25}
                         glowRadius={50}
                         coneSpread={10}

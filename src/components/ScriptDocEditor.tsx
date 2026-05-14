@@ -14,8 +14,8 @@ type LineType = ScriptLine["line_type"];
 
 const TYPE_OPTIONS: { type: LineType; color: string; label: string }[] = [
   { type: "filming",        color: "#f97316", label: "Filming"        },
-  { type: "actor",          color: "#0891b2", label: "Actor"          },
-  { type: "editor",         color: "#84cc16", label: "Editor"         },
+  { type: "actor",          color: "#8FD0D5", label: "Actor"          },
+  { type: "editor",         color: "#E0A560", label: "Editor"         },
   { type: "text_on_screen", color: "#475569", label: "Text on Screen" },
 ];
 
@@ -394,7 +394,7 @@ export default function ScriptDocEditor({
 
         {/* Save button */}
         <button
-          className="px-3 py-1 rounded-lg text-[11px] font-semibold text-white bg-gradient-to-r from-[#0891b2] to-[#84cc16] hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="px-3 py-1 rounded-lg text-[11px] font-semibold text-white bg-gradient-to-r from-[#8FD0D5] to-[#E0A560] hover:opacity-90 transition-opacity disabled:opacity-50"
           onClick={onSave}
           disabled={saving}
         >

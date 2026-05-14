@@ -106,7 +106,7 @@ function getRowStatusBorderColor(status: string): string {
   return "#334155";
 }
 
-const ASSIGNEE_COLORS = ['#0891b2','#7c3aed','#d97706','#059669','#e11d48','#4f46e5','#0d9488','#c026d3'];
+const ASSIGNEE_COLORS = ['#8FD0D5','#7c3aed','#d97706','#059669','#e11d48','#4f46e5','#0d9488','#c026d3'];
 function getAssigneeColor(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -928,7 +928,7 @@ export default function MasterEditingQueue() {
           >
             <div className="flex items-center gap-3">
               <Clapperboard className="w-5 h-5 text-primary" />
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight font-caslon">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight font-serif">
                 Editing Queue
               </h1>
             </div>

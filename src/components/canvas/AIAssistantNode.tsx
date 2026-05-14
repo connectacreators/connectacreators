@@ -605,7 +605,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div className="flex items-center gap-2">
-            <span className="font-caslon text-xs font-light" style={{ color: '#e0e0e0', letterSpacing: '0.04em' }}>{companionName}</span>
+            <span className="font-serif text-xs font-light" style={{ color: '#e0e0e0', letterSpacing: '0.04em' }}>{companionName}</span>
             <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.22)' }}>Connect nodes to give me context, or just ask.</span>
           </div>
           {d.onDelete && (

@@ -184,7 +184,7 @@ function PlanCard({
       )}
       <div className="relative">
         <p
-          className={`${fullscreen ? "text-sm" : "text-[13px]"} font-bold mb-3 font-caslon-text`}
+          className={`${fullscreen ? "text-sm" : "text-[13px]"} font-bold mb-3 font-serif`}
           style={{
             color: "rgba(201,169,110,1)",
             letterSpacing: "-0.01em",
@@ -472,7 +472,7 @@ export function AssistantChat({
             <FingerprintAvatar size="md" />
             {greeting && (
               <p
-                className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug font-caslon`}
+                className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug font-serif`}
                 style={{ letterSpacing: "0.02em" }}
               >
                 {greeting}
@@ -499,7 +499,7 @@ export function AssistantChat({
               msg.is_progress ? (
                 <div className="flex items-center gap-1.5 text-muted-foreground/60">
                   <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
-                  <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic font-caslon-text`}>{msg.content}</span>
+                  <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic font-serif`}>{msg.content}</span>
                 </div>
               ) : msg.type === "plan_proposal" && msg.plan_data ? (
                 <div className="flex gap-2 items-start">
@@ -540,7 +540,7 @@ export function AssistantChat({
                 </div>
               ) : msg.type === "image" && (msg._blobUrl || msg.image_b64) ? (
                 <div className="flex gap-2 items-start">
-                  <ImageIcon className="w-3.5 h-3.5 text-[#22d3ee] mt-0.5 flex-shrink-0" />
+                  <ImageIcon className="w-3.5 h-3.5 text-[#8FD0D5] mt-0.5 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <img
                       src={resolveImageUrl(msg)}
@@ -553,7 +553,7 @@ export function AssistantChat({
                       </p>
                     )}
                     {msg.credits_used && (
-                      <p className="text-[10px] text-[#22d3ee]/70 mt-0.5">
+                      <p className="text-[10px] text-[#8FD0D5]/70 mt-0.5">
                         {msg.credits_used} credits
                       </p>
                     )}
@@ -563,7 +563,7 @@ export function AssistantChat({
                 <div className="flex gap-2 items-start">
                   <svg
                     className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                    style={{ color: "#22d3ee" }}
+                    style={{ color: "#8FD0D5" }}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -585,7 +585,7 @@ export function AssistantChat({
                         </span>
                       )}
                     </div>
-                    <div className="font-caslon-text text-sm leading-normal tracking-tight">
+                    <div className="font-serif text-sm leading-normal tracking-tight">
                       <MarkdownText text={msg.content} />
                     </div>
                     <button
@@ -614,7 +614,7 @@ export function AssistantChat({
                   <div className="text-foreground min-w-0 flex-1 relative pr-8">
                     {(() => {
                       const deck = parseDeck(msg.content);
-                      if (!deck) return <div className="font-caslon-text text-sm leading-normal tracking-tight"><MarkdownText text={msg.content} /></div>;
+                      if (!deck) return <div className="font-serif text-sm leading-normal tracking-tight"><MarkdownText text={msg.content} /></div>;
                       const alreadyAnswered = visibleMessages
                         .slice(i + 1)
                         .some(
@@ -623,13 +623,13 @@ export function AssistantChat({
                         );
                       if (alreadyAnswered) {
                         return deck.preamble ? (
-                          <div className="font-caslon-text text-sm leading-normal tracking-tight"><MarkdownText text={deck.preamble} /></div>
+                          <div className="font-serif text-sm leading-normal tracking-tight"><MarkdownText text={deck.preamble} /></div>
                         ) : null;
                       }
                       return (
                         <>
                           {deck.preamble && (
-                            <div className="mb-2 font-caslon-text text-sm leading-normal tracking-tight">
+                            <div className="mb-2 font-serif text-sm leading-normal tracking-tight">
                               <MarkdownText text={deck.preamble} />
                             </div>
                           )}
@@ -792,7 +792,7 @@ export function AssistantChat({
               {looksLikeResearch ? (
                 <svg
                   className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                  style={{ color: "#22d3ee" }}
+                  style={{ color: "#8FD0D5" }}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -810,7 +810,7 @@ export function AssistantChat({
                   Preparing questions…
                 </div>
               ) : (
-                <div className="text-foreground min-w-0 flex-1 streaming-bubble font-caslon-text text-sm leading-normal tracking-tight">
+                <div className="text-foreground min-w-0 flex-1 streaming-bubble font-serif text-sm leading-normal tracking-tight">
                   <MarkdownText text={liveText} />
                 </div>
               )}

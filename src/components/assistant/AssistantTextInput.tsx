@@ -244,7 +244,7 @@ export function AssistantTextInput({
           <span
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{
-              background: "#22d3ee",
+              background: "#8FD0D5",
               boxShadow: "0 0 5px rgba(34,211,238,0.5)",
               animation: "pulse 1.5s infinite",
             }}
@@ -378,7 +378,7 @@ export function AssistantTextInput({
                     key={i}
                     style={{
                       background: "rgba(34,211,238,0.18)",
-                      color: "#22d3ee",
+                      color: "#8FD0D5",
                       borderRadius: 3,
                       padding: "0 1px",
                     }}
@@ -490,7 +490,7 @@ export function AssistantTextInput({
                     type="button"
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
                       imageMode
-                        ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
+                        ? "text-[#8FD0D5] bg-[rgba(34,211,238,0.1)]"
                         : "text-muted-foreground hover:bg-muted/60"
                     }`}
                     onClick={() => {
@@ -510,7 +510,7 @@ export function AssistantTextInput({
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
                       isResearchMode ? "" : "text-muted-foreground hover:bg-muted/60"
                     }`}
-                    style={isResearchMode ? { color: "#22d3ee", background: "rgba(34,211,238,0.08)" } : undefined}
+                    style={isResearchMode ? { color: "#8FD0D5", background: "rgba(34,211,238,0.08)" } : undefined}
                     onClick={() => {
                       onToggleResearchMode();
                       setPlusMenuOpen(false);
@@ -592,7 +592,7 @@ export function AssistantTextInput({
                 color:
                   generating || generateScriptDisabled
                     ? "rgba(34,211,238,0.4)"
-                    : "#22d3ee",
+                    : "#8FD0D5",
                 fontSize: 11,
                 fontWeight: 600,
                 background: "none",
@@ -705,7 +705,7 @@ export function AssistantTextInput({
                                     ? "border-l-2 text-foreground"
                                     : "text-muted-foreground hover:bg-muted/60"
                                 }`}
-                                style={selectedModel === m.key ? { borderLeftColor: "#22d3ee", background: "rgba(34,211,238,0.07)" } : undefined}
+                                style={selectedModel === m.key ? { borderLeftColor: "#8FD0D5", background: "rgba(34,211,238,0.07)" } : undefined}
                                 onClick={() => {
                                   onModelChange?.(m.key);
                                   setModelDropdownOpen(false);
@@ -719,7 +719,7 @@ export function AssistantTextInput({
                                   {m.label}
                                 </span>
                                 {selectedModel === m.key && (
-                                  <Check className="w-3 h-3 ml-auto" style={{ color: "#22d3ee" }} />
+                                  <Check className="w-3 h-3 ml-auto" style={{ color: "#8FD0D5" }} />
                                 )}
                                 <span
                                   className={`text-[10px] ${
@@ -775,7 +775,7 @@ export function AssistantTextInput({
                                 height: 16,
                                 borderRadius: 8,
                                 background: thinkingEnabled
-                                  ? "#22d3ee"
+                                  ? "#8FD0D5"
                                   : "rgba(255,255,255,0.15)",
                                 transition: "background 0.2s",
                               }}
@@ -849,7 +849,7 @@ export function AssistantTextInput({
                 height: 28,
                 background: "transparent",
                 border: "none",
-                color: "#22d3ee",
+                color: "#8FD0D5",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -900,8 +900,8 @@ export function AssistantTextInput({
       {/* Image mode indicator */}
       {imageMode && (
         <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-[rgba(34,211,238,0.05)] rounded-lg w-fit">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#22d3ee]" />
-          <span className="text-[10px] text-[#22d3ee]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#8FD0D5]" />
+          <span className="text-[10px] text-[#8FD0D5]">
             Image mode · DALL-E 3 · ~150 cr
           </span>
         </div>

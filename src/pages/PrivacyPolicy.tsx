@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Shield } from "lucide-react";
 
-const dot = <span style={{ color: "#22d3ee", marginTop: 6, width: 4, height: 4, borderRadius: "50%", background: "#22d3ee", flexShrink: 0, display: "inline-block" }} />;
+const dot = <span style={{ color: "#8FD0D5", marginTop: 6, width: 4, height: 4, borderRadius: "50%", background: "#8FD0D5", flexShrink: 0, display: "inline-block" }} />;
 
 const Bullet = ({ children }: { children: React.ReactNode }) => (
   <li className="flex items-start gap-2" style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.7 }}>
@@ -23,14 +23,14 @@ const PrivacyPolicy = () => {
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 py-16">
         <Link to="/" className="inline-flex items-center gap-2 mb-12 transition-colors duration-200" style={{ fontSize: 13, color: "rgba(34,211,238,0.6)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#22d3ee")}
+          onMouseEnter={e => (e.currentTarget.style.color = "#8FD0D5")}
           onMouseLeave={e => (e.currentTarget.style.color = "rgba(34,211,238,0.6)")}>
           <ArrowLeft size={14} /> Back to Home
         </Link>
 
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl" style={{ background: "rgba(8,145,178,0.12)", border: "1px solid rgba(8,145,178,0.25)" }}>
-            <Shield size={18} style={{ color: "#22d3ee" }} />
+            <Shield size={18} style={{ color: "#8FD0D5" }} />
           </div>
           <h1 className="text-3xl font-light tracking-tight" style={{ color: "rgba(255,255,255,0.92)" }}>Privacy Policy</h1>
         </div>
@@ -42,7 +42,7 @@ const PrivacyPolicy = () => {
 
         <P>
           R3 Productions, doing business as <strong style={{ color: "rgba(255,255,255,0.9)" }}>Connecta Creators</strong> ("we," "us," or "our"), operates the website{" "}
-          <a href="https://connectacreators.com" style={{ color: "#22d3ee", textDecoration: "underline" }}>connectacreators.com</a>{" "}
+          <a href="https://connectacreators.com" style={{ color: "#8FD0D5", textDecoration: "underline" }}>connectacreators.com</a>{" "}
           and provides AI-powered content creation tools, CRM systems, automation tools, appointment booking systems, and SMS/email communication automation. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform. By creating an account or using our services, you acknowledge that you have read, understood, and agree to the practices described in this policy.
         </P>
 
@@ -135,7 +135,7 @@ const PrivacyPolicy = () => {
                   <Bullet>Message frequency varies depending on your interaction with our services.</Bullet>
                   <Bullet>Message and data rates may apply.</Bullet>
                   <Bullet>You may opt out at any time by replying <strong style={{ color: "rgba(255,255,255,0.8)" }}>STOP</strong> to any message.</Bullet>
-                  <Bullet>For assistance, reply <strong style={{ color: "rgba(255,255,255,0.8)" }}>HELP</strong> or contact us at <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#22d3ee" }}>creatorsconnecta@gmail.com</a>.</Bullet>
+                  <Bullet>For assistance, reply <strong style={{ color: "rgba(255,255,255,0.8)" }}>HELP</strong> or contact us at <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#8FD0D5" }}>creatorsconnecta@gmail.com</a>.</Bullet>
                   <Bullet>Consent to receive SMS is not required to purchase any goods or services.</Bullet>
                 </ul>
               </>
@@ -182,7 +182,7 @@ const PrivacyPolicy = () => {
                   ].map((item, i) => <Bullet key={i}>{item}</Bullet>)}
                 </ul>
                 <p className="mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-                  To exercise any of these rights, contact us at <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#22d3ee" }}>creatorsconnecta@gmail.com</a>. We will respond within 30 days.
+                  To exercise any of these rights, contact us at <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#8FD0D5" }}>creatorsconnecta@gmail.com</a>. We will respond within 30 days.
                 </p>
               </>
             ),
@@ -215,7 +215,7 @@ const PrivacyPolicy = () => {
                   <p style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8 }}>
                     <strong style={{ color: "rgba(255,255,255,0.9)" }}>R3 Productions DBA Connecta Creators</strong><br />
                     State of Incorporation: Utah, USA<br />
-                    Email: <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#22d3ee" }}>creatorsconnecta@gmail.com</a>
+                    Email: <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#8FD0D5" }}>creatorsconnecta@gmail.com</a>
                   </p>
                 </div>
               </>

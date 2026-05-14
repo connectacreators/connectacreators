@@ -18,7 +18,7 @@ export interface ContextNode {
 
 export interface AssistantContextPanelProps {
   nodes: ContextNode[];
-  /** Map of node-type → CSS color (e.g. "#84cc16" for videoNode) — caller passes the canvas's NODE_TYPE_COLOR */
+  /** Map of node-type → CSS color (e.g. "#E0A560" for videoNode) — caller passes the canvas's NODE_TYPE_COLOR */
   typeColorMap?: Record<string, string>;
   /** Map of node-type → display label (e.g. "videoNode" → "Video") */
   typeLabelMap?: Record<string, string>;
@@ -83,7 +83,7 @@ export function AssistantContextPanel({
               transition: "color 0.15s",
             }}
             onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")
+              ((e.currentTarget as HTMLButtonElement).style.color = "#8FD0D5")
             }
             onMouseLeave={(e) =>
               ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)")
@@ -136,7 +136,7 @@ export function AssistantContextPanel({
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: "#22d3ee",
+                  color: "#8FD0D5",
                   background: "rgba(34,211,238,0.1)",
                   borderRadius: 4,
                   padding: "1px 5px",
@@ -163,7 +163,7 @@ export function AssistantContextPanel({
                 transition: "color 0.15s",
               }}
               onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.color = "#22d3ee")
+                ((e.currentTarget as HTMLButtonElement).style.color = "#8FD0D5")
               }
               onMouseLeave={(e) =>
                 ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)")

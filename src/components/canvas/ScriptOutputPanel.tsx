@@ -42,10 +42,10 @@ const LINE_CONFIG: Record<string, { color: string; bg: string; border: string; d
     label: "ACTOR",
   },
   editor: {
-    color: "text-[#a3e635]",
+    color: "text-[#F0BC7D]",
     bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]",
     border: "border-[rgba(132,204,22,0.2)]",
-    dot: "bg-[#84CC16]",
+    dot: "bg-[#E0A560]",
     icon: Scissors,
     label: "EDITOR",
   },
@@ -62,7 +62,7 @@ const LINE_CONFIG: Record<string, { color: string; bg: string; border: string; d
 const SECTION_HEADERS: Record<string, { label: string; color: string; bar: string }> = {
   hook: { label: "HOOK", color: "text-[#e0e0e0]", bar: "bg-[rgba(255,255,255,0.1)]" },
   body: { label: "BODY", color: "text-[#94a3b8]", bar: "bg-[rgba(148,163,184,0.3)]" },
-  cta:  { label: "CTA",  color: "text-[#a3e635]", bar: "bg-[rgba(132,204,22,0.35)]" },
+  cta:  { label: "CTA",  color: "text-[#F0BC7D]", bar: "bg-[rgba(132,204,22,0.35)]" },
 };
 
 export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }: Props) {
@@ -104,7 +104,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
   // Group lines by section in order: hook → body → cta
   const sections: Array<"hook" | "body" | "cta"> = ["hook", "body", "cta"];
 
-  const scoreColor = script.virality_score >= 8 ? "text-[#a3e635]" : script.virality_score >= 6 ? "text-[#22d3ee]" : "text-orange-400";
+  const scoreColor = script.virality_score >= 8 ? "text-[#F0BC7D]" : script.virality_score >= 6 ? "text-[#8FD0D5]" : "text-orange-400";
 
   return (
     <div className="flex flex-col h-full">
@@ -200,7 +200,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
               disabled={saving}
               type="button"
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold cursor-pointer select-none"
-              style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", color: "#22d3ee", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
+              style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", color: "#8FD0D5", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {saving ? "Saving..." : "Save Script"}

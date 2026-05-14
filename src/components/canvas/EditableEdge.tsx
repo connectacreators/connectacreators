@@ -10,7 +10,7 @@ import {
 } from "@xyflow/react";
 
 const EDGE_COLORS = [
-  "hsl(44 75% 87%)", "#22d3ee", "#f43f5e", "#a3e635", "#f59e0b",
+  "hsl(44 75% 87%)", "#8FD0D5", "#f43f5e", "#F0BC7D", "#f59e0b",
   "#a78bfa", "#60a5fa", "#34d399", "#fb923c", "#ffffff",
 ];
 
@@ -154,7 +154,7 @@ export default function EditableEdge({
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-card border border-border shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   {(["bezier", "smoothstep", "straight"] as const).map(t => (
                     <button key={t} onClick={() => updateEdge({ pathType: t })}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${pathType === t ? "text-[#22d3ee] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${pathType === t ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
                     >
                       {t === "bezier" ? "Curve" : t === "smoothstep" ? "Step" : "Straight"}
                     </button>
@@ -177,7 +177,7 @@ export default function EditableEdge({
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-card border border-border shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   {(["solid", "dashed", "dotted"] as const).map(s => (
                     <button key={s} onClick={() => updateStyle({ strokeStyle: s })}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left capitalize ${strokeStyle === s ? "text-[#22d3ee] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left capitalize ${strokeStyle === s ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
                     >
                       {s}
                     </button>
@@ -187,7 +187,7 @@ export default function EditableEdge({
 
               {/* Arrow toggle */}
               <button onClick={() => updateEdge({ arrow: !hasArrow })}
-                className={`p-1 rounded-lg transition-colors ${hasArrow ? "text-[#22d3ee] bg-[rgba(8,145,178,0.15)]" : "text-[#94a3b8] hover:text-foreground hover:bg-muted/30"}`}
+                className={`p-1 rounded-lg transition-colors ${hasArrow ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.15)]" : "text-[#94a3b8] hover:text-foreground hover:bg-muted/30"}`}
                 title={hasArrow ? "Remove Arrow" : "Add Arrow"}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -227,7 +227,7 @@ export default function EditableEdge({
                       <button key={w} onClick={() => updateStyle({ width: w, strokeWidth: w })}
                         className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${edgeWidth === w ? "bg-[rgba(8,145,178,0.2)]" : "hover:bg-muted/30"}`}
                       >
-                        <div className="rounded-full" style={{ width: Math.max(3, w * 1.8), height: Math.max(3, w * 1.8), background: edgeWidth === w ? "#22d3ee" : "#94a3b8" }} />
+                        <div className="rounded-full" style={{ width: Math.max(3, w * 1.8), height: Math.max(3, w * 1.8), background: edgeWidth === w ? "#8FD0D5" : "#94a3b8" }} />
                       </button>
                     ))}
                   </div>

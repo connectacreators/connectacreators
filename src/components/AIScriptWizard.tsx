@@ -66,7 +66,7 @@ const SCRIPT_FORMATS = [
     description: { en: "Direct-to-camera monologue", es: "Monólogo directo a cámara" },
     color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
     activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
-    iconColor: "text-[#22d3ee]",
+    iconColor: "text-[#8FD0D5]",
   },
   {
     id: "broll_caption",
@@ -75,7 +75,7 @@ const SCRIPT_FORMATS = [
     description: { en: "Voiceover with B-roll footage", es: "Voz en off con imágenes de apoyo" },
     color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
     activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
-    iconColor: "text-[#22d3ee]",
+    iconColor: "text-[#8FD0D5]",
   },
   {
     id: "entrevista",
@@ -84,7 +84,7 @@ const SCRIPT_FORMATS = [
     description: { en: "Interview / Q&A format", es: "Formato de entrevista / Q&A" },
     color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
     activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
-    iconColor: "text-[#22d3ee]",
+    iconColor: "text-[#8FD0D5]",
   },
   {
     id: "variado",
@@ -93,7 +93,7 @@ const SCRIPT_FORMATS = [
     description: { en: "Mixed format & transitions", es: "Formato mixto con transiciones" },
     color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
     activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
-    iconColor: "text-[#22d3ee]",
+    iconColor: "text-[#8FD0D5]",
   },
 ];
 
@@ -1969,7 +1969,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </div>
 
           {/* Generate button */}
-          <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
+          <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0}>
             <Button
               onClick={handleGenerateScript}
               disabled={loading || vaultSaving}
@@ -3154,9 +3154,9 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 >
                   <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold transition-all ${
                     isComplete
-                      ? "bg-[#0891B2] text-white"
+                      ? "bg-[#8FD0D5] text-white"
                       : isActive
-                        ? "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-2 border-[rgba(34,211,238,0.6)]"
+                        ? "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-2 border-[rgba(34,211,238,0.6)]"
                         : "bg-muted/50 text-muted-foreground/40"
                   }`}>
                     {isComplete ? <Check className="w-3.5 h-3.5" /> : num}
@@ -3167,11 +3167,11 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     {tr(label, language)}
                   </span>
                   {isComplete && (
-                    <span className="text-[11px] text-[#22d3ee]/70 font-medium">
+                    <span className="text-[11px] text-[#8FD0D5]/70 font-medium">
                       {tr({ en: "Done — tap to revisit", es: "Listo — toca para revisar" }, language)}
                     </span>
                   )}
-                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-[#22d3ee] animate-pulse flex-shrink-0" />}
+                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-[#8FD0D5] animate-pulse flex-shrink-0" />}
                 </button>
 
                 {/* Step content */}

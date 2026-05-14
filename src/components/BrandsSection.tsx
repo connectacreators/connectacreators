@@ -10,7 +10,7 @@ const BrandsSection = () => {
   return (
     <section className="py-20 px-6 bg-card/30">
       <div className="max-w-6xl mx-auto text-center">
-        <h2 className="text-3xl md:text-5xl font-playfair font-bold mb-16 leading-tight">
+        <h2 className="text-3xl md:text-5xl font-serif font-bold mb-16 leading-tight">
           <span className="text-foreground">Marcas que utilizan el </span>
           <span className="italic text-foreground/90">sistema</span>
         </h2>

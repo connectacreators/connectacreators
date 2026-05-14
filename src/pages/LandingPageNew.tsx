@@ -542,9 +542,9 @@ function SuperCanvasMock() {
       style={{
         height: 460,
         background: "#15181E",
-        border: "1.5px solid #0A0E12",
+        border: "1.5px solid #141414",
         borderRadius: 22,
-        boxShadow: "6px 6px 0 #0A0E12",
+        boxShadow: "6px 6px 0 #141414",
       }}
     >
       {/* Title strip — editorial, not code-editor */}

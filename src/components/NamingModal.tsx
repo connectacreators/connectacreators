@@ -36,7 +36,7 @@ export default function NamingModal() {
       >
         <div className="text-center mb-7">
           <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
-          <h2 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
+          <h2 className="font-serif text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
             {en ? "Welcome to Connecta" : "Bienvenido a Connecta"}
           </h2>
           <p className="text-xs text-muted-foreground mt-2 tracking-wide leading-relaxed max-w-[280px] mx-auto">

@@ -48,10 +48,10 @@ const HOOK_TYPE_LABELS: Record<string, string> = {
 };
 
 const HOOK_TYPE_COLORS: Record<string, string> = {
-  educational: "#22d3ee",
+  educational: "#8FD0D5",
   authority: "#f59e0b",
   story: "#a78bfa",
-  comparison: "#a3e635",
+  comparison: "#F0BC7D",
   shock: "#f43f5e",
   random: "#94a3b8",
 };
@@ -63,8 +63,8 @@ function formatViews(n: number): string {
 }
 
 function outlierColor(score: number): string {
-  if (score >= 5) return "#22d3ee";
-  if (score >= 2.5) return "#a3e635";
+  if (score >= 5) return "#8FD0D5";
+  if (score >= 2.5) return "#F0BC7D";
   return "#64748b";
 }
 

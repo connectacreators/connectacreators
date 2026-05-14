@@ -155,18 +155,18 @@ const getTypeConfig = (lang: "en" | "es") => ({
   actor: {
     label: tr(t.scripts.voiceoverDialogue, lang),
     icon: Mic,
-    color: "text-[#22d3ee]",
+    color: "text-[#8FD0D5]",
     bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]",
     border: "border-[rgba(8,145,178,0.25)]",
-    dot: "bg-[#0891B2]",
+    dot: "bg-[#8FD0D5]",
   },
   editor: {
     label: tr(t.scripts.editingInstructions, lang),
     icon: Scissors,
-    color: "text-[#a3e635]",
+    color: "text-[#F0BC7D]",
     bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]",
     border: "border-[rgba(132,204,22,0.2)]",
-    dot: "bg-[#84CC16]",
+    dot: "bg-[#E0A560]",
   },
   text_on_screen: {
     label: tr(t.scripts.textOnScreen, lang),
@@ -1382,7 +1382,7 @@ export default function Scripts() {
         {view === "clients" && (
           <>
             <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 font-caslon">
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 font-serif">
                 Content <span className="text-primary">Ideas</span>
               </h1>
               <p className="text-muted-foreground max-w-xl mx-auto">
@@ -1692,7 +1692,7 @@ export default function Scripts() {
         {view === "client-detail" && selectedClient && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground font-caslon">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground font-serif">
                 {selectedClient.name}
                 {!selectedClient.user_id && (
                   <span className="text-sm text-red-500 font-normal ml-2">{tr(t.scripts.notVerified, language)}</span>
@@ -1949,7 +1949,7 @@ export default function Scripts() {
                                 >
                                   {labelText}
                                 </span>
-                                <p className={`font-semibold leading-snug font-caslon ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                                <p className={`font-semibold leading-snug font-serif ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>
                                   {ideaOrTitle}
                                 </p>
                                 {hasIdea && s.title && s.title !== s.idea_ganadora && (
@@ -2286,7 +2286,7 @@ export default function Scripts() {
         {/* ===== NEW / EDIT SCRIPT ===== */}
         {(view === "new-script" || view === "edit-script") && (
           <>
-             <h2 className="text-xl font-bold text-foreground mb-2 font-caslon">
+             <h2 className="text-xl font-bold text-foreground mb-2 font-serif">
                {view === "edit-script" ? tr(t.scripts.editScriptFor, language) : tr(t.scripts.newScriptFor, language)}{" "}
               <span className="text-primary">{selectedClient?.name}</span>
             </h2>
@@ -2416,7 +2416,7 @@ export default function Scripts() {
                      }}
                    />
                    <div className="flex items-center gap-2">
-                     <Archive className="w-4 h-4 text-[#22d3ee]" />
+                     <Archive className="w-4 h-4 text-[#8FD0D5]" />
                      <span className="text-sm font-medium text-foreground">
                        {tr({ en: "Use a script from the Vault", es: "Usar un guion del Vault" }, language)}
                      </span>
@@ -2532,7 +2532,7 @@ export default function Scripts() {
               <button
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                   scriptEditorTab === "cards"
-                    ? "text-[#22d3ee] border-[#0891b2]"
+                    ? "text-[#8FD0D5] border-[#8FD0D5]"
                     : "text-muted-foreground border-transparent hover:text-foreground"
                 }`}
                 onClick={() => setScriptEditorTab("cards")}
@@ -2543,7 +2543,7 @@ export default function Scripts() {
               <button
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                   scriptEditorTab === "doc"
-                    ? "text-[#22d3ee] border-[#0891b2]"
+                    ? "text-[#8FD0D5] border-[#8FD0D5]"
                     : "text-muted-foreground border-transparent hover:text-foreground"
                 }`}
                 onClick={() => setScriptEditorTab("doc")}
@@ -3156,8 +3156,8 @@ export default function Scripts() {
               {/* File Submission */}
               <div className="mt-4 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
                 <div className="flex items-center gap-2 mb-3">
-                  <Link2 className="w-4 h-4 text-[#22d3ee]" />
-                  <span className="text-sm font-semibold text-[#22d3ee]">File Submission:</span>
+                  <Link2 className="w-4 h-4 text-[#8FD0D5]" />
+                  <span className="text-sm font-semibold text-[#8FD0D5]">File Submission:</span>
                 </div>
                 {/* Supabase submission files — one card each */}
                 {submissionStorageFiles.length > 0 && (
@@ -3307,8 +3307,8 @@ export default function Scripts() {
                 onExportPDF={() => {
                   const typeColors: Record<string, string> = {
                     filming: '#f97316',
-                    actor: '#0891b2',
-                    editor: '#84cc16',
+                    actor: '#8FD0D5',
+                    editor: '#E0A560',
                     text_on_screen: '#475569',
                   };
                   const sectionOrder = ['hook', 'body', 'cta'] as const;

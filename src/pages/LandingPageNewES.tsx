@@ -39,8 +39,8 @@ const PARTICLES = [
   { left: "25%", dur: 13,  del: 5.5, size: 3, color: "rgba(6,182,212,0.4)" },
 ];
 
-const gold = "#22d3ee";
-const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #84CC16 100%)";
+const gold = "#8FD0D5";
+const goldGradient = "linear-gradient(135deg, #8FD0D5 0%, #E0A560 100%)";
 const darkBg = "#000000";
 const borderGold = "rgba(8, 145, 178, 0.15)";
 
@@ -57,7 +57,7 @@ function ViralVideosMockup() {
       style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.35)", boxShadow: "0 0 60px rgba(8,145,178,0.12), 0 30px 80px rgba(0,0,0,0.5)" }}>
       <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-2">
-          <TrendingUp size={11} style={{ color: "#22d3ee" }} />
+          <TrendingUp size={11} style={{ color: "#8FD0D5" }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "0.02em" }}>Viral Hoy</span>
         </div>
         <div className="flex gap-1.5">
@@ -92,8 +92,8 @@ function ViralVideosMockup() {
             </div>
             <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md"
               style={{ background: v.hot ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${v.hot ? "rgba(249,115,22,0.4)" : "rgba(255,255,255,0.1)"}` }}>
-              {v.hot && <Flame className="w-2.5 h-2.5 text-[#84CC16]" />}
-              <span style={{ fontSize: 8, fontWeight: 700, color: v.hot ? "#84CC16" : "rgba(255,255,255,0.4)" }}>{v.score}</span>
+              {v.hot && <Flame className="w-2.5 h-2.5 text-[#E0A560]" />}
+              <span style={{ fontSize: 8, fontWeight: 700, color: v.hot ? "#E0A560" : "rgba(255,255,255,0.4)" }}>{v.score}</span>
             </div>
             <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 rounded-md"
               style={{ background: "rgba(8,145,178,0.15)", border: "1px solid rgba(8,145,178,0.3)", fontSize: 8, color: gold, fontWeight: 700 }}>
@@ -272,7 +272,7 @@ function TranscriptionMockup() {
 
 function ScriptVaultMockup() {
   const scripts = [
-    { title: "5 kilos sin dieta — la verdad", category: "Salud", date: "Mar 5", status: "Programado", sc: "#22d3ee" },
+    { title: "5 kilos sin dieta — la verdad", category: "Salud", date: "Mar 5", status: "Programado", sc: "#8FD0D5" },
     { title: "Rutina matutina que cambió mi vida", category: "Estilo de vida", date: "Mar 3", status: "Usado", sc: "#4ade80" },
     { title: "Por qué tu rutina de gym no funciona", category: "Fitness", date: "Feb 28", status: "Borrador", sc: "#94a3b8" },
     { title: "El hábito de 3 minutos que escala negocios", category: "Negocios", date: "Feb 24", status: "Usado", sc: "#4ade80" },
@@ -324,7 +324,7 @@ function LeadTrackerMockup() {
       ],
     },
     {
-      title: "Contactados", count: 3, color: "#22d3ee",
+      title: "Contactados", count: 3, color: "#8FD0D5",
       leads: [{ name: "Mike R.", source: "TT", time: "hace 1d" }],
     },
     {
@@ -380,9 +380,9 @@ function CalendarMockup() {
     [30, 31, null, null, null, null, null],
   ];
   const events: Record<number, string> = {
-    3: "#4ade80", 5: "#22d3ee", 10: "#22d3ee",
-    12: "#f87171", 17: "#4ade80", 20: "#22d3ee",
-    24: "#4ade80", 27: "#22d3ee", 7: "#f87171",
+    3: "#4ade80", 5: "#8FD0D5", 10: "#8FD0D5",
+    12: "#f87171", 17: "#4ade80", 20: "#8FD0D5",
+    24: "#4ade80", 27: "#8FD0D5", 7: "#f87171",
   };
   return (
     <div
@@ -422,7 +422,7 @@ function CalendarMockup() {
           </div>
         ))}
         <div className="flex items-center justify-center gap-5 mt-3 pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-          {[{ c: "#4ade80", l: "Aprobado" }, { c: "#22d3ee", l: "Programado" }, { c: "#f87171", l: "Revisión" }].map((item) => (
+          {[{ c: "#4ade80", l: "Aprobado" }, { c: "#8FD0D5", l: "Programado" }, { c: "#f87171", l: "Revisión" }].map((item) => (
             <div key={item.l} className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.c }} />
               <span style={{ fontSize: 7, color: "rgba(255,255,255,0.35)" }}>{item.l}</span>
@@ -437,7 +437,7 @@ function CalendarMockup() {
 function EditingQueueMockup() {
   const rows = [
     { title: "Reel Rutina Matutina", editor: "Carlos V.", status: "En Edición", sc: "#60a5fa", date: "Mar 8" },
-    { title: "Reto 5 Kilos Sin Dieta", editor: "Maria L.", status: "Revisión", sc: "#22d3ee", date: "Mar 6" },
+    { title: "Reto 5 Kilos Sin Dieta", editor: "Maria L.", status: "Revisión", sc: "#8FD0D5", date: "Mar 6" },
     { title: "Por Qué Fallan Los Gyms", editor: "David R.", status: "Listo", sc: "#4ade80", date: "Mar 4" },
   ];
   return (
@@ -498,7 +498,7 @@ function FeatureSection({
           {/* Texto */}
           <div className="flex-1 max-w-lg">
             <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 14 }}>{label}</p>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight mb-5 leading-tight text-white font-caslon" style={{ letterSpacing: "0.02em" }}>{headline}</h2>
+            <h2 className="text-3xl sm:text-4xl font-light tracking-tight mb-5 leading-tight text-white font-serif" style={{ letterSpacing: "0.02em" }}>{headline}</h2>
             <p className="text-base leading-relaxed mb-7" style={{ color: "#888" }}>{desc}</p>
             <ul className="flex flex-col gap-2.5">
               {bullets.map((b, i) => (
@@ -725,7 +725,7 @@ function DemoPlayer() {
                   background: speed !== 1 ? "rgba(8,145,178,0.25)" : "none",
                   border: speed !== 1 ? "1px solid rgba(8,145,178,0.4)" : "none",
                   borderRadius: 4, cursor: "pointer",
-                  color: speed !== 1 ? "#22d3ee" : "rgba(255,255,255,0.65)",
+                  color: speed !== 1 ? "#8FD0D5" : "rgba(255,255,255,0.65)",
                   padding: "1px 6px", fontSize: 11, fontWeight: 600,
                   display: "flex", alignItems: "center",
                 }}
@@ -747,7 +747,7 @@ function DemoPlayer() {
                         display: "block", width: "100%", padding: "6px 14px",
                         background: s === speed ? "rgba(8,145,178,0.2)" : "transparent",
                         border: "none", cursor: "pointer", textAlign: "left",
-                        color: s === speed ? "#22d3ee" : "rgba(255,255,255,0.7)",
+                        color: s === speed ? "#8FD0D5" : "rgba(255,255,255,0.7)",
                         fontSize: 12, fontWeight: s === speed ? 600 : 400,
                       }}
                     >
@@ -930,7 +930,7 @@ export default function LandingPageNewES() {
               <img src={connectaLoginLogo} alt="ConnectaCreators" className="h-8 object-contain" />
             </motion.div>
             <div className="hidden md:flex items-center gap-6">
-              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95">
+              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95">
                 <Link to="/scripts" className="px-6 py-2.5 font-semibold text-sm text-white block" style={{ textDecoration: "none" }}>
                   Prueba Connecta
                 </Link>
@@ -947,7 +947,7 @@ export default function LandingPageNewES() {
               className="md:hidden px-6 py-4 border-t"
               style={{ backgroundColor: "rgba(6,9,12,0.95)", borderColor: "rgba(8,145,178,0.2)", backdropFilter: "blur(24px)" }}
             >
-              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="w-fit">
+              <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="w-fit">
                 <Link to="/scripts" className="px-6 py-2.5 font-semibold text-sm text-white block" style={{ textDecoration: "none" }}>
                   Prueba Connecta
                 </Link>
@@ -1005,7 +1005,7 @@ export default function LandingPageNewES() {
               Convierte cualquier video viral en un recurso listo para editar, asígnalo a tu equipo y publica más rápido sin el caos.
             </p>
 
-            <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="hover:scale-[1.02] transition-transform w-fit mx-auto">
+            <BorderGlow borderRadius={12} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="hover:scale-[1.02] transition-transform w-fit mx-auto">
               <Link to="/dashboard" className="inline-flex items-center gap-2.5 px-8 py-3.5 text-white" style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.02em", textDecoration: "none" }}>
                 <Play size={14} />
                 Pruébalo Gratis
@@ -1151,7 +1151,7 @@ export default function LandingPageNewES() {
               <p className="text-lg mb-10" style={{ color: "#666" }}>
                 Únete a los creadores que ya usan Connecta para escalar su marca personal.
               </p>
-              <BorderGlow borderRadius={16} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95 w-fit mx-auto">
+              <BorderGlow borderRadius={16} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={25} glowRadius={50} coneSpread={10} fillOpacity={0} className="transition duration-200 hover:scale-105 active:scale-95 w-fit mx-auto">
                 <Link to="/dashboard" className="cc-cta-btn inline-flex items-center gap-3 px-10 py-5 font-semibold text-base text-white" style={{ textDecoration: "none" }}>
                   Comienza Gratis Hoy
                   <ArrowRight size={18} />

@@ -32,7 +32,7 @@
 
 .curved-loop-svg.honey { fill: var(--honey, #E0A560); }
 .curved-loop-svg.aqua  { fill: var(--aqua, #8FD0D5); }
-.curved-loop-svg.ink   { fill: var(--ink, #0A0E12); }
+.curved-loop-svg.ink   { fill: var(--ink, #141414); }
 
 /* Thin italic variant — for "prompt stream" stream-of-consciousness curves */
 .curved-loop-svg.thin-italic {

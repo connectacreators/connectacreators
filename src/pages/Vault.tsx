@@ -351,7 +351,7 @@ function VaultContent({
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-[#22d3ee]" />
+            <div className="w-2 h-2 rounded-full bg-[#8FD0D5]" />
             <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">
               {isMasterMode
                 ? tr({ en: "Master Vault", es: "Vault Maestro" }, language)
@@ -389,11 +389,11 @@ function VaultContent({
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Hook</span>
-            <span className="text-[#22d3ee] font-bold text-sm ml-1.5">{stats.hooks}</span>
+            <span className="text-[#8FD0D5] font-bold text-sm ml-1.5">{stats.hooks}</span>
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Body</span>
-            <span className="text-[#a3e635] font-bold text-sm ml-1.5">{stats.body}</span>
+            <span className="text-[#F0BC7D] font-bold text-sm ml-1.5">{stats.body}</span>
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">CTA</span>
@@ -489,10 +489,10 @@ function VaultContent({
               onClick={() => setShowCreate(true)}
               aria-label="Add new template"
               title={!hasClientId ? tr({ en: "Select a client filter first", es: "Selecciona un cliente primero" }, language) : undefined}
-              className="rounded-[10px] flex flex-col items-center justify-center gap-2 border border-dashed border-white/10 hover:border-[#22d3ee]/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-[10px] flex flex-col items-center justify-center gap-2 border border-dashed border-white/10 hover:border-[#8FD0D5]/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ aspectRatio: "9/14", background: "rgba(255,255,255,0.02)" }}
             >
-              <Plus className="w-4 h-4 text-[#22d3ee]/50" />
+              <Plus className="w-4 h-4 text-[#8FD0D5]/50" />
               <span className="text-[10px] font-semibold text-white/25">Add</span>
             </button>
           </div>
@@ -631,9 +631,9 @@ function VaultContent({
 // ===================== VAULT TEMPLATE CARD =====================
 
 const SECTION_CONFIG = {
-  hook: { label: "HOOK", color: "text-[#22d3ee]", bg: "bg-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.15)]", badge: "bg-[rgba(8,145,178,0.12)] text-[#22d3ee] border-[rgba(8,145,178,0.25)]" },
+  hook: { label: "HOOK", color: "text-[#8FD0D5]", bg: "bg-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.15)]", badge: "bg-[rgba(8,145,178,0.12)] text-[#8FD0D5] border-[rgba(8,145,178,0.25)]" },
   body: { label: "BODY", color: "text-[#94a3b8]",  bg: "bg-[rgba(148,163,184,0.04)] border-[rgba(148,163,184,0.12)]",   badge: "bg-[rgba(148,163,184,0.08)] text-[#94a3b8] border-[rgba(148,163,184,0.2)]" },
-  cta:  { label: "CTA",  color: "text-[#a3e635]", bg: "bg-[rgba(132,204,22,0.04)] border-[rgba(132,204,22,0.12)]", badge: "bg-[rgba(132,204,22,0.08)] text-[#a3e635] border-[rgba(132,204,22,0.2)]" },
+  cta:  { label: "CTA",  color: "text-[#F0BC7D]", bg: "bg-[rgba(132,204,22,0.04)] border-[rgba(132,204,22,0.12)]", badge: "bg-[rgba(132,204,22,0.08)] text-[#F0BC7D] border-[rgba(132,204,22,0.2)]" },
 };
 
 function VaultTemplateCard({
@@ -709,7 +709,7 @@ function VaultTemplateCard({
         {clientName && (
           <div
             className="absolute left-2 text-[8px] font-bold px-1.5 py-0.5 rounded truncate max-w-[80%]"
-            style={{ top: sourceInfo.label ? "28px" : "8px", background: "rgba(8,145,178,0.25)", color: "#22d3ee", border: "1px solid rgba(8,145,178,0.3)" }}
+            style={{ top: sourceInfo.label ? "28px" : "8px", background: "rgba(8,145,178,0.25)", color: "#8FD0D5", border: "1px solid rgba(8,145,178,0.3)" }}
           >
             {clientName}
           </div>
@@ -731,7 +731,7 @@ function VaultTemplateCard({
           {lines.length > 0 && (
             <span
               className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
-              style={{ background: "rgba(34,211,238,0.15)", color: "#22d3ee" }}
+              style={{ background: "rgba(34,211,238,0.15)", color: "#8FD0D5" }}
             >
               {lines.length} lines
             </span>

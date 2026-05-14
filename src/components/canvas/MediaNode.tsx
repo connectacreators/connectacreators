@@ -1014,7 +1014,7 @@ function TranscriptionDropdown({
                               (txt: string, j: number) => (
                                 <span
                                   key={j}
-                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(8,145,178,0.10)] border border-[rgba(8,145,178,0.2)] text-[#22d3ee]/80"
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(8,145,178,0.10)] border border-[rgba(8,145,178,0.2)] text-[#8FD0D5]/80"
                                 >
                                   {txt}
                                 </span>

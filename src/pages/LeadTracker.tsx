@@ -78,9 +78,9 @@ type Lead = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
-  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[#84CC16] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
+  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[#E0A560] border-[rgba(132,204,22,0.30)]",
+  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-[rgba(8,145,178,0.30)]",
   "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
   "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
@@ -761,7 +761,7 @@ export default function LeadTracker() {
               label: tr(t.leadTracker.totalLeads, language),
               value: totalLeads,
               icon: Users,
-              iconColor: "#06b6d4",
+              iconColor: "#8FD0D5",
               iconBg: "rgba(6,182,212,0.12)",
               delta: totalDelta,
               deltaLabel: language === "en" ? "from last month" : "vs mes anterior",
@@ -1231,7 +1231,7 @@ export default function LeadTracker() {
               return acc;
             }, {} as Record<string, number>);
             const pieData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
-            const PIE_COLORS = ["#06b6d4", "#10b981", "#f59e0b", "#a78bfa", "#f87171", "#fb923c"];
+            const PIE_COLORS = ["#8FD0D5", "#10b981", "#f59e0b", "#a78bfa", "#f87171", "#fb923c"];
 
             // Daily leads last 30 days
             const days = Array.from({ length: 30 }, (_, i) => {
@@ -1295,7 +1295,7 @@ export default function LeadTracker() {
                           <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} tickLine={false} allowDecimals={false} />
                           <Tooltip contentStyle={{ background: "rgba(15,15,15,0.9)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Line type="monotone" dataKey="leads" stroke="#06b6d4" strokeWidth={2} dot={false} name="New Leads" />
+                          <Line type="monotone" dataKey="leads" stroke="#8FD0D5" strokeWidth={2} dot={false} name="New Leads" />
                           <Line type="monotone" dataKey="booked" stroke="#10b981" strokeWidth={2} dot={false} name="Booked" />
                         </LineChart>
                       </ResponsiveContainer>

@@ -49,8 +49,8 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 function outlierColor(score: number): string {
-  if (score >= 5) return "#22d3ee";
-  if (score >= 2.5) return "#a3e635";
+  if (score >= 5) return "#8FD0D5";
+  if (score >= 2.5) return "#F0BC7D";
   return "#64748b";
 }
 
@@ -78,10 +78,10 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   const topHooks = Object.entries(hookCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
   const HOOK_COLORS: Record<string, string> = {
-    educational: "#22d3ee",
+    educational: "#8FD0D5",
     authority: "#f59e0b",
     story: "#a78bfa",
-    comparison: "#a3e635",
+    comparison: "#F0BC7D",
     shock: "#f43f5e",
     random: "#94a3b8",
   };

@@ -40,7 +40,7 @@ export default function SocialAccounts() {
           <ChevronLeft className="w-4 h-4" /> Back to client
         </button>
 
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 tracking-tight font-caslon">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 tracking-tight font-serif">
           Social Accounts
         </h1>
         <p className="text-sm text-muted-foreground mb-8">

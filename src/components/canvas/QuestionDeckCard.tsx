@@ -124,7 +124,7 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
                     height: 20,
                     borderRadius: 6,
                     background: selected ? "rgba(34,211,238,0.25)" : "rgba(148,163,184,0.15)",
-                    color: selected ? "#22d3ee" : "#94a3b8",
+                    color: selected ? "#8FD0D5" : "#94a3b8",
                     fontSize: 10,
                     fontWeight: 700,
                   }}
@@ -192,7 +192,7 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
               borderRadius: 6,
               border: "1px solid rgba(34,211,238,0.5)",
               background: "rgba(34,211,238,0.18)",
-              color: "#22d3ee",
+              color: "#8FD0D5",
               fontSize: 10,
               fontWeight: 600,
               cursor: "pointer",

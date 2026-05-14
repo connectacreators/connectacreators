@@ -19,8 +19,8 @@ interface ResearchData {
 }
 
 const impactColor = (score: number) =>
-  score >= 9.5 ? "text-[#22d3ee] border-[rgba(8,145,178,0.5)] bg-[rgba(8,145,178,0.15)]" :
-  score >= 9   ? "text-[#a3e635] border-[rgba(132,204,22,0.4)] bg-[rgba(132,204,22,0.1)]" :
+  score >= 9.5 ? "text-[#8FD0D5] border-[rgba(8,145,178,0.5)] bg-[rgba(8,145,178,0.15)]" :
+  score >= 9   ? "text-[#F0BC7D] border-[rgba(132,204,22,0.4)] bg-[rgba(132,204,22,0.1)]" :
                  "text-[#94a3b8] border-[rgba(148,163,184,0.3)] bg-[rgba(148,163,184,0.08)]";
 
 const ResearchNoteNode = memo(({ data }: NodeProps) => {

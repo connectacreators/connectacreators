@@ -301,7 +301,7 @@ export default function Clients() {
                 <motion.div
                   key={client.id}
                   className={`w-full glass-card rounded-xl p-5 transition-colors flex items-center gap-3 text-left ${
-                    (client as any).is_primary ? 'border-[#22d3ee]/30' : 'hover:border-primary/30'
+                    (client as any).is_primary ? 'border-[#8FD0D5]/30' : 'hover:border-primary/30'
                   }`}
                   initial="hidden"
                   animate="visible"
@@ -315,13 +315,13 @@ export default function Clients() {
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                       (client as any).is_primary ? 'bg-[rgba(34,211,238,0.15)]' : 'bg-[rgba(8,145,178,0.15)]'
                     }`}>
-                      <User className={`w-4 h-4 ${(client as any).is_primary ? 'text-[#22d3ee]' : 'text-[#0891B2]'}`} />
+                      <User className={`w-4 h-4 ${(client as any).is_primary ? 'text-[#8FD0D5]' : 'text-[#8FD0D5]'}`} />
                     </div>
                     <div>
                       <h2 className="text-sm font-bold text-foreground">
                         {client.name}
                         {(client as any).is_primary && (
-                          <span className="ml-2 text-[10px] font-semibold text-[#22d3ee]">PRIMARY</span>
+                          <span className="ml-2 text-[10px] font-semibold text-[#8FD0D5]">PRIMARY</span>
                         )}
                       </h2>
                       {client.email && (

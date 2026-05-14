@@ -59,7 +59,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(132,204,22,0.06)] border-b border-[rgba(132,204,22,0.12)]">
         <div className="flex items-center gap-2">
-          <Target className="w-3.5 h-3.5 text-[#a3e635]" />
+          <Target className="w-3.5 h-3.5 text-[#F0BC7D]" />
           <span className="text-xs font-semibold text-foreground">CTA Builder</span>
         </div>
         <button onClick={() => cd.onDelete?.()} className="text-muted-foreground hover:text-foreground">
@@ -81,7 +81,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
         <button
           onClick={generate}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[rgba(132,204,22,0.08)] text-[#a3e635] border border-[rgba(132,204,22,0.2)] hover:bg-[rgba(132,204,22,0.15)] disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[rgba(132,204,22,0.08)] text-[#F0BC7D] border border-[rgba(132,204,22,0.2)] hover:bg-[rgba(132,204,22,0.15)] disabled:opacity-50 transition-colors flex items-center gap-1"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Generate"}
         </button>
@@ -100,7 +100,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
               }`}
             >
               <div className="flex items-start gap-1.5">
-                {selectedCTA === cta && <Check className="w-3 h-3 text-[#a3e635] mt-0.5 flex-shrink-0" />}
+                {selectedCTA === cta && <Check className="w-3 h-3 text-[#F0BC7D] mt-0.5 flex-shrink-0" />}
                 <span className="leading-relaxed">{cta}</span>
               </div>
             </button>

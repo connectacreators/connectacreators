@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, FileText } from "lucide-react";
 
-const dot = <span style={{ color: "#22d3ee", marginTop: 6, width: 4, height: 4, borderRadius: "50%", background: "#22d3ee", flexShrink: 0, display: "inline-block" }} />;
+const dot = <span style={{ color: "#8FD0D5", marginTop: 6, width: 4, height: 4, borderRadius: "50%", background: "#8FD0D5", flexShrink: 0, display: "inline-block" }} />;
 
 const Bullet = ({ children }: { children: React.ReactNode }) => (
   <li className="flex items-start gap-2" style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.7 }}>
@@ -23,14 +23,14 @@ const TermsAndConditions = () => {
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 py-16">
         <Link to="/" className="inline-flex items-center gap-2 mb-12 transition-colors duration-200" style={{ fontSize: 13, color: "rgba(34,211,238,0.6)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#22d3ee")}
+          onMouseEnter={e => (e.currentTarget.style.color = "#8FD0D5")}
           onMouseLeave={e => (e.currentTarget.style.color = "rgba(34,211,238,0.6)")}>
           <ArrowLeft size={14} /> Back to Home
         </Link>
 
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl" style={{ background: "rgba(8,145,178,0.12)", border: "1px solid rgba(8,145,178,0.25)" }}>
-            <FileText size={18} style={{ color: "#22d3ee" }} />
+            <FileText size={18} style={{ color: "#8FD0D5" }} />
           </div>
           <h1 className="text-3xl font-light tracking-tight" style={{ color: "rgba(255,255,255,0.92)" }}>Terms of Service</h1>
         </div>
@@ -42,7 +42,7 @@ const TermsAndConditions = () => {
 
         <P>
           These Terms of Service ("Terms") constitute a legally binding agreement between you ("User," "Subscriber," or "you") and <strong style={{ color: "rgba(255,255,255,0.9)" }}>R3 Productions DBA Connecta Creators</strong> ("we," "us," or "our"), a business registered in the State of Utah, governing your access to and use of{" "}
-          <a href="https://connectacreators.com" style={{ color: "#22d3ee", textDecoration: "underline" }}>connectacreators.com</a>{" "}
+          <a href="https://connectacreators.com" style={{ color: "#8FD0D5", textDecoration: "underline" }}>connectacreators.com</a>{" "}
           and all related tools and services. By creating an account, checking the agreement box at signup, or otherwise using our services, you agree to be bound by these Terms. If you do not agree, do not use the platform.
         </P>
 
@@ -126,7 +126,7 @@ const TermsAndConditions = () => {
             content: (
               <>
                 <P>
-                  Your use of the platform is also governed by our <Link to="/privacy-policy" style={{ color: "#22d3ee", textDecoration: "underline" }}>Privacy Policy</Link>, which is incorporated by reference into these Terms. Key commitments:
+                  Your use of the platform is also governed by our <Link to="/privacy-policy" style={{ color: "#8FD0D5", textDecoration: "underline" }}>Privacy Policy</Link>, which is incorporated by reference into these Terms. Key commitments:
                 </P>
                 <ul className="space-y-2 mt-3" style={{ paddingLeft: 20 }}>
                   <Bullet><strong style={{ color: "rgba(255,255,255,0.8)" }}>We do not sell your personal data</strong> to any third party for marketing or commercial purposes.</Bullet>
@@ -167,7 +167,7 @@ const TermsAndConditions = () => {
                   <Bullet>Message frequency varies depending on your interaction with our services.</Bullet>
                   <Bullet>Message and data rates may apply.</Bullet>
                   <Bullet>You may opt out at any time by replying <strong style={{ color: "rgba(255,255,255,0.8)" }}>STOP</strong> to any message.</Bullet>
-                  <Bullet>For assistance, reply <strong style={{ color: "rgba(255,255,255,0.8)" }}>HELP</strong> or contact <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#22d3ee" }}>creatorsconnecta@gmail.com</a>.</Bullet>
+                  <Bullet>For assistance, reply <strong style={{ color: "rgba(255,255,255,0.8)" }}>HELP</strong> or contact <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#8FD0D5" }}>creatorsconnecta@gmail.com</a>.</Bullet>
                   <Bullet>Consent to receive SMS is not required to purchase any goods or services.</Bullet>
                 </ul>
               </>
@@ -260,7 +260,7 @@ const TermsAndConditions = () => {
                   <p style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8 }}>
                     <strong style={{ color: "rgba(255,255,255,0.9)" }}>R3 Productions DBA Connecta Creators</strong><br />
                     State of Registration: Utah, USA<br />
-                    Email: <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#22d3ee" }}>creatorsconnecta@gmail.com</a>
+                    Email: <a href="mailto:creatorsconnecta@gmail.com" style={{ color: "#8FD0D5" }}>creatorsconnecta@gmail.com</a>
                   </p>
                 </div>
               </>

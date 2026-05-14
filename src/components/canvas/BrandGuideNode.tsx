@@ -30,7 +30,7 @@ export default function BrandGuideNode({ data: d }: NodeProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(8,145,178,0.10)] border-b border-[rgba(8,145,178,0.20)]">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-[#22d3ee]" />
+          <BookOpen className="w-3.5 h-3.5 text-[#8FD0D5]" />
           <span className="text-xs font-semibold text-foreground">Brand Guide</span>
         </div>
         <button onClick={() => bd.onDelete?.()} className="text-muted-foreground hover:text-foreground">

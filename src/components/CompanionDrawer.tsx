@@ -533,7 +533,7 @@ function TabBtn({
           transform: `translateY(-50%) scaleY(${active ? 1 : 0})`,
           width: 1.5,
           height: "55%",
-          background: "#22d3ee",
+          background: "#8FD0D5",
           borderRadius: 2,
           opacity: active ? 0.9 : 0,
           transition: "transform 0.18s ease, opacity 0.18s ease",

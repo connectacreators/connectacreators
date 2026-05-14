@@ -57,7 +57,7 @@ export function WinningIdeaBlock({
         padding: sizes.padding,
         borderRadius: sizes.radius,
         border: `1px solid ${GLOW_BORDER}`,
-        borderLeft: "3px solid #22d3ee",
+        borderLeft: "3px solid #8FD0D5",
         background: "rgba(15,23,42,0.7)",
       }
     : {

@@ -253,40 +253,40 @@ All colors MUST be HSL for consistency and theming.
   }
   /* Modifier variants — must be composed with .glass-card (which provides backdrop-filter) */
   .glass-card-cyan {
-    background: rgba(8, 145, 178, 0.07);
-    border-color: rgba(8, 145, 178, 0.2);
-    box-shadow: inset 0 1px 0 rgba(8, 145, 178, 0.15),
+    background: hsl(var(--aqua) / 0.08);
+    border-color: hsl(var(--aqua) / 0.22);
+    box-shadow: inset 0 1px 0 hsl(var(--aqua) / 0.18),
                 0 4px 20px rgba(0,0,0,0.3),
-                0 0 30px rgba(8, 145, 178, 0.06);
+                0 0 30px hsl(var(--aqua) / 0.06);
     position: relative;
   }
   .glass-card-lime {
-    background: rgba(132, 204, 22, 0.06);
-    border-color: rgba(132, 204, 22, 0.18);
-    box-shadow: inset 0 1px 0 rgba(132, 204, 22, 0.12),
+    background: hsl(var(--honey) / 0.07);
+    border-color: hsl(var(--honey) / 0.20);
+    box-shadow: inset 0 1px 0 hsl(var(--honey) / 0.14),
                 0 4px 20px rgba(0,0,0,0.3),
-                0 0 30px rgba(132, 204, 22, 0.05);
+                0 0 30px hsl(var(--honey) / 0.05);
     position: relative;
   }
 
   /* ── Tier 3: Inputs / Topbar (lightest) ── */
   .glass-input-surface {
-    background: rgba(255, 255, 255, 0.04);
+    background: hsl(var(--bone) / 0.04);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(8, 145, 178, 0.18);
+    border: 1px solid hsl(var(--aqua) / 0.20);
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
   }
   .glass-input-surface:focus {
-    border-color: rgba(8, 145, 178, 0.5);
-    box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1), inset 0 1px 3px rgba(0,0,0,0.2);
+    border-color: hsl(var(--aqua) / 0.55);
+    box-shadow: 0 0 0 3px hsl(var(--aqua) / 0.12), inset 0 1px 3px rgba(0,0,0,0.2);
     outline: none;
   }
   .glass-topbar {
-    background: rgba(255, 255, 255, 0.03);
+    background: hsl(var(--bone) / 0.03);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(8, 145, 178, 0.12);
+    border: 1px solid hsl(var(--aqua) / 0.14);
     position: relative;
   }
   .glass-topbar::before {
@@ -294,7 +294,7 @@ All colors MUST be HSL for consistency and theming.
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(8,145,178,0.4), rgba(201,169,110,0.2), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--aqua) / 0.45), hsl(var(--honey) / 0.25), transparent);
     pointer-events: none;
     z-index: 0;
   }
@@ -302,16 +302,16 @@ All colors MUST be HSL for consistency and theming.
   /* ── Ambient glow ── */
   .ambient-glow {
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(8, 145, 178, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 100%, rgba(132, 204, 22, 0.06) 0%, transparent 50%);
+      radial-gradient(ellipse at 20% 0%, hsl(var(--aqua) / 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, hsl(var(--honey) / 0.06) 0%, transparent 50%);
   }
 
   /* ── Gradient utilities ── */
   .gradient-brand {
-    background: linear-gradient(135deg, #0891B2, #c9a96e);
+    background: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey)));
   }
   .text-gradient-brand {
-    background: linear-gradient(135deg, #06B6D4, #c9a96e);
+    background: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -322,10 +322,10 @@ All colors MUST be HSL for consistency and theming.
     display: inline-flex; align-items: center; padding: 0.125rem 0.5rem;
     border-radius: 9999px; font-size: 0.75rem; font-weight: 600; line-height: 1;
   }
-  .badge-cyan    { background: rgba(8,145,178,0.15);  color: #22d3ee; border: 1px solid rgba(8,145,178,0.25); }
-  .badge-lime    { background: rgba(132,204,22,0.12); color: #a3e635; border: 1px solid rgba(132,204,22,0.25); }
-  .badge-amber   { background: rgba(245,158,11,0.10); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
-  .badge-neutral { background: rgba(255,255,255,0.06);color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); }
+  .badge-cyan    { background: hsl(var(--aqua) / 0.16);  color: hsl(var(--aqua));  border: 1px solid hsl(var(--aqua) / 0.30); }
+  .badge-lime    { background: hsl(var(--honey) / 0.14); color: hsl(var(--honey)); border: 1px solid hsl(var(--honey) / 0.30); }
+  .badge-amber   { background: hsl(var(--honey) / 0.10); color: hsl(var(--honey)); border: 1px solid hsl(var(--honey) / 0.25); }
+  .badge-neutral { background: hsl(var(--bone) / 0.06);  color: hsl(var(--bone) / 0.62); border: 1px solid hsl(var(--bone) / 0.10); }
 
   /* ── Ocean Surge Button System (GlassSurface-inspired) ── */
   .btn-primary-glass {
@@ -356,19 +356,19 @@ All colors MUST be HSL for consistency and theming.
     pointer-events: none;
   }
   .btn-secondary-glass {
-    background: rgba(8, 145, 178, 0.1);
-    border: 1px solid rgba(8, 145, 178, 0.25);
-    color: #22d3ee;
+    background: hsl(var(--aqua) / 0.10);
+    border: 1px solid hsl(var(--aqua) / 0.25);
+    color: hsl(var(--aqua));
   }
   .btn-accent-glass {
-    background: rgba(132, 204, 22, 0.1);
-    border: 1px solid rgba(132, 204, 22, 0.25);
-    color: #a3e635;
+    background: hsl(var(--honey) / 0.10);
+    border: 1px solid hsl(var(--honey) / 0.25);
+    color: hsl(var(--honey));
   }
   .btn-ghost-glass {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8;
+    background: hsl(var(--bone) / 0.04);
+    border: 1px solid hsl(var(--bone) / 0.08);
+    color: hsl(var(--bone) / 0.62);
   }
 
   /* Clean checkbox — no fill, cyan outline */
@@ -466,7 +466,7 @@ All colors MUST be HSL for consistency and theming.
   content: "▋";
   display: inline-block;
   margin-left: 2px;
-  color: rgba(34, 211, 238, 0.85);
+  color: hsl(var(--aqua) / 0.85);
   font-weight: 400;
   animation: ai-cursor-blink 1s steps(2) infinite;
 }
@@ -493,25 +493,25 @@ All colors MUST be HSL for consistency and theming.
   animation: ai-row-pulse 2s ease-in-out infinite;
 }
 
-/* ReactFlow handle rebrand — gold instead of default blue */
+/* ReactFlow handle rebrand — Honey */
 .react-flow__handle {
   width: 8px !important;
   height: 8px !important;
-  background: rgba(201,169,110,0.35) !important;
-  border: 1px solid rgba(201,169,110,0.6) !important;
+  background: hsl(var(--honey) / 0.40) !important;
+  border: 1px solid hsl(var(--honey) / 0.65) !important;
   border-radius: 50% !important;
 }
 .react-flow__handle:hover {
-  background: rgba(201,169,110,0.6) !important;
+  background: hsl(var(--honey) / 0.65) !important;
 }
 
-/* ReactFlow edge rebrand — gold instead of default cyan */
+/* ReactFlow edge rebrand — Honey */
 .react-flow__edge-path {
-  stroke: rgba(201,169,110,0.4) !important;
+  stroke: hsl(var(--honey) / 0.42) !important;
   stroke-width: 1.5px !important;
 }
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: rgba(201,169,110,0.7) !important;
+  stroke: hsl(var(--honey) / 0.70) !important;
 }
 
 /* CHATS sidebar list — hide the scrollbar entirely (still scrolls).
@@ -536,14 +536,14 @@ All colors MUST be HSL for consistency and theming.
 }
 .visual-breakdown-scroll::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid #e8d5b0;
+  border: 1.5px solid hsl(var(--bone) / 0.60);
   border-radius: 10px;
 }
 .visual-breakdown-scroll {
   scrollbar-color: transparent transparent;
 }
 .visual-breakdown-scroll:hover {
-  scrollbar-color: #e8d5b0 transparent;
+  scrollbar-color: hsl(var(--bone) / 0.60) transparent;
 }
 
 /* Editing Queue horizontal scrollbar — transparent with cyan outline */
@@ -555,19 +555,19 @@ All colors MUST be HSL for consistency and theming.
 }
 .eq-table-wrap ::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid rgba(8, 145, 178, 0.4);
+  border: 1.5px solid hsl(var(--aqua) / 0.40);
   border-radius: 10px;
 }
 .eq-table-wrap ::-webkit-scrollbar-thumb:hover {
-  background: rgba(8, 145, 178, 0.15);
-  border-color: rgba(8, 145, 178, 0.6);
+  background: hsl(var(--aqua) / 0.15);
+  border-color: hsl(var(--aqua) / 0.65);
 }
 .eq-table-wrap .overflow-auto {
   scrollbar-width: thin;
-  scrollbar-color: rgba(8, 145, 178, 0.4) transparent;
+  scrollbar-color: hsl(var(--aqua) / 0.40) transparent;
 }
 
-/* ── Global scrollbar — cyan outline, no fill ── */
+/* ── Global scrollbar — Aqua outline, no fill ── */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -577,19 +577,19 @@ All colors MUST be HSL for consistency and theming.
 }
 ::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid rgba(34, 211, 238, 0.4);
+  border: 1.5px solid hsl(var(--aqua) / 0.40);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 211, 238, 0.08);
-  border-color: rgba(34, 211, 238, 0.65);
+  background: hsl(var(--aqua) / 0.08);
+  border-color: hsl(var(--aqua) / 0.65);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(34, 211, 238, 0.4) transparent;
+  scrollbar-color: hsl(var(--aqua) / 0.40) transparent;
 }
 
-/* Canvas scrollbars — cyan outline, no fill (AI panel + all nodes) */
+/* Canvas scrollbars — Aqua outline, no fill (AI panel + all nodes) */
 .canvas-ai-scroll::-webkit-scrollbar,
 .react-flow__node ::-webkit-scrollbar,
 .react-flow__panel ::-webkit-scrollbar {
@@ -605,20 +605,20 @@ All colors MUST be HSL for consistency and theming.
 .react-flow__node ::-webkit-scrollbar-thumb,
 .react-flow__panel ::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid rgba(34, 211, 238, 0.4);
+  border: 1.5px solid hsl(var(--aqua) / 0.40);
   border-radius: 10px;
 }
 .canvas-ai-scroll::-webkit-scrollbar-thumb:hover,
 .react-flow__node ::-webkit-scrollbar-thumb:hover,
 .react-flow__panel ::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 211, 238, 0.08);
-  border-color: rgba(34, 211, 238, 0.6);
+  background: hsl(var(--aqua) / 0.08);
+  border-color: hsl(var(--aqua) / 0.60);
 }
 .canvas-ai-scroll,
 .react-flow__node *,
 .react-flow__panel * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(34, 211, 238, 0.4) transparent;
+  scrollbar-color: hsl(var(--aqua) / 0.40) transparent;
 }
 
 /* Landing page floating particles + noise */
@@ -772,11 +772,11 @@ All colors MUST be HSL for consistency and theming.
   color: #ffffff !important;
 }
 
-/* Handle connection dots — cyan with glow */
+/* Handle connection dots — Aqua with glow */
 .react-flow .glass-card .react-flow__handle {
-  background: #22d3ee !important;
-  border-color: #131417 !important;
-  box-shadow: 0 0 6px rgba(34, 211, 238, 0.4) !important;
+  background: hsl(var(--aqua)) !important;
+  border-color: hsl(var(--ink)) !important;
+  box-shadow: 0 0 6px hsl(var(--aqua) / 0.40) !important;
 }
 
 /* ReactFlow — Make connection handles bigger and above NodeResizer */
@@ -805,9 +805,9 @@ All colors MUST be HSL for consistency and theming.
 }
 
 /* ── Backward-compat aliases (removed in rebrand, will be migrated per-component in later chunks) ── */
-.glass-ios { background: rgba(255,255,255,0.035); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.3); position: relative; }
-.glass-ios-strong { background: rgba(8,145,178,0.07); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(8,145,178,0.2); box-shadow: inset 0 1px 0 rgba(8,145,178,0.15), 0 4px 20px rgba(0,0,0,0.3), 0 0 30px rgba(8,145,178,0.06); position: relative; }
-.sidebar-glass { background: rgba(8,145,178,0.04); backdrop-filter: blur(72px) saturate(180%) brightness(1.04); -webkit-backdrop-filter: blur(72px) saturate(180%) brightness(1.04); border-right: 1px solid rgba(8,145,178,0.12); position: relative; }
-.btn-17-primary { background: linear-gradient(135deg, #0891B2, #84CC16); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15); position: relative; overflow: hidden; }
-.btn-17-secondary { background: rgba(8,145,178,0.1); border: 1px solid rgba(8,145,178,0.25); color: #22d3ee; }
-.btn-17 { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; }
+.glass-ios { background: hsl(var(--bone) / 0.035); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid hsl(var(--bone) / 0.07); box-shadow: inset 0 1px 0 hsl(var(--bone) / 0.06), 0 4px 20px rgba(0,0,0,0.3); position: relative; }
+.glass-ios-strong { background: hsl(var(--aqua) / 0.08); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid hsl(var(--aqua) / 0.22); box-shadow: inset 0 1px 0 hsl(var(--aqua) / 0.18), 0 4px 20px rgba(0,0,0,0.3), 0 0 30px hsl(var(--aqua) / 0.07); position: relative; }
+.sidebar-glass { background: hsl(var(--aqua) / 0.04); backdrop-filter: blur(72px) saturate(180%) brightness(1.04); -webkit-backdrop-filter: blur(72px) saturate(180%) brightness(1.04); border-right: 1px solid hsl(var(--aqua) / 0.14); position: relative; }
+.btn-17-primary { background: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey))); color: hsl(var(--ink)); box-shadow: inset 0 1px 0 hsl(var(--bone) / 0.15); position: relative; overflow: hidden; }
+.btn-17-secondary { background: hsl(var(--aqua) / 0.10); border: 1px solid hsl(var(--aqua) / 0.25); color: hsl(var(--aqua)); }
+.btn-17 { background: hsl(var(--bone) / 0.04); border: 1px solid hsl(var(--bone) / 0.08); color: hsl(var(--bone) / 0.62); }

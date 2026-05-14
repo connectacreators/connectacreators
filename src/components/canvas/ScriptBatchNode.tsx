@@ -64,8 +64,8 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       style={{
         width: 260,
         background: "#18181b",
-        border: selected ? "1.5px solid #06b6d4" : "1px solid #27272a",
-        borderLeft: "4px solid #06b6d4",
+        border: selected ? "1.5px solid #8FD0D5" : "1px solid #27272a",
+        borderLeft: "4px solid #8FD0D5",
       }}
     >
       <NodeResizer
@@ -82,10 +82,10 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
         <div className="flex items-center gap-1.5">
           <div
             className="w-2 h-2 rounded-full"
-            style={{ background: "#06b6d4" }}
+            style={{ background: "#8FD0D5" }}
           />
           <span
-            style={{ fontSize: 10, color: "#06b6d4", fontWeight: 600 }}
+            style={{ fontSize: 10, color: "#8FD0D5", fontWeight: 600 }}
           >
             BATCH SCRIPT
           </span>
@@ -152,7 +152,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           {d.script?.virality_score != null && (
             <>
               <span style={{ fontSize: 10, color: "#3f3f46" }}>·</span>
-              <span style={{ fontSize: 10, color: "#06b6d4" }}>
+              <span style={{ fontSize: 10, color: "#8FD0D5" }}>
                 {d.script.virality_score.toFixed(1)} virality
               </span>
             </>
@@ -198,7 +198,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <button
             onClick={() => setExpanded(!expanded)}
             className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-            style={{ fontSize: 11, color: "#06b6d4", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            style={{ fontSize: 11, color: "#8FD0D5", background: "none", border: "none", cursor: "pointer", padding: 0 }}
           >
             {expanded ? (
               <>

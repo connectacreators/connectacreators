@@ -101,7 +101,7 @@ export default function OutOfCreditsModal() {
         {/* Header */}
         <div className="text-center mb-7">
           <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
-          <h2 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
+          <h2 className="font-serif text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
             You're out of credits
           </h2>
           <p className="text-xs text-muted-foreground mt-2 tracking-wide">
@@ -129,7 +129,7 @@ export default function OutOfCreditsModal() {
                 >
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-caslon text-base text-foreground" style={{ letterSpacing: "0.04em" }}>
+                      <span className="font-serif text-base text-foreground" style={{ letterSpacing: "0.04em" }}>
                         {plan.name}
                       </span>
                       {plan.recommended && (

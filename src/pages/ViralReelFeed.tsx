@@ -705,7 +705,7 @@ export default function ViralReelFeed() {
                           >
                             <div
                               className="w-11 h-11 rounded-full flex items-center justify-center border border-white/20"
-                              style={{ background: "linear-gradient(135deg, #06b6d4, #8b5cf6)" }}
+                              style={{ background: "linear-gradient(135deg, #8FD0D5, #8b5cf6)" }}
                             >
                               <Star className="w-5 h-5 text-white fill-white" />
                             </div>
@@ -893,7 +893,7 @@ export default function ViralReelFeed() {
               onClick={() => { setMobileSheetOpen(false); handleInspireScript(); }}
               disabled={!remixClientId || clientsLoading}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition-all"
-              style={{ background: "linear-gradient(135deg, #06b6d4, #8b5cf6)" }}
+              style={{ background: "linear-gradient(135deg, #8FD0D5, #8b5cf6)" }}
             >
               <Star className="w-4 h-4 fill-current" /> Open Canvas
             </button>

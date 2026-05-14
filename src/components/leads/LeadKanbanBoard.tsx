@@ -29,9 +29,9 @@ type Lead = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
-  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[#84CC16] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[#22d3ee] border-[rgba(8,145,178,0.30)]",
+  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[#E0A560] border-[rgba(132,204,22,0.30)]",
+  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-[rgba(8,145,178,0.30)]",
   "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
   "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
@@ -50,9 +50,9 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 const COLUMN_ACCENT: Record<string, string> = {
-  "New Lead":            "border-t-[#22d3ee]",
-  "Follow-up 1":         "border-t-[#84CC16]",
-  "Follow-up 2":         "border-t-[#22d3ee]",
+  "New Lead":            "border-t-[#8FD0D5]",
+  "Follow-up 1":         "border-t-[#E0A560]",
+  "Follow-up 2":         "border-t-[#8FD0D5]",
   "Follow-up 3":         "border-t-pink-400",
   "Booked":              "border-t-[#F59E0B]",
   "Appointment Booked":  "border-t-[#F59E0B]",

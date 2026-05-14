@@ -81,14 +81,14 @@
 .prompt-stream-pill {
   position: relative;
   z-index: 2;
-  background: var(--ink, #0A0E12);
+  background: var(--ink, #141414);
   border: 2px solid var(--bone, #EAE6DC);
   border-radius: 999px;
   padding: 11px 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 6px var(--ink, #0A0E12);
+  box-shadow: 0 0 0 6px var(--ink, #141414);
 }
 
 .prompt-stream-pill svg rect {

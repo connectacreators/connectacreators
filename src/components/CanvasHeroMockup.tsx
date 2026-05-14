@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-const gold = "#22d3ee";
+const gold = "#8FD0D5";
 
 const inputNodes = [
   { id: "viral", label: "Viral Video", icon: "▶", iconBg: "rgba(8,145,178,.08)", iconColor: "rgba(34,211,238,.6)",
@@ -138,7 +138,7 @@ function InputNode({ label, icon, iconBg, iconColor, preview, features, hasThumb
       </div>
       <style>{`
         .c-node:hover { border-color: rgba(8,145,178,.2) !important; box-shadow: 0 12px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(8,145,178,.08); transform: translateY(-4px) scale(1.01); z-index: 100; }
-        .c-node:hover .c-node-head { color: #22d3ee !important; }
+        .c-node:hover .c-node-head { color: #8FD0D5 !important; }
         .c-node:hover .c-node-expanded { opacity: 1 !important; pointer-events: auto !important; }
         .c-node:hover .c-node-preview { opacity: 0 !important; }
       `}</style>

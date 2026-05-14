@@ -28,8 +28,8 @@ function ApplyBtn({ small, inverted }: { small?: boolean; inverted?: boolean }) 
       }}
       style={{
         display: "inline-block",
-        background: inverted ? "#fff" : "#0891B2",
-        color: inverted ? "#0891B2" : "#fff",
+        background: inverted ? "#fff" : "#8FD0D5",
+        color: inverted ? "#8FD0D5" : "#fff",
         fontFamily: "'Montserrat', sans-serif",
         fontWeight: 700,
         fontSize: small ? 11 : 13,
@@ -281,7 +281,7 @@ export default function Index() {
       `}</style>
 
       {/* ① HERO */}
-      <div style={{ background: "#0891B2" }}>
+      <div style={{ background: "#8FD0D5" }}>
         <div
           className="hero-inner"
           style={{
@@ -379,7 +379,7 @@ export default function Index() {
             fontFamily: "'Montserrat', sans-serif",
             fontWeight: 900,
             fontSize: "clamp(72px, 14vw, 160px)",
-            color: "#0891B2",
+            color: "#8FD0D5",
             lineHeight: 1,
             letterSpacing: "-0.04em",
             margin: "32px 0 12px",
@@ -429,7 +429,7 @@ export default function Index() {
                     width: 48,
                     height: 48,
                     borderRadius: 4,
-                    background: "#0891B2",
+                    background: "#8FD0D5",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -511,7 +511,7 @@ export default function Index() {
 
           <div
             style={{
-              background: "#0891B2",
+              background: "#8FD0D5",
               borderRadius: 4,
               padding: "24px 20px",
               maxWidth: 560,
@@ -577,10 +577,10 @@ export default function Index() {
             <div className="ba-card">
               <img src={zigufitAfter} alt="ZiguFit después" className="ba-img-portrait" />
               <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#0891B2", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8FD0D5", marginBottom: 4 }}>
                   DESPUÉS
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#0891B2" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#8FD0D5" }}>
                   17.4K seguidores
                 </div>
               </div>
@@ -601,7 +601,7 @@ export default function Index() {
             const Icon = i.icon;
             return (
               <div className="industry-card" key={i.name}>
-                <Icon size={32} color="#0891B2" strokeWidth={2} />
+                <Icon size={32} color="#8FD0D5" strokeWidth={2} />
                 <div
                   style={{
                     fontFamily: "'Montserrat', sans-serif",
@@ -689,7 +689,7 @@ export default function Index() {
                   fontFamily: "'Montserrat', sans-serif",
                   fontWeight: 900,
                   fontSize: 36,
-                  color: "#0891B2",
+                  color: "#8FD0D5",
                   marginBottom: 12,
                   lineHeight: 1,
                 }}
@@ -767,9 +767,9 @@ export default function Index() {
                 fontSize: 12,
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
-                color: "#0891B2",
+                color: "#8FD0D5",
                 textDecoration: "none",
-                borderBottom: "2px solid #0891B2",
+                borderBottom: "2px solid #8FD0D5",
                 paddingBottom: 2,
               }}
             >
@@ -813,7 +813,7 @@ export default function Index() {
           ¿Tienes preguntas? Escríbenos a:{" "}
           <a
             href="mailto:admin@connectacreators.com"
-            style={{ color: "#0891B2", fontWeight: 700 }}
+            style={{ color: "#8FD0D5", fontWeight: 700 }}
           >
             admin@connectacreators.com
           </a>
@@ -881,8 +881,8 @@ function BeforeAfterCaption({ platform, before, after }: { platform: string; bef
         </div>
         <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#0891B2", letterSpacing: "0.08em" }}>AHORA</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 18, color: "#0891B2", lineHeight: 1 }}>{after}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#8FD0D5", letterSpacing: "0.08em" }}>AHORA</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 18, color: "#8FD0D5", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
     </div>

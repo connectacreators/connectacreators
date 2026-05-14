@@ -245,7 +245,7 @@ export function MarkdownText({ text }: { text: string }) {
               style={{
                 fontSize: 9,
                 fontWeight: 700,
-                color: "#22d3ee",
+                color: "#8FD0D5",
                 opacity: 0.7,
                 whiteSpace: "nowrap",
                 marginTop: 2,
@@ -275,7 +275,7 @@ export function MarkdownText({ text }: { text: string }) {
               background: "none",
               border: "none",
               padding: 2,
-              color: "#22d3ee",
+              color: "#8FD0D5",
             }}
             title="Copy line"
           >
@@ -435,7 +435,7 @@ export function InlineScriptPreview({
             const remaining = limit - used;
             const visible = lines.slice(0, remaining);
             used += visible.length;
-            const sectionColor = SECTION_COLORS[section] || "#22d3ee";
+            const sectionColor = SECTION_COLORS[section] || "#8FD0D5";
             return (
               <div key={section} style={{ marginBottom: 6 }}>
                 <div
@@ -554,7 +554,7 @@ export function InlineScriptPreview({
             fontWeight: 600,
             cursor: saving || saved ? "default" : "pointer",
             background: saved ? "rgba(74, 222, 128, 0.15)" : "rgba(34, 211, 238, 0.15)",
-            color: saved ? "#4ade80" : "#22d3ee",
+            color: saved ? "#4ade80" : "#8FD0D5",
             transition: "all 0.2s",
           }}
         >

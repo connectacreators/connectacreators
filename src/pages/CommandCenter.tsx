@@ -574,7 +574,7 @@ export default function CommandCenter() {
   const dotColor: Record<string, string> = {
     red: "#ef4444",
     amber: "#f59e0b",
-    blue: "#22d3ee",
+    blue: "#8FD0D5",
   };
 
   // ── Render ─────────────────────────────────────────────────────────────

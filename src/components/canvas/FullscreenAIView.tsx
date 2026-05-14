@@ -64,8 +64,8 @@ const NODE_TYPE_COLOR: Record<string, string> = {
   ctaBuilderNode: "#fb923c",
   instagramProfileNode: "#818cf8",
   competitorProfileNode: "#818cf8",
-  mediaNode: "#22d3ee",
-  onboardingFormNode: "#22d3ee",
+  mediaNode: "#8FD0D5",
+  onboardingFormNode: "#8FD0D5",
 };
 
 const NODE_TYPE_LABEL: Record<string, string> = {

@@ -1616,7 +1616,7 @@ export default function ViralToday() {
         <div className="px-5 sm:px-8 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-foreground tracking-tight font-caslon">Viral Reels</h1>
+              <h1 className="text-xl font-bold text-foreground tracking-tight font-serif">Viral Reels</h1>
               <p className="text-xs text-muted-foreground mt-0.5">Scroll through your top viral content</p>
             </div>
             <div className="flex items-center gap-1 bg-muted border border-border rounded-lg p-0.5">
@@ -1658,7 +1658,7 @@ export default function ViralToday() {
           <div className="mb-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h1 className="text-xl font-bold text-foreground tracking-tight font-caslon">
+                <h1 className="text-xl font-bold text-foreground tracking-tight font-serif">
                   {view === "videos" ? "Videos" : view === "reels" ? "Viral Reels" : t.channels}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -2199,12 +2199,12 @@ export default function ViralToday() {
             }}
           >
             <span style={{ fontSize: 13, color: "#a1a1aa" }}>
-              <span style={{ color: "#06b6d4", fontWeight: 700 }}>{selectedVideos.size}</span> videos selected
+              <span style={{ color: "#8FD0D5", fontWeight: 700 }}>{selectedVideos.size}</span> videos selected
             </span>
             <button
               onClick={() => setShowBatchModal(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-              style={{ background: "#06b6d4", color: "#000" }}
+              style={{ background: "#8FD0D5", color: "#000" }}
             >
               Generate Scripts <ArrowRight className="w-4 h-4" />
             </button>

@@ -329,7 +329,7 @@ export function PublishComposer(p: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border/40">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-caslon">{dialogTitle}</h2>
+            <h2 className="text-lg font-serif">{dialogTitle}</h2>
             {isEditing && (
               <Button
                 variant="ghost"

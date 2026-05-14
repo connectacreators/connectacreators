@@ -247,7 +247,7 @@ export function FlatTransactionGrid({ kind, rows, onUpdate, onDelete, onCreate, 
             padding: "8px 12px",
             background: "rgba(34,211,238,0.12)",
             borderBottom: "1px solid rgba(34,211,238,0.20)",
-            color: "#22d3ee",
+            color: "#8FD0D5",
             fontSize: 11,
             fontWeight: 600,
           }}
@@ -466,7 +466,7 @@ function SortHeader<K extends string>({
         textAlign: align,
         padding: "7px 10px",
         background: active ? "rgba(34,211,238,0.05)" : "rgba(255,255,255,0.02)",
-        color: active ? "#22d3ee" : "#94a3b8",
+        color: active ? "#8FD0D5" : "#94a3b8",
         fontWeight: 600,
         fontSize: 10,
         letterSpacing: 0.6,
@@ -505,8 +505,8 @@ function Checkbox({ checked, onChange, ariaLabel }: { checked: boolean; onChange
         width: 14,
         height: 14,
         borderRadius: 3,
-        border: checked ? "1.5px solid #22d3ee" : "1.5px solid rgba(148,163,184,0.5)",
-        background: checked ? "#22d3ee" : "transparent",
+        border: checked ? "1.5px solid #8FD0D5" : "1.5px solid rgba(148,163,184,0.5)",
+        background: checked ? "#8FD0D5" : "transparent",
         color: "#0a0d14",
         fontSize: 9,
         fontWeight: 700,
@@ -534,7 +534,7 @@ function SetFilter({ values, isFiltered, onChange }: {
         >
           <ChevronDown className="w-2.5 h-2.5 opacity-60" />
           {isFiltered && (
-            <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 999, background: "#22d3ee", marginLeft: 3 }} />
+            <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 999, background: "#8FD0D5", marginLeft: 3 }} />
           )}
         </button>
       </PopoverTrigger>
@@ -587,7 +587,7 @@ function RangeFilter({ isFiltered, onChange }: { isFiltered: boolean; onChange: 
           aria-label="Filter range"
         >
           <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-          {isFiltered && <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 999, background: "#22d3ee", marginLeft: 3 }} />}
+          {isFiltered && <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 999, background: "#8FD0D5", marginLeft: 3 }} />}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 p-2">
@@ -647,7 +647,7 @@ function TristateFilter({ isFiltered, onChange }: { isFiltered: boolean; onChang
           aria-label="Filter A/R"
         >
           <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-          {isFiltered && <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 999, background: "#22d3ee", marginLeft: 3 }} />}
+          {isFiltered && <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 999, background: "#8FD0D5", marginLeft: 3 }} />}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-36 p-1">

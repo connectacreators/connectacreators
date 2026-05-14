@@ -110,11 +110,11 @@ const NODE_TYPE_META: Record<
     Icon: Globe,
     color: "#818cf8",
   },
-  mediaNode: { label: "Media", Icon: Image, color: "#22d3ee" },
+  mediaNode: { label: "Media", Icon: Image, color: "#8FD0D5" },
   onboardingFormNode: {
     label: "Onboarding",
     Icon: ClipboardList,
-    color: "#22d3ee",
+    color: "#8FD0D5",
   },
   annotationNode: { label: "Annotation", Icon: Hash, color: "#94a3b8" },
 };
@@ -439,7 +439,7 @@ const NodeDetailSheet = memo(
             <button
               onClick={handleSendToAI}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm"
-              style={{ background: "#22d3ee", color: "#0a0a0c" }}
+              style={{ background: "#8FD0D5", color: "#0a0a0c" }}
             >
               <MessageSquare size={16} />
               Send to AI
@@ -537,7 +537,7 @@ const ChatSidebar = memo(({
               padding: "10px 12px",
               background: "rgba(34,211,238,0.1)",
               border: "1px solid rgba(34,211,238,0.2)",
-              color: "#22d3ee",
+              color: "#8FD0D5",
               fontSize: 13,
               fontWeight: 500,
             }}
@@ -575,7 +575,7 @@ const ChatSidebar = memo(({
                       padding: "9px 12px",
                       borderRadius: 10,
                       fontSize: 12,
-                      color: isActive ? "#22d3ee" : "#999",
+                      color: isActive ? "#8FD0D5" : "#999",
                       background: isActive ? "rgba(34,211,238,0.1)" : "transparent",
                       border: isActive ? "1px solid rgba(34,211,238,0.2)" : "1px solid transparent",
                       whiteSpace: "nowrap",
@@ -740,8 +740,8 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   marginBottom: 2,
                 }}
               >
-                <span style={{ ...iconStyle, color: aiModel === key ? "#22d3ee" : "#e2e8f0" }}>{aiModel === key ? "✓" : " "}</span>
-                <span style={{ color: aiModel === key ? "#22d3ee" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
+                <span style={{ ...iconStyle, color: aiModel === key ? "#8FD0D5" : "#e2e8f0" }}>{aiModel === key ? "✓" : " "}</span>
+                <span style={{ color: aiModel === key ? "#8FD0D5" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
               </button>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
@@ -778,8 +778,8 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   marginBottom: 2,
                 }}
               >
-                <span style={{ ...iconStyle, color: format === key ? "#22d3ee" : "#e2e8f0" }}>{format === key ? "✓" : " "}</span>
-                <span style={{ color: format === key ? "#22d3ee" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
+                <span style={{ ...iconStyle, color: format === key ? "#8FD0D5" : "#e2e8f0" }}>{format === key ? "✓" : " "}</span>
+                <span style={{ color: format === key ? "#8FD0D5" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
               </button>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
@@ -816,8 +816,8 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   marginBottom: 2,
                 }}
               >
-                <span style={{ ...iconStyle, color: language === lang ? "#22d3ee" : "#e2e8f0" }}>{language === lang ? "✓" : " "}</span>
-                <span style={{ color: language === lang ? "#22d3ee" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{lang === "en" ? "English" : "Español"}</span>
+                <span style={{ ...iconStyle, color: language === lang ? "#8FD0D5" : "#e2e8f0" }}>{language === lang ? "✓" : " "}</span>
+                <span style={{ color: language === lang ? "#8FD0D5" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{lang === "en" ? "English" : "Español"}</span>
               </button>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
@@ -904,7 +904,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
           {/* Action items */}
           <div style={{ paddingTop: 4 }}>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onGenerateScript)}>
-              <span style={iconStyle}><Film size={18} style={{ color: "#22d3ee" }} /></span>
+              <span style={iconStyle}><Film size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Generate script</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Build from canvas context</div>
@@ -918,14 +918,14 @@ const PlusSheet = memo((props: PlusSheetProps) => {
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onResearch)}>
-              <span style={iconStyle}><Search size={18} style={{ color: "#22d3ee" }} /></span>
+              <span style={iconStyle}><Search size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Deep research</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Search the web for trends</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onVoiceInput)}>
-              <span style={iconStyle}><Mic size={18} style={{ color: "#22d3ee" }} /></span>
+              <span style={iconStyle}><Mic size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Voice input</div>
                 <div style={{ color: "#666", fontSize: 11 }}>Speak your message</div>
@@ -938,25 +938,25 @@ const PlusSheet = memo((props: PlusSheetProps) => {
           {/* Settings items */}
           <div style={{ paddingTop: 4 }}>
             <button style={menuItemStyle} onClick={() => setSubPicker("model")}>
-              <span style={iconStyle}><Zap size={18} style={{ color: "#22d3ee" }} /></span>
+              <span style={iconStyle}><Zap size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>AI Model</div>
               </div>
-              <span style={{ color: "#22d3ee", fontSize: 12 }}>{MODEL_LABELS[aiModel] ?? aiModel} ›</span>
+              <span style={{ color: "#8FD0D5", fontSize: 12 }}>{MODEL_LABELS[aiModel] ?? aiModel} ›</span>
             </button>
             <button style={menuItemStyle} onClick={() => setSubPicker("format")}>
-              <span style={iconStyle}><FileText size={18} style={{ color: "#22d3ee" }} /></span>
+              <span style={iconStyle}><FileText size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Script format</div>
               </div>
-              <span style={{ color: "#22d3ee", fontSize: 12 }}>{FORMAT_LABELS[format] ?? format} ›</span>
+              <span style={{ color: "#8FD0D5", fontSize: 12 }}>{FORMAT_LABELS[format] ?? format} ›</span>
             </button>
             <button style={menuItemStyle} onClick={() => setSubPicker("language")}>
-              <span style={iconStyle}><Globe size={18} style={{ color: "#22d3ee" }} /></span>
+              <span style={iconStyle}><Globe size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Language</div>
               </div>
-              <span style={{ color: "#22d3ee", fontSize: 12 }}>{language.toUpperCase()} ›</span>
+              <span style={{ color: "#8FD0D5", fontSize: 12 }}>{language.toUpperCase()} ›</span>
             </button>
           </div>
         </div>
@@ -974,11 +974,11 @@ const NODE_PICKER_ITEMS: { type: string; label: string; desc: string; Icon: Reac
   { type: "researchNoteNode", label: "Research Note", desc: "Write research notes", Icon: Search, color: "#34d399" },
   { type: "competitorProfileNode", label: "Competitor Profile", desc: "Analyze a competitor", Icon: Globe, color: "#818cf8" },
   { type: "instagramProfileNode", label: "Instagram Profile", desc: "Browse IG posts", Icon: Globe, color: "#e879f9" },
-  { type: "mediaNode", label: "Media", desc: "Upload image or video", Icon: Image, color: "#22d3ee" },
+  { type: "mediaNode", label: "Media", desc: "Upload image or video", Icon: Image, color: "#8FD0D5" },
   { type: "hookGeneratorNode", label: "Hook Generator", desc: "Generate viral hooks", Icon: Sparkles, color: "#facc15" },
   { type: "brandGuideNode", label: "Brand Guide", desc: "Define brand voice", Icon: Palette, color: "#f472b6" },
   { type: "ctaBuilderNode", label: "CTA Builder", desc: "Build calls to action", Icon: Megaphone, color: "#fb923c" },
-  { type: "onboardingFormNode", label: "Onboarding Form", desc: "View client onboarding", Icon: ClipboardList, color: "#22d3ee" },
+  { type: "onboardingFormNode", label: "Onboarding Form", desc: "View client onboarding", Icon: ClipboardList, color: "#8FD0D5" },
   { type: "annotationNode", label: "Annotation", desc: "Add annotation tag", Icon: Hash, color: "#94a3b8" },
 ];
 
@@ -1256,12 +1256,12 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
         }
         .mobile-canvas-root ::-webkit-scrollbar-track {
           background: transparent;
-          border: 1px solid #22d3ee;
+          border: 1px solid #8FD0D5;
           border-radius: 3px;
         }
         .mobile-canvas-root ::-webkit-scrollbar-thumb {
           background: transparent;
-          border: 1px solid #22d3ee;
+          border: 1px solid #8FD0D5;
           border-radius: 3px;
         }
         .mobile-canvas-root {
@@ -1325,7 +1325,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
             borderRadius: "50%",
           }}
         >
-          <Plus size={16} style={{ color: "#22d3ee" }} />
+          <Plus size={16} style={{ color: "#8FD0D5" }} />
         </button>
       </div>
 
@@ -1392,7 +1392,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           <button
             onClick={() => setPlusSheetOpen(true)}
             style={{
-              color: "#22d3ee",
+              color: "#8FD0D5",
               fontSize: 20,
               fontWeight: 700,
               lineHeight: 1,
@@ -1450,7 +1450,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
                 width: 30,
                 height: 30,
                 borderRadius: "50%",
-                background: "#22d3ee",
+                background: "#8FD0D5",
                 border: "none",
                 display: "flex",
                 alignItems: "center",

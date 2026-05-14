@@ -42,7 +42,7 @@ interface FormData {
   email: string;
 }
 
-const BRAND = "#0891B2";
+const BRAND = "#8FD0D5";
 const BG = "#111";
 const CARD = "#1a1a1a";
 const BORDER = "#2a2a2a";

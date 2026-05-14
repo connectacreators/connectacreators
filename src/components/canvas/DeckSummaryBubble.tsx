@@ -66,7 +66,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
             onClick={onEdit}
             className="flex items-center gap-1"
             style={{
-              color: "#22d3ee",
+              color: "#8FD0D5",
               fontSize: 9,
               fontWeight: 600,
               background: "transparent",

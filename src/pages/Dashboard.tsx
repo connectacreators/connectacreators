@@ -312,7 +312,7 @@ export default function Dashboard() {
       label: "Content Creation",
       description: "Scripts · Vault · Editing Queue · Content Calendar",
       icon: Sparkles,
-      color: "#22d3ee",
+      color: "#8FD0D5",
     },
     {
       key: "sales" as FolderKey,
@@ -333,8 +333,8 @@ export default function Dashboard() {
   // Sub-cards with optional clientId for context-specific routes
   const getClientSubCards = (clientId: string | null) => ({
     content: [
-      { label: "Super Canvas", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Layers, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
-      { label: "Scripts", description: language === "en" ? "View and manage scripts" : "Ver y gestionar guiones", icon: FileText, color: "#22d3ee", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
+      { label: "Super Canvas", description: language === "en" ? "AI-powered script planning canvas" : "Canvas de planificación con IA", icon: Layers, color: "#8FD0D5", path: clientId ? `/clients/${clientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Scripts", description: language === "en" ? "View and manage scripts" : "Ver y gestionar guiones", icon: FileText, color: "#8FD0D5", path: clientId ? `/clients/${clientId}/scripts` : "/scripts" },
       { label: "Vault", description: language === "en" ? "Script templates from viral videos" : "Plantillas de scripts de videos virales", icon: Archive, color: "#fbbf24", path: clientId ? `/clients/${clientId}/vault` : "/vault" },
       { label: "Editing Queue", description: language === "en" ? "Track video production status" : "Estado de producción de videos", icon: Clapperboard, color: "#fb7185", path: clientId ? `/clients/${clientId}/editing-queue` : "/editing-queue" },
       { label: language === "en" ? "Content Calendar" : "Calendario de Contenido", description: language === "en" ? "Schedule & approve posts" : "Programar y aprobar publicaciones", icon: Calendar, color: "#e879f9", path: clientId ? `/clients/${clientId}/content-calendar` : "/content-calendar" },
@@ -344,11 +344,11 @@ export default function Dashboard() {
       { label: language === "en" ? "Lead Calendar" : "Calendario de Leads", description: language === "en" ? "Calendar view of leads" : "Vista de calendario de leads", icon: CalendarDays, color: "#a78bfa", path: clientId ? `/clients/${clientId}/lead-calendar` : "/lead-calendar" },
     ],
     setup: [
-      { label: language === "en" ? "Content Strategy" : "Estrategia de Contenido", description: language === "en" ? "Goals, mix, ManyChat & fulfillment score" : "Metas, mezcla, ManyChat y puntuación", icon: BarChart3, color: "#22d3ee", path: clientId ? `/clients/${clientId}/strategy` : "/dashboard" },
+      { label: language === "en" ? "Content Strategy" : "Estrategia de Contenido", description: language === "en" ? "Goals, mix, ManyChat & fulfillment score" : "Metas, mezcla, ManyChat y puntuación", icon: BarChart3, color: "#8FD0D5", path: clientId ? `/clients/${clientId}/strategy` : "/dashboard" },
       { label: language === "en" ? "Brand Setup" : "Configuración de Marca", description: language === "en" ? "Complete client onboarding form" : "Formulario completo de onboarding", icon: Sparkles, color: "#fbbf24", path: clientId ? `/onboarding/${clientId}` : "/onboarding" },
       { label: "Public Booking", description: language === "en" ? "Calendly-style public calendar" : "Calendario público tipo Calendly", icon: Globe, color: "#bbbbbb", path: clientId ? `/clients/${clientId}/booking-settings` : "/dashboard" },
       { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "#34d399", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
-      { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "#22d3ee", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
+      { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "#8FD0D5", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
       { label: "Contracts", description: language === "en" ? "Upload, sign & send contracts" : "Sube, firma y envía contratos", icon: ScrollText, color: "#fbbf24", path: clientId ? `/clients/${clientId}/contracts` : "/dashboard" },
       ...(schedulerEnabled && clientId ? [{
         label: language === "en" ? "Social Accounts" : "Cuentas Sociales",
@@ -516,8 +516,8 @@ export default function Dashboard() {
         if (dismissed || !isSubscriber || userPlanType === "free") return null;
         return (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4">
-            <div className="flex items-center gap-3 bg-[#0891B2]/15 border border-[#0891B2]/30 rounded-xl px-4 py-3 backdrop-blur-sm">
-              <Zap className="w-5 h-5 text-[#0891B2] shrink-0" />
+            <div className="flex items-center gap-3 bg-[#8FD0D5]/15 border border-[#8FD0D5]/30 rounded-xl px-4 py-3 backdrop-blur-sm">
+              <Zap className="w-5 h-5 text-[#8FD0D5] shrink-0" />
               <p className="text-sm text-foreground flex-1">
                 {language === "en"
                   ? "Your credits have been increased! Enjoy more AI power."
@@ -580,7 +580,7 @@ export default function Dashboard() {
                   >
                     <button
                       onClick={() => setActiveFolder(null)}
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#22d3ee] transition-colors"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#8FD0D5] transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" /> Dashboard
                     </button>
@@ -591,7 +591,7 @@ export default function Dashboard() {
                   </motion.div>
 
                   <motion.h1
-                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight font-caslon"
+                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight font-serif"
                     initial="hidden"
                     animate="visible"
                     custom={0}
@@ -609,10 +609,10 @@ export default function Dashboard() {
                             className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                           >
                             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                              <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                              <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#8FD0D5] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon"><ScribbleUnderline>{card.label}</ScribbleUnderline></h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-serif"><ScribbleUnderline>{card.label}</ScribbleUnderline></h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                               {(card as any).disabled && (
                                 <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
@@ -629,7 +629,7 @@ export default function Dashboard() {
                   <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                     👋 {tr(t.dashboard.greeting, language)}, {displayName}
                   </motion.p>
-                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground font-serif" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {tr(t.dashboard.question, language)}
                   </motion.h1>
 
@@ -642,10 +642,10 @@ export default function Dashboard() {
                             className="group flex flex-col items-center gap-5 p-8 text-center w-full"
                           >
                             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                              <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                              <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#8FD0D5] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-caslon"><ScribbleUnderline>{folder.label}</ScribbleUnderline></h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-serif"><ScribbleUnderline>{folder.label}</ScribbleUnderline></h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                             </div>
                           </button>
@@ -661,7 +661,7 @@ export default function Dashboard() {
                 <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
                   👋 {tr(t.dashboard.greeting, language)}, {displayName}
                 </motion.p>
-                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-12 tracking-tight leading-[0.95] text-foreground font-serif" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                   {tr(t.dashboard.question, language)}
                 </motion.h1>
 
@@ -674,10 +674,10 @@ export default function Dashboard() {
                           className="group flex flex-col items-center gap-5 p-8 text-center w-full"
                         >
                           <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                            <tool.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                            <tool.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#8FD0D5] transition-colors" />
                           </div>
                           <div>
-                            <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-caslon"><ScribbleUnderline>{tool.label}</ScribbleUnderline></h2>
+                            <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-serif"><ScribbleUnderline>{tool.label}</ScribbleUnderline></h2>
                             <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
                           </div>
                         </button>
@@ -698,7 +698,7 @@ export default function Dashboard() {
                   >
                     <button
                       onClick={() => setActiveFolder(null)}
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#22d3ee] transition-colors"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#8FD0D5] transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" /> {selectedClientName}
                     </button>
@@ -709,7 +709,7 @@ export default function Dashboard() {
                   </motion.div>
 
                   <motion.h1
-                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight font-caslon"
+                    className="text-xl sm:text-2xl font-bold text-foreground mb-8 tracking-tight font-serif"
                     initial="hidden"
                     animate="visible"
                     custom={0}
@@ -730,10 +730,10 @@ export default function Dashboard() {
                               className={`group flex flex-col items-center gap-5 p-8 sm:p-10 text-center w-full ${(card as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                               <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                                <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                                <card.icon className="w-6 h-6 text-muted-foreground group-hover:!text-[#8FD0D5] transition-colors" />
                               </div>
                               <div>
-                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-caslon"><ScribbleUnderline>{card.label}</ScribbleUnderline></h2>
+                                <h2 className="text-sm font-bold text-foreground mb-1.5 tracking-tight font-serif"><ScribbleUnderline>{card.label}</ScribbleUnderline></h2>
                                 <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
                                 {(card as any).disabled && (
                                   <p className="text-[10px] text-muted-foreground/60 mt-1">{language === "en" ? "Enterprise plan only" : "Solo plan Enterprise"}</p>
@@ -795,7 +795,7 @@ export default function Dashboard() {
                       </div>
                     )}
                   </motion.div>
-                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95] font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+                  <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95] font-serif" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?"}
                   </motion.h1>
                   <div className="mb-10" />
@@ -809,10 +809,10 @@ export default function Dashboard() {
                             className="group flex flex-col items-center gap-5 p-8 text-center w-full"
                           >
                             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                              <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#22d3ee] transition-colors" />
+                              <folder.icon className="w-5 h-5 text-muted-foreground group-hover:!text-[#8FD0D5] transition-colors" />
                             </div>
                             <div>
-                              <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-caslon"><ScribbleUnderline>{folder.label}</ScribbleUnderline></h2>
+                              <h2 className="text-sm font-bold text-foreground mb-1 tracking-tight font-serif"><ScribbleUnderline>{folder.label}</ScribbleUnderline></h2>
                               <p className="text-xs text-muted-foreground leading-relaxed">{folder.description}</p>
                             </div>
                           </button>

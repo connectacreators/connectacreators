@@ -16,8 +16,8 @@ function ApplyBtn({ inverted }: { inverted?: boolean }) {
       rel="noreferrer"
       style={{
         display: "inline-block",
-        background: inverted ? "#fff" : "#0891B2",
-        color: inverted ? "#0891B2" : "#fff",
+        background: inverted ? "#fff" : "#8FD0D5",
+        color: inverted ? "#8FD0D5" : "#fff",
         fontFamily: "'Montserrat', sans-serif",
         fontWeight: 700,
         fontSize: 13,
@@ -84,8 +84,8 @@ function BeforeAfterCaption({ platform, before, after }: { platform: string; bef
         </div>
         <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#0891B2", letterSpacing: "0.08em" }}>AHORA</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 18, color: "#0891B2", lineHeight: 1 }}>{after}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#8FD0D5", letterSpacing: "0.08em" }}>AHORA</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 18, color: "#8FD0D5", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
     </div>
@@ -151,7 +151,7 @@ export default function About() {
                 fontSize: 11,
                 textTransform: "uppercase",
                 letterSpacing: "0.18em",
-                color: "#0891B2",
+                color: "#8FD0D5",
                 marginBottom: 14,
               }}
             >
@@ -207,7 +207,7 @@ export default function About() {
             fontFamily: "'Montserrat', sans-serif",
             fontWeight: 900,
             fontSize: "clamp(64px, 12vw, 120px)",
-            color: "#0891B2",
+            color: "#8FD0D5",
             lineHeight: 1,
             letterSpacing: "-0.04em",
             marginBottom: 8,
@@ -319,7 +319,7 @@ export default function About() {
 
           <div
             style={{
-              background: "#0891B2",
+              background: "#8FD0D5",
               borderRadius: 4,
               padding: "24px 20px",
               maxWidth: 560,
@@ -385,10 +385,10 @@ export default function About() {
             <div className="ba-card">
               <img src={zigufitAfter} alt="ZiguFit después" className="ba-img-portrait" />
               <div style={{ padding: "14px 16px" }}>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#0891B2", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8FD0D5", marginBottom: 4 }}>
                   DESPUÉS
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#0891B2" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#8FD0D5" }}>
                   17.4K seguidores
                 </div>
               </div>
@@ -398,7 +398,7 @@ export default function About() {
       </Sec>
 
       {/* CTA FINAL */}
-      <div style={{ background: "#0891B2" }}>
+      <div style={{ background: "#8FD0D5" }}>
         <div
           style={{
             maxWidth: 1080,
@@ -468,7 +468,7 @@ export default function About() {
           ¿Tienes preguntas? Escríbenos a:{" "}
           <a
             href="mailto:admin@connectacreators.com"
-            style={{ color: "#0891B2", fontWeight: 700 }}
+            style={{ color: "#8FD0D5", fontWeight: 700 }}
           >
             admin@connectacreators.com
           </a>

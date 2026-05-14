@@ -91,7 +91,7 @@ export default function Signup() {
         <div className="rounded-2xl px-10 py-12" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="text-center mb-8">
             <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
-            <h1 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
+            <h1 className="font-serif text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
               {language === 'es' ? 'Crea tu cuenta' : 'Create your account'}
             </h1>
             <p className="text-muted-foreground text-xs mt-2 tracking-wide">

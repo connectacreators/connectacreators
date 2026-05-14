@@ -74,10 +74,10 @@ const HOOK_TYPE_LABELS: Record<string, string> = {
 };
 
 const HOOK_TYPE_COLORS: Record<string, string> = {
-  educational: "#22d3ee",
+  educational: "#8FD0D5",
   authority: "#f59e0b",
   story: "#a78bfa",
-  comparison: "#a3e635",
+  comparison: "#F0BC7D",
   shock: "#f43f5e",
   random: "#94a3b8",
 };
@@ -95,8 +95,8 @@ function formatViews(n: number): string {
 }
 
 function outlierColor(score: number): string {
-  if (score >= 5) return "#22d3ee";
-  if (score >= 2.5) return "#a3e635";
+  if (score >= 5) return "#8FD0D5";
+  if (score >= 2.5) return "#F0BC7D";
   return "#64748b";
 }
 
@@ -517,7 +517,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                               {/* Apply to client */}
                               {post.applyToClient && (
                                 <div className="rounded-lg p-2.5" style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.15)" }}>
-                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "#22d3ee" }}>
+                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "#8FD0D5" }}>
                                     Apply to {clientName || "Client"}
                                   </p>
                                   <p className="text-[10px] leading-relaxed cursor-text" style={{ color: "#94d4db" }}>{post.applyToClient}</p>
@@ -538,7 +538,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                                   <button
                                     onClick={(e) => { e.stopPropagation(); onAddVideoNode(post.url); }}
                                     className="nodrag flex items-center gap-1 text-[9px] font-semibold px-2 py-1 rounded-md transition-colors"
-                                    style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.25)" }}
+                                    style={{ background: "rgba(34,211,238,0.12)", color: "#8FD0D5", border: "1px solid rgba(34,211,238,0.25)" }}
                                   >
                                     + Add to Canvas
                                   </button>
@@ -598,7 +598,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                     </div>
                   </div>
                 ) : posts.every(p => p.transcription) ? (
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium" style={{ color: "#22d3ee" }}>
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium" style={{ color: "#8FD0D5" }}>
                     <Sparkles className="w-3.5 h-3.5" />
                     All {posts.length} posts transcribed — exploding into folder...
                   </div>

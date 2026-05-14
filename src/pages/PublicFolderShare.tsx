@@ -41,8 +41,8 @@ type SharePayload = {
 
 const typeConfig = {
   filming:        { label: "Filming",         icon: Film,        color: "text-orange-400",     bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5", border: "border-orange-500/25" },
-  actor:          { label: "Voiceover",       icon: Mic,         color: "text-[#22d3ee]",       bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
-  editor:         { label: "Editing",         icon: Scissors,    color: "text-[#a3e635]",       bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
+  actor:          { label: "Voiceover",       icon: Mic,         color: "text-[#8FD0D5]",       bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
+  editor:         { label: "Editing",         icon: Scissors,    color: "text-[#F0BC7D]",       bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
   text_on_screen: { label: "On-screen text",  icon: MonitorPlay, color: "text-[#94a3b8]",       bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]", border: "border-[rgba(148,163,184,0.15)]" },
 };
 
@@ -160,13 +160,13 @@ export default function PublicFolderShare() {
           {(openScript.idea_ganadora || openScript.target || openScript.formato) && (
             <div className="mb-6 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
               {openScript.idea_ganadora && (
-                <p className="text-sm text-foreground"><span className="font-semibold text-[#22d3ee]">Winning Idea:</span> {openScript.idea_ganadora}</p>
+                <p className="text-sm text-foreground"><span className="font-semibold text-[#8FD0D5]">Winning Idea:</span> {openScript.idea_ganadora}</p>
               )}
               {openScript.target && (
                 <p className="text-sm text-foreground"><span className="font-semibold text-orange-400">Target:</span> {openScript.target}</p>
               )}
               {openScript.formato && (
-                <p className="text-sm text-foreground"><span className="font-semibold text-[#22d3ee]">Format:</span> {openScript.formato}</p>
+                <p className="text-sm text-foreground"><span className="font-semibold text-[#8FD0D5]">Format:</span> {openScript.formato}</p>
               )}
             </div>
           )}

@@ -97,7 +97,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
         <div className="w-full max-w-md rounded-2xl px-10 py-12 space-y-6" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="text-center">
             <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
-            <h1 className="font-caslon text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
+            <h1 className="font-serif text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
               {(words[wordIndex] as any).pre}{" "}
               <span className="inline-block relative" style={{ minWidth: "4ch" }}>
                 <AnimatePresence mode="wait">
@@ -219,7 +219,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
       </div>
 
       <div className="py-6 flex justify-center relative z-10">
-        <a href="/" className="font-caslon text-base text-foreground/60 hover:text-foreground transition-colors" style={{ letterSpacing: "0.02em" }}>
+        <a href="/" className="font-serif text-base text-foreground/60 hover:text-foreground transition-colors" style={{ letterSpacing: "0.02em" }}>
           Connecta
         </a>
       </div>

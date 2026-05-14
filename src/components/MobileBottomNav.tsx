@@ -54,7 +54,7 @@ export default function MobileBottomNav() {
                 >
                   <div
                     className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-[3px] border-background"
-                    style={{ background: "linear-gradient(135deg, #0891B2 0%, #06B6D4 100%)" }}
+                    style={{ background: "linear-gradient(135deg, #8FD0D5 0%, #8FD0D5 100%)" }}
                   >
                     <tab.icon className="w-6 h-6 text-white" />
                   </div>

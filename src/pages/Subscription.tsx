@@ -262,7 +262,7 @@ export default function Subscription() {
           className="glass-card rounded-xl p-6 overflow-hidden"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="font-caslon text-2xl font-light" style={{ letterSpacing: "0.02em" }}>{en ? "Unlimited" : "Ilimitado"}</span>
+            <span className="font-serif text-2xl font-light" style={{ letterSpacing: "0.02em" }}>{en ? "Unlimited" : "Ilimitado"}</span>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/20 text-primary">{roleLabel}</span>
           </div>
           <p className="text-sm text-muted-foreground mb-5">
@@ -399,7 +399,7 @@ export default function Subscription() {
         >
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-3">
-              <span className="font-caslon text-2xl font-light" style={{ letterSpacing: "0.02em" }}>{planLabel}</span>
+              <span className="font-serif text-2xl font-light" style={{ letterSpacing: "0.02em" }}>{planLabel}</span>
               {showStatusBadge && (
                 <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusBadgeClass}`}>
                   {statusBadgeText}
@@ -458,7 +458,7 @@ export default function Subscription() {
       {/* ── Section 2: CREDITS ───────────────────────────────────── */}
       <section>
         <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 rounded-full" style={{ background: "#22d3ee" }} />
+          <div className="w-2 h-2 rounded-full" style={{ background: "#8FD0D5" }} />
           <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "CREDITS" : "CRÉDITOS"}</span>
         </motion.div>
         <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp}

@@ -91,7 +91,7 @@ export default function PromptStream({
             />
             <path
               d={RIGHT_PATH}
-              stroke="var(--ink, #0A0E12)"
+              stroke="var(--ink, #141414)"
               strokeWidth="36"
               fill="none"
               strokeLinecap="round"

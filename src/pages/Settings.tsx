@@ -173,7 +173,7 @@ export default function Settings() {
   return (
     <PageTransition className="flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 py-8 max-w-lg">
-        <h1 className="font-caslon text-2xl sm:text-3xl font-light text-foreground mb-8" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.title, language)}</h1>
+        <h1 className="font-serif text-2xl sm:text-3xl font-light text-foreground mb-8" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.title, language)}</h1>
 
         {/* Profile info */}
         <div className="glass-card rounded-xl p-6 space-y-5 mb-8">
@@ -191,9 +191,9 @@ export default function Settings() {
               {roleLabel}
             </div>
           </div>
-          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
+          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
             <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#0891B2]" />}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#8FD0D5]" />}
               {tr(t.settings.saveChanges, language)}
             </Button>
           </BorderGlow>
@@ -202,7 +202,7 @@ export default function Settings() {
         {/* AI Assistant */}
         <div className="glass-card rounded-xl p-6 space-y-5 mb-8">
           <div>
-            <h2 className="font-caslon text-lg font-light text-foreground mb-1" style={{ letterSpacing: "0.02em" }}>
+            <h2 className="font-serif text-lg font-light text-foreground mb-1" style={{ letterSpacing: "0.02em" }}>
               {language === "es" ? "Asistente de IA" : "AI Assistant"}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -232,7 +232,7 @@ export default function Settings() {
 
         {/* Change password */}
         <div className="glass-card rounded-xl p-6 space-y-4">
-          <h2 className="font-caslon text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.changePassword, language)}</h2>
+          <h2 className="font-serif text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.changePassword, language)}</h2>
           <div className="relative">
             <Input
               type={showPasswords ? "text" : "password"}
@@ -257,7 +257,7 @@ export default function Settings() {
             {showPasswords ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             {showPasswords ? tr(t.settings.hidePasswords, language) : tr(t.settings.showPasswords, language)} {tr(t.settings.passwords, language)}
           </button>
-          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#06B6D4', '#22d3ee', '#84CC16']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
+          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
             <Button
               onClick={handleChangePassword}
               disabled={changingPassword || !newPassword || !confirmPassword}
@@ -271,7 +271,7 @@ export default function Settings() {
 
         {/* Viral Feed settings */}
         <div className="glass-card rounded-xl p-6 space-y-4 mt-8">
-          <h2 className="font-caslon text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>Viral Feed</h2>
+          <h2 className="font-serif text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>Viral Feed</h2>
           <p className="text-sm text-muted-foreground">
             Set the minimum outlier score for videos shown in the Viral Reels feed. Higher = only the most viral content.
           </p>
@@ -321,7 +321,7 @@ export default function Settings() {
         {/* Delete Account — only for non-admin users */}
         {role !== "admin" && (
           <div className="glass-card rounded-xl p-6 space-y-4 mt-8 border border-red-500/20">
-            <h2 className="font-caslon text-lg font-light text-red-400" style={{ letterSpacing: "0.02em" }}>Delete Account</h2>
+            <h2 className="font-serif text-lg font-light text-red-400" style={{ letterSpacing: "0.02em" }}>Delete Account</h2>
             <p className="text-sm text-muted-foreground">
               This will permanently delete your account, cancel your subscription, and remove all your data. This action cannot be undone.
             </p>

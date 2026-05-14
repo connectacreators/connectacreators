@@ -24,7 +24,7 @@ function TBtn({ active, onClick, children, title }: { active?: boolean; onClick:
     <button
       onClick={onClick}
       title={title}
-      className={`nodrag p-1 rounded transition-colors ${active ? "bg-[rgba(8,145,178,0.2)] text-[#22d3ee]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+      className={`nodrag p-1 rounded transition-colors ${active ? "bg-[rgba(8,145,178,0.2)] text-[#8FD0D5]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
     >
       {children}
     </button>

@@ -79,7 +79,7 @@ function IconBtn({
         data-tutorial-target={tutorialTarget}
         className={`p-2 rounded-xl transition-colors ${
           accent
-            ? "text-[#22d3ee] hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.15)]"
+            ? "text-[#8FD0D5] hover:text-[#8FD0D5] hover:bg-[rgba(8,145,178,0.15)]"
             : "text-[#94a3b8] hover:text-foreground hover:bg-muted/40"
         }`}
       >
@@ -93,7 +93,7 @@ function IconBtn({
   );
 }
 
-const DRAW_COLORS = ["#22d3ee", "#f43f5e", "#a3e635", "#f59e0b", "#a78bfa", "#ffffff"];
+const DRAW_COLORS = ["#8FD0D5", "#f43f5e", "#F0BC7D", "#f59e0b", "#a78bfa", "#ffffff"];
 
 function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession }: {
   sessions: SessionItem[];
@@ -261,7 +261,7 @@ const TOOLS_ITEMS = [
 function ToolsDropdown({ onAddNode }: { onAddNode: (type: "hookGeneratorNode" | "ctaBuilderNode" | "brandGuideNode" | "onboardingFormNode") => void }) {
   return (
     <div className="relative group">
-      <button className="p-2 rounded-xl transition-colors text-[#94a3b8] group-hover:text-[#22d3ee] group-hover:bg-[rgba(8,145,178,0.1)]">
+      <button className="p-2 rounded-xl transition-colors text-[#94a3b8] group-hover:text-[#8FD0D5] group-hover:bg-[rgba(8,145,178,0.1)]">
         <Wrench className="w-4 h-4" />
       </button>
       {/* Invisible bridge prevents gap from closing the dropdown */}
@@ -271,7 +271,7 @@ function ToolsDropdown({ onAddNode }: { onAddNode: (type: "hookGeneratorNode" | 
           <button
             key={type}
             onClick={() => onAddNode(type)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.08)] transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[#8FD0D5] hover:bg-[rgba(8,145,178,0.08)] transition-colors text-left"
           >
             <Icon className="w-3.5 h-3.5 flex-shrink-0" />
             {label}
@@ -294,7 +294,7 @@ function ResearchDropdown({ onAddNode, onOpenViralPicker }: {
 
   return (
     <div className="relative group">
-      <button className="p-2 rounded-xl transition-colors text-[#94a3b8] group-hover:text-[#22d3ee] group-hover:bg-[rgba(8,145,178,0.1)]">
+      <button className="p-2 rounded-xl transition-colors text-[#94a3b8] group-hover:text-[#8FD0D5] group-hover:bg-[rgba(8,145,178,0.1)]">
         <Compass className="w-4 h-4" />
       </button>
       {/* Invisible bridge prevents gap from closing the dropdown */}
@@ -304,7 +304,7 @@ function ResearchDropdown({ onAddNode, onOpenViralPicker }: {
           <button
             key={label}
             onClick={onClick}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.08)] transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[#8FD0D5] hover:bg-[rgba(8,145,178,0.08)] transition-colors text-left"
           >
             <Icon className="w-3.5 h-3.5 flex-shrink-0" />
             {label}
@@ -400,7 +400,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
               onClick={onToggleDrawing}
               className={`p-2 rounded-xl transition-colors ${
                 drawingMode
-                  ? "text-[#22d3ee] bg-[rgba(8,145,178,0.2)] ring-1 ring-[#22d3ee]/40"
+                  ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.2)] ring-1 ring-[#8FD0D5]/40"
                   : "text-[#94a3b8] hover:text-foreground hover:bg-muted/40"
               }`}
             >
@@ -448,7 +448,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                   const ActiveIcon = SHAPE_TOOLS.find(s => s.tool === drawTool)?.icon || PenLine;
                   return (
                     <div className="relative group">
-                      <button className="p-1.5 rounded-lg text-[#22d3ee] bg-[rgba(8,145,178,0.2)] transition-colors">
+                      <button className="p-1.5 rounded-lg text-[#8FD0D5] bg-[rgba(8,145,178,0.2)] transition-colors">
                         <ActiveIcon className="w-3.5 h-3.5" />
                       </button>
                       <div className="absolute h-2 w-full left-0 top-full" />
@@ -456,7 +456,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                         {SHAPE_TOOLS.map(({ tool, icon: Icon, label }) => (
                           <button key={tool} onClick={() => onDrawToolChange?.(tool)}
                             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors text-left whitespace-nowrap ${
-                              drawTool === tool ? "text-[#22d3ee] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-[#22d3ee] hover:bg-[rgba(8,145,178,0.08)]"
+                              drawTool === tool ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-[#8FD0D5] hover:bg-[rgba(8,145,178,0.08)]"
                             }`}
                           >
                             <Icon className="w-3.5 h-3.5 flex-shrink-0" /> {label}
@@ -471,7 +471,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                 {drawTool !== "freeform" && drawTool !== "line" && drawTool !== "arrow" && drawTool !== "dottedLine" && (
                   <div className="relative group">
                     <button onClick={onDrawFillToggle}
-                      className={`p-1.5 rounded-lg transition-colors ${drawFill ? "text-[#22d3ee] bg-[rgba(8,145,178,0.2)]" : "text-[#94a3b8] hover:text-foreground hover:bg-muted/30"}`}
+                      className={`p-1.5 rounded-lg transition-colors ${drawFill ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.2)]" : "text-[#94a3b8] hover:text-foreground hover:bg-muted/30"}`}
                     >
                       <div className="w-3.5 h-3.5 rounded-sm border-2 border-current" style={{ background: drawFill ? "currentColor" : "transparent", opacity: drawFill ? 0.4 : 1 }} />
                     </button>
@@ -513,7 +513,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                         <button key={w} onClick={() => onDrawWidthChange?.(w)}
                           className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawWidth === w ? "bg-[rgba(8,145,178,0.2)]" : "hover:bg-muted/30"}`}
                         >
-                          <div className="rounded-full" style={{ width: Math.max(3, w * 1.5), height: Math.max(3, w * 1.5), background: drawWidth === w ? "#22d3ee" : "#94a3b8" }} />
+                          <div className="rounded-full" style={{ width: Math.max(3, w * 1.5), height: Math.max(3, w * 1.5), background: drawWidth === w ? "#8FD0D5" : "#94a3b8" }} />
                         </button>
                       ))}
                     </div>

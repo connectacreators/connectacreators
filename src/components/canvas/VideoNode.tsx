@@ -225,9 +225,9 @@ const viralBadgeClass = (score: number): string => {
 };
 
 const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string; border: string }> = {
-  hook: { label: "Hook", accent: "text-[#22d3ee]", bg: "bg-[rgba(8,145,178,0.08)]", border: "border-[rgba(8,145,178,0.2)]" },
+  hook: { label: "Hook", accent: "text-[#8FD0D5]", bg: "bg-[rgba(8,145,178,0.08)]", border: "border-[rgba(8,145,178,0.2)]" },
   body: { label: "Body", accent: "text-[#94a3b8]", bg: "bg-[rgba(148,163,184,0.06)]", border: "border-[rgba(148,163,184,0.15)]" },
-  cta:  { label: "CTA",  accent: "text-[#a3e635]", bg: "bg-[rgba(132,204,22,0.06)]", border: "border-[rgba(132,204,22,0.15)]" },
+  cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[rgba(132,204,22,0.06)]", border: "border-[rgba(132,204,22,0.15)]" },
 };
 
 // ── Custom Video Player ─────────────────────────────────────────────
@@ -313,7 +313,7 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose, onAspectDetected }: { sr
 
   useEffect(() => { resetHideTimer(); }, [resetHideTimer]);
 
-  const accentColor = "#22d3ee";
+  const accentColor = "#8FD0D5";
 
   return (
     <div
@@ -1129,18 +1129,18 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                     {/* Structure progress */}
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-[rgba(132,204,22,0.06)] border border-[rgba(132,204,22,0.12)]" : "bg-primary/6 border border-primary/15"}`}>
                       {structureProgress === "done"
-                        ? <span className="text-[#a3e635] text-[11px]">✓</span>
+                        ? <span className="text-[#F0BC7D] text-[11px]">✓</span>
                         : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
-                      <span className={structureProgress === "done" ? "text-[#a3e635]/80" : "text-primary/70"}>
+                      <span className={structureProgress === "done" ? "text-[#F0BC7D]/80" : "text-primary/70"}>
                         Structure analysis{structureProgress === "done" ? " complete" : "…"}
                       </span>
                     </div>
                     {/* Visual progress */}
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-[rgba(132,204,22,0.06)] border border-[rgba(132,204,22,0.12)]" : "bg-primary/6 border border-primary/15"}`}>
                       {visualProgress === "done"
-                        ? <span className="text-[#a3e635] text-[11px]">✓</span>
+                        ? <span className="text-[#F0BC7D] text-[11px]">✓</span>
                         : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
-                      <span className={visualProgress === "done" ? "text-[#a3e635]/80" : "text-primary/70"}>
+                      <span className={visualProgress === "done" ? "text-[#F0BC7D]/80" : "text-primary/70"}>
                         Visual scene analysis{visualProgress === "done" ? " complete" : "…"}
                       </span>
                     </div>
@@ -1241,7 +1241,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                             {seg.text_on_screen && seg.text_on_screen.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {seg.text_on_screen.map((txt, j) => (
-                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[rgba(8,145,178,0.08)] border border-[rgba(8,145,178,0.2)] text-[#22d3ee]/80">
+                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[rgba(8,145,178,0.08)] border border-[rgba(8,145,178,0.2)] text-[#8FD0D5]/80">
                                     <Type className="w-2.5 h-2.5 flex-shrink-0" />
                                     {txt}
                                   </span>
@@ -1284,7 +1284,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 <button
                   onClick={saveToVault}
                   disabled={savingVault || !d.clientId}
-                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(8,145,178,0.25)] bg-[rgba(8,145,178,0.08)] text-[#22d3ee] hover:bg-[rgba(8,145,178,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
+                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(8,145,178,0.25)] bg-[rgba(8,145,178,0.08)] text-[#8FD0D5] hover:bg-[rgba(8,145,178,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
                 >
                   {savingVault ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
                   {savingVault ? "Saving..." : "Save to Vault"}

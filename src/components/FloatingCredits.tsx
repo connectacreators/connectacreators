@@ -15,7 +15,7 @@ export default function FloatingCredits() {
   if (isAdmin) return null;
 
   const isEmpty = credits.credits_balance === 0 && credits.topup_credits_balance === 0;
-  const accentColor = isEmpty ? "#f59e0b" : "#22d3ee";
+  const accentColor = isEmpty ? "#f59e0b" : "#8FD0D5";
   const totalBalance = credits.credits_balance + credits.topup_credits_balance;
 
   return (
@@ -32,7 +32,7 @@ export default function FloatingCredits() {
               WebkitBackdropFilter: "blur(16px)",
               border: "1px solid rgba(34,211,238,0.25)",
               boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
-              color: "#22d3ee",
+              color: "#8FD0D5",
             }}
             title="Buy more credits"
           >

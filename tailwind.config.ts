@@ -68,7 +68,54 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				/* === Editorial rebrand: remap default Tailwind color families
+				   to the new palette so every bg-cyan-* / text-cyan-* /
+				   bg-lime-* / bg-red-* hit across the codebase auto-resolves
+				   to Aqua / Honey / Honey-deep tints without touching any
+				   individual file. === */
+				cyan: {
+					50:  'hsl(184 41% 96%)',
+					100: 'hsl(184 41% 92%)',
+					200: 'hsl(184 41% 84%)',
+					300: 'hsl(184 41% 76%)',
+					400: 'hsl(184 41% 70%)',
+					500: 'hsl(184 41% 60%)',
+					600: 'hsl(184 41% 50%)',
+					700: 'hsl(184 41% 40%)',
+					800: 'hsl(184 41% 30%)',
+					900: 'hsl(184 41% 20%)',
+					950: 'hsl(184 41% 12%)',
+					DEFAULT: 'hsl(184 41% 70%)',
+				},
+				lime: {
+					50:  'hsl(30 67% 96%)',
+					100: 'hsl(30 67% 90%)',
+					200: 'hsl(30 67% 82%)',
+					300: 'hsl(30 67% 75%)',
+					400: 'hsl(30 67% 68%)',
+					500: 'hsl(30 67% 63%)',
+					600: 'hsl(30 67% 55%)',
+					700: 'hsl(30 67% 45%)',
+					800: 'hsl(30 67% 35%)',
+					900: 'hsl(30 67% 25%)',
+					950: 'hsl(30 67% 15%)',
+					DEFAULT: 'hsl(30 67% 63%)',
+				},
+				red: {
+					50:  'hsl(22 65% 96%)',
+					100: 'hsl(22 65% 90%)',
+					200: 'hsl(22 65% 80%)',
+					300: 'hsl(22 65% 70%)',
+					400: 'hsl(22 65% 60%)',
+					500: 'hsl(22 65% 52%)',
+					600: 'hsl(22 65% 47%)',
+					700: 'hsl(22 65% 38%)',
+					800: 'hsl(22 65% 30%)',
+					900: 'hsl(22 65% 22%)',
+					950: 'hsl(22 65% 14%)',
+					DEFAULT: 'hsl(22 65% 47%)',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

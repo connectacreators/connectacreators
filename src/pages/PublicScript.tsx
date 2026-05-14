@@ -22,8 +22,8 @@ type ScriptData = {
 
 const typeConfig = {
   filming: { labelKey: t.scripts.filmingInstructions, icon: Film, color: "text-orange-400", bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5", border: "border-orange-500/25" },
-  actor: { labelKey: t.scripts.voiceoverDialogue, icon: Mic, color: "text-[#22d3ee]", bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
-  editor: { labelKey: t.scripts.editingInstructions, icon: Scissors, color: "text-[#a3e635]", bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
+  actor: { labelKey: t.scripts.voiceoverDialogue, icon: Mic, color: "text-[#8FD0D5]", bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
+  editor: { labelKey: t.scripts.editingInstructions, icon: Scissors, color: "text-[#F0BC7D]", bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
   text_on_screen: { labelKey: t.scripts.textOnScreen, icon: MonitorPlay, color: "text-[#94a3b8]", bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]", border: "border-[rgba(148,163,184,0.15)]" },
 };
 

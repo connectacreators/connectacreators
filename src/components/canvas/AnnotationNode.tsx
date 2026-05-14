@@ -26,7 +26,7 @@ interface AnnotationData {
 }
 
 const COLORS = [
-  "#ffffff", "#22d3ee", "#a3e635", "#f59e0b", "#f43f5e",
+  "#ffffff", "#8FD0D5", "#F0BC7D", "#f59e0b", "#f43f5e",
   "#a78bfa", "#60a5fa", "#34d399", "#fb923c", "#94a3b8",
 ];
 
@@ -70,7 +70,7 @@ function Pills<T extends string>({ options, value, onChange, labels }: {
       {options.map(o => (
         <button key={o} onClick={() => onChange(o)}
           className="px-2 py-0.5 rounded text-[9px] font-semibold transition-colors"
-          style={{ background: value === o ? "rgba(8,145,178,0.18)" : "rgba(255,255,255,0.04)", border: `1px solid ${value === o ? "rgba(8,145,178,0.35)" : "rgba(255,255,255,0.06)"}`, color: value === o ? "#22d3ee" : "rgba(255,255,255,0.45)" }}
+          style={{ background: value === o ? "rgba(8,145,178,0.18)" : "rgba(255,255,255,0.04)", border: `1px solid ${value === o ? "rgba(8,145,178,0.35)" : "rgba(255,255,255,0.06)"}`, color: value === o ? "#8FD0D5" : "rgba(255,255,255,0.45)" }}
         >{labels?.[o] ?? o}</button>
       ))}
     </div>
@@ -87,7 +87,7 @@ function OpacitySlider({ value, onChange, label }: { value: number; onChange: (v
       <input type="range" min={10} max={100} value={Math.round(value * 100)}
         onChange={e => onChange(parseInt(e.target.value) / 100)}
         className="w-full h-1 rounded appearance-none cursor-pointer"
-        style={{ background: "rgba(255,255,255,0.08)", accentColor: "#22d3ee" }}
+        style={{ background: "rgba(255,255,255,0.08)", accentColor: "#8FD0D5" }}
       />
     </div>
   );
@@ -317,7 +317,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
       {/* ── Toolbar ── */}
       {showToolbar && (() => {
         const s = Math.max(1, Math.min(3, liveFont / 32));
-        const btnCls = (on?: boolean) => `p-0.5 rounded transition-colors ${on ? "bg-[rgba(8,145,178,0.25)] text-[#22d3ee]" : "text-muted-foreground hover:text-foreground"}`;
+        const btnCls = (on?: boolean) => `p-0.5 rounded transition-colors ${on ? "bg-[rgba(8,145,178,0.25)] text-[#8FD0D5]" : "text-muted-foreground hover:text-foreground"}`;
 
         return (
         <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-card/90 backdrop-blur-md border border-border/60 shadow-xl z-10"
@@ -352,7 +352,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
           {/* Alignment */}
           {(["left", "center", "right"] as const).map(a => (
             <button key={a} onClick={() => update({ align: a })}
-              className={`p-0.5 rounded text-[9px] font-bold transition-colors ${align === a ? "text-[#22d3ee]" : "text-muted-foreground hover:text-foreground"}`}
+              className={`p-0.5 rounded text-[9px] font-bold transition-colors ${align === a ? "text-[#8FD0D5]" : "text-muted-foreground hover:text-foreground"}`}
             >{a === "left" ? "L" : a === "center" ? "C" : "R"}</button>
           ))}
 
@@ -372,7 +372,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
           {/* Style popover (BG, Border, Shadow, Opacity, Radius) */}
           <div className="relative">
             <button onClick={() => togglePopover("style")}
-              className={`p-0.5 rounded transition-colors ${hasStyle ? "text-[#84CC16]" : "text-muted-foreground hover:text-foreground"}`}
+              className={`p-0.5 rounded transition-colors ${hasStyle ? "text-[#E0A560]" : "text-muted-foreground hover:text-foreground"}`}
               style={hasStyle ? { background: "rgba(132,204,22,0.12)", boxShadow: "inset 0 0 0 1px rgba(132,204,22,0.25)" } : {}}
               title="Style"
             >
@@ -385,7 +385,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
                   <span className="text-[8px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Background</span>
                   <button onClick={() => update({ bgColor: bgColor ? null : color })}
                     className="text-[8px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ background: bgColor ? "rgba(132,204,22,0.15)" : "rgba(255,255,255,0.04)", color: bgColor ? "#84CC16" : "rgba(255,255,255,0.4)" }}
+                    style={{ background: bgColor ? "rgba(132,204,22,0.15)" : "rgba(255,255,255,0.04)", color: bgColor ? "#E0A560" : "rgba(255,255,255,0.4)" }}
                   >{bgColor ? "ON" : "OFF"}</button>
                 </div>
                 {bgColor && (

@@ -46,7 +46,7 @@ const HeroVProject = () => {
         <div className="space-y-4 md:space-y-8">
           {/* Main headline with elegant typography */}
           <motion.h1 
-            className="text-3xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight tracking-tight px-2"
+            className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold leading-tight tracking-tight px-2"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}

@@ -12,8 +12,8 @@ type Props = {
   month: string; // "YYYY-MM"
 };
 
-const INCOME_COLORS  = ["#22d3ee", "#0891b2", "#06b6d4", "#67e8f9", "#155e75"];
-const EXPENSE_COLORS = ["#f97316", "#ef4444", "#eab308", "#a855f7", "#ec4899", "#84cc16", "#14b8a6", "#60a5fa"];
+const INCOME_COLORS  = ["#8FD0D5", "#8FD0D5", "#8FD0D5", "#A8DCDF", "#155e75"];
+const EXPENSE_COLORS = ["#f97316", "#ef4444", "#eab308", "#a855f7", "#ec4899", "#E0A560", "#14b8a6", "#60a5fa"];
 
 export function FinanceCharts({ income, expenses, month }: Props) {
   const expensesByCategory = useMemo(() => aggregate(expenses, (t) => t.category), [expenses]);
@@ -97,9 +97,9 @@ export function FinanceCharts({ income, expenses, month }: Props) {
               labelStyle={tooltipLabelStyle}
             />
             <Legend wrapperStyle={legendStyle} />
-            <Line type="monotone" dataKey="income" name="Income (cum.)" stroke="#22d3ee" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="income" name="Income (cum.)" stroke="#8FD0D5" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="expenses" name="Expenses (cum.)" stroke="#ef4444" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="net" name="Net (cum.)" stroke="#a3e635" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+            <Line type="monotone" dataKey="net" name="Net (cum.)" stroke="#F0BC7D" strokeWidth={2} strokeDasharray="4 3" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
