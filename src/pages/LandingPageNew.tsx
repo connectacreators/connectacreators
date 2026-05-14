@@ -1148,21 +1148,21 @@ export default function LandingPageNew() {
           </div>
         </div>
 
-        {/* CurvedLoop — brand marquee replaces the video that used to sit here */}
+        {/* CurvedLoop — brand marquee, edge to edge across the viewport */}
         <div
           data-reveal="6"
           style={{
             position: "relative",
             zIndex: 1,
-            maxWidth: 1280,
-            margin: "60px auto 0",
-            padding: "0 32px",
+            width: "100%",
+            margin: "70px 0 0",
+            padding: 0,
           }}
         >
           <CurvedLoop
-            marqueeText="STRATEGY ✦ SCRIPTS ✦ SCHEDULE ✦ GO VIRAL ✦ GET CLIENTS ✦ "
-            speed={1.4}
-            curveAmount={260}
+            marqueeText="STRATEGY ✦ SCRIPTS ✦ FIND VIRAL REELS ✦ SCHEDULE ✦ EDITING QUEUE ✦ GO VIRAL ✦ GET CLIENTS ✦ AI COMPANION ✦ "
+            speed={1.2}
+            curveAmount={220}
             interactive
           />
         </div>
