@@ -208,7 +208,25 @@ serve(async (req) => {
       const pages: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }> =
         pagesData.data || [];
 
+      // Fallback: if /me/accounts is empty, /me/promotable_pages sometimes
+      // returns NPE-migrated Pages that /me/accounts misses.
+      let promotablePages: typeof pages = [];
       if (pages.length === 0) {
+        try {
+          const promoRes = await fetch(
+            `${FB_API}/me/promotable_pages?fields=id,name,access_token,instagram_business_account&access_token=${longLivedUserToken}`,
+          );
+          if (promoRes.ok) {
+            const promoData = await promoRes.json();
+            promotablePages = promoData.data || [];
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Use whichever returned something
+      const allPages = pages.length > 0 ? pages : promotablePages;
+
+      if (allPages.length === 0) {
         // Diagnostic: gather info about FB user + permissions + businesses to
         // distinguish "no pages" from "scope not granted" from "Business
         // Manager pages without Facebook Access".
@@ -248,13 +266,15 @@ serve(async (req) => {
         console.log("0 pages diagnostic:", JSON.stringify(diag));
 
         const bizSummary = businesses.length > 0
-          ? `In ${businesses.length} Business Manager(s): ${businesses.map((b) => b.name).join(", ")}. Pages there require "Facebook Access" on each Page (Business Settings → People → ${fbUser.name} → Pages → enable Facebook Access).`
-          : "Not in any Business Manager — Pages should appear directly. They aren't, which is unusual.";
+          ? `In ${businesses.length} Business Manager(s): ${businesses.map((b) => b.name).join(", ")}.`
+          : "Not in any Business Manager.";
+
+        const rawSummary = `Raw /me/accounts: ${JSON.stringify(pagesData).slice(0, 300)}`;
 
         return jsonError(
           `No Facebook Pages found. FB user: ${fbUser.name ?? fbUser.id ?? "unknown"}. ` +
           `Granted: ${grantedScopes.join(",") || "(none)"}. ` +
-          `Declined: ${deniedScopes.join(",") || "(none)"}. ${bizSummary}`,
+          `Declined: ${deniedScopes.join(",") || "(none)"}. ${bizSummary} ${rawSummary}`,
           400
         );
       }
@@ -266,7 +286,7 @@ serve(async (req) => {
       if (!requestedPageId) {
         return json({
           needs_page_pick: true,
-          pages: pages.map((p) => ({
+          pages: allPages.map((p) => ({
             page_id: p.id,
             page_name: p.name,
             has_instagram: Boolean(p.instagram_business_account?.id),
@@ -275,7 +295,7 @@ serve(async (req) => {
         });
       }
 
-      const chosen = pages.find((p) => p.id === requestedPageId);
+      const chosen = allPages.find((p) => p.id === requestedPageId);
       if (!chosen) return jsonError("Chosen page not found in user's accounts", 400);
 
       // 5. Fetch IG Business account username if linked
