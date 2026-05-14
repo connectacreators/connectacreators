@@ -1908,37 +1908,26 @@ export default function LandingPageNew() {
         </div>
 
         <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 32px", position: "relative" }}>
-          {/* ScrollFloat — characters rise as you scroll to this section */}
+          {/* ScrollFloat — characters rise as you scroll to this section.
+              Both lines live in ONE ScrollFloat so they share font-size +
+              animate as a single statement. */}
           <ScrollFloat
             animationDuration={1}
             ease="back.inOut(2)"
             scrollStart="center bottom+=30%"
             scrollEnd="bottom bottom-=30%"
             stagger={0.02}
-            containerClassName="serif"
-            textClassName="serif"
+            containerClassName="final-cta-h2"
           >
             Stop guessing.
-          </ScrollFloat>
-
-          <h2
-            className="serif"
-            style={{
-              fontSize: "clamp(40px, 6vw, 80px)",
-              lineHeight: 1.0,
-              letterSpacing: "-0.025em",
-              fontWeight: 500,
-              margin: "8px 0 28px",
-              color: "var(--ink)",
-            }}
-          >
+            <br />
             <span
               className="scribble-under honey"
               style={{ display: "inline-block", color: "#A85B1F", fontStyle: "italic", fontWeight: 500 }}
             >
               Start directing.
             </span>
-          </h2>
+          </ScrollFloat>
 
           <div
             style={{
