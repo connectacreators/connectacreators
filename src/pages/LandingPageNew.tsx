@@ -954,6 +954,8 @@ export default function LandingPageNew() {
 
     const RADIUS = 70;
     const DELTA = 220;
+    const MAX_OFFSET = 1.8; // peak translate in px — small enough that
+                             // composition stays put, big enough to feel
     let raf: number | null = null;
     let posX = -9999;
     let posY = -9999;
@@ -972,13 +974,22 @@ export default function LandingPageNew() {
           rectsDirty = false;
         }
         visibleRects.forEach(({ el, cx, cy }) => {
-          const dist = Math.hypot(posX - cx, posY - cy);
+          const dx = posX - cx;
+          const dy = posY - cy;
+          const dist = Math.hypot(dx, dy);
           if (dist < RADIUS) {
             const t = 1 - dist / RADIUS;
             const w = Math.round(400 + DELTA * t);
+            const safeDist = Math.max(dist, 0.01);
+            const ox = (dx / safeDist) * MAX_OFFSET * t;
+            const oy = (dy / safeDist) * MAX_OFFSET * t;
             el.style.setProperty("--prox-wght", String(w));
+            el.style.setProperty("--prox-x", `${ox.toFixed(2)}px`);
+            el.style.setProperty("--prox-y", `${oy.toFixed(2)}px`);
           } else if (el.style.getPropertyValue("--prox-wght")) {
             el.style.removeProperty("--prox-wght");
+            el.style.removeProperty("--prox-x");
+            el.style.removeProperty("--prox-y");
           }
         });
       });

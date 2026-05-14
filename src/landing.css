@@ -559,15 +559,19 @@ html, body, #root { margin: 0; padding: 0; }
   user-select: none;
 }
 
-/* ---------- Proximity weight (subtle bold on cursor approach) ----------
-   Global cursor tracker sets --prox-wght per-word. Width is locked on first
-   measurement so weight changes don't shift surrounding text. */
+/* ---------- Proximity weight + tiny lean toward cursor ----------
+   Global cursor tracker sets --prox-wght (font weight) and --prox-x/y
+   (tiny translate, ~1.5px peak) per-word. Width is locked on first
+   measurement so neither weight nor transform shifts surrounding text. */
 .landing-editorial .prox-word,
 .landing-editorial .prox-letter {
   display: inline-block;
   text-align: center;
   font-variation-settings: 'wght' var(--prox-wght, 400);
-  transition: font-variation-settings 110ms ease-out;
+  transform: translate(var(--prox-x, 0), var(--prox-y, 0));
+  transition:
+    transform 260ms cubic-bezier(0.34, 1.5, 0.64, 1),
+    font-variation-settings 110ms ease-out;
   white-space: pre;
 }
 
