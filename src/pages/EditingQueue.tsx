@@ -78,8 +78,8 @@ function getGoogleDriveDownloadUrl(fileId: string): string {
   return `https://drive.google.com/uc?export=download&id=${fileId}`;
 }
 
-function getStatusClassName(status: string): string {
-  const lower = status.toLowerCase();
+function getStatusClassName(status: string | undefined | null): string {
+  const lower = (status ?? "").toLowerCase();
   if (lower === "done" || lower === "complete" || lower === "completed")
     return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
   if (lower.includes("revision") || lower.includes("revisión"))
@@ -89,16 +89,16 @@ function getStatusClassName(status: string): string {
   return "bg-muted text-muted-foreground";
 }
 
-function getStatusDotColor(status: string): string {
-  const lower = status.toLowerCase();
+function getStatusDotColor(status: string | undefined | null): string {
+  const lower = (status ?? "").toLowerCase();
   if (lower === "done" || lower === "complete") return "bg-emerald-400";
   if (lower.includes("revision")) return "bg-destructive";
   if (lower.includes("progress")) return "bg-amber-400";
   return "bg-muted-foreground";
 }
 
-function getRowStatusBorderColor(status: string): string {
-  const lower = status.toLowerCase();
+function getRowStatusBorderColor(status: string | undefined | null): string {
+  const lower = (status ?? "").toLowerCase();
   if (lower === "done" || lower === "complete") return "#10b981";
   if (lower.includes("revision")) return "#ef4444";
   if (lower.includes("progress")) return "#f59e0b";
@@ -248,9 +248,9 @@ export default function EditingQueue() {
     if (!searchQuery.trim()) return items;
     const query = searchQuery.toLowerCase();
     return items.filter((item) =>
-      item.title.toLowerCase().includes(query) ||
+      (item.title ?? "").toLowerCase().includes(query) ||
       item.assignee?.toLowerCase().includes(query) ||
-      item.status.toLowerCase().includes(query)
+      (item.status ?? "").toLowerCase().includes(query)
     );
   }, [items, searchQuery]);
 
