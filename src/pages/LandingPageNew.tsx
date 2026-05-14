@@ -1826,9 +1826,19 @@ export default function LandingPageNew() {
             }}
           >
             <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
-            I went from <em className="soft">16 spreadsheets and a panic attack every Sunday</em> to one clean Monday morning.
-            My editor finally knows what's next, and my strategy isn't a vibe anymore — it's a screen.
+            I had <em className="soft">7K followers for 16 years</em> … now <em className="honey">62K in 6 months.</em>
             <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
+          </div>
+          <div
+            className="serif-italic"
+            style={{
+              fontSize: 19,
+              color: "var(--bone-2)",
+              marginTop: -16,
+              marginBottom: 36,
+            }}
+          >
+            Thank you guys.
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 14, position: "relative" }}>
             <div
@@ -1846,14 +1856,14 @@ export default function LandingPageNew() {
                 fontSize: 22,
               }}
             >
-              A
+              C
             </div>
             <div style={{ textAlign: "left" }}>
               <div className="serif" style={{ fontSize: 17, color: "var(--bone)" }}>
-                <ProxText>Aria Wells</ProxText>
+                <ProxText>Dr Calvin</ProxText>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
-                <ProxText>Creator · 2.4M followers · runs her own brand</ProxText>
+                <ProxText>Creator · grew 9× in 6 months with Connecta</ProxText>
               </div>
             </div>
           </div>
