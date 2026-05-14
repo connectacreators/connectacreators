@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { deriveFromLegacy } from "../_shared/lifecycleStatus.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,8 +61,16 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Fetch current workflow status so we can derive lifecycle_status.
+    const { data: current } = await serviceSupabase
+      .from("video_edits")
+      .select("status")
+      .eq("id", id)
+      .single();
+
     const update: Record<string, unknown> = { post_status: status };
     if (revision_notes !== undefined) update.revisions = revision_notes;
+    update.lifecycle_status = deriveFromLegacy(current?.status, status);
 
     const { error } = await serviceSupabase
       .from("video_edits")

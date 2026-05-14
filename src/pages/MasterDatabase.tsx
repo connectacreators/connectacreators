@@ -23,6 +23,7 @@ import { exportToCSV } from "@/utils/csvExport";
 import FootageUploadDialog from '@/components/FootageUploadDialog';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
+import { lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -657,10 +658,19 @@ export default function MasterDatabase() {
         const scriptField = scriptFieldMap[field];
         if (!scriptField) return; // read-only for script rows
         await supabase.from("scripts").update({ [scriptField]: value || null }).eq("id", videoId);
+        setAllVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, [field]: value } : v));
       } else {
-        await videoService.updateVideo(videoId, { [field]: value || null });
+        // Dual-write: when changing post_status, also update lifecycle_status + legacy status
+        if (field === "post_status" && value) {
+          const lifecycle = deriveFromLegacy(undefined, value);
+          const dualWriteUpdates = lifecycleUpdate(lifecycle);
+          await videoService.updateVideo(videoId, dualWriteUpdates);
+          setAllVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, ...dualWriteUpdates } : v));
+        } else {
+          await videoService.updateVideo(videoId, { [field]: value || null });
+          setAllVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, [field]: value } : v));
+        }
       }
-      setAllVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, [field]: value } : v));
     } catch (error) {
       console.error("Error updating video inline:", error);
       toast.error("Failed to update");
@@ -1356,12 +1366,12 @@ export default function MasterDatabase() {
                       <div className="text-muted-foreground">Total Videos</div>
                     </div>
                     <div className="bg-background/50 rounded-lg p-3 border border-border/30 glass-card">
-                      <div className="font-semibold text-foreground">{filteredVideos.filter(v => v.status === "In progress").length}</div>
+                      <div className="font-semibold text-foreground">{filteredVideos.filter(v => (v.lifecycle_status ?? deriveFromLegacy(v.status, v.post_status)) === "In progress").length}</div>
                       <div className="text-muted-foreground">In Progress</div>
                     </div>
                     <div className="bg-background/50 rounded-lg p-3 border border-border/30 glass-card">
-                      <div className="font-semibold text-foreground">{filteredVideos.filter(v => v.status === "Done").length}</div>
-                      <div className="text-muted-foreground">Completed</div>
+                      <div className="font-semibold text-foreground">{filteredVideos.filter(v => { const ls = (v.lifecycle_status ?? deriveFromLegacy(v.status, v.post_status)) as LifecycleStatus; return ls === "Scheduled" || ls === "Published"; }).length}</div>
+                      <div className="text-muted-foreground">Scheduled/Published</div>
                     </div>
                   </div>
 

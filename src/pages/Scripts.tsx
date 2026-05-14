@@ -40,6 +40,7 @@ import { checkResourceLimit } from "@/utils/planLimits";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
 import BorderGlow from "@/components/ui/BorderGlow";
+import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -3027,12 +3028,11 @@ export default function Scripts() {
                     client_id: selectedClient.id,
                     script_id: viewingScriptId,
                     reel_title: viewingMetadata?.idea_ganadora || "Untitled",
-                    status: "Not started",
                     script_url: `${window.location.origin}/s/${viewingScriptId}`,
                     file_url: footageLink || "",
                     footage: footageLink,
                     upload_source: footageLink ? 'gdrive' : null,
-                    post_status: "Unpublished",
+                    ...lifecycleUpdate("Not started"),
                   }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
                   if (error) { toast.error("Failed to create video edit record"); return; }
                   data = inserted;
@@ -3292,7 +3292,7 @@ export default function Scripts() {
                         const { data: updated } = await supabase.from("video_edits").update({ deleted_at: null, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, footage: gdriveLink, upload_source: 'gdrive' }).eq("id", existing.id).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
                         veData = updated;
                       } else {
-                        const { data: inserted } = await supabase.from("video_edits").insert({ client_id: selectedClient.id, script_id: sid, reel_title: viewingMetadata?.idea_ganadora || "Untitled", status: "Not started", script_url: `${window.location.origin}/s/${sid}`, file_url: gdriveLink, footage: gdriveLink, upload_source: 'gdrive', post_status: "Unpublished" }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                        const { data: inserted } = await supabase.from("video_edits").insert({ client_id: selectedClient.id, script_id: sid, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, file_url: gdriveLink, footage: gdriveLink, upload_source: 'gdrive', ...lifecycleUpdate("Not started") }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
                         veData = inserted;
                       }
                       if (veData) setLinkedVideoEdit({ id: veData.id, client_id: veData.client_id, footage: veData.footage, file_submission: veData.file_submission, upload_source: veData.upload_source, storage_path: veData.storage_path, storage_url: veData.storage_url, file_size_bytes: veData.file_size_bytes });

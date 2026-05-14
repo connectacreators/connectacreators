@@ -13,6 +13,7 @@ export interface VideoEdit {
   footage: string | null;
   file_submission: string | null;
   post_status: string | null;
+  lifecycle_status: string | null;
   schedule_date: string | null;
   caption: string | null;
   created_at: string;
