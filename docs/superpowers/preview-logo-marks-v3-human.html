@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>20 Human-Interaction Marks — Connecta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0E12;
+    --bone: #EAE6DC;
+    --bone-warm: #FBF8EE;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Figtree', sans-serif;
+    background: var(--ink);
+    color: var(--bone);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-head { text-align: center; padding: 56px 28px 28px; }
+  .page-head .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(143, 208, 213, 0.14);
+    color: #8FD0D5; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 16px;
+  }
+  .page-head h1 {
+    font-family: 'EB Garamond', serif;
+    font-size: 56px; font-weight: 500;
+    letter-spacing: -0.02em; line-height: 1.0;
+    margin: 0 0 14px;
+  }
+  .page-head h1 em { color: #E0A560; font-style: italic; }
+  .page-head p { color: rgba(234, 230, 220, 0.62); font-size: 15px; max-width: 660px; margin: 0 auto 22px; }
+  .kept-row {
+    display: inline-flex; gap: 18px; padding: 10px 18px;
+    border-radius: 999px; background: rgba(224, 165, 96, 0.12);
+    font-size: 12px; color: rgba(234, 230, 220, 0.80);
+    align-items: center;
+  }
+  .kept-row strong { color: #E0A560; font-weight: 600; letter-spacing: 0.04em; }
+  .section-header { text-align: center; padding: 44px 28px 14px; }
+  .section-header h2 {
+    font-family: 'EB Garamond', serif;
+    font-size: 28px; font-weight: 500;
+    letter-spacing: -0.01em; margin: 0 0 6px;
+  }
+  .section-header h2 em { color: rgba(234, 230, 220, 0.62); font-style: italic; font-weight: 400; }
+  .section-header .sub {
+    font-family: 'Figtree', sans-serif; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: #E0A560; font-weight: 600;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px;
+    max-width: 1240px; margin: 18px auto 24px; padding: 0 28px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .tile {
+    background: var(--bone); color: var(--ink);
+    border: 1.5px solid var(--ink); border-radius: 24px;
+    box-shadow: 5px 5px 0 var(--ink); overflow: hidden;
+  }
+  .tile-pair { display: grid; grid-template-columns: 1.4fr 1fr; border-bottom: 1.5px solid var(--ink); }
+  .canvas {
+    aspect-ratio: 1; display: grid; place-items: center;
+    position: relative; padding: 30px; overflow: hidden;
+  }
+  .canvas.bone { background: var(--bone-warm); }
+  .canvas.ink  { background: var(--ink); border-left: 1.5px solid var(--ink); color: var(--bone); }
+  .canvas svg { width: 64%; height: 64%; }
+  .num {
+    position: absolute; top: 12px; left: 16px;
+    font-family: 'Figtree', monospace; font-size: 10px;
+    letter-spacing: 0.18em; font-weight: 700;
+  }
+  .canvas.bone .num { color: rgba(10, 14, 18, 0.45); }
+  .canvas.ink .num  { color: rgba(234, 230, 220, 0.40); }
+  .body { padding: 22px 26px 24px; }
+  .body .sub {
+    font-family: 'Figtree', sans-serif; font-size: 11px;
+    font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #A85B1F; margin-bottom: 6px;
+  }
+  .body h3 {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px; font-weight: 500;
+    letter-spacing: -0.01em; margin: 0 0 8px;
+  }
+  .body p { margin: 0; font-size: 13.5px; line-height: 1.55; color: rgba(10, 14, 18, 0.68); }
+  .body .meaning {
+    margin-top: 10px; font-family: 'EB Garamond', serif;
+    font-style: italic; font-size: 13.5px;
+    color: rgba(10, 14, 18, 0.50);
+  }
+  .footer-note { text-align: center; padding: 40px 28px 80px; color: rgba(234, 230, 220, 0.55); font-size: 14px; }
+  .footer-note .serif {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px; color: var(--bone); display: block;
+    margin-bottom: 8px; letter-spacing: -0.01em;
+  }
+  .footer-note em { color: #E0A560; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="badge">Human interaction</div>
+  <h1>20 marks of <em>people meeting people.</em></h1>
+  <p>Faces in profile, hands meeting, voices reaching ears. Each silhouette tries to say what Connecta does without a single letter — by showing the connection it makes between humans.</p>
+  <div class="kept-row">
+    <span><strong>Kept so far:</strong> 06 Lasso · 09 Quote</span>
+  </div>
+</div>
+
+<div class="section-header">
+  <div class="sub">Faces & profiles</div>
+  <h2>Two of us, <em>looking at each other.</em></h2>
+</div>
+
+<div class="grid">
+
+  <!-- 31 — Two profiles facing -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">31</span>
+        <svg viewBox="0 0 120 100" fill="none">
+          <path
+            d="M 22 14 Q 22 8, 28 8 Q 44 8, 44 22 L 46 28 Q 50 30, 50 34 Q 50 38, 46 40 L 44 46 Q 44 54, 40 56 L 44 64 Q 44 76, 22 86 L 22 92 L 6 92 L 6 14 Z"
+            fill="var(--ink)"
+          />
+          <path
+            d="M 98 14 Q 98 8, 92 8 Q 76 8, 76 22 L 74 28 Q 70 30, 70 34 Q 70 38, 74 40 L 76 46 Q 76 54, 80 56 L 76 64 Q 76 76, 98 86 L 98 92 L 114 92 L 114 14 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 100" fill="none">
+          <path
+            d="M 22 14 Q 22 8, 28 8 Q 44 8, 44 22 L 46 28 Q 50 30, 50 34 Q 50 38, 46 40 L 44 46 Q 44 54, 40 56 L 44 64 Q 44 76, 22 86 L 22 92 L 6 92 L 6 14 Z"
+            fill="var(--bone)"
+          />
+          <path
+            d="M 98 14 Q 98 8, 92 8 Q 76 8, 76 22 L 74 28 Q 70 30, 70 34 Q 70 38, 74 40 L 76 46 Q 76 54, 80 56 L 76 64 Q 76 76, 98 86 L 98 92 L 114 92 L 114 14 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Profile</div>
+      <h3>Face to Face</h3>
+      <p>Two profile silhouettes turned toward each other. The classic mark of dialogue — between creator and audience, between brand and follower.</p>
+      <div class="meaning">— the conversation that becomes a deal.</div>
+    </div>
+  </div>
+
+  <!-- 32 — Nested profile (creator inside audience) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">32</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 28 12 Q 28 6, 36 6 Q 60 6, 64 24 L 68 30 Q 76 32, 76 38 Q 76 44, 68 46 L 64 56 Q 64 66, 60 70 L 64 80 Q 64 94, 30 94 L 30 100 L 0 100 L 0 12 Z"
+            fill="var(--ink)"
+          />
+          <path
+            d="M 36 30 Q 36 26, 42 26 Q 54 26, 56 36 L 58 40 Q 62 42, 62 44 Q 62 48, 58 50 L 56 56 Q 56 60, 54 62 L 56 66 Q 56 74, 38 76 L 38 78 L 22 78 L 22 30 Z"
+            fill="var(--bone-warm)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 28 12 Q 28 6, 36 6 Q 60 6, 64 24 L 68 30 Q 76 32, 76 38 Q 76 44, 68 46 L 64 56 Q 64 66, 60 70 L 64 80 Q 64 94, 30 94 L 30 100 L 0 100 L 0 12 Z"
+            fill="var(--bone)"
+          />
+          <path
+            d="M 36 30 Q 36 26, 42 26 Q 54 26, 56 36 L 58 40 Q 62 42, 62 44 Q 62 48, 58 50 L 56 56 Q 56 60, 54 62 L 56 66 Q 56 74, 38 76 L 38 78 L 22 78 L 22 30 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Profile</div>
+      <h3>The Nested Profile</h3>
+      <p>One head inside another. The creator carrying their audience. Or the audience seeing themselves in the creator. Either way, identification.</p>
+      <div class="meaning">— inside every creator, the people they reach.</div>
+    </div>
+  </div>
+
+  <!-- 33 — Profile with sound waves -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">33</span>
+        <svg viewBox="0 0 120 100" fill="none">
+          <path
+            d="M 22 14 Q 22 8, 28 8 Q 44 8, 44 22 L 46 28 Q 50 30, 50 34 Q 50 38, 46 40 L 44 46 Q 44 54, 40 56 L 44 64 Q 44 76, 22 86 L 22 92 L 6 92 L 6 14 Z"
+            fill="var(--ink)"
+          />
+          <path d="M 56 38 Q 64 32, 56 26" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round" />
+          <path d="M 64 42 Q 80 32, 64 22" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round" />
+          <path d="M 72 46 Q 96 32, 72 18" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 100" fill="none">
+          <path
+            d="M 22 14 Q 22 8, 28 8 Q 44 8, 44 22 L 46 28 Q 50 30, 50 34 Q 50 38, 46 40 L 44 46 Q 44 54, 40 56 L 44 64 Q 44 76, 22 86 L 22 92 L 6 92 L 6 14 Z"
+            fill="var(--bone)"
+          />
+          <path d="M 56 38 Q 64 32, 56 26" stroke="var(--bone)" stroke-width="4" fill="none" stroke-linecap="round" />
+          <path d="M 64 42 Q 80 32, 64 22" stroke="var(--bone)" stroke-width="4" fill="none" stroke-linecap="round" />
+          <path d="M 72 46 Q 96 32, 72 18" stroke="var(--bone)" stroke-width="4" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Profile</div>
+      <h3>The Broadcaster</h3>
+      <p>One profile, three arcs radiating from the mouth. A creator speaking into the void, reach widening with each ripple. The mark of broadcast.</p>
+      <div class="meaning">— say it once, hear it forever.</div>
+    </div>
+  </div>
+
+  <!-- 34 — Whisper / cupped hand -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">34</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 24 16 Q 24 10, 32 10 Q 50 10, 50 24 L 54 32 Q 62 34, 62 40 Q 62 46, 54 48 L 50 58 Q 50 68, 46 72 L 52 84 Q 52 96, 26 96 L 26 100 L 4 100 L 4 16 Z"
+            fill="var(--ink)"
+          />
+          <path
+            d="M 62 36 Q 76 30, 84 38 Q 88 44, 84 50 Q 76 56, 70 50 Q 66 46, 70 42"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 24 16 Q 24 10, 32 10 Q 50 10, 50 24 L 54 32 Q 62 34, 62 40 Q 62 46, 54 48 L 50 58 Q 50 68, 46 72 L 52 84 Q 52 96, 26 96 L 26 100 L 4 100 L 4 16 Z"
+            fill="var(--bone)"
+          />
+          <path
+            d="M 62 36 Q 76 30, 84 38 Q 88 44, 84 50 Q 76 56, 70 50 Q 66 46, 70 42"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Profile</div>
+      <h3>The Whisper</h3>
+      <p>A profile with a hand cupped at the mouth — telling a secret. The mark of intimate strategy, of insider knowledge passed person-to-person.</p>
+      <div class="meaning">— here's what's about to be huge.</div>
+    </div>
+  </div>
+
+  <!-- 35 — Two heads + arc -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">35</span>
+        <svg viewBox="0 0 120 80" fill="none">
+          <circle cx="22" cy="50" r="18" fill="var(--ink)" />
+          <circle cx="98" cy="50" r="18" fill="var(--ink)" />
+          <path d="M 40 44 Q 60 8, 80 44" stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 80" fill="none">
+          <circle cx="22" cy="50" r="18" fill="var(--bone)" />
+          <circle cx="98" cy="50" r="18" fill="var(--bone)" />
+          <path d="M 40 44 Q 60 8, 80 44" stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Faces</div>
+      <h3>Heads Linked</h3>
+      <p>Two simple round heads with an arc connecting their thoughts. Minds in conversation, before mouths even open. The Bridge made human.</p>
+      <div class="meaning">— two minds, one arc.</div>
+    </div>
+  </div>
+
+  <!-- 36 — Listening ear -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">36</span>
+        <svg viewBox="0 0 80 100" fill="none">
+          <path
+            d="M 40 8 Q 18 8, 14 36 Q 14 56, 26 68 L 24 84 Q 24 94, 36 94 Q 48 94, 48 84 L 50 72 Q 62 68, 62 50 Q 62 38, 54 38 Q 48 38, 48 44 Q 48 50, 42 50 Q 36 50, 36 44 Q 36 24, 44 24 Q 54 24, 58 32"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 80 100" fill="none">
+          <path
+            d="M 40 8 Q 18 8, 14 36 Q 14 56, 26 68 L 24 84 Q 24 94, 36 94 Q 48 94, 48 84 L 50 72 Q 62 68, 62 50 Q 62 38, 54 38 Q 48 38, 48 44 Q 48 50, 42 50 Q 36 50, 36 44 Q 36 24, 44 24 Q 54 24, 58 32"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Body</div>
+      <h3>The Ear</h3>
+      <p>The listener, distilled to one shape. Every creator's job is to be heard — every strategist's job is to know what to say. This is the receiver.</p>
+      <div class="meaning">— we listen to the feed so you don't have to.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-header">
+  <div class="sub">Hands & gestures</div>
+  <h2>Hands talk <em>— and we listen.</em></h2>
+</div>
+
+<div class="grid">
+
+  <!-- 37 — Two fingertips meeting (Sistine Chapel) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">37</span>
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 4 50 L 26 50 L 30 46 L 36 48 L 40 44 L 46 44 L 52 38 L 54 40"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+          <path
+            d="M 116 50 L 94 50 L 90 46 L 84 48 L 80 44 L 74 44 L 68 38 L 66 40"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 4 50 L 26 50 L 30 46 L 36 48 L 40 44 L 46 44 L 52 38 L 54 40"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+          <path
+            d="M 116 50 L 94 50 L 90 46 L 84 48 L 80 44 L 74 44 L 68 38 L 66 40"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Almost-Touch</h3>
+      <p>Two hands extending from opposite sides, fingertips almost meeting in the middle. Sistine Chapel rebuilt for creator + audience. The space between is the point.</p>
+      <div class="meaning">— the gap is where the spark lives.</div>
+    </div>
+  </div>
+
+  <!-- 38 — Open palm offering -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">38</span>
+        <svg viewBox="0 0 80 100" fill="none">
+          <path
+            d="M 30 20 L 30 50 L 22 50 L 22 26 Q 22 22, 26 22 Q 30 22, 30 26 Z M 36 12 L 36 50 L 30 50 L 30 12 Q 30 8, 33 8 Q 36 8, 36 12 Z M 42 12 L 42 50 L 36 50 L 36 12 Q 36 8, 39 8 Q 42 8, 42 12 Z M 48 16 L 48 50 L 42 50 L 42 16 Q 42 12, 45 12 Q 48 12, 48 16 Z M 52 50 Q 58 50, 58 56 L 58 72 Q 58 88, 42 92 Q 30 92, 22 84 L 18 60 Q 18 56, 22 56 L 52 50 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 80 100" fill="none">
+          <path
+            d="M 30 20 L 30 50 L 22 50 L 22 26 Q 22 22, 26 22 Q 30 22, 30 26 Z M 36 12 L 36 50 L 30 50 L 30 12 Q 30 8, 33 8 Q 36 8, 36 12 Z M 42 12 L 42 50 L 36 50 L 36 12 Q 36 8, 39 8 Q 42 8, 42 12 Z M 48 16 L 48 50 L 42 50 L 42 16 Q 42 12, 45 12 Q 48 12, 48 16 Z M 52 50 Q 58 50, 58 56 L 58 72 Q 58 88, 42 92 Q 30 92, 22 84 L 18 60 Q 18 56, 22 56 L 52 50 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Open Palm</h3>
+      <p>A single hand, open, facing forward. Offering. Inviting. Receiving. The most fundamental human gesture — yes, please, here's mine.</p>
+      <div class="meaning">— here, take this strategy.</div>
+    </div>
+  </div>
+
+  <!-- 39 — Heart hands -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">39</span>
+        <svg viewBox="0 0 100 80" fill="none">
+          <path
+            d="M 50 64 L 26 38 Q 16 28, 16 18 Q 16 8, 26 8 Q 36 8, 50 22 Q 64 8, 74 8 Q 84 8, 84 18 Q 84 28, 74 38 Z"
+            fill="var(--ink)"
+          />
+          <line x1="36" y1="22" x2="22" y2="36" stroke="var(--bone-warm)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="32" y1="16" x2="20" y2="28" stroke="var(--bone-warm)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="64" y1="22" x2="78" y2="36" stroke="var(--bone-warm)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="68" y1="16" x2="80" y2="28" stroke="var(--bone-warm)" stroke-width="2.5" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 80" fill="none">
+          <path
+            d="M 50 64 L 26 38 Q 16 28, 16 18 Q 16 8, 26 8 Q 36 8, 50 22 Q 64 8, 74 8 Q 84 8, 84 18 Q 84 28, 74 38 Z"
+            fill="var(--bone)"
+          />
+          <line x1="36" y1="22" x2="22" y2="36" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="32" y1="16" x2="20" y2="28" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="64" y1="22" x2="78" y2="36" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="68" y1="16" x2="80" y2="28" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Heart Hands</h3>
+      <p>The gen-z gesture — two thumbs touching, two index fingers up, forming a heart. Affection, agreement, "this is the one." Of-the-moment but timeless.</p>
+      <div class="meaning">— the gesture every creator already does.</div>
+    </div>
+  </div>
+
+  <!-- 40 — Handshake -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">40</span>
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 8 50 L 28 38 L 50 42 L 60 36 L 56 50 L 60 56 L 50 60 Q 40 64, 32 60 Z"
+            fill="var(--ink)"
+          />
+          <path
+            d="M 112 50 L 92 38 L 70 42 L 60 36 L 64 50 L 60 56 L 70 60 Q 80 64, 88 60 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 8 50 L 28 38 L 50 42 L 60 36 L 56 50 L 60 56 L 50 60 Q 40 64, 32 60 Z"
+            fill="var(--bone)"
+          />
+          <path
+            d="M 112 50 L 92 38 L 70 42 L 60 36 L 64 50 L 60 56 L 70 60 Q 80 64, 88 60 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Handshake</h3>
+      <p>Two hands clasped in the middle. The oldest signal of agreement. Brand deals, partnerships, "we shook on it." Risky if generic — done with care, iconic.</p>
+      <div class="meaning">— deal closed in two shapes.</div>
+    </div>
+  </div>
+
+  <!-- 41 — Reaching hand -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">41</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 38 16 Q 36 10, 42 10 Q 48 10, 50 16 L 52 38 L 56 32 Q 56 26, 62 26 Q 68 26, 68 32 L 68 44 L 72 38 Q 72 32, 78 32 Q 84 32, 84 38 L 84 50 L 88 44 Q 88 38, 94 38 Q 100 38, 100 44 L 100 62 Q 100 78, 90 88 Q 80 96, 64 96 Q 48 96, 38 82 L 22 56 Q 18 50, 22 46 Q 28 42, 32 48 L 42 60 L 38 16 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 38 16 Q 36 10, 42 10 Q 48 10, 50 16 L 52 38 L 56 32 Q 56 26, 62 26 Q 68 26, 68 32 L 68 44 L 72 38 Q 72 32, 78 32 Q 84 32, 84 38 L 84 50 L 88 44 Q 88 38, 94 38 Q 100 38, 100 44 L 100 62 Q 100 78, 90 88 Q 80 96, 64 96 Q 48 96, 38 82 L 22 56 Q 18 50, 22 46 Q 28 42, 32 48 L 42 60 L 38 16 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Reach</h3>
+      <p>A single hand extending upward — palm rising, fingers raised. The mark of asking, of stretching toward, of "I want this." The creator's posture.</p>
+      <div class="meaning">— growth is just reach, repeated.</div>
+    </div>
+  </div>
+
+  <!-- 42 — Wave hand -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">42</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 32 86 Q 24 78, 26 64 L 30 36 Q 30 30, 36 30 Q 42 30, 42 36 L 42 50 L 44 16 Q 44 10, 50 10 Q 56 10, 56 16 L 56 50 L 58 12 Q 58 6, 64 6 Q 70 6, 70 12 L 70 50 L 72 22 Q 72 16, 78 16 Q 84 16, 84 22 L 84 60 Q 84 78, 76 86 Q 68 94, 56 94 Q 44 94, 32 86 Z"
+            fill="var(--ink)"
+          />
+          <path d="M 18 16 Q 24 22, 24 30" stroke="var(--ink)" stroke-width="3" fill="none" stroke-linecap="round" />
+          <path d="M 8 30 Q 18 30, 22 38" stroke="var(--ink)" stroke-width="3" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 32 86 Q 24 78, 26 64 L 30 36 Q 30 30, 36 30 Q 42 30, 42 36 L 42 50 L 44 16 Q 44 10, 50 10 Q 56 10, 56 16 L 56 50 L 58 12 Q 58 6, 64 6 Q 70 6, 70 12 L 70 50 L 72 22 Q 72 16, 78 16 Q 84 16, 84 22 L 84 60 Q 84 78, 76 86 Q 68 94, 56 94 Q 44 94, 32 86 Z"
+            fill="var(--bone)"
+          />
+          <path d="M 18 16 Q 24 22, 24 30" stroke="var(--bone)" stroke-width="3" fill="none" stroke-linecap="round" />
+          <path d="M 8 30 Q 18 30, 22 38" stroke="var(--bone)" stroke-width="3" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Wave</h3>
+      <p>A hand held up, fingers slightly fanned, motion lines on the side. Hello, goodbye, "I see you." The friendliest interaction in human language.</p>
+      <div class="meaning">— the first thing anyone wants: to be seen.</div>
+    </div>
+  </div>
+
+  <!-- 43 — Pointing finger -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">43</span>
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 8 56 Q 8 44, 20 42 L 36 38 L 44 32 L 60 32 L 66 28 L 80 28 L 92 22 Q 100 18, 104 22 Q 110 28, 102 34 L 80 44 L 70 44 L 64 50 L 50 50 L 40 54 L 26 62 Q 18 66, 12 64 Q 8 62, 8 56 Z"
+            fill="var(--ink)"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 80" fill="none">
+          <path
+            d="M 8 56 Q 8 44, 20 42 L 36 38 L 44 32 L 60 32 L 66 28 L 80 28 L 92 22 Q 100 18, 104 22 Q 110 28, 102 34 L 80 44 L 70 44 L 64 50 L 50 50 L 40 54 L 26 62 Q 18 66, 12 64 Q 8 62, 8 56 Z"
+            fill="var(--bone)"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Pointer</h3>
+      <p>A hand with index finger extended, pointing diagonally up. The director's gesture — "go this way." Strategy made physical.</p>
+      <div class="meaning">— here's the move.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-header">
+  <div class="sub">People & community</div>
+  <h2>You, them, <em>and everyone watching.</em></h2>
+</div>
+
+<div class="grid">
+
+  <!-- 44 — Crowd: 1 + dots -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">44</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <circle cx="50" cy="50" r="14" fill="var(--ink)" />
+          <circle cx="20" cy="20" r="5" fill="var(--ink)" />
+          <circle cx="50" cy="14" r="5" fill="var(--ink)" />
+          <circle cx="80" cy="20" r="5" fill="var(--ink)" />
+          <circle cx="86" cy="50" r="5" fill="var(--ink)" />
+          <circle cx="80" cy="80" r="5" fill="var(--ink)" />
+          <circle cx="50" cy="86" r="5" fill="var(--ink)" />
+          <circle cx="20" cy="80" r="5" fill="var(--ink)" />
+          <circle cx="14" cy="50" r="5" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <circle cx="50" cy="50" r="14" fill="var(--bone)" />
+          <circle cx="20" cy="20" r="5" fill="var(--bone)" />
+          <circle cx="50" cy="14" r="5" fill="var(--bone)" />
+          <circle cx="80" cy="20" r="5" fill="var(--bone)" />
+          <circle cx="86" cy="50" r="5" fill="var(--bone)" />
+          <circle cx="80" cy="80" r="5" fill="var(--bone)" />
+          <circle cx="50" cy="86" r="5" fill="var(--bone)" />
+          <circle cx="20" cy="80" r="5" fill="var(--bone)" />
+          <circle cx="14" cy="50" r="5" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Community</div>
+      <h3>The Audience</h3>
+      <p>One large dot in the center, eight small dots orbiting it. A creator surrounded by their audience. Solar system as social network.</p>
+      <div class="meaning">— one voice, many ears.</div>
+    </div>
+  </div>
+
+  <!-- 45 — Two figures stick (dialogue) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">45</span>
+        <svg viewBox="0 0 120 100" fill="none">
+          <circle cx="28" cy="22" r="10" fill="var(--ink)" />
+          <line x1="28" y1="34" x2="28" y2="68" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <line x1="28" y1="68" x2="18" y2="88" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <line x1="28" y1="68" x2="38" y2="88" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <line x1="28" y1="44" x2="48" y2="50" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <circle cx="92" cy="22" r="10" fill="var(--ink)" />
+          <line x1="92" y1="34" x2="92" y2="68" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <line x1="92" y1="68" x2="82" y2="88" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <line x1="92" y1="68" x2="102" y2="88" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <line x1="92" y1="44" x2="72" y2="50" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" />
+          <circle cx="60" cy="50" r="4" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 100" fill="none">
+          <circle cx="28" cy="22" r="10" fill="var(--bone)" />
+          <line x1="28" y1="34" x2="28" y2="68" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <line x1="28" y1="68" x2="18" y2="88" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <line x1="28" y1="68" x2="38" y2="88" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <line x1="28" y1="44" x2="48" y2="50" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <circle cx="92" cy="22" r="10" fill="var(--bone)" />
+          <line x1="92" y1="34" x2="92" y2="68" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <line x1="92" y1="68" x2="82" y2="88" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <line x1="92" y1="68" x2="102" y2="88" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <line x1="92" y1="44" x2="72" y2="50" stroke="var(--bone)" stroke-width="5" stroke-linecap="round" />
+          <circle cx="60" cy="50" r="4" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">People</div>
+      <h3>The Stick Pair</h3>
+      <p>Two stick figures with hands reaching toward each other, almost touching, a dot between. The simplest possible diagram of connection — and the warmest.</p>
+      <div class="meaning">— children draw this. So do constellations.</div>
+    </div>
+  </div>
+
+  <!-- 46 — Speech bubble + face -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">46</span>
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 12 12 Q 12 8, 16 8 L 84 8 Q 88 8, 88 12 L 88 60 Q 88 64, 84 64 L 50 64 L 32 84 L 32 64 L 16 64 Q 12 64, 12 60 Z"
+            fill="var(--ink)"
+          />
+          <circle cx="36" cy="32" r="4" fill="var(--bone-warm)" />
+          <circle cx="64" cy="32" r="4" fill="var(--bone-warm)" />
+          <path d="M 36 46 Q 50 54, 64 46" stroke="var(--bone-warm)" stroke-width="3" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path
+            d="M 12 12 Q 12 8, 16 8 L 84 8 Q 88 8, 88 12 L 88 60 Q 88 64, 84 64 L 50 64 L 32 84 L 32 64 L 16 64 Q 12 64, 12 60 Z"
+            fill="var(--bone)"
+          />
+          <circle cx="36" cy="32" r="4" fill="var(--ink)" />
+          <circle cx="64" cy="32" r="4" fill="var(--ink)" />
+          <path d="M 36 46 Q 50 54, 64 46" stroke="var(--ink)" stroke-width="3" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Faces</div>
+      <h3>The Speaking Bubble</h3>
+      <p>A speech bubble with a face inside — eyes, smile. The bubble IS the speaker. Conversation made into one shape. Friendlier than a literal mouth.</p>
+      <div class="meaning">— every post is a face you're trying to know.</div>
+    </div>
+  </div>
+
+  <!-- 47 — Two eyes meeting -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">47</span>
+        <svg viewBox="0 0 120 60" fill="none">
+          <path d="M 6 30 Q 30 8, 54 30 Q 30 52, 6 30 Z" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round" />
+          <circle cx="30" cy="30" r="6" fill="var(--ink)" />
+          <path d="M 66 30 Q 90 8, 114 30 Q 90 52, 66 30 Z" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round" />
+          <circle cx="90" cy="30" r="6" fill="var(--ink)" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 60" fill="none">
+          <path d="M 6 30 Q 30 8, 54 30 Q 30 52, 6 30 Z" fill="none" stroke="var(--bone)" stroke-width="4" stroke-linejoin="round" />
+          <circle cx="30" cy="30" r="6" fill="var(--bone)" />
+          <path d="M 66 30 Q 90 8, 114 30 Q 90 52, 66 30 Z" fill="none" stroke="var(--bone)" stroke-width="4" stroke-linejoin="round" />
+          <circle cx="90" cy="30" r="6" fill="var(--bone)" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Faces</div>
+      <h3>The Eye Contact</h3>
+      <p>Two horizontal eyes side by side, both with pupils centered. Mutual recognition — the strongest signal in any conversation. A pair, not a face.</p>
+      <div class="meaning">— what every creator wants: to be noticed back.</div>
+    </div>
+  </div>
+
+  <!-- 48 — Embrace / open arms -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">48</span>
+        <svg viewBox="0 0 120 100" fill="none">
+          <circle cx="60" cy="22" r="12" fill="var(--ink)" />
+          <path
+            d="M 60 36 L 60 78 M 60 50 Q 30 30, 12 18 M 60 50 Q 90 30, 108 18 M 60 78 L 48 96 M 60 78 L 72 96"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 100" fill="none">
+          <circle cx="60" cy="22" r="12" fill="var(--bone)" />
+          <path
+            d="M 60 36 L 60 78 M 60 50 Q 30 30, 12 18 M 60 50 Q 90 30, 108 18 M 60 78 L 48 96 M 60 78 L 72 96"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">People</div>
+      <h3>The Open Arms</h3>
+      <p>A single figure with arms wide open, ready to embrace. Welcoming, expansive, "come in." The mark of an invitation, not a transaction.</p>
+      <div class="meaning">— show up like you're glad they're here.</div>
+    </div>
+  </div>
+
+  <!-- 49 — Two heads close (kissing) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">49</span>
+        <svg viewBox="0 0 120 100" fill="none">
+          <path
+            d="M 30 18 Q 30 12, 36 12 Q 56 12, 56 26 L 58 32 Q 62 34, 62 38 Q 62 42, 58 44 L 58 50 Q 56 56, 52 60"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round"
+          />
+          <path
+            d="M 90 18 Q 90 12, 84 12 Q 64 12, 64 26 L 62 32 Q 58 34, 58 38 Q 58 42, 62 44 L 62 50 Q 64 56, 68 60"
+            stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 100" fill="none">
+          <path
+            d="M 30 18 Q 30 12, 36 12 Q 56 12, 56 26 L 58 32 Q 62 34, 62 38 Q 62 42, 58 44 L 58 50 Q 56 56, 52 60"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round"
+          />
+          <path
+            d="M 90 18 Q 90 12, 84 12 Q 64 12, 64 26 L 62 32 Q 58 34, 58 38 Q 58 42, 62 44 L 62 50 Q 64 56, 68 60"
+            stroke="var(--bone)" stroke-width="5" fill="none" stroke-linecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Profile</div>
+      <h3>The Close</h3>
+      <p>Two profile outlines — just outlines, no fill — turned toward each other until their noses almost touch. The intimacy of attention, drawn in two strokes.</p>
+      <div class="meaning">— what closeness looks like, before words.</div>
+    </div>
+  </div>
+
+  <!-- 50 — Linked arms (chain of two) -->
+  <div class="tile">
+    <div class="tile-pair">
+      <div class="canvas bone">
+        <span class="num">50</span>
+        <svg viewBox="0 0 120 80" fill="none">
+          <path d="M 18 30 Q 30 18, 48 26 Q 60 32, 60 40" stroke="var(--ink)" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 60 40 Q 60 32, 72 26 Q 90 18, 102 30" stroke="var(--ink)" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 18 50 Q 30 62, 48 54 Q 60 48, 60 40" stroke="var(--ink)" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 60 40 Q 60 48, 72 54 Q 90 62, 102 50" stroke="var(--ink)" stroke-width="6" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="canvas ink">
+        <svg viewBox="0 0 120 80" fill="none">
+          <path d="M 18 30 Q 30 18, 48 26 Q 60 32, 60 40" stroke="var(--bone)" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 60 40 Q 60 32, 72 26 Q 90 18, 102 30" stroke="var(--bone)" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 18 50 Q 30 62, 48 54 Q 60 48, 60 40" stroke="var(--bone)" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 60 40 Q 60 48, 72 54 Q 90 62, 102 50" stroke="var(--bone)" stroke-width="6" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sub">Hands</div>
+      <h3>The Linked Arms</h3>
+      <p>Two arms looped through each other — arm-in-arm, walking together. Two strokes that imply a whole story. The chain of trust, made small.</p>
+      <div class="meaning">— we go to dinner. We make plans.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  <span class="serif">You've now seen 50 marks. <em>Pick your top 3 — I'll mash them up.</em></span>
+  Or call out elements from across the set ("the broadcaster's profile + the lasso," "two stick figures with the apostrophe between them"). I can prototype combos.
+</div>
+
+</body>
+</html>
