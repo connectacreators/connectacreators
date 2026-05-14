@@ -1097,13 +1097,13 @@ export default function LandingPageNew() {
         <InteractiveSticker
           src={yuppiesBubble}
           baseRotation={-8}
-          maxOffset={10}
-          radius={220}
+          maxOffset={8}
+          radius={180}
           style={{
             position: "absolute",
-            top: 100,
-            left: "3%",
-            width: 260,
+            top: 110,
+            left: "4%",
+            width: 160,
             height: "auto",
             opacity: 0.62,
             zIndex: 0,
@@ -1114,13 +1114,13 @@ export default function LandingPageNew() {
         <InteractiveSticker
           src={yuppiesMagnifyingGlass}
           baseRotation={6}
-          maxOffset={10}
-          radius={220}
+          maxOffset={8}
+          radius={180}
           style={{
             position: "absolute",
-            top: 180,
-            right: "2%",
-            width: 280,
+            top: 190,
+            right: "3%",
+            width: 180,
             height: "auto",
             opacity: 0.62,
             zIndex: 0,

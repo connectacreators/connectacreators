@@ -34,6 +34,11 @@ const WAVEFORM_BARS = [
   { x: 64, y: 9, h: 4 },
 ];
 
+const LEFT_PATH =
+  "M 0 240 C 60 -20 280 -40 420 40 C 520 90 500 200 620 200 C 740 200 840 100 900 150";
+const RIGHT_PATH =
+  "M 0 150 C 200 90 480 100 660 200 C 780 260 860 250 900 230";
+
 export default function PromptStream({
   promptText = DEFAULT_PROMPT,
   outputText = DEFAULT_OUTPUT,
@@ -44,26 +49,61 @@ export default function PromptStream({
 
   return (
     <div className={`prompt-stream ${className || ""}`} aria-hidden>
-      {/* RIGHT: tilted dark banner with scrolling polished output */}
-      <div className="prompt-stream-banner">
-        <div className="prompt-stream-track">{trackText}</div>
-      </div>
-
-      {/* LEFT: a real undulating curve from the left margin into the mic.
-          ViewBox matches container aspect (900x300 = 3:1, same as the
-          left half × 240px) so x=0 lands at the actual left viewport edge
-          and x=900 lands at center (mic position). Path uses three C
-          segments for a long S-wave journey: bottom-left rises over the
-          top, dips, rises into the mic at mid-height. */}
+      {/* LEFT: the prompt — long undulating curve from the left margin
+          into the mic. preserveAspectRatio="none" so x=0 always hits the
+          literal left margin regardless of viewport size. */}
       <div className="prompt-stream-left">
         <CurvedLoop
           marqueeText={promptText}
           speed={0.5}
           direction="right"
           interactive={false}
-          pathD="M 0 240 C 60 -20 280 -40 420 40 C 520 90 500 200 620 200 C 740 200 840 100 900 150"
+          pathD={LEFT_PATH}
           viewBox="0 0 900 300"
+          preserveAspectRatio="none"
           className="thin-italic"
+        />
+      </div>
+
+      {/* RIGHT: the output — a curved dark band rendered as SVG strokes,
+          with the marquee text rendered on top following the same curve.
+          Starts at the mic (left:50%) and ends at the right margin
+          (right:0). preserveAspectRatio="none" so x=900 always hits the
+          literal right margin. */}
+      <div className="prompt-stream-right">
+        {/* Dark band: bone outline + ink fill stacked on the same curve */}
+        <svg
+          className="prompt-stream-right-band"
+          viewBox="0 0 900 300"
+          preserveAspectRatio="none"
+        >
+          <path
+            d={RIGHT_PATH}
+            stroke="rgba(234, 230, 220, 0.22)"
+            strokeWidth="68"
+            fill="none"
+            strokeLinecap="round"
+          />
+          <path
+            d={RIGHT_PATH}
+            stroke="var(--ink, #0A0E12)"
+            strokeWidth="64"
+            fill="none"
+            strokeLinecap="round"
+          />
+        </svg>
+        {/* Animated marquee text following the same curve.
+            direction="left" makes the text travel FROM the mic (path start)
+            TOWARD the right margin (path end). */}
+        <CurvedLoop
+          marqueeText={trackText}
+          speed={0.65}
+          direction="left"
+          interactive={false}
+          pathD={RIGHT_PATH}
+          viewBox="0 0 900 300"
+          preserveAspectRatio="none"
+          className="output-band"
         />
       </div>
 
