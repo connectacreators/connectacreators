@@ -1,365 +1,234 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
-  Menu, X, ArrowRight, Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  FileText, Video, BookOpen, Users,
-  Calendar, Film, Globe, Zap, Clock,
-  TrendingUp, Search, Upload, Monitor,
-  CheckCircle, Flame,
+  ArrowRight,
+  Sparkles,
+  Calendar,
+  Film,
+  Flame,
+  Send,
+  Menu,
+  X,
 } from "lucide-react";
-import connectaLoginLogo from "@/assets/connecta-logo-new.png";
-import connectaFaviconIcon from "@/assets/connecta-favicon-icon.png";
-import BorderGlow from "@/components/ui/BorderGlow";
+import "../landing.css";
 
-const useIsMobile = () => {
-  const [m, setM] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const h = () => setM(window.innerWidth < 768);
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, []);
-  return m;
-};
+/* =============================================================================
+   The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
+   Scoped to the .landing-editorial wrapper class. No global tokens touched.
+   ============================================================================= */
 
-const PARTICLES = [
-  { left: "6%",  dur: 7,   del: 0,   size: 4, color: "rgba(6,182,212,0.7)" },
-  { left: "18%", dur: 9,   del: 0.5, size: 3, color: "rgba(201,169,110,0.5)" },
-  { left: "30%", dur: 6.5, del: 1.8, size: 5, color: "rgba(34,211,238,0.55)" },
-  { left: "42%", dur: 10,  del: 0.3, size: 3, color: "rgba(6,182,212,0.6)" },
-  { left: "54%", dur: 7.5, del: 2.5, size: 4, color: "rgba(201,169,110,0.45)" },
-  { left: "66%", dur: 8,   del: 1,   size: 3, color: "rgba(34,211,238,0.6)" },
-  { left: "78%", dur: 11,  del: 3.5, size: 3, color: "rgba(6,182,212,0.5)" },
-  { left: "12%", dur: 8.5, del: 2,   size: 4, color: "rgba(201,169,110,0.4)" },
-  { left: "90%", dur: 9.5, del: 1.5, size: 4, color: "rgba(6,182,212,0.55)" },
-  { left: "48%", dur: 12,  del: 4,   size: 3, color: "rgba(34,211,238,0.5)" },
-  { left: "35%", dur: 6,   del: 0.8, size: 5, color: "rgba(6,182,212,0.5)" },
-  { left: "72%", dur: 10.5,del: 3,   size: 3, color: "rgba(201,169,110,0.45)" },
-  { left: "85%", dur: 7,   del: 2.2, size: 4, color: "rgba(34,211,238,0.45)" },
-  { left: "25%", dur: 13,  del: 5.5, size: 3, color: "rgba(6,182,212,0.4)" },
-];
-
-const gold = "#22d3ee";
-const goldGradient = "linear-gradient(135deg, #06B6D4 0%, #c9a96e 100%)";
-const darkBg = "#000000";
-const borderGold = "rgba(8, 145, 178, 0.15)";
-
-// ── Viral Videos Mockup (full, for feature section) ───────────────────
-function ViralVideosMockup() {
-  const videos = [
-    { topic: "Morning routine for busy dads", channel: "@fitnessmindset", views: "2.3M", score: "12x", hot: true, hue: 30 },
-    { topic: "You've been eating protein wrong", channel: "@drnutrition", views: "847K", score: "7x", hot: true, hue: 90 },
-    { topic: "How I got 100K in 30 days", channel: "@thecreatorlab", views: "412K", score: "3x", hot: false, hue: 200 },
-    { topic: "The hook formula that never fails", channel: "@contentstrategy", views: "1.1M", score: "9x", hot: true, hue: 270 },
-  ];
-  return (
-    <div className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full"
-      style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.35)", boxShadow: "0 0 60px rgba(8,145,178,0.12), 0 30px 80px rgba(0,0,0,0.5)" }}>
-      <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2">
-          <TrendingUp size={11} style={{ color: "#22d3ee" }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "0.02em" }}>Viral Today</span>
-        </div>
-        <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-70" />
-          <div className="w-2.5 h-2.5 rounded-full opacity-70" style={{ background: gold }} />
-          <div className="w-2.5 h-2.5 rounded-full opacity-70" style={{ background: "#c9a96e" }} />
-        </div>
-      </div>
-      <div className="px-5 pt-4 pb-3 flex items-center gap-2 overflow-hidden">
-        <div className="cc-viral-search flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ flex: "1 1 80px", minWidth: 0, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <Search size={9} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Search videos or @channel…</span>
-        </div>
-        {["All platforms", "This week", "10x+ outlier"].map((f, i) => (
-          <div key={i} className={`px-2 py-1 rounded-md flex-shrink-0${i > 0 ? " cc-viral-overflow-chips" : ""}`}
-            style={{ background: i === 2 ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${i === 2 ? "rgba(249,115,22,0.4)" : "rgba(255,255,255,0.1)"}`, fontSize: 8, color: i === 2 ? "#f97316" : "rgba(255,255,255,0.45)", fontWeight: i === 2 ? 700 : 400 }}>
-            {f}
-          </div>
-        ))}
-      </div>
-      <div className="px-5 pb-5 flex flex-col gap-2">
-        {videos.map((v, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group cursor-pointer"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="w-12 h-9 rounded-lg flex-shrink-0 flex items-center justify-center"
-              style={{ background: `hsl(${v.hue}, 35%, 18%)`, border: "1px solid rgba(255,255,255,0.08)" }}>
-              <Play size={10} style={{ color: "rgba(255,255,255,0.4)" }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.topic}</p>
-              <p style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{v.channel} · {v.views} views</p>
-            </div>
-            <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md"
-              style={{ background: v.hot ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${v.hot ? "rgba(249,115,22,0.4)" : "rgba(255,255,255,0.1)"}` }}>
-              {v.hot && <Flame className="w-2.5 h-2.5 text-[#c9a96e]" />}
-              <span style={{ fontSize: 8, fontWeight: 700, color: v.hot ? "#c9a96e" : "rgba(255,255,255,0.4)" }}>{v.score}</span>
-            </div>
-            <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 rounded-md"
-              style={{ background: "rgba(8,145,178,0.15)", border: "1px solid rgba(8,145,178,0.3)", fontSize: 8, color: gold, fontWeight: 700 }}>
-              Remix →
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Feature Mockups ───────────────────────────────────────────────────
-
-function ScriptOutputMockup() {
+/* ─────────────────────────────────────────────────────────────
+   Super Canvas mockup — the screenshot moment.
+   Node-based strategy visualization. One node "live" pulsing.
+   ───────────────────────────────────────────────────────────── */
+function SuperCanvasMock() {
   return (
     <div
-      className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full max-w-md mx-auto"
+      className="relative w-full overflow-hidden"
       style={{
-        backgroundColor: "rgba(6,9,12,0.97)",
-        borderColor: "rgba(8,145,178,0.25)",
-        boxShadow: "0 0 40px rgba(8,145,178,0.1)",
+        height: 460,
+        background:
+          "linear-gradient(135deg, #1A1F26 0%, #0F1318 100%)",
+        border: "1px solid rgba(234, 230, 220, 0.10)",
+        borderRadius: 22,
+        boxShadow:
+          "0 60px 120px -30px rgba(0,0,0,0.6), 0 0 80px -20px rgba(143,208,213,0.10)",
       }}
     >
-      {/* Progress steps */}
-      <div className="flex items-center gap-0 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        {["Topic", "Structure", "Script"].map((step, i) => (
-          <div
-            key={i}
-            className="flex-1 py-3 text-center text-xs relative"
+      {/* Window chrome */}
+      <div
+        className="flex items-center justify-between"
+        style={{
+          padding: "14px 20px",
+          borderBottom: "1px solid rgba(234, 230, 220, 0.07)",
+          background: "rgba(10, 14, 18, 0.40)",
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span style={{ width: 11, height: 11, borderRadius: "50%", background: "rgba(232,138,138,0.65)" }} />
+          <span style={{ width: 11, height: 11, borderRadius: "50%", background: "rgba(224,200,120,0.65)" }} />
+          <span style={{ width: 11, height: 11, borderRadius: "50%", background: "rgba(143,197,163,0.65)" }} />
+          <span
             style={{
-              background: i === 2 ? "rgba(8,145,178,0.08)" : "transparent",
-              borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none",
-              color: i === 2 ? gold : "rgba(255,255,255,0.3)",
-              fontWeight: i === 2 ? 600 : 400,
-              fontSize: 9,
+              marginLeft: 14,
+              fontFamily: "'EB Garamond', serif",
+              fontStyle: "italic",
+              fontSize: 14,
+              color: "rgba(234,230,220,0.55)",
             }}
           >
-            {i < 2 ? <span style={{ color: "#4ade80" }}>✓ </span> : null}{step}
-          </div>
-        ))}
+            Super Canvas — Luna Reyes / Spring 2026 strategy
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="pill pill-aqua">
+            <span className="pill-dot" /> Companion AI · live
+          </span>
+        </div>
       </div>
 
-      {/* Script output */}
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>Generated Script</span>
-          <span style={{ fontSize: 8, color: gold, background: "rgba(8,145,178,0.12)", padding: "2px 7px", borderRadius: 4 }}>TikTok · 60s</span>
+      {/* Canvas */}
+      <div className="relative" style={{ height: "calc(100% - 49px)", padding: 24 }}>
+        {/* Connection lines */}
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 800 400"
+          preserveAspectRatio="none"
+          style={{ position: "absolute", inset: 24, pointerEvents: "none" }}
+        >
+          {/* Central brand node lines */}
+          <path d="M 400 200 Q 250 130, 130 90" className="sc-canvas-line" />
+          <path d="M 400 200 Q 270 200, 130 200" className="sc-canvas-line" />
+          <path d="M 400 200 Q 250 270, 130 320" className="sc-canvas-line" />
+          <path d="M 400 200 Q 550 130, 680 90" className="sc-canvas-line honey" />
+          <path d="M 400 200 Q 540 200, 680 200" className="sc-canvas-line" />
+          <path d="M 400 200 Q 550 270, 680 320" className="sc-canvas-line" />
+        </svg>
+
+        {/* Central Brand node */}
+        <div
+          className="sc-node active"
+          style={{
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            minWidth: 180,
+          }}
+        >
+          <span className="sc-node-sub" style={{ color: "var(--aqua)" }}>Brand</span>
+          <span className="sc-node-title serif" style={{ fontSize: 18, lineHeight: 1.1 }}>
+            Luna Reyes
+          </span>
+          <span style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 2 }}>
+            2.4M · fashion + lifestyle
+          </span>
+          <span className="sc-node-pill">● Strategist on</span>
         </div>
-        {[
-          { type: "HOOK", text: "I lost 10 lbs in 6 weeks without changing what I eat. Here's the method nobody tells you about." },
-          { type: "BRIDGE", text: "Turns out, the problem wasn't my diet. It was my timing. I discovered time-restricted eating by accident." },
-          { type: "STORY", text: "I tried everything — meal prep, keto, counting macros. Nothing stuck. Then I started eating in a 10-hour window and the weight started disappearing." },
-          { type: "CTA", text: "Try this tonight. No gym, no diet changes. Comment '10' and I'll send you the exact protocol." },
-        ].map((line, i) => (
-          <div key={i} className="flex gap-2.5 mb-3 last:mb-0">
-            <div className="w-0.5 flex-shrink-0 rounded-full mt-0.5" style={{ background: goldGradient, minHeight: 14 }} />
-            <div>
-              <span style={{ fontSize: 7, color: gold, fontWeight: 700, letterSpacing: "0.12em" }}>{line.type}  </span>
-              <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>{line.text}</span>
-            </div>
-          </div>
-        ))}
+
+        {/* Satellite nodes */}
+        <div className="sc-node" style={{ top: "12%", left: "4%" }}>
+          <span className="sc-node-sub">Audience</span>
+          <span className="sc-node-title">22–34 · F · LA/NYC</span>
+          <span style={{ fontSize: 10.5, color: "var(--bone-3)" }}>Peak: Tue/Thu 8pm</span>
+        </div>
+
+        <div className="sc-node" style={{ top: "46%", left: "4%" }}>
+          <span className="sc-node-sub">Voice</span>
+          <span className="sc-node-title">Confident · dry-funny</span>
+          <span style={{ fontSize: 10.5, color: "var(--bone-3)" }}>Trained on last 50 posts</span>
+        </div>
+
+        <div className="sc-node" style={{ top: "80%", left: "4%" }}>
+          <span className="sc-node-sub">Top hook</span>
+          <span className="sc-node-title">"3 things I wish I knew…"</span>
+          <span className="sc-node-pill">9.2/10 score</span>
+        </div>
+
+        <div className="sc-node" style={{ top: "12%", right: "4%" }}>
+          <span className="sc-node-sub" style={{ color: "var(--honey)" }}>Hot trend</span>
+          <span className="sc-node-title">"Soft launch the chaos"</span>
+          <span className="sc-node-pill honey">▲ 340% w/w</span>
+        </div>
+
+        <div className="sc-node" style={{ top: "46%", right: "4%" }}>
+          <span className="sc-node-sub">This week</span>
+          <span className="sc-node-title">5 posts drafted</span>
+          <span style={{ fontSize: 10.5, color: "var(--bone-3)" }}>Mon 9am · Wed 7pm · …</span>
+        </div>
+
+        <div className="sc-node" style={{ top: "80%", right: "4%" }}>
+          <span className="sc-node-sub">Next move</span>
+          <span className="sc-node-title">Skincare partner draft</span>
+          <span className="sc-node-pill">Auto-saved 2m</span>
+        </div>
       </div>
     </div>
   );
 }
 
-function TeleprompterMockup() {
+/* ─────────────────────────────────────────────────────────────
+   Viral Today mockup — trending feed.
+   ───────────────────────────────────────────────────────────── */
+function ViralTodayMock() {
+  const rows = [
+    {
+      letter: "S",
+      meta: "@softlife · TikTok · 2h",
+      title: "Soft launch your year, not your relationship",
+      score: "12× outlier",
+      pill: "Hook stolen",
+      tone: "aqua" as const,
+    },
+    {
+      letter: "M",
+      meta: "@morningclub · Reels · 4h",
+      title: "Why I stopped journaling at 5am",
+      score: "8× outlier",
+      pill: "Remix ready",
+      tone: "honey" as const,
+    },
+    {
+      letter: "C",
+      meta: "@creatorlab · Shorts · 7h",
+      title: "The hook formula that never fails",
+      score: "9× outlier",
+      pill: "Saved",
+      tone: "aqua" as const,
+    },
+    {
+      letter: "D",
+      meta: "@drjuno · TikTok · today",
+      title: "Three foods cardiologists never eat",
+      score: "14× outlier",
+      pill: "Hot",
+      tone: "honey" as const,
+    },
+  ];
   return (
     <div
-      className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full max-w-md mx-auto"
+      className="card"
       style={{
-        backgroundColor: "rgba(6,9,12,0.99)",
-        borderColor: "rgba(8,145,178,0.2)",
-        boxShadow: "0 0 40px rgba(0,0,0,0.6)",
+        padding: 22,
+        background:
+          "linear-gradient(180deg, var(--graphite) 0%, #15191F 100%)",
       }}
     >
-      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
         <div className="flex items-center gap-2">
-          <Monitor size={11} style={{ color: gold }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: gold }}>Teleprompter</span>
+          <Flame size={14} style={{ color: "var(--honey)" }} />
+          <span
+            style={{
+              fontFamily: "'Figtree', sans-serif",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--honey)",
+            }}
+          >
+            Viral Today · Wed, May 14
+          </span>
         </div>
-        <span style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.06)", padding: "2px 7px", borderRadius: 4 }}>Speed 1.2x</span>
+        <span className="pill pill-muted">12,847 scanned</span>
       </div>
-
-      {/* Text area */}
-      <div className="px-8 py-8 relative overflow-hidden" style={{ minHeight: 160 }}>
-        <div className="absolute top-0 left-0 right-0 h-10 z-10" style={{ background: "linear-gradient(to bottom, rgba(6,6,6,0.99), transparent)" }} />
-        <div className="absolute bottom-0 left-0 right-0 h-10 z-10" style={{ background: "linear-gradient(to top, rgba(6,6,6,0.99), transparent)" }} />
-        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textAlign: "center", lineHeight: 2.4, marginBottom: 6 }}>Before I show you this,</p>
-        <p style={{ fontSize: 17, color: "rgba(255,255,255,0.92)", textAlign: "center", lineHeight: 1.8, fontWeight: 300, letterSpacing: "-0.01em" }}>
-          Today I want to show you something that completely changed how I approach my mornings —
-        </p>
-        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textAlign: "center", lineHeight: 2.4, marginTop: 6 }}>and it only takes 3 minutes.</p>
-      </div>
-
-      {/* Controls */}
-      <div className="px-5 py-4 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-        <div className="flex items-center gap-3 mb-4">
-          <span style={{ fontSize: 7, color: "rgba(255,255,255,0.3)" }}>SLOW</span>
-          <div className="flex-1 h-1 rounded-full relative" style={{ background: "rgba(255,255,255,0.08)" }}>
-            <div className="h-full rounded-full" style={{ width: "45%", background: goldGradient }} />
-            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 shadow" style={{ left: "43%", background: "#1a1a1a", borderColor: gold }} />
-          </div>
-          <span style={{ fontSize: 7, color: "rgba(255,255,255,0.3)" }}>FAST</span>
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer" style={{ background: goldGradient }}>
-            <Play size={14} style={{ color: "#1a1a1a" }} fill="#1a1a1a" />
-          </div>
-          <div className="px-4 py-2 rounded-lg cursor-pointer" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)" }}>Mirror Mode</span>
-          </div>
-          <div className="px-4 py-2 rounded-lg cursor-pointer" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)" }}>Font +</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TranscriptionMockup() {
-  return (
-    <div className="w-full max-w-md mx-auto flex flex-col gap-3">
-      <div
-        className="rounded-2xl p-5"
-        style={{ border: "2px dashed rgba(8,145,178,0.3)", background: "rgba(8,145,178,0.03)", backdropFilter: "blur(10px)" }}
-      >
-        <div className="flex flex-col items-center mb-4">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "rgba(8,145,178,0.12)", border: "1px solid rgba(8,145,178,0.25)" }}>
-            <Upload size={18} style={{ color: gold }} />
-          </div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.8)", marginBottom: 4 }}>Drop video or paste link</p>
-          <p style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Google Drive · Instagram · TikTok · YouTube</p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-3" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
-          <Video size={10} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.35)" }}>https://drive.google.com/file/d/1abc...</span>
-        </div>
-        <div className="py-2.5 rounded-xl text-center font-semibold" style={{ background: goldGradient, color: "#1a1a1a", fontSize: 11, cursor: "pointer" }}>
-          Transcribe Now →
-        </div>
-      </div>
-
-      <div
-        className="rounded-2xl p-4 backdrop-blur-xl border"
-        style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.2)" }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <span style={{ fontSize: 10, fontWeight: 600, color: gold }}>Transcribed Script</span>
-          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)", padding: "2px 6px", borderRadius: 4 }}>2m 34s · 3 sections</span>
-        </div>
-        {[
-          { type: "HOOK", text: "Did you know most people gain weight because of when they eat, not what?" },
-          { type: "STORY", text: "I used to eat 'healthy' but still gained weight — then I discovered time-restricted eating..." },
-          { type: "CTA", text: "Comment '12' and I'll send you the full 12-hour window protocol." },
-        ].map((line, i) => (
-          <div key={i} className="flex gap-2 mb-2.5 last:mb-0">
-            <div className="w-0.5 flex-shrink-0 rounded-full" style={{ background: goldGradient, minHeight: 14 }} />
-            <div>
-              <span style={{ fontSize: 7, color: gold, fontWeight: 700, letterSpacing: "0.12em" }}>{line.type}  </span>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{line.text}</span>
-            </div>
-          </div>
-        ))}
-        <div className="mt-3 flex items-center justify-end gap-1.5" style={{ color: gold, cursor: "pointer" }}>
-          <BookOpen size={10} />
-          <span style={{ fontSize: 9, fontWeight: 600 }}>Save to Vault →</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScriptVaultMockup() {
-  const scripts = [
-    { title: "10 lbs without dieting — the truth", category: "Health", date: "Mar 5", status: "Scheduled", sc: "#22d3ee" },
-    { title: "Morning routine that changed my practice", category: "Lifestyle", date: "Mar 3", status: "Used", sc: "#4ade80" },
-    { title: "Why your gym routine isn't working", category: "Fitness", date: "Feb 28", status: "Draft", sc: "#94a3b8" },
-    { title: "The 3-minute habit that scales businesses", category: "Business", date: "Feb 24", status: "Used", sc: "#4ade80" },
-  ];
-  return (
-    <div
-      className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full max-w-md mx-auto"
-      style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.2)", boxShadow: "0 0 30px rgba(8,145,178,0.07)" }}
-    >
-      <div className="px-4 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <Search size={11} style={{ color: "rgba(255,255,255,0.3)" }} />
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Search scripts...</span>
-          <span style={{ marginLeft: "auto", fontSize: 8, color: "rgba(255,255,255,0.2)" }}>12 scripts</span>
-        </div>
-      </div>
-      {scripts.map((s, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-3 px-4 py-3 border-b"
-          style={{
-            borderColor: "rgba(255,255,255,0.04)",
-            background: i === 0 ? "rgba(8,145,178,0.05)" : "transparent",
-            borderLeft: i === 0 ? `2px solid ${gold}` : "2px solid transparent",
-          }}
-        >
-          <FileText size={10} style={{ color: i === 0 ? gold : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
-          <div className="flex-1 min-w-0">
-            <p style={{ fontSize: 10, color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.6)", fontWeight: i === 0 ? 600 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span style={{ fontSize: 7, color: gold, background: "rgba(8,145,178,0.14)", padding: "1px 5px", borderRadius: 3 }}>{s.category}</span>
-              <span style={{ fontSize: 7, color: "rgba(255,255,255,0.2)" }}>{s.date}</span>
-            </div>
-          </div>
-          <span style={{ fontSize: 8, color: s.sc, background: `${s.sc}18`, padding: "2px 7px", borderRadius: 4, flexShrink: 0 }}>{s.status}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LeadTrackerMockup() {
-  const columns = [
-    {
-      title: "New", count: 5, color: "#60a5fa",
-      leads: [
-        { name: "Sarah M.", source: "IG", time: "2h ago" },
-        { name: "Dr. Patel", source: "FB", time: "5h ago" },
-      ],
-    },
-    {
-      title: "Contacted", count: 3, color: "#22d3ee",
-      leads: [{ name: "Mike R.", source: "TT", time: "1d ago" }],
-    },
-    {
-      title: "Booked", count: 2, color: "#4ade80",
-      leads: [{ name: "Ana C.", source: "YT", time: "2d ago" }],
-    },
-  ];
-  return (
-    <div className="w-full max-w-lg mx-auto">
-      <div className="flex gap-3">
-        {columns.map((col, ci) => (
-          <div key={ci} className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span style={{ fontSize: 10, fontWeight: 700, color: col.color }}>{col.title}</span>
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.07)", padding: "1px 6px", borderRadius: 10 }}>{col.count}</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {col.leads.map((lead, li) => (
-                <div
-                  key={li}
-                  className="p-3 rounded-xl"
-                  style={{ background: "rgba(35,35,35,0.9)", border: `1px solid ${col.color}22`, backdropFilter: "blur(10px)" }}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {rows.map((r, i) => (
+          <div key={i} className="vt-card">
+            <div className={`vt-thumb ${r.tone === "honey" ? "honey" : ""}`}>{r.letter}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="vt-meta">{r.meta}</div>
+              <div className="vt-title">{r.title}</div>
+              <div className="flex items-center gap-2" style={{ flexWrap: "wrap" }}>
+                <span className={`vt-score ${r.tone === "aqua" ? "aqua" : ""}`}>
+                  {r.score}
+                </span>
+                <span
+                  className={`pill ${r.tone === "aqua" ? "pill-aqua" : "pill-honey"}`}
+                  style={{ fontSize: 10 }}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.9)", fontWeight: 600 }}>{lead.name}</span>
-                    <span style={{ fontSize: 7, color: col.color, background: `${col.color}18`, padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>{lead.source}</span>
-                  </div>
-                  <span style={{ fontSize: 7.5, color: "rgba(255,255,255,0.28)" }}>{lead.time}</span>
-                </div>
-              ))}
-              <div
-                className="p-2 rounded-xl text-center"
-                style={{ border: `1px dashed ${col.color}22`, cursor: "pointer" }}
-              >
-                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.15)" }}>+ Add lead</span>
+                  {r.pill}
+                </span>
               </div>
             </div>
           </div>
@@ -369,753 +238,1116 @@ function LeadTrackerMockup() {
   );
 }
 
-function CalendarMockup() {
-  const dayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-  const weeks = [
-    [null, null, null, null, null, null, 1],
-    [2, 3, 4, 5, 6, 7, 8],
-    [9, 10, 11, 12, 13, 14, 15],
-    [16, 17, 18, 19, 20, 21, 22],
-    [23, 24, 25, 26, 27, 28, 29],
-    [30, 31, null, null, null, null, null],
-  ];
-  const events: Record<number, string> = {
-    3: "#4ade80", 5: "#22d3ee", 10: "#22d3ee",
-    12: "#f87171", 17: "#4ade80", 20: "#22d3ee",
-    24: "#4ade80", 27: "#22d3ee", 7: "#f87171",
-  };
-  return (
-    <div
-      className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full max-w-sm mx-auto"
-      style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.2)" }}
-    >
-      <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2">
-          <Calendar size={12} style={{ color: gold }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>March 2026</span>
-        </div>
-        <div className="flex gap-4">
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", cursor: "pointer" }}>‹</span>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", cursor: "pointer" }}>›</span>
-        </div>
-      </div>
-      <div className="px-4 py-3">
-        <div className="grid grid-cols-7 mb-2">
-          {dayLabels.map((d) => (
-            <div key={d} className="text-center" style={{ fontSize: 7, color: "rgba(255,255,255,0.2)", fontWeight: 600 }}>{d}</div>
-          ))}
-        </div>
-        {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-7 mb-0.5">
-            {week.map((date, di) => (
-              <div key={di} className="flex flex-col items-center py-1.5">
-                {date !== null && (
-                  <>
-                    <span style={{ fontSize: 9, color: date === 7 ? "white" : "rgba(255,255,255,0.5)", fontWeight: date === 7 ? 600 : 400 }}>{date}</span>
-                    {events[date] && (
-                      <div className="w-1 h-1 rounded-full mt-0.5" style={{ background: events[date] }} />
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-        <div className="flex items-center justify-center gap-5 mt-3 pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-          {[{ c: "#4ade80", l: "Approved" }, { c: "#22d3ee", l: "Scheduled" }, { c: "#f87171", l: "Revision" }].map((item) => (
-            <div key={item.l} className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.c }} />
-              <span style={{ fontSize: 7, color: "rgba(255,255,255,0.35)" }}>{item.l}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EditingQueueMockup() {
-  const rows = [
-    { title: "Morning Routine Reel", editor: "Carlos V.", status: "In Edit", sc: "#60a5fa", date: "Mar 8" },
-    { title: "10 lbs No Diet Challenge", editor: "Maria L.", status: "Review", sc: "#22d3ee", date: "Mar 6" },
-    { title: "Why Gyms Fail You", editor: "David R.", status: "Done", sc: "#4ade80", date: "Mar 4" },
-  ];
-  return (
-    <div
-      className="rounded-2xl overflow-hidden backdrop-blur-xl border w-full max-w-lg mx-auto"
-      style={{ backgroundColor: "rgba(6,9,12,0.97)", borderColor: "rgba(8,145,178,0.2)", boxShadow: "0 0 30px rgba(8,145,178,0.06)" }}
-    >
-      <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2">
-          <Film size={12} style={{ color: gold }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: gold }}>Editing Queue</span>
-        </div>
-        <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)", padding: "2px 7px", borderRadius: 4 }}>Synced · Notion</span>
-      </div>
-      <div className="grid px-5 py-2 border-b" style={{ gridTemplateColumns: "1fr 90px 75px 45px", borderColor: "rgba(255,255,255,0.04)" }}>
-        {["Title", "Editor", "Status", "Date"].map((h) => (
-          <span key={h} style={{ fontSize: 7, color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.09em" }}>{h}</span>
-        ))}
-      </div>
-      {rows.map((row, i) => (
-        <div
-          key={i}
-          className="grid px-5 py-3.5 border-b items-center"
-          style={{
-            gridTemplateColumns: "1fr 90px 75px 45px",
-            borderColor: "rgba(255,255,255,0.04)",
-            background: i === 1 ? "rgba(8,145,178,0.03)" : "transparent",
-          }}
-        >
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 8 }}>{row.title}</span>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.35)" }}>{row.editor}</span>
-          <span style={{ fontSize: 8, color: row.sc, background: `${row.sc}18`, padding: "2px 8px", borderRadius: 4, display: "inline-block" }}>{row.status}</span>
-          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.25)" }}>{row.date}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Feature Section Component ─────────────────────────────────────────
-function FeatureSection({
-  label, headline, desc, bullets, mockup, reverse = false,
+/* ─────────────────────────────────────────────────────────────
+   Pipeline trio — editing queue / calendar / companion.
+   ───────────────────────────────────────────────────────────── */
+function PipelineCard({
+  eyebrow,
+  title,
+  body,
+  icon: Icon,
+  children,
 }: {
-  label: string; headline: string; desc: string; bullets: string[];
-  mockup: React.ReactNode; reverse?: boolean;
+  eyebrow: string;
+  title: string;
+  body: string;
+  icon: typeof Calendar;
+  children?: React.ReactNode;
 }) {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.7 }}
-      viewport={{ once: true, margin: "-80px" }}
-      className="py-20 px-6 border-t relative z-10"
-      style={{ borderColor: borderGold }}
-    >
-      <div className="max-w-7xl mx-auto">
-        <div className={`flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} gap-12 md:gap-20 items-center`}>
-          {/* Text */}
-          <div className="flex-1 max-w-lg">
-            <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 14 }}>{label}</p>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight mb-5 leading-tight text-white font-caslon" style={{ letterSpacing: "0.02em" }}>{headline}</h2>
-            <p className="text-base leading-relaxed mb-7" style={{ color: "#888" }}>{desc}</p>
-            <ul className="flex flex-col gap-2.5">
-              {bullets.map((b, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: "#bbb" }}>
-                  <CheckCircle size={14} style={{ color: gold, flexShrink: 0, marginTop: 1 }} />
-                  {b}
-                </li>
-              ))}
-            </ul>
-          </div>
-          {/* Mockup */}
-          <motion.div
-            initial={{ opacity: 0, x: reverse ? -30 : 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
-            viewport={{ once: true, margin: "-80px" }}
-            className="flex-1 w-full"
-          >
-            {mockup}
-          </motion.div>
-        </div>
+    <div className="card card-lift" style={{ padding: "32px 28px 28px", display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 12,
+          background: "rgba(143, 208, 213, 0.10)",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--aqua)",
+        }}
+      >
+        <Icon size={20} strokeWidth={1.6} />
       </div>
-    </motion.section>
+      <div>
+        <span className="eyebrow">{eyebrow}</span>
+      </div>
+      <h3 className="serif" style={{ fontSize: 24, lineHeight: 1.1, margin: 0, letterSpacing: "-0.01em" }}>
+        {title}
+      </h3>
+      <p style={{ fontSize: 14, color: "var(--bone-2)", margin: 0, lineHeight: 1.6 }}>{body}</p>
+      {children && (
+        <div
+          style={{
+            marginTop: 4,
+            borderTop: "1px solid var(--line)",
+            paddingTop: 16,
+          }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
-// ── Demo Video Player ────────────────────────────────────────────────
-const DEMO_VIDEO_URL = "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/demo-video.mp4";
+/* =============================================================================
+   The page
+   ============================================================================= */
 
-function DemoPlayer() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+export default function LandingPageNew() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const scrollRoot = useRef<HTMLDivElement | null>(null);
 
-  const fmt = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
-  const resetHideTimer = useCallback(() => {
-    setShowControls(true);
-    if (hideTimeout.current) clearTimeout(hideTimeout.current);
-    hideTimeout.current = setTimeout(() => {
-      if (playing) setShowControls(false);
-    }, 2800);
-  }, [playing]);
-
-  const toggle = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
-    else { v.pause(); setPlaying(false); setShowControls(true); }
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  const handleTimeUpdate = useCallback(() => {
-    const v = videoRef.current;
-    if (!v || !v.duration) return;
-    setCurrentTime(v.currentTime);
-    setProgress(v.currentTime / v.duration);
+  // sticky nav state
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 30);
+    onScroll();
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const v = videoRef.current;
-    const bar = progressRef.current;
-    if (!v || !bar) return;
-    const rect = bar.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    v.currentTime = ratio * v.duration;
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  const toggleMute = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.();
-      setFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setFullscreen(false);
-    }
-    resetHideTimer();
-  }, [resetHideTimer]);
-
+  // scroll-fade-in
   useEffect(() => {
-    const handler = () => setFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+    if (!scrollRoot.current) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-in");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+    );
+    const targets = scrollRoot.current.querySelectorAll(".scroll-rise");
+    targets.forEach((t) => io.observe(t));
+    return () => io.disconnect();
   }, []);
 
   return (
-    <section style={{ padding: "0 var(--lp-demo-px) 40px", display: "flex", flexDirection: "column", alignItems: "center", position: "relative" as const, zIndex: 1 }}>
-
-
-
-      {/* Video wrapper */}
+    <div className="landing-editorial" ref={scrollRoot}>
+      {/* ===== Announcement banner ===== */}
       <div
-        ref={containerRef}
         style={{
-          position: "relative", width: "100%", maxWidth: 900,
-          borderRadius: fullscreen ? 0 : 20, overflow: "hidden",
-          border: "1px solid rgba(8,145,178,0.18)",
-          boxShadow: "0 0 50px rgba(6,182,212,0.10), 0 0 100px rgba(6,182,212,0.05)",
-          background: "#000",
-          cursor: "pointer",
+          background: "linear-gradient(90deg, rgba(224,165,96,0.10) 0%, rgba(143,208,213,0.10) 100%)",
+          borderBottom: "1px solid var(--line)",
+          padding: "10px 24px",
+          textAlign: "center",
+          fontSize: 13,
+          color: "var(--bone-2)",
+          fontFamily: "'Figtree', sans-serif",
         }}
-        onMouseMove={resetHideTimer}
-        onMouseLeave={() => { if (playing) setShowControls(false); }}
-        onClick={toggle}
       >
+        <span style={{ marginRight: 6 }}>
+          <Flame size={11} style={{ display: "inline-block", color: "var(--honey)", marginRight: 6, marginBottom: -1 }} />
+          <strong style={{ color: "var(--bone)", fontWeight: 600 }}>Viral Today is live.</strong>
+        </span>
+        Spot trends before your feed catches on.{" "}
+        <Link to="/scripts" className="scribble-link" style={{ color: "var(--aqua)", fontWeight: 500, marginLeft: 4 }}>
+          Try it →
+        </Link>
+      </div>
 
-        {/* Video */}
-        <video
-          ref={videoRef}
-          src={DEMO_VIDEO_URL}
-          poster="/demo-poster.jpg"
-          style={{ width: "100%", display: "block", maxHeight: fullscreen ? "100vh" : "none" }}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
-          onEnded={() => { setPlaying(false); setShowControls(true); }}
-          playsInline
-        />
+      {/* ===== Nav ===== */}
+      <nav
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          backdropFilter: scrolled ? "blur(18px)" : "none",
+          background: scrolled ? "rgba(10,14,18,0.78)" : "transparent",
+          borderBottom: scrolled ? "1px solid var(--line)" : "1px solid transparent",
+          transition: "all 220ms ease",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "18px 32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Link to="/" style={{ display: "inline-flex", alignItems: "baseline", gap: 0 }}>
+            <span
+              className="serif"
+              style={{ fontSize: 26, color: "var(--bone)", letterSpacing: "-0.01em", fontWeight: 500 }}
+            >
+              Connect
+            </span>
+            <span
+              className="serif-italic"
+              style={{ fontSize: 26, color: "var(--honey)", letterSpacing: "-0.01em" }}
+            >
+              a
+            </span>
+          </Link>
 
-        {/* Big play overlay (shown when paused) */}
-        {!playing && (
-          <div style={{
-            position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0,0,0,0.25)",
-          }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: "50%",
-              background: "rgba(255,255,255,0.12)", border: "1.5px solid rgba(255,255,255,0.28)",
-              backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Play size={26} style={{ color: "rgba(255,255,255,0.9)", marginLeft: 4 }} />
-            </div>
+          <div
+            className="hidden-mobile"
+            style={{
+              display: "flex",
+              gap: 30,
+              fontSize: 14,
+              color: "var(--bone-2)",
+              fontFamily: "'Figtree', sans-serif",
+            }}
+          >
+            <a href="#brain" className="scribble-link">The Brain</a>
+            <a href="#viral" className="scribble-link">Viral Today</a>
+            <a href="#pipeline" className="scribble-link">Pipeline</a>
+            <a href="#pricing" className="scribble-link">Pricing</a>
+          </div>
+
+          <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link
+              to="/scripts"
+              style={{
+                fontSize: 14,
+                color: "var(--bone-2)",
+                fontFamily: "'Figtree', sans-serif",
+              }}
+            >
+              Sign in
+            </Link>
+            <Link to="/scripts" className="btn btn-aqua">
+              Get started
+            </Link>
+          </div>
+
+          <button
+            className="hidden-desktop"
+            onClick={() => setMobileOpen((x) => !x)}
+            aria-label="Menu"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--bone)",
+              cursor: "pointer",
+              padding: 8,
+              display: "none",
+            }}
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+
+        {mobileOpen && (
+          <div
+            style={{
+              borderTop: "1px solid var(--line)",
+              padding: "16px 32px 22px",
+              background: "rgba(10,14,18,0.95)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+              fontSize: 15,
+            }}
+          >
+            <a href="#brain" onClick={() => setMobileOpen(false)}>The Brain</a>
+            <a href="#viral" onClick={() => setMobileOpen(false)}>Viral Today</a>
+            <a href="#pipeline" onClick={() => setMobileOpen(false)}>Pipeline</a>
+            <a href="#pricing" onClick={() => setMobileOpen(false)}>Pricing</a>
+            <Link to="/scripts" className="btn btn-aqua" style={{ marginTop: 8, alignSelf: "flex-start" }}>
+              Get started
+            </Link>
           </div>
         )}
+      </nav>
 
-        {/* Controls bar */}
+      <style>{`
+        @media (max-width: 768px) {
+          .landing-editorial .hidden-mobile { display: none !important; }
+          .landing-editorial .hidden-desktop { display: inline-flex !important; }
+        }
+      `}</style>
+
+      {/* ===== HERO ===== */}
+      <section style={{ position: "relative", paddingTop: 80, paddingBottom: 60, overflow: "hidden" }}>
+        <div className="ribbon-glow" />
+        <div className="grain" />
+
+        {/* Curved marginalia */}
+        <div
+          className="curl curl-hide-mobile"
+          data-reveal="7"
+          style={{ top: 120, left: "4%", "--curl-rot": "rotate(-9deg)", transform: "rotate(-9deg)" } as React.CSSProperties}
+        >
+          — for creators who'd rather create
+        </div>
+        <div
+          className="curl curl-hide-mobile"
+          data-reveal="7"
+          style={{ top: 220, right: "3%", "--curl-rot": "rotate(7deg)", transform: "rotate(7deg)" } as React.CSSProperties}
+        >
+          no more 14 tabs, no more notion graveyard, just the next move
+        </div>
+
         <div
           style={{
-            position: "absolute", bottom: 0, left: 0, right: 0,
-            padding: "28px 16px 14px",
-            background: "linear-gradient(0deg, rgba(0,0,0,0.85) 0%, transparent 100%)",
-            transition: "opacity 0.35s ease",
-            opacity: showControls ? 1 : 0,
+            position: "relative",
+            zIndex: 1,
+            maxWidth: 1080,
+            margin: "0 auto",
+            padding: "0 32px",
+            textAlign: "center",
           }}
-          onClick={(e) => e.stopPropagation()}
         >
-          {/* Progress bar */}
-          <div
-            ref={progressRef}
-            style={{ height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2, marginBottom: 10, cursor: "pointer", position: "relative" }}
-            onClick={handleSeek}
-          >
-            <div style={{ height: "100%", width: `${progress * 100}%`, background: gold, borderRadius: 2, position: "relative" }}>
-              <div style={{ position: "absolute", right: -4, top: "50%", transform: "translateY(-50%)", width: 8, height: 8, borderRadius: "50%", background: "#fff", boxShadow: `0 0 6px ${gold}` }} />
-            </div>
+          <div data-reveal="1" style={{ marginBottom: 26 }}>
+            <span className="eyebrow">Studio + Strategy</span>
           </div>
 
-          {/* Controls row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={toggle} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", padding: 0, display: "flex", alignItems: "center" }}>
-              {playing ? <Pause size={16} /> : <Play size={16} />}
-            </button>
-            <button onClick={toggleMute} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.65)", padding: 0, display: "flex", alignItems: "center" }}>
-              {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-            </button>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" }}>
-              {fmt(currentTime)} / {fmt(duration)}
+          <h1
+            className="serif"
+            data-reveal="2"
+            style={{
+              fontSize: "clamp(48px, 9vw, 124px)",
+              lineHeight: 1.0,
+              letterSpacing: "-0.025em",
+              fontWeight: 500,
+              margin: 0,
+              marginBottom: 24,
+            }}
+          >
+            <span
+              className="serif-italic"
+              style={{ display: "block", color: "var(--bone-2)", fontWeight: 400 }}
+            >
+              Your AI strategist
             </span>
-            <div style={{ flex: 1 }} />
-            <button onClick={toggleFullscreen} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.65)", padding: 0, display: "flex", alignItems: "center" }}>
-              {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
-            </button>
+            <span style={{ display: "block" }}>
+              for viral <em className="honey">growth.</em>
+            </span>
+          </h1>
+
+          <p
+            data-reveal="3"
+            style={{
+              fontSize: "clamp(15px, 1.6vw, 19px)",
+              color: "var(--bone-2)",
+              maxWidth: 580,
+              margin: "0 auto 40px",
+              lineHeight: 1.55,
+            }}
+          >
+            Connecta plans your next 30 days of content before you open the app. Strategy,
+            scripts, schedule — generated, refined, ready to ship.
+          </p>
+
+          <div
+            data-reveal="4"
+            style={{
+              display: "flex",
+              gap: 12,
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link to="/scripts" className="btn btn-aqua btn-large">
+              Start free for 14 days <ArrowRight size={16} />
+            </Link>
+            <a
+              href="#brain"
+              className="btn btn-ghost btn-large"
+            >
+              ▶ Watch the 90-sec tour
+            </a>
+          </div>
+
+          <div
+            data-reveal="5"
+            style={{
+              marginTop: 18,
+              fontSize: 12.5,
+              color: "var(--bone-3)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            No credit card · Cancel anytime · Made in Los Angeles
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
 
-// ── Main Component ────────────────────────────────────────────────────
-export default function LandingPageNew() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const isMobile = useIsMobile();
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const features = [
-    {
-      label: "CONTENT CREATION",
-      headline: "Write Viral Scripts in Minutes, Not Hours",
-      desc: "AI generates research-backed, platform-optimized scripts for Instagram, TikTok, and YouTube — complete with hook styles, story structure, and scroll-stopping CTAs.",
-      bullets: ["5 hook styles: Shocking Fact, Story, Bold Claim & more", "Research-backed structure per platform", "One-click generation from topic to full script"],
-      mockup: <ScriptOutputMockup />,
-      reverse: false,
-    },
-    {
-      label: "DELIVERY",
-      headline: "Read Your Script. Never Stumble On Camera Again.",
-      desc: "Full-screen teleprompter built for creators shooting their own content. Adjustable speed, font size, mirror mode — works beautifully on any device.",
-      bullets: ["Mirror mode for front-facing camera", "Variable speed from 0.5x to 3x", "Mobile-optimized for on-the-go recording"],
-      mockup: <TeleprompterMockup />,
-      reverse: true,
-    },
-    {
-      label: "REPURPOSING",
-      headline: "Turn Any Video Into a Script in Seconds",
-      desc: "Upload a video or paste a Google Drive link — AI transcribes and structures the content as a ready-to-reuse script with labeled sections.",
-      bullets: ["Google Drive, Instagram, TikTok & YouTube links", "Auto-format into Hook / Story / CTA structure", "Save directly to your Script Vault"],
-      mockup: <TranscriptionMockup />,
-      reverse: false,
-    },
-    {
-      label: "ORGANIZATION",
-      headline: "Every Script, Perfectly Organized",
-      desc: "A searchable library of all your scripts with categories, status tracking, version history, and one-click export to the teleprompter.",
-      bullets: ["Drag-to-reorder lines inside any script", "Full version history — restore any draft", "Export to teleprompter in one click"],
-      mockup: <ScriptVaultMockup />,
-      reverse: true,
-    },
-    {
-      label: "GROWTH",
-      headline: "Never Lose a Lead Again",
-      desc: "Track every lead from Instagram DMs, TikTok comments, website forms, and Facebook Ads — all in one unified, filterable pipeline.",
-      bullets: ["Kanban and table view with one click", "Source tracking: IG, TikTok, FB, YouTube", "Automated follow-up workflow triggers"],
-      mockup: <LeadTrackerMockup />,
-      reverse: false,
-    },
-    {
-      label: "PLANNING",
-      headline: "See Your Entire Content Pipeline at a Glance",
-      desc: "Visual calendar linked to your editing queue and Notion databases. Share a public link with clients to show real-time post status.",
-      bullets: ["Color-coded post statuses: Approved, Scheduled, Revision", "Client-shareable public calendar link", "Notion database sync — no manual entry"],
-      mockup: <CalendarMockup />,
-      reverse: true,
-    },
-    {
-      label: "PRODUCTION",
-      headline: "Your Editing Queue, Always Up to Date",
-      desc: "Synced directly from Notion — every video in production is visible with real-time status, editor assignments, and delivery dates.",
-      bullets: ["Live Notion sync — no copy-pasting", "Videographer assignment and tracking", "Status flow: In Edit → Review → Done"],
-      mockup: <EditingQueueMockup />,
-      reverse: false,
-    },
-    {
-      label: "VIRAL INTELLIGENCE",
-      headline: "Find Viral Videos From Creators in Your Niche",
-      desc: "Discover what's already working before you create anything. Spot viral outliers — videos that dramatically outperform a channel's average — and remix them into your next winning script with one click.",
-      bullets: [
-        "Filter by niche, platform, date, and outlier score",
-        "Spot 10x outliers — videos that beat the channel average",
-        "One-click remix: turn any viral video into your script",
-      ],
-      mockup: <ViralVideosMockup />,
-      reverse: true,
-    },
-  ];
-
-  const tickerItems = [
-    "AI Script Wizard", "Teleprompter", "Video Transcription", "Lead Tracker",
-    "Content Calendar", "Editing Queue", "Public Booking", "Script Vault",
-    "Onboarding", "Workflow Automation",
-  ];
-
-  return (
-    <>
-      <style>{`
-        @keyframes cc-ember-breathe { 0%,100%{opacity:0.15;transform:scale(1)} 50%{opacity:0.22;transform:scale(1.08)} }
-        @keyframes cc-ember-drift { 0%,100%{opacity:0.042;transform:translate(0,0)} 50%{opacity:0.065;transform:translate(20px,-15px)} }
-        @keyframes cc-ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-
-        :root {
-          --lp-hero-px: 48px;
-          --lp-hero-pt: 120px;
-          --lp-h1-size: 56px;
-          --lp-h1-tracking: -2px;
-          --lp-h1-lh: 1.08;
-          --lp-demo-px: 48px;
-        }
-        @media (max-width: 640px) {
-          :root {
-            --lp-hero-px: 20px;
-            --lp-hero-pt: 90px;
-            --lp-h1-size: 32px;
-            --lp-h1-tracking: -0.5px;
-            --lp-h1-lh: 1.14;
-            --lp-demo-px: 14px;
-          }
-          .cc-viral-overflow-chips { display: none !important; }
-          .cc-viral-search { min-width: 0 !important; flex: 1 !important; }
-          .cc-feature-mockup { max-width: 100% !important; overflow-x: hidden; }
-          .cc-cta-btn { padding: 12px 24px !important; font-size: 14px !important; }
-          .cc-stats-num { font-size: 2.75rem !important; }
-        }
-      `}</style>
-      <style>{`
-        .glow-orb { position: fixed; border-radius: 50%; pointer-events: none; will-change: transform, opacity; z-index: 50; }
-        .glow-orb-1 { top: -30%; left: 30%; width: 1200px; height: 1000px; background: radial-gradient(circle, rgba(6,182,212,.6), transparent 60%); opacity: .06; filter: blur(200px); animation: g1 16s ease-in-out infinite; }
-        .glow-orb-2 { bottom: -20%; right: -10%; width: 1000px; height: 800px; background: radial-gradient(circle, rgba(201,169,110,.5), transparent 60%); opacity: .03; filter: blur(180px); animation: g2 20s ease-in-out infinite; }
-        .glow-orb-3 { top: 30%; right: 20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(8,145,178,.4), transparent 60%); opacity: .04; filter: blur(160px); animation: g3 22s ease-in-out infinite; }
-        @keyframes g1 { 0%,100%{opacity:.06;transform:scale(1) translate(0,0)} 50%{opacity:.09;transform:scale(1.05) translate(30px,-20px)} }
-        @keyframes g2 { 0%,100%{opacity:.03;transform:translate(0,0)} 50%{opacity:.05;transform:translate(-25px,15px)} }
-        @keyframes g3 { 0%,100%{opacity:.04;transform:scale(1)} 50%{opacity:.06;transform:scale(1.1) translate(-15px,10px)} }
-        video::-webkit-media-controls { display: none !important; }
-        video::-webkit-media-controls-panel { display: none !important; }
-        video::-webkit-media-controls-play-button { display: none !important; }
-        video::-webkit-media-controls-start-playback-button { display: none !important; }
-        video::-moz-media-controls { display: none !important; }
-
-      `}</style>
-
-      <div className="min-h-screen text-white overflow-x-hidden ambient-glow" style={{ backgroundColor: darkBg }}>
-        <div className="glow-orb glow-orb-1" />
-        <div className="glow-orb glow-orb-2" />
-        <div className="glow-orb glow-orb-3" />
-
-        {/* Background Embers */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute rounded-full" style={{ top: "-15%", left: "45%", width: 900, height: 700, background: "radial-gradient(circle, rgba(6,182,212,1), transparent 70%)", opacity: 0.12, filter: "blur(160px)", animation: "cc-ember-breathe 14s ease-in-out infinite" }} />
-          <div className="absolute rounded-full" style={{ bottom: "-5%", left: "-8%", width: 780, height: 680, background: "radial-gradient(circle, rgba(201,169,110,1), transparent 70%)", opacity: 0.04, filter: "blur(150px)", animation: "cc-ember-drift 18s ease-in-out infinite" }} />
-          <div className="absolute rounded-full" style={{ top: "40%", right: "-5%", width: 500, height: 500, background: "radial-gradient(circle, rgba(34,211,238,1), transparent 70%)", opacity: 0.07, filter: "blur(130px)", animation: "cc-ember-breathe 22s ease-in-out infinite 5s" }} />
-          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 130% 90% at 50% 20%, transparent 40%, rgba(6,9,12,0.65) 100%)" }} />
-        </div>
-
-        {/* Nav */}
-        <nav
-          className={`fixed top-0 w-full z-50 transition-all duration-300`}
+        {/* Hero mockup */}
+        <div
+          data-reveal="6"
           style={{
-            backdropFilter: isScrolled ? "blur(24px)" : "none",
-            backgroundColor: isScrolled ? "rgba(12,12,12,0.75)" : "transparent",
-            borderBottom: isScrolled ? `1px solid rgba(8,145,178,0.15)` : "1px solid transparent",
+            position: "relative",
+            zIndex: 1,
+            maxWidth: 1080,
+            margin: "60px auto 0",
+            padding: "0 32px",
           }}
         >
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
-              <img src={connectaLoginLogo} alt="ConnectaCreators" className="h-8 object-contain" />
-            </motion.div>
-            <div className="hidden md:flex items-center gap-6">
-              <Link to="/scripts" className="relative inline-flex items-center px-6 py-2.5 font-semibold text-sm text-white/80 hover:text-white transition-colors overflow-visible" style={{ textDecoration: "none" }}>
-                <svg className="scribble-btn" viewBox="0 0 155 40" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
-                  <path d="M7,3 C38,1.5 95,1 132,2 C148,2.5 154,5 154,9 C155,15 155,25 154,32 C153,37 147,40 130,40.5 C98,41.5 48,41.5 22,40.5 C8,40 1,37 1,32 C0,24 0,13 1,9 C1.5,5 4,3.5 7,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:400, strokeDashoffset:400 }}/>
-                </svg>
-                Try Connecta
-              </Link>
-            </div>
-            <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ color: gold }}>
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="md:hidden px-6 py-4 border-t"
-              style={{ backgroundColor: "rgba(6,9,12,0.95)", borderColor: "rgba(8,145,178,0.2)", backdropFilter: "blur(24px)" }}
-            >
-              <Link to="/scripts" className="relative inline-flex items-center px-6 py-2.5 font-semibold text-sm text-white/80 hover:text-white transition-colors overflow-visible" style={{ textDecoration: "none" }}>
-                <svg className="scribble-btn" viewBox="0 0 155 40" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
-                  <path d="M7,3 C38,1.5 95,1 132,2 C148,2.5 154,5 154,9 C155,15 155,25 154,32 C153,37 147,40 130,40.5 C98,41.5 48,41.5 22,40.5 C8,40 1,37 1,32 C0,24 0,13 1,9 C1.5,5 4,3.5 7,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:400, strokeDashoffset:400 }}/>
-                </svg>
-                Try Connecta
-              </Link>
-            </motion.div>
-          )}
-        </nav>
-
-        {/* Hero + Demo wrapper with particles background */}
-        <div className="relative" style={{ zIndex: 2 }}>
-          {/* Background — floating particles + radial glow + noise */}
-          <div style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-            {/* Radial glow base */}
-            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.15) 0%, transparent 55%)" }} />
-            {/* Secondary glow */}
-            <div style={{ position: "absolute", top: "15%", left: "25%", width: "50%", height: "40%", background: "radial-gradient(ellipse at center, rgba(201,169,110,0.05) 0%, transparent 65%)" }} />
-            {/* Floating particles */}
-            {PARTICLES.map((p, i) => (
-              <div key={i} className="lp-particle" style={{
-                left: p.left, bottom: 0,
-                width: p.size, height: p.size,
-                background: p.color,
-                animationDuration: `${p.dur}s`,
-                animationDelay: `${p.del}s`,
-              }} />
-            ))}
-            {/* Noise grain overlay */}
-            <div className="lp-noise" style={{ position: "absolute", inset: 0, opacity: 0.06 }} />
-          </div>
-
-        {/* HERO */}
-        <section className="relative flex flex-col items-center" style={{ padding: "var(--lp-hero-pt) var(--lp-hero-px) 48px", zIndex: 1 }}>
-
-          <motion.div
-            className="text-center relative z-10"
-            style={{ maxWidth: 720 }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
-          >
-            <motion.div
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full mb-6"
-              style={{ border: "1px solid rgba(8,145,178,.15)", background: "rgba(8,145,178,.03)", fontSize: 10, color: "rgba(34,211,238,.55)", fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase" as const }}
-            >
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: gold, opacity: .5 }} />
-              AI-Powered Creator Platform
-            </motion.div>
-
-            <h1 style={{ fontSize: "var(--lp-h1-size)", fontWeight: 300, fontFamily: "'Big Caslon', 'Book Antiqua', 'Palatino Linotype', Palatino, Georgia, serif", lineHeight: "var(--lp-h1-lh)", marginBottom: 20, letterSpacing: "0.02em", wordSpacing: "normal", color: "rgba(255,255,255,.92)" }}>
-              Create viral short-form<br />
-              <b style={{ fontWeight: 700, background: goldGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>videos in seconds</b>
-            </h1>
-
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,.35)", lineHeight: 1.7, marginBottom: 36, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
-              Turn any viral video into a ready-to-edit asset, assign it to your team, and ship faster without the chaos.
-            </p>
-
-            <Link to="/dashboard" className="relative inline-flex items-center gap-2.5 px-8 py-3.5 text-white/80 hover:text-white transition-colors overflow-visible mx-auto" style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.02em", textDecoration: "none" }}>
-              <svg className="scribble-btn" viewBox="0 0 180 48" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
-                <path d="M8,3 C45,1.5 110,1 155,2 C170,2.5 178,5 179,10 C180,18 180,30 179,38 C178,43 172,46 155,47 C115,48 55,48 25,47 C10,46 2,43 2,38 C1,29 1,16 2,10 C2.5,6 5,3.5 8,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:400, strokeDashoffset:400 }}/>
-              </svg>
-              <Play size={14} />
-              Try It Free
-            </Link>
-          </motion.div>
-        </section>
-
-        {/* DEMO VIDEO */}
-        <DemoPlayer />
-        </div>{/* end Hero + Demo wrapper */}
-
-        {/* Ticker */}
-        <div
-          className="relative z-10 overflow-hidden border-y py-4"
-          style={{ borderColor: "rgba(8,145,178,0.12)", background: "rgba(0,0,0,0.25)" }}
-        >
-          <div style={{ display: "flex", animation: "cc-ticker 35s linear infinite", width: "max-content" }}>
-            {[0, 1].map((rep) => (
-              <div key={rep} className="flex items-center gap-10 px-10">
-                {tickerItems.map((item) => (
-                  <span key={item} className="flex items-center gap-4 whitespace-nowrap">
-                    <span style={{ fontSize: 12, color: gold, fontWeight: 500, letterSpacing: "0.03em" }}>{item}</span>
-                    <span style={{ color: "rgba(8,145,178,0.4)", fontSize: 16, lineHeight: 1 }}>·</span>
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
+          <SuperCanvasMock />
         </div>
+      </section>
 
-        {/* Feature Sections */}
-        {features.map((f, i) => (
-          <FeatureSection key={i} {...f} />
-        ))}
-
-        {/* Stats Bar */}
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
-          className="py-24 px-6 border-t relative z-10"
-          style={{ borderColor: borderGold }}
-        >
-          <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-6 text-center">
+      {/* ===== Logo strip ===== */}
+      <section style={{ padding: "60px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
+          <div
+            className="scroll-rise"
+            style={{
+              textAlign: "center",
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--bone-3)",
+              fontWeight: 600,
+              marginBottom: 28,
+            }}
+          >
+            Trusted by creators and the brands they work with
+          </div>
+          <div className="marquee-mask scroll-rise" style={{ overflow: "hidden" }}>
+            <div className="marquee">
               {[
-                { stat: "10x", label: "Faster script creation with AI", icon: <Zap size={22} style={{ color: gold }} /> },
-                { stat: "3hrs", label: "Saved per video on average", icon: <Clock size={22} style={{ color: gold }} /> },
-                { stat: "47%", label: "More leads captured vs manual tracking", icon: <TrendingUp size={22} style={{ color: gold }} /> },
-              ].map((item, i) => (
-                <motion.div
+                { name: "Aerie", italic: true },
+                { name: "PATAGONIA", italic: false },
+                { name: "Glossier", italic: true },
+                { name: "RHODE", italic: false },
+                { name: "Sezane", italic: true },
+                { name: "DJERF AVENUE", italic: false },
+              ].concat([
+                { name: "Aerie", italic: true },
+                { name: "PATAGONIA", italic: false },
+                { name: "Glossier", italic: true },
+                { name: "RHODE", italic: false },
+                { name: "Sezane", italic: true },
+                { name: "DJERF AVENUE", italic: false },
+              ]).map((logo, i) => (
+                <div
                   key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.12, duration: 0.6 }}
-                  viewport={{ once: true }}
-                  className="flex flex-col items-center"
+                  style={{
+                    fontFamily: logo.italic ? "'EB Garamond', serif" : "'Figtree', sans-serif",
+                    fontStyle: logo.italic ? "italic" : "normal",
+                    fontWeight: logo.italic ? 500 : 700,
+                    fontSize: logo.italic ? 26 : 16,
+                    letterSpacing: logo.italic ? "-0.01em" : "0.06em",
+                    color: "var(--bone-2)",
+                    opacity: 0.6,
+                    whiteSpace: "nowrap",
+                  }}
                 >
-                  <div className="mb-3">{item.icon}</div>
-                  <div className="cc-stats-num text-5xl sm:text-6xl font-light mb-2 text-gradient-brand">
-                    {item.stat}
-                  </div>
-                  <p className="text-sm leading-snug" style={{ color: "#666", maxWidth: 180 }}>{item.label}</p>
-                </motion.div>
+                  {logo.name}
+                </div>
               ))}
             </div>
           </div>
-        </motion.section>
+        </div>
+      </section>
 
-        {/* How It Works */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
-          className="py-24 px-6 border-t relative z-10"
-          style={{ borderColor: borderGold }}
-        >
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-16">
-              <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 12 }}>HOW IT WORKS</p>
-              <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white">Up and Running in Minutes</h2>
-            </div>
-            <div className="relative">
-              {/* Connecting line */}
-              <div
-                className="hidden md:block absolute top-8 left-[17%] right-[17%] h-px"
-                style={{ background: "linear-gradient(90deg, transparent, rgba(8,145,178,0.25) 20%, rgba(8,145,178,0.25) 80%, transparent)" }}
-              />
-              <div className="grid md:grid-cols-3 gap-10 md:gap-8 relative">
+      {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
+      <section id="brain" style={{ padding: "140px 0", position: "relative", overflow: "hidden" }}>
+        <div
+          aria-hidden
+          className="glow-aqua"
+          style={{ position: "absolute", top: "-10%", left: "-10%", width: 480, height: 480, opacity: 0.4 }}
+        />
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
+          <div
+            className="scroll-rise"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1.2fr",
+              gap: 80,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <span className="eyebrow">The Jarvis</span>
+              <h2 className="section-h2" style={{ margin: "16px 0 22px" }}>
+                <em className="soft">The brain.</em>
+                <br />
+                It plans before <em className="aqua">you post.</em>
+              </h2>
+              <p className="section-lede" style={{ marginBottom: 28 }}>
+                Super Canvas studies your brand voice, your audience, what's spiking on the
+                feed, and what your last 50 posts taught it. Then it lays out the next 30
+                days — visually, editably, in one place.
+              </p>
+
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 14 }}>
                 {[
-                  { num: "01", title: "Onboard Your Brand", desc: "Fill in your niche, audience, tone, and goals. Connecta learns your brand voice in minutes.", icon: <Users size={20} style={{ color: gold }} /> },
-                  { num: "02", title: "Generate & Deliver", desc: "AI writes scripts, your calendar syncs, editing queue updates — everything connected automatically.", icon: <Zap size={20} style={{ color: gold }} /> },
-                  { num: "03", title: "Track & Grow", desc: "Monitor leads, bookings, and analytics from one dashboard. Scale what's already working.", icon: <TrendingUp size={20} style={{ color: gold }} /> },
-                ].map((step, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.15, duration: 0.6 }}
-                    viewport={{ once: true }}
-                    className="glass-card rounded-xl p-6 text-center"
-                  >
+                  ["Brand voice trained on your last 50 posts", "Captions in your tone"],
+                  ["30-day strategy generated in a single click", "Strategy mode"],
+                  ["Live trend overlays from Viral Today", "Trend layer"],
+                  ["Drag, rewrite, regenerate — every node is editable", "Always interactive"],
+                ].map(([line, tag], i) => (
+                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: "var(--aqua)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ flex: 1, fontSize: 15, color: "var(--bone)" }}>{line}</span>
+                    <span className="pill pill-aqua" style={{ fontSize: 10 }}>
+                      {tag}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <Link to="/scripts" className="btn btn-aqua">
+                  Open Super Canvas <ArrowRight size={15} />
+                </Link>
+                <a href="#viral" className="btn btn-ghost">See trends</a>
+              </div>
+            </div>
+
+            {/* Canvas mini-perspective (different from hero) */}
+            <div style={{ minWidth: 0 }}>
+              <div
+                className="card"
+                style={{
+                  padding: 24,
+                  background: "linear-gradient(135deg, var(--graphite) 0%, #15191F 100%)",
+                  position: "relative",
+                }}
+              >
+                <div className="flex items-center justify-between" style={{ marginBottom: 18 }}>
+                  <span className="eyebrow">Today's plan · auto-drafted</span>
+                  <span className="pill pill-aqua"><span className="pill-dot" />live</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    { time: "MON 9:00 AM", title: "Spring lookbook · Reel", platform: "IG", status: "Scheduled", pill: "aqua" as const },
+                    { time: "MON 7:00 PM", title: "Behind the shoot — day 1", platform: "TikTok", status: "Drafting", pill: "honey" as const },
+                    { time: "TUE 12:00 PM", title: "Skincare partner ask", platform: "Shorts", status: "In review", pill: "honey" as const },
+                    { time: "WED 8:00 PM", title: "\"3 things I wish I knew…\"", platform: "Reel", status: "Hook ready", pill: "aqua" as const },
+                    { time: "THU 6:00 PM", title: "Recurring · weekly recap", platform: "IG", status: "Auto", pill: "aqua" as const },
+                  ].map((row, i) => (
                     <div
-                      className="flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-5 relative z-10"
-                      style={{ background: "rgba(8,145,178,0.1)", border: "1px solid rgba(8,145,178,0.3)" }}
+                      key={i}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "76px 1fr auto",
+                        gap: 14,
+                        alignItems: "center",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        background: "rgba(234,230,220,0.02)",
+                        border: "1px solid var(--line)",
+                        fontSize: 12.5,
+                      }}
                     >
-                      {step.icon}
+                      <span
+                        style={{
+                          fontFamily: "'Figtree', monospace",
+                          fontSize: 10.5,
+                          color: "var(--bone-3)",
+                          letterSpacing: "0.06em",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {row.time}
+                      </span>
+                      <div>
+                        <div className="serif" style={{ fontSize: 14, color: "var(--bone)" }}>
+                          {row.title}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 1 }}>
+                          {row.platform}
+                        </div>
+                      </div>
+                      <span className={`pill pill-${row.pill}`} style={{ fontSize: 10 }}>
+                        {row.status}
+                      </span>
                     </div>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(8,145,178,0.65)", marginBottom: 6, letterSpacing: "0.08em" }}>{step.num}</p>
-                    <h3 className="text-base font-semibold mb-2 text-white">{step.title}</h3>
-                    <p className="text-sm leading-relaxed" style={{ color: "#666" }}>{step.desc}</p>
-                  </motion.div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Section 2 — VIRAL TODAY ===== */}
+      <section id="viral" style={{ padding: "120px 0", borderTop: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
+        <div
+          aria-hidden
+          className="glow-honey"
+          style={{ position: "absolute", top: "30%", right: "-15%", width: 600, height: 400, opacity: 0.35 }}
+        />
+        <div
+          className="curl curl-hide-mobile scroll-rise"
+          style={{ top: 80, left: "8%", transform: "rotate(-5deg)" }}
+        >
+          before the algorithm catches on
+        </div>
+
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
+          <div
+            className="scroll-rise"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.1fr 1fr",
+              gap: 80,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <ViralTodayMock />
+            </div>
+
+            <div>
+              <span className="eyebrow eyebrow-honey">Viral Today</span>
+              <h2 className="section-h2" style={{ margin: "16px 0 22px" }}>
+                What's working <em className="soft">right now,</em>
+                <br />
+                <em className="honey">sorted for you.</em>
+              </h2>
+              <p className="section-lede" style={{ marginBottom: 28 }}>
+                Connecta scans the feeds your audience is on, flags outlier videos that beat
+                their channel's average by 8× or more, and shows you the hooks before everyone
+                else copies them.
+              </p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 32 }}>
+                {[
+                  { num: "01", title: "Spot the trend", body: "Sorted by outlier score, not view count." },
+                  { num: "02", title: "Borrow the hook", body: "One-click remix into your voice." },
+                  { num: "03", title: "Ship it", body: "Push to Super Canvas. Done by Tuesday." },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    className="card"
+                    style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 6 }}
+                  >
+                    <span style={{ fontFamily: "'Figtree', monospace", fontSize: 11, color: "var(--honey)", letterSpacing: "0.1em", fontWeight: 700 }}>
+                      {s.num}
+                    </span>
+                    <div className="serif" style={{ fontSize: 17, color: "var(--bone)", letterSpacing: "-0.005em" }}>
+                      {s.title}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "var(--bone-3)", lineHeight: 1.5 }}>
+                      {s.body}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Link to="/scripts" className="btn btn-honey">
+                Open Viral Today <ArrowRight size={15} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Section 3 — PIPELINE (Editing / Calendar / Companion) ===== */}
+      <section id="pipeline" style={{ padding: "120px 0", borderTop: "1px solid var(--line)", position: "relative" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
+          <div className="scroll-rise">
+            <span className="eyebrow">The pipeline</span>
+            <h2 className="section-h2" style={{ margin: "16px auto 22px", maxWidth: 760 }}>
+              The production layer
+              <br />
+              <em className="soft">underneath the strategy.</em>
+            </h2>
+            <p className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center" }}>
+              Plans only matter if they ship. The pipeline tracks every video from idea to
+              edit to approval — so nothing dies in a Slack thread.
+            </p>
+          </div>
+
+          <div
+            className="scroll-rise"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 18,
+              textAlign: "left",
+            }}
+          >
+            <PipelineCard
+              eyebrow="Editing Queue"
+              icon={Film}
+              title="Every cut, every revision, in one place."
+              body="Editors and clients see the same screen. No more Slack archaeology to find the latest version."
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[
+                  { title: "Spring lookbook reel", state: "Cut 3 · review", pill: "honey" as const },
+                  { title: "Skincare routine v3", state: "Approved", pill: "aqua" as const },
+                  { title: "Behind the shoot", state: "Drafting", pill: "muted" as const },
+                ].map((r, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 12 }}>
+                    <span className="serif" style={{ color: "var(--bone-2)", fontSize: 13 }}>{r.title}</span>
+                    <span className={`pill pill-${r.pill}`}>{r.state}</span>
+                  </div>
+                ))}
+              </div>
+            </PipelineCard>
+
+            <PipelineCard
+              eyebrow="Content Calendar"
+              icon={Calendar}
+              title="A calendar that thinks ahead."
+              body="Drag posts across platforms. Companion AI suggests the best slot based on your audience and past performance."
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                {Array.from({ length: 21 }).map((_, i) => {
+                  const has = [3, 4, 7, 10, 11, 14, 17].includes(i);
+                  const hot = [4, 11].includes(i);
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        aspectRatio: "1",
+                        borderRadius: 6,
+                        background: has
+                          ? hot
+                            ? "var(--honey-soft)"
+                            : "var(--aqua-soft)"
+                          : "rgba(234,230,220,0.04)",
+                        border: "1px solid var(--line)",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </PipelineCard>
+
+            <PipelineCard
+              eyebrow="Companion AI"
+              icon={Sparkles}
+              title="Drafts in your voice, before you ask."
+              body="Hooks, captions, scripts, follow-ups — all generated in your tone, ready to tweak. You stay in the director's chair."
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 12.5, color: "var(--bone-2)", fontStyle: "italic" }} className="serif-italic">
+                  "Caption that feels like Luna — 9 words, low-key, no exclamation marks."
+                </div>
+                <div style={{ height: 1, background: "var(--line)" }} />
+                <div style={{ fontSize: 13, color: "var(--bone)", lineHeight: 1.5 }}>
+                  morning chaos, golden hour, same routine. spring is just <em className="honey">showing off.</em>
+                </div>
+              </div>
+            </PipelineCard>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Section 4 — PUBLISHING teaser ===== */}
+      <section style={{ padding: "100px 0", borderTop: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
+        <div
+          aria-hidden
+          className="glow-honey"
+          style={{ position: "absolute", top: "20%", left: "-10%", width: 500, height: 300, opacity: 0.25 }}
+        />
+        <div className="scroll-rise" style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 60,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="pill pill-honey" style={{ marginBottom: 18 }}>
+                <span className="pill-dot" /> Coming late 2026
+              </span>
+              <h2 className="section-h2" style={{ margin: "12px 0 18px", fontSize: "clamp(36px, 4.6vw, 52px)" }}>
+                Soon, <em className="honey">the last mile.</em>
+              </h2>
+              <p className="section-lede" style={{ marginBottom: 24 }}>
+                Strategy → production → publish. We're closing the loop. Hit one button and your week ships
+                to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested.
+              </p>
+              <a
+                href="#"
+                className="btn btn-ghost"
+                style={{ fontSize: 13 }}
+              >
+                Get notified at launch
+              </a>
+            </div>
+
+            <div
+              className="card"
+              style={{
+                padding: 24,
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backdropFilter: "blur(6px)",
+                  background: "rgba(10,14,18,0.45)",
+                  zIndex: 2,
+                  pointerEvents: "none",
+                }}
+              />
+              <div style={{ position: "absolute", top: 20, right: 24, zIndex: 3 }}>
+                <span className="pill pill-honey" style={{ fontSize: 10 }}>
+                  <Send size={10} /> Preview
+                </span>
+              </div>
+
+              <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingBottom: 12,
+                    borderBottom: "1px solid var(--line)",
+                  }}
+                >
+                  <span className="eyebrow">Publish queue · Wed</span>
+                  <span className="pill pill-aqua">5 of 5 ready</span>
+                </div>
+                {["IG · Spring lookbook reel", "TikTok · Soft launch chaos", "Shorts · Skincare routine v3", "Reels · Behind the shoot", "IG Story · Friday recap"].map((row, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
+                    <span className="serif" style={{ color: "var(--bone-2)" }}>{row}</span>
+                    <span className="pill pill-aqua" style={{ fontSize: 10 }}>
+                      <span className="pill-dot" /> queued
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
-        </motion.section>
+        </div>
+      </section>
 
-        {/* CTA Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
-          className="py-28 px-6 border-t relative z-10"
-          style={{ borderColor: borderGold }}
+      {/* ===== Section 5 — TESTIMONIAL ===== */}
+      <section style={{ padding: "120px 0", borderTop: "1px solid var(--line)", textAlign: "center" }}>
+        <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
+          <div
+            className="serif"
+            style={{
+              fontSize: "clamp(28px, 4.2vw, 48px)",
+              lineHeight: 1.2,
+              letterSpacing: "-0.015em",
+              fontWeight: 500,
+              marginBottom: 36,
+              color: "var(--bone)",
+            }}
+          >
+            <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
+            I went from <em className="soft">16 spreadsheets and a panic attack every Sunday</em> to one clean Monday morning.
+            My editor finally knows what's next, and my strategy isn't a vibe anymore — it's a screen.
+            <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                background: "var(--honey)",
+                color: "var(--ink)",
+                display: "grid",
+                placeItems: "center",
+                fontFamily: "'EB Garamond', serif",
+                fontStyle: "italic",
+                fontWeight: 500,
+                fontSize: 22,
+              }}
+            >
+              A
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: "var(--bone)" }}>Aria Wells</div>
+              <div style={{ fontSize: 12.5, color: "var(--bone-3)" }}>Creator · 2.4M followers · runs her own brand</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Section 6 — PRICING ===== */}
+      <section id="pricing" style={{ padding: "120px 0", borderTop: "1px solid var(--line)", background: "rgba(234,230,220,0.015)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
+          <div className="scroll-rise" style={{ textAlign: "center", marginBottom: 56 }}>
+            <span className="eyebrow">Pricing</span>
+            <h2 className="section-h2" style={{ margin: "16px auto 18px", maxWidth: 640 }}>
+              Pick a plan, <em className="soft">change it any time.</em>
+            </h2>
+            <p className="section-lede" style={{ margin: "0 auto" }}>
+              Start free for 14 days. Upgrade when your editor begs you to.
+            </p>
+          </div>
+
+          <div
+            className="scroll-rise"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 18,
+              alignItems: "stretch",
+            }}
+          >
+            {[
+              {
+                name: "Solo",
+                blurb: "For creators flying solo.",
+                price: "$19",
+                period: "/mo",
+                features: [
+                  "Super Canvas · 1 brand",
+                  "Viral Today · 1 niche",
+                  "Companion AI · 50 drafts/mo",
+                  "Calendar + Queue",
+                ],
+                cta: "Start free",
+                featured: false,
+              },
+              {
+                name: "Studio",
+                blurb: "For creators with a team.",
+                price: "$49",
+                period: "/mo",
+                features: [
+                  "Everything in Solo",
+                  "Unlimited brands + editors",
+                  "Companion AI · unlimited",
+                  "Contracts + invoicing",
+                  "Priority support",
+                ],
+                cta: "Start 14-day trial",
+                featured: true,
+              },
+              {
+                name: "Agency",
+                blurb: "For agencies running 10+ creators.",
+                price: "$199",
+                period: "/mo",
+                features: [
+                  "Everything in Studio",
+                  "Master queue across clients",
+                  "White-label client portal",
+                  "Dedicated success manager",
+                ],
+                cta: "Book a demo",
+                featured: false,
+              },
+            ].map((plan, i) => (
+              <div
+                key={i}
+                className={`card ${plan.featured ? "" : "card-lift"}`}
+                style={{
+                  padding: "32px 28px",
+                  position: "relative",
+                  background: plan.featured ? "var(--bone)" : undefined,
+                  color: plan.featured ? "var(--ink)" : undefined,
+                  borderColor: plan.featured ? "var(--bone)" : undefined,
+                  transform: plan.featured ? "scale(1.02)" : undefined,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 20,
+                }}
+              >
+                {plan.featured && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 22,
+                      right: 22,
+                      background: "var(--honey)",
+                      color: "var(--ink)",
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Most loved
+                  </span>
+                )}
+                <div>
+                  <h3 className="serif" style={{ fontSize: 24, margin: 0, fontWeight: 500, color: plan.featured ? "var(--ink)" : "var(--bone)" }}>
+                    {plan.name}
+                  </h3>
+                  <div style={{ fontSize: 13, color: plan.featured ? "rgba(10,14,18,0.65)" : "var(--bone-3)", marginTop: 4 }}>
+                    {plan.blurb}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span className="serif" style={{ fontSize: 60, fontWeight: 500, letterSpacing: "-0.02em", color: plan.featured ? "var(--ink)" : "var(--bone)", lineHeight: 1 }}>
+                    {plan.price}
+                  </span>
+                  <span style={{ fontSize: 16, color: plan.featured ? "rgba(10,14,18,0.55)" : "var(--bone-3)", fontStyle: "italic" }}>
+                    {plan.period}
+                  </span>
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                  {plan.features.map((f, j) => (
+                    <li
+                      key={j}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        fontSize: 14,
+                        color: plan.featured ? "rgba(10,14,18,0.75)" : "var(--bone-2)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          marginTop: 6,
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: plan.featured ? "var(--ink)" : "var(--aqua)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/scripts"
+                  className={`btn ${plan.featured ? "btn-honey" : "btn-ghost"}`}
+                  style={{ justifyContent: "center", width: "100%" }}
+                >
+                  {plan.cta} {!plan.featured && <ArrowRight size={14} />}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FINAL CTA ===== */}
+      <section style={{ padding: "140px 0", borderTop: "1px solid var(--line)", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div
+          aria-hidden
+          className="glow-aqua"
+          style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 700, height: 400, opacity: 0.5 }}
+        />
+        <div
+          className="curl curl-hide-mobile scroll-rise"
+          style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)" }}
         >
-          <div className="max-w-3xl mx-auto text-center relative">
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div style={{ width: 600, height: 350, background: "radial-gradient(ellipse, rgba(6,182,212,0.1), transparent 70%)", filter: "blur(40px)" }} />
-            </div>
-            <div className="relative">
-              <p style={{ fontSize: 10, fontWeight: 700, color: gold, letterSpacing: "0.14em", marginBottom: 16 }}>GET STARTED TODAY</p>
-              <h2 className="text-3xl sm:text-5xl md:text-6xl font-light tracking-tight mb-6 leading-tight text-white font-caslon" style={{ letterSpacing: "0.02em" }}>
-                Ready to Create Content{" "}
-                <span className="text-gradient-brand" style={{ fontWeight: 600 }}>
-                  That Converts?
-                </span>
-              </h2>
-              <p className="text-lg mb-10" style={{ color: "#666" }}>
-                Join the creators already using Connecta to scale their personal brand.
-              </p>
-              <Link to="/dashboard" className="cc-cta-btn relative inline-flex items-center gap-3 px-10 py-5 font-semibold text-base text-white/80 hover:text-white transition-colors overflow-visible mx-auto" style={{ textDecoration: "none" }}>
-                <svg className="scribble-btn" viewBox="0 0 225 56" preserveAspectRatio="none" style={{ position:"absolute", inset:-2, width:"calc(100% + 4px)", height:"calc(100% + 4px)", overflow:"visible", pointerEvents:"none", opacity:0 }}>
-                  <path d="M10,3 C55,1.5 145,1 193,2 C212,2.5 222,6 223,12 C224,21 224,35 223,44 C222,50 213,54 190,55 C148,56 72,56 32,55 C13,54 2,50 2,44 C1,34 1,19 2,12 C2.5,7 6,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:500, strokeDashoffset:500 }}/>
-                </svg>
-                Start Free Today
-                <ArrowRight size={18} />
+          a calmer creator economy starts here
+        </div>
+        <div
+          className="curl curl-hide-mobile scroll-rise"
+          style={{ top: 80, right: "8%", transform: "rotate(6deg)" }}
+        >
+          — your strategy team in a screen
+        </div>
+
+        <div className="scroll-rise" style={{ maxWidth: 880, margin: "0 auto", padding: "0 32px", position: "relative" }}>
+          <h2
+            className="serif"
+            style={{
+              fontSize: "clamp(48px, 8vw, 96px)",
+              lineHeight: 1.0,
+              letterSpacing: "-0.025em",
+              fontWeight: 500,
+              margin: "0 0 24px",
+            }}
+          >
+            Stop guessing.
+            <br />
+            <em className="aqua">Start directing.</em>
+          </h2>
+          <p style={{ fontSize: 18, color: "var(--bone-2)", maxWidth: 560, margin: "0 auto 36px", lineHeight: 1.55 }}>
+            14 days free. No credit card. Bring your existing chaos — Connecta will fold it
+            neatly into a 30-day plan within five minutes.
+          </p>
+          <Link to="/scripts" className="btn btn-aqua btn-large">
+            Get started <ArrowRight size={16} />
+          </Link>
+          <div style={{ marginTop: 18, fontSize: 12.5, color: "var(--bone-3)" }}>
+            Free trial · cancel anytime · made in LA
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FOOTER ===== */}
+      <footer style={{ padding: "60px 0 40px", borderTop: "1px solid var(--line)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr 1fr 1fr",
+              gap: 40,
+              marginBottom: 48,
+            }}
+          >
+            <div>
+              <Link to="/" style={{ display: "inline-flex", alignItems: "baseline", marginBottom: 14 }}>
+                <span className="serif" style={{ fontSize: 24, color: "var(--bone)" }}>Connect</span>
+                <span className="serif-italic" style={{ fontSize: 24, color: "var(--honey)" }}>a</span>
               </Link>
+              <p style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6 }}>
+                The AI strategist for creators and the brands they work with.
+              </p>
+            </div>
+            {[
+              { title: "Product", items: ["Super Canvas", "Viral Today", "Editing Queue", "Calendar", "Companion AI", "Publishing (soon)"] },
+              { title: "Resources", items: ["Guides", "Templates", "Changelog", "API"] },
+              { title: "Company", items: ["About", "Careers", "Press", "Contact"] },
+            ].map((col, i) => (
+              <div key={i}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: "var(--bone-3)",
+                    marginBottom: 14,
+                  }}
+                >
+                  {col.title}
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {col.items.map((item, j) => (
+                    <li key={j} style={{ padding: "4px 0", fontSize: 14, color: "var(--bone-2)" }}>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px solid var(--line)",
+              paddingTop: 22,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: 12.5,
+              color: "var(--bone-3)",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <div>© 2026 Connecta. Made in Los Angeles.</div>
+            <div style={{ display: "flex", gap: 18 }}>
+              <a href="#" className="scribble-link">Privacy</a>
+              <a href="#" className="scribble-link">Terms</a>
+              <a href="#" className="scribble-link">Status</a>
             </div>
           </div>
-        </motion.section>
-
-        {/* Footer */}
-        <footer className="border-t py-8 px-6 relative z-10" style={{ borderColor: borderGold }}>
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img src={connectaLoginLogo} alt="ConnectaCreators" className="h-6 object-contain opacity-60" />
-              <span style={{ fontSize: 11, color: "#444" }}>© 2026 ConnectaCreators</span>
-            </div>
-            <div className="flex items-center gap-6 flex-wrap justify-center">
-              <Link to="/dashboard" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Dashboard</Link>
-              <Link to="/login" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Login</Link>
-              <Link to="/privacy-policy" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Privacy Policy</Link>
-              <Link to="/terms-and-conditions" style={{ fontSize: 12, color: "#444" }} className="hover:text-white transition-colors duration-200">Terms of Service</Link>
-            </div>
-          </div>
-        </footer>
-
-      </div>
-    </>
+        </div>
+      </footer>
+    </div>
   );
 }
-
