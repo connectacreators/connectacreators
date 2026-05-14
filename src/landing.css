@@ -201,7 +201,11 @@ html, body, #root { margin: 0; padding: 0; }
   font-family: 'EB Garamond', Georgia, serif;
   font-size: clamp(26px, 3.4vw, 42px);
   line-height: 1.1;
-  letter-spacing: -0.015em;
+  /* Slight positive letter-spacing — the H2 chars are split into
+     .prox-letter inline-blocks for animation, which packs the locked-
+     width slots tight together. A small positive value gives the
+     letters air without re-introducing the H1's kerning gap. */
+  letter-spacing: 0.005em;
   font-weight: 500;
   margin: 0;
   padding-bottom: 0.18em; /* breathing room for the scribble-under ::after */
@@ -213,7 +217,7 @@ html, body, #root { margin: 0; padding: 0; }
   font-family: 'EB Garamond', Georgia, serif;
   font-size: clamp(34px, 5.2vw, 60px);
   line-height: 1.04;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   font-weight: 500;
   margin: 0;
   padding-bottom: 0.14em;
