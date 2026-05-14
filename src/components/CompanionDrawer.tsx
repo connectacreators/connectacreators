@@ -53,7 +53,7 @@ interface MsgRow {
   created_at: string;
 }
 
-export default function CompanionDrawer() {
+export default function CompanionDrawer({ closing = false }: { closing?: boolean }) {
   const {
     companionName,
     clientId: ownClientId,
@@ -354,7 +354,7 @@ export default function CompanionDrawer() {
 
   return (
     <aside
-      className="fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none"
+      className={`fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none will-change-transform ${closing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
       style={{
         background: "rgba(20, 20, 20, 0.55)",
         backdropFilter: "blur(28px)",

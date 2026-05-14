@@ -129,6 +129,22 @@ export default {
 					'50%': {
 						opacity: '0.8'
 					}
+				},
+				'slide-in-right': {
+					'0%': {
+						transform: 'translateX(100%)'
+					},
+					'100%': {
+						transform: 'translateX(0)'
+					}
+				},
+				'slide-out-right': {
+					'0%': {
+						transform: 'translateX(0)'
+					},
+					'100%': {
+						transform: 'translateX(100%)'
+					}
 				}
 			},
 			animation: {
@@ -137,7 +153,9 @@ export default {
 				'fade-in': 'fade-in 0.6s ease-out forwards',
 				'slide-up': 'slide-up 0.8s ease-out forwards',
 				'scale-in': 'scale-in 0.5s ease-out forwards',
-				'glow': 'glow 2s ease-in-out infinite'
+				'glow': 'glow 2s ease-in-out infinite',
+				'slide-in-right': 'slide-in-right 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+				'slide-out-right': 'slide-out-right 220ms cubic-bezier(0.4, 0, 1, 1) forwards'
 			},
 			backdropBlur: {
 				'subtle': '20px',
