@@ -91,7 +91,7 @@ export default function CompanionBubble() {
           <img
             src="/favicon-transparent.png"
             alt="Connecta"
-            className="w-9 h-9 object-contain"
+            className="w-6 h-6 object-contain"
             style={{ filter: "brightness(0) invert(1)" }}
           />
         )}
