@@ -394,12 +394,13 @@ export default function MasterEditingQueue() {
         consumedAny = true;
         switch (modal) {
           case "revisions":
-            setRevisionDialogItem(item);
-            setRevisionText(item.revisions ?? "");
-            break;
           case "review":
             setReviewItem(item);
             setReviewModalOpen(true);
+            break;
+          case "notes":
+            setRevisionDialogItem(item);
+            setRevisionText(item.revisions ?? "");
             break;
           case "footage":
             setFootageViewerItem(item);

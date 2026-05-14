@@ -12,7 +12,7 @@ export const EDITING_TOOLS: ToolDef[] = [
       properties: {
         client_name: { type: "string", description: "Client name. Omit to navigate to the admin master view." },
         item_title: { type: "string", description: "Title or partial title of the editing item to open." },
-        modal: { type: "string", description: "Optional modal to open on the item: revisions | review | footage | caption | deadline | schedule | delete" },
+        modal: { type: "string", description: "Optional modal to open on the item: revisions (or 'review') opens the video review modal where the user watches the video and adds revision comments. 'notes' opens a text-only revision-instructions textarea. footage / caption / deadline / schedule / delete open their respective modals." },
       },
       required: ["item_title"],
     },
@@ -270,7 +270,7 @@ export async function handleEditingTool(
 
   if (block.name === "open_editing_item") {
     const { client_name, item_title, modal } = block.input as { client_name?: string; item_title: string; modal?: string };
-    const validModals = ["revisions", "review", "footage", "caption", "deadline", "schedule", "delete"];
+    const validModals = ["revisions", "review", "notes", "footage", "caption", "deadline", "schedule", "delete"];
     if (modal && !validModals.includes(modal)) {
       return { type: "tool_result", tool_use_id: block.id, content: `Invalid modal "${modal}". Use one of: ${validModals.join(", ")}.` };
     }

@@ -366,12 +366,13 @@ export default function EditingQueue() {
         // Modal routing — match the modal param to the existing state setter.
         switch (modal) {
           case "revisions":
-            setRevisionDialogItem(item);
-            setRevisionText(item.revisions ?? "");
-            break;
           case "review":
             setReviewItem(item);
             setReviewModalOpen(true);
+            break;
+          case "notes":
+            setRevisionDialogItem(item);
+            setRevisionText(item.revisions ?? "");
             break;
           case "footage":
             setFootageViewerItem(item);
