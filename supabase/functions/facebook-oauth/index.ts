@@ -200,13 +200,48 @@ serve(async (req) => {
       const pagesRes = await fetch(
         `${FB_API}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedUserToken}`
       );
-      if (!pagesRes.ok) return jsonError("Failed to fetch pages", 400);
+      if (!pagesRes.ok) {
+        const err = await pagesRes.text();
+        return jsonError(`Failed to fetch pages: ${pagesRes.status} ${err}`, 400);
+      }
       const pagesData = await pagesRes.json();
       const pages: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }> =
         pagesData.data || [];
 
       if (pages.length === 0) {
-        return jsonError("No Facebook Pages found for this user.", 400);
+        // Diagnostic: fetch granted permissions + identify the FB user so we know
+        // whether this is a "no pages" or a "scope not granted" problem.
+        let grantedScopes: string[] = [];
+        let deniedScopes: string[] = [];
+        let fbUser: { id?: string; name?: string } = {};
+        try {
+          const permRes = await fetch(`${FB_API}/me/permissions?access_token=${longLivedUserToken}`);
+          if (permRes.ok) {
+            const permData = await permRes.json();
+            for (const p of permData.data || []) {
+              if (p.status === "granted") grantedScopes.push(p.permission);
+              else deniedScopes.push(p.permission);
+            }
+          }
+        } catch { /* ignore */ }
+        try {
+          const meRes = await fetch(`${FB_API}/me?fields=id,name&access_token=${longLivedUserToken}`);
+          if (meRes.ok) fbUser = await meRes.json();
+        } catch { /* ignore */ }
+
+        const diag = {
+          fb_user: fbUser,
+          granted: grantedScopes,
+          declined: deniedScopes,
+          raw_pages_response: pagesData,
+        };
+        console.log("0 pages diagnostic:", JSON.stringify(diag));
+        return jsonError(
+          `No Facebook Pages found. FB user: ${fbUser.name ?? fbUser.id ?? "unknown"}. ` +
+          `Granted: ${grantedScopes.join(",") || "(none)"}. ` +
+          `Declined: ${deniedScopes.join(",") || "(none)"}.`,
+          400
+        );
       }
 
       // 4. If front-end picked a specific page, use it; otherwise return the
