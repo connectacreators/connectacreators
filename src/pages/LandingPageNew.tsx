@@ -908,10 +908,10 @@ export default function LandingPageNew() {
                 fontSize: 24,
                 color: "var(--bone)",
                 letterSpacing: "-0.005em",
-                fontWeight: 500,
+                fontWeight: 700,
               }}
             >
-              connect<span style={{ fontStyle: "italic", color: "var(--honey)" }}>a</span>
+              connecta
             </span>
           </Link>
 
@@ -1027,61 +1027,60 @@ export default function LandingPageNew() {
           <h1
             className="serif"
             style={{
-              fontSize: "clamp(52px, 10vw, 144px)",
-              lineHeight: 0.98,
-              letterSpacing: "-0.03em",
+              fontSize: "clamp(40px, 7vw, 88px)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.025em",
               fontWeight: 500,
               margin: 0,
               marginBottom: 26,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              paddingBottom: "0.08em",
             }}
           >
-            <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
-              <LetterRise text="Go " delay={0.25} step={0.04} />
-              <span
-                className="serif-italic scribble-hover"
-                style={{
-                  display: "inline-block",
-                  color: "var(--honey)",
-                  fontWeight: 400,
-                }}
-              >
-                <LetterRise text="Viral," delay={0.40} step={0.04} />
-                {/* sparkles — appear on hover with spring scale */}
-                <svg className="spark s1" viewBox="0 0 24 24" aria-hidden>
-                  <path
-                    d="M12 1 L14.2 9.8 L23 12 L14.2 14.2 L12 23 L9.8 14.2 L1 12 L9.8 9.8 Z"
-                    fill="var(--honey)"
-                    stroke="var(--ink)"
-                    strokeWidth="1.6"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <svg className="spark s2" viewBox="0 0 24 24" aria-hidden>
-                  <path
-                    d="M12 3 L13.5 10.5 L21 12 L13.5 13.5 L12 21 L10.5 13.5 L3 12 L10.5 10.5 Z"
-                    fill="var(--aqua)"
-                    stroke="var(--ink)"
-                    strokeWidth="1.6"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <svg className="spark s3" viewBox="0 0 24 24" aria-hidden>
-                  <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
-                </svg>
-              </span>
+            <LetterRise text="Go " delay={0.25} step={0.04} />
+            <span
+              className="serif-italic scribble-hover"
+              style={{
+                display: "inline-block",
+                color: "var(--honey)",
+                fontWeight: 400,
+              }}
+            >
+              <LetterRise text="Viral," delay={0.40} step={0.04} />
+              {/* sparkles — appear on hover with spring scale */}
+              <svg className="spark s1" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  d="M12 1 L14.2 9.8 L23 12 L14.2 14.2 L12 23 L9.8 14.2 L1 12 L9.8 9.8 Z"
+                  fill="var(--honey)"
+                  stroke="var(--ink)"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <svg className="spark s2" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  d="M12 3 L13.5 10.5 L21 12 L13.5 13.5 L12 21 L10.5 13.5 L3 12 L10.5 10.5 Z"
+                  fill="var(--aqua)"
+                  stroke="var(--ink)"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <svg className="spark s3" viewBox="0 0 24 24" aria-hidden>
+                <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
+              </svg>
             </span>
-            <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
-              <LetterRise text="Get " delay={0.68} step={0.04} />
-              <span
-                className="serif-italic"
-                style={{
-                  display: "inline-block",
-                  color: "var(--aqua)",
-                  fontWeight: 400,
-                }}
-              >
-                <LetterRise text="Clients." delay={0.85} step={0.04} />
-              </span>
+            <LetterRise text=" Get " delay={0.62} step={0.04} />
+            <span
+              className="serif-italic"
+              style={{
+                display: "inline-block",
+                color: "var(--aqua)",
+                fontWeight: 400,
+              }}
+            >
+              <LetterRise text="Clients." delay={0.78} step={0.04} />
             </span>
           </h1>
 
@@ -1285,9 +1284,9 @@ export default function LandingPageNew() {
           baseRotation={5}
           style={{
             position: "absolute",
-            top: 60,
+            top: 40,
             right: "3%",
-            width: 130,
+            width: 230,
             height: "auto",
             zIndex: 4,
             pointerEvents: "none",
@@ -1820,10 +1819,10 @@ export default function LandingPageNew() {
                     fontSize: 28,
                     color: "var(--bone)",
                     letterSpacing: "-0.005em",
-                    fontWeight: 500,
+                    fontWeight: 700,
                   }}
                 >
-                  connect<span style={{ fontStyle: "italic", color: "var(--honey)" }}>a</span>
+                  connecta
                 </span>
               </Link>
               <p style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6 }}>
