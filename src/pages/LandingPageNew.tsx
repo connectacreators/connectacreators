@@ -1401,17 +1401,18 @@ export default function LandingPageNew() {
 
       {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
       <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative", overflow: "visible" }}>
-        {/* Running brain doodle — the literal Jarvis brain mascot for this section */}
+        {/* Running brain doodle — sits at the bottom of this section,
+            poking down into the gap above the Viral Today panel. */}
         <InteractiveSticker
           src={brainDoodle}
-          baseRotation={-4}
+          baseRotation={-6}
           style={{
             position: "absolute",
-            top: 30,
-            right: "3%",
-            width: 220,
+            bottom: -90,
+            right: "8%",
+            width: 320,
             height: "auto",
-            zIndex: 4,
+            zIndex: 6,
             pointerEvents: "none",
           }}
         />
