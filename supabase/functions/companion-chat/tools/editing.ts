@@ -2,6 +2,7 @@
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
 import { resolveEditingItem, ambiguousMessage } from "../_shared/editing-resolver.ts";
+import { lifecycleUpdate, deriveFromLegacy, LIFECYCLE_VALUES, type LifecycleStatus } from "../../_shared/lifecycleStatus.ts";
 
 export const EDITING_TOOLS: ToolDef[] = [
   {
@@ -32,6 +33,32 @@ export const EDITING_TOOLS: ToolDef[] = [
         sort_dir: { type: "string", description: "Sort direction: asc | desc" },
       },
       required: [],
+    },
+  },
+  {
+    name: "set_lifecycle_status",
+    description: "Set the lifecycle status on ONE editing queue item. lifecycle_status values: Not started | In progress | Needs Revisions | Scheduled | Published. This is the single source of truth for an item's state — replaces the old separate 'status' and 'post_status' tools. Use this for any per-item state change request.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+        lifecycle_status: { type: "string", description: "Not started | In progress | Needs Revisions | Scheduled | Published" },
+      },
+      required: ["client_name", "item_title", "lifecycle_status"],
+    },
+  },
+  {
+    name: "bulk_set_lifecycle_status",
+    description: "Set lifecycle_status on multiple editing queue items in one call. Capped at 14. lifecycle_status values: Not started | In progress | Needs Revisions | Scheduled | Published. Use this for ANY bulk request like 'change all X to scheduled', 'mark all reels as published', 'set every Y to in progress', 'mark these as needing revisions'. The tool resolves item titles in pass 1, emits a highlight_items action (so rows pulse), then mutates in pass 2.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_titles: { type: "array", items: { type: "string" } },
+        lifecycle_status: { type: "string", description: "Not started | In progress | Needs Revisions | Scheduled | Published" },
+      },
+      required: ["client_name", "item_titles", "lifecycle_status"],
     },
   },
   {
@@ -265,7 +292,7 @@ export const EDITING_TOOLS: ToolDef[] = [
 async function findEditItem(adminClient: any, clientId: string, titlePartial: string) {
   const { data } = await adminClient
     .from("video_edits")
-    .select("id, reel_title, status, assignee, revisions")
+    .select("id, reel_title, status, post_status, assignee, revisions")
     .eq("client_id", clientId)
     .is("deleted_at", null)
     .ilike("reel_title", `%${titlePartial}%`)
@@ -369,13 +396,52 @@ export async function handleEditingTool(
     return { type: "tool_result", tool_use_id: block.id, content: `Applied: ${parts.join(", ")}.` };
   }
 
+  if (block.name === "set_lifecycle_status") {
+    const { client_name, item_title, lifecycle_status } = block.input as { client_name: string; item_title: string; lifecycle_status: string };
+    if (!(LIFECYCLE_VALUES as readonly string[]).includes(lifecycle_status)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid lifecycle_status "${lifecycle_status}". Use one of: ${LIFECYCLE_VALUES.join(", ")}.` };
+    }
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No live editing item matched "${item_title}" for ${client.name}.` };
+    }
+    const { error: updErr } = await adminClient
+      .from("video_edits")
+      .update(lifecycleUpdate(lifecycle_status as LifecycleStatus))
+      .eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    actions.push({ type: "refresh_data", scope: "calendar" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" lifecycle_status set to "${lifecycle_status}".` };
+  }
+
+  if (block.name === "bulk_set_lifecycle_status") {
+    const { client_name, item_titles, lifecycle_status } = block.input as { client_name: string; item_titles: string[]; lifecycle_status: string };
+    if (!(LIFECYCLE_VALUES as readonly string[]).includes(lifecycle_status)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid lifecycle_status "${lifecycle_status}". Use one of: ${LIFECYCLE_VALUES.join(", ")}.` };
+    }
+    return runBulk(client_name, item_titles, async (id) => {
+      const { error } = await adminClient
+        .from("video_edits")
+        .update(lifecycleUpdate(lifecycle_status as LifecycleStatus))
+        .eq("id", id);
+      return { error };
+    }, `Set lifecycle_status to "${lifecycle_status}":`);
+  }
+
   if (block.name === "update_editing_status") {
     const { client_name, item_title, status } = block.input;
     const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, item_title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No editing item found matching "${item_title}" for ${client.name}` };
-    await adminClient.from("video_edits").update({ status }).eq("id", item.id);
+    const lifecycle = deriveFromLegacy(status, item.post_status);
+    await adminClient.from("video_edits").update({ status, lifecycle_status: lifecycle }).eq("id", item.id);
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${item.reel_title}" status updated to "${status}".` };
   }
@@ -516,7 +582,7 @@ export async function handleEditingTool(
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, item_title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No item found matching "${item_title}" for ${client.name}` };
-    await adminClient.from("video_edits").update({ post_status: "Published" }).eq("id", item.id);
+    await adminClient.from("video_edits").update(lifecycleUpdate("Published")).eq("id", item.id);
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     actions.push({ type: "refresh_data", scope: "calendar" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${item.reel_title}" marked as Published.` };
@@ -533,7 +599,7 @@ export async function handleEditingTool(
     }
     const { error: updErr } = await adminClient
       .from("video_edits")
-      .update({ status: "Done", post_status: "Published" })
+      .update(lifecycleUpdate("Published"))
       .eq("id", r.item.id);
     if (updErr) {
       return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
@@ -549,8 +615,9 @@ export async function handleEditingTool(
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const item = await findEditItem(adminClient, client.id, title);
     if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No post found matching "${title}" for ${client.name}` };
-    await adminClient.from("video_edits").update({ schedule_date: new_date }).eq("id", item.id);
+    await adminClient.from("video_edits").update({ schedule_date: new_date, ...lifecycleUpdate("Scheduled") }).eq("id", item.id);
     actions.push({ type: "refresh_data", scope: "calendar" });
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${item.reel_title}" rescheduled to ${new_date}.` };
   }
 
@@ -636,11 +703,12 @@ Caption only, no other text.`,
       }
       const item = await findEditItem(adminClient, client.id, title);
       if (!item) { lines.push(`MISS "${title}" — no post matched`); continue; }
-      const { error } = await adminClient.from("video_edits").update({ schedule_date: newDate }).eq("id", item.id);
+      const { error } = await adminClient.from("video_edits").update({ schedule_date: newDate, ...lifecycleUpdate("Scheduled") }).eq("id", item.id);
       if (error) lines.push(`FAIL "${item.reel_title}": ${error.message}`);
       else { touched += 1; lines.push(`OK "${item.reel_title}" → ${newDate}`); }
     }
     actions.push({ type: "refresh_data", scope: "calendar" });
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `Rescheduled ${touched}/${items.length} for ${client.name}:\n${lines.join("\n")}` };
   }
 
@@ -720,8 +788,9 @@ Caption only, no other text.`,
     if (!valid.includes(status)) {
       return { type: "tool_result", tool_use_id: block.id, content: `Invalid status "${status}". Use one of: ${valid.join(", ")}.` };
     }
+    const lifecycle = deriveFromLegacy(status, undefined);
     return runBulk(client_name, item_titles, async (id) => {
-      const { error } = await adminClient.from("video_edits").update({ status }).eq("id", id);
+      const { error } = await adminClient.from("video_edits").update({ status, lifecycle_status: lifecycle }).eq("id", id);
       return { error };
     }, `Set status to "${status}":`);
   }
