@@ -290,6 +290,13 @@ export default function CompanionDrawer() {
               }),
             );
           }
+          if (action?.type === "highlight_items" && Array.isArray(action.item_ids)) {
+            window.dispatchEvent(
+              new CustomEvent("ai:highlight-items", {
+                detail: { scope: action.scope ?? "editing_queue", item_ids: action.item_ids },
+              }),
+            );
+          }
           if (action?.type === "show_notification" && typeof action.message === "string") {
             window.dispatchEvent(
               new CustomEvent("ai:notification", {

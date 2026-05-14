@@ -178,6 +178,30 @@ export default function EditingQueue() {
   const lastCheckedIndexRef = useRef<number>(-1);
   const urlParamsConsumedRef = useRef(false);
 
+  // AI plan preview — rows the AI says it's about to mutate get a subtle
+  // opacity pulse until the plan resolves (approve / reject / 60s timeout).
+  const [previewIds, setPreviewIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const onHighlight = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { scope?: string; item_ids?: string[] };
+      if (detail?.scope && detail.scope !== "editing_queue") return;
+      if (!Array.isArray(detail?.item_ids)) return;
+      setPreviewIds(new Set(detail.item_ids));
+    };
+    const onClear = () => setPreviewIds(new Set());
+    window.addEventListener("ai:highlight-items", onHighlight);
+    window.addEventListener("ai:data-changed", onClear);
+    return () => {
+      window.removeEventListener("ai:highlight-items", onHighlight);
+      window.removeEventListener("ai:data-changed", onClear);
+    };
+  }, []);
+  useEffect(() => {
+    if (previewIds.size === 0) return;
+    const t = setTimeout(() => setPreviewIds(new Set()), 60_000);
+    return () => clearTimeout(t);
+  }, [previewIds]);
+
   // Caption edit dialog
   const [captionEditItem, setCaptionEditItem] = useState<EditingQueueItem | null>(null);
   const [captionEditValue, setCaptionEditValue] = useState('');
@@ -810,7 +834,7 @@ export default function EditingQueue() {
                         return (
                           <TableRow
                             key={item.id}
-                            className="group cursor-pointer hover:bg-primary/[0.025] transition-colors"
+                            className={`group cursor-pointer hover:bg-primary/[0.025] transition-colors ${previewIds.has(item.id) ? "ai-preview-pulse" : ""}`}
                             onClick={() => { setReviewItem(item); setReviewModalOpen(true); }}
                           >
                             {/* Checkbox */}
