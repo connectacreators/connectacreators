@@ -1,6 +1,6 @@
 # Whole-App Rebrand — Color + Font Enforcement
 
-**Status:** Spec draft for review
+**Status:** PARKED — re-brainstorm before executing. Landing-page plan ships first; this one is dormant until the user revisits.
 **Date:** 2026-05-14
 **Scope:** Every authenticated and unauthenticated route inside `src/` — replace current dark cyan/lime palette with Ink + Aqua + Honey · enforce EB Garamond + Figtree as the only two font families allowed
 **Companion plan:** `2026-05-14-landing-page-redesign-design.md` — that one ships first as a scoped pilot, this one cascades the same system across the rest of the app
@@ -69,7 +69,7 @@ After phase 1, the app re-themes itself globally. Many things will look right; s
 
 Grep for and replace every hardcoded color reference. Inventory from initial scan:
 
-- `font-caslon` — used in dashboard cards, page titles, ScribbleUnderline labels. Replace with `font-serif`.
+- ~~`font-caslon` — used in dashboard cards, page titles, ScribbleUnderline labels. Replace with `font-serif`.~~ **DO NOT TOUCH.** `font-caslon` is an intentional brand decision for body type. Confirmed by user 2026-05-14. Any future cleanup of this alias requires explicit user approval. (Memory: `project_caslon_body_font.md`.)
 - `text-[#22d3ee]` and `bg-[#22d3ee]` (cyan hover state) — replace with `text-primary` and `bg-primary`.
 - `bg-cyan-*`, `text-cyan-*`, `border-cyan-*` — anywhere they appear, replace with `bg-primary` family.
 - `bg-lime-*`, `text-lime-*` (legacy accent) — replace with `bg-accent` (Honey).
