@@ -339,7 +339,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       <div className="flex items-center gap-2 px-3 py-3 border-b border-[rgba(255,255,255,0.06)] relative z-10">
         <button onClick={() => navigate("/")} className="focus:outline-none">
           <span
-            className="font-wordmark text-2xl text-foreground hover:opacity-80 transition-opacity"
+            className="font-wordmark text-xl text-foreground hover:opacity-80 transition-opacity"
             style={{ letterSpacing: "-0.022em", fontWeight: 700 }}
           >
             Connecta

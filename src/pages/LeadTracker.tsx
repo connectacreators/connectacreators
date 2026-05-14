@@ -52,6 +52,7 @@ import {
   Save,
   LayoutList,
   Table2,
+  Columns3,
   TrendingUp,
   Clock,
   Trash2,
@@ -65,6 +66,7 @@ import { toast } from "sonner";
 
 import { leadService } from "@/services/leadService";
 import { checkResourceLimit } from "@/utils/planLimits";
+import { KanbanBoard } from "@/components/leads/LeadKanbanBoard";
 
 type Lead = {
   id: string;
@@ -209,14 +211,60 @@ export default function LeadTracker() {
   const [deleting, setDeleting] = useState(false);
 
   // View mode state (with localStorage persistence)
-  const [viewMode, setViewMode] = useState<"cards" | "table" | "chart">(() => {
-    return (localStorage.getItem("leadTrackerViewMode") as "cards" | "table" | "chart") || "cards";
+  const [viewMode, setViewMode] = useState<"cards" | "table" | "kanban" | "chart">(() => {
+    return (localStorage.getItem("leadTrackerViewMode") as "cards" | "table" | "kanban" | "chart") || "cards";
   });
 
-  const toggleView = (mode: "cards" | "table" | "chart") => {
+  const toggleView = (mode: "cards" | "table" | "kanban" | "chart") => {
     setViewMode(mode);
     localStorage.setItem("leadTrackerViewMode", mode);
   };
+
+  // Kanban drag-update tracking — keep a local optimistic status while the
+  // backend roundtrip resolves so the card doesn't snap back to the old column.
+  const [kanbanUpdatingId, setKanbanUpdatingId] = useState<string | null>(null);
+
+  const updateLeadStatusInline = useCallback(async (leadId: string, newStatus: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || lead.leadStatus === newStatus) return;
+
+    // Optimistic UI update
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, leadStatus: newStatus } : l)));
+    setKanbanUpdatingId(leadId);
+
+    try {
+      if (isSubscriber) {
+        await leadService.updateLead(stripDbPrefix(leadId), { status: newStatus });
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-lead-status`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ leadId, newStatus, clientId: urlClientId }),
+          },
+        );
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Error ${res.status}`);
+        }
+      }
+      toast.success(tr(t.leadDetail.statusUpdated, language));
+    } catch (e: any) {
+      console.error("Error updating lead status:", e);
+      toast.error(tr(t.leadDetail.statusError, language));
+      // Roll back optimistic update
+      setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, leadStatus: lead.leadStatus } : l)));
+    } finally {
+      setKanbanUpdatingId(null);
+    }
+  }, [leads, isSubscriber, urlClientId, language]);
 
   // Add Lead dialog state
   const [showAddLead, setShowAddLead] = useState(false);
@@ -1042,6 +1090,13 @@ export default function LeadTracker() {
                 <Table2 className="w-4 h-4" />
               </button>
               <button
+                onClick={() => toggleView("kanban")}
+                className={`px-3 py-2 text-sm transition-all border-r border-cyan-400/20 ${viewMode === "kanban" ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
+                title="Kanban view"
+              >
+                <Columns3 className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => toggleView("chart")}
                 className={`px-3 py-2 text-sm transition-all ${viewMode === "chart" ? "bg-violet-500/20 text-violet-300" : "text-muted-foreground hover:text-foreground"}`}
                 title="Analytics view"
@@ -1263,6 +1318,17 @@ export default function LeadTracker() {
               </div>
             );
           })()
+        )}
+
+        {!loading && filtered.length > 0 && viewMode === "kanban" && (
+          <KanbanBoard
+            leads={filtered}
+            statusOptions={statusOptions.length > 0 ? statusOptions : ALLOWED_STATUSES}
+            updatingId={kanbanUpdatingId}
+            language={language}
+            onCardClick={openLeadDetail}
+            onMoveLead={updateLeadStatusInline}
+          />
         )}
 
         {!loading && filtered.length > 0 && viewMode === "table" && (
