@@ -216,7 +216,7 @@ html, body, #root { margin: 0; padding: 0; }
   font-family: 'EB Garamond', Georgia, serif;
   font-size: clamp(34px, 5.2vw, 60px);
   line-height: 1.04;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.01em;
   font-weight: 500;
   margin: 0;
   padding-bottom: 0.14em;
