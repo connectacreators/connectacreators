@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Robby plan card — visual options</title>
+  <style>
+    :root {
+      --bg: #161a1f;
+      --card: #1b1e22;
+      --border: rgba(255,255,255,0.08);
+      --text: #e2e8f0;
+      --muted: rgba(255,255,255,0.45);
+      --primary: #0891B2;
+      --primary-light: #06B6D4;
+      --gold: rgba(201,169,110,1);
+      --gold-soft: rgba(201,169,110,0.6);
+      --gold-line: rgba(201,169,110,0.28);
+      --lime: #84CC16;
+      --red: #ef4444;
+      --violet: #8b5cf6;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 120px;
+    }
+    h1 {
+      font-family: 'Libre Caslon Text', 'Big Caslon', Georgia, serif;
+      letter-spacing: -0.022em;
+      font-weight: 700;
+      font-size: 28px;
+      margin: 0 0 8px;
+    }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 32px; max-width: 720px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-head {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title { font-size: 13px; font-weight: 600; }
+    .card-tag {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stage {
+      flex: 1;
+      padding: 24px 20px;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(8,145,178,0.05), transparent 50%),
+        var(--bg);
+    }
+    .robby-avatar {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 10px;
+    }
+    .preamble {
+      display: flex; gap: 10px;
+      margin-bottom: 12px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .notes {
+      padding: 12px 16px 16px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    .notes b { color: var(--text); font-weight: 600; }
+
+    /* ── Option A: Bordered plan card (Claude Code style) ───────────── */
+    .plan-a {
+      background: rgba(139, 92, 246, 0.04);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 12px 0 12px 32px;
+    }
+    .plan-a-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: rgba(139, 92, 246, 0.9);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .plan-a-head::before {
+      content: ''; width: 6px; height: 6px;
+      border-radius: 50%; background: rgba(139, 92, 246, 0.8);
+      box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+    }
+    .plan-a-step {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 6px 0;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .plan-a-step + .plan-a-step { border-top: 1px solid rgba(255,255,255,0.04); }
+    .plan-a-check {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      border: 1.5px solid rgba(139, 92, 246, 0.55);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .plan-a-actions {
+      display: flex; gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .btn {
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      font-weight: 600;
+      transition: opacity 120ms ease;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary {
+      background: rgba(139, 92, 246, 0.18);
+      color: rgba(139, 92, 246, 1);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* ── Option B: Tool badges + numbered steps ─────────────────────── */
+    .plan-b {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 12px 0 12px 32px;
+    }
+    .plan-b-head {
+      font-size: 12px;
+      color: var(--gold);
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+    .plan-b-step {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 7px 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .plan-b-num {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(201,169,110,0.12);
+      color: var(--gold);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .plan-b-text { flex: 1; }
+    .tool-badge {
+      display: inline-block;
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.55);
+      margin-left: 6px;
+      vertical-align: 1px;
+    }
+    .plan-b-actions {
+      display: flex; gap: 8px; align-items: center;
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .plan-b-actions .btn { margin-left: auto; }
+    .plan-b-actions .btn-primary {
+      background: rgba(201,169,110,0.15);
+      color: var(--gold);
+      border: 1px solid rgba(201,169,110,0.35);
+    }
+
+    /* ── Option C: Diff-style ────────────────────────────────────────── */
+    .plan-c {
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 12px 0 12px 32px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .plan-c-head {
+      font-family: Inter, sans-serif;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .plan-c-row {
+      padding: 1px 0;
+      color: rgba(255,255,255,0.85);
+    }
+    .plan-c-row .marker {
+      color: rgba(132, 204, 22, 0.9);
+      margin-right: 8px;
+      user-select: none;
+    }
+    .plan-c-row .field {
+      color: rgba(255,255,255,0.5);
+    }
+    .plan-c-row .new {
+      color: rgba(132, 204, 22, 1);
+    }
+    .plan-c-actions {
+      display: flex; gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      font-family: Inter, sans-serif;
+    }
+    .plan-c-actions .btn-primary {
+      background: rgba(132, 204, 22, 0.15);
+      color: rgba(132, 204, 22, 1);
+      border: 1px solid rgba(132, 204, 22, 0.35);
+    }
+
+    /* ── Option D: Compact summary + expandable details ──────────────── */
+    .plan-d {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 14px;
+      margin: 12px 0 12px 32px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+    }
+    .plan-d-summary {
+      color: rgba(255,255,255,0.8);
+    }
+    .plan-d-count {
+      background: rgba(8, 145, 178, 0.15);
+      color: var(--primary-light);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .plan-d-actions {
+      display: flex; gap: 6px;
+      margin-left: auto;
+    }
+    .plan-d-actions .btn-primary {
+      background: rgba(8, 145, 178, 0.18);
+      color: var(--primary-light);
+      border: 1px solid rgba(8, 145, 178, 0.35);
+      font-size: 10px;
+      padding: 4px 10px;
+    }
+    .plan-d-actions .btn-ghost { font-size: 10px; padding: 4px 10px; }
+    .plan-d-details {
+      margin: 6px 0 12px 32px;
+      padding: 12px 14px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.6;
+      max-width: 540px;
+    }
+    .plan-d-details ul { margin: 0; padding-left: 18px; }
+    .plan-d-details li { margin: 3px 0; }
+
+    /* ── Option E: VS Code agent card (full Claude Code clone) ───────── */
+    .plan-e {
+      background: #0f1115;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      margin: 12px 0 12px 32px;
+      overflow: hidden;
+    }
+    .plan-e-head {
+      background: linear-gradient(180deg, rgba(139,92,246,0.12), rgba(139,92,246,0.05));
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px;
+    }
+    .plan-e-head .robot {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: rgba(139,92,246,0.2);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px;
+    }
+    .plan-e-head .label { color: rgba(139,92,246,1); font-weight: 600; }
+    .plan-e-head .meta { color: var(--muted); margin-left: auto; font-size: 10px; }
+    .plan-e-body { padding: 14px 16px; }
+    .plan-e-intro {
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .plan-e-step {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+      transition: background 120ms;
+    }
+    .plan-e-step:hover { background: rgba(255,255,255,0.03); }
+    .plan-e-step .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(139,92,246,0.6);
+      margin-top: 8px;
+      flex-shrink: 0;
+    }
+    .plan-e-step code {
+      font-family: 'SF Mono', monospace;
+      font-size: 11px;
+      background: rgba(255,255,255,0.05);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: rgba(255,255,255,0.75);
+    }
+    .plan-e-foot {
+      padding: 12px 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.2);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .plan-e-foot .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-right: auto;
+    }
+    .plan-e-foot .btn-primary {
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      font-size: 11px;
+      padding: 6px 14px;
+    }
+
+    /* ── Option F: Connecta-native (gold pencil + sparse) ────────────── */
+    .plan-f {
+      position: relative;
+      padding: 16px 18px;
+      margin: 12px 0 12px 32px;
+      max-width: 520px;
+    }
+    .plan-f svg.outline {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .plan-f-head {
+      font-family: 'Libre Caslon Text', Georgia, serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--gold);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .plan-f-step {
+      display: flex; gap: 10px;
+      padding: 5px 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.85);
+    }
+    .plan-f-step .glyph {
+      color: var(--gold);
+      font-family: 'Libre Caslon Text', Georgia, serif;
+      font-weight: 700;
+      min-width: 14px;
+    }
+    .plan-f-actions {
+      display: flex; gap: 14px;
+      margin-top: 14px;
+      padding-top: 10px;
+    }
+    .plan-f-actions a {
+      font-size: 12px;
+      color: var(--gold);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(201,169,110,0.4);
+      padding-bottom: 1px;
+      cursor: pointer;
+    }
+    .plan-f-actions a.cancel {
+      color: var(--muted);
+      border-bottom-color: rgba(255,255,255,0.15);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Robby plan card — visual options</h1>
+    <p class="sub">Six ways to render a "here's my plan, want me to run it?" moment. All shown in-context as if Robby just sent it. Picking one will replace today's plain-text bullets in the proposal flow.</p>
+
+    <div class="grid">
+
+      <!-- A: Bordered plan card -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">A — Bordered plan card</div>
+          <div class="card-tag">Claude Code feel</div>
+        </div>
+        <div class="stage">
+          <div class="preamble">
+            <span class="robby-avatar">✦</span>
+            <span>I'll mark every Master Construction reel's post status to Scheduled. Here's what'll change:</span>
+          </div>
+          <div class="plan-a">
+            <div class="plan-a-head">Plan · 10 steps</div>
+            <div class="plan-a-step"><span class="plan-a-check"></span>Set "VIDEO #4" post status to Scheduled</div>
+            <div class="plan-a-step"><span class="plan-a-check"></span>Set "VIDEO #3" post status to Scheduled</div>
+            <div class="plan-a-step"><span class="plan-a-check"></span>Set "Tener varices…" post status to Scheduled</div>
+            <div class="plan-a-step" style="color: var(--muted); font-size: 12px;"><span class="plan-a-check" style="opacity:0.3"></span>+ 7 more</div>
+            <div class="plan-a-actions">
+              <button class="btn btn-primary">Approve & run</button>
+              <button class="btn btn-ghost">Edit</button>
+              <button class="btn btn-ghost">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <b>The closest match to Claude Code's plan UI.</b> Violet accent ties it to "plan mode" globally; checkboxes feel actionable. Drops Robby's gold identity in favor of the universal "AI is asking for confirmation" violet.
+        </div>
+      </div>
+
+      <!-- B: Tool badges -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">B — Numbered steps + tool badges</div>
+          <div class="card-tag">Transparent</div>
+        </div>
+        <div class="stage">
+          <div class="preamble">
+            <span class="robby-avatar">✦</span>
+            <span>Going to set every Master Construction reel to Scheduled. Plan first:</span>
+          </div>
+          <div class="plan-b">
+            <div class="plan-b-head">Plan</div>
+            <div class="plan-b-step">
+              <span class="plan-b-num">1</span>
+              <span class="plan-b-text">Set "VIDEO #4" post status to Scheduled<span class="tool-badge">mark_post_scheduled</span></span>
+            </div>
+            <div class="plan-b-step">
+              <span class="plan-b-num">2</span>
+              <span class="plan-b-text">Set "VIDEO #3" post status to Scheduled<span class="tool-badge">mark_post_scheduled</span></span>
+            </div>
+            <div class="plan-b-step">
+              <span class="plan-b-num">3</span>
+              <span class="plan-b-text">Set "Tener varices…" post status to Scheduled<span class="tool-badge">mark_post_scheduled</span></span>
+            </div>
+            <div class="plan-b-step" style="color: var(--muted);">
+              <span class="plan-b-num" style="opacity:0.4">…</span>
+              <span class="plan-b-text">+ 7 more items</span>
+            </div>
+            <div class="plan-b-actions">
+              <span>10 actions · ~3 sec</span>
+              <button class="btn btn-primary">Run</button>
+              <button class="btn btn-ghost">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Shows the tool under each line.</b> Power-users learn the tool surface; non-tech users can still scan the human description. Keeps Robby's gold identity.
+        </div>
+      </div>
+
+      <!-- C: Diff-style -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">C — Diff-style preview</div>
+          <div class="card-tag">Technical</div>
+        </div>
+        <div class="stage">
+          <div class="preamble">
+            <span class="robby-avatar">✦</span>
+            <span>Here are the writes I'll make:</span>
+          </div>
+          <div class="plan-c">
+            <div class="plan-c-head">Pending changes · 10 rows</div>
+            <div class="plan-c-row"><span class="marker">~</span>VIDEO #4 <span class="field">post_status:</span> Unpublished <span class="field">→</span> <span class="new">Scheduled</span></div>
+            <div class="plan-c-row"><span class="marker">~</span>VIDEO #3 <span class="field">post_status:</span> Unpublished <span class="field">→</span> <span class="new">Scheduled</span></div>
+            <div class="plan-c-row"><span class="marker">~</span>Tener varices… <span class="field">post_status:</span> Unpublished <span class="field">→</span> <span class="new">Scheduled</span></div>
+            <div class="plan-c-row" style="color: var(--muted);"><span class="marker">…</span>+ 7 more</div>
+            <div class="plan-c-actions">
+              <button class="btn btn-primary">Apply 10 changes</button>
+              <button class="btn btn-ghost">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Reads like a git diff.</b> Most transparent — shows old → new value. Best when changes affect specific fields; awkward for "open a modal" or "navigate" actions which don't fit the diff shape.
+        </div>
+      </div>
+
+      <!-- D: Compact one-liner -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">D — Compact one-liner</div>
+          <div class="card-tag">Quiet</div>
+        </div>
+        <div class="stage">
+          <div class="preamble">
+            <span class="robby-avatar">✦</span>
+            <span>Set every Master Construction reel to Scheduled — want me to run it?</span>
+          </div>
+          <div class="plan-d">
+            <span class="plan-d-summary">10 reels → post_status = Scheduled</span>
+            <span class="plan-d-count">10</span>
+            <div class="plan-d-actions">
+              <button class="btn btn-primary">Run</button>
+              <button class="btn btn-ghost">Show steps</button>
+            </div>
+          </div>
+          <div class="plan-d-details">
+            <ul>
+              <li>VIDEO #4 → Scheduled</li>
+              <li>VIDEO #3 → Scheduled</li>
+              <li>Tener varices… → Scheduled</li>
+              <li>+ 7 more</li>
+            </ul>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Minimal vertical real estate.</b> A single chip + run button. Details expand only when asked. Trades transparency for compactness — fine for bulk-status changes, weaker for plans with mixed action types.
+        </div>
+      </div>
+
+      <!-- E: Claude Code clone -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">E — Claude Code agent card</div>
+          <div class="card-tag">VS Code clone</div>
+        </div>
+        <div class="stage">
+          <div class="plan-e">
+            <div class="plan-e-head">
+              <span class="robot">🤖</span>
+              <span class="label">Robby · Plan mode</span>
+              <span class="meta">10 actions · pending approval</span>
+            </div>
+            <div class="plan-e-body">
+              <div class="plan-e-intro">I'll set every Master Construction reel to <code>post_status = Scheduled</code>.</div>
+              <div class="plan-e-step"><span class="dot"></span>Set <code>"VIDEO #4"</code> → Scheduled</div>
+              <div class="plan-e-step"><span class="dot"></span>Set <code>"VIDEO #3"</code> → Scheduled</div>
+              <div class="plan-e-step"><span class="dot"></span>Set <code>"Tener varices…"</code> → Scheduled</div>
+              <div class="plan-e-step" style="color: var(--muted);"><span class="dot" style="opacity:0.4"></span>+ 7 more steps</div>
+            </div>
+            <div class="plan-e-foot">
+              <span class="hint">Press <code style="font-family:inherit;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px;">Enter</code> to approve</span>
+              <button class="btn btn-ghost">Cancel</button>
+              <button class="btn btn-primary">Approve</button>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <b>The closest to what you see in VS Code.</b> Header strip + body + footer with a keyboard hint. Distinctly violet (the universal "agent thinking" color). Loses some of Robby's personality but earns instant recognition.
+        </div>
+      </div>
+
+      <!-- F: Connecta-native -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">F — Connecta-native</div>
+          <div class="card-tag">Brand-first</div>
+        </div>
+        <div class="stage">
+          <div class="preamble">
+            <span class="robby-avatar">✦</span>
+            <span>Here's what I'd do:</span>
+          </div>
+          <div class="plan-f">
+            <svg class="outline" viewBox="0 0 520 220" preserveAspectRatio="none">
+              <path d="M8,2 C100,0.5 420,0.5 512,2 C516,3 518,7 518,12 C518.5,80 518,150 517,210 C516,214 514,217 510,218 C400,219.5 100,219.5 10,218 C5,217 2.5,214 2,210 C1,150 1,80 2,12 C2.5,7 5,3 8,2 Z"
+                    fill="none" stroke="rgba(201,169,110,0.4)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="plan-f-head">My plan</div>
+            <div class="plan-f-step"><span class="glyph">·</span>Set VIDEO #4 post status to Scheduled</div>
+            <div class="plan-f-step"><span class="glyph">·</span>Set VIDEO #3 post status to Scheduled</div>
+            <div class="plan-f-step"><span class="glyph">·</span>Set "Tener varices…" post status to Scheduled</div>
+            <div class="plan-f-step" style="color: var(--muted);"><span class="glyph">·</span>+ 7 more</div>
+            <div class="plan-f-actions">
+              <a>Approve</a>
+              <a class="cancel">Cancel</a>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <b>Stays in the gold/cream Connecta voice.</b> Hand-drawn outline, Caslon header, no buttons — just clickable text links. Feels personal, not industrial. Less obvious as a "decision moment" than the violet versions; relies on the title to signal intent.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
