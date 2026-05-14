@@ -461,6 +461,60 @@ html, body, #root { margin: 0; padding: 0; }
   animation-delay: var(--scribble-delay, 0.8s);
 }
 
+/* ---------- Hover-only scribble + sparkles ---------- */
+.landing-editorial .scribble-hover {
+  position: relative;
+  display: inline-block;
+  cursor: default;
+}
+.landing-editorial .scribble-hover::after {
+  content: "";
+  position: absolute;
+  left: -3%;
+  right: -3%;
+  bottom: -0.14em;
+  height: 0.28em;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: 100% 100%;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 580ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.landing-editorial .scribble-hover:hover::after { transform: scaleX(1); }
+.landing-editorial .scribble-hover.honey::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18' preserveAspectRatio='none'><path d='M4 11 Q 22 4, 44 9 Q 68 14, 92 8 Q 118 2, 144 10 Q 168 16, 196 9' stroke='%23E0A560' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>");
+}
+.landing-editorial .scribble-hover.aqua::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18' preserveAspectRatio='none'><path d='M4 11 Q 22 4, 44 9 Q 68 14, 92 8 Q 118 2, 144 10 Q 168 16, 196 9' stroke='%238FD0D5' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>");
+}
+
+/* Hover sparkles (anchored to the word, appear with motion only) */
+.landing-editorial .spark {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  transform: scale(0) rotate(-90deg);
+  transform-origin: center;
+  transition: transform 540ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.landing-editorial .scribble-hover:hover .spark {
+  transform: scale(1) rotate(0);
+}
+.landing-editorial .spark.s1 {
+  top: -0.5em; right: -0.55em; width: 0.7em; height: 0.7em;
+  transition-delay: 30ms;
+}
+.landing-editorial .spark.s2 {
+  top: 0.05em; left: -0.65em; width: 0.55em; height: 0.55em;
+  transition-delay: 120ms;
+}
+.landing-editorial .spark.s3 {
+  bottom: -0.35em; left: 35%; width: 0.45em; height: 0.45em;
+  transition-delay: 220ms;
+}
+
 /* Lasso circle scribble — wraps a badge or word */
 .landing-editorial .scribble-circle {
   position: relative;

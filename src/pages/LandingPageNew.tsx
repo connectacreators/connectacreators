@@ -725,26 +725,46 @@ export default function LandingPageNew() {
             <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
               <LetterRise text="Go " delay={0.25} step={0.04} />
               <span
-                className="serif-italic scribble-under honey draw"
+                className="serif-italic scribble-hover honey"
                 style={{
                   display: "inline-block",
                   color: "var(--honey)",
                   fontWeight: 400,
-                  ["--scribble-delay" as never]: "0.95s",
                 }}
               >
                 <LetterRise text="Viral," delay={0.40} step={0.04} />
+                {/* sparkles — appear on hover with spring scale */}
+                <svg className="spark s1" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    d="M12 1 L14.2 9.8 L23 12 L14.2 14.2 L12 23 L9.8 14.2 L1 12 L9.8 9.8 Z"
+                    fill="var(--honey)"
+                    stroke="var(--ink)"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <svg className="spark s2" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    d="M12 3 L13.5 10.5 L21 12 L13.5 13.5 L12 21 L10.5 13.5 L3 12 L10.5 10.5 Z"
+                    fill="var(--aqua)"
+                    stroke="var(--ink)"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <svg className="spark s3" viewBox="0 0 24 24" aria-hidden>
+                  <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
+                </svg>
               </span>
             </span>
             <span style={{ display: "block", overflow: "hidden", paddingBottom: "0.06em" }}>
               <LetterRise text="Get " delay={0.68} step={0.04} />
               <span
-                className="serif-italic scribble-under aqua draw"
+                className="serif-italic scribble-hover aqua"
                 style={{
                   display: "inline-block",
                   color: "var(--aqua)",
                   fontWeight: 400,
-                  ["--scribble-delay" as never]: "1.30s",
                 }}
               >
                 <LetterRise text="Clients." delay={0.85} step={0.04} />
