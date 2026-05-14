@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { deriveFromLegacy } from "../_shared/lifecycleStatus.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,6 +67,20 @@ serve(async (req) => {
     if (revisions !== undefined) update.revisions = revisions;
     if (post_status !== undefined) update.post_status = post_status;
     if (assignee_user_id !== undefined) update.assignee_user_id = assignee_user_id ?? null;
+
+    // Dual-write lifecycle_status whenever status or post_status is changing.
+    if (status !== undefined || post_status !== undefined) {
+      // Fetch the current row to get whichever legacy field is not being updated.
+      const { data: current } = await serviceSupabase
+        .from("video_edits")
+        .select("status, post_status")
+        .eq("id", id)
+        .single();
+
+      const effectiveStatus = status !== undefined ? status : current?.status;
+      const effectivePostStatus = post_status !== undefined ? post_status : current?.post_status;
+      update.lifecycle_status = deriveFromLegacy(effectiveStatus, effectivePostStatus);
+    }
 
     const { error } = await serviceSupabase
       .from("video_edits")
