@@ -69,7 +69,10 @@ export function PublishComposer(p: Props) {
     );
   };
 
-  const buttonLabel = mode === "autopost" ? "Publish now" : mode === "scheduled" ? "Schedule" : "Save draft";
+  const buttonLabel =
+    mode === "autopost"  ? "Send for approval" :
+    mode === "scheduled" ? "Schedule" :
+    "Save draft";
 
   const handleSubmit = async () => {
     if (selectedPlatforms.length === 0 && mode !== "draft") {
@@ -126,8 +129,7 @@ export function PublishComposer(p: Props) {
       // through client approval first. The Approve action in ContentCalendar
       // is what kicks the dispatcher.
 
-      // More informative success message that surfaces the scheduled time
-      // so the user sees the schedule was actually captured.
+      // Surface what just happened: schedule time and approval requirement.
       let successMsg: string;
       if (mode === "draft") {
         successMsg = "Saved as draft";
@@ -135,9 +137,9 @@ export function PublishComposer(p: Props) {
         const when = new Date(scheduledAt).toLocaleString(undefined, {
           month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
         });
-        successMsg = `Scheduled for ${when} — awaiting client approval`;
+        successMsg = `Scheduled for ${when} — must be approved before then or it'll fail`;
       } else {
-        successMsg = "Queued — awaiting client approval";
+        successMsg = "Sent for approval — will publish as soon as the client approves";
       }
       toast.success(successMsg);
       p.onClose();
@@ -216,11 +218,11 @@ export function PublishComposer(p: Props) {
               <RadioGroup value={mode} onValueChange={(v) => setMode(v as Mode)}>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="autopost" id="m-now" />
-                  <Label htmlFor="m-now">Post now</Label>
+                  <Label htmlFor="m-now">Publish as soon as the client approves</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="scheduled" id="m-sched" />
-                  <Label htmlFor="m-sched">Schedule for…</Label>
+                  <Label htmlFor="m-sched">Publish at a specific time (requires approval beforehand)</Label>
                 </div>
                 {mode === "scheduled" && (
                   <div className="flex gap-2 pl-6">

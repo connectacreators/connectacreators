@@ -43,6 +43,17 @@ serve(async (req) => {
     } catch { /* noop */ }
   }
 
+  // 2b. Expire posts whose scheduled_at passed without client approval.
+  // Per spec: "by the time of posting it will fail and the reason will be
+  // Client never approved the post". Targets get status='failed' with that
+  // last_error; rollup → lifecycle trigger then sets the editing-queue row
+  // to lifecycle_status='Needs Revisions'.
+  try {
+    await sb.rpc("expire_unapproved_scheduled_posts");
+  } catch (err) {
+    console.warn("expire_unapproved_scheduled_posts error", err);
+  }
+
   // 3. Atomically claim a batch
   const { data: claimed, error: claimErr } = await sb.rpc("claim_scheduler_batch", {
     p_force_post_id: forcePostId,
