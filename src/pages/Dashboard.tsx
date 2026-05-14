@@ -5,6 +5,7 @@ import {
   Loader2, FileText, Target, CalendarDays, Users,
   Clapperboard, Database, Archive, Zap, UserPlus, Globe,
   BarChart3, Settings2, Calendar, Sparkles, ChevronLeft, Flame, Layers, ScrollText,
+  Pencil, Trash2, ArrowLeft, Share2,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { t, tr } from "@/i18n/translations";
@@ -13,6 +14,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WelcomeSubscriptionModal from "@/components/WelcomeSubscriptionModal";
 import SplashScreen from "@/components/SplashScreen";
+import { useSchedulerEnabled } from "@/lib/featureFlags";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,6 +90,32 @@ export default function Dashboard() {
   });
   const [userPlanType, setUserPlanType] = useState<string | null>(null);
   const justPaidRef = useRef(false);
+
+  // Selected-client detail (when viewMode is a specific client UUID)
+  const [selectedClientEmail, setSelectedClientEmail] = useState("");
+  const [selectedClientOwnerId, setSelectedClientOwnerId] = useState<string | null>(null);
+
+  // Edit Client dialog
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Delete Client alert
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Notion mapping (admin only)
+  const [showNotionDialog, setShowNotionDialog] = useState(false);
+  const [notionDbId, setNotionDbId] = useState("");
+  const [notionLeadsDbId, setNotionLeadsDbId] = useState("");
+  const [notionTitleProp, setNotionTitleProp] = useState("Reel title");
+  const [notionScriptProp, setNotionScriptProp] = useState("Script");
+  const [notionFootageProp, setNotionFootageProp] = useState("Footage");
+  const [notionFileSubmissionProp, setNotionFileSubmissionProp] = useState("File Submission");
+  const [notionLoading, setNotionLoading] = useState(false);
+
+  const { enabled: schedulerEnabled } = useSchedulerEnabled();
 
   // Show one-time welcome modal after successful payment
   useEffect(() => {
@@ -222,6 +256,49 @@ export default function Dashboard() {
     : viewMode === "me" ? ownClientId
     : viewMode; // it's a client UUID
 
+  // Fetch the selected client's full record (name lives in `clients` array; this adds email/owner for admin chrome)
+  useEffect(() => {
+    if (!selectedClientId) {
+      setSelectedClientEmail("");
+      setSelectedClientOwnerId(null);
+      return;
+    }
+    supabase
+      .from("clients")
+      .select("email, owner_user_id")
+      .eq("id", selectedClientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setSelectedClientEmail(data.email || "");
+          setSelectedClientOwnerId(data.owner_user_id);
+        }
+      });
+  }, [selectedClientId]);
+
+  // Fetch Notion mapping for the selected client (admin only)
+  useEffect(() => {
+    if (!selectedClientId || !isAdmin) return;
+    supabase
+      .from("client_notion_mapping")
+      .select("notion_database_id, notion_leads_database_id, title_property, script_property, footage_property, file_submission_property")
+      .eq("client_id", selectedClientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setNotionDbId(data.notion_database_id || "");
+          setNotionLeadsDbId(data.notion_leads_database_id || "");
+          setNotionTitleProp(data.title_property || "Reel title");
+          setNotionScriptProp(data.script_property || "Script");
+          setNotionFootageProp(data.footage_property || "Footage");
+          setNotionFileSubmissionProp(data.file_submission_property || "File Submission");
+        } else {
+          setNotionDbId("");
+          setNotionLeadsDbId("");
+        }
+      });
+  }, [selectedClientId, isAdmin]);
+
 
   const selectedClientName =
     viewMode === "master" ? "Master"
@@ -273,6 +350,13 @@ export default function Dashboard() {
       { label: "Landing Page", description: language === "en" ? "Build client's custom landing page" : "Construye la landing page del cliente", icon: Zap, color: "#34d399", path: clientId ? `/clients/${clientId}/landing-page` : "/", disabled: isSubscriber && userPlanType !== "enterprise" },
       { label: "Database", description: language === "en" ? "Direct database access" : "Acceso directo a base de datos", icon: Database, color: "#22d3ee", path: isSubscriber ? "/master-database" : (clientId ? `/clients/${clientId}/database` : "/dashboard") },
       { label: "Contracts", description: language === "en" ? "Upload, sign & send contracts" : "Sube, firma y envía contratos", icon: ScrollText, color: "#fbbf24", path: clientId ? `/clients/${clientId}/contracts` : "/dashboard" },
+      ...(schedulerEnabled && clientId ? [{
+        label: language === "en" ? "Social Accounts" : "Cuentas Sociales",
+        description: language === "en" ? "Connect Facebook & Instagram for scheduling" : "Conectar Facebook e Instagram para programación",
+        icon: Share2,
+        color: "#ec4899",
+        path: `/clients/${clientId}/social-accounts`,
+      }] : []),
     ],
   });
 
@@ -319,6 +403,73 @@ export default function Dashboard() {
   };
 
   const toolCards = getToolCards();
+
+  // Selected-client admin chrome helpers
+  const isOwnedByUser = isUser && !!selectedClientOwnerId && selectedClientOwnerId === user?.id;
+  const canEditSelectedClient = !!selectedClientId && viewMode !== "me" && (isAdmin || isOwnedByUser);
+
+  const handleEditClient = async () => {
+    if (!selectedClientId || !editName.trim()) return;
+    setEditLoading(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({ name: editName.trim(), email: editEmail.trim() || null })
+      .eq("id", selectedClientId);
+    if (error) {
+      toast.error(language === "en" ? "Error updating client" : "Error al actualizar cliente");
+    } else {
+      toast.success(language === "en" ? "Client updated" : "Cliente actualizado");
+      setClients(prev => prev.map(c => c.id === selectedClientId ? { ...c, name: editName.trim() } : c));
+      setSelectedClientEmail(editEmail.trim());
+      setShowEditDialog(false);
+    }
+    setEditLoading(false);
+  };
+
+  const handleDeleteClient = async () => {
+    if (!selectedClientId) return;
+    setDeleteLoading(true);
+    const { error } = await supabase.from("clients").delete().eq("id", selectedClientId);
+    if (error) {
+      toast.error(language === "en" ? "Error deleting client" : "Error al eliminar cliente");
+    } else {
+      toast.success(language === "en" ? "Client deleted" : "Cliente eliminado");
+      setClients(prev => prev.filter(c => c.id !== selectedClientId));
+      localStorage.setItem("dashboard_viewMode", "master");
+      window.dispatchEvent(new CustomEvent("viewModeChanged", { detail: "master" }));
+      setViewMode("master");
+    }
+    setDeleteLoading(false);
+    setShowDeleteAlert(false);
+  };
+
+  const handleSaveNotion = async () => {
+    if (!selectedClientId || !notionDbId.trim()) return;
+    setNotionLoading(true);
+    const rawId = notionDbId.trim().split("?")[0].replace(/-/g, "").slice(-32);
+    const rawLeadsId = notionLeadsDbId.trim().split("?")[0].replace(/-/g, "").slice(-32);
+    const { error } = await supabase.from("client_notion_mapping").upsert(
+      {
+        client_id: selectedClientId,
+        notion_database_id: rawId,
+        notion_leads_database_id: rawLeadsId,
+        title_property: notionTitleProp.trim() || "Reel title",
+        script_property: notionScriptProp.trim() || "Script",
+        footage_property: notionFootageProp.trim() || "Footage",
+        file_submission_property: notionFileSubmissionProp.trim() || "File Submission",
+      },
+      { onConflict: "client_id" }
+    );
+    if (error) {
+      toast.error("Error saving Notion settings");
+    } else {
+      toast.success("Notion databases linked successfully");
+      setNotionDbId(rawId);
+      setNotionLeadsDbId(rawLeadsId);
+      setShowNotionDialog(false);
+    }
+    setNotionLoading(false);
+  };
 
   if (loading) {
     return (
@@ -597,9 +748,53 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  <motion.p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-2" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
-                    👋 {tr(t.dashboard.greeting, language)}, {displayName}
-                  </motion.p>
+                  {isStaff && selectedClientId && viewMode !== "me" && (
+                    <motion.button
+                      onClick={() => navigate("/clients")}
+                      className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
+                      initial="hidden" animate="visible" custom={0} variants={fadeUp}
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      {language === "en" ? "Back to clients" : "Volver a clientes"}
+                    </motion.button>
+                  )}
+                  <motion.div
+                    className="flex items-center justify-center gap-2 mb-2"
+                    initial="hidden" animate="visible" custom={0} variants={fadeUp}
+                  >
+                    <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">
+                      👋 {tr(t.dashboard.greeting, language)}, {displayName}
+                    </p>
+                    {canEditSelectedClient && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => { setEditName(selectedClientName); setEditEmail(selectedClientEmail); setShowEditDialog(true); }}
+                          className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                          title={language === "en" ? "Edit client" : "Editar cliente"}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setShowNotionDialog(true)}
+                            className={`p-1 rounded-md transition-colors ${notionDbId ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
+                            title="Notion database settings"
+                          >
+                            <Database className="w-3 h-3" />
+                          </button>
+                        )}
+                        {isOwnedByUser && (
+                          <button
+                            onClick={() => setShowDeleteAlert(true)}
+                            className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                            title={language === "en" ? "Delete client" : "Eliminar cliente"}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
                   <motion.h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight leading-[0.95] font-caslon" initial="hidden" animate="visible" custom={1} variants={fadeUp}>
                     {language === "en" ? "What do you want to do today?" : "¿Qué quieres hacer hoy?"}
                   </motion.h1>
@@ -633,6 +828,123 @@ export default function Dashboard() {
         </div>
 
       </PageTransition>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Edit Client" : "Editar Cliente"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Name" : "Nombre"}</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button onClick={handleEditClient} disabled={editLoading || !editName.trim()}>
+              {editLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {language === "en" ? "Save" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notion Settings Dialog (admin-only) */}
+      <Dialog open={showNotionDialog} onOpenChange={setShowNotionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-400" />
+              Notion Database Settings
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="font-semibold">📋 Edit Queue Database ID</Label>
+              <Input
+                placeholder="e.g. 9ad6442e09c805a927de6e3fdb6112c"
+                value={notionDbId}
+                onChange={(e) => setNotionDbId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Database for storing video editing queue & reel metadata.</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="font-semibold">🎯 Leads Database ID (Workflow Data)</Label>
+              <Input
+                placeholder="e.g. 5c1f88c1093841b3bb8464e70fd58eb7"
+                value={notionLeadsDbId}
+                onChange={(e) => setNotionLeadsDbId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Separate database for storing workflow leads/data (different from video edits database).</p>
+            </div>
+            <div className="border-t border-border/50 pt-3">
+              <p className="text-xs text-muted-foreground mb-3 font-medium">Property names in Notion</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Title property</Label>
+                  <Input className="h-8 text-xs" value={notionTitleProp} onChange={(e) => setNotionTitleProp(e.target.value)} placeholder="Reel title" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Script property</Label>
+                  <Input className="h-8 text-xs" value={notionScriptProp} onChange={(e) => setNotionScriptProp(e.target.value)} placeholder="Script" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Footage property</Label>
+                  <Input className="h-8 text-xs" value={notionFootageProp} onChange={(e) => setNotionFootageProp(e.target.value)} placeholder="Footage" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">File submission property</Label>
+                  <Input className="h-8 text-xs" value={notionFileSubmissionProp} onChange={(e) => setNotionFileSubmissionProp(e.target.value)} placeholder="File Submission" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotionDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNotion} disabled={notionLoading || !notionDbId.trim()}>
+              {notionLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Client Alert */}
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "en" ? "Delete client?" : "¿Eliminar cliente?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en"
+                ? "This will permanently delete the client and all their data (scripts, leads, etc). This action cannot be undone."
+                : "Esto eliminará permanentemente al cliente y todos sus datos (guiones, leads, etc). Esta acción no se puede deshacer."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "en" ? "Cancel" : "Cancelar"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteClient}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteLoading}
+            >
+              {deleteLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {language === "en" ? "Delete" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
