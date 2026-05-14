@@ -1863,7 +1863,7 @@ export default function LandingPageNew() {
                 <ProxText>Dr Calvin</ProxText>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
-                <ProxText>Creator · grew 9× in 6 months with Connecta</ProxText>
+                <ProxText>Chiropractor · 50M+ views with Connecta</ProxText>
               </div>
             </div>
           </div>
