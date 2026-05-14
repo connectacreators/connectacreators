@@ -1252,7 +1252,12 @@ export default function LandingPageNew() {
             style={{
               fontSize: "clamp(40px, 7vw, 88px)",
               lineHeight: 1.18,
-              letterSpacing: "-0.025em",
+              // Heavy negative letter-spacing: each letter is in its own
+              // .prox-letter inline-block (for the rise animation), which
+              // breaks the font's natural kerning between pairs like Go,
+              // Vi, ie, Ge, Cl. -0.045em compensates so the H1 reads as
+              // tight as a normal text run.
+              letterSpacing: "-0.045em",
               fontWeight: 500,
               margin: 0,
               marginBottom: 26,
