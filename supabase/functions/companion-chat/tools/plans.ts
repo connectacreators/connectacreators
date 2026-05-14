@@ -34,6 +34,11 @@ export const PLAN_TOOLS: ToolDef[] = [
         },
         client_name: { type: "string", description: "Optional: the client this plan is for" },
         notes: { type: "string", description: "Optional: extra context, expected outcome, or risks the user should know" },
+        target_item_titles: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional: when the plan affects specific editing-queue items, list their titles (or partial titles) here so the UI can highlight the affected rows with a subtle pulse while the user decides. Example: ['VIDEO #4', 'VIDEO #5', '(03) So, you\\'re thinking…']. Only include for plans touching the editing queue.",
+        },
       },
       required: ["summary", "steps"],
     },
@@ -70,7 +75,7 @@ export async function handlePlanTool(
   const { adminClient, userId, client, actions } = ctx;
 
   if (block.name === "propose_plan") {
-    const { summary, steps, client_name, notes } = block.input;
+    const { summary, steps, client_name, notes, target_item_titles } = block.input;
     if (!summary || !Array.isArray(steps) || steps.length === 0) {
       return { type: "tool_result", tool_use_id: block.id, content: "Refused: summary and at least one step are required." };
     }
@@ -110,6 +115,38 @@ export async function handlePlanTool(
       summary,
       steps: steps.slice(0, 25),
     });
+
+    // If the model named target editing-queue items, resolve them to ids and
+    // emit a highlight action. The page pulses those rows so the user can
+    // visually confirm what's about to change before approving.
+    if (Array.isArray(target_item_titles) && target_item_titles.length > 0 && resolvedClientId) {
+      try {
+        const { resolveEditingItem } = await import("../_shared/editing-resolver.ts");
+        const itemIds: string[] = [];
+        for (const raw of target_item_titles.slice(0, 25)) {
+          const title = String(raw ?? "").trim();
+          if (!title) continue;
+          const r = await resolveEditingItem(
+            adminClient,
+            resolvedClientId,
+            ctx.accessibleClientIds,
+            title,
+            { onlyLive: true },
+          );
+          if (r.ok) itemIds.push(r.item.id);
+        }
+        if (itemIds.length > 0) {
+          actions.push({
+            type: "highlight_items",
+            scope: "editing_queue",
+            item_ids: itemIds,
+            plan_id: plan.id,
+          });
+        }
+      } catch (e) {
+        console.warn("[propose_plan] highlight_items resolution failed:", e);
+      }
+    }
 
     const stepLines = steps
       .slice(0, 25)

@@ -520,6 +520,17 @@ All colors MUST be HSL for consistency and theming.
   color: rgba(255,255,255,0.85) !important;
 }
 
+/* Row pulse for AI plan previews — gently fades the row 1 → 0.55 → 1
+   while a propose_plan card is awaiting approval. Subtle ambient cue so
+   the user knows which rows are about to change. */
+@keyframes ai-row-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.ai-preview-pulse {
+  animation: ai-row-pulse 2s ease-in-out infinite;
+}
+
 /* ReactFlow handle rebrand — gold instead of default blue */
 .react-flow__handle {
   width: 8px !important;

@@ -161,6 +161,18 @@ export const EDITING_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "mark_done_and_published",
+    description: "Convenience: in one call, set status=Done AND post_status=Published on an editing queue item. Use when the user says 'mark X as done and published' or similar. Saves a round-trip vs calling update_editing_status + mark_post_published separately.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+      },
+      required: ["client_name", "item_title"],
+    },
+  },
+  {
     name: "reschedule_post",
     description: "Change the scheduled date for a content calendar post.",
     input_schema: {
@@ -508,6 +520,27 @@ export async function handleEditingTool(
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     actions.push({ type: "refresh_data", scope: "calendar" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${item.reel_title}" marked as Published.` };
+  }
+
+  if (block.name === "mark_done_and_published") {
+    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No live editing item matched "${item_title}" for ${client.name}.` };
+    }
+    const { error: updErr } = await adminClient
+      .from("video_edits")
+      .update({ status: "Done", post_status: "Published" })
+      .eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    actions.push({ type: "refresh_data", scope: "calendar" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" marked as Done and Published.` };
   }
 
   if (block.name === "reschedule_post") {

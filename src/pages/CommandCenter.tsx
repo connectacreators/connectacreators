@@ -27,6 +27,8 @@ import {
   CheckCircle2,
   Clock,
   ListChecks,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -154,6 +156,28 @@ export default function CommandCenter() {
 
   // ── Right-tab state (Chat vs Tasks) ────────────────────────────────────
   const [rightTab, setRightTab] = useState<RightTab>("chat");
+
+  // Chats sidebar collapsed state — persisted to localStorage. Toggleable via
+  // the panel-icon button in the header or Cmd/Ctrl+. keyboard shortcut.
+  const [chatsSidebarOpen, setChatsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("cc_chats_sidebar_open") !== "false";
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("cc_chats_sidebar_open", chatsSidebarOpen ? "true" : "false");
+    } catch { /* ignore */ }
+  }, [chatsSidebarOpen]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        e.preventDefault();
+        setChatsSidebarOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("todo");
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
@@ -405,6 +429,13 @@ export default function CommandCenter() {
               }),
             );
           }
+          if (action?.type === "highlight_items" && Array.isArray(action.item_ids)) {
+            window.dispatchEvent(
+              new CustomEvent("ai:highlight-items", {
+                detail: { scope: action.scope ?? "editing_queue", item_ids: action.item_ids },
+              }),
+            );
+          }
           if (action?.type === "show_notification" && typeof action.message === "string") {
             window.dispatchEvent(
               new CustomEvent("ai:notification", {
@@ -550,13 +581,29 @@ export default function CommandCenter() {
     <div className="fixed inset-0 flex flex-col text-white" style={{ background: "#131417" }}>
       {/* Header — mirrors FullscreenAIView: just back button + centered title */}
       <header className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2.5 border-b border-white/5">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-xs text-white/45 hover:text-white/80 transition-colors w-fit"
-        >
-          <ArrowLeft className="w-3 h-3" />
-          {en ? "Back" : "Atrás"}
-        </button>
+        <div className="flex items-center gap-2 w-fit">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1 text-xs text-white/45 hover:text-white/80 transition-colors"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            {en ? "Back" : "Atrás"}
+          </button>
+          {rightTab === "chat" && (
+            <button
+              onClick={() => setChatsSidebarOpen((v) => !v)}
+              className="flex items-center justify-center text-white/45 hover:text-white/80 hover:bg-white/[0.06] transition-colors rounded p-1"
+              title={`${chatsSidebarOpen ? (en ? "Close sidebar" : "Cerrar barra") : (en ? "Open sidebar" : "Abrir barra")} ⌘.`}
+              aria-label={chatsSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {chatsSidebarOpen ? (
+                <PanelLeftClose className="w-3.5 h-3.5" />
+              ) : (
+                <PanelLeftOpen className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+        </div>
         <div className="text-center text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
           {companionName}
         </div>
@@ -583,20 +630,22 @@ export default function CommandCenter() {
       <div className="flex-1 flex min-h-0">
         {rightTab === "chat" ? (
           <>
-            {/* CHATS sidebar */}
-            <aside className="w-[260px] bg-[#1a1b1f] border-r border-white/[0.04] flex flex-col">
-              <AssistantThreadList
-                threads={threadListItems}
-                activeThreadId={activeThreadId}
-                onSelect={handleSelectThread}
-                onCreate={handleNewThread}
-                onDelete={handleDeleteThread}
-                onRename={handleRenameThread}
-                groupByDate
-                variant="full"
-                className="flex-1 min-h-0"
-              />
-            </aside>
+            {/* CHATS sidebar — collapsible via header button or Cmd/Ctrl+. */}
+            {chatsSidebarOpen && (
+              <aside className="w-[260px] bg-[#1a1b1f] border-r border-white/[0.04] flex flex-col">
+                <AssistantThreadList
+                  threads={threadListItems}
+                  activeThreadId={activeThreadId}
+                  onSelect={handleSelectThread}
+                  onCreate={handleNewThread}
+                  onDelete={handleDeleteThread}
+                  onRename={handleRenameThread}
+                  groupByDate
+                  variant="full"
+                  className="flex-1 min-h-0"
+                />
+              </aside>
+            )}
 
             {/* Chat column */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
