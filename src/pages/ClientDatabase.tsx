@@ -21,6 +21,7 @@ import TableHeaderComponent from "@/components/tables/TableHeader";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exportToCSV } from "@/utils/csvExport";
 import PageTransition from "@/components/PageTransition";
+import { lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -597,9 +598,14 @@ export default function ClientDatabase() {
 
   const handleInlineVideoUpdate = async (videoId: string, field: string, value: string | null) => {
     try {
-      const updates: Record<string, unknown> = { [field]: value };
+      let updates: Record<string, unknown> = { [field]: value };
       if (field === "schedule_date" && value) {
         updates[field] = new Date(value).toISOString();
+      }
+      // Dual-write: when changing post_status, also update lifecycle_status + legacy status
+      if (field === "post_status" && value) {
+        const lifecycle = deriveFromLegacy(undefined, value);
+        updates = { ...updates, ...lifecycleUpdate(lifecycle) };
       }
       await videoService.updateVideo(videoId, updates);
       setVideos((prev) =>
@@ -1178,12 +1184,12 @@ export default function ClientDatabase() {
                       <div className="text-muted-foreground">Scripts (Vault)</div>
                     </div>
                     <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-                      <div className="font-semibold text-foreground">{videos.filter(v => v.status === "In progress").length}</div>
+                      <div className="font-semibold text-foreground">{videos.filter(v => (v.lifecycle_status ?? deriveFromLegacy(v.status, v.post_status)) === "In progress").length}</div>
                       <div className="text-muted-foreground">In Progress</div>
                     </div>
                     <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-                      <div className="font-semibold text-foreground">{videos.filter(v => v.status === "Done").length}</div>
-                      <div className="text-muted-foreground">Done</div>
+                      <div className="font-semibold text-foreground">{videos.filter(v => { const ls = (v.lifecycle_status ?? deriveFromLegacy(v.status, v.post_status)) as LifecycleStatus; return ls === "Scheduled" || ls === "Published"; }).length}</div>
+                      <div className="text-muted-foreground">Scheduled/Published</div>
                     </div>
                   </div>
                 </TabsContent>

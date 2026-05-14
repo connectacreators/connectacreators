@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 interface CalendarPost {
   id: string;
@@ -17,7 +18,8 @@ interface CalendarPost {
   client_id: string;
   title: string;
   scheduled_date: string;           // YYYY-MM-DD
-  post_status: string;
+  post_status: string;              // legacy — kept for dual-write compatibility
+  lifecycle_status: LifecycleStatus; // preferred display field
   file_submission_url: string | null;
   script_url: string | null;
   revision_notes?: string | null;
@@ -161,8 +163,8 @@ export default function PublicContentCalendar() {
       if (res.error) throw res.error;
       toast.success("Post approved!");
       const id = selectedPost.id;
-      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Approved" } : p));
-      setSelectedPost((prev) => prev ? { ...prev, post_status: "Approved" } : null);
+      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Approved", lifecycle_status: "Published" } : p));
+      setSelectedPost((prev) => prev ? { ...prev, post_status: "Approved", lifecycle_status: "Published" } : null);
     } catch (error) {
       console.error("Approve error:", error);
       toast.error("Failed to approve");
@@ -195,8 +197,8 @@ export default function PublicContentCalendar() {
       if (res.error) throw res.error;
       toast.success("Sent back for revision.");
       const id = selectedPost.id;
-      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Needs Revision", revision_notes: revisionNotes } : p));
-      setSelectedPost((prev) => prev ? { ...prev, post_status: "Needs Revision", revision_notes: revisionNotes } : null);
+      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: revisionNotes } : p));
+      setSelectedPost((prev) => prev ? { ...prev, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: revisionNotes } : null);
     } catch (error) {
       console.error("Revision error:", error);
       toast.error("Failed to update status");
@@ -223,7 +225,7 @@ export default function PublicContentCalendar() {
       try {
         const { data, error: fetchErr } = await supabase
           .from("video_edits")
-          .select("id, reel_title, schedule_date, post_status, file_submission, script_url, revisions, caption, client_id")
+          .select("id, reel_title, schedule_date, post_status, lifecycle_status, file_submission, script_url, revisions, caption, client_id")
           .eq("client_id", clientId)
           .is("deleted_at", null)
           .not("schedule_date", "is", null)
@@ -238,6 +240,7 @@ export default function PublicContentCalendar() {
           title: v.reel_title || "Untitled",
           scheduled_date: (v.schedule_date as string).slice(0, 10),
           post_status: v.post_status || "Unpublished",
+          lifecycle_status: (v.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(v.status, v.post_status),
           file_submission_url: v.file_submission,
           script_url: v.script_url,
           revision_notes: v.revisions ?? null,
@@ -347,16 +350,16 @@ export default function PublicContentCalendar() {
 
                         <div className="space-y-1 mt-1">
                           {datePosts.map((post) => {
-                            const cfg = getStatusConfig(post.post_status);
+                            const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
                             return (
                               <button
                                 key={post.id}
                                 onClick={() => setSelectedPost(post)}
                                 className={`w-full text-left px-3 py-2 rounded text-[11px] font-medium transition-all truncate
-                                  ${cfg.bg} hover:opacity-80`}
+                                  ${lcStyle.bg} hover:opacity-80`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lcStyle.text.replace("text-", "bg-")}`} />
                                   <span className="truncate">{post.title}</span>
                                 </div>
                               </button>
@@ -434,11 +437,11 @@ export default function PublicContentCalendar() {
                       {dayPosts && dayPosts.length > 0 && (
                         <div className="flex flex-wrap justify-center gap-0.5 mt-1.5">
                           {dayPosts.slice(0, 4).map((post, i) => {
-                            const cfg = getStatusConfig(post.post_status);
+                            const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
                             return (
                               <div
                                 key={i}
-                                className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}
+                                className={`w-1.5 h-1.5 rounded-full ${lcStyle.text.replace("text-", "bg-")}`}
                               />
                             );
                           })}
@@ -501,9 +504,11 @@ export default function PublicContentCalendar() {
                 <div className="flex items-center justify-between gap-2 flex-wrap w-full">
                   <DialogTitle className="flex items-center gap-2 flex-wrap text-base">
                     <span className="truncate max-w-[250px]">{selectedPost.title}</span>
-                    <Badge variant="outline" className={getStatusConfig(selectedPost.post_status).badge}>
-                      {selectedPost.post_status}
-                    </Badge>
+                    {(() => { const lcStyle = LIFECYCLE_STYLE[selectedPost.lifecycle_status]; return (
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${lcStyle.bg} ${lcStyle.text} ${lcStyle.border}`}>
+                        {lcStyle.label}
+                      </span>
+                    ); })()}
                   </DialogTitle>
                 </div>
               </DialogHeader>
@@ -573,7 +578,7 @@ export default function PublicContentCalendar() {
 
                   {/* Right: Approve + Revisions */}
                   <div className="flex items-center gap-2">
-                    {selectedPost.post_status !== "Approved" && selectedPost.post_status !== "Done" && (
+                    {selectedPost.lifecycle_status !== "Published" && selectedPost.lifecycle_status !== "Scheduled" && (
                       <Button
                         size="sm"
                         className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"
@@ -598,7 +603,7 @@ export default function PublicContentCalendar() {
                 </div>
 
                 {/* Status message */}
-                {(selectedPost.post_status === "Approved" || selectedPost.post_status === "Done") && (
+                {(selectedPost.lifecycle_status === "Published" || selectedPost.lifecycle_status === "Scheduled") && (
                   <div className="pt-4 flex items-center gap-2 text-sm text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
                     This post has been approved.

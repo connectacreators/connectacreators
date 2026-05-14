@@ -24,6 +24,7 @@ import { PostDetailsModal } from "@/components/scheduler/PostDetailsModal";
 import { ReauthBanner } from "@/components/scheduler/ReauthBanner";
 import { ScheduledPostCard } from "@/components/scheduler/ScheduledPostCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,8 @@ interface CalendarPost {
   client_id: string;                // required — non-null FK
   title: string;
   scheduled_date: string;           // YYYY-MM-DD (truncated at mapping boundary)
-  post_status: string;              // Scheduled | Approved | Needs Revision | Done
+  post_status: string;              // legacy — kept for dual-write compatibility
+  lifecycle_status: LifecycleStatus; // preferred display field
   file_submission_url?: string | null;
   upload_source?: string | null;
   storage_path?: string | null;
@@ -287,7 +289,7 @@ export default function ContentCalendar() {
     try {
       let query = supabase
         .from("video_edits")
-        .select("id, reel_title, schedule_date, post_status, assignee, script_id, file_submission, upload_source, storage_path, caption, script_url, revisions, client_id")
+        .select("id, reel_title, schedule_date, post_status, lifecycle_status, assignee, script_id, file_submission, upload_source, storage_path, caption, script_url, revisions, client_id")
         .is("deleted_at", null)
         .not("schedule_date", "is", null)
         .order("schedule_date", { ascending: true });
@@ -314,6 +316,7 @@ export default function ContentCalendar() {
         title: v.reel_title || "Untitled",
         scheduled_date: (v.schedule_date as string).slice(0, 10),
         post_status: v.post_status || "Unpublished",
+        lifecycle_status: (v.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(v.status, v.post_status),
         file_submission_url: v.file_submission,
         upload_source: v.upload_source,
         storage_path: v.storage_path,
@@ -381,8 +384,8 @@ export default function ContentCalendar() {
       if (res.error) throw res.error;
       toast.success(language === "en" ? "Post approved!" : "¡Post aprobado!");
       const id = selectedPost.id;
-      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Approved" } : p));
-      setSelectedPost((prev) => prev ? { ...prev, post_status: "Approved" } : null);
+      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Approved", lifecycle_status: "Published" } : p));
+      setSelectedPost((prev) => prev ? { ...prev, post_status: "Approved", lifecycle_status: "Published" } : null);
     } catch (error) {
       console.error("Approve error:", error);
       toast.error(language === "en" ? "Failed to approve" : "Error al aprobar");
@@ -418,8 +421,8 @@ export default function ContentCalendar() {
       if (res.error) throw res.error;
       toast.success(language === "en" ? "Sent back for revision." : "Enviado para revisión.");
       const id = selectedPost.id;
-      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Needs Revision", revision_notes: revisionNotes } : p));
-      setSelectedPost((prev) => prev ? { ...prev, post_status: "Needs Revision", revision_notes: revisionNotes } : null);
+      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: revisionNotes } : p));
+      setSelectedPost((prev) => prev ? { ...prev, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: revisionNotes } : null);
     } catch (error) {
       console.error("Revision error:", error);
       toast.error(language === "en" ? "Failed to update status" : "Error al actualizar estado");
@@ -658,16 +661,16 @@ export default function ContentCalendar() {
                             {/* Posts for this date */}
                             <div className="space-y-2 mt-2">
                               {datePosts.map((post) => {
-                                const cfg = getStatusConfig(post.post_status);
+                                const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
                                 return (
                                   <button
                                     key={post.id}
                                     onClick={() => setSelectedPost(post)}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg border border-border/30 transition-colors flex items-center gap-2.5
-                                      ${cfg.bg} hover:border-border/60`}
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors flex items-center gap-2.5
+                                      ${lcStyle.bg} ${lcStyle.border} hover:opacity-90`}
                                   >
                                     {/* Status dot */}
-                                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lcStyle.text.replace("text-", "bg-")}`} />
 
                                     {/* Post content */}
                                     <div className="flex-1 min-w-0">
@@ -678,7 +681,9 @@ export default function ContentCalendar() {
                                     </div>
 
                                     {/* Status badge */}
-                                    <StatusBadge status={post.post_status} className="flex-shrink-0" />
+                                    <span className={`flex-shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${lcStyle.bg} ${lcStyle.text} ${lcStyle.border}`}>
+                                      {lcStyle.label}
+                                    </span>
                                   </button>
                                 );
                               })}
@@ -691,7 +696,7 @@ export default function ContentCalendar() {
                   ) : (
                     // Table View - Scheduled Posts Only
                     <div className="p-4">
-                      {filteredPosts.filter(p => p.post_status === "Scheduled").length === 0 ? (
+                      {filteredPosts.filter(p => p.lifecycle_status === "Scheduled").length === 0 ? (
                         <div className="flex items-center justify-center h-full text-center text-sm text-muted-foreground py-12">
                           <Calendar className="w-8 h-8 mx-auto mb-2 opacity-30" />
                           {language === "en" ? "No scheduled posts" : "Sin posts programados"}
@@ -699,7 +704,7 @@ export default function ContentCalendar() {
                       ) : (
                         <div className="space-y-2">
                           {filteredPosts
-                            .filter(p => p.post_status === "Scheduled")
+                            .filter(p => p.lifecycle_status === "Scheduled")
                             .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
                             .map((post) => (
                               <button
@@ -799,11 +804,11 @@ export default function ContentCalendar() {
                         {dayPosts && dayPosts.length > 0 && (
                           <div className="flex flex-wrap justify-center gap-0.5 mt-1.5">
                             {dayPosts.slice(0, 4).map((post, i) => {
-                              const cfg = getStatusConfig(post.post_status);
+                              const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
                               return (
                                 <div
                                   key={i}
-                                  className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}
+                                  className={`w-1.5 h-1.5 rounded-full ${lcStyle.text.replace("text-", "bg-")}`}
                                 />
                               );
                             })}
@@ -905,9 +910,9 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
   }, [isSupabaseVideo, post.storage_path]);
   // These are now only computed when the modal is actually open with a post
   const driveId = post.file_submission_url ? extractGoogleDriveFileId(post.file_submission_url) : null;
-  const cfg = getStatusConfig(post.post_status);
-  const isApproved = post.post_status === "Approved" || post.post_status === "Done";
-  const isRevision = post.post_status === "Needs Revision";
+  const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
+  const isApproved = post.lifecycle_status === "Published" || post.lifecycle_status === "Scheduled";
+  const isRevision = post.lifecycle_status === "Needs Revisions";
   const [copied, setCopied] = useState(false);
 
   const handleShareLink = useCallback(() => {
@@ -924,7 +929,9 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
         <div className="flex items-center justify-between gap-2 flex-wrap w-full">
           <DialogTitle className="flex items-center gap-2 flex-wrap text-base">
             <span className="truncate max-w-[250px]">{post.title}</span>
-            <StatusBadge status={post.post_status} />
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${lcStyle.bg} ${lcStyle.text} ${lcStyle.border}`}>
+              {lcStyle.label}
+            </span>
             {post.client_name && (
               <Badge variant="outline" className="text-[10px] font-normal bg-muted/30 text-muted-foreground border-border/40">
                 {post.client_name}
