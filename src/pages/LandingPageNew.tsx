@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -9,10 +9,18 @@ import {
   Send,
   Menu,
   X,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import "../landing.css";
 import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
+import doodleSelfie from "@/assets/doodle-selfie.png";
+import doodleMessy from "@/assets/doodle-messy.png";
 
 /* =============================================================================
    The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
@@ -76,8 +84,408 @@ function WordRise({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Super Canvas mockup — the screenshot moment.
-   Node-based strategy visualization. One node "live" pulsing.
+   InteractiveSticker — drifts toward the cursor when within range.
+   Uses transform translate, scale, plus a base rotation. Pure motion,
+   no opacity changes. Cursor must be within `radius` to activate.
+   ───────────────────────────────────────────────────────────── */
+function InteractiveSticker({
+  src,
+  alt = "",
+  baseRotation = 0,
+  maxOffset = 18,
+  radius = 260,
+  className,
+  style,
+}: {
+  src: string;
+  alt?: string;
+  baseRotation?: number;
+  maxOffset?: number;
+  radius?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLImageElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const targetRef = useRef({ x: 0, y: 0, scale: 1, tilt: 0 });
+  const currentRef = useRef({ x: 0, y: 0, scale: 1, tilt: 0 });
+
+  useEffect(() => {
+    const animate = () => {
+      const c = currentRef.current;
+      const t = targetRef.current;
+      // Lerp toward target for a lazy "follow" feel
+      c.x += (t.x - c.x) * 0.12;
+      c.y += (t.y - c.y) * 0.12;
+      c.scale += (t.scale - c.scale) * 0.12;
+      c.tilt += (t.tilt - c.tilt) * 0.12;
+      if (ref.current) {
+        ref.current.style.transform =
+          `translate(${c.x.toFixed(2)}px, ${c.y.toFixed(2)}px) ` +
+          `rotate(${(baseRotation + c.tilt).toFixed(2)}deg) ` +
+          `scale(${c.scale.toFixed(3)})`;
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+
+    const onMove = (e: MouseEvent) => {
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist < radius && dist > 0) {
+        const strength = (radius - dist) / radius; // 0..1
+        const unit = { x: dx / dist, y: dy / dist };
+        targetRef.current.x = unit.x * maxOffset * strength;
+        targetRef.current.y = unit.y * maxOffset * strength;
+        targetRef.current.scale = 1 + strength * 0.05;
+        targetRef.current.tilt = unit.x * 4 * strength; // small lean toward cursor
+      } else {
+        targetRef.current.x = 0;
+        targetRef.current.y = 0;
+        targetRef.current.scale = 1;
+        targetRef.current.tilt = 0;
+      }
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    const onLeave = () => {
+      targetRef.current = { x: 0, y: 0, scale: 1, tilt: 0 };
+    };
+    document.addEventListener("mouseleave", onLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", onLeave);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [baseRotation, maxOffset, radius]);
+
+  return (
+    <img
+      ref={ref}
+      src={src}
+      alt={alt}
+      aria-hidden={!alt}
+      className={className}
+      style={{
+        ...style,
+        willChange: "transform",
+        transform: `rotate(${baseRotation}deg)`, // initial transform before RAF runs
+      }}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Branded demo video player — uses the actual product video from
+   the original landing. Restyled with Ink+Aqua+Honey + hand-drawn
+   doodle play button. Hard offset shadow for the "sticker" frame.
+   ───────────────────────────────────────────────────────────── */
+const DEMO_VIDEO_URL =
+  "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/demo-video.mp4";
+
+function DemoVideoPlayer() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    hideTimeout.current = setTimeout(() => {
+      if (playing) setShowControls(false);
+    }, 2800);
+  }, [playing]);
+
+  const toggle = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPlaying(true);
+    } else {
+      v.pause();
+      setPlaying(false);
+      setShowControls(true);
+    }
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const handleTimeUpdate = useCallback(() => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    setCurrentTime(v.currentTime);
+    setProgress(v.currentTime / v.duration);
+  }, []);
+
+  const handleSeek = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const v = videoRef.current;
+      const bar = progressRef.current;
+      if (!v || !bar) return;
+      const rect = bar.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      v.currentTime = ratio * v.duration;
+      resetHideTimer();
+    },
+    [resetHideTimer]
+  );
+
+  const toggleMute = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.();
+      setFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setFullscreen(false);
+    }
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  useEffect(() => {
+    const handler = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseMove={resetHideTimer}
+      onMouseLeave={() => {
+        if (playing) setShowControls(false);
+      }}
+      onClick={toggle}
+      style={{
+        position: "relative",
+        width: "100%",
+        borderRadius: fullscreen ? 0 : 22,
+        overflow: "hidden",
+        border: "1.5px solid var(--ink)",
+        boxShadow: fullscreen ? "none" : "6px 6px 0 var(--ink)",
+        background: "#000",
+        cursor: "pointer",
+      }}
+    >
+      <video
+        ref={videoRef}
+        src={DEMO_VIDEO_URL}
+        muted
+        playsInline
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+        onEnded={() => {
+          setPlaying(false);
+          setShowControls(true);
+        }}
+        style={{
+          width: "100%",
+          display: "block",
+          maxHeight: fullscreen ? "100vh" : "none",
+        }}
+      />
+
+      {/* Big hand-drawn play overlay (shown when paused) */}
+      {!playing && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10,14,18,0.30)",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              width: 96,
+              height: 96,
+              position: "relative",
+            }}
+          >
+            <svg
+              viewBox="0 0 100 100"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+              aria-hidden
+            >
+              {/* Hand-drawn imperfect circle */}
+              <path
+                d="M 50 8 Q 84 10, 92 50 Q 90 86, 50 92 Q 12 88, 8 50 Q 12 12, 50 8 Z"
+                fill="var(--honey)"
+                stroke="var(--ink)"
+                strokeWidth="3"
+                strokeLinejoin="round"
+              />
+              {/* Wobbly play triangle */}
+              <path
+                d="M 40 32 Q 38 30, 42 32 L 70 48 Q 72 50, 70 52 L 42 68 Q 38 70, 40 68 Z"
+                fill="var(--ink)"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Controls bar */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: "32px 18px 16px",
+          background:
+            "linear-gradient(0deg, rgba(10,14,18,0.92) 0%, rgba(10,14,18,0.55) 60%, transparent 100%)",
+          transition: "transform 350ms cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: showControls ? "translateY(0)" : "translateY(100%)",
+        }}
+      >
+        {/* Progress bar */}
+        <div
+          ref={progressRef}
+          onClick={handleSeek}
+          style={{
+            height: 4,
+            background: "rgba(234,230,220,0.18)",
+            borderRadius: 4,
+            marginBottom: 12,
+            cursor: "pointer",
+            position: "relative",
+            border: "1px solid rgba(10,14,18,0.6)",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${progress * 100}%`,
+              background: "var(--aqua)",
+              borderRadius: 4,
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                right: -6,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: "var(--aqua)",
+                border: "1.5px solid var(--ink)",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Controls row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={toggle}
+            aria-label={playing ? "Pause" : "Play"}
+            style={{
+              background: "var(--bone)",
+              border: "1.5px solid var(--ink)",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              cursor: "pointer",
+              color: "var(--ink)",
+              padding: 0,
+              display: "grid",
+              placeItems: "center",
+              boxShadow: "2px 2px 0 var(--ink)",
+            }}
+          >
+            {playing ? (
+              <Pause size={13} fill="var(--ink)" />
+            ) : (
+              <Play size={13} fill="var(--ink)" style={{ marginLeft: 1 }} />
+            )}
+          </button>
+          <button
+            onClick={toggleMute}
+            aria-label={muted ? "Unmute" : "Mute"}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--bone)",
+              padding: 6,
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
+          <span
+            style={{
+              fontFamily: "'Figtree', monospace",
+              fontSize: 12,
+              color: "rgba(234,230,220,0.62)",
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {fmt(currentTime)} / {fmt(duration)}
+          </span>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={toggleFullscreen}
+            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--bone)",
+              padding: 6,
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Super Canvas mockup — kept as a secondary mock for The Brain
+   section's right column. The hero now uses the real demo video.
    ───────────────────────────────────────────────────────────── */
 function SuperCanvasMock() {
   return (
@@ -484,12 +892,27 @@ export default function LandingPageNew() {
             justifyContent: "space-between",
           }}
         >
-          <Link to="/" style={{ display: "inline-flex", alignItems: "center" }} aria-label="Connecta">
+          <Link
+            to="/"
+            style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
+            aria-label="Connecta"
+          >
             <img
               src={logoHandBone}
-              alt="Connecta"
-              style={{ height: 38, width: "auto", display: "block" }}
+              alt=""
+              style={{ height: 36, width: "auto", display: "block" }}
             />
+            <span
+              className="serif"
+              style={{
+                fontSize: 24,
+                color: "var(--bone)",
+                letterSpacing: "-0.005em",
+                fontWeight: 500,
+              }}
+            >
+              connect<span style={{ fontStyle: "italic", color: "var(--honey)" }}>a</span>
+            </span>
           </Link>
 
           <div
@@ -505,7 +928,6 @@ export default function LandingPageNew() {
             <a href="#brain" className="scribble-link">The Brain</a>
             <a href="#viral" className="scribble-link">Viral Today</a>
             <a href="#pipeline" className="scribble-link">Pipeline</a>
-            <a href="#pricing" className="scribble-link">Pricing</a>
           </div>
 
           <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -556,7 +978,6 @@ export default function LandingPageNew() {
             <a href="#brain" onClick={() => setMobileOpen(false)}>The Brain</a>
             <a href="#viral" onClick={() => setMobileOpen(false)}>Viral Today</a>
             <a href="#pipeline" onClick={() => setMobileOpen(false)}>Pipeline</a>
-            <a href="#pricing" onClick={() => setMobileOpen(false)}>Pricing</a>
             <Link to="/scripts" className="btn btn-aqua" style={{ marginTop: 8, alignSelf: "flex-start" }}>
               Get started
             </Link>
@@ -711,28 +1132,27 @@ export default function LandingPageNew() {
           </div>
         </div>
 
-        {/* Hero mockup */}
+        {/* Hero mockup — the real product demo video */}
         <div
           data-reveal="6"
           style={{
             position: "relative",
             zIndex: 1,
-            maxWidth: 1080,
+            maxWidth: 980,
             margin: "60px auto 0",
             padding: "0 32px",
           }}
         >
-          <SuperCanvasMock />
+          <DemoVideoPlayer />
         </div>
       </section>
 
       {/* ===== Real track record — bone panel ===== */}
       <section className="panel-bone" style={{ padding: "80px 0 90px", marginTop: 24, position: "relative", overflow: "visible" }}>
         {/* Sticker — peeks from the top-right of the bone panel into the ink page above */}
-        <img
+        <InteractiveSticker
           src={miroodlesLaptopEye}
-          alt=""
-          aria-hidden
+          baseRotation={-6}
           style={{
             position: "absolute",
             top: -100,
@@ -741,7 +1161,6 @@ export default function LandingPageNew() {
             height: "auto",
             zIndex: 5,
             pointerEvents: "none",
-            transform: "rotate(-6deg)",
           }}
         />
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", position: "relative" }}>
@@ -859,7 +1278,21 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
-      <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative" }}>
+      <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative", overflow: "visible" }}>
+        {/* Selfie sticker — creator-in-action, hovers near the section title */}
+        <InteractiveSticker
+          src={doodleSelfie}
+          baseRotation={5}
+          style={{
+            position: "absolute",
+            top: 60,
+            right: "3%",
+            width: 130,
+            height: "auto",
+            zIndex: 4,
+            pointerEvents: "none",
+          }}
+        />
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
@@ -1251,7 +1684,21 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Section 5 — TESTIMONIAL ===== */}
-      <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center" }}>
+      <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center", position: "relative", overflow: "visible" }}>
+        {/* Messy sticker — the "before Connecta" chaos. Pairs with the quote. */}
+        <InteractiveSticker
+          src={doodleMessy}
+          baseRotation={-8}
+          style={{
+            position: "absolute",
+            top: 60,
+            left: "6%",
+            width: 150,
+            height: "auto",
+            zIndex: 4,
+            pointerEvents: "none",
+          }}
+        />
         <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
           <div
             className="serif"
@@ -1295,161 +1742,7 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Section 6 — PRICING ===== */}
-      <section id="pricing" className="panel-bone" style={{ padding: "120px 0", marginTop: 24 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
-          <div className="scroll-rise" style={{ textAlign: "center", marginBottom: 56 }}>
-            <span className="eyebrow">Pricing</span>
-            <h2 className="section-h2" style={{ margin: "16px auto 18px", maxWidth: 640 }}>
-              Pick a plan, <em className="soft">change it any time.</em>
-            </h2>
-            <p className="section-lede" style={{ margin: "0 auto" }}>
-              Start free for 14 days. Upgrade when your editor begs you to.
-            </p>
-          </div>
-
-          <div
-            className="scroll-rise"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 18,
-              alignItems: "stretch",
-            }}
-          >
-            {[
-              {
-                name: "Solo",
-                blurb: "For creators flying solo.",
-                price: "$19",
-                period: "/mo",
-                features: [
-                  "Super Canvas · 1 brand",
-                  "Viral Today · 1 niche",
-                  "Companion AI · 50 drafts/mo",
-                  "Calendar + Queue",
-                ],
-                cta: "Start free",
-                featured: false,
-              },
-              {
-                name: "Studio",
-                blurb: "For creators with a team.",
-                price: "$49",
-                period: "/mo",
-                features: [
-                  "Everything in Solo",
-                  "Unlimited brands + editors",
-                  "Companion AI · unlimited",
-                  "Contracts + invoicing",
-                  "Priority support",
-                ],
-                cta: "Start 14-day trial",
-                featured: true,
-              },
-              {
-                name: "Agency",
-                blurb: "For agencies running 10+ creators.",
-                price: "$199",
-                period: "/mo",
-                features: [
-                  "Everything in Studio",
-                  "Master queue across clients",
-                  "White-label client portal",
-                  "Dedicated success manager",
-                ],
-                cta: "Book a demo",
-                featured: false,
-              },
-            ].map((plan, i) => (
-              <div
-                key={i}
-                className={`card ${plan.featured ? "" : "card-lift"}`}
-                style={{
-                  padding: "32px 28px",
-                  position: "relative",
-                  background: plan.featured ? "var(--bone)" : undefined,
-                  color: plan.featured ? "var(--ink)" : undefined,
-                  borderColor: plan.featured ? "var(--bone)" : undefined,
-                  transform: plan.featured ? "scale(1.02)" : undefined,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 20,
-                }}
-              >
-                {plan.featured && (
-                  <span
-                    className="scribble-circle"
-                    style={{
-                      position: "absolute",
-                      top: 18,
-                      right: 18,
-                      color: "#A85B1F",
-                      fontFamily: "'EB Garamond', serif",
-                      fontStyle: "italic",
-                      fontSize: 16,
-                      fontWeight: 500,
-                      letterSpacing: "0.01em",
-                      transform: "rotate(4deg)",
-                    }}
-                  >
-                    most loved
-                  </span>
-                )}
-                <div>
-                  <h3 className="serif" style={{ fontSize: 24, margin: 0, fontWeight: 500, color: plan.featured ? "var(--ink)" : "var(--bone)" }}>
-                    {plan.name}
-                  </h3>
-                  <div style={{ fontSize: 13, color: plan.featured ? "rgba(10,14,18,0.65)" : "var(--bone-3)", marginTop: 4 }}>
-                    {plan.blurb}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                  <span className="serif" style={{ fontSize: 60, fontWeight: 500, letterSpacing: "-0.02em", color: plan.featured ? "var(--ink)" : "var(--bone)", lineHeight: 1 }}>
-                    {plan.price}
-                  </span>
-                  <span style={{ fontSize: 16, color: plan.featured ? "rgba(10,14,18,0.55)" : "var(--bone-3)", fontStyle: "italic" }}>
-                    {plan.period}
-                  </span>
-                </div>
-                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                  {plan.features.map((f, j) => (
-                    <li
-                      key={j}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 10,
-                        fontSize: 14,
-                        color: plan.featured ? "rgba(10,14,18,0.75)" : "var(--bone-2)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          marginTop: 6,
-                          width: 5,
-                          height: 5,
-                          borderRadius: "50%",
-                          background: plan.featured ? "var(--ink)" : "var(--aqua)",
-                          flexShrink: 0,
-                        }}
-                      />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/scripts"
-                  className={`btn ${plan.featured ? "btn-honey" : "btn-ghost"}`}
-                  style={{ justifyContent: "center", width: "100%" }}
-                >
-                  {plan.cta} {!plan.featured && <ArrowRight size={14} />}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ===== Pricing section removed — no pricing on the landing page ===== */}
 
       {/* ===== FINAL CTA ===== */}
       <section className="bg-ink" style={{ padding: "140px 0", marginTop: 24, textAlign: "center", position: "relative" }}>
@@ -1511,12 +1804,27 @@ export default function LandingPageNew() {
             }}
           >
             <div>
-              <Link to="/" style={{ display: "inline-flex", marginBottom: 14 }} aria-label="Connecta">
+              <Link
+                to="/"
+                style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 14 }}
+                aria-label="Connecta"
+              >
                 <img
                   src={logoHandBone}
-                  alt="Connecta"
-                  style={{ height: 44, width: "auto", display: "block" }}
+                  alt=""
+                  style={{ height: 42, width: "auto", display: "block" }}
                 />
+                <span
+                  className="serif"
+                  style={{
+                    fontSize: 28,
+                    color: "var(--bone)",
+                    letterSpacing: "-0.005em",
+                    fontWeight: 500,
+                  }}
+                >
+                  connect<span style={{ fontStyle: "italic", color: "var(--honey)" }}>a</span>
+                </span>
               </Link>
               <p style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6 }}>
                 The AI strategist for creators and the brands they work with.
