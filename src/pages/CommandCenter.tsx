@@ -398,6 +398,7 @@ export default function CommandCenter() {
             action?.type !== "fill_onboarding" &&
             action?.type !== "open_client" &&
             action?.type !== "refresh_data" &&
+            action?.type !== "highlight_items" &&
             action?.type !== "show_notification" &&
             action?.type !== "plan_proposal"
           ) {
