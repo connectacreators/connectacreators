@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, RotateCcw } from "lucide-react";
+import { CheckCircle2, RotateCcw, AlertCircle, RefreshCcw } from "lucide-react";
 import { PostStatusBadge } from "./PostStatusBadge";
 import { resolveVideoUrl } from "@/lib/videoUrl";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useApproveScheduledPost,
   useUnapproveScheduledPost,
@@ -17,8 +19,14 @@ interface Props {
 
 export function ScheduledPostCard({ post, onClick }: Props) {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const approve = useApproveScheduledPost();
   const unapprove = useUnapproveScheduledPost();
+  const qc = useQueryClient();
+
+  const failedTargets = post.targets.filter((t) => t.status === "failed");
+  const hasFailures = failedTargets.length > 0 || post.status === "partial" || post.status === "failed";
+  const firstError = failedTargets[0]?.last_error ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +53,27 @@ export function ScheduledPostCard({ post, onClick }: Props) {
       })
     : "—";
 
+  const retryFailed = async () => {
+    if (failedTargets.length === 0) return;
+    setRetrying(true);
+    try {
+      const ids = failedTargets.map((t) => t.id);
+      const { error } = await supabase
+        .from("scheduled_post_targets")
+        .update({ status: "pending", next_attempt_at: new Date().toISOString(), last_error: null })
+        .in("id", ids);
+      if (error) throw error;
+      // Kick the dispatcher so it doesn't wait for the next cron tick.
+      await supabase.functions.invoke("publish-scheduled-posts", { body: { force_post_id: post.id } });
+      qc.invalidateQueries({ queryKey: ["scheduled_posts"] });
+      toast.success(`Retrying ${ids.length} failed ${ids.length === 1 ? "platform" : "platforms"}…`);
+    } catch (e: any) {
+      toast.error("Retry failed: " + (e?.message ?? String(e)));
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   return (
     <button
       onClick={onClick}
@@ -67,6 +96,17 @@ export function ScheduledPostCard({ post, onClick }: Props) {
           <PostStatusBadge post={post} />
         </div>
         <p className="text-xs text-muted-foreground">{scheduledLabel}</p>
+
+        {hasFailures && firstError && (
+          <div className="flex items-start gap-1.5 rounded border border-red-500/30 bg-red-500/5 p-2">
+            <AlertCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-red-400 line-clamp-2 leading-snug">
+              {failedTargets.length === 1
+                ? `${failedTargets[0].platform} failed: ${firstError}`
+                : `${failedTargets.length} platforms failed. First error (${failedTargets[0].platform}): ${firstError}`}
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
           {canApprove && (
@@ -105,6 +145,18 @@ export function ScheduledPostCard({ post, onClick }: Props) {
             >
               <RotateCcw className="w-3.5 h-3.5 mr-1" />
               Un-approve
+            </Button>
+          )}
+          {hasFailures && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 border-red-500/40 text-red-400 hover:bg-red-500/10"
+              disabled={retrying}
+              onClick={retryFailed}
+            >
+              <RefreshCcw className={`w-3.5 h-3.5 mr-1 ${retrying ? "animate-spin" : ""}`} />
+              Retry {failedTargets.length > 1 ? `all ${failedTargets.length}` : ""}
             </Button>
           )}
         </div>
