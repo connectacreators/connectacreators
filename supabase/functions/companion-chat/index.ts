@@ -907,6 +907,22 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     const chosenModel = isMechanical ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
     console.log(`[companion-chat] model=${chosenModel} mechanical=${isMechanical} text="${userText.slice(0, 80)}"`);
 
+    // Dead-end detection: when the model writes "Let me…" / "I'll…" / "Now
+    // I'll…" / "I will…" as a text-only reply with no tool call, the
+    // conversation ends with a broken promise. We detect this and retry
+    // once with tool_choice:any to force the model to follow through.
+    const deadEndPatterns: RegExp[] = [
+      /\blet me\b/i,
+      /\bi['’]ll\b/i,
+      /\bi will\b/i,
+      /\bnow i\b/i,
+      /\bfirst i\b/i,
+      /\blet's\b/i,
+      /\bgoing to\b/i,
+    ];
+    let forceToolChoiceNextRound = false;
+    let deadEndRetried = false;
+
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -920,14 +936,13 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           max_tokens: 4096,
           system: finalSystemPrompt,
           tools: effectiveTools,
-          // Force a tool call on the FIRST round of a turn when either
-          // (a) the user is in Auto mode, or (b) the prompt matches a
-          // mechanical-action pattern (bulk mutations, status changes,
-          // deletes, etc). Without this, Sonnet sometimes writes "Let me
-          // pull up the list…" and stops with no tool call, dead-ending
-          // the conversation. After the first tool call, subsequent
-          // rounds let the model choose freely.
-          ...(round === 0 && (autonomy_mode === "auto" || isMechanical)
+          // Force a tool call when:
+          // (a) round 0 + Auto mode or mechanical prompt — prevents the
+          //     initial "Let me pull up…" stall on bulk requests.
+          // (b) `forceToolChoiceNextRound` is set by the dead-end retry
+          //     branch below — fires when the model promised action via
+          //     "Let me/I'll/Now I'll…" text but emitted no tool call.
+          ...((round === 0 && (autonomy_mode === "auto" || isMechanical)) || forceToolChoiceNextRound
             ? { tool_choice: { type: "any" } }
             : {}),
           messages,
@@ -952,8 +967,41 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
       if (result.stop_reason !== "tool_use") {
         if (!reply && round === 0) reply = "I'm here — what do you need?";
+
+        // Dead-end retry: model wrote a "Let me/I'll/Now I'll…" promise but
+        // emitted no tool call. Push the assistant turn into the message
+        // history, append a coaching user turn, and continue the loop with
+        // tool_choice:any forced for the next round.
+        const looksLikeDeadEnd =
+          !deadEndRetried &&
+          reply &&
+          deadEndPatterns.some((re) => re.test(reply));
+        if (looksLikeDeadEnd) {
+          deadEndRetried = true;
+          forceToolChoiceNextRound = true;
+          console.warn(
+            "[companion-chat] dead-end detected; retrying with tool_choice:any. reply preview:",
+            reply.slice(0, 140),
+          );
+          messages.push({ role: "assistant", content: result.content });
+          messages.push({
+            role: "user",
+            content:
+              "You wrote that you would take action ('Let me…' / 'I'll…' / 'Now I…') but did not call any tool. Call the appropriate tool right now to follow through on what you said. Do not write more text without a tool call.",
+          });
+          // Clear reply so the user doesn't see the dead-end text if we
+          // succeed on retry. If retry fails, the next iteration will set
+          // reply to the new response.
+          reply = "";
+          continue;
+        }
+
         break;
       }
+
+      // Reset forced tool_choice after a successful tool-use round so later
+      // rounds can end naturally with a text reply.
+      forceToolChoiceNextRound = false;
 
       const toolUseBlocks = (result.content || []).filter((b: any) => b.type === "tool_use");
       const toolResults: any[] = [];
