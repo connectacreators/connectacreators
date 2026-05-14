@@ -19,8 +19,8 @@ import {
 import "../landing.css";
 import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
-import doodleSelfie from "@/assets/doodle-selfie.png";
 import doodleMessy from "@/assets/doodle-messy.png";
+import brainDoodle from "@/assets/brain-doodle.png";
 import yuppiesBubble from "@/assets/yuppies-bubble.png";
 import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
 import CurvedLoop from "@/components/landing/CurvedLoop";
@@ -1401,15 +1401,15 @@ export default function LandingPageNew() {
 
       {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
       <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative", overflow: "visible" }}>
-        {/* Selfie sticker — creator-in-action, hovers near the section title */}
+        {/* Running brain doodle — the literal Jarvis brain mascot for this section */}
         <InteractiveSticker
-          src={doodleSelfie}
-          baseRotation={5}
+          src={brainDoodle}
+          baseRotation={-4}
           style={{
             position: "absolute",
-            top: 40,
+            top: 30,
             right: "3%",
-            width: 230,
+            width: 220,
             height: "auto",
             zIndex: 4,
             pointerEvents: "none",
