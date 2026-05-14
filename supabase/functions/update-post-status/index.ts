@@ -68,9 +68,35 @@ serve(async (req) => {
       .eq("id", id)
       .single();
 
-    const update: Record<string, unknown> = { post_status: status };
+    // Map the action's "status" arg directly to lifecycle_status. The legacy
+    // CC sends post_status-style values (Approved / Needs Revision / Scheduled
+    // / Published). deriveFromLegacy only catches Needs Revision when it's the
+    // WORKFLOW status — so calling it here for revisions would silently
+    // produce "In progress" and break the editing-queue display.
+    let newLifecycle: "Not started" | "In progress" | "Needs Revisions" | "Scheduled" | "Published";
+    if (status === "Published")          newLifecycle = "Published";
+    else if (status === "Approved")      newLifecycle = "Published";          // CC's approval = publish-ready
+    else if (status === "Scheduled")     newLifecycle = "Scheduled";
+    else if (status === "Needs Revision") newLifecycle = "Needs Revisions";
+    else                                  newLifecycle = deriveFromLegacy(current?.status, status);
+
+    // Also sync the workflow `status` column so legacy readers that look at
+    // it (EditingQueue's revisions modal pulls from `revisions`, but other
+    // queries filter on `status`) stay coherent.
+    const legacyStatusFromLifecycle: Record<string, string> = {
+      "Not started":     "Not started",
+      "In progress":     "In progress",
+      "Needs Revisions": "Needs Revision",
+      "Scheduled":       "Done",                  // editor work is finished when scheduled
+      "Published":       "Done",
+    };
+
+    const update: Record<string, unknown> = {
+      post_status:      status,
+      status:           legacyStatusFromLifecycle[newLifecycle] ?? current?.status,
+      lifecycle_status: newLifecycle,
+    };
     if (revision_notes !== undefined) update.revisions = revision_notes;
-    update.lifecycle_status = deriveFromLegacy(current?.status, status);
 
     const { error } = await serviceSupabase
       .from("video_edits")

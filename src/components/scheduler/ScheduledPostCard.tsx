@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, RotateCcw, AlertCircle, RefreshCcw } from "lucide-react";
+import { CheckCircle2, RotateCcw, AlertCircle, RefreshCcw, X } from "lucide-react";
 import { PostStatusBadge } from "./PostStatusBadge";
 import { resolveVideoUrl } from "@/lib/videoUrl";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useApproveScheduledPost,
   useUnapproveScheduledPost,
+  useUnscheduleScheduledPost,
   type ScheduledPostRow,
 } from "@/lib/hooks/useScheduledPosts";
 
@@ -22,6 +23,7 @@ export function ScheduledPostCard({ post, onClick }: Props) {
   const [retrying, setRetrying] = useState(false);
   const approve = useApproveScheduledPost();
   const unapprove = useUnapproveScheduledPost();
+  const unschedule = useUnscheduleScheduledPost();
   const qc = useQueryClient();
 
   const failedTargets = post.targets.filter((t) => t.status === "failed");
@@ -46,6 +48,14 @@ export function ScheduledPostCard({ post, onClick }: Props) {
     post.status !== "published" &&
     post.status !== "partial" &&
     post.status !== "publishing";
+
+  // Unschedule is OK in any state except mid-flight publishing (don't yank
+  // a request that's hitting Meta right now) or already-published (would
+  // imply un-doing a live post we can't take back).
+  const canUnschedule =
+    post.status !== "publishing" &&
+    post.status !== "published" &&
+    post.status !== "partial";
 
   const scheduledLabel = post.scheduled_at
     ? new Date(post.scheduled_at).toLocaleString(undefined, {
@@ -165,6 +175,26 @@ export function ScheduledPostCard({ post, onClick }: Props) {
             >
               <RefreshCcw className={`w-3.5 h-3.5 mr-1 ${retrying ? "animate-spin" : ""}`} />
               Retry {failedTargets.length > 1 ? `all ${failedTargets.length}` : ""}
+            </Button>
+          )}
+          {canUnschedule && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-muted-foreground hover:text-foreground ml-auto"
+              disabled={unschedule.isPending}
+              onClick={async () => {
+                if (!confirm("Unschedule this post? It will be removed from the calendar and the editing-queue row will go back to 'In progress'.")) return;
+                try {
+                  await unschedule.mutateAsync(post.id);
+                  toast.success("Unscheduled");
+                } catch (e: any) {
+                  toast.error("Unschedule failed: " + (e?.message ?? e));
+                }
+              }}
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Unschedule
             </Button>
           )}
         </div>

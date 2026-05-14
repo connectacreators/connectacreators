@@ -85,3 +85,20 @@ export function useUnapproveScheduledPost() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scheduled_posts"] }),
   });
 }
+
+/**
+ * Unschedule = delete the scheduled_posts row + cascade-delete its targets.
+ * A DB trigger reverts the linked video_edits.lifecycle_status back to
+ * 'In progress' (unless already published, or another active scheduled_post
+ * for the same editing-queue row exists).
+ */
+export function useUnscheduleScheduledPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase.from("scheduled_posts").delete().eq("id", postId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scheduled_posts"] }),
+  });
+}
