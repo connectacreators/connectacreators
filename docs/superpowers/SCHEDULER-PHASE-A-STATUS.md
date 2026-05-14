@@ -138,6 +138,25 @@ Until App Review, only app admins/developers/testers can OAuth.
 - Write `youtube-oauth` and `publish-to-youtube` edge functions
 - Enable YouTube in `SocialAccountsTab`
 
+## Integration with the unified lifecycle_status (Phase 1)
+
+Parallel work added a `video_edits.lifecycle_status` column to merge the old `status` + `post_status` pair. Values: **Not started / In progress / Needs Revisions / Scheduled / Published**. Helper: `src/lib/lifecycleStatus.ts` with `LIFECYCLE_VALUES`, `LifecycleStatus` type, `splitLegacy()` for dual-write.
+
+**Scheduler integration (migrations a10/a11/a12):**
+- Trigger on `scheduled_posts` INSERT/UPDATE of status syncs to `video_edits.lifecycle_status` via the `editing_queue_id` link
+- Mapping:
+  - `scheduled` / `publishing` → `lifecycle_status = 'Scheduled'`
+  - `published` → `'Published'`
+  - `partial` / `failed` → `'Needs Revisions'` (any failure rolls back to revisions per user spec)
+  - `draft` → no change (drafts don't touch the editing row)
+- Dual-write to legacy `status`/`post_status` per Phase 1 spec — readers of the old columns keep working until Phase 2 drops them
+- Rollup trigger fixed (a11): freshly-submitted posts with all `pending` targets now stay `scheduled` instead of jumping to `publishing` on insert. Only `c_publishing > 0` triggers the `publishing` parent state.
+
+**Inline failure UI in ContentCalendar:**
+- Failed target's `last_error` shows inline on the card in a red banner
+- Card-level "Retry" button resets all failed targets to `pending` + fires dispatcher
+- Per-target "Retry" still available in PostDetailsModal for surgical retries
+
 ## Where we are in testing (resume point)
 
 **State as of 2026-05-13 evening:**
