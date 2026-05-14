@@ -35,36 +35,41 @@ function SuperCanvasMock() {
           "0 60px 120px -30px rgba(0,0,0,0.6), 0 0 80px -20px rgba(143,208,213,0.10)",
       }}
     >
-      {/* Window chrome */}
+      {/* Title strip — editorial, not code-editor */}
       <div
         className="flex items-center justify-between"
         style={{
-          padding: "14px 20px",
+          padding: "18px 24px",
           borderBottom: "1px solid rgba(234, 230, 220, 0.07)",
           background: "rgba(10, 14, 18, 0.40)",
         }}
       >
-        <div className="flex items-center gap-2">
-          <span style={{ width: 11, height: 11, borderRadius: "50%", background: "rgba(232,138,138,0.65)" }} />
-          <span style={{ width: 11, height: 11, borderRadius: "50%", background: "rgba(224,200,120,0.65)" }} />
-          <span style={{ width: 11, height: 11, borderRadius: "50%", background: "rgba(143,197,163,0.65)" }} />
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <span
             style={{
-              marginLeft: 14,
               fontFamily: "'EB Garamond', serif",
-              fontStyle: "italic",
-              fontSize: 14,
-              color: "rgba(234,230,220,0.55)",
+              fontSize: 19,
+              fontWeight: 500,
+              letterSpacing: "-0.01em",
+              color: "var(--bone)",
             }}
           >
-            Super Canvas — Luna Reyes / Spring 2026 strategy
+            Super Canvas
+          </span>
+          <span
+            style={{
+              fontFamily: "'EB Garamond', serif",
+              fontStyle: "italic",
+              fontSize: 15,
+              color: "var(--bone-3)",
+            }}
+          >
+            — Luna's spring strategy
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="pill pill-aqua">
-            <span className="pill-dot" /> Companion AI · live
-          </span>
-        </div>
+        <span className="pill pill-honey">
+          <span className="pill-dot" /> Companion · drafting
+        </span>
       </div>
 
       {/* Canvas */}
@@ -86,61 +91,107 @@ function SuperCanvasMock() {
           <path d="M 400 200 Q 550 270, 680 320" className="sc-canvas-line" />
         </svg>
 
-        {/* Central Brand node */}
+        {/* Central Brand node — editorial / magazine-clipping feel */}
         <div
           className="sc-node active"
           style={{
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            minWidth: 180,
+            minWidth: 200,
+            padding: "16px 18px",
           }}
         >
-          <span className="sc-node-sub" style={{ color: "var(--aqua)" }}>Brand</span>
-          <span className="sc-node-title serif" style={{ fontSize: 18, lineHeight: 1.1 }}>
+          <span
+            style={{
+              fontFamily: "'EB Garamond', serif",
+              fontStyle: "italic",
+              fontSize: 12,
+              color: "var(--honey)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            — the brand
+          </span>
+          <span
+            className="serif"
+            style={{ fontSize: 22, lineHeight: 1.0, marginTop: 2, fontWeight: 500 }}
+          >
             Luna Reyes
           </span>
-          <span style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 2 }}>
-            2.4M · fashion + lifestyle
+          <span
+            style={{
+              fontFamily: "'EB Garamond', serif",
+              fontStyle: "italic",
+              fontSize: 12.5,
+              color: "var(--bone-2)",
+              marginTop: 4,
+            }}
+          >
+            2.4M followers · fashion + lifestyle
           </span>
-          <span className="sc-node-pill">● Strategist on</span>
+          <span className="sc-node-pill honey" style={{ marginTop: 8 }}>● strategy live</span>
         </div>
 
-        {/* Satellite nodes */}
-        <div className="sc-node" style={{ top: "12%", left: "4%" }}>
-          <span className="sc-node-sub">Audience</span>
-          <span className="sc-node-title">22–34 · F · LA/NYC</span>
-          <span style={{ fontSize: 10.5, color: "var(--bone-3)" }}>Peak: Tue/Thu 8pm</span>
+        {/* Satellite nodes — softer, more editorial labels */}
+        <div className="sc-node" style={{ top: "10%", left: "3%", padding: "14px 16px" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+            — her audience
+          </span>
+          <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
+            Listens at <em className="serif-italic">8pm Tuesday.</em>
+          </span>
+          <span style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 4 }}>22–34 · LA + NYC</span>
         </div>
 
-        <div className="sc-node" style={{ top: "46%", left: "4%" }}>
-          <span className="sc-node-sub">Voice</span>
-          <span className="sc-node-title">Confident · dry-funny</span>
-          <span style={{ fontSize: 10.5, color: "var(--bone-3)" }}>Trained on last 50 posts</span>
+        <div className="sc-node" style={{ top: "45%", left: "3%", padding: "14px 16px" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+            — her voice
+          </span>
+          <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
+            Dry, <em className="serif-italic">slightly funny.</em>
+          </span>
+          <span style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 4 }}>trained · last 50 posts</span>
         </div>
 
-        <div className="sc-node" style={{ top: "80%", left: "4%" }}>
-          <span className="sc-node-sub">Top hook</span>
-          <span className="sc-node-title">"3 things I wish I knew…"</span>
-          <span className="sc-node-pill">9.2/10 score</span>
+        <div className="sc-node" style={{ top: "80%", left: "3%", padding: "14px 16px" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+            — her best hook
+          </span>
+          <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
+            "Three things I wish I knew…"
+          </span>
+          <span className="sc-node-pill" style={{ marginTop: 6 }}>9.2 / 10</span>
         </div>
 
-        <div className="sc-node" style={{ top: "12%", right: "4%" }}>
-          <span className="sc-node-sub" style={{ color: "var(--honey)" }}>Hot trend</span>
-          <span className="sc-node-title">"Soft launch the chaos"</span>
-          <span className="sc-node-pill honey">▲ 340% w/w</span>
+        <div className="sc-node" style={{ top: "10%", right: "3%", padding: "14px 16px" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+            — hot this week
+          </span>
+          <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
+            "Soft launch the chaos"
+          </span>
+          <span className="sc-node-pill honey" style={{ marginTop: 6 }}>▲ 340% w/w</span>
         </div>
 
-        <div className="sc-node" style={{ top: "46%", right: "4%" }}>
-          <span className="sc-node-sub">This week</span>
-          <span className="sc-node-title">5 posts drafted</span>
-          <span style={{ fontSize: 10.5, color: "var(--bone-3)" }}>Mon 9am · Wed 7pm · …</span>
+        <div className="sc-node" style={{ top: "45%", right: "3%", padding: "14px 16px" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+            — the calendar
+          </span>
+          <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
+            5 posts <em className="serif-italic">drafted.</em>
+          </span>
+          <span style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 4 }}>Mon 9am · Wed 7pm · …</span>
         </div>
 
-        <div className="sc-node" style={{ top: "80%", right: "4%" }}>
-          <span className="sc-node-sub">Next move</span>
-          <span className="sc-node-title">Skincare partner draft</span>
-          <span className="sc-node-pill">Auto-saved 2m</span>
+        <div className="sc-node" style={{ top: "80%", right: "3%", padding: "14px 16px" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+            — next ask
+          </span>
+          <span className="serif" style={{ fontSize: 14, marginTop: 4 }}>
+            Skincare partner <em className="serif-italic">draft.</em>
+          </span>
+          <span className="sc-node-pill" style={{ marginTop: 6 }}>auto-saved</span>
         </div>
       </div>
     </div>
@@ -499,29 +550,26 @@ export default function LandingPageNew() {
           }}
         >
           <div data-reveal="1" style={{ marginBottom: 26 }}>
-            <span className="eyebrow">Studio + Strategy</span>
+            <span className="eyebrow">The AI strategist for creators</span>
           </div>
 
           <h1
             className="serif"
             data-reveal="2"
             style={{
-              fontSize: "clamp(48px, 9vw, 124px)",
-              lineHeight: 1.0,
-              letterSpacing: "-0.025em",
+              fontSize: "clamp(52px, 10vw, 144px)",
+              lineHeight: 0.98,
+              letterSpacing: "-0.03em",
               fontWeight: 500,
               margin: 0,
-              marginBottom: 24,
+              marginBottom: 26,
             }}
           >
-            <span
-              className="serif-italic"
-              style={{ display: "block", color: "var(--bone-2)", fontWeight: 400 }}
-            >
-              Your AI strategist
+            <span style={{ display: "block" }}>
+              Go <em className="serif-italic" style={{ color: "var(--honey)" }}>Viral,</em>
             </span>
             <span style={{ display: "block" }}>
-              for viral <em className="honey">growth.</em>
+              Get <em className="serif-italic" style={{ color: "var(--aqua)" }}>Clients.</em>
             </span>
           </h1>
 
@@ -535,8 +583,8 @@ export default function LandingPageNew() {
               lineHeight: 1.55,
             }}
           >
-            Connecta plans your next 30 days of content before you open the app. Strategy,
-            scripts, schedule — generated, refined, ready to ship.
+            Connecta plans your next 30 days of content before you open the app. Hooks that
+            land, posts that book — strategy, scripts, and schedule done for you.
           </p>
 
           <div
@@ -587,9 +635,14 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Logo strip ===== */}
-      <section style={{ padding: "60px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
+      {/* ===== Real track record (replaces fake logo strip) ===== */}
+      <section style={{ padding: "80px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
+        <div
+          aria-hidden
+          className="glow-honey"
+          style={{ position: "absolute", top: "-30%", left: "50%", transform: "translateX(-50%)", width: 700, height: 300, opacity: 0.25 }}
+        />
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", position: "relative" }}>
           <div
             className="scroll-rise"
             style={{
@@ -599,45 +652,102 @@ export default function LandingPageNew() {
               textTransform: "uppercase",
               color: "var(--bone-3)",
               fontWeight: 600,
-              marginBottom: 28,
+              marginBottom: 36,
             }}
           >
-            Trusted by creators and the brands they work with
+            What Connecta has built for creators
           </div>
-          <div className="marquee-mask scroll-rise" style={{ overflow: "hidden" }}>
-            <div className="marquee">
-              {[
-                { name: "Aerie", italic: true },
-                { name: "PATAGONIA", italic: false },
-                { name: "Glossier", italic: true },
-                { name: "RHODE", italic: false },
-                { name: "Sezane", italic: true },
-                { name: "DJERF AVENUE", italic: false },
-              ].concat([
-                { name: "Aerie", italic: true },
-                { name: "PATAGONIA", italic: false },
-                { name: "Glossier", italic: true },
-                { name: "RHODE", italic: false },
-                { name: "Sezane", italic: true },
-                { name: "DJERF AVENUE", italic: false },
-              ]).map((logo, i) => (
+
+          <div
+            className="scroll-rise"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: 24,
+              alignItems: "stretch",
+            }}
+          >
+            {[
+              {
+                num: "100M+",
+                kicker: "views generated",
+                body: "Across reels, shorts, and TikToks for the creators using our scripts and strategy.",
+                accent: "honey" as const,
+              },
+              {
+                num: "100K+",
+                kicker: "followers grown",
+                body: "Real audiences, built on the back of strategy — not hacks, not bots, not luck.",
+                accent: "aqua" as const,
+              },
+            ].map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  textAlign: "center",
+                  padding: "32px 28px",
+                  borderRadius: 20,
+                  border: "1px solid var(--line)",
+                  background:
+                    s.accent === "honey"
+                      ? "linear-gradient(180deg, rgba(224,165,96,0.05) 0%, transparent 100%)"
+                      : "linear-gradient(180deg, rgba(143,208,213,0.05) 0%, transparent 100%)",
+                }}
+              >
                 <div
-                  key={i}
+                  className="serif"
                   style={{
-                    fontFamily: logo.italic ? "'EB Garamond', serif" : "'Figtree', sans-serif",
-                    fontStyle: logo.italic ? "italic" : "normal",
-                    fontWeight: logo.italic ? 500 : 700,
-                    fontSize: logo.italic ? 26 : 16,
-                    letterSpacing: logo.italic ? "-0.01em" : "0.06em",
-                    color: "var(--bone-2)",
-                    opacity: 0.6,
-                    whiteSpace: "nowrap",
+                    fontSize: "clamp(56px, 8vw, 96px)",
+                    lineHeight: 1.0,
+                    letterSpacing: "-0.03em",
+                    fontWeight: 500,
+                    color: s.accent === "honey" ? "var(--honey)" : "var(--aqua)",
+                    fontStyle: "italic",
                   }}
                 >
-                  {logo.name}
+                  {s.num}
                 </div>
-              ))}
-            </div>
+                <div
+                  style={{
+                    fontFamily: "'Figtree', sans-serif",
+                    fontSize: 12,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--bone-2)",
+                    fontWeight: 600,
+                    marginTop: 12,
+                  }}
+                >
+                  {s.kicker}
+                </div>
+                <p
+                  style={{
+                    margin: "12px auto 0",
+                    fontSize: 14,
+                    color: "var(--bone-3)",
+                    maxWidth: 380,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  {s.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="scroll-rise"
+            style={{
+              textAlign: "center",
+              marginTop: 32,
+              fontFamily: "'EB Garamond', serif",
+              fontStyle: "italic",
+              fontSize: 16,
+              color: "var(--bone-3)",
+              letterSpacing: "0.005em",
+            }}
+          >
+            — and we're just getting started.
           </div>
         </div>
       </section>
