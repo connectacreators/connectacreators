@@ -334,45 +334,109 @@ export function AssistantChat({
                   <FingerprintAvatar size="sm" />
                   <div className="min-w-0 flex-1">
                     <div
-                      className="rounded-xl p-4"
+                      className="rounded-xl"
                       style={{
-                        border: "1px solid rgba(34,211,238,0.3)",
                         background: "rgba(34,211,238,0.04)",
+                        border: "1px solid rgba(34,211,238,0.25)",
+                        borderLeft: "3px solid #06B6D4",
+                        padding: "14px 16px",
                       }}
                     >
-                      <p className="text-[11px] uppercase tracking-wider text-[rgba(34,211,238,0.85)] mb-2">
-                        Plan proposed — needs your approval
+                      <p
+                        className="text-[11px] mb-3"
+                        style={{
+                          color: "rgba(34,211,238,0.9)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {msg.plan_data.summary || "Plan — needs your approval"}
                       </p>
-                      <p className={`${fullscreen ? "text-sm" : "text-xs"} text-foreground font-semibold mb-3`}>
-                        {msg.plan_data.summary}
-                      </p>
-                      <ol className={`${fullscreen ? "text-sm" : "text-xs"} text-muted-foreground space-y-1.5 mb-4 pl-5 list-decimal`}>
+                      <div className="space-y-1.5 mb-3">
                         {msg.plan_data.steps.slice(0, 12).map((s, idx) => (
-                          <li key={idx}>{s.description ?? s.tool ?? "(unnamed step)"}</li>
+                          <div
+                            key={idx}
+                            className={`${fullscreen ? "text-sm" : "text-xs"} flex items-start gap-2.5`}
+                          >
+                            <span
+                              className="inline-flex items-center justify-center flex-shrink-0"
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: "50%",
+                                background: "rgba(34,211,238,0.12)",
+                                color: "#06B6D4",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                marginTop: 1,
+                              }}
+                            >
+                              {idx + 1}
+                            </span>
+                            <span className="text-foreground flex-1 leading-snug">
+                              {s.description ?? s.tool ?? "(unnamed step)"}
+                              {s.tool && s.description && (
+                                <span
+                                  className="ml-2 inline-block"
+                                  style={{
+                                    fontFamily:
+                                      "'SF Mono', Menlo, Consolas, monospace",
+                                    fontSize: 10,
+                                    padding: "1px 6px",
+                                    borderRadius: 4,
+                                    background: "rgba(255,255,255,0.06)",
+                                    color: "rgba(255,255,255,0.55)",
+                                    verticalAlign: "1px",
+                                  }}
+                                >
+                                  {s.tool}
+                                </span>
+                              )}
+                            </span>
+                          </div>
                         ))}
-                      </ol>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => onApprovePlan?.(msg.plan_data!.plan_id)}
-                          className="flex-1 py-1.5 px-3 rounded-lg text-[11px] font-semibold transition-opacity hover:opacity-90"
-                          style={{
-                            background: "hsl(var(--primary))",
-                            color: "hsl(var(--primary-foreground))",
-                          }}
-                        >
-                          Approve & execute
-                        </button>
-                        <button
-                          onClick={() => onRejectPlan?.(msg.plan_data!.plan_id)}
-                          className="py-1.5 px-3 rounded-lg text-[11px] font-medium transition-opacity hover:opacity-90"
-                          style={{
-                            background: "transparent",
-                            color: "rgba(255,255,255,0.5)",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                          }}
-                        >
-                          Reject
-                        </button>
+                        {msg.plan_data.steps.length > 12 && (
+                          <div
+                            className={`${fullscreen ? "text-sm" : "text-xs"} text-muted-foreground`}
+                            style={{ paddingLeft: 28 }}
+                          >
+                            + {msg.plan_data.steps.length - 12} more
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center gap-2 pt-2"
+                        style={{
+                          borderTop: "1px solid rgba(255,255,255,0.05)",
+                        }}
+                      >
+                        <span className="text-[10px] text-muted-foreground">
+                          {msg.plan_data.steps.length} action
+                          {msg.plan_data.steps.length !== 1 ? "s" : ""}
+                        </span>
+                        <div className="flex gap-2 ml-auto">
+                          <button
+                            onClick={() => onApprovePlan?.(msg.plan_data!.plan_id)}
+                            className="py-1.5 px-3 rounded-md text-[11px] font-semibold transition-opacity hover:opacity-85"
+                            style={{
+                              background: "rgba(34,211,238,0.18)",
+                              color: "#06B6D4",
+                              border: "1px solid rgba(34,211,238,0.4)",
+                            }}
+                          >
+                            Run
+                          </button>
+                          <button
+                            onClick={() => onRejectPlan?.(msg.plan_data!.plan_id)}
+                            className="py-1.5 px-3 rounded-md text-[11px] font-medium transition-opacity hover:opacity-85"
+                            style={{
+                              background: "transparent",
+                              color: "rgba(255,255,255,0.5)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
