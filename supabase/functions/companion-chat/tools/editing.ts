@@ -661,20 +661,38 @@ Caption only, no other text.`,
     const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
+    // Pass 1: resolve every title to an id first, so we can emit a
+    // highlight_items action BEFORE the mutations run. The page pulses
+    // those rows while the bulk operation lands, giving the user a
+    // visual cue even when the model skipped propose_plan.
+    type ResolvedItem = { id: string; reel_title: string };
+    const resolved: Array<ResolvedItem | null> = [];
     const lines: string[] = [];
-    let touched = 0;
     for (const raw of item_titles) {
       const title = String(raw ?? "").trim();
-      if (!title) { lines.push("SKIP: empty title"); continue; }
+      if (!title) { lines.push("SKIP: empty title"); resolved.push(null); continue; }
       const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, title, { onlyLive: true });
       if (!r.ok) {
         if (r.reason === "ambiguous") lines.push(`AMBIGUOUS "${title}" — ${r.candidates.length} matches`);
         else lines.push(`MISS "${title}"`);
+        resolved.push(null);
         continue;
       }
-      const res = await mutate(r.item.id);
-      if (res.error) lines.push(`FAIL "${r.item.reel_title}": ${(res.error as { message?: string }).message ?? "unknown"}`);
-      else { touched += 1; lines.push(`OK "${r.item.reel_title}"`); }
+      resolved.push({ id: r.item.id, reel_title: r.item.reel_title });
+    }
+    const resolvedIds = resolved.filter((x): x is ResolvedItem => x !== null).map((x) => x.id);
+    if (resolvedIds.length > 0) {
+      actions.push({ type: "highlight_items", scope: "editing_queue", item_ids: resolvedIds });
+    }
+
+    // Pass 2: apply mutations.
+    let touched = 0;
+    for (let i = 0; i < resolved.length; i++) {
+      const r = resolved[i];
+      if (!r) continue;
+      const res = await mutate(r.id);
+      if (res.error) lines.push(`FAIL "${r.reel_title}": ${(res.error as { message?: string }).message ?? "unknown"}`);
+      else { touched += 1; lines.push(`OK "${r.reel_title}"`); }
     }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `${actionVerb} ${touched}/${item_titles.length} for ${client.name}:\n${lines.join("\n")}` };

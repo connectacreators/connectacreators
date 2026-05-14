@@ -807,12 +807,12 @@ YOUR RULES — FOLLOW EXACTLY:
 18c. PREVIEW BIG ACTIONS: Before executing (a) 3+ writes in one turn (e.g. bulk_schedule_posts of 5 posts) OR (b) ANY destructive action (delete_script, update_lead_status to lost/closed, send_contract, mark_post_published, permanent_delete_editing_item (ALWAYS requires plan, even in Auto mode), large strategy changes), call propose_plan first with a structured list of steps. Then ASK the user "approve to proceed?" in your reply. ONLY when the user says yes/approve/go-ahead, call confirm_plan(plan_id) and execute the steps. If the user says no, call reject_plan(plan_id). Do NOT propose for single-step non-destructive writes — those should just execute. The autonomy mode field overrides this: in "auto" mode skip the proposal and execute; in "ask" or "plan" modes follow this rule strictly.
 
 18c-STRICT — HOW THE PLAN MUST RENDER: The user's UI renders propose_plan output as a custom card (hand-drawn gold outline, numbered steps, Approve/Cancel links). The card is self-sufficient — it contains the summary, every step, and the approve/cancel controls. Mandatory:
-- NEVER type lines like "Here's the plan:" or "Here's my plan before I execute:" followed by bullet/numbered steps. That is BANNED.
-- BEFORE you would write any "step 1 / step 2 / first I will / then I will" enumeration, STOP and call propose_plan with the structured steps array.
-- After propose_plan returns, your text reply must be EMPTY. Do NOT say "Approve to proceed?" or "Want me to run this?" or any other lead-in — the card's Approve button is the call to action. Return zero text content alongside the propose_plan tool call.
-- The ONLY exception: if you also need to ask a clarifying question that ISN'T covered by the plan (e.g. "do you want this for all clients or just X?"), you may add one short clarifying sentence. Plain plan presentations get zero text.
-- If you find yourself wanting to preview multiple changes, that IS the propose_plan trigger. Use the tool.
-- This rule applies in ask/plan autonomy modes. In auto mode, skip the card and just execute.
+- BANNED PHRASES (typing any of these without calling propose_plan in the same turn is a UX failure): "Here's the plan", "Here's my plan", "Here's the plan before I execute", "Plan:", "I'll set ...", "set post status to ... for all N ...", "I'll mark all ...", any preview-style enumeration of "step 1 / step 2 / first I will / then I will / I'll start by".
+- TRIGGER PATTERNS (any user message matching these REQUIRES propose_plan, even if you already retrieved the affected list in an earlier turn): "change all X to Y", "mark all X as Y", "set all X to Y", "delete all X", "move all X", "schedule all X", "reschedule all X", "every X needs Y". The rule fires on the affected count, not the verbosity.
+- After propose_plan returns, your text reply must be EMPTY. Do NOT say "Approve to proceed?" or "Want me to run this?" — the card's Approve button is the call to action. Return zero text content alongside the propose_plan tool call.
+- Pass target_item_titles to propose_plan whenever the plan touches editing-queue rows. The UI uses it to highlight the affected rows with a pulse animation. Example: target_item_titles: ["VIDEO #4", "VIDEO #5", "(03) So, you're thinking..."].
+- The ONLY text exception: a clarifying question that isn't covered by the plan (e.g. "do you want this for all clients or just X?"). Plain plan presentations get zero text.
+- This rule applies in ask/plan autonomy modes. In auto mode, skip the card and just execute (the bulk tools themselves emit highlight_items, so the user still sees the pulse).
 19. USE TOOLS: every tool you have is documented in your tool descriptions — read them and call the right one. Don't describe what you'd do or paraphrase — do it. If the user asks something that maps to a tool (read or write), call the tool first, then summarize the result conversationally.
 
 19b. NEVER PROMISE WITHOUT EXECUTING: phrases like "Let me…", "I'll get the…", "I'll pull up…", "Now I'll…", "Let me check…", "First I'll…" MUST be followed by an actual tool call in the SAME response. If you write a "Let me X" sentence and then return text with no tool call, the user gets a dead-end reply and nothing happens. BANNED patterns when you have not yet called a tool this turn:
@@ -888,7 +888,10 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     // tool selections that don't need Sonnet's reasoning.
     const userText = String(message ?? "").toLowerCase().trim();
     const mechanicalPatterns: RegExp[] = [
-      /\b(mark|set)\b.*\b(done|published|unpublished|scheduled|in[- ]?progress|in[- ]?review|not started)\b/,
+      // "mark/set/change X to <status>" — covers "change all master construction
+      // videos to scheduled" which previously went to Sonnet without forced
+      // tool use and dead-ended on a "Let me pull up…" reply.
+      /\b(mark|set|change|update|move)\b[^.]*\b(done|published|unpublished|scheduled|in[- ]?progress|in[- ]?review|not started)\b/,
       /\b(set|add|update|change)\s+(the\s+)?deadline\b/,
       /\b(assign|reassign)\b.*\b(to)\b/,
       /\b(delete|remove|trash)\b/,
@@ -896,10 +899,29 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       /\b(rename)\b.*\bto\b/,
       /\b(set\s+caption|change\s+caption)\b/,
       /\bbulk\b/,
+      // "<verb> all X" — broad bulk-action trigger. Catches "delete all", "schedule
+      // all", "reschedule all", "publish all", "approve all", etc.
+      /\b(mark|set|change|update|move|delete|remove|restore|rename|publish|schedule|reschedule|assign|approve|reject)\s+all\b/,
     ];
     const isMechanical = mechanicalPatterns.some((re) => re.test(userText));
     const chosenModel = isMechanical ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
     console.log(`[companion-chat] model=${chosenModel} mechanical=${isMechanical} text="${userText.slice(0, 80)}"`);
+
+    // Dead-end detection: when the model writes "Let me…" / "I'll…" / "Now
+    // I'll…" / "I will…" as a text-only reply with no tool call, the
+    // conversation ends with a broken promise. We detect this and retry
+    // once with tool_choice:any to force the model to follow through.
+    const deadEndPatterns: RegExp[] = [
+      /\blet me\b/i,
+      /\bi['’]ll\b/i,
+      /\bi will\b/i,
+      /\bnow i\b/i,
+      /\bfirst i\b/i,
+      /\blet's\b/i,
+      /\bgoing to\b/i,
+    ];
+    let forceToolChoiceNextRound = false;
+    let deadEndRetried = false;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -914,7 +936,15 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           max_tokens: 4096,
           system: finalSystemPrompt,
           tools: effectiveTools,
-          ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
+          // Force a tool call when:
+          // (a) round 0 + Auto mode or mechanical prompt — prevents the
+          //     initial "Let me pull up…" stall on bulk requests.
+          // (b) `forceToolChoiceNextRound` is set by the dead-end retry
+          //     branch below — fires when the model promised action via
+          //     "Let me/I'll/Now I'll…" text but emitted no tool call.
+          ...((round === 0 && (autonomy_mode === "auto" || isMechanical)) || forceToolChoiceNextRound
+            ? { tool_choice: { type: "any" } }
+            : {}),
           messages,
         }),
       });
@@ -937,8 +967,41 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
       if (result.stop_reason !== "tool_use") {
         if (!reply && round === 0) reply = "I'm here — what do you need?";
+
+        // Dead-end retry: model wrote a "Let me/I'll/Now I'll…" promise but
+        // emitted no tool call. Push the assistant turn into the message
+        // history, append a coaching user turn, and continue the loop with
+        // tool_choice:any forced for the next round.
+        const looksLikeDeadEnd =
+          !deadEndRetried &&
+          reply &&
+          deadEndPatterns.some((re) => re.test(reply));
+        if (looksLikeDeadEnd) {
+          deadEndRetried = true;
+          forceToolChoiceNextRound = true;
+          console.warn(
+            "[companion-chat] dead-end detected; retrying with tool_choice:any. reply preview:",
+            reply.slice(0, 140),
+          );
+          messages.push({ role: "assistant", content: result.content });
+          messages.push({
+            role: "user",
+            content:
+              "You wrote that you would take action ('Let me…' / 'I'll…' / 'Now I…') but did not call any tool. Call the appropriate tool right now to follow through on what you said. Do not write more text without a tool call.",
+          });
+          // Clear reply so the user doesn't see the dead-end text if we
+          // succeed on retry. If retry fails, the next iteration will set
+          // reply to the new response.
+          reply = "";
+          continue;
+        }
+
         break;
       }
+
+      // Reset forced tool_choice after a successful tool-use round so later
+      // rounds can end naturally with a text reply.
+      forceToolChoiceNextRound = false;
 
       const toolUseBlocks = (result.content || []).filter((b: any) => b.type === "tool_use");
       const toolResults: any[] = [];
