@@ -30,7 +30,9 @@ export default function CurvedLoop({
   const [offset, setOffset] = useState(0);
   const uid = useId();
   const pathId = `curve-${uid.replace(/:/g, "")}`;
-  const pathD = `M-100,40 Q500,${40 + curveAmount} 1540,40`;
+  // Wave path with three undulations — far more interesting than a single arc.
+  // Q sets up the first hump, two T commands mirror it for continuous waves.
+  const pathD = `M-100,40 Q 280,${40 + curveAmount * 0.6} 600,40 T 1080,40 T 1540,40`;
 
   const dragRef = useRef(false);
   const lastXRef = useRef(0);

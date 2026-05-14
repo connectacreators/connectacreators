@@ -10,22 +10,23 @@
   -moz-user-select: none;
   -webkit-user-select: none;
   width: 100%;
-  aspect-ratio: 100 / 9;
+  aspect-ratio: 100 / 11;
   overflow: visible;
   display: block;
   font-family: 'EB Garamond', Georgia, serif;
-  font-size: 2.6rem;
+  font-size: 1.8rem;
   fill: var(--bone, #EAE6DC);
   font-weight: 700;
   text-transform: uppercase;
   line-height: 1;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 @media (max-width: 768px) {
   .curved-loop-svg {
-    font-size: 1.9rem;
-    aspect-ratio: 100 / 12;
+    font-size: 1.3rem;
+    aspect-ratio: 100 / 14;
+    letter-spacing: 0.06em;
   }
 }
 

@@ -1148,7 +1148,7 @@ export default function LandingPageNew() {
           </div>
         </div>
 
-        {/* CurvedLoop — brand marquee, edge to edge across the viewport */}
+        {/* CurvedLoop — wave-shaped brand marquee with breathing room from viewport edges */}
         <div
           data-reveal="6"
           style={{
@@ -1156,13 +1156,13 @@ export default function LandingPageNew() {
             zIndex: 1,
             width: "100%",
             margin: "70px 0 0",
-            padding: 0,
+            padding: "0 5%",
           }}
         >
           <CurvedLoop
             marqueeText="STRATEGY ✦ SCRIPTS ✦ FIND VIRAL REELS ✦ SCHEDULE ✦ EDITING QUEUE ✦ GO VIRAL ✦ GET CLIENTS ✦ AI COMPANION ✦ "
-            speed={1.2}
-            curveAmount={220}
+            speed={1.1}
+            curveAmount={140}
             interactive
           />
         </div>
