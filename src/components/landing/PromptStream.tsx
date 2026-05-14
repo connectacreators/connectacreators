@@ -49,16 +49,17 @@ export default function PromptStream({
         <div className="prompt-stream-track">{trackText}</div>
       </div>
 
-      {/* LEFT: animated curling italic prompt text on a flowing swoop path
-          (single direction — no loop-back so text never goes upside-down). */}
+      {/* LEFT: long single-arc curve from the left viewport edge into the mic.
+          Path enters at lower-left, arcs up and over, and lands at mid-right
+          where it meets the center mic. No loop-back, text never inverts. */}
       <div className="prompt-stream-left">
         <CurvedLoop
           marqueeText={promptText}
           speed={0.5}
           direction="right"
           interactive={false}
-          pathD="M 720 30 C 420 -40 120 60 80 180 C 50 280 240 320 520 290"
-          viewBox="0 0 760 320"
+          pathD="M 20 280 C 120 60 400 -20 600 60 C 740 110 800 180 820 230"
+          viewBox="0 0 840 320"
           className="thin-italic"
         />
       </div>
