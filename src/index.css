@@ -9,10 +9,13 @@ All colors MUST be HSL for consistency and theming.
 */
 
 @layer base {
-  :root, .dark {
-    /* === Editorial palette · Ink + Aqua + Honey (dark theme) === */
-    --ink:        222 27% 7%;     /* #0A0E12  page background */
-    --graphite:   215 19% 13%;    /* #1A1F26  card / surface  */
+  :root, .dark, .light {
+    /* === Editorial palette · neutral dark grey + Bone + Aqua + Honey ===
+       Light mode is VOIDED for now — .light selector aliases to the same
+       dark values so the ThemeToggle is a no-op until light is revisited.
+       Ink and Graphite are HSL `0 0%` (pure neutral) — no blue hue. */
+    --ink:        0 0% 8%;        /* #141414  page background (was bluish #0A0E12) */
+    --graphite:   0 0% 12%;       /* #1F1F1F  card / surface (was bluish #1A1F26) */
     --bone:       42 23% 89%;     /* #EAE6DC  foreground text */
     --aqua:       184 41% 70%;    /* #8FD0D5  primary         */
     --honey:      30 67% 63%;     /* #E0A560  warm accent     */
@@ -84,67 +87,11 @@ All colors MUST be HSL for consistency and theming.
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
 
-  /* Light theme — Bone background, Ink text, darker Aqua/Honey for AA contrast */
-  .light {
-    --ink:        222 27% 7%;     /* foreground text in light mode */
-    --graphite:   42 23% 95%;     /* near-white card / surface */
-    --bone:       40 26% 96%;     /* page background */
-    --aqua:       184 41% 38%;    /* darker for contrast on bone */
-    --honey:      30 67% 42%;     /* darker for contrast on bone */
-    --honey-deep: 22 65% 38%;
-
-    --bone-muted: 222 27% 30%;
-    --bone-faint: 222 27% 50%;
-    --line:       222 27% 80%;
-
-    --background:           var(--bone);
-    --foreground:           var(--ink);
-    --card:                 var(--graphite);
-    --card-foreground:      var(--ink);
-    --popover:              var(--graphite);
-    --popover-foreground:   var(--ink);
-    --primary:              var(--aqua);
-    --primary-foreground:   var(--bone);
-    --primary-light:        var(--aqua);
-    --primary-dark:         var(--aqua);
-    --secondary:            var(--graphite);
-    --secondary-foreground: var(--ink);
-    --accent:               var(--honey);
-    --accent-foreground:    var(--bone);
-    --accent-light:         var(--honey);
-    --muted:                var(--graphite);
-    --muted-foreground:     var(--bone-muted);
-    --subtle:               var(--bone-muted);
-    --border:               var(--line);
-    --input:                var(--graphite);
-    --ring:                 var(--aqua);
-    --destructive:          var(--honey-deep);
-    --destructive-foreground: var(--bone);
-
-    --sidebar-background:         var(--graphite);
-    --sidebar-foreground:         var(--ink);
-    --sidebar-primary:            var(--aqua);
-    --sidebar-primary-foreground: var(--bone);
-    --sidebar-accent:             var(--honey);
-    --sidebar-accent-foreground:  var(--bone);
-    --sidebar-border:             var(--line);
-    --sidebar-ring:               var(--aqua);
-
-    --gradient-primary: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey)));
-    --gradient-hero:    linear-gradient(135deg, hsl(var(--aqua)) 0%, hsl(var(--honey)) 100%);
-    --gradient-bg:      radial-gradient(ellipse at top, hsl(var(--aqua) / 0.06), transparent 50%);
-    --gradient-dark:    linear-gradient(135deg, hsl(var(--bone)) 0%, hsl(var(--graphite)) 100%);
-
-    --blur-subtle: blur(20px);
-    --blur-strong: blur(40px);
-
-    --shadow-soft: 0 4px 20px hsl(var(--aqua) / 0.08);
-    --shadow-glow: 0 0 40px hsl(var(--aqua) / 0.10);
-    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.06);
-
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
+  /* Light theme — VOIDED 2026-05-14 per user direction. The ThemeToggle
+     still toggles the .light class but the class has no styles attached
+     (the `:root, .dark, .light` selector above gives them all the same
+     dark values). Re-introduce a real light variant only when explicitly
+     re-requested. */
 
 }
 

@@ -12,8 +12,8 @@ html, body, #root { margin: 0; padding: 0; }
 
 /* ---------- The system ---------- */
 .landing-editorial {
-  --ink:        #0A0E12;
-  --graphite:   #1A1F26;
+  --ink:        #141414;
+  --graphite:   #1F1F1F;
   --bone:       #EAE6DC;
   --bone-2:     rgba(234, 230, 220, 0.62);
   --bone-3:     rgba(234, 230, 220, 0.38);
@@ -364,27 +364,27 @@ html, body, #root { margin: 0; padding: 0; }
 }
 .landing-editorial .sc-canvas-line.honey { stroke: var(--honey); opacity: 0.40; }
 
-/* ---------- Viral Today mockup ---------- */
+/* ---------- Viral Today mockup ----------
+   Stroke density reduced 2026-05-14 — only the outer panel keeps a border.
+   Inner cards, thumbnails, and score pills rely on background contrast
+   for separation. */
 .landing-editorial .vt-card {
-  background: var(--bone);
+  background: rgba(20, 20, 20, 0.04);
   color: var(--ink);
-  border: 1.5px solid var(--ink);
   border-radius: 14px;
   padding: 14px 16px;
   display: flex; gap: 14px;
-  box-shadow: 3px 3px 0 var(--ink);
-  transition: transform 200ms ease;
+  transition: background 180ms ease, transform 200ms ease;
 }
 .landing-editorial .vt-card:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--ink);
+  background: rgba(20, 20, 20, 0.07);
+  transform: translateY(-1px);
 }
 .landing-editorial .vt-thumb {
   width: 56px; height: 56px;
   border-radius: 10px;
   flex-shrink: 0;
   background: var(--aqua);
-  border: 1.5px solid var(--ink);
   display: grid; place-items: center;
   color: var(--ink);
   font-family: 'EB Garamond', serif;
@@ -395,7 +395,7 @@ html, body, #root { margin: 0; padding: 0; }
   background: var(--honey);
 }
 .landing-editorial .vt-meta {
-  font-size: 11.5px; color: rgba(10, 14, 18, 0.50);
+  font-size: 11.5px; color: rgba(20, 20, 20, 0.55);
   font-family: 'Figtree', sans-serif;
   letter-spacing: 0.02em;
 }
@@ -412,7 +412,6 @@ html, body, #root { margin: 0; padding: 0; }
   letter-spacing: 0.05em;
   padding: 3px 8px; border-radius: 4px;
   background: var(--honey); color: var(--ink);
-  border: 1px solid var(--ink);
 }
 .landing-editorial .vt-score.aqua { background: var(--aqua); color: var(--ink); }
 
