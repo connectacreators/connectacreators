@@ -37,6 +37,7 @@ export interface CreateVideoInput {
   footage?: string | null;
   file_submission?: string | null;
   post_status?: string | null;
+  lifecycle_status?: string | null;
   schedule_date?: string | null;
   caption?: string | null;
   storage_path?: string | null;
@@ -58,6 +59,7 @@ export interface UpdateVideoInput {
   footage?: string | null;
   file_submission?: string | null;
   post_status?: string | null;
+  lifecycle_status?: string | null;
   schedule_date?: string | null;
   caption?: string | null;
   storage_path?: string | null;
