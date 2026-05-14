@@ -27,7 +27,17 @@ const STATUS_LABEL: Record<ScheduledPostRow["status"], { label: string; variant:
 };
 
 export function PostStatusBadge({ post }: { post: ScheduledPostRow }) {
-  const s = STATUS_LABEL[post.status];
+  const isAwaitingApproval =
+    post.status !== "draft" &&
+    post.status !== "published" &&
+    post.status !== "partial" &&
+    post.status !== "failed" &&
+    !post.client_approved_at;
+
+  const s = isAwaitingApproval
+    ? { label: "Awaiting approval", variant: "secondary" as const }
+    : STATUS_LABEL[post.status];
+
   return (
     <div className="flex items-center gap-2">
       <Badge variant={s.variant}>{s.label}</Badge>

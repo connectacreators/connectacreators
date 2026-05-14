@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useSocialConnections } from "@/lib/hooks/useSocialConnections";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { resolveVideoUrl } from "@/lib/videoUrl";
 
 interface Props {
   open: boolean;
@@ -41,6 +42,7 @@ export function PublishComposer(p: Props) {
   const [time, setTime] = useState("");
   const [tz, setTz] = useState(p.defaultTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [submitting, setSubmitting] = useState(false);
+  const [resolvedVideo, setResolvedVideo] = useState<string | null>(null);
 
   useEffect(() => {
     if (p.open) {
@@ -49,8 +51,11 @@ export function PublishComposer(p: Props) {
       setMode("scheduled");
       setDate("");
       setTime("");
+      // Resolve storage path / drive URL to something playable
+      setResolvedVideo(null);
+      void resolveVideoUrl(p.videoUrl).then(setResolvedVideo);
     }
-  }, [p.open, p.initialCaption]);
+  }, [p.open, p.initialCaption, p.videoUrl]);
 
   const connByPlatform = useMemo(() => {
     const m: Partial<Record<Plat, typeof conns[number]>> = {};
@@ -117,16 +122,14 @@ export function PublishComposer(p: Props) {
         if (tErr) throw tErr;
       }
 
-      if (mode === "autopost") {
-        await supabase.functions.invoke("publish-scheduled-posts", {
-          body: { force_post_id: post.id },
-        });
-      }
+      // Note: autopost no longer fires the dispatcher here — every post goes
+      // through client approval first. The Approve action in ContentCalendar
+      // is what kicks the dispatcher.
 
       toast.success(
-        mode === "autopost" ? "Publishing started" :
-        mode === "scheduled" ? "Scheduled" :
-        "Saved as draft",
+        mode === "draft"
+          ? "Saved as draft"
+          : "Sent to Content Calendar for client approval",
       );
       p.onClose();
     } catch (e: any) {
@@ -145,8 +148,10 @@ export function PublishComposer(p: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="aspect-[9/16] bg-black rounded overflow-hidden flex items-center justify-center">
-            {p.videoUrl ? (
-              <video src={p.videoUrl} controls className="w-full h-full object-contain" />
+            {resolvedVideo ? (
+              <video src={resolvedVideo} controls playsInline className="w-full h-full object-contain" />
+            ) : p.videoUrl ? (
+              <p className="text-xs text-muted-foreground">Loading preview…</p>
             ) : (
               <p className="text-sm text-muted-foreground">No video</p>
             )}

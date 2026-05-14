@@ -36,6 +36,22 @@ serve(async (req) => {
   const parent = (target as any).scheduled_posts;
   if (!parent?.video_url) return await fail(sb, target_id, "Missing video_url on parent", target.attempt_count, true);
 
+  // 2a. Resolve video URL — stored value can be a Storage path or a full URL.
+  // Meta needs a fetchable HTTPS URL with enough TTL to download the video.
+  // We sign for 6 hours; well past any reasonable publish window.
+  let resolvedVideoUrl: string;
+  if (/^https?:\/\//.test(parent.video_url)) {
+    resolvedVideoUrl = parent.video_url;
+  } else {
+    const { data: signed, error: signErr } = await sb.storage
+      .from("footage")
+      .createSignedUrl(parent.video_url, 6 * 60 * 60);
+    if (signErr || !signed?.signedUrl) {
+      return await fail(sb, target_id, `Failed to sign video URL: ${signErr?.message ?? "unknown"}`, target.attempt_count, true);
+    }
+    resolvedVideoUrl = signed.signedUrl;
+  }
+
   // 3. Load connection (decrypts token)
   let connection;
   try { connection = await getConnection(sb, target.social_connection_id); }
@@ -67,14 +83,14 @@ serve(async (req) => {
       ({ post_id, post_url } = await publishInstagramReel({
         igUserId: connection.platform_account_id,
         accessToken: connection.access_token,
-        videoUrl: parent.video_url,
+        videoUrl: resolvedVideoUrl,
         caption: parent.caption ?? "",
       }));
     } else if (target.platform === "facebook") {
       ({ post_id, post_url } = await publishFacebookReel({
         pageId: connection.platform_account_id,
         accessToken: connection.access_token,
-        videoUrl: parent.video_url,
+        videoUrl: resolvedVideoUrl,
         caption: parent.caption ?? "",
       }));
     } else {

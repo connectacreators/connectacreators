@@ -20,9 +20,9 @@ import ThemedVideoPlayer from "@/components/ThemedVideoPlayer";
 import { videoUploadService } from "@/services/videoUploadService";
 import { useSchedulerEnabled } from "@/lib/featureFlags";
 import { useScheduledPosts, type PostFilter, type ScheduledPostRow } from "@/lib/hooks/useScheduledPosts";
-import { PostStatusBadge } from "@/components/scheduler/PostStatusBadge";
 import { PostDetailsModal } from "@/components/scheduler/PostDetailsModal";
 import { ReauthBanner } from "@/components/scheduler/ReauthBanner";
+import { ScheduledPostCard } from "@/components/scheduler/ScheduledPostCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -542,29 +542,20 @@ export default function ContentCalendar() {
               <Tabs value={schedFilter} onValueChange={(v) => setSchedFilter(v as PostFilter)}>
                 <TabsList>
                   <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="awaiting_approval">Awaiting approval</TabsTrigger>
+                  <TabsTrigger value="approved">Approved</TabsTrigger>
                   <TabsTrigger value="drafts">Drafts</TabsTrigger>
-                  <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
                   <TabsTrigger value="published">Published</TabsTrigger>
                   <TabsTrigger value="failed">Failed</TabsTrigger>
                 </TabsList>
               </Tabs>
               <div className="space-y-2">
                 {scheduledPosts.map((p) => (
-                  <button
+                  <ScheduledPostCard
                     key={p.id}
+                    post={p}
                     onClick={() => setDetailPost(p)}
-                    className="w-full text-left border rounded p-3 hover:bg-accent transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium truncate flex-1">
-                        {p.caption.slice(0, 80) || "(no caption)"}
-                      </span>
-                      <PostStatusBadge post={p} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {p.scheduled_at ? new Date(p.scheduled_at).toLocaleString() : "—"}
-                    </p>
-                  </button>
+                  />
                 ))}
                 {scheduledPosts.length === 0 && (
                   <p className="text-sm text-muted-foreground p-3">No posts in this view.</p>
