@@ -25,7 +25,7 @@ These four decisions reshape the parked spec — they are the brainstorm output,
 | Decision | Resolution | Rationale |
 |---|---|---|
 | Animation scope | **Landing-only.** No ProxText / ScrollFloat / stickers / scribble underlines in the app. | App is a productivity tool — per-letter cursor effects on data tables would hurt scannability. Brand carries through palette + typography alone. |
-| Light mode | **Build a full light variant of the new palette.** Don't kill the ThemeToggle. | User decision. Doubles QA per page but preserves user choice. |
+| ~~Light mode~~ | **VOIDED 2026-05-14.** Reversed mid-execution. User: "im not expecting to have a light theme, lets void that for now." `.light` selector aliases to the same dark token block; ThemeToggle is a no-op until light is explicitly revisited. | Light variant felt unnecessary once dark was working; user wanted to ship faster without doubled QA. |
 | `font-caslon` (Libre Caslon Text) | **Migrate → EB Garamond app-wide.** Remove the alias, replace 21 className hits with `font-serif`, drop the Libre Caslon Text Google Fonts import. | Two classical serifs running simultaneously fights "set by default." User explicitly overrode the prior memory that preserved Caslon. |
 | Destructive color | **Honey at deeper saturation (`--honey-deep`).** One derived shade, stays inside the 5-shade system; no red anywhere. | No red lets the palette stay editorial. Verb + icon disambiguate destructive intent. |
 
@@ -34,37 +34,27 @@ These four decisions reshape the parked spec — they are the brainstorm output,
 ### 3.1 Dark theme (default)
 
 ```css
-:root, .dark {
-  /* === Editorial palette · Ink + Aqua + Honey === */
-  --ink:        222 27% 7%;     /* #0A0E12  page background */
-  --graphite:   215 19% 13%;    /* #1A1F26  card / surface  */
+:root, .dark, .light {
+  /* === Editorial palette · Neutral dark grey + Bone + Aqua + Honey ===
+     Hue 0 / sat 0% on Ink and Graphite — no blue cast. `.light` is
+     aliased to the same dark token block (light mode VOIDED 2026-05-14). */
+  --ink:        0 0% 8%;        /* #141414  page background */
+  --graphite:   0 0% 12%;       /* #1F1F1F  card / surface  */
   --bone:       42 23% 89%;     /* #EAE6DC  foreground text */
   --aqua:       184 41% 70%;    /* #8FD0D5  primary         */
   --honey:      30 67% 63%;     /* #E0A560  warm accent     */
   --honey-deep: 22 65% 47%;     /* ~#C7682A destructive     */
 
-  /* Derived */
-  --bone-muted: 42 23% 89% / 0.62;
-  --bone-faint: 42 23% 89% / 0.38;
-  --line:       42 23% 89% / 0.10;
-  --line-strong:42 23% 89% / 0.18;
+  /* Derived (raw HSL triplets — apply opacity at call site) */
+  --bone-muted: 42 23% 89%;
+  --bone-faint: 42 23% 89%;
+  --line:       42 23% 89%;
 }
 ```
 
-### 3.2 Light theme
+### 3.2 Light theme — VOIDED
 
-```css
-.light {
-  --ink:        222 27% 7%;     /* used as foreground text */
-  --graphite:   42 23% 95%;     /* near-white card / surface */
-  --bone:       40 26% 96%;     /* page background */
-  --aqua:       184 41% 38%;    /* darker for contrast on bone */
-  --honey:      30 67% 42%;     /* darker for contrast on bone */
-  --honey-deep: 22 65% 38%;
-}
-```
-
-In light mode the `--ink` and `--bone` role assignments invert (Ink becomes foreground, Bone becomes background). The Aqua and Honey values are darker because the pale-tint versions designed for dark backgrounds fail AA contrast on a bone background.
+Light mode was originally in scope. User reversed mid-execution on 2026-05-14: "im not expecting to have a light theme, lets void that for now". The `.light` selector is aliased to the dark token block above so the existing ThemeToggle is a no-op. A real light variant can be re-introduced when explicitly requested.
 
 ### 3.3 Role-token plumbing
 
