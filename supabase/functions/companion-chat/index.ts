@@ -868,6 +868,24 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     // raise this, also update the wall-clock budget consideration in the loop.
     const MAX_ROUNDS = 5;
 
+    // Speed optimization: route mechanical mutation requests to Haiku.
+    // Status changes, deadline sets, assigns, deletes, renames are simple
+    // tool selections that don't need Sonnet's reasoning.
+    const userText = String(message ?? "").toLowerCase().trim();
+    const mechanicalPatterns: RegExp[] = [
+      /\b(mark|set)\b.*\b(done|published|unpublished|scheduled|in[- ]?progress|in[- ]?review|not started)\b/,
+      /\b(set|add|update|change)\s+(the\s+)?deadline\b/,
+      /\b(assign|reassign)\b.*\b(to)\b/,
+      /\b(delete|remove|trash)\b/,
+      /\b(restore|undelete|untrash)\b/,
+      /\b(rename)\b.*\bto\b/,
+      /\b(set\s+caption|change\s+caption)\b/,
+      /\bbulk\b/,
+    ];
+    const isMechanical = mechanicalPatterns.some((re) => re.test(userText));
+    const chosenModel = isMechanical ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
+    console.log(`[companion-chat] model=${chosenModel} mechanical=${isMechanical} text="${userText.slice(0, 80)}"`);
+
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -877,7 +895,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
+          model: chosenModel,
           max_tokens: 4096,
           system: finalSystemPrompt,
           tools: effectiveTools,
