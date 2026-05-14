@@ -888,7 +888,10 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     // tool selections that don't need Sonnet's reasoning.
     const userText = String(message ?? "").toLowerCase().trim();
     const mechanicalPatterns: RegExp[] = [
-      /\b(mark|set)\b.*\b(done|published|unpublished|scheduled|in[- ]?progress|in[- ]?review|not started)\b/,
+      // "mark/set/change X to <status>" — covers "change all master construction
+      // videos to scheduled" which previously went to Sonnet without forced
+      // tool use and dead-ended on a "Let me pull up…" reply.
+      /\b(mark|set|change|update|move)\b[^.]*\b(done|published|unpublished|scheduled|in[- ]?progress|in[- ]?review|not started)\b/,
       /\b(set|add|update|change)\s+(the\s+)?deadline\b/,
       /\b(assign|reassign)\b.*\b(to)\b/,
       /\b(delete|remove|trash)\b/,
@@ -896,6 +899,9 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       /\b(rename)\b.*\bto\b/,
       /\b(set\s+caption|change\s+caption)\b/,
       /\bbulk\b/,
+      // "<verb> all X" — broad bulk-action trigger. Catches "delete all", "schedule
+      // all", "reschedule all", "publish all", "approve all", etc.
+      /\b(mark|set|change|update|move|delete|remove|restore|rename|publish|schedule|reschedule|assign|approve|reject)\s+all\b/,
     ];
     const isMechanical = mechanicalPatterns.some((re) => re.test(userText));
     const chosenModel = isMechanical ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
@@ -914,7 +920,16 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           max_tokens: 4096,
           system: finalSystemPrompt,
           tools: effectiveTools,
-          ...(autonomy_mode === "auto" ? { tool_choice: { type: "any" } } : {}),
+          // Force a tool call on the FIRST round of a turn when either
+          // (a) the user is in Auto mode, or (b) the prompt matches a
+          // mechanical-action pattern (bulk mutations, status changes,
+          // deletes, etc). Without this, Sonnet sometimes writes "Let me
+          // pull up the list…" and stops with no tool call, dead-ending
+          // the conversation. After the first tool call, subsequent
+          // rounds let the model choose freely.
+          ...(round === 0 && (autonomy_mode === "auto" || isMechanical)
+            ? { tool_choice: { type: "any" } }
+            : {}),
           messages,
         }),
       });
