@@ -572,10 +572,14 @@ html, body, #root { margin: 0; padding: 0; }
 }
 
 /* ---------- Letter-by-letter rise (motion only, no opacity) ---------- */
+/* Offsets are in em so they scale with the H1's font-size and never
+   exceed the line-box on responsive widths. Initial offset stays small
+   enough that letters are visible (not clipped) even before they bounce
+   into their final spot. */
 @keyframes le-letter-rise {
-  0%   { transform: translateY(34px) rotate(-3deg); }
-  55%  { transform: translateY(-8px) rotate(1.2deg); }
-  82%  { transform: translateY(3px) rotate(-0.4deg); }
+  0%   { transform: translateY(0.18em) rotate(-3deg); }
+  55%  { transform: translateY(-0.06em) rotate(1.2deg); }
+  82%  { transform: translateY(0.025em) rotate(-0.4deg); }
   100% { transform: translateY(0) rotate(0); }
 }
 .landing-editorial .letter-rise {

@@ -1234,14 +1234,14 @@ export default function LandingPageNew() {
             className="serif"
             style={{
               fontSize: "clamp(40px, 7vw, 88px)",
-              lineHeight: 1.05,
+              lineHeight: 1.18,
               letterSpacing: "-0.025em",
               fontWeight: 500,
               margin: 0,
               marginBottom: 26,
               whiteSpace: "nowrap",
-              overflow: "hidden",
-              paddingBottom: "0.08em",
+              paddingBottom: "0.2em",
+              paddingTop: "0.1em",
             }}
           >
             <LetterRise text="Go " delay={0.25} step={0.04} />
