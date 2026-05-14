@@ -821,6 +821,8 @@ export default function LandingPageNew() {
   const [videoOpen, setVideoOpen] = useState(false);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const proximityContainerRef = useRef<HTMLDivElement | null>(null);
+  const heroSubRef = useRef<HTMLDivElement | null>(null);
+  const finalSubRef = useRef<HTMLDivElement | null>(null);
 
   // ESC closes the video modal
   useEffect(() => {
@@ -1100,7 +1102,8 @@ export default function LandingPageNew() {
             </span>
           </h1>
 
-          <p
+          <div
+            ref={heroSubRef}
             data-reveal="3"
             style={{
               fontSize: "clamp(15px, 1.6vw, 19px)",
@@ -1108,19 +1111,53 @@ export default function LandingPageNew() {
               maxWidth: 580,
               margin: "0 auto 40px",
               lineHeight: 1.55,
+              position: "relative",
             }}
           >
-            Connecta plans your next 30 days of content before you open the app. Hooks that
-            land, posts that book — strategy, scripts, and schedule done for you.
-          </p>
+            <VariableProximity
+              label="Connecta plans your next 30 days of content before you open the app. Hooks that land, posts that book — strategy, scripts, and schedule done for you."
+              fromFontVariationSettings="'wght' 400"
+              toFontVariationSettings="'wght' 800"
+              containerRef={heroSubRef}
+              radius={160}
+              falloff="gaussian"
+            />
+          </div>
 
+          {/* CurvedLoop — sits right above the buttons, smile-arc dips down to "wrap" them */}
           <div
             data-reveal="4"
+            style={{
+              position: "relative",
+              zIndex: 0,
+              width: "100vw",
+              marginLeft: "calc(50% - 50vw)",
+              marginRight: "calc(50% - 50vw)",
+              padding: "0 4%",
+              marginTop: 12,
+              marginBottom: -40,
+              pointerEvents: "none",
+            }}
+          >
+            <div style={{ pointerEvents: "auto" }}>
+              <CurvedLoop
+                marqueeText="STRATEGY ✦ SCRIPTS ✦ FIND VIRAL REELS ✦ SCHEDULE ✦ EDITING QUEUE ✦ GO VIRAL ✦ GET CLIENTS ✦ AI COMPANION ✦ "
+                speed={1.1}
+                curveAmount={180}
+                interactive
+              />
+            </div>
+          </div>
+
+          <div
+            data-reveal="5"
             style={{
               display: "flex",
               gap: 12,
               justifyContent: "center",
               flexWrap: "wrap",
+              position: "relative",
+              zIndex: 2,
             }}
           >
             <Link to="/scripts" className="btn btn-aqua btn-large">
@@ -1136,7 +1173,7 @@ export default function LandingPageNew() {
           </div>
 
           <div
-            data-reveal="5"
+            data-reveal="6"
             style={{
               marginTop: 18,
               fontSize: 12.5,
@@ -1146,25 +1183,6 @@ export default function LandingPageNew() {
           >
             Free to try · No credit card · Cancel anytime
           </div>
-        </div>
-
-        {/* CurvedLoop — wave-shaped brand marquee with breathing room from viewport edges */}
-        <div
-          data-reveal="6"
-          style={{
-            position: "relative",
-            zIndex: 1,
-            width: "100%",
-            margin: "70px 0 0",
-            padding: "0 5%",
-          }}
-        >
-          <CurvedLoop
-            marqueeText="STRATEGY ✦ SCRIPTS ✦ FIND VIRAL REELS ✦ SCHEDULE ✦ EDITING QUEUE ✦ GO VIRAL ✦ GET CLIENTS ✦ AI COMPANION ✦ "
-            speed={1.1}
-            curveAmount={140}
-            interactive
-          />
         </div>
       </section>
 
@@ -1762,10 +1780,10 @@ export default function LandingPageNew() {
               <div style={{ fontSize: 17, color: "var(--bone)" }}>
                 <VariableProximity
                   label="Aria Wells"
-                  fromFontVariationSettings="'wght' 500"
+                  fromFontVariationSettings="'wght' 400"
                   toFontVariationSettings="'wght' 800"
                   containerRef={proximityContainerRef}
-                  radius={110}
+                  radius={180}
                   falloff="gaussian"
                   className="serif"
                   style={{ fontSize: 17, color: "var(--bone)" }}
@@ -1837,18 +1855,26 @@ export default function LandingPageNew() {
             </span>
           </h2>
 
-          <p
+          <div
+            ref={finalSubRef}
             style={{
               fontSize: 18,
               color: "rgba(10,14,18,0.65)",
               maxWidth: 560,
               margin: "0 auto 36px",
               lineHeight: 1.55,
+              position: "relative",
             }}
           >
-            No credit card. Bring your existing chaos — Connecta will fold it neatly into a
-            30-day plan within five minutes.
-          </p>
+            <VariableProximity
+              label="No credit card. Bring your existing chaos — Connecta will fold it neatly into a 30-day plan within five minutes."
+              fromFontVariationSettings="'wght' 400"
+              toFontVariationSettings="'wght' 800"
+              containerRef={finalSubRef}
+              radius={160}
+              falloff="gaussian"
+            />
+          </div>
           <Link to="/scripts" className="btn btn-honey btn-large">
             Get started <ArrowRight size={16} />
           </Link>
