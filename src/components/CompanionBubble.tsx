@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useCompanion } from "@/contexts/CompanionContext";
@@ -41,6 +41,18 @@ export default function CompanionBubble() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, activeThreadId, wasUpdatedRecently]);
+
+  // Keep the drawer mounted briefly after close so the slide-out animation
+  // can play before unmount. Open immediately when isOpen flips true.
+  const [drawerMounted, setDrawerMounted] = useState(isOpen);
+  useEffect(() => {
+    if (isOpen) {
+      setDrawerMounted(true);
+      return;
+    }
+    const t = setTimeout(() => setDrawerMounted(false), 220);
+    return () => clearTimeout(t);
+  }, [isOpen]);
 
   const badgeCount = tasks.filter(
     (t) => t.priority === "red" || t.priority === "amber",
@@ -91,7 +103,7 @@ export default function CompanionBubble() {
       </button>
 
       {/* Right-side drawer (replaces the old compact panel) */}
-      {isOpen && <CompanionDrawer />}
+      {drawerMounted && <CompanionDrawer closing={!isOpen} />}
     </>
   );
 }
