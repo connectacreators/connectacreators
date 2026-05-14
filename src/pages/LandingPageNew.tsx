@@ -136,6 +136,8 @@ function InteractiveSticker({
   const currentRef = useRef({ x: 0, y: 0, scale: 1, tilt: 0 });
 
   useEffect(() => {
+    const EPSILON = 0.05;
+
     const animate = () => {
       const c = currentRef.current;
       const t = targetRef.current;
@@ -150,9 +152,27 @@ function InteractiveSticker({
           `rotate(${(baseRotation + c.tilt).toFixed(2)}deg) ` +
           `scale(${c.scale.toFixed(3)})`;
       }
+
+      // Stop the RAF loop once we've converged on the target. Saves ~60
+      // animation frames per second per idle sticker — with 5 stickers
+      // that's a real perf win during scroll.
+      const settled =
+        Math.abs(c.x - t.x) < EPSILON &&
+        Math.abs(c.y - t.y) < EPSILON &&
+        Math.abs(c.scale - t.scale) < EPSILON / 100 &&
+        Math.abs(c.tilt - t.tilt) < EPSILON;
+      if (settled) {
+        rafRef.current = null;
+        return;
+      }
       rafRef.current = requestAnimationFrame(animate);
     };
-    rafRef.current = requestAnimationFrame(animate);
+
+    const kick = () => {
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
 
     const onMove = (e: MouseEvent) => {
       if (!ref.current) return;
@@ -175,10 +195,12 @@ function InteractiveSticker({
         targetRef.current.scale = 1;
         targetRef.current.tilt = 0;
       }
+      kick();
     };
     window.addEventListener("mousemove", onMove, { passive: true });
     const onLeave = () => {
       targetRef.current = { x: 0, y: 0, scale: 1, tilt: 0 };
+      kick();
     };
     document.addEventListener("mouseleave", onLeave);
     return () => {
@@ -856,11 +878,22 @@ export default function LandingPageNew() {
   }, [videoOpen]);
 
   // Global proximity-weight tracker. Locks word/letter widths after fonts
-  // load (no text expansion), then on every mousemove updates --prox-wght
-  // for spans within `radius` of the cursor.
+  // load, then updates --prox-wght for spans near the cursor — but ONLY
+  // for spans currently in the viewport (tracked via IntersectionObserver)
+  // and only when the mouse has moved. This avoids forced reflow from
+  // calling getBoundingClientRect on hundreds of spans every frame.
   useEffect(() => {
     const root = scrollRoot.current;
     if (!root) return;
+
+    type ProxRect = { el: HTMLElement; cx: number; cy: number };
+    const visibleRects = new Map<HTMLElement, ProxRect>();
+    let rectsDirty = false;
+
+    const measureRect = (el: HTMLElement): ProxRect => {
+      const r = el.getBoundingClientRect();
+      return { el, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+    };
 
     const lockWidths = () => {
       const targets = root.querySelectorAll<HTMLElement>(".prox-word, .prox-letter");
@@ -871,18 +904,56 @@ export default function LandingPageNew() {
         el.style.minWidth = `${r.width}px`;
         el.dataset.proxLocked = "true";
       });
+      rectsDirty = true;
     };
     if ((document as Document & { fonts?: FontFaceSet }).fonts) {
       (document as Document & { fonts: FontFaceSet }).fonts.ready.then(lockWidths);
-      // Also run after a tick in case ready already fired
       setTimeout(lockWidths, 50);
       setTimeout(lockWidths, 500);
     } else {
       setTimeout(lockWidths, 100);
     }
 
+    // Track which spans are currently in the viewport. Only those get
+    // distance-checked on mousemove.
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const el = entry.target as HTMLElement;
+          if (entry.isIntersecting) {
+            visibleRects.set(el, measureRect(el));
+          } else {
+            visibleRects.delete(el);
+            if (el.style.getPropertyValue("--prox-wght")) {
+              el.style.removeProperty("--prox-wght");
+            }
+          }
+        }
+      },
+      { rootMargin: "100px" }
+    );
+
+    // Initial observe pass + a deferred sweep for spans that mount after
+    // the initial paint (ScrollFloat's GSAP creates spans too).
+    const observeAll = () => {
+      root.querySelectorAll<HTMLElement>(".prox-word, .prox-letter").forEach((el) => {
+        io.observe(el);
+      });
+    };
+    observeAll();
+    setTimeout(observeAll, 500);
+    setTimeout(observeAll, 1500);
+
+    // Mark rects as dirty when scroll happens — we'll re-measure on next
+    // mousemove (cheap path) instead of iterating every scroll frame.
+    const onScroll = () => {
+      rectsDirty = true;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+
     const RADIUS = 70;
-    const DELTA = 220; // wght: 400 → 620, noticeably bolder where the cursor lands
+    const DELTA = 220;
     let raf: number | null = null;
     let posX = -9999;
     let posY = -9999;
@@ -893,11 +964,14 @@ export default function LandingPageNew() {
       if (raf !== null) return;
       raf = requestAnimationFrame(() => {
         raf = null;
-        const targets = root.querySelectorAll<HTMLElement>(".prox-word, .prox-letter");
-        targets.forEach((el) => {
-          const r = el.getBoundingClientRect();
-          const cx = r.left + r.width / 2;
-          const cy = r.top + r.height / 2;
+        // If scroll happened since last frame, refresh cached centers.
+        if (rectsDirty) {
+          visibleRects.forEach((_, el) => {
+            visibleRects.set(el, measureRect(el));
+          });
+          rectsDirty = false;
+        }
+        visibleRects.forEach(({ el, cx, cy }) => {
           const dist = Math.hypot(posX - cx, posY - cy);
           if (dist < RADIUS) {
             const t = 1 - dist / RADIUS;
@@ -913,15 +987,26 @@ export default function LandingPageNew() {
     window.addEventListener("mousemove", onMove, { passive: true });
     return () => {
       window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      io.disconnect();
       if (raf !== null) cancelAnimationFrame(raf);
     };
   }, []);
 
-  // sticky nav state
+  // sticky nav state — only flip when the threshold is actually crossed,
+  // so we don't queue React updates on every scroll event.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 30);
-    onScroll();
-    window.addEventListener("scroll", onScroll);
+    let last = window.scrollY > 30;
+    setScrolled(last);
+    const onScroll = () => {
+      const next = window.scrollY > 30;
+      if (next !== last) {
+        last = next;
+        setScrolled(next);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
