@@ -49,9 +49,11 @@ export function ScheduledPostCard({ post, onClick }: Props) {
 
   const scheduledLabel = post.scheduled_at
     ? new Date(post.scheduled_at).toLocaleString(undefined, {
-        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+        weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
       })
-    : "—";
+    : null;
+
+  const isUpcoming = post.scheduled_at && new Date(post.scheduled_at).getTime() > Date.now();
 
   const retryFailed = async () => {
     if (failedTargets.length === 0) return;
@@ -95,7 +97,13 @@ export function ScheduledPostCard({ post, onClick }: Props) {
           </p>
           <PostStatusBadge post={post} />
         </div>
-        <p className="text-xs text-muted-foreground">{scheduledLabel}</p>
+        {scheduledLabel && (
+          <p className="text-xs flex items-center gap-1.5">
+            <span className={isUpcoming ? "text-primary font-medium" : "text-muted-foreground"}>
+              {isUpcoming ? "Will publish " : "Was scheduled "}{scheduledLabel}
+            </span>
+          </p>
+        )}
 
         {hasFailures && firstError && (
           <div className="flex items-start gap-1.5 rounded border border-red-500/30 bg-red-500/5 p-2">

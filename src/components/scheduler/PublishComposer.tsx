@@ -126,11 +126,20 @@ export function PublishComposer(p: Props) {
       // through client approval first. The Approve action in ContentCalendar
       // is what kicks the dispatcher.
 
-      toast.success(
-        mode === "draft"
-          ? "Saved as draft"
-          : "Sent to Content Calendar for client approval",
-      );
+      // More informative success message that surfaces the scheduled time
+      // so the user sees the schedule was actually captured.
+      let successMsg: string;
+      if (mode === "draft") {
+        successMsg = "Saved as draft";
+      } else if (mode === "scheduled" && scheduledAt) {
+        const when = new Date(scheduledAt).toLocaleString(undefined, {
+          month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+        });
+        successMsg = `Scheduled for ${when} — awaiting client approval`;
+      } else {
+        successMsg = "Queued — awaiting client approval";
+      }
+      toast.success(successMsg);
       p.onClose();
     } catch (e: any) {
       toast.error("Submit failed: " + (e?.message ?? String(e)));
