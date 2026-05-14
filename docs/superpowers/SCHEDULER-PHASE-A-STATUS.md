@@ -140,28 +140,54 @@ Until App Review, only app admins/developers/testers can OAuth.
 
 ## Where we are in testing (resume point)
 
-**State as of last session:** Robert/Connecta Creators Business Portfolio + DJ R3. successfully connected. Social Accounts page shows green checkmarks on Facebook (DJ R3.) and Instagram (@r3.productions). DRY_RUN_SCHEDULER is still ON.
+**State as of 2026-05-13 evening:**
+- Robert + Connecta Creators Business Portfolio + DJ R3. + @r3.productions connected
+- DRY_RUN_SCHEDULER is still ON
+- Stale test post (id `98a7b66c…`) deleted — left over from before the approval gate landed
+- **Major workflow change shipped: client approval gate.** Posts no longer auto-publish at scheduled_at — they land in the Content Calendar "Awaiting approval" tab and must be approved before the dispatcher fires.
 
-**Immediate next action:** Run the test plan below (Stage 1 = dry-run). When that passes, disable DRY_RUN_SCHEDULER and run Stage 2 = real post to DJ R3. + @r3.productions.
+**Recent fixes (commit `a28e94c`):**
+- Video URL resolution: `lib/videoUrl.ts` handles Storage paths (signed URLs from `footage` bucket), Google Drive paths (`/file/d/{id}` → `/uc?id={id}`), full URLs pass through. Used in composer preview, ScheduledPostCard thumbnails, and publish-to-meta (signs for 6h before passing to Meta).
+- Migration a09: `client_approved_at` + `client_approved_by` columns on `scheduled_posts`, `claim_scheduler_batch` filters on `client_approved_at IS NOT NULL`.
+- `ScheduledPostCard` shows 9:16 muted thumbnail + caption + status badge + Approve / Un-approve buttons.
+- ContentCalendar filter tabs: All / **Awaiting approval** / **Approved** / Drafts / Published / Failed.
+- PostStatusBadge surfaces "Awaiting approval" pill until `client_approved_at` is set.
+- Composer success toast: "Sent to Content Calendar for client approval" (no longer "Scheduled").
 
-After Stage 2 passes, decide on the Metricool-style composer redesign (see "Composer redesign" section above).
+**Immediate next action:** wait for the GitHub Actions deploy (~5-8 min from commit `a28e94c`), then run the test plan below.
 
 ## Test plan (next thing to do)
 
-Walks the composer → publish → status flow with DRY_RUN on so no real Meta API calls are made.
+Walks the composer → calendar → approve → publish flow. DRY_RUN_SCHEDULER is still ON so no real Meta API calls are made.
 
-1. As a logged-in admin (already opted in), go to `https://connectacreators.com/clients/fc4c9ad5-50fd-4354-bc08-95c479bec4d1/editing-queue`
-2. Pick or create an editing-queue row that has a `file_submission` URL (video)
-3. Click the row's "..." menu → **"Schedule / Publish"** (when scheduler is enabled, this opens the composer instead of the old date-only modal)
+1. Go to `https://connectacreators.com/clients/fc4c9ad5-50fd-4354-bc08-95c479bec4d1/editing-queue`
+2. Pick a row with an uploaded video (has `file_submission`)
+3. "..." menu → **Schedule / Publish** → composer opens
 4. In the composer:
-   - Video preview shows on the left
-   - Caption pre-fills from the editing-queue row (editable)
-   - Check **Facebook Reels** + **Instagram Reels** (other two are greyed)
-   - Mode: pick **"Schedule for…"** and set time ~2 min from now
+   - **Video preview should now play** (resolved via signed Storage URL)
+   - Caption pre-fills (editable)
+   - Check **Facebook Reels** + **Instagram Reels**
+   - Mode: **"Schedule for…"** ~2 minutes from now
    - Click **Schedule**
-5. Within ~60s, pg_cron picks up the row → dispatcher → publish-to-meta → DRY_RUN short-circuits → writes fake URLs to `scheduled_post_targets`
-6. Open `https://connectacreators.com/clients/<id>/content-calendar` — should see the row in **Published** tab with green badges on FB + IG icons
-7. Click the row → details modal shows both targets `published` with `dryrun-*` URLs
+   - Toast: "Sent to Content Calendar for client approval"
+5. Open `https://connectacreators.com/clients/<id>/content-calendar`
+6. New filter tabs visible. Switch to **"Awaiting approval"** → your row appears with:
+   - 9:16 video thumbnail on the left
+   - Caption + scheduled time
+   - "Awaiting approval" pill badge
+   - **Approve** button
+7. Click **Approve** → toast "Approved — will publish when ready" → row moves to **Approved** tab
+8. Within ~60 sec (or instantly if Approve fires the dispatcher), targets transition to `publishing` → `published`
+9. Row moves to **Published** tab with green icons on FB + IG
+10. Click row → details modal shows both targets `published` with `dryrun-*` URLs
+
+When this works end-to-end, that's Stage 1 complete. Stage 2 = flip off DRY_RUN_SCHEDULER and post for real:
+
+```bash
+SUPABASE_ACCESS_TOKEN=<token> /tmp/supabase secrets unset DRY_RUN_SCHEDULER --project-ref hxojqrilwhhrvloiwmfo
+# or set to false in the dashboard
+```
+Then schedule + approve a new post. Real post appears on DJ R3.'s Reels tab AND @r3.productions' Reels tab.
 
 If anything fails, check:
 - `app_settings.scheduler_enabled` is `true`
