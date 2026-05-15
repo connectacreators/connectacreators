@@ -349,13 +349,13 @@ All colors MUST be HSL for consistency and theming.
     font-weight: 600;
   }
   .editorial-page-dark .editorial-card {
-    background: #1F1F1F;
-    border: 1px solid rgba(234, 230, 220, 0.08);
+    background: #1A1A1A;
+    border: 1px solid rgba(234, 230, 220, 0.14);
     border-radius: 12px;
     transition: border-color 160ms ease;
   }
   .editorial-page-dark .editorial-card:hover {
-    border-color: rgba(234, 230, 220, 0.16);
+    border-color: rgba(234, 230, 220, 0.28);
   }
   .editorial-page-dark .editorial-card-dashed {
     background: transparent;
