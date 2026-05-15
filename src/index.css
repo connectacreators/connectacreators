@@ -305,6 +305,94 @@ All colors MUST be HSL for consistency and theming.
   .editorial-page [class*="border-border/"] { border-color: rgba(20, 20, 20, 0.10) !important; }
   .editorial-page .text-foreground { color: #141414 !important; }
   .editorial-page .text-muted-foreground { color: rgba(20, 20, 20, 0.55) !important; }
+
+  /* ── Editorial DARK variant ──
+     Same typographic discipline as .editorial-page (EB Garamond headings,
+     Figtree body, hairline borders, no glass/gradients/blurs) but inverted
+     to an ink + bone palette. Used by /scripts and other content pages that
+     should feel night-mode editorial. */
+  .editorial-page-dark {
+    --background: 0 0% 8%;
+    --foreground: 42 23% 89%;
+    --card: 0 0% 12%;
+    --card-foreground: 42 23% 89%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 42 23% 89%;
+    --primary: 184 41% 65%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 42 23% 89%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 42 23% 70%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 42 23% 89%;
+
+    background: #141414;
+    color: #EAE6DC;
+    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  }
+  .editorial-page-dark h1,
+  .editorial-page-dark h2,
+  .editorial-page-dark h3,
+  .editorial-page-dark .editorial-h {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #EAE6DC;
+  }
+  .editorial-page-dark .editorial-eyebrow {
+    font-size: 9.5px;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: rgba(234, 230, 220, 0.45);
+    font-family: 'Figtree', sans-serif;
+    font-weight: 600;
+  }
+  .editorial-page-dark .editorial-card {
+    background: #1F1F1F;
+    border: 1px solid rgba(234, 230, 220, 0.08);
+    border-radius: 12px;
+    transition: border-color 160ms ease;
+  }
+  .editorial-page-dark .editorial-card:hover {
+    border-color: rgba(234, 230, 220, 0.16);
+  }
+  .editorial-page-dark .editorial-card-dashed {
+    background: transparent;
+    border: 1px dashed rgba(234, 230, 220, 0.18);
+    border-radius: 12px;
+    transition: border-color 160ms ease, color 160ms ease;
+  }
+  .editorial-page-dark .editorial-card-dashed:hover {
+    border-color: rgba(234, 230, 220, 0.32);
+    color: #EAE6DC;
+  }
+  .editorial-page-dark .editorial-pill {
+    background: transparent;
+    border: 1px solid rgba(234, 230, 220, 0.14);
+    color: rgba(234, 230, 220, 0.78);
+    border-radius: 999px;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+  .editorial-page-dark .editorial-pill:hover {
+    border-color: rgba(234, 230, 220, 0.32);
+    color: #EAE6DC;
+  }
+  .editorial-page-dark .editorial-pill[data-active="true"],
+  .editorial-page-dark .editorial-pill[aria-pressed="true"] {
+    background: #EAE6DC;
+    border-color: #EAE6DC;
+    color: #141414;
+  }
+  .editorial-page-dark .bg-background { background-color: #141414 !important; }
+  .editorial-page-dark .bg-card,
+  .editorial-page-dark [class*="bg-card/"] { background-color: #1F1F1F !important; }
+  .editorial-page-dark [class*="bg-background/"] { background-color: rgba(20, 20, 20, 0.6) !important; }
+  .editorial-page-dark .border-border,
+  .editorial-page-dark [class*="border-border/"] { border-color: rgba(234, 230, 220, 0.08) !important; }
+  .editorial-page-dark .text-foreground { color: #EAE6DC !important; }
+  .editorial-page-dark .text-muted-foreground { color: rgba(234, 230, 220, 0.55) !important; }
+
   .glass-sidebar::before,
   .glass-sidebar::after {
     display: none;
