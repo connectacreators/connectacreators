@@ -671,7 +671,7 @@ export function AssistantTextInput({
                     />
                     <div
                       ref={modelPortalRef}
-                      className="w-52 rounded-xl border border-[#141414] bg-[#ffffff] shadow-xl overflow-hidden"
+                      className="w-52 rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-xl overflow-hidden"
                       style={{
                         position: "fixed",
                         zIndex: 99999,
