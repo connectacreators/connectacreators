@@ -15,8 +15,19 @@ export default function FloatingCredits() {
   if (isAdmin) return null;
 
   const isEmpty = credits.credits_balance === 0 && credits.topup_credits_balance === 0;
-  const accentColor = isEmpty ? "#f59e0b" : "#8FD0D5";
+  // Editorial sticker palette — bone fill, ink stroke + offset shadow, ink text.
+  // Only the spark icon picks up the accent (honey when empty, aqua otherwise).
+  const accentColor = isEmpty ? "#C7682A" : "#8FD0D5";
   const totalBalance = credits.credits_balance + credits.topup_credits_balance;
+
+  const stickerBase: React.CSSProperties = {
+    background: "#EAE6DC",
+    border: "1px solid #141414",
+    boxShadow: "2px 2px 0 #141414",
+    color: "#141414",
+    fontFamily: "'Figtree', sans-serif",
+    transition: "box-shadow 120ms, transform 120ms",
+  };
 
   return (
     <>
@@ -25,15 +36,10 @@ export default function FloatingCredits() {
         {!isEmpty && credits.subscription_status && ["active", "trialing", "canceling"].includes(credits.subscription_status) && (
           <button
             onClick={() => setShowAddCredits(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-105 active:scale-95"
-            style={{
-              background: "rgba(34,211,238,0.10)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid rgba(34,211,238,0.25)",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
-              color: "#8FD0D5",
-            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold"
+            style={stickerBase}
+            onMouseEnter={(e) => { const el = e.currentTarget; el.style.boxShadow = "3px 3px 0 #141414"; el.style.transform = "translate(-1px,-1px)"; }}
+            onMouseLeave={(e) => { const el = e.currentTarget; el.style.boxShadow = "2px 2px 0 #141414"; el.style.transform = "none"; }}
             title="Buy more credits"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -43,31 +49,26 @@ export default function FloatingCredits() {
 
         <button
           onClick={() => navigate(isEmpty ? "/select-plan" : "/subscription")}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105 active:scale-95"
-          style={{
-            background: isEmpty ? "rgba(245,158,11,0.10)" : "rgba(255,255,255,0.05)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            border: `1px solid ${isEmpty ? "rgba(245,158,11,0.25)" : "rgba(255,255,255,0.10)"}`,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
-            color: "var(--foreground)",
-          }}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold"
+          style={stickerBase}
+          onMouseEnter={(e) => { const el = e.currentTarget; el.style.boxShadow = "3px 3px 0 #141414"; el.style.transform = "translate(-1px,-1px)"; }}
+          onMouseLeave={(e) => { const el = e.currentTarget; el.style.boxShadow = "2px 2px 0 #141414"; el.style.transform = "none"; }}
           title={credits.topup_credits_balance > 0 ? `Plan: ${credits.credits_balance} · Top-up: ${credits.topup_credits_balance}` : undefined}
         >
-          <Zap className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
+          <Zap className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} strokeWidth={2} />
           {isEmpty ? (
-            <span style={{ color: accentColor, fontWeight: 600 }}>Upgrade</span>
+            <span style={{ color: "#141414", fontWeight: 600 }}>Upgrade</span>
           ) : (
             <>
-              <span className="tabular-nums" style={{ color: accentColor, fontWeight: 600 }}>
+              <span className="tabular-nums" style={{ color: "#141414", fontWeight: 600 }}>
                 {totalBalance.toLocaleString()}
               </span>
               {credits.topup_credits_balance > 0 && (
-                <span className="text-[10px] opacity-60">
+                <span className="text-[10px]" style={{ color: "rgba(20,20,20,0.55)" }}>
                   (+{credits.topup_credits_balance.toLocaleString()})
                 </span>
               )}
-              <span className="text-xs opacity-50">/ {credits.credits_monthly_cap.toLocaleString()}</span>
+              <span className="text-xs" style={{ color: "rgba(20,20,20,0.55)" }}>/ {credits.credits_monthly_cap.toLocaleString()}</span>
             </>
           )}
         </button>

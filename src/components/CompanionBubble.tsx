@@ -64,39 +64,50 @@ export default function CompanionBubble() {
 
   return (
     <>
-      {/* Floating bubble */}
+      {/* Floating bubble — editorial sticker: bone fill, ink stroke + offset shadow */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95"
+        className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full"
         style={{
           width: 52,
           height: 52,
-          background: "rgba(255,255,255,0.08)",
-          backdropFilter: "blur(20px) saturate(140%)",
-          WebkitBackdropFilter: "blur(20px) saturate(140%)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
+          background: "#EAE6DC",
+          border: "1px solid #141414",
+          boxShadow: "3px 3px 0 #141414",
+          transition: "box-shadow 120ms, transform 120ms",
+        }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget;
+          el.style.boxShadow = "4px 4px 0 #141414";
+          el.style.transform = "translate(-1px,-1px)";
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget;
+          el.style.boxShadow = "3px 3px 0 #141414";
+          el.style.transform = "none";
         }}
         aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
       >
         {badgeCount > 0 && !isOpen && (
           <span
-            className="absolute inset-[-5px] rounded-full border border-[rgba(255,255,255,0.35)] animate-ping"
-            style={{ animationDuration: "2.2s" }}
+            className="absolute inset-[-5px] rounded-full border border-[#141414] animate-ping"
+            style={{ animationDuration: "2.2s", opacity: 0.35 }}
           />
         )}
         {isOpen ? (
-          <X className="w-5 h-5 text-white" />
+          <X className="w-5 h-5" style={{ color: "#141414" }} />
         ) : (
           <img
             src="/favicon-transparent.png"
             alt="Connecta"
             className="w-6 h-6 object-contain"
-            style={{ filter: "brightness(0) invert(1)" }}
           />
         )}
         {badgeCount > 0 && !isOpen && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+          <span
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center"
+            style={{ background: "#C7682A", color: "#EAE6DC", border: "1px solid #141414" }}
+          >
             {badgeCount}
           </span>
         )}
