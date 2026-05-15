@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
-import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
@@ -333,7 +333,7 @@ export default function EditingQueue() {
         revisions: v.revisions || null,
         revisionPropName: null,
         postStatus: v.post_status || null,
-        lifecycleStatus: (v.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(v.status, v.post_status),
+        lifecycleStatus: isLifecycleStatus(v.lifecycle_status) ? v.lifecycle_status : deriveFromLegacy(v.status, v.post_status),
         scheduledDate: v.schedule_date || null,
         lastEdited: v.created_at,
         caption: v.caption ?? null,
