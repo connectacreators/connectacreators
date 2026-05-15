@@ -113,7 +113,7 @@ export function renderInline(line: string): React.ReactNode[] {
         </strong>,
       );
     else if (match[3] !== undefined)
-      parts.push(<em key={key++}>{match[3]}</em>);
+      parts.push(<span key={key++}>{match[3]}</span>);
     else if (match[4] !== undefined)
       parts.push(
         <code
@@ -121,7 +121,6 @@ export function renderInline(line: string): React.ReactNode[] {
           style={{
             borderLeft: "1px solid rgba(201,169,110,0.4)",
             paddingLeft: 5,
-            fontStyle: "italic",
             fontFamily: "monospace",
             fontSize: "0.9em",
             color: "rgba(255,255,255,0.6)",
