@@ -221,6 +221,25 @@ All colors MUST be HSL for consistency and theming.
     background: hsl(var(--ink));
     border-right: 1px solid hsl(var(--bone) / 0.06);
     position: relative;
+    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  }
+
+  /* Light popover panel — used by portal-rendered dropdowns (model picker,
+     @-mention picker, + menu) so they read against the editorial canvas
+     surface. Forces dark ink on muted/foreground tokens since the bone
+     defaults would be invisible on the light bg. */
+  .light-popover [class*="text-muted-foreground"] {
+    color: rgba(20, 20, 20, 0.55) !important;
+  }
+  .light-popover [class*="text-foreground"] {
+    color: #141414 !important;
+  }
+  .light-popover [class*="bg-muted"] {
+    background-color: rgba(20, 20, 20, 0.04) !important;
+  }
+  .light-popover [class*="bg-border"],
+  .light-popover .bg-border {
+    background-color: rgba(20, 20, 20, 0.08) !important;
   }
   .glass-sidebar::before,
   .glass-sidebar::after {

@@ -141,7 +141,7 @@ async function analyzeFramesWithClaude(
 
 Above are ${frames.length} frames captured at 3-second intervals across the full video. Each frame is labeled with its timestamp.
 
-Describe what is visually happening in each segment. Group consecutive frames that show the same scene/action into one segment. Also extract any text visible on screen (captions, overlays, titles, subtitles) per segment.
+Describe what is visually happening in each segment. Group consecutive frames that show the same scene/action into one segment. Extract only INTENTIONAL on-screen text into text_on_screen — NOT auto-captions of spoken audio.
 
 Return ONLY valid JSON in this exact format:
 {"segments":[{"start":0,"end":3,"description":"Brief description of what is happening","text_on_screen":["Any visible text line 1","Line 2"]},{"start":3,"end":7,"description":"Next scene description","text_on_screen":[]}]}
@@ -151,7 +151,25 @@ Rules:
 - Group 2-3 similar consecutive frames into one segment
 - Use present tense ("Person walking", "Text overlay appears", etc.)
 - Maximum 20 segments total
-- text_on_screen: list every piece of text visible as an overlay, caption, or title — empty array if none`,
+
+text_on_screen — CRITICAL DISAMBIGUATION:
+Most short-form videos burn auto-generated captions (the speaker's words transcribed by TikTok/Instagram/CapCut) onto the screen. These are NOT editorial graphics — they are just the audio. DO NOT put them in text_on_screen.
+
+Signs the text is an AUTO-CAPTION (omit from text_on_screen):
+- Positioned near the bottom-center or middle of the frame in a standard sans-serif
+- Short fragments (2-6 words) that change every 1-2 seconds, frame by frame, in lockstep with speech
+- Plain white/yellow text on a black stroke or rounded pill background — TikTok/IG/CapCut defaults
+- Reads like a sentence continuing across frames (e.g. "I've been doing this" → "for ten years")
+- All caps or sentence case, no emojis used as decoration
+
+Signs the text IS an editorial overlay (INCLUDE in text_on_screen):
+- A title, headline, hook, callout, lower-third, name tag, price tag, statistic, or chyron
+- Larger/bolder than caption text; uses a branded or stylized font; may be off-center or in a corner
+- Persists across many seconds (not changing every frame with speech)
+- Contains emojis used as graphic elements, arrows, boxes, highlights, or kinetic motion
+- A standalone statement that is NOT a verbatim line from what someone is saying
+
+When unsure, lean toward omitting. A clean visual breakdown is more useful than one polluted with transcribed speech. Empty array is fine and common.`,
   });
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {

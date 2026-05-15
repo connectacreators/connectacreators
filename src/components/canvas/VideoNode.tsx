@@ -1084,7 +1084,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
           {/* Debug status */}
           {stage === "transcribing" && (
-            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "rgba(20,20,20,0.04)", borderColor: "rgba(20,20,20,0.10)", color: "rgba(20,20,20,0.60)" }}>
+            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "rgba(20,20,20,0.04)", borderColor: "rgba(20,20,20,0.10)", color: "#ffffff" }}>
               Transcribing audio... {thumbStatus === "loading" ? "| Thumbnail loading..." : thumbStatus === "done" ? "| Thumbnail ready" : thumbStatus === "error" ? `| Thumb error: ${thumbError}` : ""}
             </div>
           )}

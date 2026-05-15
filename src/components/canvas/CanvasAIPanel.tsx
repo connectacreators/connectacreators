@@ -574,6 +574,10 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   const [messages, setMessages] = useState<Message[]>(sanitizedInitial);
   const messagesRef = useRef<Message[]>(messages);
   messagesRef.current = messages; // always current on every render
+  // Tracks the connected_nodes set sent to the AI on the previous turn so we
+  // can detect when the canvas changed (node added/removed) and warn the model
+  // not to pull context from earlier turns referencing nodes that are gone.
+  const prevConnectedNodesRef = useRef<string[] | null>(null);
   const onMessagesChangeRef = useRef(onMessagesChange);
   onMessagesChangeRef.current = onMessagesChange;
   const onStreamingPartialRef = useRef(onStreamingPartial);
@@ -1039,8 +1043,12 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
     }
 
     // ─── Script edit: only triggers on explicit update/edit commands ───
+    // Length guard: if the user wrote >200 chars they're providing context, not
+    // issuing a quick edit command. Let it go through the conversational chat
+    // path so the assistant can reply first; the user can hit Generate Script
+    // explicitly when they want the tool to run.
     const lastScriptMsg = [...messagesRef.current].reverse().find(m => m.type === "script_preview" && m.script_data);
-    const isEditIntent = lastScriptMsg?.script_data && (() => {
+    const isEditIntent = lastScriptMsg?.script_data && trimmed.length <= 200 && (() => {
       const l = lower;
       const explicitUpdate = /(update|edit|change|fix|redo|revise|rewrite|modify|adjust|tweak|rephrase)\s+(the\s+|this\s+|my\s+)?script/;
       const explicitEditPart = /(update|edit|change|fix|rewrite|remove|delete|add|insert|swap|replace|shorten|lengthen|make it)\s+(the\s+)?(hook|cta|body|line|scene|section|opening|ending|intro|outro)/;
@@ -1262,9 +1270,29 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
           }`
         : null;
 
+      // Detect canvas changes between turns. If the connected-nodes set
+      // shifted (node added/removed/swapped), tell the model explicitly so it
+      // doesn't keep pulling context from earlier turns that referenced nodes
+      // no longer attached. Compares against the set sent on the previous turn.
+      const currentNodes = cc.connected_nodes ?? [];
+      const previousNodes = prevConnectedNodesRef.current;
+      let canvasChangeNotice: string | null = null;
+      if (previousNodes !== null) {
+        const removed = previousNodes.filter(n => !currentNodes.includes(n));
+        const added = currentNodes.filter(n => !previousNodes.includes(n));
+        if (removed.length > 0 || added.length > 0) {
+          const parts: string[] = [];
+          if (removed.length > 0) parts.push(`removed: ${removed.join(", ")}`);
+          if (added.length > 0) parts.push(`added: ${added.join(", ")}`);
+          canvasChangeNotice = `[CANVAS UPDATED SINCE LAST TURN — ${parts.join("; ")}. Only the nodes listed in CONNECTED NODES are attached now. If earlier turns in this conversation reference content from removed nodes, treat that as historical conversation only — do NOT pull facts, transcripts, or visual details from removed nodes when answering the user's new question.]`;
+        }
+      }
+      prevConnectedNodesRef.current = [...currentNodes];
+
       // PRIORITY SECTIONS — always included in full, never truncated.
       // Text notes and video transcriptions are the creator's core data.
       const prioritySections = [
+        canvasChangeNotice,
         (cc.connected_nodes?.length ?? 0) > 0
           ? `CONNECTED NODES (everything on the canvas right now):\n${cc.connected_nodes!.join("\n")}`
           : "CONNECTED NODES: none",
