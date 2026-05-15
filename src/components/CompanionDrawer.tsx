@@ -90,6 +90,16 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Read pending prompt handed off by Dashboard / RobbyInsightRow.
+  // One-shot: consume and clear so subsequent opens don't replay it.
+  useEffect(() => {
+    const pending = (window as any).__companionPendingPrompt as string | undefined;
+    if (pending && typeof pending === "string") {
+      setInput(pending);
+      (window as any).__companionPendingPrompt = undefined;
+    }
+  }, []);
+
   // Active conversational-builder sessions for this user (Realtime-driven)
   const { sessions: buildSessions } = useActiveBuildSessions();
   const buildForThisThread = activeThreadId
