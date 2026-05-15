@@ -143,38 +143,40 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   );
 }
 
+// Editorial-dark line type config — flat graphite surfaces with thin bone
+// hairlines + a tinted 3px left edge per type. No gradients, no glow.
 const getTypeConfig = (lang: "en" | "es") => ({
   filming: {
     label: tr(t.scripts.filmingInstructions, lang),
     icon: Film,
-    color: "text-orange-400",
-    bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5",
-    border: "border-orange-500/25",
-    dot: "bg-orange-500",
+    color: "text-[rgba(234,230,220,0.78)]",
+    bg: "bg-[#1A1A1A]",
+    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#A85B1F]",
+    dot: "bg-[#A85B1F]",
   },
   actor: {
     label: tr(t.scripts.voiceoverDialogue, lang),
     icon: Mic,
-    color: "text-[#8FD0D5]",
-    bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]",
-    border: "border-[rgba(8,145,178,0.25)]",
+    color: "text-[rgba(234,230,220,0.78)]",
+    bg: "bg-[#1A1A1A]",
+    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#8FD0D5]",
     dot: "bg-[#8FD0D5]",
   },
   editor: {
     label: tr(t.scripts.editingInstructions, lang),
     icon: Scissors,
-    color: "text-[#F0BC7D]",
-    bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]",
-    border: "border-[rgba(132,204,22,0.2)]",
-    dot: "bg-[#E0A560]",
+    color: "text-[rgba(234,230,220,0.78)]",
+    bg: "bg-[#1A1A1A]",
+    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#F0BC7D]",
+    dot: "bg-[#F0BC7D]",
   },
   text_on_screen: {
     label: tr(t.scripts.textOnScreen, lang),
     icon: MonitorPlay,
-    color: "text-[#94a3b8]",
-    bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]",
-    border: "border-[rgba(148,163,184,0.15)]",
-    dot: "bg-[#64748b]",
+    color: "text-[rgba(234,230,220,0.78)]",
+    bg: "bg-[#1A1A1A]",
+    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[rgba(234,230,220,0.40)]",
+    dot: "bg-[rgba(234,230,220,0.55)]",
   },
 });
 
@@ -224,23 +226,25 @@ function SortableLineItem({
   const { language } = useLanguage();
   const typeConfig = getTypeConfig(language);
   const cfg = isPlaceholder
-    ? { label: "Selecciona tipo", icon: Plus, color: "text-muted-foreground", bg: "bg-gradient-to-br from-muted/30 to-muted/10", border: "border-muted-foreground/20", dot: "bg-muted-foreground" }
+    ? { label: "Selecciona tipo", icon: Plus, color: "text-[rgba(234,230,220,0.55)]", bg: "bg-[#1A1A1A]", border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[rgba(234,230,220,0.20)]", dot: "bg-[rgba(234,230,220,0.40)]" }
     : typeConfig[line.line_type];
   const Icon = cfg.icon;
 
   return (
-    <div ref={setNodeRef} style={style} className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${cfg.bg} ${cfg.border} transition-smooth group`}>
+    <div ref={setNodeRef} style={style} className={`flex items-start gap-3 p-3 sm:p-4 rounded-xl border ${cfg.bg} ${cfg.border} transition-colors group`}>
       {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
-        className="mt-1 p-1 rounded-lg cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground touch-none"
+        className="mt-1 p-1 rounded-lg cursor-grab active:cursor-grabbing touch-none transition-colors"
+        style={{ color: "rgba(234,230,220,0.35)" }}
         title="Arrastra para reordenar"
       >
         <GripVertical className="w-4 h-4" />
       </button>
       <button
-        className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg} cursor-pointer hover:opacity-80 transition-smooth`}
+        className="mt-0.5 p-1.5 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+        style={{ background: "rgba(234,230,220,0.05)" }}
         title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
         onClick={async () => {
           if (!viewingScriptId) return;
@@ -262,7 +266,7 @@ function SortableLineItem({
         <Icon className={`w-4 h-4 ${cfg.color}`} />
       </button>
       <div className="flex-1 min-w-0">
-        <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+        <span className="editorial-eyebrow block mb-1" style={{ letterSpacing: "0.20em", fontSize: 9 }}>{cfg.label}</span>
         {isEditingThis ? (
           <Textarea
             autoFocus
@@ -2575,26 +2579,28 @@ export default function Scripts() {
 
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
-          <div className="space-y-3 animate-fade-in">
-            {/* Tab switcher: Card View | Doc Editor */}
-            <div className="flex items-center border-b border-border">
+          <div className="space-y-4 animate-fade-in">
+            {/* Tab switcher: Card View | Doc Editor — editorial underline */}
+            <div className="flex items-center" style={{ borderBottom: "1px solid rgba(234,230,220,0.08)" }}>
               <button
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  scriptEditorTab === "cards"
-                    ? "text-[#8FD0D5] border-[#8FD0D5]"
-                    : "text-muted-foreground border-transparent hover:text-foreground"
-                }`}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color: scriptEditorTab === "cards" ? "#EAE6DC" : "rgba(234,230,220,0.45)",
+                  borderBottom: `2px solid ${scriptEditorTab === "cards" ? "#EAE6DC" : "transparent"}`,
+                  marginBottom: -1,
+                }}
                 onClick={() => setScriptEditorTab("cards")}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Card View
               </button>
               <button
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  scriptEditorTab === "doc"
-                    ? "text-[#8FD0D5] border-[#8FD0D5]"
-                    : "text-muted-foreground border-transparent hover:text-foreground"
-                }`}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color: scriptEditorTab === "doc" ? "#EAE6DC" : "rgba(234,230,220,0.45)",
+                  borderBottom: `2px solid ${scriptEditorTab === "doc" ? "#EAE6DC" : "transparent"}`,
+                  marginBottom: -1,
+                }}
                 onClick={() => setScriptEditorTab("doc")}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -2605,18 +2611,9 @@ export default function Scripts() {
             {/* Card View content */}
             {scriptEditorTab === "cards" && (
             <>
-            {/* Winning Idea block — promoted above metadata (soft-glow card) */}
+            {/* Winning Idea block — flat editorial card, no glow */}
             {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
-              <div
-                className="mb-4"
-                style={{
-                  padding: "18px 20px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(34,211,238,0.35)",
-                  background: "radial-gradient(ellipse at top left, rgba(34,211,238,0.12), rgba(34,211,238,0.02) 60%)",
-                  boxShadow: "inset 0 0 40px rgba(34,211,238,0.05)",
-                }}
-              >
+              <div className="editorial-card mb-4" style={{ padding: "20px 22px" }}>
                 {/* Label — doubles as the format editor */}
                 <Select
                   value={viewingMetadata.formato || ""}
@@ -2630,11 +2627,12 @@ export default function Scripts() {
                   <SelectTrigger
                     className="h-auto w-auto border-0 p-0 bg-transparent shadow-none focus:ring-0 focus:ring-offset-0 hover:opacity-80 transition-opacity gap-1 mb-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:opacity-50"
                     style={{
-                      fontSize: 10,
+                      fontSize: 9.5,
                       textTransform: "uppercase",
-                      letterSpacing: 1.5,
-                      color: "rgba(34,211,238,0.7)",
-                      fontWeight: 700,
+                      letterSpacing: "0.20em",
+                      color: "rgba(234,230,220,0.45)",
+                      fontWeight: 600,
+                      fontFamily: "'Figtree', sans-serif",
                     }}
                   >
                     <SelectValue placeholder={tr(t.scripts.selectPlaceholder, language)}>
@@ -2654,7 +2652,15 @@ export default function Scripts() {
                 {/* Idea — primary headline, inline-editable */}
                 {renamingScriptId === viewingScriptId ? (
                   <input
-                    className="w-full bg-transparent text-foreground font-bold text-lg leading-snug border-b border-primary/40 focus:outline-none focus:border-primary/80 pb-1"
+                    className="w-full bg-transparent leading-snug focus:outline-none pb-1"
+                    style={{
+                      fontFamily: "'EB Garamond', Georgia, serif",
+                      fontWeight: 500,
+                      fontSize: 22,
+                      letterSpacing: "-0.01em",
+                      color: "#EAE6DC",
+                      borderBottom: "1px solid rgba(234,230,220,0.30)",
+                    }}
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     autoFocus
@@ -2685,8 +2691,15 @@ export default function Scripts() {
                   />
                 ) : (
                   <h2
-                    className="text-foreground font-bold leading-snug cursor-pointer hover:text-primary/90 transition-colors m-0"
-                    style={{ fontSize: 17, lineHeight: 1.3 }}
+                    className="leading-snug cursor-pointer transition-colors m-0"
+                    style={{
+                      fontFamily: "'EB Garamond', Georgia, serif",
+                      fontWeight: 500,
+                      fontSize: 22,
+                      letterSpacing: "-0.01em",
+                      lineHeight: 1.3,
+                      color: "#EAE6DC",
+                    }}
                     onClick={() => {
                       if (viewingScriptId) {
                         setRenamingScriptId(viewingScriptId);
@@ -2714,10 +2727,10 @@ export default function Scripts() {
               </div>
             )}
 
-            <div className="p-4 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 mb-2">
-              <div className="flex items-center gap-2 mb-2">
-                <Eye className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-primary uppercase tracking-wider">{tr(t.scripts.inspiration, language)}</span>
+            <div className="editorial-card p-5 mb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Eye className="w-3.5 h-3.5" style={{ color: "rgba(234,230,220,0.55)" }} />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr(t.scripts.inspiration, language)}</span>
               </div>
               {viewingInspirationUrl && !editingInspirationUrl ? (
                 <div className="flex items-center gap-2">
@@ -2821,10 +2834,10 @@ export default function Scripts() {
             </div>
 
             {/* Caption */}
-            <div className="p-4 rounded-2xl border border-border/40 bg-gradient-to-br from-muted/20 to-muted/10 mb-2">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="editorial-card p-5 mb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className="w-3.5 h-3.5" style={{ color: "rgba(234,230,220,0.55)" }} />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
                   {tr({ en: "Caption", es: "Caption" }, language)}
                 </span>
               </div>
@@ -2833,7 +2846,8 @@ export default function Scripts() {
                 onChange={(e) => setViewingCaption(e.target.value)}
                 placeholder={tr({ en: "Write the social media caption for this video...", es: "Escribe el caption para las redes sociales..." }, language)}
                 rows={4}
-                className="text-sm resize-none bg-transparent"
+                className="text-sm resize-none"
+                style={{ background: "rgba(234,230,220,0.03)", borderColor: "rgba(234,230,220,0.10)", color: "#EAE6DC" }}
                 onBlur={async () => {
                   if (viewingScriptId) {
                     const { error } = await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", viewingScriptId);
@@ -2997,16 +3011,24 @@ export default function Scripts() {
                     };
                     return (
                       <div key={section}>
-                        <div className="flex items-center gap-2 mt-4 mb-2">
-                          <span className="text-sm font-bold text-foreground uppercase tracking-wider">{sectionLabels[section]}</span>
+                        <div className="flex items-center gap-3 mt-5 mb-3">
+                          <span
+                            className="editorial-eyebrow"
+                            style={{ fontSize: 10, letterSpacing: "0.22em", color: "rgba(234,230,220,0.75)" }}
+                          >
+                            {sectionLabels[section].toUpperCase()}
+                          </span>
                           <button
                             onClick={handleAddPlaceholder}
-                            className="w-5 h-5 rounded-full border border-dashed border-muted-foreground/50 hover:border-primary/70 flex items-center justify-center transition-smooth"
+                            className="w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+                            style={{ border: "1px dashed rgba(234,230,220,0.30)", color: "rgba(234,230,220,0.55)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(234,230,220,0.60)"; e.currentTarget.style.color = "#EAE6DC"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(234,230,220,0.30)"; e.currentTarget.style.color = "rgba(234,230,220,0.55)"; }}
                             title={`Agregar línea a ${sectionLabels[section]}`}
                           >
-                            <Plus className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                            <Plus className="w-3 h-3" />
                           </button>
-                          <div className="flex-1 h-px bg-border" />
+                          <div className="flex-1 h-px" style={{ background: "rgba(234,230,220,0.08)" }} />
                         </div>
                         {sectionLines.length === 0 ? (
                           <SectionDropZone section={section} onClick={handleAddPlaceholder} />
