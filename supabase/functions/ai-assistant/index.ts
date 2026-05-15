@@ -447,6 +447,30 @@ You help the creator plan, brainstorm, and refine scripts. The user connects Vid
 ${QUESTION_DECK_PROTOCOL}
 
 ═══════════════════════════════════════════════════════════
+CANVAS-SPECIFIC vs. GENERAL-KNOWLEDGE QUESTIONS — READ THIS FIRST
+═══════════════════════════════════════════════════════════
+
+The <canvas_data> block is AVAILABLE context, not a forced lens. Before answering, classify the user's question:
+
+1. CANVAS-SPECIFIC — references the canvas explicitly or implicitly:
+   - "Based on the video…", "using the connected notes…", "for this client…"
+   - "Find our angle vs @joe_gennusa", "Suggest a hook" (chip buttons)
+   - "Rewrite the script", "edit the hook", any script-generation request
+   - Pronouns clearly referring to attached content ("this video", "the transcript", "his story")
+   - Anything where the user references the connected client/creator by name or domain
+   → Pull from <canvas_data> heavily. Quote nodes, names, numbers.
+
+2. GENERAL-KNOWLEDGE — a generic question that happens to be asked inside the canvas:
+   - "Give me 20 best D2D sales habits", "What are common hook formats?"
+   - "Explain the AIDA framework", "How do I price a 30s spot?"
+   - No reference to a specific node, client, transcript, or canvas object
+   - Could be asked of any AI without any canvas attached
+   → Answer from general knowledge. Do NOT bend the answer toward the connected client's framework / persona / voice memo unless the user signals they want that.
+   → It's fine to add ONE short closing line offering the canvas-flavored variant, e.g. *"Want me to filter this through Joe's style?"* — but the main answer stays generic.
+
+If the question is ambiguous, lean general — the user can always say "now make it Joe-specific" in the next turn. Forcing canvas context onto a generic ask is the more annoying failure mode.
+
+═══════════════════════════════════════════════════════════
 THE CANVAS IS LIVE — ALWAYS RE-READ BEFORE ASSUMING
 ═══════════════════════════════════════════════════════════
 
@@ -1137,8 +1161,10 @@ serve(async (req) => {
       const thinkingBudget = model.includes("opus") ? 10000 : 5000;
       // Canvas chat max_tokens is lower than generation — most replies are
       // conversational, not full scripts. Keep 4096 for non-canvas paths.
+      // Haiku gets 2048 in canvas (was 1024) so list-style answers like
+      // "give me 20 X" don't get truncated mid-item.
       const baseMaxTokens = isCanvas
-        ? (model.includes("opus") ? 1536 : model.includes("sonnet") ? 1024 : 1024)
+        ? (model.includes("opus") ? 1536 : model.includes("sonnet") ? 1536 : 2048)
         : (model.includes("opus") ? 4096 : model.includes("sonnet") ? 2048 : 1024);
       // Opus 4.7+ deprecates thinking.type=enabled in favor of adaptive thinking + output_config.effort.
       // Detect the new generation by model ID.
@@ -1161,7 +1187,7 @@ serve(async (req) => {
               },
               {
                 type: "text",
-                text: `<canvas_data>\n${sanitizeText(client_info.canvas_context)}\n</canvas_data>\n\nAbove is the LIVE data from all nodes currently connected on the canvas. Use it. Do NOT say you cannot see data included above.`,
+                text: `<canvas_data>\n${sanitizeText(client_info.canvas_context)}\n</canvas_data>\n\nAbove is the LIVE data from all nodes currently connected on the canvas. Use it when the user's question references the canvas, a connected node, the client, or this specific creator's work. For general-knowledge questions that don't reference the canvas, answer generically per the CANVAS-SPECIFIC vs. GENERAL-KNOWLEDGE rules above. Never deny that the canvas data exists.`,
                 cache_control: { type: "ephemeral" },
               },
             ]
