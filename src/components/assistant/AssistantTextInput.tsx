@@ -306,7 +306,7 @@ export function AssistantTextInput({
                 onMouseDown={() => setAtMentionQuery(null)}
               />
               <div
-                className="rounded-xl border border-[#141414] bg-[#ffffff] shadow-xl overflow-hidden"
+                className="rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-xl overflow-hidden"
                 style={{
                   position: "fixed",
                   zIndex: 99999,
@@ -486,7 +486,7 @@ export function AssistantTextInput({
             </button>
             {plusMenuOpen && (
               <div
-                className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-[#141414] bg-[#ffffff] shadow-xl overflow-hidden"
+                className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-xl overflow-hidden"
                 style={{ zIndex: 99999 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
