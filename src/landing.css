@@ -201,9 +201,10 @@ html, body, #root { margin: 0; padding: 0; }
   font-family: 'EB Garamond', Georgia, serif;
   font-size: clamp(26px, 3.4vw, 42px);
   line-height: 1.15;
-  /* H2s are smaller than the hero H1 — at this size, the H1's -0.045em
-     tightening reads as cramped. Loosened to -0.015em (2026-05-14). */
-  letter-spacing: -0.015em;
+  /* H2s are smaller than the hero H1 — at this size negative tracking
+     reads as cramped. Pushed to slightly positive (2026-05-15) so
+     EB Garamond can breathe. */
+  letter-spacing: 0.01em;
   font-weight: 500;
   margin: 0;
   padding-bottom: 0.18em;
