@@ -221,6 +221,7 @@ All colors MUST be HSL for consistency and theming.
     background: hsl(var(--ink));
     border-right: 1px solid hsl(var(--bone) / 0.06);
     position: relative;
+    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   }
   .glass-sidebar::before,
   .glass-sidebar::after {
