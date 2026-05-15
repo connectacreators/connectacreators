@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   BarChart3,
@@ -101,92 +102,132 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
   const folder = folders.find((f) => f.key === activeFolder) ?? null;
 
   return (
-    <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
-      <h1
-        style={{
-          fontSize: 26,
-          fontWeight: 500,
-          color: "#141414",
-          letterSpacing: "-0.01em",
-          marginBottom: 4,
-          fontFamily: "'EB Garamond', Georgia, serif",
-        }}
-      >
-        Hi {brandName ?? firstName}.
-      </h1>
-      <p style={{ fontSize: 14, color: "rgba(20,20,20,0.55)", marginBottom: 28 }}>
-        What do you want to do today?
-      </p>
+    <div
+      className="min-h-screen flex flex-col items-center"
+      style={{ background: "#EAE6DC", padding: "0 28px" }}
+    >
+      <div className="w-full max-w-4xl flex flex-col items-center" style={{ paddingTop: "10vh" }}>
 
-      {/* ── No folder open: show 3 big folder cards ── */}
-      {!folder && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {folders.map((f) => {
-            const Icon = f.icon;
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setActiveFolder(f.key)}
-                className="text-left transition-transform duration-150"
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #141414",
-                  boxShadow: "3px 3px 0 #141414",
-                  borderRadius: 14,
-                  padding: 20,
-                  cursor: "pointer",
-                  minHeight: 160,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.boxShadow = "4px 4px 0 #141414";
-                  el.style.transform = "translate(-1px, -1px)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.boxShadow = "3px 3px 0 #141414";
-                  el.style.transform = "translate(0, 0)";
-                }}
-              >
-                <Icon size={28} strokeWidth={1.5} color="#141414" />
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 500,
-                    color: "#141414",
-                    letterSpacing: "-0.01em",
-                    fontFamily: "'EB Garamond', Georgia, serif",
-                  }}
-                >
-                  {f.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "rgba(20,20,20,0.55)",
-                    lineHeight: 1.45,
-                    fontFamily: "Figtree, sans-serif",
-                    maxWidth: 220,
-                  }}
-                >
-                  {f.description}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
+        <motion.h1
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{
+            fontSize: 36,
+            fontWeight: 500,
+            color: "#141414",
+            letterSpacing: "-0.015em",
+            marginBottom: 6,
+            fontFamily: "'EB Garamond', Georgia, serif",
+            textAlign: "center",
+          }}
+        >
+          Hi {brandName ?? firstName}.
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 }}
+          style={{
+            fontSize: 16,
+            color: "rgba(20,20,20,0.55)",
+            marginBottom: 36,
+            textAlign: "center",
+          }}
+        >
+          What do you want to do today?
+        </motion.p>
 
-      {/* ── Folder opened: back button + sub-cards ── */}
-      {folder && (
-        <>
+        {/* ── No folder open: 3 big folder cards (centered, stagger-in) ── */}
+        <AnimatePresence mode="wait">
+          {!folder && (
+            <motion.div
+              key="folders"
+              className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              {folders.map((f, idx) => {
+                const Icon = f.icon;
+                return (
+                  <motion.button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setActiveFolder(f.key)}
+                    className="text-left"
+                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      duration: 0.5,
+                      delay: 0.2 + idx * 0.08,
+                      ease: [0.34, 1.36, 0.64, 1],
+                    }}
+                    whileHover={{ y: -2, x: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #141414",
+                      boxShadow: "3px 3px 0 #141414",
+                      borderRadius: 14,
+                      padding: 28,
+                      cursor: "pointer",
+                      minHeight: 200,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 12,
+                      textAlign: "center",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "5px 5px 0 #141414"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "3px 3px 0 #141414"; }}
+                  >
+                    <motion.div
+                      animate={{ rotate: [0, -3, 3, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 + idx * 0.5, ease: "easeInOut" }}
+                    >
+                      <Icon size={36} strokeWidth={1.5} color="#141414" />
+                    </motion.div>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 500,
+                        color: "#141414",
+                        letterSpacing: "-0.01em",
+                        fontFamily: "'EB Garamond', Georgia, serif",
+                      }}
+                    >
+                      {f.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(20,20,20,0.55)",
+                        lineHeight: 1.5,
+                        fontFamily: "Figtree, sans-serif",
+                        maxWidth: 220,
+                      }}
+                    >
+                      {f.description}
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Folder opened: back button + sub-cards ── */}
+        {folder && (
+          <motion.div
+            key={folder.key}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="w-full"
+          >
           <button
             type="button"
             onClick={() => setActiveFolder(null)}
@@ -221,14 +262,19 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
             {folder.label}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {folder.subCards.map((sub) => {
+            {folder.subCards.map((sub, idx) => {
               const Icon = sub.icon;
               return (
-                <button
+                <motion.button
                   key={sub.label}
                   type="button"
                   onClick={() => navigate(sub.path)}
-                  className="text-left transition-transform duration-150"
+                  className="text-left"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: idx * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  whileHover={{ y: -1, x: -1 }}
+                  whileTap={{ scale: 0.98 }}
                   style={{
                     background: "#ffffff",
                     border: "1px solid #141414",
@@ -237,16 +283,8 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                     padding: 14,
                     cursor: "pointer",
                   }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLButtonElement;
-                    el.style.boxShadow = "3px 3px 0 #141414";
-                    el.style.transform = "translate(-1px, -1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLButtonElement;
-                    el.style.boxShadow = "2px 2px 0 #141414";
-                    el.style.transform = "translate(0, 0)";
-                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "3px 3px 0 #141414"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "2px 2px 0 #141414"; }}
                 >
                   <div style={{ height: 26, marginBottom: 6 }}>
                     <Icon size={20} strokeWidth={1.5} color="#141414" />
@@ -273,12 +311,13 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                   >
                     {sub.description}
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-        </>
-      )}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

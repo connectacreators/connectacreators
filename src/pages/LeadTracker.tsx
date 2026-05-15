@@ -859,7 +859,7 @@ export default function LeadTracker() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-card/50 border border-border/50 rounded-xl p-3 backdrop-blur-sm mb-8">
+        <div className="bg-white border border-[#141414] rounded-xl p-3 mb-8">
           <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:overflow-x-auto">
             {isStaff && (
               <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -1130,7 +1130,15 @@ export default function LeadTracker() {
               <div
                 key={lead.id}
                 onClick={() => openLeadDetail(lead)}
-                className="glass-card rounded-xl p-5 hover:border-[rgba(8,145,178,0.5)] hover:shadow-lg hover:shadow-[rgba(8,145,178,0.1)] transition-all duration-300 cursor-pointer"
+                className="rounded-xl p-5 transition-all duration-200 cursor-pointer"
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #141414",
+                  boxShadow: "2px 2px 0 #141414",
+                  color: "#141414",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "3px 3px 0 #141414"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "2px 2px 0 #141414"; }}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   {/* Name & badges */}
@@ -1270,7 +1278,7 @@ export default function LeadTracker() {
                   <>
                     {/* Row 1: Status pie + Source pie */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-5">
+                      <div className="rounded-xl border border-[#141414] bg-white p-5">
                         <h3 className="text-sm font-semibold mb-4 text-foreground">Status Breakdown</h3>
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
@@ -1281,7 +1289,7 @@ export default function LeadTracker() {
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-5">
+                      <div className="rounded-xl border border-[#141414] bg-white p-5">
                         <h3 className="text-sm font-semibold mb-4 text-foreground">Source Breakdown</h3>
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
@@ -1295,7 +1303,7 @@ export default function LeadTracker() {
                     </div>
 
                     {/* Row 2: Leads over time line chart */}
-                    <div className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-5">
+                    <div className="rounded-xl border border-[#141414] bg-white p-5">
                       <h3 className="text-sm font-semibold mb-4 text-foreground">Leads — Last 30 Days</h3>
                       <ResponsiveContainer width="100%" height={220}>
                         <LineChart data={lineData} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
