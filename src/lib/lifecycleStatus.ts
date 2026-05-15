@@ -91,6 +91,12 @@ export function lifecycleUpdate(
 /**
  * Display color + class for badges/chips. Centralized so the UI
  * doesn't have to repeat the value→color map everywhere.
+ *
+ * Defensive: callers can read via LIFECYCLE_STYLE[value] OR via
+ * getLifecycleStyle(value) which always returns a valid entry
+ * (falls back to "Not started" for unknown/legacy values). Prefer
+ * the helper at any render site that consumes a value coming from
+ * DB rows / realtime payloads / optimistic state.
  */
 export const LIFECYCLE_STYLE: Record<
   LifecycleStatus,
@@ -127,3 +133,15 @@ export const LIFECYCLE_STYLE: Record<
     label: "Published",
   },
 };
+
+/**
+ * Defensive lookup: always returns a valid style entry even if `value`
+ * is an unexpected legacy string, null, or a freshly-inserted optimistic
+ * row that hasn't been validated yet. Falls back to "Not started" so
+ * render code can blindly call `getLifecycleStyle(x).bg` without
+ * defensive null checks at every site.
+ */
+export function getLifecycleStyle(value: unknown) {
+  if (isLifecycleStatus(value)) return LIFECYCLE_STYLE[value];
+  return LIFECYCLE_STYLE["Not started"];
+}

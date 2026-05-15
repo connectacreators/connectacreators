@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
@@ -1179,7 +1179,7 @@ export default function MasterEditingQueue() {
                                 {updatingLifecycle === item.id ? (
                                   <Loader2 className="w-3 h-3 animate-spin" />
                                 ) : (
-                                  <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[item.lifecycleStatus].bg} ${LIFECYCLE_STYLE[item.lifecycleStatus].text} ${LIFECYCLE_STYLE[item.lifecycleStatus].border}`}>
+                                  <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${getLifecycleStyle(item.lifecycleStatus).bg} ${getLifecycleStyle(item.lifecycleStatus).text} ${getLifecycleStyle(item.lifecycleStatus).border}`}>
                                     {item.lifecycleStatus}
                                     <ChevronDown className="w-3 h-3 opacity-60" />
                                   </span>
@@ -1189,7 +1189,7 @@ export default function MasterEditingQueue() {
                             <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
                               {LIFECYCLE_VALUES.map((s) => (
                                 <DropdownMenuItem key={s} onClick={() => handleLifecycleChange(item.id, s)} className={`text-xs ${item.lifecycleStatus === s ? "font-bold" : ""}`}>
-                                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${LIFECYCLE_STYLE[s].bg.replace('/15', '')} border ${LIFECYCLE_STYLE[s].border}`} />
+                                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getLifecycleStyle(s).bg.replace('/15', '')} border ${getLifecycleStyle(s).border}`} />
                                   {s}
                                 </DropdownMenuItem>
                               ))}
@@ -1443,7 +1443,7 @@ export default function MasterEditingQueue() {
                             <Loader2 className="w-3 h-3 animate-spin" />
                           </span>
                         ) : (
-                          <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].bg} ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].text} ${LIFECYCLE_STYLE[selectedItem.lifecycleStatus].border}`}>
+                          <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${getLifecycleStyle(selectedItem.lifecycleStatus).bg} ${getLifecycleStyle(selectedItem.lifecycleStatus).text} ${getLifecycleStyle(selectedItem.lifecycleStatus).border}`}>
                             {selectedItem.lifecycleStatus}
                             <ChevronDown className="w-3 h-3 opacity-60" />
                           </span>
@@ -1453,7 +1453,7 @@ export default function MasterEditingQueue() {
                     <DropdownMenuContent align="start" className="bg-popover border border-border z-50">
                       {LIFECYCLE_VALUES.map((s) => (
                         <DropdownMenuItem key={s} onClick={() => handleLifecycleChange(selectedItem.id, s)} className={`text-xs ${selectedItem.lifecycleStatus === s ? "font-bold" : ""}`}>
-                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${LIFECYCLE_STYLE[s].bg.replace('/15', '')} border ${LIFECYCLE_STYLE[s].border}`} />
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getLifecycleStyle(s).bg.replace('/15', '')} border ${getLifecycleStyle(s).border}`} />
                           {s}
                         </DropdownMenuItem>
                       ))}
