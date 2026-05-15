@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ExternalLink, Flame, TrendingUp, Eye, Zap, Clock,
-  Archive, Wand2, Loader2, CheckCircle2, AlertCircle, Play,
+  Archive, Wand2, Loader2, CheckCircle2, AlertCircle,
   Mic, Film, AlignLeft, ScanSearch,
 } from "lucide-react";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
@@ -94,9 +94,6 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
-function proxyImg(url: string): string {
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=800&output=webp`;
-}
 
 function getOutlierColor(score: number): string {
   if (score >= 10) return "text-orange-400";
@@ -149,10 +146,6 @@ export default function ViralVideoDetail() {
 
   const [video, setVideo] = useState<ViralVideo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [imgError, setImgError] = useState(false);
-  const [videoSrc] = useState<string | null>(null);
-  const [videoFailed] = useState(false);
-  const [videoErrorStage] = useState<"cache" | "stream" | null>(null);
 
   // Format detection state
   const [detectingFormat, setDetectingFormat] = useState(false);
@@ -397,6 +390,7 @@ export default function ViralVideoDetail() {
         }
         throw new Error(err.message || "Refresh failed");
       }
+      toast.success("Refreshing… check back in a few seconds");
     } catch (e: any) {
       toast.error(e.message || "Refresh failed");
     }
@@ -447,389 +441,265 @@ export default function ViralVideoDetail() {
         </a>
       </div>
 
-      {/* Main content */}
-      <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
+      {/* Main content — single-view no-scroll layout */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        {/* Two-column grid: fixed 360px player col + flex-1 tabs col */}
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 lg:h-[calc(100vh-9rem)]">
 
-        {/* ===== LEFT PANEL: Video Preview ===== */}
-        <div className="w-full lg:w-[58%] space-y-4">
+          {/* ===== LEFT COLUMN: Player + stats + badges + caption ===== */}
+          <div className="flex flex-col gap-3 min-w-0">
+            {/* ViralVideoPlayer — plays file_url or falls back to VPS proxy stream */}
+            <ViralVideoPlayer
+              src={video.video_file_url}
+              fallbackProxyUrl={video.video_url ? `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}&nocache=1` : null}
+              aspectRatio="auto"
+              onExpired={handleRefreshFile}
+            />
 
-          {/* ViralVideoPlayer — plays file_url or falls back to VPS proxy stream */}
-          <ViralVideoPlayer
-            src={video.video_file_url}
-            fallbackProxyUrl={video.video_url ? `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}&nocache=1` : null}
-            aspectRatio="auto"
-            onExpired={handleRefreshFile}
-          />
-
-          {/* Analyze / tabs section */}
-          <div className="space-y-4">
-            {video.analysis_status === "analyzed" ? (
-              <div className="border border-border rounded-lg p-4">
-                <div className="flex gap-2 border-b border-border mb-3">
-                  {(["transcript", "visual", "hook", "story"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setActiveTab(t)}
-                      className={cn(
-                        "px-3 py-2 text-sm capitalize transition-colors",
-                        activeTab === t ? "text-foreground border-b-2 border-foreground" : "text-muted-foreground",
-                      )}
-                    >
-                      {t === "story" ? "Storytelling" : t === "visual" ? "Visual Layout" : t}
-                    </button>
-                  ))}
-                </div>
-                <div className="text-sm text-foreground/80 whitespace-pre-wrap min-h-[120px] max-h-[400px] overflow-y-auto">
-                  {activeTab === "transcript" && (video.transcript ?? "(no transcript)")}
-                  {activeTab === "visual" && renderVisualSegments(video.framework_meta)}
-                  {activeTab === "hook" && (video.hook_text ?? "(no hook)")}
-                  {activeTab === "story" && ((video.framework_meta?.body_structure as string) ?? "(no story format)")}
-                </div>
-                {!video.video_file_url && (
-                  <button
-                    onClick={handleRefreshFile}
-                    className="mt-3 text-xs text-muted-foreground underline"
-                  >
-                    Video file expired — click to refresh
-                  </button>
-                )}
-              </div>
-            ) : video.analysis_status === "analyzing" ? (
-              <div className="border border-border rounded-lg p-4 flex items-center gap-3">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm text-muted-foreground">Analyzing… this takes 30-90 seconds</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleAnalyze}
-                disabled={analyzing}
-                className="w-full px-4 py-3 bg-foreground text-background rounded-lg disabled:opacity-50 text-sm font-medium"
-              >
-                {analyzing ? "Starting…" : video.analysis_status === "failed" ? "Retry analyze (50 credits)" : "Analyze (50 credits)"}
-              </button>
-            )}
-            {video.analysis_status === "failed" && video.analysis_error && (
-              <div className="text-sm text-destructive">Failed: {video.analysis_error}</div>
-            )}
-            {analyzeError && <div className="text-sm text-destructive">{analyzeError}</div>}
-          </div>
-
-          {/* Video preview — thumbnail only, watch on platform */}
-          <div className="relative bg-black rounded-2xl overflow-hidden" style={{ aspectRatio: "9/16", maxHeight: "520px" }}>
-            {video.thumbnail_url && !imgError ? (
-              <img
-                src={proxyImg(video.thumbnail_url)}
-                alt={video.caption?.slice(0, 60) || "video"}
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={() => setImgError(true)}
+            {/* Stats grid */}
+            <div className="grid grid-cols-4 gap-2">
+              <StatCard
+                label="Outlier"
+                value={fmtOutlier(video.outlier_score)}
+                icon={video.outlier_score >= 10 ? Flame : TrendingUp}
+                color={video.outlier_score >= 10 ? "text-orange-400" : outlierColor}
               />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                <Play className="w-12 h-12 text-white/30" />
+              <StatCard
+                label="Views"
+                value={fmtViews(video.views_count)}
+                icon={Eye}
+              />
+              <StatCard
+                label="Engagement"
+                value={`${video.engagement_rate.toFixed(1)}%`}
+                icon={Zap}
+              />
+              <StatCard
+                label="Posted"
+                value={timeAgo(video.posted_at)}
+                icon={Clock}
+              />
+            </div>
+
+            {/* Format Detection Badge */}
+            {detectingFormat && !formatDetection && (
+              <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
+                <ScanSearch className="w-4 h-4 animate-pulse flex-shrink-0" />
+                Analyzing video format...
               </div>
             )}
-            {/* Watch on platform button */}
-            <a
-              href={video.video_url ?? "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-black/90 transition-all border border-white/10"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Watch on {video.platform === "instagram" ? "Instagram" : video.platform === "tiktok" ? "TikTok" : "YouTube"}
-            </a>
-          </div>
+            {formatDetection && (() => {
+              const fmt = formatDetection.format;
+              const pct = Math.round(formatDetection.confidence * 100);
+              const cfg: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
+                TALKING_HEAD: { icon: Mic, label: "Talking Head", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/25" },
+                VOICEOVER: { icon: Film, label: "Voiceover / B-Roll", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/25" },
+                TEXT_STORY: { icon: AlignLeft, label: "Text Story", color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/25" },
+              };
+              const c = cfg[fmt] || cfg.TALKING_HEAD;
+              return (
+                <div className={cn("flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm", c.bg, c.border)}>
+                  <c.icon className={cn("w-4 h-4 flex-shrink-0", c.color)} />
+                  <span className={cn("font-semibold", c.color)}>{c.label}</span>
+                  <span className="text-muted-foreground text-xs ml-1">{pct}% confidence</span>
+                  {fmt === "TEXT_STORY" && (
+                    <span className="ml-auto text-xs text-orange-400/80">Minimal spoken audio detected</span>
+                  )}
+                </div>
+              );
+            })()}
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-4 gap-2">
-            <StatCard
-              label="Outlier"
-              value={fmtOutlier(video.outlier_score)}
-              icon={video.outlier_score >= 10 ? Flame : TrendingUp}
-              color={video.outlier_score >= 10 ? "text-orange-400" : outlierColor}
-            />
-            <StatCard
-              label="Views"
-              value={fmtViews(video.views_count)}
-              icon={Eye}
-            />
-            <StatCard
-              label="Engagement"
-              value={`${video.engagement_rate.toFixed(1)}%`}
-              icon={Zap}
-            />
-            <StatCard
-              label="Posted"
-              value={timeAgo(video.posted_at)}
-              icon={Clock}
-            />
-          </div>
-
-          {/* Format Detection Badge */}
-          {detectingFormat && !formatDetection && (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
-              <ScanSearch className="w-4 h-4 animate-pulse flex-shrink-0" />
-              Analyzing video format...
-            </div>
-          )}
-          {formatDetection && (() => {
-            const fmt = formatDetection.format;
-            const pct = Math.round(formatDetection.confidence * 100);
-            const cfg: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
-              TALKING_HEAD: { icon: Mic, label: "Talking Head", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/25" },
-              VOICEOVER: { icon: Film, label: "Voiceover / B-Roll", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/25" },
-              TEXT_STORY: { icon: AlignLeft, label: "Text Story", color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/25" },
-            };
-            const c = cfg[fmt] || cfg.TALKING_HEAD;
-            return (
-              <div className={cn("flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm", c.bg, c.border)}>
-                <c.icon className={cn("w-4 h-4 flex-shrink-0", c.color)} />
-                <span className={cn("font-semibold", c.color)}>{c.label}</span>
-                <span className="text-muted-foreground text-xs ml-1">{pct}% confidence</span>
-                {fmt === "TEXT_STORY" && (
-                  <span className="ml-auto text-xs text-orange-400/80">Minimal spoken audio detected</span>
-                )}
+            {/* Caption */}
+            {video.caption && (
+              <div className="p-3 rounded-xl bg-card border border-border">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{video.caption}</p>
               </div>
-            );
-          })()}
+            )}
 
-          {/* Caption */}
-          {video.caption && (
-            <div className="p-4 rounded-xl bg-card border border-border">
-              <p className="text-sm text-muted-foreground leading-relaxed">{video.caption}</p>
+            {/* Channel line */}
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground font-medium">@{video.channel_username}</span>
+              <span className="text-muted-foreground capitalize">{video.platform}</span>
             </div>
-          )}
+          </div>
 
-          {/* Channel */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground font-medium">@{video.channel_username}</span>
-            <span className="text-xs text-muted-foreground capitalize">{video.platform}</span>
+          {/* ===== RIGHT COLUMN: Analyze / tabs (fills available height, scrolls internally) ===== */}
+          <div className="flex flex-col min-w-0 min-h-0">
+            {/* Summary line */}
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+              {video.caption || "(no caption)"}
+            </p>
+
+            {/* Tabs box — flex-1 with min-h-0 so it scrolls inside, not the page */}
+            <div className="flex-1 min-h-0 border border-border rounded-2xl flex flex-col overflow-hidden">
+              {video.analysis_status === "analyzed" ? (
+                <>
+                  <div className="flex gap-2 border-b border-border px-4 flex-shrink-0">
+                    {(["transcript", "visual", "hook", "story"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setActiveTab(t)}
+                        className={cn(
+                          "px-3 py-2.5 text-sm capitalize transition-colors whitespace-nowrap",
+                          activeTab === t ? "text-foreground border-b-2 border-foreground" : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {t === "story" ? "Storytelling" : t === "visual" ? "Visual Layout" : t}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-foreground/80 whitespace-pre-wrap">
+                    {activeTab === "transcript" && (video.transcript ?? "(no transcript)")}
+                    {activeTab === "visual" && renderVisualSegments(video.framework_meta)}
+                    {activeTab === "hook" && (video.hook_text ?? "(no hook)")}
+                    {activeTab === "story" && ((video.framework_meta?.body_structure as string) ?? "(no story format)")}
+                  </div>
+                  {!video.video_file_url && (
+                    <button
+                      onClick={handleRefreshFile}
+                      className="text-xs text-muted-foreground underline px-4 py-2 border-t border-border text-left flex-shrink-0 hover:text-foreground transition-colors"
+                    >
+                      Video file expired — click to refresh
+                    </button>
+                  )}
+                </>
+              ) : video.analysis_status === "analyzing" ? (
+                <div className="flex-1 flex items-center justify-center gap-3">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Analyzing… 30-90 seconds</span>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={analyzing}
+                    className="px-6 py-3 bg-foreground text-background rounded-xl disabled:opacity-50 text-sm font-semibold"
+                  >
+                    {analyzing ? "Starting…" : video.analysis_status === "failed" ? "Retry analyze (50 credits)" : "Analyze video (50 credits)"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Error lines */}
+            {(video.analysis_status === "failed" && video.analysis_error) && (
+              <div className="mt-2 text-xs text-destructive">{video.analysis_error}</div>
+            )}
+            {analyzeError && <div className="mt-2 text-xs text-destructive">{analyzeError}</div>}
           </div>
         </div>
 
-        {/* ===== RIGHT PANEL: Actions ===== */}
-        <div className="w-full lg:w-[42%] space-y-4">
-          <h2 className="text-xl font-bold text-foreground">What would you like to do today?</h2>
+        {/* ===== Action row: compact horizontal cards under the grid ===== */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
 
-          {/* ===== Card 1: Save to Vault ===== */}
-          <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                <Archive className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">Save to Vault as Template</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  AI will transcribe the video and save its structure to your vault
-                </p>
-              </div>
+          {/* Card 1: Save to Vault */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <Archive className="w-4 h-4 text-amber-400" />
             </div>
-
-            {/* Client selector */}
-            {clientOptions.length > 1 && (
-              <select
-                value={saveClientId}
-                onChange={(e) => setSaveClientId(e.target.value)}
-                className="w-full h-9 rounded-lg border border-border bg-background text-sm px-3 text-foreground"
-              >
-                <option value="">Select client vault...</option>
-                {clientOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            )}
-            {clientOptions.length === 1 && (
-              <p className="text-xs text-muted-foreground">
-                Vault: <span className="text-foreground font-medium">{clientOptions[0].name}</span>
-              </p>
-            )}
-
-            {/* Status / Button */}
-            {saveMode === "idle" && (
-              <Button
-                onClick={handleSaveToVault}
-                disabled={!saveClientId || clientsLoading}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-              >
-                <Archive className="w-4 h-4 mr-2" />
-                Save to Vault
-              </Button>
-            )}
-            {(saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving") && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 rounded-lg bg-muted/50">
-                <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                <span>
-                  {saveMode === "transcribing" ? "Transcribing video..." :
-                   saveMode === "analyzing" ? "Analyzing structure..." :
-                   "Saving to vault..."}
-                </span>
-              </div>
-            )}
-            {saveMode === "done" && (
-              <div className="flex items-center gap-2 text-sm text-emerald-400 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                Saved to Vault! You can now use this as a hook template in the Script Wizard.
-              </div>
-            )}
-            {saveMode === "error" && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-destructive p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  {saveError}
-                </div>
-                <Button
-                  onClick={() => { setSaveMode("idle"); setSaveError(null); }}
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">Save to Vault</p>
+              {clientOptions.length > 1 ? (
+                <select
+                  value={saveClientId}
+                  onChange={(e) => setSaveClientId(e.target.value)}
+                  className="mt-0.5 w-full h-6 rounded border border-border bg-background text-[11px] px-1 text-foreground"
                 >
-                  Try Again
+                  <option value="">Select vault...</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              ) : clientOptions.length === 1 ? (
+                <p className="text-[11px] text-muted-foreground truncate">{clientOptions[0].name}</p>
+              ) : null}
+            </div>
+            <div className="flex-shrink-0">
+              {saveMode === "idle" && (
+                <Button
+                  onClick={handleSaveToVault}
+                  disabled={!saveClientId || clientsLoading}
+                  size="sm"
+                  className="bg-amber-500 hover:bg-amber-600 text-white text-xs h-7 px-2.5"
+                >
+                  Save
                 </Button>
-              </div>
-            )}
+              )}
+              {(saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving") && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="hidden sm:inline">
+                    {saveMode === "transcribing" ? "Transcribing…" : saveMode === "analyzing" ? "Analyzing…" : "Saving…"}
+                  </span>
+                </div>
+              )}
+              {saveMode === "done" && (
+                <div className="flex items-center gap-1 text-xs text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Saved!</span>
+                </div>
+              )}
+              {saveMode === "error" && (
+                <button
+                  onClick={() => { setSaveMode("idle"); setSaveError(null); }}
+                  className="text-xs text-destructive underline"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* ===== Breakdown Panel (only when analyzed) ===== */}
-          {video?.transcribed_at && video.framework_meta && (
-            <div className="rounded-xl border border-border/40 bg-card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold">Breakdown</h3>
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">AI-analyzed</span>
-              </div>
-
-              {/* Top metadata strip */}
-              <div className="flex flex-wrap gap-2 mb-4 text-[11px]">
-                {video.framework_meta.content_type && (
-                  <span className="px-2 py-0.5 rounded bg-primary/10 text-primary">
-                    {String(video.framework_meta.content_type).replace(/_/g, " ")}
-                  </span>
-                )}
-                {video.framework_meta.visual_pacing?.tempo && (
-                  <span className="px-2 py-0.5 rounded bg-muted text-foreground/80">
-                    {video.framework_meta.visual_pacing.tempo} pacing
-                  </span>
-                )}
-                {(video.framework_meta.niche_tags ?? []).slice(0, 3).map((tag: string) => (
-                  <span key={tag} className="px-2 py-0.5 rounded bg-muted text-foreground/80">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              {/* Audience */}
-              {video.framework_meta.audience && (
-                <div className="mb-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Audience</p>
-                  <p className="text-xs text-foreground">{video.framework_meta.audience}</p>
-                </div>
-              )}
-
-              {/* Hook / Body / CTA */}
-              {video.hook_text && (
-                <div className="mb-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Hook</p>
-                  <p className="text-xs text-foreground italic">"{video.hook_text}"</p>
-                </div>
-              )}
-              {video.framework_meta.body_structure && (
-                <div className="mb-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Body structure</p>
-                  <p className="text-xs text-foreground">{video.framework_meta.body_structure}</p>
-                </div>
-              )}
-              {video.cta_text && (
-                <div className="mb-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">CTA</p>
-                  <p className="text-xs text-foreground italic">"{video.cta_text}"</p>
-                </div>
-              )}
-
-              {/* Full transcript or text-on-screen (collapsed) */}
-              {video.transcript && (
-                <details className="mt-3">
-                  <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
-                    {(video.framework_meta as any)?.is_caption_style
-                      ? "▼ Text on screen"
-                      : "▼ Full transcript"}
-                  </summary>
-                  <pre className="mt-2 p-3 rounded-lg bg-muted/40 text-[11px] whitespace-pre-wrap font-sans text-foreground/90 max-h-64 overflow-y-auto">
-                    {video.transcript}
-                  </pre>
-                </details>
-              )}
+          {/* Card 2: Remix Script */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+            <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <Wand2 className="w-4 h-4 text-primary" />
             </div>
-          )}
-
-          {/* ===== Card 2: Remix as Script ===== */}
-          <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <Wand2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">Remix as Original Script</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Use this video's structure to create a brand new script for a client
-                </p>
-              </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">Remix Script</p>
+              {clientOptions.length > 1 ? (
+                <select
+                  value={remixClientId}
+                  onChange={(e) => setRemixClientId(e.target.value)}
+                  className="mt-0.5 w-full h-6 rounded border border-border bg-background text-[11px] px-1 text-foreground"
+                >
+                  <option value="">Select client...</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              ) : clientOptions.length === 1 ? (
+                <p className="text-[11px] text-muted-foreground truncate">{clientOptions[0].name}</p>
+              ) : null}
             </div>
-
-            {/* Client selector */}
-            {clientOptions.length > 1 && (
-              <select
-                value={remixClientId}
-                onChange={(e) => setRemixClientId(e.target.value)}
-                className="w-full h-9 rounded-lg border border-border bg-background text-sm px-3 text-foreground"
-              >
-                <option value="">Select client...</option>
-                {clientOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            )}
-            {clientOptions.length === 1 && (
-              <p className="text-xs text-muted-foreground">
-                Client: <span className="text-foreground font-medium">{clientOptions[0].name}</span>
-              </p>
-            )}
-
             <Button
               onClick={handleRemixScript}
               disabled={!remixClientId || clientsLoading}
-              className="w-full"
+              size="sm"
               variant="outline"
+              className="flex-shrink-0 text-xs h-7 px-2.5"
             >
-              <Wand2 className="w-4 h-4 mr-2" />
-              Remix Script with AI Wizard
+              <Wand2 className="w-3.5 h-3.5 mr-1" />
+              Remix
             </Button>
           </div>
 
-          {/* ===== Card 3: Open in Canvas ===== */}
-          <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                <ExternalLink className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">Open in Canvas</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Deep-link this video into the AI Canvas workspace
-                </p>
-              </div>
+          {/* Card 3: Open in Canvas */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+              <ExternalLink className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">Open in Canvas</p>
+              <p className="text-[11px] text-muted-foreground truncate">AI Canvas workspace</p>
             </div>
             <button
               onClick={handleOpenInCanvas}
-              className="w-full px-4 py-2 border border-border rounded-md text-sm hover:bg-muted/50 transition-colors"
+              className="flex-shrink-0 px-2.5 h-7 border border-border rounded-md text-xs hover:bg-muted/50 transition-colors"
             >
-              Open in Canvas
+              Open
             </button>
           </div>
-
-          {/* Info note */}
-          <p className="text-xs text-muted-foreground text-center leading-relaxed">
-            Remixing opens the AI Script Wizard pre-loaded with this video's structure.
-            You'll choose your own topic and the AI will follow the same hook and body pattern.
-          </p>
         </div>
       </div>
     </PageTransition>
