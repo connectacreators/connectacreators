@@ -1726,6 +1726,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
         generating={generating}
         generatingImage={generatingImage}
         variant={fullscreen ? "full" : "compact"}
+        avatarTone={fullscreen ? "light" : "dark"}
         visibleCount={visibleCount}
         onLoadMore={hasOlderMessages ? loadMoreOlder : undefined}
         hasOlderMessages={hasOlderMessages}

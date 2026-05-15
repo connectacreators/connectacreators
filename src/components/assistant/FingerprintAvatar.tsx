@@ -1,6 +1,13 @@
 import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 
-export function FingerprintAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
+interface FingerprintAvatarProps {
+  size?: "sm" | "md";
+  // Default "light" = white-tinted for dark surfaces (drawer, /ai).
+  // "dark" = ink-tinted for editorial light surfaces (canvas AI panel).
+  tone?: "light" | "dark";
+}
+
+export function FingerprintAvatar({ size = "sm", tone = "light" }: FingerprintAvatarProps) {
   const dim = size === "md" ? 28 : 16;
   return (
     <img
@@ -10,12 +17,9 @@ export function FingerprintAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
         width: dim,
         height: dim,
         objectFit: "contain",
-        opacity: 0.65,
-        filter: "brightness(0) invert(1)",
+        opacity: tone === "dark" ? 0.85 : 0.65,
+        filter: tone === "dark" ? "brightness(0)" : "brightness(0) invert(1)",
         flexShrink: 0,
-        // Vertically center the small variant with the first line of text-sm
-        // at leading-normal (line-height ~21px). Without this, the 16px icon
-        // sits at the top of the line box.
         marginTop: size === "sm" ? 3 : 0,
       }}
     />

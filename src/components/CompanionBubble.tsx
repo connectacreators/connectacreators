@@ -101,6 +101,8 @@ export default function CompanionBubble() {
             src="/favicon-transparent.png"
             alt="Connecta"
             className="w-6 h-6 object-contain"
+            style={{ filter: "brightness(0)" }}
+            /* ink-tinted: matches the bone sticker treatment of the bubble */
           />
         )}
         {badgeCount > 0 && !isOpen && (

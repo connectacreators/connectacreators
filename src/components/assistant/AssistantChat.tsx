@@ -86,6 +86,10 @@ export interface AssistantChatProps {
   /** Fired after AssistantChat auto-scrolls to bottom on new message —
    *  lets the parent reset its message-window cursor. */
   onAutoScrolledToBottom?: () => void;
+  /** Avatar tone for the FingerprintAvatar — "dark" = ink-tinted for
+   *  editorial light surfaces (canvas), "light" = white-tinted for
+   *  dark surfaces (drawer, /ai). Defaults to "light". */
+  avatarTone?: "light" | "dark";
   className?: string;
 }
 
@@ -309,6 +313,7 @@ export function AssistantChat({
   getBlobUrl,
   isResearchMode = false,
   onAutoScrolledToBottom,
+  avatarTone = "light",
   className = "",
 }: AssistantChatProps) {
   const fullscreen = variant === "full";
@@ -473,7 +478,7 @@ export function AssistantChat({
             className={`flex flex-col items-center justify-center flex-1 ${fullscreen ? "min-h-[60vh]" : "min-h-[200px]"} gap-3 px-3`}
             style={{ animation: "greetingFadeIn 0.5s ease both" }}
           >
-            <FingerprintAvatar size="md" />
+            <FingerprintAvatar size="md" tone={avatarTone} />
             {greeting && (
               <p
                 className={`${fullscreen ? "text-xl" : "text-base"} font-light text-foreground/60 text-center leading-snug font-serif`}
@@ -507,7 +512,7 @@ export function AssistantChat({
                 </div>
               ) : msg.type === "plan_proposal" && msg.plan_data ? (
                 <div className="flex gap-2 items-start">
-                  <FingerprintAvatar size="sm" />
+                  <FingerprintAvatar size="sm" tone={avatarTone} />
                   <div className="min-w-0 flex-1">
                     <PlanCard
                       plan={msg.plan_data}
@@ -519,7 +524,7 @@ export function AssistantChat({
                 </div>
               ) : msg.type === "script_preview" && msg.script_data ? (
                 <div className="flex gap-2 items-start">
-                  <FingerprintAvatar size="sm" />
+                  <FingerprintAvatar size="sm" tone={avatarTone} />
                   <div className="min-w-0 flex-1">
                     {msg.script_data?.change_summary && (
                       <p
@@ -614,7 +619,7 @@ export function AssistantChat({
                 </div>
               ) : (
                 <div className="flex gap-2 items-start group/msg">
-                  <FingerprintAvatar size="sm" />
+                  <FingerprintAvatar size="sm" tone={avatarTone} />
                   <div className="text-foreground min-w-0 flex-1 relative pr-8">
                     {(() => {
                       const deck = parseDeck(msg.content);
@@ -807,7 +812,7 @@ export function AssistantChat({
                   <path d="M11 8v6M8 11h6" />
                 </svg>
               ) : (
-                <FingerprintAvatar size="sm" />
+                <FingerprintAvatar size="sm" tone={avatarTone} />
               )}
               {liveText.includes("questions_deck") ? (
                 <div className="text-xs text-muted-foreground italic">
