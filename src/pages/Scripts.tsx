@@ -143,14 +143,15 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   );
 }
 
-// Editorial-dark line type config — flat graphite surfaces with thin bone
-// hairlines + a tinted 3px left edge per type. No gradients, no glow.
+// Editorial-dark line type config — graphite surfaces softly tinted with the
+// type's accent color, thin bone hairlines + a tinted 3px left edge per type.
+// Tints are ~10-12% accent over #1A1A1A so the card reads as the type at a glance.
 const getTypeConfig = (lang: "en" | "es") => ({
   filming: {
     label: tr(t.scripts.filmingInstructions, lang),
     icon: Film,
     color: "text-[rgba(234,230,220,0.78)]",
-    bg: "bg-[#1A1A1A]",
+    bg: "bg-[#2B221B]",
     border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#A85B1F]",
     dot: "bg-[#A85B1F]",
   },
@@ -158,7 +159,7 @@ const getTypeConfig = (lang: "en" | "es") => ({
     label: tr(t.scripts.voiceoverDialogue, lang),
     icon: Mic,
     color: "text-[rgba(234,230,220,0.78)]",
-    bg: "bg-[#1A1A1A]",
+    bg: "bg-[#222829]",
     border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#8FD0D5]",
     dot: "bg-[#8FD0D5]",
   },
@@ -166,15 +167,15 @@ const getTypeConfig = (lang: "en" | "es") => ({
     label: tr(t.scripts.editingInstructions, lang),
     icon: Scissors,
     color: "text-[rgba(234,230,220,0.78)]",
-    bg: "bg-[#1A1A1A]",
-    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#F0BC7D]",
-    dot: "bg-[#F0BC7D]",
+    bg: "bg-[#1F2A22]",
+    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#7FB58A]",
+    dot: "bg-[#7FB58A]",
   },
   text_on_screen: {
     label: tr(t.scripts.textOnScreen, lang),
     icon: MonitorPlay,
     color: "text-[rgba(234,230,220,0.78)]",
-    bg: "bg-[#1A1A1A]",
+    bg: "bg-[#242423]",
     border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[rgba(234,230,220,0.40)]",
     dot: "bg-[rgba(234,230,220,0.55)]",
   },
@@ -1104,7 +1105,7 @@ export default function Scripts() {
   // Auth loading
   if (authLoading) {
     return (
-      <PageTransition className="flex-1 flex flex-col overflow-hidden">
+      <PageTransition className="editorial-page-dark flex-1 flex flex-col overflow-hidden">
         <ScriptsSkeleton />
       </PageTransition>
     );
@@ -1329,7 +1330,7 @@ export default function Scripts() {
   };
 
   return (
-      <PageTransition className="flex-1 flex flex-col overflow-hidden">
+      <PageTransition className="editorial-page-dark flex-1 flex flex-col overflow-hidden">
       {/* Super Planning Canvas — full screen override */}
       {view === "super-planning" && selectedClient && (
         <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
