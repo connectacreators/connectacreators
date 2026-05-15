@@ -117,10 +117,10 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center"
-      style={{ background: BG, padding: "0 28px" }}
+      className="min-h-screen flex flex-col items-center justify-center"
+      style={{ background: BG, padding: "48px 28px" }}
     >
-      <div className="w-full max-w-4xl flex flex-col items-center" style={{ paddingTop: "10vh" }}>
+      <div className="w-full max-w-4xl flex flex-col items-center">
 
         {/* Small Figtree subtitle: "Hi {brand} 👋" */}
         <motion.p
