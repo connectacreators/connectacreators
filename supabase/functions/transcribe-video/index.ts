@@ -131,21 +131,13 @@ serve(async (req) => {
       });
     }
 
-    // ─── Credit deduction (same action mapping as before) ───
     const action = source === "competitor"
       ? "transcribe_competitor_post"
       : source === "build_mode"
         ? "transcribe_for_build"
         : "add_video_to_vault";
-    const creditErr = await deductCredits(adminClient, user.id, action, CREDIT_COST);
-    if (creditErr) {
-      return new Response(creditErr, {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    // ─── Step 1: Resolve to a viral_videos row ───
+    // ─── Step 1: Resolve to a viral_videos row (BEFORE credit deduction so we can noop on cache) ───
     let row: ViralVideoRow;
 
     if (viral_video_id && typeof viral_video_id === "string") {
@@ -167,7 +159,37 @@ serve(async (req) => {
       row = await resolveOrCreateRow(adminClient as any, url, user.id);
     }
 
-    // ─── Step 2: Run full analysis ───
+    // ─── Cache short-circuit: row already analyzed and file still valid → return without charging ───
+    // This mirrors the noop behavior in /analyze-viral-video-user so callers (Save to Vault, Canvas,
+    // AIScriptWizard, etc.) never get charged twice for the same URL across surfaces.
+    if (
+      row.analysis_status === "analyzed" &&
+      row.video_file_url &&
+      row.video_file_expires_at &&
+      new Date(row.video_file_expires_at) > new Date()
+    ) {
+      console.log("[transcribe-video] cache hit — returning cached analysis, no credit charge");
+      return new Response(JSON.stringify({
+        transcription: row.transcript ?? "",
+        videoUrl: row.video_file_url,
+        thumbnail_url: (row as any).thumbnail_url ?? null,
+        video_title: null,
+        cached: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Step 2: Credit deduction (after resolve, before work) ───
+    const creditErr = await deductCredits(adminClient, user.id, action, CREDIT_COST);
+    if (creditErr) {
+      return new Response(creditErr, {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Step 3: Run full analysis ───
     let patch: Awaited<ReturnType<typeof runFullAnalysis>>;
     try {
       patch = await runFullAnalysis(
