@@ -433,8 +433,8 @@ export function AssistantTextInput({
               fullscreen ? "text-sm" : "text-xs"
             } w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0`}
             style={{
-              color: /@\S+/.test(value) ? "transparent" : "#141414",
-              caretColor: "#141414",
+              color: /@\S+/.test(value) ? "transparent" : (fullscreen ? "#EAE6DC" : "#141414"),
+              caretColor: fullscreen ? "#EAE6DC" : "#141414",
               minHeight: fullscreen ? 64 : 44,
               maxHeight: fullscreen ? 200 : 160,
               overflowY: "auto",
