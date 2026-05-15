@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import BorderGlow from "@/components/ui/BorderGlow";
 // AssistantMemoryEditor disabled until memory subsystem is re-enabled.
 // import { AssistantMemoryEditor } from "@/components/assistant";
 import { useCompanion } from "@/contexts/CompanionContext";
@@ -171,7 +170,7 @@ export default function Settings() {
   };
 
   return (
-    <PageTransition className="flex-1 overflow-y-auto">
+    <PageTransition className="editorial-page flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 py-8 max-w-lg">
         <h1 className="font-serif text-2xl sm:text-3xl font-light text-foreground mb-8" style={{ letterSpacing: "0.02em" }}>{tr(t.settings.title, language)}</h1>
 
@@ -191,12 +190,10 @@ export default function Settings() {
               {roleLabel}
             </div>
           </div>
-          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
-            <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#8FD0D5]" />}
-              {tr(t.settings.saveChanges, language)}
-            </Button>
-          </BorderGlow>
+          <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {tr(t.settings.saveChanges, language)}
+          </Button>
         </div>
 
         {/* AI Assistant */}
@@ -257,16 +254,14 @@ export default function Settings() {
             {showPasswords ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             {showPasswords ? tr(t.settings.hidePasswords, language) : tr(t.settings.showPasswords, language)} {tr(t.settings.passwords, language)}
           </button>
-          <BorderGlow borderRadius={10} backgroundColor="#141416" glowColor="187 80 70" colors={['#8FD0D5', '#8FD0D5', '#E0A560']} edgeSensitivity={40} glowRadius={18} coneSpread={10} fillOpacity={0}>
-            <Button
-              onClick={handleChangePassword}
-              disabled={changingPassword || !newPassword || !confirmPassword}
-              className="gap-2"
-            >
-              {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {tr(t.settings.changePassword, language)}
-            </Button>
-          </BorderGlow>
+          <Button
+            onClick={handleChangePassword}
+            disabled={changingPassword || !newPassword || !confirmPassword}
+            className="gap-2"
+          >
+            {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {tr(t.settings.changePassword, language)}
+          </Button>
         </div>
 
         {/* Viral Feed settings */}

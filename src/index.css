@@ -337,6 +337,15 @@ All colors MUST be HSL for consistency and theming.
      on the bg-{color}-500/15 chips because some downstream rule wins.
      Force the saturated 700-tier colors so labels are legible on the
      translucent pill backgrounds. */
+  /* Tier-2 dark card class — repaint as a sticker on editorial pages */
+  .editorial-page .glass-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(20, 20, 20, 0.10) !important;
+    box-shadow: 3px 3px 0 rgba(20, 20, 20, 0.10);
+    backdrop-filter: none !important;
+  }
+  .editorial-page .glass-card::before { display: none; }
+
   .editorial-page .text-green-600,
   .editorial-page .text-green-400  { color: #15803d !important; }
   .editorial-page .text-yellow-600,

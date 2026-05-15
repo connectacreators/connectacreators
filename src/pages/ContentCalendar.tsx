@@ -445,7 +445,7 @@ export default function ContentCalendar() {
   return (
 
     <>
-      <PageTransition className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <PageTransition className="editorial-page flex-1 flex flex-col min-h-screen overflow-hidden">
 
         <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col animate-fade-in">
 
