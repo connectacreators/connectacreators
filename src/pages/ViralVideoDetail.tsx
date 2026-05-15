@@ -6,6 +6,7 @@ import {
   Archive, Wand2, Loader2, CheckCircle2, AlertCircle, Play,
   Mic, Film, AlignLeft, ScanSearch,
 } from "lucide-react";
+import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -57,6 +58,10 @@ interface ViralVideo {
     visual_pacing?: { cuts_per_minute?: number | null; tempo?: string | null };
   } | null;
   transcribed_at?: string | null;
+  video_file_url: string | null;
+  video_file_expires_at: string | null;
+  analysis_status: "pending" | "analyzing" | "analyzed" | "failed";
+  analysis_error: string | null;
 }
 
 interface ClientOption {
@@ -122,6 +127,18 @@ function getStreamUrl(video: ViralVideo): string {
   return `${VPS_API}/stream-reel?url=${encodeURIComponent(url)}&nocache=1`;
 }
 
+// ==================== HELPERS ====================
+function renderVisualSegments(meta: Record<string, unknown> | null | undefined): string {
+  if (!meta) return "(no visual breakdown)";
+  const segments = (meta.visual_segments as Array<{
+    start: number; end: number; description: string; text_on_screen: string[];
+  }> | undefined) ?? [];
+  if (segments.length === 0) return "(no visual breakdown)";
+  return segments
+    .map((s) => `[${s.start.toFixed(1)}s–${s.end.toFixed(1)}s] ${s.description}${s.text_on_screen.length ? `\n   text: ${s.text_on_screen.join(" | ")}` : ""}`)
+    .join("\n\n");
+}
+
 // ==================== MAIN PAGE ====================
 export default function ViralVideoDetail() {
   const { videoId } = useParams<{ videoId: string }>();
@@ -141,6 +158,11 @@ export default function ViralVideoDetail() {
   const [detectingFormat, setDetectingFormat] = useState(false);
   const [formatDetection, setFormatDetection] = useState<FormatDetection | null>(null);
 
+  // Analyze flow state
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"transcript" | "visual" | "hook" | "story">("transcript");
+
   // Save to Vault state
   const [saveClientId, setSaveClientId] = useState("");
   const [saveMode, setSaveMode] = useState<"idle" | "transcribing" | "analyzing" | "saving" | "done" | "error">("idle");
@@ -149,27 +171,45 @@ export default function ViralVideoDetail() {
   // Remix state
   const [remixClientId, setRemixClientId] = useState("");
 
-  // ==================== DATA FETCH ====================
+  // ==================== DATA FETCH + REALTIME ====================
   useEffect(() => {
     if (!videoId) return;
-    supabase
-      .from("viral_videos")
-      .select("*")
-      .eq("id", videoId)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          navigate("/viral-today");
-          return;
-        }
-        const v = data as ViralVideo;
-        setVideo(v);
-        setLoading(false);
-        // Restore cached detection if available
-        if (v.format_detection) {
-          setFormatDetection(v.format_detection);
-        }
-      });
+    let mounted = true;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("viral_videos")
+        .select("*")
+        .eq("id", videoId)
+        .single();
+      if (!mounted) return;
+      if (error || !data) {
+        navigate("/viral-today");
+        return;
+      }
+      const v = data as ViralVideo;
+      setVideo(v);
+      setLoading(false);
+      // Restore cached detection if available
+      if (v.format_detection) setFormatDetection(v.format_detection);
+    })();
+
+    const channel = supabase
+      .channel(`viral_videos:${videoId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "viral_videos", filter: `id=eq.${videoId}` },
+        (payload) => {
+          if (mounted) {
+            const fresh = payload.new as ViralVideo;
+            setVideo(fresh);
+            if (fresh.format_detection) setFormatDetection(fresh.format_detection);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { mounted = false; supabase.removeChannel(channel); };
   }, [videoId, navigate]);
 
   // ==================== FORMAT DETECTION ====================
@@ -305,6 +345,68 @@ export default function ViralVideoDetail() {
     });
   };
 
+  // ==================== ANALYZE ====================
+  const handleAnalyze = async () => {
+    if (!video) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-viral-video-user`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ viral_video_id: video.id }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 402) {
+          showOutOfCreditsModal();
+          return;
+        }
+        throw new Error(err.message || err.error || `HTTP ${res.status}`);
+      }
+      // Row updates flow via realtime subscription — no manual state update.
+    } catch (e: any) {
+      setAnalyzeError(e.message || "Analyze failed");
+      toast.error(e.message || "Analyze failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleRefreshFile = async () => {
+    if (!video) return;
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-refresh-file`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ viral_video_id: video.id }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 410) {
+          toast.error("Source video is no longer available");
+          return;
+        }
+        throw new Error(err.message || "Refresh failed");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Refresh failed");
+    }
+  };
+
+  const handleOpenInCanvas = () => {
+    if (!video) return;
+    navigate(`/canvas?attach=${video.id}`);
+  };
+
   // ==================== RENDER ====================
   if (loading) {
     return (
@@ -350,6 +452,67 @@ export default function ViralVideoDetail() {
 
         {/* ===== LEFT PANEL: Video Preview ===== */}
         <div className="w-full lg:w-[58%] space-y-4">
+
+          {/* ViralVideoPlayer — plays file_url or falls back to VPS proxy stream */}
+          <ViralVideoPlayer
+            src={video.video_file_url}
+            fallbackProxyUrl={video.video_url ? `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}&nocache=1` : null}
+            aspectRatio="auto"
+            onExpired={handleRefreshFile}
+          />
+
+          {/* Analyze / tabs section */}
+          <div className="space-y-4">
+            {video.analysis_status === "analyzed" ? (
+              <div className="border border-border rounded-lg p-4">
+                <div className="flex gap-2 border-b border-border mb-3">
+                  {(["transcript", "visual", "hook", "story"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setActiveTab(t)}
+                      className={cn(
+                        "px-3 py-2 text-sm capitalize transition-colors",
+                        activeTab === t ? "text-foreground border-b-2 border-foreground" : "text-muted-foreground",
+                      )}
+                    >
+                      {t === "story" ? "Storytelling" : t === "visual" ? "Visual Layout" : t}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm text-foreground/80 whitespace-pre-wrap min-h-[120px] max-h-[400px] overflow-y-auto">
+                  {activeTab === "transcript" && (video.transcript ?? "(no transcript)")}
+                  {activeTab === "visual" && renderVisualSegments(video.framework_meta)}
+                  {activeTab === "hook" && (video.hook_text ?? "(no hook)")}
+                  {activeTab === "story" && ((video.framework_meta?.body_structure as string) ?? "(no story format)")}
+                </div>
+                {!video.video_file_url && (
+                  <button
+                    onClick={handleRefreshFile}
+                    className="mt-3 text-xs text-muted-foreground underline"
+                  >
+                    Video file expired — click to refresh
+                  </button>
+                )}
+              </div>
+            ) : video.analysis_status === "analyzing" ? (
+              <div className="border border-border rounded-lg p-4 flex items-center gap-3">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Analyzing… this takes 30-90 seconds</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                className="w-full px-4 py-3 bg-foreground text-background rounded-lg disabled:opacity-50 text-sm font-medium"
+              >
+                {analyzing ? "Starting…" : video.analysis_status === "failed" ? "Retry analyze (50 credits)" : "Analyze (50 credits)"}
+              </button>
+            )}
+            {video.analysis_status === "failed" && video.analysis_error && (
+              <div className="text-sm text-destructive">Failed: {video.analysis_error}</div>
+            )}
+            {analyzeError && <div className="text-sm text-destructive">{analyzeError}</div>}
+          </div>
 
           {/* Video preview — thumbnail only, watch on platform */}
           <div className="relative bg-black rounded-2xl overflow-hidden" style={{ aspectRatio: "9/16", maxHeight: "520px" }}>
@@ -639,6 +802,27 @@ export default function ViralVideoDetail() {
               <Wand2 className="w-4 h-4 mr-2" />
               Remix Script with AI Wizard
             </Button>
+          </div>
+
+          {/* ===== Card 3: Open in Canvas ===== */}
+          <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+                <ExternalLink className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground text-sm">Open in Canvas</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Deep-link this video into the AI Canvas workspace
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleOpenInCanvas}
+              className="w-full px-4 py-2 border border-border rounded-md text-sm hover:bg-muted/50 transition-colors"
+            >
+              Open in Canvas
+            </button>
           </div>
 
           {/* Info note */}
