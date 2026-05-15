@@ -98,17 +98,17 @@ const NODE_TYPE_META: Record<
   string,
   { label: string; Icon: React.ComponentType<any>; color: string }
 > = {
-  videoNode: { label: "Video", Icon: Video, color: "#f97316" },
-  textNoteNode: { label: "Text Note", Icon: StickyNote, color: "#a78bfa" },
-  researchNoteNode: { label: "Research", Icon: Search, color: "#34d399" },
-  hookGeneratorNode: { label: "Hook", Icon: Sparkles, color: "#facc15" },
-  brandGuideNode: { label: "Brand", Icon: Palette, color: "#f472b6" },
-  ctaBuilderNode: { label: "CTA", Icon: Megaphone, color: "#fb923c" },
-  instagramProfileNode: { label: "Instagram", Icon: Globe, color: "#818cf8" },
+  videoNode: { label: "Video", Icon: Video, color: "#E0A560" },
+  textNoteNode: { label: "Text Note", Icon: StickyNote, color: "rgba(20,20,20,0.45)" },
+  researchNoteNode: { label: "Research", Icon: Search, color: "#8FD0D5" },
+  hookGeneratorNode: { label: "Hook", Icon: Sparkles, color: "#E0A560" },
+  brandGuideNode: { label: "Brand", Icon: Palette, color: "rgba(20,20,20,0.45)" },
+  ctaBuilderNode: { label: "CTA", Icon: Megaphone, color: "#E0A560" },
+  instagramProfileNode: { label: "Instagram", Icon: Globe, color: "rgba(20,20,20,0.45)" },
   competitorProfileNode: {
     label: "Competitor",
     Icon: Globe,
-    color: "#818cf8",
+    color: "rgba(20,20,20,0.45)",
   },
   mediaNode: { label: "Media", Icon: Image, color: "#8FD0D5" },
   onboardingFormNode: {
@@ -116,7 +116,7 @@ const NODE_TYPE_META: Record<
     Icon: ClipboardList,
     color: "#8FD0D5",
   },
-  annotationNode: { label: "Annotation", Icon: Hash, color: "#94a3b8" },
+  annotationNode: { label: "Annotation", Icon: Hash, color: "rgba(20,20,20,0.45)" },
 };
 
 function getNodeLabel(node: Node): string {
@@ -153,7 +153,7 @@ const NodeDetailSheet = memo(
     const meta = NODE_TYPE_META[node.type as string] || {
       label: "Node",
       Icon: FileText,
-      color: "#94a3b8",
+      color: "rgba(20,20,20,0.45)",
     };
     const { Icon, color } = meta;
     const label = getNodeLabel(node);
@@ -183,11 +183,11 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Caption
                   </p>
-                  <p className="text-sm" style={{ color: "#e2e8f0" }}>
+                  <p className="text-sm" style={{ color: "#141414" }}>
                     {d.caption}
                   </p>
                 </div>
@@ -196,20 +196,20 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Transcription
                   </p>
                   <p
                     className="text-sm leading-relaxed"
-                    style={{ color: "#cbd5e1" }}
+                    style={{ color: "rgba(20,20,20,0.70)" }}
                   >
                     {d.transcription}
                   </p>
                 </div>
               )}
               {!d?.transcription && (
-                <p className="text-xs italic" style={{ color: "#64748b" }}>
+                <p className="text-xs italic" style={{ color: "rgba(20,20,20,0.45)" }}>
                   No transcription yet
                 </p>
               )}
@@ -221,13 +221,13 @@ const NodeDetailSheet = memo(
             <div>
               <p
                 className="text-xs font-medium mb-1"
-                style={{ color: "#94a3b8" }}
+                style={{ color: "rgba(20,20,20,0.45)" }}
               >
                 Note
               </p>
               <p
                 className="text-sm leading-relaxed whitespace-pre-wrap"
-                style={{ color: "#e2e8f0" }}
+                style={{ color: "#141414" }}
               >
                 {d?.noteText || d?.text || "(empty)"}
               </p>
@@ -241,11 +241,11 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Topic
                   </p>
-                  <p className="text-sm font-semibold" style={{ color: "#e2e8f0" }}>
+                  <p className="text-sm font-semibold" style={{ color: "#141414" }}>
                     {d.topic}
                   </p>
                 </div>
@@ -254,15 +254,15 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-2"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Facts
                   </p>
                   <ul className="space-y-1.5">
                     {d.facts.map((fact: string, i: number) => (
                       <li key={i} className="flex items-start gap-2">
-                        <span style={{ color: "#34d399", flexShrink: 0 }}>•</span>
-                        <span className="text-sm" style={{ color: "#cbd5e1" }}>
+                        <span style={{ color: "#8FD0D5", flexShrink: 0 }}>•</span>
+                        <span className="text-sm" style={{ color: "rgba(20,20,20,0.70)" }}>
                           {fact}
                         </span>
                       </li>
@@ -280,11 +280,11 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     File
                   </p>
-                  <p className="text-sm" style={{ color: "#e2e8f0" }}>
+                  <p className="text-sm" style={{ color: "#141414" }}>
                     {d.fileName}
                   </p>
                 </div>
@@ -293,11 +293,11 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Type
                   </p>
-                  <p className="text-sm" style={{ color: "#cbd5e1" }}>
+                  <p className="text-sm" style={{ color: "rgba(20,20,20,0.70)" }}>
                     {d.fileType}
                   </p>
                 </div>
@@ -306,19 +306,19 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Transcription
                   </p>
                   <p
                     className="text-sm leading-relaxed"
-                    style={{ color: "#cbd5e1" }}
+                    style={{ color: "rgba(20,20,20,0.70)" }}
                   >
                     {d.transcription}
                   </p>
                 </div>
               ) : (
-                <p className="text-xs italic" style={{ color: "#64748b" }}>
+                <p className="text-xs italic" style={{ color: "rgba(20,20,20,0.45)" }}>
                   No transcription yet
                 </p>
               )}
@@ -334,18 +334,18 @@ const NodeDetailSheet = memo(
                 <div key={key}>
                   <p
                     className="text-xs font-medium mb-1 capitalize"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     {key.replace(/_/g, " ")}
                   </p>
-                  <p className="text-sm" style={{ color: "#e2e8f0" }}>
+                  <p className="text-sm" style={{ color: "#141414" }}>
                     {String(val)}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs italic" style={{ color: "#64748b" }}>
+            <p className="text-xs italic" style={{ color: "rgba(20,20,20,0.45)" }}>
               No onboarding data
             </p>
           );
@@ -357,11 +357,11 @@ const NodeDetailSheet = memo(
               <div>
                 <p
                   className="text-xs font-medium mb-1"
-                  style={{ color: "#94a3b8" }}
+                  style={{ color: "rgba(20,20,20,0.45)" }}
                 >
                   Type
                 </p>
-                <p className="text-sm" style={{ color: "#e2e8f0" }}>
+                <p className="text-sm" style={{ color: "#141414" }}>
                   {meta.label}
                 </p>
               </div>
@@ -369,11 +369,11 @@ const NodeDetailSheet = memo(
                 <div>
                   <p
                     className="text-xs font-medium mb-1"
-                    style={{ color: "#94a3b8" }}
+                    style={{ color: "rgba(20,20,20,0.45)" }}
                   >
                     Label
                   </p>
-                  <p className="text-sm" style={{ color: "#e2e8f0" }}>
+                  <p className="text-sm" style={{ color: "#141414" }}>
                     {d.label}
                   </p>
                 </div>
@@ -397,19 +397,19 @@ const NodeDetailSheet = memo(
           style={{
             height: "80vh",
             background: "#1a1b1f",
-            borderTop: "1px solid rgba(255,255,255,0.08)",
+            borderTop: "1px solid rgba(20,20,20,0.08)",
           }}
         >
           {/* Header */}
           <div
             className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-            style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ borderBottom: "1px solid rgba(20,20,20,0.08)" }}
           >
             <div className="flex items-center gap-2">
               <Icon size={16} style={{ color }} />
               <span
                 className="font-semibold text-sm"
-                style={{ color: "#e2e8f0" }}
+                style={{ color: "#141414" }}
               >
                 {label}
               </span>
@@ -417,9 +417,9 @@ const NodeDetailSheet = memo(
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg"
-              style={{ background: "rgba(255,255,255,0.06)" }}
+              style={{ background: "rgba(20,20,20,0.06)" }}
             >
-              <X size={16} style={{ color: "#94a3b8" }} />
+              <X size={16} style={{ color: "rgba(20,20,20,0.45)" }} />
             </button>
           </div>
 
@@ -434,7 +434,7 @@ const NodeDetailSheet = memo(
           {/* Send to AI button */}
           <div
             className="flex-shrink-0 px-4 py-3"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ borderTop: "1px solid rgba(20,20,20,0.08)" }}
           >
             <button
               onClick={handleSendToAI}
@@ -520,11 +520,11 @@ const ChatSidebar = memo(({
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 flex-shrink-0"
-          style={{ height: 56, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ height: 56, borderBottom: "1px solid rgba(20,20,20,0.06)" }}
         >
-          <span style={{ color: "#fff", fontSize: 15, fontWeight: 600 }}>Chats</span>
+          <span style={{ color: "#141414", fontSize: 15, fontWeight: 600 }}>Chats</span>
           <button onClick={onClose}>
-            <X size={18} style={{ color: "#888" }} />
+            <X size={18} style={{ color: "rgba(20,20,20,0.45)" }} />
           </button>
         </div>
 
@@ -535,8 +535,8 @@ const ChatSidebar = memo(({
             className="w-full flex items-center gap-2 rounded-xl"
             style={{
               padding: "10px 12px",
-              background: "rgba(34,211,238,0.1)",
-              border: "1px solid rgba(34,211,238,0.2)",
+              background: "#f5f0e8",
+              border: "1px solid rgba(20,20,20,0.12)",
               color: "#8FD0D5",
               fontSize: 13,
               fontWeight: 500,
@@ -555,7 +555,7 @@ const ChatSidebar = memo(({
             <div key={dateLabel} className="mb-3">
               <div
                 style={{
-                  color: "#555",
+                  color: "rgba(20,20,20,0.35)",
                   fontSize: 9,
                   textTransform: "uppercase",
                   letterSpacing: 1,
@@ -575,9 +575,9 @@ const ChatSidebar = memo(({
                       padding: "9px 12px",
                       borderRadius: 10,
                       fontSize: 12,
-                      color: isActive ? "#8FD0D5" : "#999",
-                      background: isActive ? "rgba(34,211,238,0.1)" : "transparent",
-                      border: isActive ? "1px solid rgba(34,211,238,0.2)" : "1px solid transparent",
+                      color: isActive ? "#8FD0D5" : "rgba(20,20,20,0.40)",
+                      background: isActive ? "#f5f0e8" : "transparent",
+                      border: isActive ? "1px solid rgba(20,20,20,0.12)" : "1px solid transparent",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -600,12 +600,12 @@ const ChatSidebar = memo(({
         {/* Footer — back to canvas */}
         <div
           className="flex-shrink-0 px-4 py-3"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ borderTop: "1px solid rgba(20,20,20,0.06)" }}
         >
           <button
             onClick={() => { onBack(); onClose(); }}
             className="flex items-center gap-2"
-            style={{ color: "#888", fontSize: 12 }}
+            style={{ color: "rgba(20,20,20,0.45)", fontSize: 12 }}
           >
             <ArrowLeft size={14} /> Back to canvas
           </button>
@@ -705,7 +705,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
 
   const dividerStyle: React.CSSProperties = {
     height: 1,
-    background: "rgba(255,255,255,0.06)",
+    background: "rgba(20,20,20,0.06)",
     margin: "4px 0",
   };
 
@@ -724,10 +724,10 @@ const PlusSheet = memo((props: PlusSheetProps) => {
         />
         <div style={sheetStyle}>
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
-            <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+            <div style={{ width: 36, height: 4, background: "rgba(20,20,20,0.20)", borderRadius: 2 }} />
           </div>
           <div style={{ padding: "0 16px 16px" }}>
-            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>AI Model</p>
+            <p style={{ color: "rgba(20,20,20,0.45)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>AI Model</p>
             {Object.entries(MODEL_LABELS).map(([key, label]) => (
               <button
                 key={key}
@@ -736,16 +736,16 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   ...menuItemStyle,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: aiModel === key ? "rgba(34,211,238,0.1)" : "none",
+                  background: aiModel === key ? "#f5f0e8" : "none",
                   marginBottom: 2,
                 }}
               >
-                <span style={{ ...iconStyle, color: aiModel === key ? "#8FD0D5" : "#e2e8f0" }}>{aiModel === key ? "✓" : " "}</span>
-                <span style={{ color: aiModel === key ? "#8FD0D5" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
+                <span style={{ ...iconStyle, color: aiModel === key ? "#8FD0D5" : "#141414" }}>{aiModel === key ? "✓" : " "}</span>
+                <span style={{ color: aiModel === key ? "#8FD0D5" : "#141414", fontSize: 14, fontWeight: 500 }}>{label}</span>
               </button>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <button onClick={() => setSubPicker(null)} style={{ color: "#94a3b8", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+              <button onClick={() => setSubPicker(null)} style={{ color: "rgba(20,20,20,0.45)", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
             </div>
           </div>
         </div>
@@ -762,10 +762,10 @@ const PlusSheet = memo((props: PlusSheetProps) => {
         />
         <div style={sheetStyle}>
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
-            <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+            <div style={{ width: 36, height: 4, background: "rgba(20,20,20,0.20)", borderRadius: 2 }} />
           </div>
           <div style={{ padding: "0 16px 16px" }}>
-            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>Script Format</p>
+            <p style={{ color: "rgba(20,20,20,0.45)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>Script Format</p>
             {Object.entries(FORMAT_LABELS).map(([key, label]) => (
               <button
                 key={key}
@@ -774,16 +774,16 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   ...menuItemStyle,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: format === key ? "rgba(34,211,238,0.1)" : "none",
+                  background: format === key ? "#f5f0e8" : "none",
                   marginBottom: 2,
                 }}
               >
-                <span style={{ ...iconStyle, color: format === key ? "#8FD0D5" : "#e2e8f0" }}>{format === key ? "✓" : " "}</span>
-                <span style={{ color: format === key ? "#8FD0D5" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{label}</span>
+                <span style={{ ...iconStyle, color: format === key ? "#8FD0D5" : "#141414" }}>{format === key ? "✓" : " "}</span>
+                <span style={{ color: format === key ? "#8FD0D5" : "#141414", fontSize: 14, fontWeight: 500 }}>{label}</span>
               </button>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <button onClick={() => setSubPicker(null)} style={{ color: "#94a3b8", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+              <button onClick={() => setSubPicker(null)} style={{ color: "rgba(20,20,20,0.45)", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
             </div>
           </div>
         </div>
@@ -800,10 +800,10 @@ const PlusSheet = memo((props: PlusSheetProps) => {
         />
         <div style={sheetStyle}>
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
-            <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+            <div style={{ width: 36, height: 4, background: "rgba(20,20,20,0.20)", borderRadius: 2 }} />
           </div>
           <div style={{ padding: "0 16px 16px" }}>
-            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>Language</p>
+            <p style={{ color: "rgba(20,20,20,0.45)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>Language</p>
             {(["en", "es"] as const).map((lang) => (
               <button
                 key={lang}
@@ -812,16 +812,16 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   ...menuItemStyle,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: language === lang ? "rgba(34,211,238,0.1)" : "none",
+                  background: language === lang ? "#f5f0e8" : "none",
                   marginBottom: 2,
                 }}
               >
-                <span style={{ ...iconStyle, color: language === lang ? "#8FD0D5" : "#e2e8f0" }}>{language === lang ? "✓" : " "}</span>
-                <span style={{ color: language === lang ? "#8FD0D5" : "#e2e8f0", fontSize: 14, fontWeight: 500 }}>{lang === "en" ? "English" : "Español"}</span>
+                <span style={{ ...iconStyle, color: language === lang ? "#8FD0D5" : "#141414" }}>{language === lang ? "✓" : " "}</span>
+                <span style={{ color: language === lang ? "#8FD0D5" : "#141414", fontSize: 14, fontWeight: 500 }}>{lang === "en" ? "English" : "Español"}</span>
               </button>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <button onClick={() => setSubPicker(null)} style={{ color: "#94a3b8", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+              <button onClick={() => setSubPicker(null)} style={{ color: "rgba(20,20,20,0.45)", fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
             </div>
           </div>
         </div>
@@ -842,7 +842,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
       <div style={sheetStyle}>
         {/* Handle bar */}
         <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
-          <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+          <div style={{ width: 36, height: 4, background: "rgba(20,20,20,0.20)", borderRadius: 2 }} />
         </div>
 
         <div style={{ padding: "0 16px 24px" }}>
@@ -866,15 +866,15 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                 height: 64,
                 flexShrink: 0,
                 borderRadius: 12,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(20,20,20,0.06)",
+                border: "1px solid rgba(20,20,20,0.10)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
               }}
             >
-              <Camera size={22} style={{ color: "#ccc" }} />
+              <Camera size={22} style={{ color: "rgba(20,20,20,0.45)" }} />
             </button>
             {/* Placeholder thumbnail buttons */}
             {[0, 1, 2, 3].map((i) => (
@@ -886,15 +886,15 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   height: 64,
                   flexShrink: 0,
                   borderRadius: 12,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  background: "rgba(20,20,20,0.04)",
+                  border: "1px solid rgba(20,20,20,0.07)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
                 }}
               >
-                <Image size={18} style={{ color: "#555" }} />
+                <Image size={18} style={{ color: "rgba(20,20,20,0.35)" }} />
               </button>
             ))}
           </div>
@@ -906,29 +906,29 @@ const PlusSheet = memo((props: PlusSheetProps) => {
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onGenerateScript)}>
               <span style={iconStyle}><Film size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Generate script</div>
-                <div style={{ color: "#666", fontSize: 11 }}>Build from canvas context</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>Generate script</div>
+                <div style={{ color: "rgba(20,20,20,0.45)", fontSize: 11 }}>Build from canvas context</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onImageMode)}>
-              <span style={iconStyle}><Image size={18} style={{ color: "#a855f7" }} /></span>
+              <span style={iconStyle}><Image size={18} style={{ color: "rgba(20,20,20,0.45)" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Create image</div>
-                <div style={{ color: "#666", fontSize: 11 }}>Visualize with DALL-E 3</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>Create image</div>
+                <div style={{ color: "rgba(20,20,20,0.45)", fontSize: 11 }}>Visualize with DALL-E 3</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onResearch)}>
               <span style={iconStyle}><Search size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Deep research</div>
-                <div style={{ color: "#666", fontSize: 11 }}>Search the web for trends</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>Deep research</div>
+                <div style={{ color: "rgba(20,20,20,0.45)", fontSize: 11 }}>Search the web for trends</div>
               </div>
             </button>
             <button style={menuItemStyle} onClick={() => handleActionAndClose(onVoiceInput)}>
               <span style={iconStyle}><Mic size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Voice input</div>
-                <div style={{ color: "#666", fontSize: 11 }}>Speak your message</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>Voice input</div>
+                <div style={{ color: "rgba(20,20,20,0.45)", fontSize: 11 }}>Speak your message</div>
               </div>
             </button>
           </div>
@@ -940,21 +940,21 @@ const PlusSheet = memo((props: PlusSheetProps) => {
             <button style={menuItemStyle} onClick={() => setSubPicker("model")}>
               <span style={iconStyle}><Zap size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>AI Model</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>AI Model</div>
               </div>
               <span style={{ color: "#8FD0D5", fontSize: 12 }}>{MODEL_LABELS[aiModel] ?? aiModel} ›</span>
             </button>
             <button style={menuItemStyle} onClick={() => setSubPicker("format")}>
               <span style={iconStyle}><FileText size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Script format</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>Script format</div>
               </div>
               <span style={{ color: "#8FD0D5", fontSize: 12 }}>{FORMAT_LABELS[format] ?? format} ›</span>
             </button>
             <button style={menuItemStyle} onClick={() => setSubPicker("language")}>
               <span style={iconStyle}><Globe size={18} style={{ color: "#8FD0D5" }} /></span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>Language</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>Language</div>
               </div>
               <span style={{ color: "#8FD0D5", fontSize: 12 }}>{language.toUpperCase()} ›</span>
             </button>
@@ -969,17 +969,17 @@ PlusSheet.displayName = "PlusSheet";
 // ── NodePickerSheet (add canvas nodes from top-right "+") ────────────────
 
 const NODE_PICKER_ITEMS: { type: string; label: string; desc: string; Icon: React.ComponentType<any>; color: string }[] = [
-  { type: "videoNode", label: "Video", desc: "Add a video to analyze", Icon: Video, color: "#f97316" },
-  { type: "textNoteNode", label: "Text Note", desc: "Add a text note", Icon: StickyNote, color: "#a78bfa" },
-  { type: "researchNoteNode", label: "Research Note", desc: "Write research notes", Icon: Search, color: "#34d399" },
-  { type: "competitorProfileNode", label: "Competitor Profile", desc: "Analyze a competitor", Icon: Globe, color: "#818cf8" },
-  { type: "instagramProfileNode", label: "Instagram Profile", desc: "Browse IG posts", Icon: Globe, color: "#e879f9" },
+  { type: "videoNode", label: "Video", desc: "Add a video to analyze", Icon: Video, color: "#E0A560" },
+  { type: "textNoteNode", label: "Text Note", desc: "Add a text note", Icon: StickyNote, color: "rgba(20,20,20,0.45)" },
+  { type: "researchNoteNode", label: "Research Note", desc: "Write research notes", Icon: Search, color: "#8FD0D5" },
+  { type: "competitorProfileNode", label: "Competitor Profile", desc: "Analyze a competitor", Icon: Globe, color: "rgba(20,20,20,0.45)" },
+  { type: "instagramProfileNode", label: "Instagram Profile", desc: "Browse IG posts", Icon: Globe, color: "rgba(20,20,20,0.45)" },
   { type: "mediaNode", label: "Media", desc: "Upload image or video", Icon: Image, color: "#8FD0D5" },
-  { type: "hookGeneratorNode", label: "Hook Generator", desc: "Generate viral hooks", Icon: Sparkles, color: "#facc15" },
-  { type: "brandGuideNode", label: "Brand Guide", desc: "Define brand voice", Icon: Palette, color: "#f472b6" },
-  { type: "ctaBuilderNode", label: "CTA Builder", desc: "Build calls to action", Icon: Megaphone, color: "#fb923c" },
+  { type: "hookGeneratorNode", label: "Hook Generator", desc: "Generate viral hooks", Icon: Sparkles, color: "#E0A560" },
+  { type: "brandGuideNode", label: "Brand Guide", desc: "Define brand voice", Icon: Palette, color: "rgba(20,20,20,0.45)" },
+  { type: "ctaBuilderNode", label: "CTA Builder", desc: "Build calls to action", Icon: Megaphone, color: "#E0A560" },
   { type: "onboardingFormNode", label: "Onboarding Form", desc: "View client onboarding", Icon: ClipboardList, color: "#8FD0D5" },
-  { type: "annotationNode", label: "Annotation", desc: "Add annotation tag", Icon: Hash, color: "#94a3b8" },
+  { type: "annotationNode", label: "Annotation", desc: "Add annotation tag", Icon: Hash, color: "rgba(20,20,20,0.45)" },
 ];
 
 const NodePickerSheet = memo(({ open, onClose, onAddNode }: { open: boolean; onClose: () => void; onAddNode: (type: string) => void }) => {
@@ -1003,10 +1003,10 @@ const NodePickerSheet = memo(({ open, onClose, onAddNode }: { open: boolean; onC
         }}
       >
         <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 6 }}>
-          <div style={{ width: 36, height: 4, background: "#444", borderRadius: 2 }} />
+          <div style={{ width: 36, height: 4, background: "rgba(20,20,20,0.20)", borderRadius: 2 }} />
         </div>
         <div style={{ padding: "0 16px 8px" }}>
-          <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>Add Node</span>
+          <span style={{ color: "#141414", fontSize: 14, fontWeight: 600 }}>Add Node</span>
         </div>
         <div style={{ padding: "0 16px 24px" }}>
           {NODE_PICKER_ITEMS.map((item) => (
@@ -1028,8 +1028,8 @@ const NodePickerSheet = memo(({ open, onClose, onAddNode }: { open: boolean; onC
                 <item.Icon size={18} style={{ color: item.color }} />
               </span>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>{item.label}</div>
-                <div style={{ color: "#666", fontSize: 11 }}>{item.desc}</div>
+                <div style={{ color: "#141414", fontSize: 14, fontWeight: 500 }}>{item.label}</div>
+                <div style={{ color: "rgba(20,20,20,0.45)", fontSize: 11 }}>{item.desc}</div>
               </div>
             </button>
           ))}
@@ -1287,7 +1287,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
         className="flex items-center justify-between px-4 flex-shrink-0"
         style={{
           height: 48,
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          borderBottom: "1px solid rgba(20,20,20,0.06)",
           background: "#0f0f1e",
         }}
       >
@@ -1302,16 +1302,16 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
             borderRadius: 8,
           }}
         >
-          <Menu size={16} style={{ color: "#ccc" }} />
+          <Menu size={16} style={{ color: "rgba(20,20,20,0.45)" }} />
         </button>
 
         {/* Center title */}
         <span
           className="font-semibold"
-          style={{ color: "#fff", fontSize: 14 }}
+          style={{ color: "#141414", fontSize: 14 }}
         >
           AI Assistant{" "}
-          <span style={{ color: "#666", fontSize: 11 }}>▾</span>
+          <span style={{ color: "rgba(20,20,20,0.40)", fontSize: 11 }}>▾</span>
         </span>
 
         {/* Add node */}
@@ -1321,7 +1321,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           style={{
             width: 32,
             height: 32,
-            border: "1px solid rgba(34,211,238,0.25)",
+            border: "1px solid rgba(20,20,20,0.12)",
             borderRadius: "50%",
           }}
         >
@@ -1364,7 +1364,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <div className="text-xs" style={{ color: "#64748b" }}>
+            <div className="text-xs" style={{ color: "rgba(20,20,20,0.45)" }}>
               Loading chat...
             </div>
           </div>
@@ -1382,8 +1382,8 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
         <div
           className="flex items-end gap-2"
           style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(20,20,20,0.05)",
+            border: "1px solid rgba(20,20,20,0.10)",
             borderRadius: 24,
             padding: "10px 14px",
           }}
@@ -1431,7 +1431,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
               background: "transparent",
               border: "none",
               outline: "none",
-              color: "#fff",
+              color: "#141414",
               fontSize: 14,
               resize: "none",
               minHeight: 20,
@@ -1474,7 +1474,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
                 justifyContent: "center",
               }}
             >
-              <Mic size={20} style={{ color: "#888" }} />
+              <Mic size={20} style={{ color: "rgba(20,20,20,0.38)" }} />
             </button>
           )}
         </div>
