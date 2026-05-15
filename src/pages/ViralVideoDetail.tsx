@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import PageTransition from "@/components/PageTransition";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, ExternalLink, Flame, TrendingUp, Eye, Zap, Clock,
-  Archive, Wand2, Loader2, CheckCircle2, AlertCircle,
-  Mic, Film, AlignLeft, ScanSearch,
+  ArrowLeft, ExternalLink,
+  Archive, Wand2, Loader2, CheckCircle2,
 } from "lucide-react";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { Button } from "@/components/ui/button";
@@ -103,26 +102,8 @@ function getOutlierColor(score: number): string {
   return "text-gray-400";
 }
 
-// ==================== STAT CARD ====================
-function StatCard({ label, value, icon: Icon, color }: {
-  label: string; value: string; icon: any; color?: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-card border border-border">
-      <Icon className={cn("w-4 h-4", color || "text-muted-foreground")} />
-      <span className={cn("text-sm font-bold tabular-nums", color || "text-foreground")}>{value}</span>
-      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
-    </div>
-  );
-}
 
 const VPS_API = "https://connectacreators.com/api";
-
-function getStreamUrl(video: ViralVideo): string {
-  const url = video.video_url ?? "";
-  // Always stream without caching to disk — pass nocache=1 so VPS streams but never saves mp4
-  return `${VPS_API}/stream-reel?url=${encodeURIComponent(url)}&nocache=1`;
-}
 
 // ==================== HELPERS ====================
 function renderVisualSegments(meta: Record<string, unknown> | null | undefined): string {
@@ -141,7 +122,7 @@ export default function ViralVideoDetail() {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
-  const { clients, loading: clientsLoading } = useClients(!!user);
+  const { clients } = useClients(!!user);
   const { showOutOfCreditsModal } = useOutOfCredits();
 
   const [video, setVideo] = useState<ViralVideo | null>(null);
@@ -159,7 +140,6 @@ export default function ViralVideoDetail() {
   // Save to Vault state
   const [saveClientId, setSaveClientId] = useState("");
   const [saveMode, setSaveMode] = useState<"idle" | "transcribing" | "analyzing" | "saving" | "done" | "error">("idle");
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Remix state
   const [remixClientId, setRemixClientId] = useState("");
@@ -251,7 +231,6 @@ export default function ViralVideoDetail() {
   const handleSaveToVault = async () => {
     if (!video || !saveClientId) return;
     setSaveMode("transcribing");
-    setSaveError(null);
 
     try {
       const token = await getAuthToken();
@@ -309,7 +288,6 @@ export default function ViralVideoDetail() {
       setSaveMode("done");
       toast.success("Saved to Vault!");
     } catch (e: any) {
-      setSaveError(e.message || "Failed to save to vault");
       setSaveMode("error");
     }
   };
@@ -456,70 +434,30 @@ export default function ViralVideoDetail() {
               onExpired={handleRefreshFile}
             />
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-4 gap-2">
-              <StatCard
-                label="Outlier"
-                value={fmtOutlier(video.outlier_score)}
-                icon={video.outlier_score >= 10 ? Flame : TrendingUp}
-                color={video.outlier_score >= 10 ? "text-orange-400" : outlierColor}
-              />
-              <StatCard
-                label="Views"
-                value={fmtViews(video.views_count)}
-                icon={Eye}
-              />
-              <StatCard
-                label="Engagement"
-                value={`${video.engagement_rate.toFixed(1)}%`}
-                icon={Zap}
-              />
-              <StatCard
-                label="Posted"
-                value={timeAgo(video.posted_at)}
-                icon={Clock}
-              />
-            </div>
-
-            {/* Format Detection Badge */}
-            {detectingFormat && !formatDetection && (
-              <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
-                <ScanSearch className="w-4 h-4 animate-pulse flex-shrink-0" />
-                Analyzing video format...
-              </div>
-            )}
-            {formatDetection && (() => {
-              const fmt = formatDetection.format;
-              const pct = Math.round(formatDetection.confidence * 100);
-              const cfg: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
-                TALKING_HEAD: { icon: Mic, label: "Talking Head", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/25" },
-                VOICEOVER: { icon: Film, label: "Voiceover / B-Roll", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/25" },
-                TEXT_STORY: { icon: AlignLeft, label: "Text Story", color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/25" },
-              };
-              const c = cfg[fmt] || cfg.TALKING_HEAD;
-              return (
-                <div className={cn("flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm", c.bg, c.border)}>
-                  <c.icon className={cn("w-4 h-4 flex-shrink-0", c.color)} />
-                  <span className={cn("font-semibold", c.color)}>{c.label}</span>
-                  <span className="text-muted-foreground text-xs ml-1">{pct}% confidence</span>
-                  {fmt === "TEXT_STORY" && (
-                    <span className="ml-auto text-xs text-orange-400/80">Minimal spoken audio detected</span>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Caption */}
-            {video.caption && (
-              <div className="p-3 rounded-xl bg-card border border-border">
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{video.caption}</p>
-              </div>
-            )}
-
-            {/* Channel line */}
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground font-medium">@{video.channel_username}</span>
-              <span className="text-muted-foreground capitalize">{video.platform}</span>
+            {/* Single compact metadata line */}
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className={cn("font-semibold tabular-nums", video.outlier_score >= 10 ? "text-orange-400" : outlierColor)}>
+                {fmtOutlier(video.outlier_score)}
+              </span>
+              <span>·</span>
+              <span className="tabular-nums">{fmtViews(video.views_count)} views</span>
+              <span>·</span>
+              <span className="tabular-nums">{video.engagement_rate.toFixed(1)}%</span>
+              <span>·</span>
+              <span>{timeAgo(video.posted_at)}</span>
+              {formatDetection && (() => {
+                const fmt = formatDetection.format;
+                const cfg: Record<string, { label: string; color: string }> = {
+                  TALKING_HEAD: { label: "Talking Head", color: "text-blue-400" },
+                  VOICEOVER: { label: "Voiceover", color: "text-purple-400" },
+                  TEXT_STORY: { label: "Text Story", color: "text-orange-400" },
+                };
+                const c = cfg[fmt] || cfg.TALKING_HEAD;
+                return (<><span>·</span><span className={c.color}>{c.label}</span></>);
+              })()}
+              {detectingFormat && !formatDetection && (
+                <><span>·</span><span className="italic opacity-60">detecting format…</span></>
+              )}
             </div>
           </div>
 
@@ -589,117 +527,93 @@ export default function ViralVideoDetail() {
           </div>
         </div>
 
-        {/* ===== Action row: compact horizontal cards under the grid ===== */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* ===== Action row: ghost buttons, right-aligned ===== */}
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
 
-          {/* Card 1: Save to Vault */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <Archive className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">Save to Vault</p>
-              {clientOptions.length > 1 ? (
-                <select
-                  value={saveClientId}
-                  onChange={(e) => setSaveClientId(e.target.value)}
-                  className="mt-0.5 w-full h-6 rounded border border-border bg-background text-[11px] px-1 text-foreground"
-                >
-                  <option value="">Select vault...</option>
-                  {clientOptions.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              ) : clientOptions.length === 1 ? (
-                <p className="text-[11px] text-muted-foreground truncate">{clientOptions[0].name}</p>
-              ) : null}
-            </div>
-            <div className="flex-shrink-0">
-              {saveMode === "idle" && (
-                <Button
-                  onClick={handleSaveToVault}
-                  disabled={!saveClientId || clientsLoading}
-                  size="sm"
-                  className="bg-amber-500 hover:bg-amber-600 text-white text-xs h-7 px-2.5"
-                >
-                  Save
-                </Button>
-              )}
-              {(saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving") && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="hidden sm:inline">
-                    {saveMode === "transcribing" ? "Transcribing…" : saveMode === "analyzing" ? "Analyzing…" : "Saving…"}
-                  </span>
-                </div>
-              )}
-              {saveMode === "done" && (
-                <div className="flex items-center gap-1 text-xs text-emerald-400">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Saved!</span>
-                </div>
-              )}
-              {saveMode === "error" && (
-                <button
-                  onClick={() => { setSaveMode("idle"); setSaveError(null); }}
-                  className="text-xs text-destructive underline"
-                >
-                  Retry
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Card 2: Remix Script */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-            <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <Wand2 className="w-4 h-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">Remix Script</p>
-              {clientOptions.length > 1 ? (
-                <select
-                  value={remixClientId}
-                  onChange={(e) => setRemixClientId(e.target.value)}
-                  className="mt-0.5 w-full h-6 rounded border border-border bg-background text-[11px] px-1 text-foreground"
-                >
-                  <option value="">Select client...</option>
-                  {clientOptions.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              ) : clientOptions.length === 1 ? (
-                <p className="text-[11px] text-muted-foreground truncate">{clientOptions[0].name}</p>
-              ) : null}
-            </div>
+          {/* Save to Vault */}
+          {clientOptions.length === 1 ? (
             <Button
-              onClick={handleRemixScript}
-              disabled={!remixClientId || clientsLoading}
+              onClick={handleSaveToVault}
+              disabled={saveMode !== "idle"}
+              variant="ghost"
               size="sm"
-              variant="outline"
-              className="flex-shrink-0 text-xs h-7 px-2.5"
+              className="gap-2"
             >
-              <Wand2 className="w-3.5 h-3.5 mr-1" />
-              Remix
+              {saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving" ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : saveMode === "done" ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+              {saveMode === "idle" ? "Save to Vault" :
+               saveMode === "transcribing" ? "Transcribing…" :
+               saveMode === "analyzing" ? "Analyzing…" :
+               saveMode === "saving" ? "Saving…" :
+               saveMode === "done" ? "Saved" :
+               saveMode === "error" ? "Failed — retry" : "Save to Vault"}
             </Button>
-          </div>
+          ) : clientOptions.length > 1 ? (
+            <div className="flex items-center gap-1">
+              <select
+                value={saveClientId}
+                onChange={(e) => setSaveClientId(e.target.value)}
+                className="h-8 rounded-md border border-border bg-background text-xs px-2"
+              >
+                <option value="">Vault…</option>
+                {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <Button
+                onClick={handleSaveToVault}
+                disabled={!saveClientId || saveMode !== "idle"}
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+              >
+                {saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving" ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : saveMode === "done" ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <Archive className="w-4 h-4" />
+                )}
+                {saveMode === "idle" ? "Save" :
+                 saveMode === "transcribing" ? "Transcribing…" :
+                 saveMode === "analyzing" ? "Analyzing…" :
+                 saveMode === "saving" ? "Saving…" :
+                 saveMode === "done" ? "Saved" :
+                 saveMode === "error" ? "Retry" : "Save"}
+              </Button>
+            </div>
+          ) : null}
 
-          {/* Card 3: Open in Canvas */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-              <ExternalLink className="w-4 h-4 text-muted-foreground" />
+          {/* Remix Script */}
+          {clientOptions.length === 1 ? (
+            <Button onClick={handleRemixScript} variant="ghost" size="sm" className="gap-2">
+              <Wand2 className="w-4 h-4" />
+              Remix Script
+            </Button>
+          ) : clientOptions.length > 1 ? (
+            <div className="flex items-center gap-1">
+              <select
+                value={remixClientId}
+                onChange={(e) => setRemixClientId(e.target.value)}
+                className="h-8 rounded-md border border-border bg-background text-xs px-2"
+              >
+                <option value="">Client…</option>
+                {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <Button onClick={handleRemixScript} disabled={!remixClientId} variant="ghost" size="sm" className="gap-2">
+                <Wand2 className="w-4 h-4" />
+                Remix
+              </Button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">Open in Canvas</p>
-              <p className="text-[11px] text-muted-foreground truncate">AI Canvas workspace</p>
-            </div>
-            <button
-              onClick={handleOpenInCanvas}
-              className="flex-shrink-0 px-2.5 h-7 border border-border rounded-md text-xs hover:bg-muted/50 transition-colors"
-            >
-              Open
-            </button>
-          </div>
+          ) : null}
+
+          {/* Open in Canvas */}
+          <Button onClick={handleOpenInCanvas} variant="ghost" size="sm" className="gap-2">
+            Open in Canvas
+          </Button>
         </div>
       </div>
     </PageTransition>
