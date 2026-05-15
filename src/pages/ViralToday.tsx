@@ -12,6 +12,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -173,6 +174,7 @@ interface ViralVideo {
   is_featured_framework?: boolean;
   niche_tags?: string[];
   framework_score?: number;
+  analysis_status?: "pending" | "analyzing" | "analyzed" | "failed" | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -525,6 +527,8 @@ function VideoCard({
   const outlierColor = getOutlierColor(video.outlier_score);
   const [imgError, setImgError] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [localStatus, setLocalStatus] = useState<string | null | undefined>(video.analysis_status);
+  const [analyzing, setAnalyzing] = useState(false);
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -550,6 +554,62 @@ function VideoCard({
       if (timer) clearTimeout(timer);
     };
   }, [video.id, onSeen]);
+
+  // Card-level realtime: update analysis_status badge when analysis completes
+  useEffect(() => {
+    if (!video.id) return;
+    const channel = supabase
+      .channel(`viral_videos_card:${video.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "viral_videos", filter: `id=eq.${video.id}` },
+        (payload) => {
+          const next = payload.new as ViralVideo;
+          setLocalStatus(next.analysis_status);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [video.id]);
+
+  const handleAnalyze = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAnalyzing(true);
+    setLocalStatus("analyzing");
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-viral-video-user`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ viral_video_id: video.id }),
+        },
+      );
+      if (res.status === 402) {
+        setLocalStatus(video.analysis_status);
+        toast.error("Not enough credits to analyze this video");
+        return;
+      }
+      if (res.status === 409) {
+        // Another analyze already in flight — keep "analyzing" state; realtime will update us.
+        return;
+      }
+      if (!res.ok) {
+        setLocalStatus(video.analysis_status);
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string; error?: string }).message || (err as { message?: string; error?: string }).error || `HTTP ${res.status}`);
+      }
+      toast.success("Analyzing…");
+      window.dispatchEvent(new Event("credits-updated"));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Analyze failed";
+      toast.error(message);
+      setLocalStatus(video.analysis_status);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -679,6 +739,43 @@ function VideoCard({
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
           <Play className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200" />
+        </div>
+
+        {/* Bottom-right: analyze status badge */}
+        <div className="absolute bottom-2 right-2 z-10">
+          {(() => {
+            const status = localStatus ?? video.analysis_status;
+            if (status === "analyzed") {
+              return (
+                <div
+                  className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10"
+                  title="Already analyzed"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Analyzed</span>
+                </div>
+              );
+            }
+            if (status === "analyzing") {
+              return (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Analyzing…</span>
+                </div>
+              );
+            }
+            return (
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/90 hover:bg-cyan-500 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
+                title="Analyze this video (50 credits)"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>Analyze · 50c</span>
+              </button>
+            );
+          })()}
         </div>
       </div>
 
