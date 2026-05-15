@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import type { BuildSession } from "../_shared/build-session/types.ts";
 import { updateBuildSession } from "../_shared/build-session/service.ts";
+import { canonicalizeVideoUrl } from "../_shared/canonicalize-video-url.ts";
 
 // ── Context passed to every handler ──────────────────────────────────────────
 
@@ -523,44 +524,81 @@ export async function handleAddUrlToViralDatabase(
   if (await checkPaused(ctx)) return "Build is paused. User will resume when ready.";
   await logBuildProgress(ctx, `Adding ${input.url} to the Viral Database...`, "Adding to viral DB...");
 
-  const usernameMatch = input.url.match(/instagram\.com\/(?:reel\/)?@?([^/?]+)/i) ??
+  const canonical = canonicalizeVideoUrl(input.url);
+  if (!canonical) {
+    return `Failed to add URL to viral database: unsupported URL format (${input.url})`;
+  }
+
+  // Extract channel username (best effort) — same patterns as before.
+  const usernameMatch =
+    input.url.match(/instagram\.com\/(?:reel\/)?@?([^/?]+)/i) ??
     input.url.match(/tiktok\.com\/@([^/?]+)/i);
   const channelUsername = usernameMatch?.[1]?.replace(/^@/, "") ?? "unknown";
 
-  const platform = input.url.includes("tiktok")
-    ? "tiktok"
-    : /youtube\.com|youtu\.be/.test(input.url)
-      ? "youtube"
-      : "instagram";
-
-  const { data: inserted, error } = await ctx.adminClient
+  // Find existing row.
+  const { data: existing } = await ctx.adminClient
     .from("viral_videos")
-    .insert({
-      video_url: input.url,
-      channel_username: channelUsername,
-      caption: "(user-submitted — pending enrichment)",
-      platform,
-      views_count: 0,
-      outlier_score: null,
-      user_submitted: true,
-      submitted_by: ctx.userId || null,
-      transcript_status: "pending",
-    })
-    .select("id")
-    .single();
+    .select("id, channel_username")
+    .eq("platform", canonical.platform)
+    .eq("apify_video_id", canonical.postId)
+    .maybeSingle();
 
-  if (error || !inserted) {
-    return `Failed to add URL to viral database: ${error?.message ?? "unknown error"}`;
+  let rowId: string;
+  if (existing) {
+    rowId = (existing as { id: string }).id;
+  } else {
+    const { data: inserted, error } = await ctx.adminClient
+      .from("viral_videos")
+      .insert({
+        platform: canonical.platform,
+        apify_video_id: canonical.postId,
+        video_url: canonical.normalizedUrl,
+        channel_username: channelUsername,
+        caption: "(user-submitted — pending enrichment)",
+        views_count: 0,
+        likes_count: 0,
+        comments_count: 0,
+        outlier_score: 0,
+        user_submitted: true,
+        submitted_by: ctx.userId || null,
+        analysis_status: "pending",
+        scraped_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      // 23505 race — another resolver won.
+      if ((error as { code?: string }).code === "23505") {
+        const { data: winner } = await ctx.adminClient
+          .from("viral_videos")
+          .select("id")
+          .eq("platform", canonical.platform)
+          .eq("apify_video_id", canonical.postId)
+          .single();
+        if (winner) {
+          rowId = (winner as { id: string }).id;
+        } else {
+          return `Failed to add URL to viral database: ${error.message}`;
+        }
+      } else {
+        return `Failed to add URL to viral database: ${error.message}`;
+      }
+    } else if (!inserted) {
+      return "Failed to add URL to viral database: insert returned no row";
+    } else {
+      rowId = (inserted as { id: string }).id;
+    }
   }
 
   if (ctx.buildSession) {
     await updateBuildSession(ctx.adminClient, ctx.buildSession.id, {
-      currentFrameworkVideoId: inserted.id,
+      currentFrameworkVideoId: rowId,
       phase: "URL added to viral DB",
     });
   }
 
-  return `Added ${input.url} to viral database. Video ID: ${inserted.id}. @${channelUsername}. Use this ID as the framework reference.`;
+  return `Added ${canonical.normalizedUrl} to viral database. Video ID: ${rowId}. @${channelUsername}. Use this ID as the framework reference.`;
 }
 
 // ── Tool 6: add_video_to_canvas ───────────────────────────────────────────────
