@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { RecentChatsPanel } from "@/components/dashboard/RecentChatsPanel";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -429,6 +430,9 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           );
         })}
       </nav>
+
+      {/* Hybrid chats panel — only renders when on /ai (Recent chats + New chat) */}
+      {useLocation().pathname === "/ai" && <RecentChatsPanel />}
 
       <div className="border-t border-[rgba(255,255,255,0.06)] p-3 space-y-1 relative z-10">
         {credits?.subscription_status === "trialing" && credits?.trial_ends_at && (() => {
