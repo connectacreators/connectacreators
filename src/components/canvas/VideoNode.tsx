@@ -1,10 +1,11 @@
-import { memo, useState, useEffect, useRef, useCallback } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
-import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Play, Pause, Eye, Type, Music2, Zap, MicOff, Clock, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Eye, Type, Music2, Zap, MicOff, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getAuthToken, authHeader } from "@/lib/getAuthToken";
+import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
+import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const VPS_API_URL = "https://connectacreators.com/api";
@@ -213,6 +214,9 @@ interface VideoData {
   /** Mark the node as auto-transcribe-on-mount (set by build-mode when it
    * adds a video deterministically). */
   autoTranscribe?: boolean;
+  /** Mirrors viral_videos.analysis_status for realtime-driven state hydration. */
+  analysisStatus?: "pending" | "analyzing" | "analyzed" | "failed";
+  analysisError?: string | null;
   onUpdate?: (updates: Partial<VideoData>) => void;
   onDelete?: () => void;
   authToken?: string | null;
@@ -230,202 +234,6 @@ const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string
   cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[rgba(224,165,96,0.08)]", border: "border-[rgba(224,165,96,0.20)]" },
 };
 
-// ── Custom Video Player ─────────────────────────────────────────────
-function CanvasVideoPlayer({ src, aspectRatio, onClose, onAspectDetected }: { src: string; aspectRatio: string; onClose: () => void; onAspectDetected?: (ratio: string) => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
-  const [playing, setPlaying] = useState(true);
-  const [muted, setMuted] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const [detectedRatio, setDetectedRatio] = useState<string | null>(null);
-  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fmt = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
-  const resetHideTimer = useCallback(() => {
-    setShowControls(true);
-    if (hideTimeout.current) clearTimeout(hideTimeout.current);
-    hideTimeout.current = setTimeout(() => {
-      if (playing) setShowControls(false);
-    }, 2500);
-  }, [playing]);
-
-  const toggle = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
-    else { v.pause(); setPlaying(false); setShowControls(true); }
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  const handleTimeUpdate = useCallback(() => {
-    const v = videoRef.current;
-    if (!v || !v.duration) return;
-    setCurrentTime(v.currentTime);
-    setProgress(v.currentTime / v.duration);
-  }, []);
-
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const v = videoRef.current;
-    const bar = progressRef.current;
-    if (!v || !bar) return;
-    const rect = bar.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    v.currentTime = ratio * v.duration;
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  const toggleMute = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.();
-      setFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setFullscreen(false);
-    }
-    resetHideTimer();
-  }, [resetHideTimer]);
-
-  useEffect(() => {
-    const handler = () => setFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
-
-  useEffect(() => { resetHideTimer(); }, [resetHideTimer]);
-
-  const accentColor = "#8FD0D5";
-
-  return (
-    <div
-      ref={containerRef}
-      className="nodrag relative w-full overflow-hidden"
-      style={{
-        aspectRatio: detectedRatio || aspectRatio,
-        background: "#000",
-        borderRadius: fullscreen ? 0 : undefined,
-        cursor: "pointer",
-      }}
-      onMouseMove={resetHideTimer}
-      onMouseLeave={() => { if (playing) setShowControls(false); }}
-      onClick={toggle}
-    >
-      <video
-        ref={videoRef}
-        src={src}
-        autoPlay
-        playsInline
-        className="w-full h-full object-contain"
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => {
-          const v = videoRef.current;
-          if (!v) return;
-          setDuration(v.duration ?? 0);
-          if (v.videoWidth && v.videoHeight) {
-            const ratio = v.videoWidth < v.videoHeight ? "9 / 16" : "16 / 9";
-            setDetectedRatio(ratio);
-            onAspectDetected?.(ratio);
-          }
-        }}
-        onEnded={() => { setPlaying(false); setShowControls(true); }}
-        onError={(e) => {
-          console.error("[CanvasVideoPlayer] Video load error:", (e.target as HTMLVideoElement).error);
-          toast.error("Video failed to load");
-          onClose();
-        }}
-      />
-
-      {/* Big play overlay when paused — Honey fill, ink stroke */}
-      {!playing && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: 52, height: 52, borderRadius: "50%",
-              background: "#E0A560",
-              border: "1.5px solid #141414",
-              boxShadow: "2px 2px 0 #141414",
-            }}
-          >
-            <Play className="w-5 h-5 ml-0.5" style={{ color: "#141414" }} fill="#141414" />
-          </div>
-        </div>
-      )}
-
-      {/* Close button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="absolute top-2 left-2 p-1 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white/80 hover:text-white transition-colors z-10"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
-
-      {/* Controls bar */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-10"
-        style={{
-          padding: "20px 10px 8px",
-          background: "linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%)",
-          transition: "opacity 0.3s ease",
-          opacity: showControls ? 1 : 0,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Progress bar */}
-        <div
-          ref={progressRef}
-          className="nodrag"
-          style={{ height: 3, background: "rgba(20,20,20,0.15)", borderRadius: 2, marginBottom: 8, cursor: "pointer", position: "relative" }}
-          onClick={handleSeek}
-        >
-          <div style={{ height: "100%", width: `${progress * 100}%`, background: accentColor, borderRadius: 2, position: "relative" }}>
-            <div style={{
-              position: "absolute", right: -4, top: "50%", transform: "translateY(-50%)",
-              width: 8, height: 8, borderRadius: "50%", background: "#fff",
-              boxShadow: `0 0 6px ${accentColor}`,
-            }} />
-          </div>
-        </div>
-
-        {/* Controls row */}
-        <div className="flex items-center gap-2">
-          <button onClick={toggle} className="nodrag bg-transparent border-none cursor-pointer text-white p-0 flex items-center">
-            {playing ? <Pause size={13} /> : <Play size={13} />}
-          </button>
-          <button onClick={toggleMute} className="nodrag bg-transparent border-none cursor-pointer text-white/60 p-0 flex items-center">
-            {muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-          </button>
-          <span className="text-[10px] text-white/40 tabular-nums tracking-wide">
-            {fmt(currentTime)} / {fmt(duration)}
-          </span>
-          <div className="flex-1" />
-          <button onClick={toggleFullscreen} className="nodrag bg-transparent border-none cursor-pointer text-white/60 p-0 flex items-center">
-            {fullscreen ? <Minimize size={12} /> : <Maximize size={12} />}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /*
  * VideoNode — Thumbnail-first interaction model
@@ -460,11 +268,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const [showTranscript, setShowTranscript] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  // Dual progress for parallel analysis
-  const [structureProgress, setStructureProgress] = useState<"idle"|"running"|"done"|"error">("idle");
-  const [visualProgress, setVisualProgress] = useState<"idle"|"running"|"done"|"error">("idle");
-
-  // ─── Step 1: Transcribe (fires thumbnail fetch in parallel) ───
+  // ─── Helper: derive a readable label from available metadata ───
   const deriveVideoLabel = (title?: string | null, caption?: string | null, transcription?: string | null, username?: string | null): string => {
     if (title) return title.slice(0, 50);
     if (caption) return caption.split(/[\n.!?]/)[0].trim().slice(0, 50);
@@ -473,131 +277,123 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     return "Video";
   };
 
-  const transcribe = async () => {
-    if (!urlInput.trim()) { toast.error("Paste a video URL first."); return; }
+  // ─── Step 1: Resolve URL → obtain viralVideoId and cached fields ───
+  const handleUrlSubmit = async (url: string) => {
+    if (!url.trim()) { toast.error("Paste a video URL first."); return; }
+    setStage("transcribing"); // reuse "transcribing" stage for the fetching UI
+    setThumbStatus("loading");
+    setThumbError(null);
     try {
-      const token = await getAuthToken();
-
-      setStage("transcribing");
-      setThumbStatus("loading");
-      setThumbError(null);
-
-      // Download video MP4 — fire-and-forget for playback
-      // YouTube Shorts are treated like TikTok (downloadable short-form), regular YT is not
-      const isIg = /instagram\.com/.test(urlInput);
-      const isYtUrl = /youtube\.com|youtu\.be/.test(urlInput);
-      const isYtShort = /youtube\.com\/shorts\//.test(urlInput);
-      const isLongYt = isYtUrl && !isYtShort;
-      if (!isIg && !isLongYt) downloadVideoFile(urlInput.trim());
-
-      // Thumbnail — fire-and-forget for non-YouTube (YouTube thumbnail comes back in transcribe-video response)
-      // YouTube Shorts also get thumbnails from transcribe-video response, so skip fetch
-      const thumbUrl = `${SUPABASE_URL}/functions/v1/fetch-thumbnail`;
-      const skipThumbFetch = isYtUrl;
-      console.log("[VideoNode] Fetching thumbnail from:", thumbUrl);
-      if (!skipThumbFetch) {
-        fetch(thumbUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ url: urlInput.trim() }),
-        }).then(r => {
-          console.log("[VideoNode] Thumbnail response status:", r.status);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        }).then(j => {
-          console.log("[VideoNode] Thumbnail result:", j.thumbnail_url ? `got ${j.thumbnail_url.length} chars` : "null");
-          if (j.thumbnail_url) {
-            const proxied = proxyInstagramUrl(j.thumbnail_url);
-            console.log("[VideoNode] Thumbnail proxied:", proxied.slice(0, 100));
-            setThumbnailUrl(proxied);
-            setThumbStatus("done");
-            d.onUpdate?.({ thumbnailUrl: proxied });
-          } else {
-            setThumbStatus("error");
-            setThumbError(j.error || "No thumbnail returned");
-          }
-        }).catch(err => {
-          console.error("[VideoNode] Thumbnail fetch failed:", err);
-          setThumbStatus("error");
-          setThumbError(err.message || "Fetch failed");
-        });
-      }
-
-      // Transcribe — pass viral_video_id when this node mirrors a viral_videos row
-      // so transcribe-video persists the transcript back (and the AI can ground
-      // future scripts on it without re-billing).
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/viral-video-resolve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          url: urlInput.trim(),
-          viral_video_id: d.viralVideoId ?? undefined,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ url: url.trim() }),
       });
-      const json = await res.json();
-      console.log("[VideoNode] transcribe-video response:", JSON.stringify({
-        hasTranscription: !!json.transcription,
-        transcriptionLen: json.transcription?.length,
-        thumbnail_url: json.thumbnail_url ? `${json.thumbnail_url.slice(0, 60)}... (${json.thumbnail_url.length} chars)` : null,
-        videoUrl: json.videoUrl ? json.videoUrl.slice(0, 80) + "..." : null,
-        error: json.error,
-      }));
       if (!res.ok) {
-        if (json.insufficient_credits) {
-          showOutOfCreditsModal();
-          setStage("idle");
-          return;
-        }
-        throw new Error(json.error || "Transcription failed");
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || (err as any).error || "Couldn't recognize that URL");
       }
+      const { row } = await res.json();
 
-      const updates: Partial<VideoData> = { url: urlInput.trim(), transcription: json.transcription };
+      // Hydrate UI from cached row fields
+      const updates: Partial<VideoData> = {
+        viralVideoId: row.id,
+        url: row.video_url ?? url.trim(),
+        transcription: row.transcript ?? undefined,
+        analysisStatus: row.analysis_status,
+        structure: row.framework_meta ?? undefined,
+        videoAnalysis: row.framework_meta?.visual_segments
+          ? { visual_segments: row.framework_meta.visual_segments, audio: row.framework_meta.audio, duration_seconds: row.framework_meta.duration_seconds }
+          : undefined,
+      };
 
-      // Capture title for YouTube
-      if (json.video_title) {
-        setVideoTitle(json.video_title);
-        updates.videoTitle = json.video_title;
-      }
-
-      // Auto-label: derive a short readable name from available data
-      if (!videoLabel) {
-        const label = deriveVideoLabel(json.video_title, d.caption, json.transcription, d.channel_username);
-        setVideoLabel(label);
-        updates.videoLabel = label;
-      }
-
-      // Store CDN video URL for later visual analysis (Instagram CDN URLs expire, so use ASAP)
-      if (json.videoUrl) {
-        updates.cdnVideoUrl = json.videoUrl;
-      }
-
-      // Use thumbnail from transcription response if fetch-thumbnail hasn't resolved or failed
-      if (json.thumbnail_url && (!thumbnailUrl || thumbStatus === "error")) {
-        const proxied = proxyInstagramUrl(json.thumbnail_url);
-        console.log("[VideoNode] Setting thumbnail from transcription response:", proxied.slice(0, 100));
+      if (row.thumbnail_url) {
+        const proxied = proxyInstagramUrl(row.thumbnail_url);
         setThumbnailUrl(proxied);
         setThumbStatus("done");
         updates.thumbnailUrl = proxied;
       } else {
-        console.log("[VideoNode] No thumbnail from transcription. thumbnail_url:", json.thumbnail_url, "current thumbnailUrl:", thumbnailUrl);
+        setThumbStatus("idle");
       }
 
-      // For Instagram: trigger VPS video download for playback using the CDN URL
-      if (isIg && json.videoUrl) {
-        console.log("[VideoNode] Triggering IG video download from CDN URL");
-        downloadVideoFile(json.videoUrl);
-      } else if (isIg) {
-        console.log("[VideoNode] IG but no videoUrl in response — no playback");
+      if (row.video_file_url) {
+        setVideoFileUrl(row.video_file_url);
+        updates.videoFileUrl = row.video_file_url;
+      }
+
+      if (row.title) {
+        setVideoTitle(row.title);
+        updates.videoTitle = row.title;
+      }
+
+      // Derive label from available data
+      if (!videoLabel) {
+        const label = deriveVideoLabel(row.title, d.caption, row.transcript, d.channel_username);
+        setVideoLabel(label);
+        updates.videoLabel = label;
       }
 
       d.onUpdate?.(updates);
-      setStage("transcribed");
 
-      // Signal credits change so FloatingCredits updates without page refresh
+      // Set stage from row's analysis_status
+      if (row.analysis_status === "analyzed") {
+        setStage("done");
+      } else if (row.analysis_status === "analyzing") {
+        setStage("analyzing");
+      } else {
+        setStage("transcribed"); // row resolved, ready to analyze
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to resolve URL");
+      setStage("idle");
+    }
+  };
+
+  // ─── Step 2: Unified analyze — calls /analyze-viral-video-user ───
+  const analyze = async () => {
+    if (!d.viralVideoId) {
+      toast.error("Resolve a URL first");
+      return;
+    }
+    setStage("analyzing");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze-viral-video-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ viral_video_id: d.viralVideoId }),
+      });
+      if (res.status === 402) {
+        showOutOfCreditsModal();
+        setStage("transcribed");
+        return;
+      }
+      if (res.status === 409) {
+        // Another analyze is in flight — realtime subscription will update us
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || (err as any).error || "Analyze failed");
+      }
+      const { row } = await res.json();
+      d.onUpdate?.({
+        transcription: row.transcript,
+        videoFileUrl: row.video_file_url,
+        structure: row.framework_meta,
+        videoAnalysis: row.framework_meta?.visual_segments
+          ? { visual_segments: row.framework_meta.visual_segments, audio: row.framework_meta.audio, duration_seconds: row.framework_meta.duration_seconds }
+          : undefined,
+        analysisStatus: "analyzed",
+      });
+      if (row.video_file_url) setVideoFileUrl(row.video_file_url);
+      setStage("done");
+      setShowBreakdown(true);
       window.dispatchEvent(new Event("credits-updated"));
     } catch (e: any) {
-      toast.error(e.message || "Processing failed");
-      setStage("idle");
+      toast.error(e.message || "Analyze failed");
+      setStage("transcribed");
     }
   };
 
@@ -663,137 +459,6 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     }
   };
 
-  // ─── Step 2: Analyze structure + visual scenes in parallel ───
-  const analyzeStructure = async () => {
-    if (!d.transcription) return;
-    try {
-      const token = await getAuthToken();
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-      setStage("analyzing");
-      setStructureProgress("running");
-
-      // Skip visual analysis for long YouTube videos (too large to download/analyze)
-      const videoUrl = d.url || urlInput;
-      const isLongYouTube = /(?:youtube\.com\/watch|youtu\.be\/)/.test(videoUrl) && !/youtube\.com\/shorts\//.test(videoUrl);
-
-      if (isLongYouTube) {
-        setVisualProgress("done"); // No visual for long YT
-      } else {
-        setVisualProgress("running");
-      }
-
-      const structurePromise = fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
-        method: "POST", headers,
-        body: JSON.stringify({ step: "analyze-structure", transcription: d.transcription, caption: d.caption }),
-      }).then(r => r.json());
-
-      const visualPromise = isLongYouTube
-        ? Promise.resolve({ skipped: true })
-        : fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
-            method: "POST", headers,
-            body: JSON.stringify({ url: d.cdnVideoUrl || videoUrl, original_url: videoUrl, transcript: d.transcription }),
-          }).then(r => r.json());
-
-      const [structureRes, visualRes] = await Promise.allSettled([structurePromise, visualPromise]);
-
-      let structureOk = false;
-      let visualOk = false;
-      const updates: Partial<VideoData> = {};
-
-      if (structureRes.status === "fulfilled" && structureRes.value.insufficient_credits) {
-        showOutOfCreditsModal();
-        setStage("transcribed");
-        return;
-      }
-
-      if (structureRes.status === "fulfilled" && !structureRes.value.error) {
-        let structure = structureRes.value;
-        // B-roll fallback: if detected format is caption-style and transcription is sparse,
-        // synthesize structure from visual segments for a more meaningful breakdown
-        if (
-          visualRes.status === "fulfilled" &&
-          !visualRes.value.error &&
-          structure.detected_format === "CAPTION_VIDEO_MUSIC" &&
-          (d.transcription?.trim().split(/\s+/).filter(Boolean).length ?? 0) < 20 &&
-          visualRes.value.visual_segments?.length > 0
-        ) {
-          const segs: VisualSegmentNode[] = visualRes.value.visual_segments;
-          const hookSeg = segs[0];
-          const ctaSeg = segs[segs.length - 1];
-          const bodySeg = segs.slice(1, -1);
-          const buildSection = (seg: VisualSegmentNode, label: "hook" | "body" | "cta") => ({
-            section: label,
-            actor_text: seg.text_on_screen?.join(" ") || seg.description,
-            visual_cue: seg.description,
-          });
-          structure = {
-            detected_format: "CAPTION_VIDEO_MUSIC",
-            sections: [
-              buildSection(hookSeg, "hook"),
-              ...(bodySeg.length > 0
-                ? [{ section: "body" as const, actor_text: bodySeg.map(s => s.text_on_screen?.join(" ") || s.description).join(" "), visual_cue: bodySeg.map(s => s.description).join("; ") }]
-                : []),
-              ...(segs.length > 1 ? [buildSection(ctaSeg, "cta")] : []),
-            ],
-          };
-        }
-        updates.structure = structure;
-        setStructureProgress("done");
-        structureOk = true;
-      } else {
-        setStructureProgress("error");
-      }
-
-      if (visualRes.status === "fulfilled" && !visualRes.value.error && !visualRes.value.skipped) {
-        updates.videoAnalysis = visualRes.value;
-        setVisualProgress("done");
-        visualOk = true;
-      } else if (visualRes.status === "fulfilled" && visualRes.value.skipped) {
-        setVisualProgress("done"); // Skipped for long YouTube — not an error
-      } else {
-        setVisualProgress("error");
-      }
-
-      if (structureOk || visualOk) {
-        d.onUpdate?.(updates);
-        setStage("done");
-        setShowBreakdown(true);
-      } else {
-        toast.error("Analysis failed — please try again");
-        setStage("transcribed");
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Analysis failed");
-      setStage("transcribed");
-    }
-  };
-
-  // ─── Re-run visual analysis only (when structure exists but videoAnalysis is missing) ───
-  const reAnalyzeVisual = async () => {
-    try {
-      const token = await getAuthToken();
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-      setVisualProgress("running");
-
-      const visualRes = await fetch(`${SUPABASE_URL}/functions/v1/analyze-video-multimodal`, {
-        method: "POST", headers,
-        body: JSON.stringify({ url: d.cdnVideoUrl || d.url || urlInput, original_url: d.url || urlInput, transcript: d.transcription || "" }),
-      }).then(r => r.json());
-
-      if (visualRes.error) throw new Error(visualRes.error);
-
-      d.onUpdate?.({ videoAnalysis: visualRes });
-      setVisualProgress("done");
-      setShowBreakdown(true);
-    } catch (e: any) {
-      console.error("[VideoNode] reAnalyzeVisual error:", e);
-      setVisualProgress("error");
-      toast.error("Visual analysis failed: " + (e.message || "unknown error"));
-    }
-  };
-
   // ─── Reset ───
   const reset = () => {
     setStage("idle");
@@ -804,9 +469,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     setShowTranscript(false);
     setShowBreakdown(false);
     setSelectedSections(["hook", "body", "cta"]);
-    setStructureProgress("idle");
-    setVisualProgress("idle");
-    d.onUpdate?.({ url: undefined, transcription: undefined, structure: undefined, videoAnalysis: undefined, thumbnailUrl: undefined, videoTitle: undefined, videoFileUrl: undefined, selectedSections: undefined });
+    d.onUpdate?.({ url: undefined, transcription: undefined, structure: undefined, videoAnalysis: undefined, thumbnailUrl: undefined, videoTitle: undefined, videoFileUrl: undefined, selectedSections: undefined, viralVideoId: undefined, analysisStatus: undefined });
   };
 
   // ─── Toggle section context ───
@@ -867,16 +530,47 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-transcribe when node is created with a pre-set URL (from paste handler)
+  // Auto-submit when node is created with a pre-set URL (from build-mode paste handler)
   const autoTranscribedRef = useRef(false);
   useEffect(() => {
     if (!autoTranscribedRef.current && (d as any).autoTranscribe && urlInput && stage === "idle") {
       autoTranscribedRef.current = true;
       d.onUpdate?.({ autoTranscribe: false });
-      setTimeout(() => transcribe(), 80);
+      setTimeout(() => handleUrlSubmit(urlInput), 80);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Realtime subscription — keep node in sync with viral_videos row
+  useEffect(() => {
+    if (!d.viralVideoId) return;
+    const channel = supabase
+      .channel(`videonode:${d.viralVideoId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "viral_videos", filter: `id=eq.${d.viralVideoId}` },
+        (payload) => {
+          const row = payload.new as any;
+          const updates: Partial<VideoData> = {
+            transcription: row.transcript,
+            videoFileUrl: row.video_file_url,
+            structure: row.framework_meta,
+            videoAnalysis: row.framework_meta?.visual_segments
+              ? { visual_segments: row.framework_meta.visual_segments, audio: row.framework_meta.audio, duration_seconds: row.framework_meta.duration_seconds }
+              : undefined,
+            analysisStatus: row.analysis_status,
+          };
+          if (row.video_file_url) setVideoFileUrl(row.video_file_url);
+          d.onUpdate?.(updates);
+          if (row.analysis_status === "analyzed") { setStage("done"); setShowBreakdown(true); }
+          else if (row.analysis_status === "analyzing") setStage("analyzing");
+          else if (row.analysis_status === "failed") setStage("transcribed");
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d.viralVideoId]);
 
   const hasVideo = stage !== "idle";
   const hasTranscript = !!d.transcription;
@@ -941,11 +635,11 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   placeholder="Paste video URL..."
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && transcribe()}
+                  onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit(urlInput.trim())}
                 />
               </div>
               <button
-                onClick={transcribe}
+                onClick={() => handleUrlSubmit(urlInput.trim())}
                 disabled={!urlInput.trim()}
                 className="nodrag px-3 py-2 rounded-xl bg-primary/15 border border-primary/30 text-primary/80 hover:bg-primary/25 hover:text-primary transition-colors disabled:opacity-40 text-xs font-medium"
               >
@@ -977,15 +671,21 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
             )}
           </div>
 
-          {/* Thumbnail hero / Custom Video Player */}
+          {/* Thumbnail hero / Video Player */}
           <div className="relative">
             {playingVideo && videoFileUrl ? (
-              <CanvasVideoPlayer
-                src={videoFileUrl}
-                aspectRatio={aspectRatio}
-                onClose={() => setPlayingVideo(false)}
-                onAspectDetected={setDetectedAspect}
-              />
+              <div className="nodrag relative w-full">
+                <ViralVideoPlayer
+                  src={videoFileUrl}
+                  aspectRatio="auto"
+                />
+                <button
+                  onClick={() => setPlayingVideo(false)}
+                  className="absolute top-2 left-2 p-1 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white/80 hover:text-white transition-colors z-10"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ) : thumbnailUrl ? (
               <div className={`relative group ${isLongYt ? "cursor-default" : "cursor-pointer"}`} onClick={() => {
                 if (isLongYt) return;  // Long YouTube has no playback (Shorts do)
@@ -1082,10 +782,10 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
             </div>
           </div>
 
-          {/* Debug status */}
+          {/* Status banner */}
           {stage === "transcribing" && (
             <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "rgba(20,20,20,0.04)", borderColor: "rgba(20,20,20,0.10)", color: "#ffffff" }}>
-              Transcribing audio... {thumbStatus === "loading" ? "| Thumbnail loading..." : thumbStatus === "done" ? "| Thumbnail ready" : thumbStatus === "error" ? `| Thumb error: ${thumbError}` : ""}
+              Resolving video... {thumbStatus === "loading" ? "| Fetching thumbnail..." : thumbStatus === "done" ? "| Thumbnail ready" : thumbStatus === "error" ? `| Thumb error: ${thumbError}` : ""}
             </div>
           )}
 
@@ -1113,39 +813,22 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* ── "Generate Visual Breakdown" button — hidden for long YouTube ── */}
-            {hasTranscript && !hasStructure && !isLongYt && (
+            {/* ── Unified Analyze button (shown when row is resolved but not yet analyzed) ── */}
+            {stage === "transcribed" && !hasStructure && (
               <div className="px-3 py-2">
-                {stage !== "analyzing" ? (
-                  <button
-                    onClick={analyzeStructure}
-                    className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl transition-colors text-xs font-semibold"
-                    style={{ background: theme.btnPrimaryBg, border: `1px solid ${theme.btnPrimaryBorder}`, color: theme.btnPrimaryText }}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" /> Generate Visual Breakdown
-                  </button>
-                ) : (
-                  <div className="space-y-1.5">
-                    {/* Structure progress */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-[rgba(224,165,96,0.08)] border border-[rgba(224,165,96,0.15)]" : "bg-primary/6 border border-primary/15"}`}>
-                      {structureProgress === "done"
-                        ? <span className="text-[#F0BC7D] text-[11px]">✓</span>
-                        : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
-                      <span className={structureProgress === "done" ? "text-[#F0BC7D]/80" : "text-primary/70"}>
-                        Structure analysis{structureProgress === "done" ? " complete" : "…"}
-                      </span>
-                    </div>
-                    {/* Visual progress */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-[rgba(224,165,96,0.08)] border border-[rgba(224,165,96,0.15)]" : "bg-primary/6 border border-primary/15"}`}>
-                      {visualProgress === "done"
-                        ? <span className="text-[#F0BC7D] text-[11px]">✓</span>
-                        : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
-                      <span className={visualProgress === "done" ? "text-[#F0BC7D]/80" : "text-primary/70"}>
-                        Visual scene analysis{visualProgress === "done" ? " complete" : "…"}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                <button
+                  onClick={analyze}
+                  className="nodrag px-3 py-1.5 bg-accent text-accent-foreground rounded text-xs flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Analyze (50 credits)
+                </button>
+              </div>
+            )}
+            {stage === "analyzing" && !hasStructure && (
+              <div className="px-3 py-2">
+                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing&hellip; (30-90s)
+                </div>
               </div>
             )}
 
@@ -1204,22 +887,6 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                         </div>
                       );
                     })}
-
-                    {/* ── Re-run visual analysis button (when missing) ── */}
-                    {!(d as any).videoAnalysis && visualProgress !== "running" && (
-                      <button
-                        onClick={reAnalyzeVisual}
-                        className="nodrag w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-primary/80 hover:bg-primary/20 hover:text-primary transition-colors text-xs font-semibold"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" /> Run Visual Analysis
-                      </button>
-                    )}
-                    {visualProgress === "running" && !(d as any).videoAnalysis && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-primary/6 border border-primary/15">
-                        <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />
-                        <span className="text-primary/70">Visual scene analysis…</span>
-                      </div>
-                    )}
 
                     {/* ── Visual Scenes (from multimodal analysis) ── */}
                     {(d as any).videoAnalysis?.visual_segments?.length > 0 && (
