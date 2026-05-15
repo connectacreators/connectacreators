@@ -306,6 +306,50 @@ All colors MUST be HSL for consistency and theming.
   .editorial-page .text-foreground { color: #141414 !important; }
   .editorial-page .text-muted-foreground { color: rgba(20, 20, 20, 0.55) !important; }
 
+  /* shadcn Button variants come pre-themed for the dark surface
+     (btn-17-secondary uses graphite bg, btn-17-primary uses aqua).
+     Inside .editorial-page they need to become sticker-style: white
+     fill, ink hairline, ink offset shadow, ink text. */
+  .editorial-page .btn-17-secondary {
+    background: #ffffff !important;
+    color: #141414 !important;
+    border: 1px solid rgba(20, 20, 20, 0.20) !important;
+    box-shadow: 2px 2px 0 rgba(20, 20, 20, 0.10);
+    transition: box-shadow 120ms, transform 120ms;
+  }
+  .editorial-page .btn-17-secondary:hover {
+    box-shadow: 3px 3px 0 rgba(20, 20, 20, 0.18);
+    transform: translate(-1px, -1px);
+  }
+  .editorial-page .btn-17-primary {
+    background: #141414 !important;
+    color: #EAE6DC !important;
+    border: 1px solid #141414 !important;
+    box-shadow: 2px 2px 0 rgba(20, 20, 20, 0.20);
+  }
+  .editorial-page .btn-17-primary:hover {
+    box-shadow: 3px 3px 0 rgba(20, 20, 20, 0.28);
+    transform: translate(-1px, -1px);
+  }
+
+  /* Status pill text colors inside editorial-page — the default
+     text-green-600 / dark:text-green-400 pair reads as washed-out white
+     on the bg-{color}-500/15 chips because some downstream rule wins.
+     Force the saturated 700-tier colors so labels are legible on the
+     translucent pill backgrounds. */
+  .editorial-page .text-green-600,
+  .editorial-page .text-green-400  { color: #15803d !important; }
+  .editorial-page .text-yellow-600,
+  .editorial-page .text-yellow-400 { color: #a16207 !important; }
+  .editorial-page .text-orange-600,
+  .editorial-page .text-orange-400 { color: #c2410c !important; }
+  .editorial-page .text-blue-600,
+  .editorial-page .text-blue-400   { color: #1d4ed8 !important; }
+  .editorial-page .text-pink-600,
+  .editorial-page .text-pink-400   { color: #be185d !important; }
+  .editorial-page .text-red-600,
+  .editorial-page .text-red-400    { color: #b91c1c !important; }
+
   /* ── Editorial DARK variant ──
      Same typographic discipline as .editorial-page (EB Garamond headings,
      Figtree body, hairline borders, no glass/gradients/blurs) but inverted
