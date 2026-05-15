@@ -158,7 +158,7 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .btn-aqua {
   background: var(--aqua);
   color: var(--ink);
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: 0 2px 0 var(--ink), 0 6px 14px -8px rgba(143, 208, 213, 0.40);
 }
 .landing-editorial .btn-aqua:hover {
@@ -167,7 +167,7 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .btn-honey {
   background: var(--honey);
   color: var(--ink);
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: 0 2px 0 var(--ink), 0 6px 14px -8px rgba(224, 165, 96, 0.40);
 }
 .landing-editorial .btn-honey:hover {
@@ -176,7 +176,7 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .btn-ghost {
   background: transparent;
   color: var(--bone);
-  border: 1.5px solid var(--bone-4);
+  border: 1px solid var(--bone-4);
   padding: 10.5px 22.5px;
 }
 .landing-editorial .btn-ghost:hover {
@@ -200,11 +200,10 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .section-h2 {
   font-family: 'EB Garamond', Georgia, serif;
   font-size: clamp(26px, 3.4vw, 42px);
-  line-height: 1.1;
-  /* Match the H1's letter-spacing so all serif headlines read with the
-     same tightness — compensates for kerning lost when chars are split
-     into .prox-letter inline-blocks. */
-  letter-spacing: -0.045em;
+  line-height: 1.15;
+  /* H2s are smaller than the hero H1 — at this size, the H1's -0.045em
+     tightening reads as cramped. Loosened to -0.015em (2026-05-14). */
+  letter-spacing: -0.015em;
   font-weight: 500;
   margin: 0;
   padding-bottom: 0.18em;
@@ -293,7 +292,7 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .panel-bone .card,
 .landing-editorial .panel-bone [data-card] {
   background: #FBF8EE;
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 20px;
   box-shadow: 3px 3px 0 var(--ink);
   color: var(--ink);
@@ -309,7 +308,7 @@ html, body, #root { margin: 0; padding: 0; }
 /* ---------- Super Canvas mockup ---------- */
 .landing-editorial .sc-node {
   background: var(--graphite);
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 12px;
   padding: 12px 14px;
   display: inline-flex;

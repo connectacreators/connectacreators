@@ -867,7 +867,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                 flexShrink: 0,
                 borderRadius: 12,
                 background: "rgba(255,255,255,0.06)",
-                border: "1.5px solid rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.1)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -887,7 +887,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   flexShrink: 0,
                   borderRadius: 12,
                   background: "rgba(255,255,255,0.04)",
-                  border: "1.5px solid rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.07)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1298,7 +1298,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           style={{
             width: 32,
             height: 32,
-            border: "1.5px solid #333",
+            border: "1px solid #333",
             borderRadius: 8,
           }}
         >
@@ -1321,7 +1321,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           style={{
             width: 32,
             height: 32,
-            border: "1.5px solid rgba(34,211,238,0.25)",
+            border: "1px solid rgba(34,211,238,0.25)",
             borderRadius: "50%",
           }}
         >

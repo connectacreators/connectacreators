@@ -71,17 +71,20 @@ All colors MUST be HSL for consistency and theming.
     --text-2:    rgba(234, 230, 220, 0.6);
 
     /* Custom design tokens — re-routed through the new palette */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey)));
-    --gradient-hero:    linear-gradient(135deg, hsl(var(--aqua)) 0%, hsl(var(--honey)) 100%);
-    --gradient-bg:      radial-gradient(ellipse at top, hsl(var(--aqua) / 0.10), transparent 50%);
-    --gradient-dark:    linear-gradient(135deg, hsl(var(--ink)) 0%, hsl(222 27% 4%) 100%);
+    /* Gradients eliminated 2026-05-14 — solid fills only. These vars are
+       kept (as flat fallbacks) so any consumer that still reads them gets
+       a clean solid color instead of a gradient. */
+    --gradient-primary: hsl(var(--aqua));
+    --gradient-hero:    hsl(var(--aqua));
+    --gradient-bg:      transparent;
+    --gradient-dark:    hsl(var(--ink));
 
     --blur-subtle: blur(20px);
     --blur-strong: blur(40px);
 
-    --shadow-soft: 0 4px 20px hsl(var(--aqua) / 0.10);
-    --shadow-glow: 0 0 40px hsl(var(--aqua) / 0.20);
-    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.20);
+    --shadow-soft: 0 1px 0 hsl(var(--bone) / 0.04);
+    --shadow-glow: none;
+    --shadow-card: 0 4px 12px hsl(0 0% 0% / 0.15);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
@@ -213,39 +216,22 @@ All colors MUST be HSL for consistency and theming.
     transition: var(--transition-bounce);
   }
 
-  /* ── Tier 1: Sidebar (strongest) ── */
+  /* ── Tier 1: Sidebar (solid fill) ── */
   .glass-sidebar {
-    background: linear-gradient(180deg, #080808 0%, #060606 40%, #050505 100%);
-    backdrop-filter: blur(72px) saturate(120%);
-    -webkit-backdrop-filter: blur(72px) saturate(120%);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: hsl(var(--ink));
+    border-right: 1px solid hsl(var(--bone) / 0.06);
     position: relative;
   }
-  .glass-sidebar::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 60%;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.01) 0%, transparent 100%);
-    pointer-events: none;
-    z-index: 0;
-  }
+  .glass-sidebar::before,
   .glass-sidebar::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 0;
-    pointer-events: none;
-    z-index: 0;
+    display: none;
   }
 
-  /* ── Tier 2: Cards / Panels (standard) ── */
+  /* ── Tier 2: Cards / Panels (solid fill, thin neutral border) ── */
   .glass-card {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    background: hsl(var(--graphite));
+    border: 1px solid hsl(var(--bone) / 0.07);
+    box-shadow: 0 1px 0 hsl(var(--bone) / 0.02);
     position: relative;
   }
   .glass-card::before {
@@ -253,68 +239,49 @@ All colors MUST be HSL for consistency and theming.
   }
   /* Modifier variants — must be composed with .glass-card (which provides backdrop-filter) */
   .glass-card-cyan {
-    background: hsl(var(--aqua) / 0.08);
-    border-color: hsl(var(--aqua) / 0.22);
-    box-shadow: inset 0 1px 0 hsl(var(--aqua) / 0.18),
-                0 4px 20px rgba(0,0,0,0.3),
-                0 0 30px hsl(var(--aqua) / 0.06);
+    background: hsl(var(--graphite));
+    border-color: hsl(var(--aqua) / 0.20);
+    box-shadow: none;
     position: relative;
   }
   .glass-card-lime {
-    background: hsl(var(--honey) / 0.07);
-    border-color: hsl(var(--honey) / 0.20);
-    box-shadow: inset 0 1px 0 hsl(var(--honey) / 0.14),
-                0 4px 20px rgba(0,0,0,0.3),
-                0 0 30px hsl(var(--honey) / 0.05);
+    background: hsl(var(--graphite));
+    border-color: hsl(var(--honey) / 0.18);
+    box-shadow: none;
     position: relative;
   }
 
   /* ── Tier 3: Inputs / Topbar (lightest) ── */
   .glass-input-surface {
-    background: hsl(var(--bone) / 0.04);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--aqua) / 0.20);
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    background: hsl(var(--graphite));
+    border: 1px solid hsl(var(--bone) / 0.10);
   }
   .glass-input-surface:focus {
-    border-color: hsl(var(--aqua) / 0.55);
-    box-shadow: 0 0 0 3px hsl(var(--aqua) / 0.12), inset 0 1px 3px rgba(0,0,0,0.2);
+    border-color: hsl(var(--aqua) / 0.50);
     outline: none;
   }
   .glass-topbar {
-    background: hsl(var(--bone) / 0.03);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid hsl(var(--aqua) / 0.14);
+    background: hsl(var(--ink));
+    border: 1px solid hsl(var(--bone) / 0.08);
     position: relative;
   }
   .glass-topbar::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, hsl(var(--aqua) / 0.45), hsl(var(--honey) / 0.25), transparent);
-    pointer-events: none;
-    z-index: 0;
+    display: none;
   }
 
   /* ── Ambient glow ── */
   .ambient-glow {
-    background:
-      radial-gradient(ellipse at 20% 0%, hsl(var(--aqua) / 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 100%, hsl(var(--honey) / 0.06) 0%, transparent 50%);
+    background: transparent;
   }
 
   /* ── Gradient utilities ── */
   .gradient-brand {
-    background: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey)));
+    background: hsl(var(--aqua));
   }
   .text-gradient-brand {
-    background: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey)));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: hsl(var(--aqua));
+    background: transparent;
+    -webkit-text-fill-color: currentColor;
   }
 
   /* ── Status badges ── */
@@ -327,33 +294,19 @@ All colors MUST be HSL for consistency and theming.
   .badge-amber   { background: hsl(var(--honey) / 0.10); color: hsl(var(--honey)); border: 1px solid hsl(var(--honey) / 0.25); }
   .badge-neutral { background: hsl(var(--bone) / 0.06);  color: hsl(var(--bone) / 0.62); border: 1px solid hsl(var(--bone) / 0.10); }
 
-  /* ── Ocean Surge Button System (GlassSurface-inspired) ── */
+  /* ── Editorial button system (flat fills, no gradients/glass) ── */
   .btn-primary-glass {
-    background: rgba(255, 255, 255, 0.10);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.20);
-    backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
-    -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255,255,255,0.20),
-      inset 0 -1px 0 0 rgba(255,255,255,0.10),
-      0 8px 32px 0 rgba(31, 38, 135, 0.15);
-    position: relative; overflow: hidden;
-    transition: all 0.26s ease-out;
+    background: hsl(var(--aqua));
+    color: hsl(var(--ink));
+    border: 1px solid transparent;
+    position: relative;
+    transition: background 0.18s ease;
   }
   .btn-primary-glass:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.30);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255,255,255,0.25),
-      inset 0 -1px 0 0 rgba(255,255,255,0.12),
-      0 8px 32px 0 rgba(31, 38, 135, 0.25);
+    background: hsl(var(--aqua) / 0.88);
   }
   .btn-primary-glass::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 50%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
-    pointer-events: none;
+    display: none;
   }
   .btn-secondary-glass {
     background: hsl(var(--aqua) / 0.10);
@@ -378,7 +331,7 @@ All colors MUST be HSL for consistency and theming.
     width: 15px;
     height: 15px;
     min-width: 15px;
-    border: 1.5px solid hsl(var(--primary));
+    border: 1px solid hsl(var(--primary));
     border-radius: 3px;
     background: transparent;
     cursor: pointer;
@@ -401,7 +354,7 @@ All colors MUST be HSL for consistency and theming.
     left: 4px;
     width: 4px;
     height: 8px;
-    border: 1.5px solid hsl(var(--primary));
+    border: 1px solid hsl(var(--primary));
     border-top: none;
     border-left: none;
     transform: rotate(45deg);
@@ -536,7 +489,7 @@ All colors MUST be HSL for consistency and theming.
 }
 .visual-breakdown-scroll::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid hsl(var(--bone) / 0.60);
+  border: 1px solid hsl(var(--bone) / 0.60);
   border-radius: 10px;
 }
 .visual-breakdown-scroll {
@@ -555,7 +508,7 @@ All colors MUST be HSL for consistency and theming.
 }
 .eq-table-wrap ::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid hsl(var(--aqua) / 0.40);
+  border: 1px solid hsl(var(--aqua) / 0.40);
   border-radius: 10px;
 }
 .eq-table-wrap ::-webkit-scrollbar-thumb:hover {
@@ -577,7 +530,7 @@ All colors MUST be HSL for consistency and theming.
 }
 ::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid hsl(var(--aqua) / 0.40);
+  border: 1px solid hsl(var(--aqua) / 0.40);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -605,7 +558,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow__node ::-webkit-scrollbar-thumb,
 .react-flow__panel ::-webkit-scrollbar-thumb {
   background: transparent;
-  border: 1.5px solid hsl(var(--aqua) / 0.40);
+  border: 1px solid hsl(var(--aqua) / 0.40);
   border-radius: 10px;
 }
 .canvas-ai-scroll::-webkit-scrollbar-thumb:hover,
@@ -805,9 +758,9 @@ All colors MUST be HSL for consistency and theming.
 }
 
 /* ── Backward-compat aliases (removed in rebrand, will be migrated per-component in later chunks) ── */
-.glass-ios { background: hsl(var(--bone) / 0.035); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid hsl(var(--bone) / 0.07); box-shadow: inset 0 1px 0 hsl(var(--bone) / 0.06), 0 4px 20px rgba(0,0,0,0.3); position: relative; }
-.glass-ios-strong { background: hsl(var(--aqua) / 0.08); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid hsl(var(--aqua) / 0.22); box-shadow: inset 0 1px 0 hsl(var(--aqua) / 0.18), 0 4px 20px rgba(0,0,0,0.3), 0 0 30px hsl(var(--aqua) / 0.07); position: relative; }
-.sidebar-glass { background: hsl(var(--aqua) / 0.04); backdrop-filter: blur(72px) saturate(180%) brightness(1.04); -webkit-backdrop-filter: blur(72px) saturate(180%) brightness(1.04); border-right: 1px solid hsl(var(--aqua) / 0.14); position: relative; }
-.btn-17-primary { background: linear-gradient(135deg, hsl(var(--aqua)), hsl(var(--honey))); color: hsl(var(--ink)); box-shadow: inset 0 1px 0 hsl(var(--bone) / 0.15); position: relative; overflow: hidden; }
-.btn-17-secondary { background: hsl(var(--aqua) / 0.10); border: 1px solid hsl(var(--aqua) / 0.25); color: hsl(var(--aqua)); }
-.btn-17 { background: hsl(var(--bone) / 0.04); border: 1px solid hsl(var(--bone) / 0.08); color: hsl(var(--bone) / 0.62); }
+.glass-ios { background: hsl(var(--graphite)); border: 1px solid hsl(var(--bone) / 0.07); position: relative; }
+.glass-ios-strong { background: hsl(var(--graphite)); border: 1px solid hsl(var(--aqua) / 0.20); position: relative; }
+.sidebar-glass { background: hsl(var(--ink)); border-right: 1px solid hsl(var(--bone) / 0.08); position: relative; }
+.btn-17-primary { background: hsl(var(--aqua)); color: hsl(var(--ink)); position: relative; }
+.btn-17-secondary { background: hsl(var(--graphite)); border: 1px solid hsl(var(--aqua) / 0.30); color: hsl(var(--aqua)); }
+.btn-17 { background: hsl(var(--graphite)); border: 1px solid hsl(var(--bone) / 0.08); color: hsl(var(--bone) / 0.70); }

@@ -81,7 +81,7 @@ export default function CompanionBubble() {
       >
         {badgeCount > 0 && !isOpen && (
           <span
-            className="absolute inset-[-5px] rounded-full border-2 border-[rgba(255,255,255,0.35)] animate-ping"
+            className="absolute inset-[-5px] rounded-full border border-[rgba(255,255,255,0.35)] animate-ping"
             style={{ animationDuration: "2.2s" }}
           />
         )}

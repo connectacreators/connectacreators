@@ -71,9 +71,9 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
       style={{
         padding: "12px 14px",
         borderRadius: 14,
-        border: "1px solid rgba(34,211,238,0.35)",
-        background: "linear-gradient(180deg, rgba(34,211,238,0.08) 0%, rgba(8,145,178,0.04) 100%)",
-        boxShadow: "inset 0 0 40px rgba(34,211,238,0.08)",
+        border: "1px solid hsl(var(--aqua) / 0.30)",
+        background: "hsl(var(--graphite))",
+        boxShadow: "none",
       }}
     >
       <div className="flex items-center justify-between mb-2">

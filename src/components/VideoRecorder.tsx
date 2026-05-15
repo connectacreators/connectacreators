@@ -134,7 +134,7 @@ export default function VideoRecorder({ pip = false, scriptTitle, onClose }: Vid
     return (
       <div className="fixed bottom-20 right-4 z-[9998] flex flex-col items-center gap-2 animate-fade-in">
         {/* Camera preview */}
-        <div className="relative rounded-2xl overflow-hidden shadow-lg border-2 border-primary/60 bg-black w-[140px] h-[200px] sm:w-[180px] sm:h-[240px]">
+        <div className="relative rounded-2xl overflow-hidden shadow-lg border border-primary/60 bg-black w-[140px] h-[200px] sm:w-[180px] sm:h-[240px]">
           <video
             ref={videoRef}
             autoPlay

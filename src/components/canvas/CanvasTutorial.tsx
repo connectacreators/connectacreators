@@ -96,7 +96,7 @@ function AnimNoteLines() {
 function AnimTravelDot() {
   const nodeBox: React.CSSProperties = {
     width: 22, height: 22, borderRadius: 6,
-    border: "1.5px solid rgba(240,220,150,0.4)", background: "rgba(240,220,150,0.08)",
+    border: "1px solid rgba(240,220,150,0.4)", background: "rgba(240,220,150,0.08)",
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
     color: "rgba(240,220,150,0.7)",
   };
@@ -108,7 +108,7 @@ function AnimTravelDot() {
       <div style={{ flex: 1, height: 1, position: "relative", background: "repeating-linear-gradient(to right, rgba(240,220,150,0.4) 0, rgba(240,220,150,0.4) 4px, transparent 4px, transparent 7px)" }}>
         <div style={{ position: "absolute", width: 7, height: 7, borderRadius: "50%", background: PRIMARY, top: "50%", transform: "translateY(-50%)", boxShadow: `0 0 8px rgba(240,220,150,0.9)`, animation: "ctDotTravel 1.8s cubic-bezier(0.4,0,0.6,1) infinite" }} />
       </div>
-      <div style={{ ...nodeBox, border: "1.5px solid rgba(160,220,160,0.4)", background: "rgba(120,220,150,0.08)", color: "rgba(140,220,160,0.7)" }}>
+      <div style={{ ...nodeBox, border: "1px solid rgba(160,220,160,0.4)", background: "rgba(120,220,150,0.08)", color: "rgba(140,220,160,0.7)" }}>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
       </div>
     </div>

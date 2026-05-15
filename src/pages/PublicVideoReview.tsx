@@ -237,7 +237,7 @@ export default function PublicVideoReview() {
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null).map(c => (
                     <div
                       key={c.id}
-                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-background cursor-pointer hover:scale-125 transition-transform"
+                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-background cursor-pointer hover:scale-125 transition-transform"
                       style={{
                         left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
                         backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),

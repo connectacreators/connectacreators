@@ -731,12 +731,12 @@ export function AssistantChat({
                 className="rounded-lg overflow-hidden relative"
                 style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(34,211,238,0.15)", background: "rgba(34,211,238,0.03)" }}
               >
-                {/* Shimmer animation */}
+                {/* Subtle shimmer — editorial neutral, no aqua glow */}
                 <div
                   className="absolute inset-0"
                   style={{
                     background:
-                      "linear-gradient(90deg, transparent 0%, rgba(34,211,238,0.07) 50%, transparent 100%)",
+                      "linear-gradient(90deg, transparent 0%, hsl(var(--bone) / 0.04) 50%, transparent 100%)",
                     backgroundSize: "200% 100%",
                     animation: "shimmer 1.5s ease-in-out infinite",
                   }}

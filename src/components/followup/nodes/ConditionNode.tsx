@@ -9,14 +9,14 @@ export function ConditionNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`min-w-[160px] rounded-lg border-2 bg-orange-950/80 backdrop-blur-sm shadow-lg transition-all ${
+      className={`min-w-[160px] rounded-lg border bg-orange-950/80 backdrop-blur-sm shadow-lg transition-all ${
         selected ? 'border-orange-400 shadow-orange-400/30 shadow-md' : 'border-orange-600/60'
       }`}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-gray-700"
+        className="!w-3 !h-3 !bg-gray-400 !border !border-gray-700"
       />
       <div className="flex items-center gap-2 px-3 py-2 border-b border-orange-600/30">
         <GitBranch size={12} className="text-orange-300 flex-shrink-0" />
@@ -31,7 +31,7 @@ export function ConditionNode({ data, selected }: NodeProps) {
         position={Position.Right}
         id="yes"
         style={{ top: '30%' }}
-        className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-700"
+        className="!w-3 !h-3 !bg-green-400 !border !border-green-700"
       />
       {/* No handle — bottom right */}
       <Handle
@@ -39,7 +39,7 @@ export function ConditionNode({ data, selected }: NodeProps) {
         position={Position.Right}
         id="no"
         style={{ top: '70%' }}
-        className="!w-3 !h-3 !bg-red-400 !border-2 !border-red-700"
+        className="!w-3 !h-3 !bg-red-400 !border !border-red-700"
       />
       {/* Labels for handles */}
       <div className="absolute right-[-30px] flex flex-col justify-between h-full top-0 pointer-events-none">

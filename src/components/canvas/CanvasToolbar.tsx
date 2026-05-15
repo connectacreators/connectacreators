@@ -473,7 +473,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                     <button onClick={onDrawFillToggle}
                       className={`p-1.5 rounded-lg transition-colors ${drawFill ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.2)]" : "text-[#94a3b8] hover:text-foreground hover:bg-muted/30"}`}
                     >
-                      <div className="w-3.5 h-3.5 rounded-sm border-2 border-current" style={{ background: drawFill ? "currentColor" : "transparent", opacity: drawFill ? 0.4 : 1 }} />
+                      <div className="w-3.5 h-3.5 rounded-sm border border-current" style={{ background: drawFill ? "currentColor" : "transparent", opacity: drawFill ? 0.4 : 1 }} />
                     </button>
                     <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 text-[10px] font-medium bg-black/85 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
                       {drawFill ? "No Fill" : "Fill"}
@@ -486,14 +486,14 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                 {/* Color — single dot, hover opens picker */}
                 <div className="relative group">
                   <button className="p-1.5 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full border-2 border-white/20" style={{ background: drawColor }} />
+                    <div className="w-4 h-4 rounded-full border border-white/20" style={{ background: drawColor }} />
                   </button>
                   <div className="absolute h-2 w-full left-0 top-full" />
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-card border border-border shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                     <div className="flex gap-1.5">
                       {DRAW_COLORS.map(c => (
                         <button key={c} onClick={() => onDrawColorChange?.(c)}
-                          className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${drawColor === c ? "border-white scale-110" : "border-transparent"}`}
+                          className={`w-5 h-5 rounded-full border transition-transform hover:scale-110 ${drawColor === c ? "border-white scale-110" : "border-transparent"}`}
                           style={{ background: c }}
                         />
                       ))}

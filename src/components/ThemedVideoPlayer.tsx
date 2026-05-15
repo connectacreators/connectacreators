@@ -188,7 +188,7 @@ export default function ThemedVideoPlayer({
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
               background: 'rgba(8,145,178,0.2)',
-              border: '1.5px solid rgba(8,145,178,0.5)',
+              border: '1px solid rgba(8,145,178,0.5)',
               backdropFilter: 'blur(12px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>

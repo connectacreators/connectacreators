@@ -505,7 +505,7 @@ function Checkbox({ checked, onChange, ariaLabel }: { checked: boolean; onChange
         width: 14,
         height: 14,
         borderRadius: 3,
-        border: checked ? "1.5px solid #8FD0D5" : "1.5px solid rgba(148,163,184,0.5)",
+        border: checked ? "1px solid #8FD0D5" : "1px solid rgba(148,163,184,0.5)",
         background: checked ? "#8FD0D5" : "transparent",
         color: "#0a0d14",
         fontSize: 9,

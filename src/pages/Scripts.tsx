@@ -1655,7 +1655,7 @@ export default function Scripts() {
                     {isAdmin && videographers.length > 0 && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setAssignOverlayClient(assignOverlayClient === c.id ? null : c.id); }}
-                        className="absolute top-1/2 -translate-y-1/2 right-12 p-1.5 rounded-full border-2 border-dashed border-muted-foreground/40 hover:border-primary/60 transition-smooth"
+                        className="absolute top-1/2 -translate-y-1/2 right-12 p-1.5 rounded-full border border-dashed border-muted-foreground/40 hover:border-primary/60 transition-smooth"
                         title={tr(t.scripts.assignVideographer, language)}
                       >
                         <Camera className="w-3.5 h-3.5 text-muted-foreground" />

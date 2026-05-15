@@ -197,7 +197,7 @@ function TeleprompterMockup() {
           <span style={{ fontSize: 7, color: "rgba(255,255,255,0.3)" }}>LENTO</span>
           <div className="flex-1 h-1 rounded-full relative" style={{ background: "rgba(255,255,255,0.08)" }}>
             <div className="h-full rounded-full" style={{ width: "45%", background: goldGradient }} />
-            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 shadow" style={{ left: "43%", background: "#1a1a1a", borderColor: gold }} />
+            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border shadow" style={{ left: "43%", background: "#1a1a1a", borderColor: gold }} />
           </div>
           <span style={{ fontSize: 7, color: "rgba(255,255,255,0.3)" }}>RÁPIDO</span>
         </div>
@@ -675,7 +675,7 @@ function DemoPlayer() {
           }}>
             <div style={{
               width: 72, height: 72, borderRadius: "50%",
-              background: "rgba(255,255,255,0.12)", border: "1.5px solid rgba(255,255,255,0.28)",
+              background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)",
               backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <Play size={26} style={{ color: "rgba(255,255,255,0.9)", marginLeft: 4 }} />

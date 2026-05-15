@@ -14,7 +14,7 @@ const CTASectionEN = lazy(() => import("@/components/en/CTASectionEN"));
 
 const SectionLoader = () => (
   <div className="min-h-[200px] flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    <div className="w-8 h-8 border border-primary border-t-transparent rounded-full animate-spin" />
   </div>
 );
 

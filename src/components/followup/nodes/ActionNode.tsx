@@ -54,14 +54,14 @@ export function ActionNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`min-w-[150px] rounded-lg border-2 backdrop-blur-sm shadow-lg transition-all ${baseColor} ${
+      className={`min-w-[150px] rounded-lg border backdrop-blur-sm shadow-lg transition-all ${baseColor} ${
         selected ? `${selColor} shadow-md` : ''
       }`}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-gray-700"
+        className="!w-3 !h-3 !bg-gray-400 !border !border-gray-700"
       />
       <div className="px-3 py-2">
         <div className="flex items-center gap-1.5 text-gray-300 mb-1">
@@ -76,7 +76,7 @@ export function ActionNode({ data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-gray-700"
+        className="!w-3 !h-3 !bg-gray-400 !border !border-gray-700"
       />
     </div>
   );

@@ -901,7 +901,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                   <button
                     key={type.id}
                     onClick={() => setFormData({ ...formData, trigger_type: type.id })}
-                    className={`p-3 rounded-lg border-2 transition-all text-left text-sm ${
+                    className={`p-3 rounded-lg border transition-all text-left text-sm ${
                       selectedTriggerType === type.id
                         ? 'border-blue-500 bg-blue-500/10'
                         : 'border-muted bg-muted/50 hover:border-muted-foreground/50'

@@ -119,7 +119,7 @@ export function renderInline(line: string): React.ReactNode[] {
         <code
           key={key++}
           style={{
-            borderLeft: "1.5px solid rgba(201,169,110,0.4)",
+            borderLeft: "1px solid rgba(201,169,110,0.4)",
             paddingLeft: 5,
             fontStyle: "italic",
             fontFamily: "monospace",

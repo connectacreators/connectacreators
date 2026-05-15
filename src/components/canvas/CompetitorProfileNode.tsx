@@ -317,7 +317,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
             <img
               src={profilePicB64 || profilePicUrl!}
               alt={username || "Profile"}
-              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border-2"
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border"
               style={{ borderColor: "rgba(244,63,94,0.4)" }}
               onError={(e) => {
                 const img = e.target as HTMLImageElement;

@@ -537,7 +537,7 @@ export default function ViralReelFeed() {
         {/* ── FEED ── */}
         {(loading || !interactionsReady) ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full reel-spin" />
+            <div className="w-8 h-8 border border-primary/20 border-t-primary rounded-full reel-spin" />
             <span className="text-sm text-muted-foreground">Loading viral feed…</span>
           </div>
         ) : feedVideos.length === 0 ? (
@@ -630,7 +630,7 @@ export default function ViralReelFeed() {
               {/* Loading spinner — above video */}
               {!videoReady && !paused && feedVideos.length > 0 && (
                 <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
-                  <div className="w-10 h-10 border-2 border-white/20 border-t-white/60 rounded-full reel-spin" />
+                  <div className="w-10 h-10 border border-white/20 border-t-white/60 rounded-full reel-spin" />
                 </div>
               )}
 
@@ -721,10 +721,10 @@ export default function ViralReelFeed() {
                       >
                         <div className="flex items-center gap-2 mb-1.5">
                           {avatarUrl ? (
-                            <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full border-2 border-white/40 object-cover flex-shrink-0" />
+                            <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full border border-white/40 object-cover flex-shrink-0" />
                           ) : (
                             <div
-                              className="w-9 h-9 rounded-full border-2 border-white/40 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                              className="w-9 h-9 rounded-full border border-white/40 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
                               style={{ background: gradientFor(v.channel_username) }}
                             >
                               {inits(v.channel_username)}
@@ -758,7 +758,7 @@ export default function ViralReelFeed() {
                   <div className="flex items-center gap-3 p-5 border-b border-border flex-shrink-0">
                     <div className="relative flex-shrink-0">
                       <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-white/10"
+                        className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border border-white/10"
                         style={{ background: gradientFor(currentVideo.channel_username) }}
                       >
                         {avatarMap[currentVideo.channel_username] ? (
@@ -767,7 +767,7 @@ export default function ViralReelFeed() {
                           <span className="text-sm font-bold text-white">{inits(currentVideo.channel_username)}</span>
                         )}
                       </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-card border-2 border-card flex items-center justify-center">
+                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-card border border-card flex items-center justify-center">
                         {currentVideo.platform === "instagram" ? <Instagram className="w-3 h-3 text-pink-400" /> : currentVideo.platform === "tiktok" ? <Music className="w-3 h-3 text-cyan-400" /> : <Youtube className="w-3 h-3 text-red-400" />}
                       </div>
                     </div>

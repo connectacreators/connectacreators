@@ -64,7 +64,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       style={{
         width: 260,
         background: "#18181b",
-        border: selected ? "1.5px solid #8FD0D5" : "1px solid #27272a",
+        border: selected ? "1px solid #8FD0D5" : "1px solid #27272a",
         borderLeft: "4px solid #8FD0D5",
       }}
     >

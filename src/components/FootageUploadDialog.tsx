@@ -226,7 +226,7 @@ export default function FootageUploadDialog({
                   />
                   <div
                     ref={dropzoneRef}
-                    className="rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center cursor-pointer transition-colors hover:border-primary/50"
+                    className="rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center cursor-pointer transition-colors hover:border-primary/50"
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}

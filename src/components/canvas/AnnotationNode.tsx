@@ -332,7 +332,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
               <div className="flex gap-1.5 flex-wrap" style={{ maxWidth: 150 }}>
                 {COLORS.map(c => (
                   <button key={c} onClick={() => { update({ color: c }); setOpenPopover(null); }}
-                    className="w-4 h-4 rounded-full border-2 transition-transform hover:scale-125"
+                    className="w-4 h-4 rounded-full border transition-transform hover:scale-125"
                     style={{ background: c, borderColor: color === c ? "#fff" : "rgba(255,255,255,0.15)", transform: color === c ? "scale(1.2)" : "scale(1)" }}
                   />
                 ))}

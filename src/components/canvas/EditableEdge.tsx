@@ -207,7 +207,7 @@ export default function EditableEdge({
                   <div className="flex gap-1.5">
                     {EDGE_COLORS.map(c => (
                       <button key={c} onClick={() => updateStyle({ color: c, stroke: c })}
-                        className={`w-4 h-4 rounded-full border-2 transition-transform hover:scale-110 ${edgeColor === c ? "border-white scale-110" : "border-transparent"}`}
+                        className={`w-4 h-4 rounded-full border transition-transform hover:scale-110 ${edgeColor === c ? "border-white scale-110" : "border-transparent"}`}
                         style={{ background: c }}
                       />
                     ))}

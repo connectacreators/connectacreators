@@ -449,7 +449,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
               onDragLeave={onDragLeave}
               onDrop={onDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`nodrag cursor-pointer flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-4 transition-colors ${
+              className={`nodrag cursor-pointer flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-6 px-4 transition-colors ${
                 dragOver
                   ? "border-primary bg-primary/10"
                   : "border-border/50 hover:border-primary/40 hover:bg-muted/20"

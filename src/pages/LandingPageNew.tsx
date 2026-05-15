@@ -336,7 +336,7 @@ function DemoVideoPlayer() {
         width: "100%",
         borderRadius: fullscreen ? 0 : 22,
         overflow: "hidden",
-        border: "1.5px solid var(--ink)",
+        border: "1px solid var(--ink)",
         boxShadow: fullscreen ? "none" : "6px 6px 0 var(--ink)",
         background: "#000",
         cursor: "pointer",
@@ -452,7 +452,7 @@ function DemoVideoPlayer() {
                 height: 12,
                 borderRadius: "50%",
                 background: "var(--aqua)",
-                border: "1.5px solid var(--ink)",
+                border: "1px solid var(--ink)",
               }}
             />
           </div>
@@ -465,7 +465,7 @@ function DemoVideoPlayer() {
             aria-label={playing ? "Pause" : "Play"}
             style={{
               background: "var(--bone)",
-              border: "1.5px solid var(--ink)",
+              border: "1px solid var(--ink)",
               borderRadius: "50%",
               width: 32,
               height: 32,
@@ -542,7 +542,7 @@ function SuperCanvasMock() {
       style={{
         height: 460,
         background: "#15181E",
-        border: "1.5px solid #141414",
+        border: "1px solid #141414",
         borderRadius: 22,
         boxShadow: "6px 6px 0 #141414",
       }}
@@ -753,7 +753,7 @@ function ViralTodayMock() {
       style={{
         padding: 22,
         background: "#FBF8EE",
-        border: "1.5px solid var(--ink)",
+        border: "1px solid var(--ink)",
         boxShadow: "5px 5px 0 var(--ink)",
         borderRadius: 20,
         color: "var(--ink)",
@@ -1084,7 +1084,7 @@ export default function LandingPageNew() {
           margin: "12px auto 0",
           background: "var(--bone)",
           color: "var(--ink)",
-          border: "1.5px solid var(--ink)",
+          border: "1px solid var(--ink)",
           borderRadius: 999,
           boxShadow: "3px 3px 0 var(--ink)",
         }}
@@ -1175,7 +1175,7 @@ export default function LandingPageNew() {
         {mobileOpen && (
           <div
             style={{
-              borderTop: "1.5px solid var(--ink)",
+              borderTop: "1px solid var(--ink)",
               padding: "16px 24px 22px",
               background: "var(--bone)",
               color: "var(--ink)",
@@ -1447,7 +1447,7 @@ export default function LandingPageNew() {
                   textAlign: "center",
                   padding: "36px 28px",
                   background: "#FBF8EE",
-                  border: "1.5px solid var(--ink)",
+                  border: "1px solid var(--ink)",
                   borderRadius: 24,
                   boxShadow: "4px 4px 0 var(--ink)",
                 }}
@@ -1602,7 +1602,7 @@ export default function LandingPageNew() {
                 style={{
                   padding: 24,
                   background: "var(--graphite)",
-                  border: "1.5px solid var(--ink)",
+                  border: "1px solid var(--ink)",
                   boxShadow: "5px 5px 0 var(--ink)",
                   position: "relative",
                 }}
@@ -1718,7 +1718,7 @@ export default function LandingPageNew() {
                       flexDirection: "column",
                       gap: 6,
                       background: "#FBF8EE",
-                      border: "1.5px solid var(--ink)",
+                      border: "1px solid var(--ink)",
                       borderRadius: 14,
                       boxShadow: "3px 3px 0 var(--ink)",
                     }}
@@ -2180,7 +2180,7 @@ export default function LandingPageNew() {
               width: "100%",
               maxWidth: 1000,
               borderRadius: 22,
-              border: "1.5px solid var(--ink)",
+              border: "1px solid var(--ink)",
               boxShadow: "8px 8px 0 var(--ink), 0 60px 120px -30px rgba(0,0,0,0.7)",
               overflow: "hidden",
             }}
@@ -2198,7 +2198,7 @@ export default function LandingPageNew() {
                 height: 38,
                 borderRadius: "50%",
                 background: "var(--bone)",
-                border: "1.5px solid var(--ink)",
+                border: "1px solid var(--ink)",
                 cursor: "pointer",
                 display: "grid",
                 placeItems: "center",

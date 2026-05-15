@@ -2481,7 +2481,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     return (
                       <div
                         key={globalIdx}
-                        className={`rounded-2xl border-2 border-cyan-400/40 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-cyan-400/5`}
+                        className={`rounded-2xl border border-cyan-400/40 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-cyan-400/5`}
                       >
                         {/* Line type selector */}
                         <div className="flex gap-1 p-3 border-b border-border/40 flex-wrap">
@@ -3156,7 +3156,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     isComplete
                       ? "bg-[#8FD0D5] text-white"
                       : isActive
-                        ? "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-2 border-[rgba(34,211,238,0.6)]"
+                        ? "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border border-[rgba(34,211,238,0.6)]"
                         : "bg-muted/50 text-muted-foreground/40"
                   }`}>
                     {isComplete ? <Check className="w-3.5 h-3.5" /> : num}

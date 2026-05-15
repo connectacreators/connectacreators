@@ -260,7 +260,7 @@ export default function FootagePanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className={`w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-2.5 text-xs transition-colors cursor-pointer ${
+            className={`w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-xs transition-colors cursor-pointer ${
               isDragging
                 ? 'border-cyan-500 bg-cyan-500/8 text-cyan-400'
                 : 'border-muted-foreground/20 text-muted-foreground/50 hover:border-cyan-500/40 hover:text-cyan-500/70'
@@ -272,7 +272,7 @@ export default function FootagePanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className={`w-full flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-8 text-xs transition-colors cursor-pointer ${
+            className={`w-full flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-8 text-xs transition-colors cursor-pointer ${
               isDragging
                 ? 'border-cyan-500 bg-cyan-500/8 text-cyan-400'
                 : 'border-muted-foreground/20 text-muted-foreground/50 hover:border-cyan-500/40 hover:text-cyan-500/70'

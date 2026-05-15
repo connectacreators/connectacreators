@@ -103,7 +103,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
         <img
           src={picSrc}
           alt={username || "Profile"}
-          className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2"
+          className="w-9 h-9 rounded-full object-cover flex-shrink-0 border"
           style={{ borderColor: "rgba(244,63,94,0.4)" }}
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
         />

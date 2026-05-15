@@ -14,7 +14,7 @@ export function TriggerNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`min-w-[160px] rounded-lg border-2 bg-purple-950/80 backdrop-blur-sm shadow-lg transition-all ${
+      className={`min-w-[160px] rounded-lg border bg-purple-950/80 backdrop-blur-sm shadow-lg transition-all ${
         selected ? 'border-purple-400 shadow-purple-400/30' : 'border-purple-600/60'
       }`}
     >
@@ -29,7 +29,7 @@ export function TriggerNode({ data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-purple-400 !border-2 !border-purple-700"
+        className="!w-3 !h-3 !bg-purple-400 !border !border-purple-700"
       />
     </div>
   );
