@@ -76,8 +76,11 @@ async function refundCredits(
     const primaryClientId = await getPrimaryClientId(adminClient, userId);
     if (!primaryClientId) return;
 
-    await adminClient.rpc("refund_credits_atomic", {
-      p_client_id: primaryClientId, p_action: action, p_cost: cost,
+    // Use deduct_credits_atomic with a negative cost — same RPC as the
+    // shared _shared/credits.ts helper, since refund_credits_atomic does
+    // not exist as a separate RPC in this schema.
+    await adminClient.rpc("deduct_credits_atomic", {
+      p_client_id: primaryClientId, p_action: `refund:${action}`, p_cost: -cost,
     });
   } catch (e) {
     console.error("Credit refund error (non-fatal):", e);
