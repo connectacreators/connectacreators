@@ -20,21 +20,29 @@ export type AssistantMode =
  */
 export function useAssistantMode(): AssistantMode {
   const location = useLocation();
-  return detectAssistantModeFromPath(location.pathname);
+  return detectAssistantModeFromPath(location.pathname, location.search);
 }
 
 /**
  * Same as useAssistantMode but with manual path override — useful when
  * a component wants to compute the mode for a specific path (e.g. previews).
+ *
+ * Order of precedence:
+ *   1. `/clients/:id/*` path prefix (existing behavior)
+ *   2. `?client=:id` query param on `/dashboard` or `/` (NEW — dashboard scope)
  */
-export function detectAssistantModeFromPath(path: string): AssistantMode {
+export function detectAssistantModeFromPath(path: string, search = ""): AssistantMode {
   // Server-side mirror — keeps the regex consistent with the edge function's mode.ts
-  // Match /clients/<id> with anything after — the original regex required a
-  // trailing /, ?, or # which broke for the bare /clients/:id pathname.
   const re = /^\/clients\/([^/?#]+)/;
   const m = re.exec(path);
   if (m && m[1] && m[1] !== "" && m[1] !== "/") {
     return { mode: "client", clientId: m[1] };
+  }
+  // Dashboard-scoped client via ?client= query param
+  if (path === "/dashboard" || path === "/") {
+    const params = new URLSearchParams(search);
+    const clientId = params.get("client");
+    if (clientId) return { mode: "client", clientId };
   }
   return { mode: "agency", clientId: null };
 }
