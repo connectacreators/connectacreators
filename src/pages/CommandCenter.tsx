@@ -579,7 +579,7 @@ export default function CommandCenter() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 flex flex-col text-white" style={{ background: "#141414" }}>
+    <div className="flex-1 flex flex-col min-h-0 text-white" style={{ background: "#141414" }}>
       {/* Header — mirrors FullscreenAIView: just back button + centered title */}
       <header className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2.5 border-b border-white/5">
         <div className="flex items-center gap-2 w-fit">
@@ -590,20 +590,6 @@ export default function CommandCenter() {
             <ArrowLeft className="w-3 h-3" />
             {en ? "Back" : "Atrás"}
           </button>
-          {rightTab === "chat" && (
-            <button
-              onClick={() => setChatsSidebarOpen((v) => !v)}
-              className="flex items-center justify-center text-white/45 hover:text-white/80 hover:bg-white/[0.06] transition-colors rounded p-1"
-              title={`${chatsSidebarOpen ? (en ? "Close sidebar" : "Cerrar barra") : (en ? "Open sidebar" : "Abrir barra")} ⌘.`}
-              aria-label={chatsSidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-              {chatsSidebarOpen ? (
-                <PanelLeftClose className="w-3.5 h-3.5" />
-              ) : (
-                <PanelLeftOpen className="w-3.5 h-3.5" />
-              )}
-            </button>
-          )}
         </div>
         <div className="text-center text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
           {companionName}
@@ -631,32 +617,8 @@ export default function CommandCenter() {
       <div className="flex-1 flex min-h-0">
         {rightTab === "chat" ? (
           <>
-            {/* CHATS sidebar — collapsible via header button or Cmd/Ctrl+. */}
-            <aside
-              className="bg-[#1F1F1F] border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0"
-              style={{
-                width: chatsSidebarOpen ? 260 : 0,
-                borderRightWidth: chatsSidebarOpen ? 1 : 0,
-                transition: "width 260ms cubic-bezier(0.22, 1, 0.36, 1), border-right-width 260ms ease",
-              }}
-              aria-hidden={!chatsSidebarOpen}
-            >
-              <div className="w-[260px] flex-shrink-0 flex flex-col flex-1 min-h-0">
-                <AssistantThreadList
-                  threads={threadListItems}
-                  activeThreadId={activeThreadId}
-                  onSelect={handleSelectThread}
-                  onCreate={handleNewThread}
-                  onDelete={handleDeleteThread}
-                  onRename={handleRenameThread}
-                  groupByDate
-                  variant="full"
-                  className="flex-1 min-h-0"
-                />
-              </div>
-            </aside>
-
-            {/* Chat column */}
+            {/* Chat column — chats list lives in the DashboardSidebar's
+                lower half (RecentChatsPanel) so it's intentionally absent here. */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AssistantChat
