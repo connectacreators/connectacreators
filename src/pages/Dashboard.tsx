@@ -1,9 +1,15 @@
 // src/pages/Dashboard.tsx
 //
-// Agency dashboard — replaces the old tool-launcher (3 folder cards).
-// Two views:
-//   1) Agency view (default)            — greeting + client roster + 6 AI prompt cards
-//   2) Client-scoped view (?client=X)   — breadcrumb + "Robby's read" insight rows
+// Dashboard — adapts to the user's role:
+//
+//   1) ADMIN / agency operator (manages multiple clients)
+//      - Agency view: roster + 6 prompts + tool folders
+//      - Client-scoped (?client=X): breadcrumb + Robby's read + tool folders
+//
+//   2) CONNECTA PLUS / SUBSCRIBER (single-brand end user, e.g. Dr Calvin)
+//      - No multi-client roster.
+//      - Always scoped to their own client (auto-resolved via subscriber_clients).
+//      - Greeting + 6 prompts + tool folders (scoped to their brand).
 //
 // Spec: docs/superpowers/specs/2026-05-15-agency-dashboard-redesign-design.md
 
@@ -30,20 +36,59 @@ interface Client {
 }
 
 export default function Dashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin, isConnectaPlus, isUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { setIsOpen: setDrawerOpen } = useCompanion();
 
   const activeClientId = searchParams.get("client");
 
+  // Single-brand role: doesn't manage other clients, just sees their own
+  const isSingleBrand = isConnectaPlus || (isUser && !isAdmin);
+
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
+  const [ownClient, setOwnClient] = useState<Client | null>(null);
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     setClientsLoading(true);
+
+    // Single-brand users: fetch ONLY their own client (no roster)
+    if (isSingleBrand) {
+      supabase
+        .from("subscriber_clients")
+        .select("client_id, is_primary, clients(id, name)")
+        .eq("subscriber_user_id", user.id)
+        .order("is_primary", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (cancelled) return;
+          const c = (data as any)?.clients ?? null;
+          if (c) {
+            setOwnClient({ id: c.id, name: c.name });
+          } else {
+            // Fallback: direct user_id lookup on clients
+            supabase
+              .from("clients")
+              .select("id, name")
+              .eq("user_id", user.id)
+              .maybeSingle()
+              .then(({ data: fb }) => {
+                if (cancelled) return;
+                if (fb) setOwnClient(fb as Client);
+                setClientsLoading(false);
+              });
+            return;
+          }
+          setClientsLoading(false);
+        });
+      return () => { cancelled = true; };
+    }
+
+    // Admin/agency: fetch all clients
     supabase
       .from("clients")
       .select("id, name")
@@ -59,7 +104,7 @@ export default function Dashboard() {
         setClientsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, isSingleBrand]);
 
   const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
   const { data: pendingByClient, loading: pendingLoading } = useDashboardPendingItems(clientIds);
@@ -79,10 +124,14 @@ export default function Dashboard() {
     navigate(`/dashboard?client=${clientId}`);
   };
 
+  // For single-brand users, the active client is always their own brand
+  const effectiveClientName = isSingleBrand ? (ownClient?.name ?? null) : activeClientName;
+  const effectiveClientId = isSingleBrand ? (ownClient?.id ?? null) : (activeClient?.id ?? null);
+
   const onPromptClick = (promptId: string) => {
     const def = DASHBOARD_PROMPTS.find((p) => p.id === promptId);
     if (!def) return;
-    const rendered = renderPrompt(def.prompt, activeClientName);
+    const rendered = renderPrompt(def.prompt, effectiveClientName);
     (window as any).__companionPendingPrompt = rendered;
     setDrawerOpen(true);
   };
@@ -107,6 +156,64 @@ export default function Dashboard() {
       "there");
   const pendingCount = rosterClients.length;
 
+  // ───────────────────────────────────────────────────────────────
+  // SINGLE-BRAND VIEW (Connecta Plus subscribers, regular users)
+  // No client roster, no agency framing — just their brand.
+  // ───────────────────────────────────────────────────────────────
+  if (isSingleBrand) {
+    return (
+      <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
+        <h1
+          style={{
+            fontSize: 26,
+            fontWeight: 500,
+            color: "#141414",
+            letterSpacing: "-0.01em",
+            marginBottom: 4,
+            fontFamily: "'EB Garamond', Georgia, serif",
+          }}
+        >
+          Hi {firstName}.
+        </h1>
+        <p style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", marginBottom: 22 }}>
+          {clientsLoading ? "Loading…" : ownClient ? `Your brand: ${ownClient.name}.` : "Welcome."}
+        </p>
+
+        <section>
+          <div
+            style={{
+              fontSize: 9.5,
+              letterSpacing: "0.20em",
+              textTransform: "uppercase",
+              color: "rgba(20,20,20,0.45)",
+              marginBottom: 10,
+              fontFamily: "Figtree, sans-serif",
+              fontWeight: 600,
+            }}
+          >
+            Start with Robby
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {DASHBOARD_PROMPTS.map((p) => (
+              <PromptCard
+                key={p.id}
+                icon={p.icon}
+                title={p.title}
+                description={p.description}
+                onClick={() => onPromptClick(p.id)}
+              />
+            ))}
+          </div>
+        </section>
+
+        <ToolFolders activeClientId={effectiveClientId} />
+      </div>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // ADMIN / AGENCY VIEW
+  // ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
 
