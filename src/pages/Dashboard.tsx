@@ -15,6 +15,7 @@
 
 import { useMemo, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanion } from "@/contexts/CompanionContext";
@@ -180,7 +181,10 @@ export default function Dashboard() {
 
       {!activeClient && (
         <>
-          <h1
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
             style={{
               fontSize: 26,
               fontWeight: 500,
@@ -191,8 +195,13 @@ export default function Dashboard() {
             }}
           >
             Hi {firstName}.
-          </h1>
-          <p style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", marginBottom: 22 }}>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
+            style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", marginBottom: 22 }}
+          >
             {clientsLoading || pendingLoading
               ? "Loading…"
               : pendingCount === 0
@@ -200,10 +209,15 @@ export default function Dashboard() {
                   ? "Add your first client to get started."
                   : `All caught up across your ${clients.length} client${clients.length === 1 ? "" : "s"}.`
                 : `${pendingCount} client${pendingCount === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
-          </p>
+          </motion.p>
 
           {rosterClients.length > 0 && (
-            <section style={{ marginBottom: 28 }}>
+            <motion.section
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.12 }}
+              style={{ marginBottom: 28 }}
+            >
               <div
                 style={{
                   fontSize: 9.5,
@@ -218,17 +232,23 @@ export default function Dashboard() {
                 Clients
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {rosterClients.map((c) => (
-                  <ClientCard
+                {rosterClients.map((c, idx) => (
+                  <motion.div
                     key={c.id}
-                    clientId={c.id}
-                    name={c.name}
-                    pendingItems={pendingByClient[c.id] ?? []}
-                    onClick={onClientClick}
-                  />
+                    initial={{ opacity: 0, y: 14, scale: 0.985 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.45, ease: [0.34, 1.36, 0.64, 1], delay: 0.18 + idx * 0.05 }}
+                  >
+                    <ClientCard
+                      clientId={c.id}
+                      name={c.name}
+                      pendingItems={pendingByClient[c.id] ?? []}
+                      onClick={onClientClick}
+                    />
+                  </motion.div>
                 ))}
               </div>
-            </section>
+            </motion.section>
           )}
 
           {!clientsLoading && clients.length === 0 && (
@@ -253,7 +273,11 @@ export default function Dashboard() {
             </section>
           )}
 
-          <section>
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.2 }}
+          >
             <div
               style={{
                 fontSize: 9.5,
@@ -268,17 +292,23 @@ export default function Dashboard() {
               Start with Robby
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {DASHBOARD_PROMPTS.map((p) => (
-                <PromptCard
+              {DASHBOARD_PROMPTS.map((p, idx) => (
+                <motion.div
                   key={p.id}
-                  icon={p.icon}
-                  title={p.title}
-                  description={p.description}
-                  onClick={() => onPromptClick(p.id)}
-                />
+                  initial={{ opacity: 0, y: 14, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.45, ease: [0.34, 1.36, 0.64, 1], delay: 0.26 + idx * 0.05 }}
+                >
+                  <PromptCard
+                    icon={p.icon}
+                    title={p.title}
+                    description={p.description}
+                    onClick={() => onPromptClick(p.id)}
+                  />
+                </motion.div>
               ))}
             </div>
-          </section>
+          </motion.section>
 
           <ToolFolders activeClientId={null} />
         </>

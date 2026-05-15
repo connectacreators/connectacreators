@@ -7,6 +7,7 @@
 // the active client when one is selected.
 
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Layers,
   FileText,
@@ -83,7 +84,12 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
   const folders = buildFolders(activeClientId);
 
   return (
-    <section style={{ marginTop: 28 }}>
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.45 }}
+      style={{ marginTop: 28 }}
+    >
       <div
         style={{
           fontSize: 9.5,
@@ -98,9 +104,13 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
         Tools{activeClientId ? "" : " — agency view"}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        {folders.map((folder) => (
-          <div
+        {folders.map((folder, idx) => (
+          <motion.div
             key={folder.key}
+            initial={{ opacity: 0, y: 14, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.45, ease: [0.34, 1.36, 0.64, 1], delay: 0.5 + idx * 0.07 }}
+            whileHover={{ y: -2, x: -1 }}
             style={{
               background: "#ffffff",
               border: "1px solid #141414",
@@ -144,9 +154,9 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
-    </section>
+    </motion.section>
   );
 }
