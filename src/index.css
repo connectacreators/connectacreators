@@ -241,6 +241,70 @@ All colors MUST be HSL for consistency and theming.
   .light-popover .bg-border {
     background-color: rgba(20, 20, 20, 0.08) !important;
   }
+
+  /* Editorial-page wrapper — re-points the dark theme CSS variables to the
+     cream/ink palette used by Dashboard, LandingPageNew, and SuperCanvas
+     so any page wrapped in .editorial-page reads against the bone surface
+     without touching every Tailwind utility individually. */
+  .editorial-page {
+    --background: 42 23% 89%;         /* bone #EAE6DC */
+    --foreground: 0 0% 8%;            /* ink #141414 */
+    --card: 0 0% 100%;                /* white */
+    --card-foreground: 0 0% 8%;       /* ink */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 184 41% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 23% 89%;
+    --secondary-foreground: 0 0% 8%;
+    --muted: 42 23% 85%;
+    --muted-foreground: 0 0% 30%;
+    --accent: 42 23% 85%;
+    --accent-foreground: 0 0% 8%;
+    --border: 0 0% 8% / 0.10;
+    --input: 0 0% 8% / 0.10;
+    --ring: 0 0% 8% / 0.20;
+
+    background: #EAE6DC;
+    color: #141414;
+    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  }
+  .editorial-page h1,
+  .editorial-page h2,
+  .editorial-page h3,
+  .editorial-page .editorial-h {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #141414;
+  }
+  /* Section eyebrow label — uppercase tracked Figtree, the small label
+     style used above grids in Dashboard ("Clients", "Start with Robby"). */
+  .editorial-page .editorial-eyebrow {
+    font-size: 9.5px;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: rgba(20, 20, 20, 0.45);
+    font-family: 'Figtree', sans-serif;
+    font-weight: 600;
+  }
+  /* White card surface */
+  .editorial-page .editorial-card {
+    background: #ffffff;
+    border: 1px solid rgba(20, 20, 20, 0.10);
+    border-radius: 12px;
+  }
+  /* Override common dark-theme utilities scoped inside editorial-page so
+     existing class-driven components (filters, modals, list rows) read
+     correctly on the cream bg without hand-editing every spot. */
+  .editorial-page .bg-background { background-color: #EAE6DC !important; }
+  .editorial-page .bg-card,
+  .editorial-page [class*="bg-card/"] { background-color: #ffffff !important; }
+  .editorial-page [class*="bg-background/"] { background-color: rgba(255, 255, 255, 0.6) !important; }
+  .editorial-page .border-border,
+  .editorial-page [class*="border-border/"] { border-color: rgba(20, 20, 20, 0.10) !important; }
+  .editorial-page .text-foreground { color: #141414 !important; }
+  .editorial-page .text-muted-foreground { color: rgba(20, 20, 20, 0.55) !important; }
   .glass-sidebar::before,
   .glass-sidebar::after {
     display: none;
