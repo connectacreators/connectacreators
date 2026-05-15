@@ -117,8 +117,8 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center"
-      style={{ background: BG, padding: "48px 28px" }}
+      className="flex-1 flex flex-col items-center justify-center overflow-y-auto"
+      style={{ background: BG, padding: "48px 28px", minHeight: "100%" }}
     >
       <div className="w-full max-w-4xl flex flex-col items-center">
 
