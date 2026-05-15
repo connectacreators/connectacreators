@@ -1864,17 +1864,19 @@ export default function Scripts() {
 
               const visibleIds = filtered.map((s) => s.id);
               const ScriptCard = ({ s }: { s: typeof scripts[0] }) => (
-                <div key={s.id} className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br border rounded-2xl transition-smooth overflow-hidden select-none ${
-                    selectedScriptIds.has(s.id) ? 'ring-1 ring-primary/40 ' : ''
-                  }${
-                    (s as any).status === 'draft'
-                      ? 'from-orange-950/30 via-orange-900/15 to-orange-900/10 border-orange-500/40 hover:border-orange-400/60'
-                      : s.review_status === 'approved'
-                      ? 'from-green-950/40 via-green-900/20 to-green-900/10 border-green-500/40'
-                      : s.review_status === 'needs_revision'
-                      ? 'from-red-950/40 via-red-900/20 to-red-900/10 border-red-500/40'
-                      : 'from-card via-card to-muted/30 border-border hover:border-primary/50 hover:to-primary/10'
-                  }`}>
+                <div
+                  key={s.id}
+                  className={`editorial-card flex items-center gap-3 sm:gap-4 p-3 sm:p-4 overflow-hidden select-none transition-colors`}
+                  style={{
+                    borderLeft: `3px solid ${
+                      (s as any).status === 'draft' ? '#A85B1F'
+                        : s.review_status === 'approved' ? '#1f7a5a'
+                        : s.review_status === 'needs_revision' ? '#A85B1F'
+                        : 'rgba(234,230,220,0.20)'
+                    }`,
+                    boxShadow: selectedScriptIds.has(s.id) ? 'inset 0 0 0 1px rgba(143,208,213,0.40)' : undefined,
+                  }}
+                >
                   <button onClick={(e) => { e.stopPropagation(); handleScriptSelect(s.id, e, visibleIds); }} className="flex-shrink-0" title="Select (Shift+click for range)">
                     {selectedScriptIds.has(s.id)
                       ? <CheckCircle2 className="w-5 h-5 text-primary" />
@@ -1944,26 +1946,41 @@ export default function Scripts() {
                             return (
                               <div className="min-w-0 flex-1">
                                 <span
-                                  className="block text-[9px] font-bold uppercase tracking-[1.5px] mb-0.5"
-                                  style={{ color: "rgba(34,211,238,0.7)" }}
+                                  className="editorial-eyebrow block mb-0.5"
+                                  style={{ fontSize: 9, letterSpacing: "0.20em" }}
                                 >
                                   {labelText}
                                 </span>
-                                <p className={`font-semibold leading-snug font-serif ${s.grabado ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                                <p
+                                  className="leading-snug"
+                                  style={{
+                                    fontFamily: "'EB Garamond', Georgia, serif",
+                                    fontWeight: 500,
+                                    fontSize: 15,
+                                    letterSpacing: "-0.005em",
+                                    color: s.grabado ? "rgba(234,230,220,0.45)" : "#EAE6DC",
+                                    textDecoration: s.grabado ? "line-through" : "none",
+                                  }}
+                                >
                                   {ideaOrTitle}
                                 </p>
                                 {hasIdea && s.title && s.title !== s.idea_ganadora && (
-                                  <p className="text-[10px] text-muted-foreground/60 truncate">{s.title}</p>
+                                  <p className="text-[10px] truncate" style={{ color: "rgba(234,230,220,0.40)" }}>{s.title}</p>
                                 )}
                               </div>
                             );
                           })()
                         )}
                         {(s as any).status === "draft" && (
-                          <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">In Progress</span>
+                          <span
+                            className="editorial-eyebrow flex-shrink-0 px-2 py-0.5 rounded-full"
+                            style={{ fontSize: 9, color: "#A85B1F", border: "1px solid rgba(168,91,31,0.32)", background: "rgba(168,91,31,0.08)" }}
+                          >
+                            In Progress
+                          </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
+                      <p className="text-xs mt-1" style={{ color: "rgba(234,230,220,0.40)" }}>{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
                     </div>
                   </button>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -2142,13 +2159,23 @@ export default function Scripts() {
                             <div className="relative group">
                               <button
                                 onClick={() => setViewingFolderId(f.id)}
-                                className="w-full relative flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-all text-left overflow-hidden"
+                                className="editorial-card w-full flex flex-col items-start gap-3 p-4 transition-colors text-left overflow-hidden"
                               >
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                                <Folder className="w-7 h-7 text-primary/80 group-hover:text-primary transition-colors relative z-10" />
-                                <div className="relative z-10 w-full min-w-0 pr-7">
-                                  <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
-                                  <p className="text-xs text-muted-foreground">
+                                <Folder className="w-5 h-5" style={{ color: "rgba(234,230,220,0.55)" }} />
+                                <div className="w-full min-w-0 pr-7">
+                                  <p
+                                    className="truncate"
+                                    style={{
+                                      fontFamily: "'EB Garamond', Georgia, serif",
+                                      fontWeight: 500,
+                                      fontSize: 16,
+                                      letterSpacing: "-0.005em",
+                                      color: "#EAE6DC",
+                                    }}
+                                  >
+                                    {f.name}
+                                  </p>
+                                  <p className="editorial-eyebrow mt-1" style={{ letterSpacing: "0.14em", fontSize: 9.5 }}>
                                     {count} script{count !== 1 ? "s" : ""}
                                     {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
                                   </p>
@@ -2156,10 +2183,11 @@ export default function Scripts() {
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
-                                className="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-background/70 backdrop-blur-sm border border-border/60 opacity-0 group-hover:opacity-100 hover:bg-primary/15 hover:border-primary/40 hover:text-primary transition-all"
+                                className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                style={{ background: "rgba(20,20,20,0.7)", border: "1px solid rgba(234,230,220,0.12)", color: "rgba(234,230,220,0.65)" }}
                                 title="Share folder"
                               >
-                                <Share2 className="w-3.5 h-3.5" />
+                                <Share2 className="w-3 h-3" />
                               </button>
                             </div>
                           </DroppableFolder>
@@ -2167,26 +2195,39 @@ export default function Scripts() {
                       })}
                       {/* New folder card */}
                       {creatingFolder ? (
-                        <div className="flex flex-col gap-2 p-4 rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-sm">
+                        <div className="editorial-card flex flex-col gap-2 p-4">
                           <Input
                             autoFocus
                             value={newFolderName}
                             onChange={(e) => setNewFolderName(e.target.value)}
                             placeholder={viewingFolderId ? "Subfolder name" : "Folder name"}
-                            className="h-7 text-sm bg-transparent border-primary/40"
+                            className="h-8 text-sm"
+                            style={{ background: "rgba(234,230,220,0.04)", borderColor: "rgba(234,230,220,0.14)", color: "#EAE6DC" }}
                             onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
                           />
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="cta" className="h-6 text-xs px-2" onClick={handleCreateFolder}>Save</Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}>Cancel</Button>
+                          <div className="flex gap-2 mt-1">
+                            <button
+                              onClick={handleCreateFolder}
+                              className="editorial-pill px-3 py-1 text-[11px] font-medium"
+                              data-active="true"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}
+                              className="editorial-pill px-3 py-1 text-[11px] font-medium"
+                            >
+                              Cancel
+                            </button>
                           </div>
                         </div>
                       ) : (
                         <button
                           onClick={() => setCreatingFolder(true)}
-                          className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary"
+                          className="editorial-card-dashed flex flex-col items-center justify-center gap-2 p-4 transition-colors"
+                          style={{ color: "rgba(234,230,220,0.55)", minHeight: 110 }}
                         >
-                          <FolderPlus className="w-7 h-7" />
+                          <FolderPlus className="w-5 h-5" />
                           <span className="text-xs font-medium">New folder</span>
                         </button>
                       )}
@@ -2221,9 +2262,17 @@ export default function Scripts() {
             })()
             )}
 
-            {/* ── Floating glass bulk-action bar ── */}
+            {/* ── Floating editorial bulk-action bar ── */}
             {selectedScriptIds.size > 0 && (
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+              <div
+                className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-2"
+                style={{
+                  background: '#1F1F1F',
+                  border: '1px solid rgba(234,230,220,0.10)',
+                  borderRadius: 12,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+                }}
+              >
                 <span className="text-sm font-medium text-foreground">{selectedScriptIds.size} selected</span>
                 <div className="w-px h-4 bg-border" />
                 <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => handleSelectAll(scripts)}>
