@@ -135,7 +135,7 @@ export default function ViralVideoDetail() {
   // Analyze flow state
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"transcript" | "visual" | "hook" | "story">("transcript");
+  const [activeTab, setActiveTab] = useState<"caption" | "transcript" | "visual" | "hook" | "story">("caption");
 
   // Save to Vault state
   const [saveClientId, setSaveClientId] = useState("");
@@ -461,19 +461,15 @@ export default function ViralVideoDetail() {
             </div>
           </div>
 
-          {/* ===== RIGHT COLUMN: Analyze / tabs (fills available height, scrolls internally) ===== */}
+          {/* ===== RIGHT COLUMN: tabs (fills available height, scrolls internally) ===== */}
           <div className="flex flex-col min-w-0 min-h-0">
-            {/* Summary line */}
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {video.caption || "(no caption)"}
-            </p>
 
             {/* Tabs box — flex-1 with min-h-0 so it scrolls inside, not the page */}
             <div className="flex-1 min-h-0 border border-border rounded-2xl flex flex-col overflow-hidden">
               {video.analysis_status === "analyzed" ? (
                 <>
-                  <div className="flex gap-2 border-b border-border px-4 flex-shrink-0">
-                    {(["transcript", "visual", "hook", "story"] as const).map((t) => (
+                  <div className="flex gap-2 border-b border-border px-4 flex-shrink-0 overflow-x-auto">
+                    {(["caption", "transcript", "visual", "hook", "story"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setActiveTab(t)}
@@ -487,6 +483,7 @@ export default function ViralVideoDetail() {
                     ))}
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-foreground/80 whitespace-pre-wrap">
+                    {activeTab === "caption" && (video.caption ?? "(no caption)")}
                     {activeTab === "transcript" && (video.transcript ?? "(no transcript)")}
                     {activeTab === "visual" && renderVisualSegments(video.framework_meta)}
                     {activeTab === "hook" && (video.hook_text ?? "(no hook)")}
