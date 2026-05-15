@@ -46,6 +46,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useRealtimePresence } from "@/hooks/useRealtimePresence";
 import { useRealtimeCanvasSync } from "@/hooks/useRealtimeCanvasSync";
 import { canvasMediaService } from "@/services/canvasMediaService";
+import { useSearchParams } from "react-router-dom";
 
 const AI_NODE_ID = "ai-assistant";
 
@@ -333,6 +334,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const draftIdRef = useRef<string | null>(null);
   const remixInjectedRef = useRef(false);
   const incomingInjectedRef = useRef(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const attachId = searchParams.get("attach");
   const activeSessionIdRef = useRef<string | null>(null);
   const isSwitchingSessionRef = useRef(false);
   const broadcastNodeDataUpdateRef = useRef<((nodeId: string, data: Record<string, any>) => void) | null>(null);
@@ -1082,6 +1085,70 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     loadCanvas();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient.id, authToken, loadSessions]);
+
+  // ── ?attach=<viral_video_id> deep link ───────────────────────────────────────
+  useEffect(() => {
+    if (!attachId || !loaded || !authToken) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("viral_videos")
+        .select("*")
+        .eq("id", attachId)
+        .single();
+      if (cancelled || error || !data) return;
+      const row = data as any;
+      const nodeId = `videoNode_attach_${Date.now()}`;
+      const position = getViewportCenter(viewportRef.current);
+      const newNode: Node = {
+        id: nodeId,
+        type: "videoNode",
+        position,
+        width: 240,
+        data: {
+          url: row.video_url,
+          autoTranscribe: false,
+          channel_username: row.channel_username,
+          caption: row.caption ?? undefined,
+          platform: row.platform,
+          thumbnailUrl: row.thumbnail_url ?? undefined,
+          outlierScore: row.outlier_score,
+          viewsCount: row.views_count,
+          viralVideoId: row.id,
+          analysisStatus: row.analysis_status,
+          transcription: row.transcript ?? undefined,
+          structure: row.framework_meta?.raw_structure
+            ? {
+                sections: row.framework_meta.raw_structure,
+                detected_format: row.framework_meta.content_type ?? null,
+              }
+            : undefined,
+          videoAnalysis: row.framework_meta?.visual_segments
+            ? { visual_segments: row.framework_meta.visual_segments, audio: row.framework_meta.audio }
+            : undefined,
+          authToken,
+          clientId: selectedClient.id,
+          nodeId,
+          sessionId: activeSessionIdRef.current,
+          onUpdate: (updates: any) =>
+            setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
+          onDelete: () => {
+            setNodes(ns => ns.filter(n => n.id !== nodeId));
+            setEdges(es => es.filter(e => e.source !== nodeId && e.target !== nodeId));
+          },
+        },
+      };
+      setNodes(prev => [...prev, newNode]);
+      // Remove ?attach= from URL to avoid re-adding on refresh.
+      setSearchParams((params) => {
+        const next = new URLSearchParams(params);
+        next.delete("attach");
+        return next;
+      }, { replace: true });
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachId, loaded, authToken]);
 
   function makeAiNode(): Node {
     return {
