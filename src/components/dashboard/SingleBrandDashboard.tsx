@@ -3,6 +3,9 @@
 // Dashboard for Connecta Plus subscribers and regular users (Dr Calvin's
 // Clinic, etc.) — the classic 3-folder layout. Click a folder card to
 // drill into its sub-tools, click "Back" to return.
+//
+// Dark grey background, off-white text. Cards are Graphite with subtle
+// bone borders + bone offset shadow.
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -88,6 +91,17 @@ function buildFolders(clientId: string | null): Folder[] {
   ];
 }
 
+// ─── Dark theme tokens ───
+const BG = "#141414";              // Ink (page)
+const CARD_BG = "#1F1F1F";         // Graphite (cards)
+const BORDER = "rgba(234,230,220,0.14)";
+const BORDER_STRONG = "rgba(234,230,220,0.22)";
+const SHADOW = "rgba(234,230,220,0.18)";
+const SHADOW_HOVER = "rgba(234,230,220,0.28)";
+const TEXT = "#EAE6DC";            // Bone
+const TEXT_MUTED = "rgba(234,230,220,0.60)";
+const TEXT_SUBTLE = "rgba(234,230,220,0.45)";
+
 interface SingleBrandDashboardProps {
   firstName: string;
   brandName: string | null;
@@ -104,50 +118,62 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
   return (
     <div
       className="min-h-screen flex flex-col items-center"
-      style={{ background: "#EAE6DC", padding: "0 28px" }}
+      style={{ background: BG, padding: "0 28px" }}
     >
       <div className="w-full max-w-4xl flex flex-col items-center" style={{ paddingTop: "10vh" }}>
 
-        <motion.h1
+        {/* Small Figtree subtitle: "Hi {brand} 👋" */}
+        <motion.p
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
           style={{
-            fontSize: 36,
-            fontWeight: 500,
-            color: "#141414",
-            letterSpacing: "-0.015em",
-            marginBottom: 6,
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontSize: 13,
+            color: TEXT_MUTED,
+            marginBottom: 8,
             textAlign: "center",
+            fontFamily: "Figtree, sans-serif",
+            letterSpacing: "0.02em",
           }}
         >
-          Hi {brandName ?? firstName}.
-        </motion.h1>
-        <motion.p
+          Hi {brandName ?? firstName}{" "}
+          <motion.span
+            style={{ display: "inline-block", transformOrigin: "70% 70%" }}
+            animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+          >
+            👋
+          </motion.span>
+        </motion.p>
+
+        {/* Big EB Garamond H1: "What do you want to do today?" */}
+        <motion.h1
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 }}
           style={{
-            fontSize: 16,
-            color: "rgba(20,20,20,0.55)",
-            marginBottom: 36,
+            fontSize: 40,
+            fontWeight: 500,
+            color: TEXT,
+            letterSpacing: "-0.015em",
+            marginBottom: 40,
+            fontFamily: "'EB Garamond', Georgia, serif",
             textAlign: "center",
           }}
         >
           What do you want to do today?
-        </motion.p>
+        </motion.h1>
 
-        {/* ── No folder open: 3 big folder cards (centered, stagger-in) ── */}
+        {/* Both views inside one AnimatePresence with proper keys so they swap cleanly */}
         <AnimatePresence mode="wait">
-          {!folder && (
+          {!folder ? (
             <motion.div
               key="folders"
               className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
             >
               {folders.map((f, idx) => {
                 const Icon = f.icon;
@@ -161,15 +187,15 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{
                       duration: 0.5,
-                      delay: 0.2 + idx * 0.08,
+                      delay: 0.15 + idx * 0.08,
                       ease: [0.34, 1.36, 0.64, 1],
                     }}
                     whileHover={{ y: -2, x: -1 }}
                     whileTap={{ scale: 0.98 }}
                     style={{
-                      background: "#ffffff",
-                      border: "1px solid #141414",
-                      boxShadow: "3px 3px 0 #141414",
+                      background: CARD_BG,
+                      border: `1px solid ${BORDER}`,
+                      boxShadow: `3px 3px 0 ${SHADOW}`,
                       borderRadius: 14,
                       padding: 28,
                       cursor: "pointer",
@@ -181,20 +207,28 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                       gap: 12,
                       textAlign: "center",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "5px 5px 0 #141414"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "3px 3px 0 #141414"; }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget as HTMLButtonElement;
+                      el.style.boxShadow = `5px 5px 0 ${SHADOW_HOVER}`;
+                      el.style.borderColor = BORDER_STRONG;
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget as HTMLButtonElement;
+                      el.style.boxShadow = `3px 3px 0 ${SHADOW}`;
+                      el.style.borderColor = BORDER;
+                    }}
                   >
                     <motion.div
                       animate={{ rotate: [0, -3, 3, 0] }}
                       transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 + idx * 0.5, ease: "easeInOut" }}
                     >
-                      <Icon size={36} strokeWidth={1.5} color="#141414" />
+                      <Icon size={36} strokeWidth={1.5} color={TEXT} />
                     </motion.div>
                     <div
                       style={{
                         fontSize: 20,
                         fontWeight: 500,
-                        color: "#141414",
+                        color: TEXT,
                         letterSpacing: "-0.01em",
                         fontFamily: "'EB Garamond', Georgia, serif",
                       }}
@@ -204,7 +238,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                     <div
                       style={{
                         fontSize: 12,
-                        color: "rgba(20,20,20,0.55)",
+                        color: TEXT_MUTED,
                         lineHeight: 1.5,
                         fontFamily: "Figtree, sans-serif",
                         maxWidth: 220,
@@ -216,107 +250,114 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                 );
               })}
             </motion.div>
+          ) : (
+            <motion.div
+              key={`folder-${folder.key}`}
+              className="w-full"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35 }}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveFolder(null)}
+                className="inline-flex items-center gap-1.5 mb-5"
+                style={{
+                  background: CARD_BG,
+                  border: `1px solid ${BORDER_STRONG}`,
+                  boxShadow: `1px 1px 0 ${SHADOW}`,
+                  padding: "5px 12px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  color: TEXT,
+                  cursor: "pointer",
+                  fontFamily: "Figtree, sans-serif",
+                }}
+              >
+                <ChevronLeft size={13} strokeWidth={2} />
+                Back
+              </button>
+
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.20em",
+                  textTransform: "uppercase",
+                  color: TEXT_SUBTLE,
+                  marginBottom: 12,
+                  fontFamily: "Figtree, sans-serif",
+                  fontWeight: 600,
+                }}
+              >
+                {folder.label}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {folder.subCards.map((sub, idx) => {
+                  const Icon = sub.icon;
+                  return (
+                    <motion.button
+                      key={sub.label}
+                      type="button"
+                      onClick={() => navigate(sub.path)}
+                      className="text-left"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: idx * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
+                      whileHover={{ y: -1, x: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      style={{
+                        background: CARD_BG,
+                        border: `1px solid ${BORDER}`,
+                        boxShadow: `2px 2px 0 ${SHADOW}`,
+                        borderRadius: 12,
+                        padding: 14,
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget as HTMLButtonElement;
+                        el.style.boxShadow = `3px 3px 0 ${SHADOW_HOVER}`;
+                        el.style.borderColor = BORDER_STRONG;
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget as HTMLButtonElement;
+                        el.style.boxShadow = `2px 2px 0 ${SHADOW}`;
+                        el.style.borderColor = BORDER;
+                      }}
+                    >
+                      <div style={{ height: 26, marginBottom: 6 }}>
+                        <Icon size={20} strokeWidth={1.5} color={TEXT} />
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 500,
+                          color: TEXT,
+                          letterSpacing: "-0.005em",
+                          marginBottom: 3,
+                          fontFamily: "'EB Garamond', Georgia, serif",
+                        }}
+                      >
+                        {sub.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: TEXT_MUTED,
+                          lineHeight: 1.4,
+                          fontFamily: "Figtree, sans-serif",
+                        }}
+                      >
+                        {sub.description}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Folder opened: back button + sub-cards ── */}
-        {folder && (
-          <motion.div
-            key={folder.key}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35 }}
-            className="w-full"
-          >
-          <button
-            type="button"
-            onClick={() => setActiveFolder(null)}
-            className="inline-flex items-center gap-1.5 mb-5"
-            style={{
-              background: "#ffffff",
-              border: "1px solid #141414",
-              boxShadow: "1px 1px 0 #141414",
-              padding: "5px 12px",
-              borderRadius: 999,
-              fontSize: 12,
-              color: "#141414",
-              cursor: "pointer",
-              fontFamily: "Figtree, sans-serif",
-            }}
-          >
-            <ChevronLeft size={13} strokeWidth={2} />
-            Back
-          </button>
-
-          <div
-            style={{
-              fontSize: 9.5,
-              letterSpacing: "0.20em",
-              textTransform: "uppercase",
-              color: "rgba(20,20,20,0.45)",
-              marginBottom: 10,
-              fontFamily: "Figtree, sans-serif",
-              fontWeight: 600,
-            }}
-          >
-            {folder.label}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {folder.subCards.map((sub, idx) => {
-              const Icon = sub.icon;
-              return (
-                <motion.button
-                  key={sub.label}
-                  type="button"
-                  onClick={() => navigate(sub.path)}
-                  className="text-left"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: idx * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  whileHover={{ y: -1, x: -1 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #141414",
-                    boxShadow: "2px 2px 0 #141414",
-                    borderRadius: 12,
-                    padding: 14,
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "3px 3px 0 #141414"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "2px 2px 0 #141414"; }}
-                >
-                  <div style={{ height: 26, marginBottom: 6 }}>
-                    <Icon size={20} strokeWidth={1.5} color="#141414" />
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 500,
-                      color: "#141414",
-                      letterSpacing: "-0.005em",
-                      marginBottom: 3,
-                      fontFamily: "'EB Garamond', Georgia, serif",
-                    }}
-                  >
-                    {sub.label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "rgba(20,20,20,0.55)",
-                      lineHeight: 1.4,
-                      fontFamily: "Figtree, sans-serif",
-                    }}
-                  >
-                    {sub.description}
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-          </motion.div>
-        )}
       </div>
     </div>
   );
