@@ -345,21 +345,21 @@ function SectionDropZone({ section, onClick }: { section: string; onClick: () =>
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border bg-gradient-to-br transition-smooth cursor-pointer group ${
+      className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border transition-colors cursor-pointer group ${
         isOver
-          ? "from-primary/10 to-primary/5 border-primary/40 ring-1 ring-primary/30"
-          : "from-muted/30 to-muted/10 border-muted-foreground/20"
+          ? "bg-[rgba(234,230,220,0.05)] border-[rgba(234,230,220,0.32)]"
+          : "bg-[#1A1A1A] border-[rgba(234,230,220,0.14)] hover:border-[rgba(234,230,220,0.28)]"
       }`}
       onClick={onClick}
     >
-      <div className="mt-0.5 p-1.5 rounded-xl bg-muted/30">
-        <Plus className="w-4 h-4 text-muted-foreground" />
+      <div className="mt-0.5 p-1.5 rounded-xl bg-[rgba(234,230,220,0.05)]">
+        <Plus className="w-4 h-4 text-[rgba(234,230,220,0.55)]" />
       </div>
       <div className="flex-1 min-w-0">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
           {isOver ? "Drop here" : "Nueva línea"}
         </span>
-        <p className="text-muted-foreground/60 mt-1 text-sm italic">
+        <p className="text-[rgba(234,230,220,0.55)] mt-1 text-sm italic">
           {isOver ? `Move to ${section}` : "Haz clic para agregar una línea..."}
         </p>
       </div>
@@ -1363,7 +1363,7 @@ export default function Scripts() {
         >
           <button
             onClick={handleCtxNewScript}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-card/95 backdrop-blur-md border border-border shadow-xl text-sm font-semibold text-foreground hover:bg-primary/15 hover:text-primary hover:border-primary/30 transition-all"
+            className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[#EAE6DC] transition-colors hover:border-[rgba(234,230,220,0.32)]"
           >
             <FilePlus2 className="w-4 h-4" />
             New Script
@@ -1387,10 +1387,19 @@ export default function Scripts() {
         {view === "clients" && (
           <>
             <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 font-serif">
-                Content <span className="text-primary">Ideas</span>
+              <h1
+                className="mb-2"
+                style={{
+                  fontFamily: "'EB Garamond', Georgia, serif",
+                  fontWeight: 500,
+                  fontSize: "clamp(28px, 4vw, 36px)",
+                  letterSpacing: "-0.01em",
+                  color: "#EAE6DC",
+                }}
+              >
+                Content Ideas
               </h1>
-              <p className="text-muted-foreground max-w-xl mx-auto">
+              <p className="max-w-xl mx-auto" style={{ color: "rgba(234,230,220,0.55)", fontSize: 14 }}>
                 {isAdmin ? tr(t.scripts.manageAll, language) : isVideographer ? tr(t.scripts.assignedClients, language) : tr(t.scripts.manageYour, language)}
               </p>
             </div>
@@ -1398,7 +1407,7 @@ export default function Scripts() {
             {/* New Client (admin only) */}
             {isAdmin && (
               showNewClient ? (
-                <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
+                <div className="editorial-card rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
                    <h3 className="font-semibold text-foreground">{tr(t.scripts.newClient, language)}</h3>
                    <Input placeholder={tr(t.scripts.clientName, language)} value={newName} onChange={(e) => setNewName(e.target.value)} />
                    <Input placeholder={tr(t.scripts.emailOptional, language)} type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
@@ -1419,7 +1428,7 @@ export default function Scripts() {
             {/* Videographer Manager (admin only) */}
             {isAdmin && (
               showNewVideographer ? (
-                <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
+                <div className="editorial-card rounded-2xl p-6 mb-6 space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-foreground flex items-center gap-2">
                       <Camera className="w-5 h-5 text-emerald-400" /> {tr(t.scripts.videographers, language)}
@@ -1436,7 +1445,7 @@ export default function Scripts() {
                           .map(([cid]) => clients.find((c) => c.id === cid))
                           .filter(Boolean);
                         return (
-                          <div key={v.user_id} className="p-3 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border space-y-2">
+                          <div key={v.user_id} className="editorial-card p-3 rounded-xl space-y-2">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 min-w-0">
                                 <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -1570,7 +1579,7 @@ export default function Scripts() {
                   <div key={c.id} className="relative">
                     <button
                       onClick={() => handleSelectClient(c)}
-                      className="flex items-center gap-4 p-4 bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl hover:border-primary/50 hover:from-card hover:to-primary/10 transition-smooth text-left w-full"
+                      className="editorial-card flex items-center gap-4 p-4 rounded-2xl text-left w-full transition-colors hover:border-[rgba(234,230,220,0.32)]"
                     >
                       <div className="p-2 rounded-full bg-primary/10">
                         <User className="w-5 h-5 text-primary" />
@@ -1669,7 +1678,7 @@ export default function Scripts() {
 
                     {/* Assignment overlay */}
                     {isAdmin && assignOverlayClient === c.id && (
-                      <div className="absolute top-14 right-4 z-50 bg-gradient-to-br from-card to-muted/40 border border-border rounded-xl p-3 shadow-lg min-w-[180px] animate-fade-in">
+                      <div className="absolute top-14 right-4 z-50 editorial-card rounded-xl p-3 min-w-[180px] animate-fade-in">
                         <p className="text-xs font-semibold text-foreground mb-2">{tr(t.scripts.assignVideographer, language)}</p>
                         {videographers.map((v) => {
                           const assigned = (assignmentsMap[c.id] || []).includes(v.user_id);
@@ -1796,7 +1805,7 @@ export default function Scripts() {
                       const deletedDate = s.deleted_at ? new Date(s.deleted_at) : new Date();
                       const daysLeft = Math.max(0, 90 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
                       return (
-                        <div key={s.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-card via-card to-destructive/5 border border-border rounded-2xl transition-smooth overflow-hidden opacity-70">
+                        <div key={s.id} className="editorial-card flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-2xl transition-colors overflow-hidden opacity-70">
                           <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                           <div className="flex-1 min-w-0 overflow-hidden">
                             <p className="font-semibold text-muted-foreground truncate line-through">{s.title}</p>
@@ -2253,7 +2262,7 @@ export default function Scripts() {
                   {/* Drag overlay ghost */}
                   <DragOverlay>
                     {draggingScriptId && (
-                      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary/15 border border-primary/30 shadow-2xl backdrop-blur-sm" style={{ width: 280 }}>
+                      <div className="editorial-card flex items-center gap-2 px-4 py-3 rounded-xl" style={{ width: 280, background: "#1A1A1A", borderColor: "rgba(234,230,220,0.32)" }}>
                         <Folder className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-primary">
                           Moving {selectedScriptIds.size} script{selectedScriptIds.size !== 1 ? "s" : ""}
@@ -2450,7 +2459,7 @@ export default function Scripts() {
                  <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
                  
                  {/* Vault Template Toggle */}
-                 <div className="flex items-center gap-3 mb-3 p-3 rounded-xl border border-border bg-gradient-to-r from-card to-muted/20">
+                 <div className="editorial-card flex items-center gap-3 mb-3 p-3 rounded-xl">
                    <Switch
                      checked={useAsTemplate}
                      onCheckedChange={(checked) => {
@@ -2478,7 +2487,7 @@ export default function Scripts() {
                  </div>
 
                  {useAsTemplate && (
-                   <div className="mb-3 p-3 rounded-xl border border-[rgba(8,145,178,0.25)] bg-gradient-to-br from-[rgba(8,145,178,0.05)] to-[rgba(8,145,178,0.02)]">
+                   <div className="editorial-card mb-3 p-3 rounded-xl">
                      {templateLoading ? (
                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                          <Loader2 className="w-4 h-4 animate-spin" />
@@ -2503,7 +2512,7 @@ export default function Scripts() {
                            }
                          }}
                        >
-                         <SelectTrigger className="bg-transparent border-[rgba(8,145,178,0.25)]">
+                         <SelectTrigger className="bg-transparent border-[rgba(234,230,220,0.14)]">
                            <SelectValue placeholder={tr({ en: "Select a Vault template", es: "Selecciona una plantilla del Vault" }, language)} />
                          </SelectTrigger>
                          <SelectContent>
@@ -2519,10 +2528,10 @@ export default function Scripts() {
                 <div className="mb-3">
                    <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
                    <Select value={formato} onValueChange={setFormato}>
-                     <SelectTrigger className="bg-gradient-to-r from-card to-muted/30">
+                     <SelectTrigger className="bg-[#1A1A1A] border-[rgba(234,230,220,0.14)]">
                        <SelectValue placeholder={tr(t.scripts.selectFormat, language)} />
                      </SelectTrigger>
-                     <SelectContent className="bg-gradient-to-br from-card to-muted/20 border-border z-50">
+                     <SelectContent className="bg-[#1A1A1A] border-[rgba(234,230,220,0.14)] z-50">
                        <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
                        <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
                        <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
@@ -2538,7 +2547,7 @@ export default function Scripts() {
                     value={scriptInput}
                     onChange={(e) => setScriptInput(e.target.value)}
                     placeholder={tr(t.scripts.pasteDictate, language)}
-                    className="min-h-[200px] bg-gradient-to-br from-card to-muted/20 border-border font-mono text-sm resize-y pr-12"
+                    className="min-h-[200px] bg-[#1A1A1A] border-[rgba(234,230,220,0.14)] font-mono text-sm resize-y pr-12"
                   />
                   <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
                 </div>
@@ -3163,7 +3172,7 @@ export default function Scripts() {
               );
 
               return (<>
-              <div className="mt-6 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
+              <div className="mt-6 pt-4 border-t border-[rgba(234,230,220,0.14)] p-4 rounded-2xl bg-[#1A1A1A]">
                 <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-semibold text-green-400">Footage:</span>
@@ -3226,7 +3235,7 @@ export default function Scripts() {
               </div>
 
               {/* File Submission */}
-              <div className="mt-4 pt-4 border-t border-border p-4 rounded-2xl bg-gradient-to-br from-card to-muted/20">
+              <div className="mt-4 pt-4 border-t border-[rgba(234,230,220,0.14)] p-4 rounded-2xl bg-[#1A1A1A]">
                 <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-[#8FD0D5]" />
                   <span className="text-sm font-semibold text-[#8FD0D5]">File Submission:</span>
@@ -3444,7 +3453,7 @@ export default function Scripts() {
       )}
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
-        <DialogContent className="sm:max-w-sm bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl">
+        <DialogContent className="sm:max-w-sm bg-[#1A1A1A] border border-[rgba(234,230,220,0.14)] rounded-2xl">
           <DialogHeader>
             <DialogTitle>{tr(t.scripts.setNewPassword, language)}</DialogTitle>
           </DialogHeader>
@@ -3465,7 +3474,7 @@ export default function Scripts() {
       </Dialog>
 
       <Dialog open={showNamePrompt} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-sm bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-sm bg-[#1A1A1A] border border-[rgba(234,230,220,0.14)] rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{tr(t.scripts.whatsYourName, language)}</DialogTitle>
           </DialogHeader>
@@ -3597,7 +3606,7 @@ export default function Scripts() {
       </Dialog>
 
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="sm:max-w-md bg-gradient-to-br from-card via-card to-muted/30 rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-[#1A1A1A] border border-[rgba(234,230,220,0.14)] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Clock className="w-4 h-4" />

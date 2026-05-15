@@ -12,25 +12,26 @@ import { stripHtml } from "@/utils/stripHtml";
 
 type LineType = ScriptLine["line_type"];
 
+// Editorial-dark line types — colors match Scripts.tsx card-view config.
 const TYPE_OPTIONS: { type: LineType; color: string; label: string }[] = [
-  { type: "filming",        color: "#f97316", label: "Filming"        },
-  { type: "actor",          color: "#8FD0D5", label: "Actor"          },
-  { type: "editor",         color: "#E0A560", label: "Editor"         },
-  { type: "text_on_screen", color: "#475569", label: "Text on Screen" },
+  { type: "filming",        color: "#A85B1F",                  label: "Filming"        },
+  { type: "actor",          color: "#8FD0D5",                  label: "Actor"          },
+  { type: "editor",         color: "#7FB58A",                  label: "Editor"         },
+  { type: "text_on_screen", color: "rgba(234,230,220,0.55)",   label: "Text on Screen" },
 ];
 
 const TYPE_TEXT_CLASS: Record<LineType, string> = {
-  filming:        "text-orange-400",
-  actor:          "text-cyan-400",
-  editor:         "text-lime-400",
-  text_on_screen: "text-slate-400",
+  filming:        "text-[rgba(234,230,220,0.82)]",
+  actor:          "text-[rgba(234,230,220,0.82)]",
+  editor:         "text-[rgba(234,230,220,0.82)]",
+  text_on_screen: "text-[rgba(234,230,220,0.62)]",
 };
 
 const TYPE_BAR_CLASS: Record<LineType, string> = {
-  filming:        "bg-orange-500",
-  actor:          "bg-cyan-600",
-  editor:         "bg-lime-500",
-  text_on_screen: "bg-slate-500",
+  filming:        "bg-[#A85B1F]",
+  actor:          "bg-[#8FD0D5]",
+  editor:         "bg-[#7FB58A]",
+  text_on_screen: "bg-[rgba(234,230,220,0.40)]",
 };
 
 export interface ScriptDocEditorProps {
@@ -138,7 +139,7 @@ function ScriptLineEditor({
     <div
       className={[
         "relative flex items-stretch mb-0.5 rounded-md group transition-colors",
-        isActive ? "bg-cyan-500/[0.04]" : "hover:bg-white/[0.02]",
+        isActive ? "bg-[rgba(234,230,220,0.04)]" : "hover:bg-[rgba(234,230,220,0.025)]",
       ].join(" ")}
     >
       {/* Left color bar */}
@@ -161,17 +162,17 @@ function ScriptLineEditor({
       {/* Floating type picker */}
       {isActive && pickerOpen && (
         <div
-          className="absolute left-1.5 bottom-[calc(100%+7px)] z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-cyan-500/20 bg-[#0c1827] shadow-[0_4px_20px_rgba(0,0,0,0.6)] whitespace-nowrap"
+          className="absolute left-1.5 bottom-[calc(100%+7px)] z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-[rgba(234,230,220,0.18)] bg-[#1A1A1A] shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap"
           onMouseDown={(e) => e.preventDefault()}
         >
-          <span className="text-[9px] text-slate-500 mr-0.5">type</span>
+          <span className="text-[9px] text-[rgba(234,230,220,0.45)] mr-0.5">type</span>
           {TYPE_OPTIONS.map((opt) => (
             <div
               key={opt.type}
               className={[
                 "w-3.5 h-3.5 rounded-full cursor-pointer transition-transform hover:scale-125",
                 line.line_type === opt.type
-                  ? "ring-2 ring-white ring-offset-[2px] ring-offset-[#0c1827]"
+                  ? "ring-2 ring-[#EAE6DC] ring-offset-[2px] ring-offset-[#1A1A1A]"
                   : "",
               ].join(" ")}
               style={{ background: opt.color }}
@@ -179,9 +180,9 @@ function ScriptLineEditor({
               onClick={() => onTypeChange(idx, opt.type)}
             />
           ))}
-          <div className="w-px h-3 bg-slate-700 mx-0.5" />
-          <span className="text-[9px] font-semibold text-cyan-400 tracking-wide">
-            {currentType?.label.toUpperCase()}
+          <div className="w-px h-3 bg-[rgba(234,230,220,0.18)] mx-0.5" />
+          <span className="editorial-eyebrow" style={{ letterSpacing: "0.18em", fontSize: 9 }}>
+            {currentType?.label}
           </span>
         </div>
       )}
@@ -328,10 +329,10 @@ export default function ScriptDocEditor({
       `}</style>
 
       {/* Formatting toolbar */}
-      <div className="doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[#060a0e]/90 backdrop-blur-xl border-b border-cyan-500/[0.08] flex-wrap">
+      <div className="editorial-page-dark doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[#141414] border-b border-[rgba(234,230,220,0.10)] flex-wrap">
         {/* Bold */}
         <button
-          className="px-2 py-1 rounded text-[12px] font-bold text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+          className="px-2 py-1 rounded text-[12px] font-bold text-[rgba(234,230,220,0.55)] hover:bg-[rgba(234,230,220,0.06)] hover:text-[#EAE6DC] transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             activeEditor()?.chain().focus().toggleBold().run();
@@ -343,7 +344,7 @@ export default function ScriptDocEditor({
 
         {/* Italic */}
         <button
-          className="px-2 py-1 rounded text-[12px] italic text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+          className="px-2 py-1 rounded text-[12px] italic text-[rgba(234,230,220,0.55)] hover:bg-[rgba(234,230,220,0.06)] hover:text-[#EAE6DC] transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             activeEditor()?.chain().focus().toggleItalic().run();
@@ -355,7 +356,7 @@ export default function ScriptDocEditor({
 
         {/* Underline */}
         <button
-          className="px-2 py-1 rounded text-[12px] underline text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+          className="px-2 py-1 rounded text-[12px] underline text-[rgba(234,230,220,0.55)] hover:bg-[rgba(234,230,220,0.06)] hover:text-[#EAE6DC] transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             activeEditor()?.chain().focus().toggleUnderline().run();
@@ -365,18 +366,18 @@ export default function ScriptDocEditor({
           U
         </button>
 
-        <div className="w-px h-4 bg-cyan-500/[0.08] mx-1" />
+        <div className="w-px h-4 bg-[rgba(234,230,220,0.12)] mx-1" />
 
         {/* Type legend */}
         <div className="flex items-center gap-3 ml-1">
-          <span className="text-[9px] text-slate-600">Line type:</span>
+          <span className="text-[9px] text-[rgba(234,230,220,0.45)]">Line type:</span>
           {TYPE_OPTIONS.map((opt) => (
             <span key={opt.type} className="flex items-center gap-1">
               <span
                 className="w-2 h-2 rounded-full inline-block flex-shrink-0"
                 style={{ background: opt.color }}
               />
-              <span className="text-[9px] text-slate-500">{opt.label}</span>
+              <span className="text-[9px] text-[rgba(234,230,220,0.65)]">{opt.label}</span>
             </span>
           ))}
         </div>
@@ -385,7 +386,7 @@ export default function ScriptDocEditor({
 
         {/* PDF button */}
         <button
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-cyan-400 border border-cyan-500/25 bg-cyan-500/[0.07] hover:bg-cyan-500/[0.14] transition-colors"
+          className="editorial-pill flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium"
           onClick={onExportPDF}
         >
           <Download className="w-3 h-3" />
@@ -394,7 +395,8 @@ export default function ScriptDocEditor({
 
         {/* Save button */}
         <button
-          className="px-3 py-1 rounded-lg text-[11px] font-semibold text-white bg-gradient-to-r from-[#8FD0D5] to-[#E0A560] hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="editorial-pill px-3 py-1 text-[11px] font-medium disabled:opacity-50"
+          data-active="true"
           onClick={onSave}
           disabled={saving}
         >
@@ -403,20 +405,22 @@ export default function ScriptDocEditor({
       </div>
 
       {/* Document page */}
-      <div className="px-4 py-6 bg-[#06090c]">
-        <div className="doc-print-area max-w-[660px] mx-auto bg-[#0d1117]/75 backdrop-blur-xl border border-cyan-500/[0.12] rounded-2xl px-10 py-10 shadow-[0_0_60px_rgba(8,145,178,0.05),0_8px_32px_rgba(0,0,0,0.4)]">
-          <div className="text-xl font-bold text-slate-200 mb-1">{scriptTitle || "Untitled Script"}</div>
-          <div className="text-[11px] text-slate-500 mb-7">{scriptMeta}</div>
+      <div className="editorial-page-dark px-4 py-6 bg-[#141414]">
+        <div className="editorial-card doc-print-area max-w-[660px] mx-auto px-10 py-10">
+          <div className="mb-1" style={{ fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 500, fontSize: 22, letterSpacing: "-0.005em", color: "#EAE6DC" }}>
+            {scriptTitle || "Untitled Script"}
+          </div>
+          <div className="text-[11px] text-[rgba(234,230,220,0.55)] mb-7">{scriptMeta}</div>
 
           {sectionGroups.map(({ section, items }) => (
             <div key={section}>
               {/* Section divider */}
               <div className="flex items-center gap-2.5 my-5">
-                <div className="flex-1 h-px bg-cyan-500/[0.12]" />
-                <span className="text-[9px] font-bold tracking-[3px] text-slate-600 uppercase">
+                <div className="flex-1 h-px bg-[rgba(234,230,220,0.14)]" />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.30em", fontSize: 9 }}>
                   {SECTION_LABEL[section] ?? section}
                 </span>
-                <div className="flex-1 h-px bg-cyan-500/[0.12]" />
+                <div className="flex-1 h-px bg-[rgba(234,230,220,0.14)]" />
               </div>
 
               {items.map(({ line, idx }) => (
@@ -440,7 +444,7 @@ export default function ScriptDocEditor({
           ))}
 
           {/* Tooltip: section assignment is Card View only */}
-          <p className="mt-8 text-[10px] text-slate-700 italic">
+          <p className="mt-8 text-[10px] text-[rgba(234,230,220,0.40)] italic">
             To move a line between Hook / Body / CTA sections, use Card View.
           </p>
         </div>
