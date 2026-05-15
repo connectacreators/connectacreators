@@ -29,6 +29,7 @@ import { RobbyInsightRow } from "@/components/dashboard/RobbyInsightRow";
 import { DASHBOARD_PROMPTS, renderPrompt } from "@/components/dashboard/PROMPTS";
 import { getRobbyInsights } from "@/components/dashboard/getRobbyInsights";
 import { ToolFolders } from "@/components/dashboard/ToolFolders";
+import { SingleBrandDashboard } from "@/components/dashboard/SingleBrandDashboard";
 
 interface Client {
   id: string;
@@ -158,56 +159,16 @@ export default function Dashboard() {
 
   // ───────────────────────────────────────────────────────────────
   // SINGLE-BRAND VIEW (Connecta Plus subscribers, regular users)
-  // No client roster, no agency framing — just their brand.
+  // The classic 3-folder drilldown — Hi {brand}. What do you want to
+  // do today? → click a folder card → sub-cards page opens.
   // ───────────────────────────────────────────────────────────────
   if (isSingleBrand) {
     return (
-      <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
-        <h1
-          style={{
-            fontSize: 26,
-            fontWeight: 500,
-            color: "#141414",
-            letterSpacing: "-0.01em",
-            marginBottom: 4,
-            fontFamily: "'EB Garamond', Georgia, serif",
-          }}
-        >
-          Hi {firstName}.
-        </h1>
-        <p style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", marginBottom: 22 }}>
-          {clientsLoading ? "Loading…" : ownClient ? `Your brand: ${ownClient.name}.` : "Welcome."}
-        </p>
-
-        <section>
-          <div
-            style={{
-              fontSize: 9.5,
-              letterSpacing: "0.20em",
-              textTransform: "uppercase",
-              color: "rgba(20,20,20,0.45)",
-              marginBottom: 10,
-              fontFamily: "Figtree, sans-serif",
-              fontWeight: 600,
-            }}
-          >
-            Start with Robby
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {DASHBOARD_PROMPTS.map((p) => (
-              <PromptCard
-                key={p.id}
-                icon={p.icon}
-                title={p.title}
-                description={p.description}
-                onClick={() => onPromptClick(p.id)}
-              />
-            ))}
-          </div>
-        </section>
-
-        <ToolFolders activeClientId={effectiveClientId} />
-      </div>
+      <SingleBrandDashboard
+        firstName={firstName}
+        brandName={ownClient?.name ?? null}
+        clientId={ownClient?.id ?? null}
+      />
     );
   }
 
