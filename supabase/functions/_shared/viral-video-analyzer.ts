@@ -78,3 +78,75 @@ export async function acquireVideoFile(
   const expires = new Date(Date.now() + FILE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
   return { video_file_url: signed.signedUrl, video_file_expires_at: expires };
 }
+
+/**
+ * Step 2 of the pipeline: transcribe the video. Short-circuits if row.transcript
+ * is already populated (cache hit from a prior partial analysis). Otherwise tries
+ * the YouTube captions fast-path, then falls back to Whisper via VPS /extract-audio.
+ *
+ * Mirrors the production logic in transcribe-video/index.ts so behavior is identical.
+ */
+export async function acquireTranscript(row: ViralVideoRow): Promise<string> {
+  if (row.transcript && row.transcript.trim().length > 0) {
+    return row.transcript;
+  }
+
+  // YouTube fast-path: captions API.
+  if (row.platform === "youtube") {
+    try {
+      const captionsRes = await fetch(`${VPS_BASE}/youtube-captions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": VPS_KEY },
+        body: JSON.stringify({ url: row.video_url }),
+      });
+      if (captionsRes.ok) {
+        const captionsData = await captionsRes.json();
+        if (captionsData.captions && typeof captionsData.captions === "string" && captionsData.captions.length > 50) {
+          return captionsData.captions;
+        }
+      }
+    } catch (_e) {
+      // Fall through to Whisper.
+    }
+  }
+
+  // Whisper fallback.
+  const audioRes = await fetch(`${VPS_BASE}/extract-audio`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": VPS_KEY },
+    body: JSON.stringify({ url: row.video_url, original_url: row.video_url }),
+  });
+  if (!audioRes.ok) {
+    const errBody = await audioRes.json().catch(() => ({}));
+    throw new AnalyzerError("audio_extract_failed", errBody.error ?? `extract-audio ${audioRes.status}`);
+  }
+
+  const rawBytes = new Uint8Array(await audioRes.arrayBuffer());
+  if (rawBytes.byteLength === 0) {
+    throw new AnalyzerError("audio_empty", "Received empty audio from extraction server");
+  }
+  if (rawBytes.byteLength > 25 * 1024 * 1024) {
+    throw new AnalyzerError("audio_too_large", "Video is too long for transcription (max ~25MB audio)");
+  }
+
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!openaiKey) throw new AnalyzerError("openai_missing_key", "OPENAI_API_KEY not configured");
+
+  const audioBlob = new Blob([rawBytes.buffer], { type: "audio/mpeg" });
+  const form = new FormData();
+  form.append("file", audioBlob, "audio.mp3");
+  form.append("model", "whisper-1");
+
+  const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${openaiKey}` },
+    body: form,
+  });
+  const whisperBody = await whisperRes.text();
+  if (!whisperRes.ok) {
+    throw new AnalyzerError("whisper_failed", `Whisper ${whisperRes.status}: ${whisperBody.slice(0, 500)}`);
+  }
+  const parsed = JSON.parse(whisperBody);
+  if (!parsed.text) throw new AnalyzerError("whisper_no_text", "Whisper returned no text");
+  return parsed.text;
+}
