@@ -704,4 +704,42 @@ html, body, #root { margin: 0; padding: 0; }
     width: 100%;
     max-width: 280px;
   }
+
+  /* Force every inline-styled grid in the landing to single column.
+     Sections like The Brain (1fr 1.2fr) and the Metrics panel (repeat(2, 1fr))
+     use inline `gridTemplateColumns` which beats generic CSS — this attribute
+     selector targets exactly those and replaces the cols with a single track. */
+  .landing-editorial section [style*="grid-template-columns"],
+  .landing-editorial section [style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* The Brain section is a 2-col layout (lede on the left, "Today's plan"
+     mock card on the right). The mock card is decorative and adds noise on
+     a phone — hide it entirely. The body content (eyebrow + H2 + lede +
+     bullets + CTAs) stays. */
+  .landing-editorial section#brain > div > div.scroll-rise > div:nth-child(2),
+  .landing-editorial section#brain > div > div > div:nth-child(2) {
+    display: none !important;
+  }
+
+  /* The Brain's bullet list squeezes pill tags ("Captions in your tone",
+     "Strategy mode" etc.) against the line text on a narrow phone. Hide the
+     pills; the bullet text is enough. */
+  .landing-editorial section#brain ul li .pill {
+    display: none !important;
+  }
+
+  /* The Brain CTAs were a 2-button row — stack them. */
+  .landing-editorial section#brain .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Metric stat cards (100M+, 100K+) — tighter padding when stacked
+     (the desktop 36px 28px feels heavy at full width on a phone). */
+  .landing-editorial section.panel-bone [data-card] {
+    padding: 28px 22px !important;
+  }
 }
