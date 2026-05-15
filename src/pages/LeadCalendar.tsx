@@ -566,8 +566,8 @@ export default function LeadCalendar() {
   };
 
   return (
-    <PageTransition className="min-h-screen bg-background flex flex-col">
-    <div style={{ fontFamily: "Arial, sans-serif" }} className="flex flex-col flex-1">
+    <PageTransition className="editorial-page min-h-screen bg-background flex flex-col">
+    <div style={{ fontFamily: "'Figtree', -apple-system, BlinkMacSystemFont, sans-serif" }} className="flex flex-col flex-1">
       <AnimatedDots />
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-10 hidden lg:block">

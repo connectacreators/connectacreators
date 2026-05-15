@@ -1611,7 +1611,7 @@ export default function ViralToday() {
   // ── Reels view — admin only, full-height, own scroll context ────────────
   if (view === "reels" && isAdmin) {
     return (
-      <PageTransition className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <PageTransition className="editorial-page flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Compact header */}
         <div className="px-5 sm:px-8 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1650,7 +1650,7 @@ export default function ViralToday() {
   }
 
   return (
-    <PageTransition className="flex-1 flex flex-col min-h-screen overflow-hidden">
+    <PageTransition className="editorial-page flex-1 flex flex-col min-h-screen overflow-hidden">
 
         <div className="flex-1 px-5 sm:px-8 pt-6 pb-12 overflow-auto">
 

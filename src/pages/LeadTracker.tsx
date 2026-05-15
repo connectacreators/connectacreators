@@ -752,17 +752,27 @@ export default function LeadTracker() {
 
   return (
     <>
-    <PageTransition className="flex-1 overflow-y-auto">
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Stats Grid — dark glass cards */}
+    <PageTransition className="editorial-page flex-1 overflow-y-auto">
+      <div className="container mx-auto px-4 md:px-7 py-7 max-w-6xl">
+        {/* Page heading */}
+        <div className="mb-7">
+          <h1 className="editorial-h text-[28px] md:text-[32px] mb-1">
+            {language === "en" ? "Lead Tracker" : "Seguimiento de leads"}
+          </h1>
+          <p className="text-sm" style={{ color: "rgba(20,20,20,0.55)" }}>
+            {language === "en"
+              ? "Track every inbound lead and the status of their booking."
+              : "Sigue cada lead entrante y el estado de su reserva."}
+          </p>
+        </div>
+
+        {/* Stats Grid — editorial white cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           {[
             {
               label: tr(t.leadTracker.totalLeads, language),
               value: totalLeads,
               icon: Users,
-              iconColor: "#8FD0D5",
-              iconBg: "rgba(6,182,212,0.12)",
               delta: totalDelta,
               deltaLabel: language === "en" ? "from last month" : "vs mes anterior",
             },
@@ -770,8 +780,6 @@ export default function LeadTracker() {
               label: tr(t.leadTracker.booked, language),
               value: bookedCount,
               icon: Calendar,
-              iconColor: "#10b981",
-              iconBg: "rgba(16,185,129,0.12)",
               delta: bookedDelta,
               deltaLabel: language === "en" ? "from last month" : "vs mes anterior",
             },
@@ -779,8 +787,6 @@ export default function LeadTracker() {
               label: language === "en" ? "Pending" : "Pendientes",
               value: pendingCount,
               icon: Clock,
-              iconColor: "#f59e0b",
-              iconBg: "rgba(245,158,11,0.12)",
               delta: null,
               deltaLabel: language === "en" ? "in follow-up" : "en seguimiento",
             },
@@ -788,41 +794,44 @@ export default function LeadTracker() {
               label: language === "en" ? "Conv. Rate" : "Conversión",
               value: `${conversionRate}%`,
               icon: TrendingUp,
-              iconColor: "#a78bfa",
-              iconBg: "rgba(167,139,250,0.12)",
               delta: null,
               deltaLabel: language === "en" ? "booked / total" : "reservados / total",
             },
           ].map((card, i) => {
             const Icon = card.icon;
             const isPositive = (card.delta ?? 0) >= 0;
-            const isLight = theme === "light";
             return (
               <div
                 key={i}
-                className="relative rounded-2xl p-4 md:p-5 flex flex-col gap-3 transition-all duration-300"
+                className="editorial-card relative p-5 flex flex-col gap-3 transition-shadow duration-200"
                 style={{
-                  background: isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)",
-                  backdropFilter: "blur(16px)",
-                  WebkitBackdropFilter: "blur(16px)",
-                  border: isLight ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.07)",
-                  boxShadow: isLight
-                    ? "0 4px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)"
-                    : "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
+                  boxShadow: "0 1px 0 rgba(20,20,20,0.04)",
                 }}
               >
                 {/* Top row: label + icon */}
                 <div className="flex items-start justify-between">
-                  <p className="text-[11px] font-medium tracking-wide" style={{ color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.45)" }}>
+                  <p className="editorial-eyebrow" style={{ letterSpacing: "0.16em", fontSize: 10 }}>
                     {card.label}
                   </p>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: card.iconBg }}>
-                    <Icon className="w-4 h-4" style={{ color: card.iconColor }} />
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(20,20,20,0.05)", border: "1px solid rgba(20,20,20,0.08)" }}
+                  >
+                    <Icon className="w-3.5 h-3.5" style={{ color: "rgba(20,20,20,0.55)" }} />
                   </div>
                 </div>
 
                 {/* Value */}
-                <p className="text-3xl md:text-4xl font-bold tracking-tight leading-none" style={{ color: isLight ? "rgba(0,0,0,0.85)" : "#ffffff" }}>
+                <p
+                  className="leading-none"
+                  style={{
+                    fontFamily: "'EB Garamond', Georgia, serif",
+                    fontWeight: 500,
+                    fontSize: "clamp(30px, 4.5vw, 44px)",
+                    letterSpacing: "-0.015em",
+                    color: "#141414",
+                  }}
+                >
                   {card.value}
                 </p>
 
@@ -830,16 +839,16 @@ export default function LeadTracker() {
                 <div className="flex items-center gap-1.5">
                   {card.delta !== null ? (
                     <>
-                      <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color: isPositive ? "#10b981" : "#f87171" }} />
-                      <span className="text-[11px] font-semibold" style={{ color: isPositive ? "#10b981" : "#f87171" }}>
+                      <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color: isPositive ? "#1f7a5a" : "#A85B1F" }} />
+                      <span className="text-[11px] font-semibold" style={{ color: isPositive ? "#1f7a5a" : "#A85B1F" }}>
                         {isPositive ? "+" : ""}{card.delta}%
                       </span>
-                      <span className="text-[11px]" style={{ color: isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.3)" }}>
+                      <span className="text-[11px]" style={{ color: "rgba(20,20,20,0.45)" }}>
                         {card.deltaLabel}
                       </span>
                     </>
                   ) : (
-                    <span className="text-[11px]" style={{ color: isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.3)" }}>
+                    <span className="text-[11px]" style={{ color: "rgba(20,20,20,0.45)" }}>
                       {card.deltaLabel}
                     </span>
                   )}

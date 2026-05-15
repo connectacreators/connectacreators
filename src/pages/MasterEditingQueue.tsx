@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
@@ -305,7 +305,7 @@ export default function MasterEditingQueue() {
         clientName: v.clients?.name || v.client_id,
         caption: v.caption ?? null,
         postStatus: v.post_status ?? null,
-        lifecycleStatus: (v.lifecycle_status as LifecycleStatus | null) ?? deriveFromLegacy(v.status, v.post_status),
+        lifecycleStatus: isLifecycleStatus(v.lifecycle_status) ? v.lifecycle_status : deriveFromLegacy(v.status, v.post_status),
         script_id: v.script_id || null,
         uploadSource: v.upload_source || null,
         storagePath: v.storage_path || null,
