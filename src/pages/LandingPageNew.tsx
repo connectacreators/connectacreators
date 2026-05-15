@@ -26,7 +26,8 @@ import yuppiesBubble from "@/assets/yuppies-bubble.png";
 import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
 import CurvedLoop from "@/components/landing/CurvedLoop";
 import ScrollFloat from "@/components/landing/ScrollFloat";
-import PromptStream from "@/components/landing/PromptStream";
+import PromptStream, { PromptStreamMobile } from "@/components/landing/PromptStream";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /* =============================================================================
    The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
@@ -47,6 +48,10 @@ function LetterRise({
   delay?: number;
   step?: number;
 }) {
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return <>{text}</>;
+  }
   return (
     <>
       {Array.from(text).map((ch, i) => (
@@ -131,12 +136,14 @@ function InteractiveSticker({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  const isMobile = useIsMobile();
   const ref = useRef<HTMLImageElement>(null);
   const rafRef = useRef<number | null>(null);
   const targetRef = useRef({ x: 0, y: 0, scale: 1, tilt: 0 });
   const currentRef = useRef({ x: 0, y: 0, scale: 1, tilt: 0 });
 
   useEffect(() => {
+    if (isMobile) return;
     const EPSILON = 0.05;
 
     const animate = () => {
@@ -209,7 +216,9 @@ function InteractiveSticker({
       document.removeEventListener("mouseleave", onLeave);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [baseRotation, maxOffset, radius]);
+  }, [baseRotation, maxOffset, radius, isMobile]);
+
+  if (isMobile) return null;
 
   return (
     <img
@@ -867,6 +876,7 @@ export default function LandingPageNew() {
   const [scrolled, setScrolled] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
 
   // ESC closes the video modal
   useEffect(() => {
@@ -883,7 +893,9 @@ export default function LandingPageNew() {
   // for spans currently in the viewport (tracked via IntersectionObserver)
   // and only when the mouse has moved. This avoids forced reflow from
   // calling getBoundingClientRect on hundreds of spans every frame.
+  // Skipped entirely on touch devices (no cursor + saves CPU).
   useEffect(() => {
+    if (isMobile) return;
     const root = scrollRoot.current;
     if (!root) return;
 
@@ -1010,7 +1022,7 @@ export default function LandingPageNew() {
       io.disconnect();
       if (raf !== null) cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [isMobile]);
 
   // sticky nav state — only flip when the threshold is actually crossed,
   // so we don't queue React updates on every scroll event.
@@ -1347,13 +1359,15 @@ export default function LandingPageNew() {
             <Link to="/scripts" className="btn btn-aqua btn-large">
               Get started <ArrowRight size={16} />
             </Link>
-            <button
-              type="button"
-              onClick={() => setVideoOpen(true)}
-              className="btn btn-ghost btn-large"
-            >
-              ▶ Watch the 90-sec demo
-            </button>
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={() => setVideoOpen(true)}
+                className="btn btn-ghost btn-large"
+              >
+                ▶ Watch the 90-sec demo
+              </button>
+            )}
           </div>
 
           <div
@@ -1369,19 +1383,21 @@ export default function LandingPageNew() {
           </div>
         </div>
 
-        {/* PromptStream — prompt → AI pill → output banner, full viewport width */}
+        {/* PromptStream — prompt → AI pill → output banner.
+            Desktop: full-viewport-width left/right CurvedLoop composition.
+            Mobile: centered vertical trio (no SVG curves, no marquee). */}
         <div
           data-reveal="6"
           style={{
             position: "relative",
             zIndex: 1,
-            width: "100vw",
-            marginLeft: "calc(50% - 50vw)",
-            marginRight: "calc(50% - 50vw)",
-            marginTop: 24,
+            width: isMobile ? "auto" : "100vw",
+            marginLeft: isMobile ? 0 : "calc(50% - 50vw)",
+            marginRight: isMobile ? 0 : "calc(50% - 50vw)",
+            marginTop: isMobile ? 8 : 24,
           }}
         >
-          <PromptStream />
+          {isMobile ? <PromptStreamMobile /> : <PromptStream />}
         </div>
       </section>
 

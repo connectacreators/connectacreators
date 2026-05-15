@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useIsMobile } from "@/hooks/use-mobile";
 import "./ScrollFloat.css";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -70,8 +71,10 @@ export default function ScrollFloat({
   stagger = 0.03,
 }: ScrollFloatProps) {
   const containerRef = useRef<HTMLHeadingElement | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
+    if (isMobile) return;
     const el = containerRef.current;
     if (!el) return;
 
@@ -112,7 +115,15 @@ export default function ScrollFloat({
       tween.scrollTrigger?.kill();
       tween.kill();
     };
-  }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger, children]);
+  }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger, children, isMobile]);
+
+  if (isMobile) {
+    return (
+      <h2 className={`scroll-float ${containerClassName}`}>
+        <span className={`scroll-float-text ${textClassName}`}>{children}</span>
+      </h2>
+    );
+  }
 
   return (
     <h2 ref={containerRef} className={`scroll-float ${containerClassName}`}>

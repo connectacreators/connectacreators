@@ -630,3 +630,78 @@ html, body, #root { margin: 0; padding: 0; }
     clip-path: none !important;
   }
 }
+
+/* =============================================================================
+   Mobile adaptation — strategic trim, everything centered.
+   Companion to runtime gating in src/pages/LandingPageNew.tsx via useIsMobile().
+   Cluttered first, slow second: this block tightens layout; the JS hook skips
+   GSAP/mousemove/InteractiveSticker setup so phones load a much lighter path.
+   ============================================================================= */
+@media (max-width: 768px) {
+  /* Section spacing — compress vertical padding so the page reads as a
+     deliberate scroll story rather than full-screen reveals each section. */
+  .landing-editorial section {
+    padding: 64px 18px !important;
+  }
+  .landing-editorial section.panel-bone {
+    padding: 56px 22px !important;
+    margin: 18px 10px !important;
+    border-radius: 28px;
+  }
+
+  /* Center every section's content. The Brain (id="brain") and the
+     Publishing teaser are left-aligned on desktop; mobile flattens them. */
+  .landing-editorial section .section-lede,
+  .landing-editorial section .section-h2,
+  .landing-editorial section h1,
+  .landing-editorial section .eyebrow,
+  .landing-editorial section [data-reveal] {
+    text-align: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .landing-editorial section .section-lede {
+    max-width: 320px;
+  }
+
+  /* Hero H1 — scale down so it stays one or two lines on a 375px viewport. */
+  .landing-editorial section h1.serif {
+    font-size: clamp(34px, 9vw, 44px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.025em !important;
+  }
+
+  /* Section H2 — smaller, tighter on phones. */
+  .landing-editorial .section-h2 {
+    font-size: clamp(24px, 6.5vw, 30px) !important;
+    line-height: 1.1 !important;
+  }
+  .landing-editorial .scroll-float-text {
+    font-size: clamp(24px, 6.5vw, 30px) !important;
+  }
+
+  /* CTA stack — center single column. */
+  .landing-editorial .btn-large {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+  }
+
+  /* PromptStream desktop composition — hide the wrapper entirely on mobile
+     in case the runtime swap ever falls through. Mobile renders
+     PromptStreamMobile (centered trio) instead. */
+  .landing-editorial .prompt-stream {
+    display: none !important;
+  }
+
+  /* The Brain — collapse the Super Canvas mock area; node cards stack
+     vertically if any survive. */
+  .landing-editorial .sc-node {
+    position: static !important;
+    display: flex !important;
+    margin: 8px auto !important;
+    min-width: 0;
+    width: 100%;
+    max-width: 280px;
+  }
+}

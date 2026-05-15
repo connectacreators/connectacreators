@@ -1,6 +1,47 @@
 import "./PromptStream.css";
 import CurvedLoop from "./CurvedLoop";
 
+/* ─────────────────────────────────────────────────────────────
+   PromptStreamMobile — phone-friendly hero composition.
+   Replaces the left/right CurvedLoop SVG marquees (which need
+   viewport width to land at the literal page margins) with a
+   centered vertical trio: italic prompt → animated waveform
+   pill → tilted output band. Static, no GSAP, no SVG paths.
+   ───────────────────────────────────────────────────────────── */
+export function PromptStreamMobile({
+  promptText,
+  outputText,
+}: {
+  promptText?: string;
+  outputText?: string;
+}) {
+  const prompt = promptText ?? "I need a hook for my next reel…";
+  const output = (outputText ?? DEFAULT_OUTPUT).replace(/✦/g, "·").trim().replace(/·\s*$/, "");
+
+  return (
+    <div className="prompt-stream-mobile" aria-hidden>
+      <p className="psm-prompt">{prompt}</p>
+      <div className="psm-pill">
+        <svg width="68" height="22" viewBox="0 0 68 22">
+          {WAVEFORM_BARS.map((b, i) => (
+            <rect
+              key={i}
+              x={b.x}
+              y={b.y}
+              width="3"
+              height={b.h}
+              rx="1.5"
+              style={{ animationDelay: `${i * 0.08}s` }}
+            />
+          ))}
+        </svg>
+        <span className="psm-pill-label">AI</span>
+      </div>
+      <div className="psm-output">{output}</div>
+    </div>
+  );
+}
+
 interface PromptStreamProps {
   /**
    * Chaotic prompt text that curves in from the left. Should read like a creator's
