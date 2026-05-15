@@ -286,7 +286,7 @@ export function ViralVideoPlayer({
             }}
             aria-label={playing ? "Pause" : "Play"}
             style={{
-              background: "var(--bone)",
+              background: "var(--honey)",
               border: "1px solid var(--ink)",
               borderRadius: "50%",
               width: 32,
