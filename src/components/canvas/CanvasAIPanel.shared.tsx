@@ -641,8 +641,8 @@ export function ThinkingAnimation() {
           width: 20,
           height: 20,
           objectFit: 'contain',
-          filter: 'brightness(0) invert(1)',
-          opacity: 0.65,
+          filter: 'brightness(0)',
+          opacity: 0.85,
           flexShrink: 0,
           animation: 'ai-cursor-blink 1.2s ease-in-out infinite',
         }}
