@@ -306,13 +306,16 @@ export function AssistantTextInput({
                 onMouseDown={() => setAtMentionQuery(null)}
               />
               <div
-                className="rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-xl overflow-hidden"
+                className="light-popover rounded-xl border shadow-xl overflow-hidden"
                 style={{
                   position: "fixed",
                   zIndex: 99999,
                   width: 240,
                   maxHeight: 200,
                   overflowY: "auto",
+                  background: "#ffffff",
+                  borderColor: "rgba(20,20,20,0.12)",
+                  color: "#141414",
                   ...(textareaRef.current
                     ? {
                         left: textareaRef.current.getBoundingClientRect().left,
@@ -328,7 +331,8 @@ export function AssistantTextInput({
                   <button
                     key={node.id}
                     type="button"
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-black/[0.04] transition-colors"
+                    style={{ color: "#141414" }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const atIdx = value.lastIndexOf("@");
@@ -351,7 +355,7 @@ export function AssistantTextInput({
                         {node.typeLabel}
                       </span>
                       {node.detail && (
-                        <span className="text-muted-foreground text-xs ml-1">
+                        <span className="text-xs ml-1" style={{ color: "rgba(20,20,20,0.55)" }}>
                           — {node.detail}
                         </span>
                       )}
@@ -486,8 +490,13 @@ export function AssistantTextInput({
             </button>
             {plusMenuOpen && (
               <div
-                className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-xl overflow-hidden"
-                style={{ zIndex: 99999 }}
+                className="light-popover absolute bottom-full left-0 mb-2 w-52 rounded-xl border shadow-xl overflow-hidden"
+                style={{
+                  zIndex: 99999,
+                  background: "#ffffff",
+                  borderColor: "rgba(20,20,20,0.12)",
+                  color: "#141414",
+                }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 {onToggleImageMode && (
@@ -671,10 +680,13 @@ export function AssistantTextInput({
                     />
                     <div
                       ref={modelPortalRef}
-                      className="w-52 rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-xl overflow-hidden"
+                      className="light-popover w-52 rounded-xl border shadow-xl overflow-hidden"
                       style={{
                         position: "fixed",
                         zIndex: 99999,
+                        background: "#ffffff",
+                        borderColor: "rgba(20,20,20,0.12)",
+                        color: "#141414",
                         ...(modelBtnRef.current
                           ? {
                               left: modelBtnRef.current.getBoundingClientRect()
@@ -697,7 +709,7 @@ export function AssistantTextInput({
                         return (
                           <div key={provider}>
                             <div className="px-3 py-1.5">
-                              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "rgba(20,20,20,0.50)" }}>
                                 {provider}
                               </p>
                             </div>
@@ -707,10 +719,15 @@ export function AssistantTextInput({
                                 type="button"
                                 className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
                                   selectedModel === m.key
-                                    ? "border-l-2 text-foreground"
-                                    : "text-muted-foreground hover:bg-muted/60"
+                                    ? "border-l-2"
+                                    : "hover:bg-black/[0.04]"
                                 }`}
-                                style={selectedModel === m.key ? { borderLeftColor: "#8FD0D5", background: "rgba(143,208,213,0.07)" } : undefined}
+                                style={{
+                                  color: selectedModel === m.key ? "#141414" : "rgba(20,20,20,0.70)",
+                                  ...(selectedModel === m.key
+                                    ? { borderLeftColor: "#8FD0D5", background: "rgba(143,208,213,0.07)" }
+                                    : {}),
+                                }}
                                 onClick={() => {
                                   onModelChange?.(m.key);
                                   setModelDropdownOpen(false);
@@ -750,9 +767,16 @@ export function AssistantTextInput({
                             className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
                               selectedModel.includes("sonnet") ||
                               selectedModel.includes("opus")
-                                ? "text-muted-foreground hover:bg-muted/60"
-                                : "text-muted-foreground/40 cursor-not-allowed"
+                                ? "hover:bg-black/[0.04]"
+                                : "cursor-not-allowed"
                             }`}
+                            style={{
+                              color:
+                                selectedModel.includes("sonnet") ||
+                                selectedModel.includes("opus")
+                                  ? "rgba(20,20,20,0.70)"
+                                  : "rgba(20,20,20,0.30)",
+                            }}
                             onClick={() => {
                               if (
                                 selectedModel.includes("sonnet") ||
