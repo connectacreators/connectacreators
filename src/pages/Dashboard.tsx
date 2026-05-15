@@ -22,6 +22,7 @@ import { ActiveClientBreadcrumb } from "@/components/dashboard/ActiveClientBread
 import { RobbyInsightRow } from "@/components/dashboard/RobbyInsightRow";
 import { DASHBOARD_PROMPTS, renderPrompt } from "@/components/dashboard/PROMPTS";
 import { getRobbyInsights } from "@/components/dashboard/getRobbyInsights";
+import { ToolFolders } from "@/components/dashboard/ToolFolders";
 
 interface Client {
   id: string;
@@ -210,6 +211,8 @@ export default function Dashboard() {
               ))}
             </div>
           </section>
+
+          <ToolFolders activeClientId={null} />
         </>
       )}
 
@@ -237,6 +240,8 @@ export default function Dashboard() {
               onClick={() => onInsightClick(ins.prompt)}
             />
           ))}
+
+          <ToolFolders activeClientId={activeClient.id} />
         </>
       )}
 
