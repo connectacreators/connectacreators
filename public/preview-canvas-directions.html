@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Canvas Direction Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Figtree', sans-serif;
+    background: #0a0a0a;
+    color: #EAE6DC;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+  h1 { font-family: 'EB Garamond', serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; color: #EAE6DC; margin-bottom: 8px; }
+  .subtitle { font-size: 13px; color: rgba(234,230,220,0.55); margin-bottom: 48px; letter-spacing: 0.02em; }
+  .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1400px; margin: 0 auto; }
+  .option-label { font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: #8FD0D5; margin-bottom: 12px; }
+  .option-title { font-family: 'EB Garamond', serif; font-size: 22px; font-weight: 500; color: #EAE6DC; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .option-desc { font-size: 12px; color: rgba(234,230,220,0.50); margin-bottom: 20px; line-height: 1.5; }
+
+  /* ── Option A: Dark editorial whiteboard ── */
+  .canvas-a { background: #141414; border-radius: 16px; padding: 0; overflow: hidden; position: relative; height: 520px; }
+  .canvas-a .dot-grid {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(234,230,220,0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  /* toolbar A */
+  .toolbar-a {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #141414; border: 1px solid rgba(234,230,220,0.08);
+    border-radius: 10px; padding: 8px 14px; display: flex; gap: 12px; align-items: center;
+    z-index: 10;
+  }
+  .tb-group { display: flex; align-items: center; gap: 6px; }
+  .tb-divider { width: 1px; height: 18px; background: rgba(234,230,220,0.10); }
+  .tb-icon { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: rgba(234,230,220,0.55); font-size: 13px; cursor: pointer; }
+  .tb-icon:hover { background: rgba(234,230,220,0.06); color: #EAE6DC; }
+  .tb-icon.active { background: rgba(143,208,213,0.12); color: #8FD0D5; }
+  .tb-label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(234,230,220,0.30); padding: 0 2px; }
+  /* node cards A */
+  .node-a {
+    position: absolute;
+    background: #1F1F1F; border: 1px solid rgba(234,230,220,0.10);
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  }
+  .node-header-a {
+    padding: 11px 14px 10px;
+    border-bottom: 1px solid rgba(234,230,220,0.07);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .node-title-a { font-family: 'EB Garamond', serif; font-size: 14px; font-weight: 500; color: rgba(234,230,220,0.90); letter-spacing: -0.01em; }
+  .node-badge-a { font-size: 10px; font-weight: 600; color: #8FD0D5; background: rgba(143,208,213,0.12); padding: 2px 7px; border-radius: 999px; letter-spacing: 0.05em; }
+  .node-body-a { padding: 11px 14px; font-size: 12px; color: rgba(234,230,220,0.55); line-height: 1.55; }
+  .node-body-a .em { color: #E0A560; font-style: italic; }
+  .handle-a {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: #E0A560; border: 1.5px solid #141414; top: 50%; margin-top: -5px;
+  }
+  .handle-a.left { left: -5px; }
+  .handle-a.right { right: -5px; }
+
+  /* ── Option B: Bone inset on dark ── */
+  .canvas-b { background: #141414; border-radius: 16px; overflow: hidden; position: relative; height: 520px; }
+  .canvas-b .dot-grid {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(234,230,220,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .toolbar-b {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #EAE6DC; border-radius: 999px; padding: 7px 16px; display: flex; gap: 10px; align-items: center;
+    z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .tb-icon-b { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: rgba(20,20,20,0.45); font-size: 13px; cursor: pointer; }
+  .tb-icon-b:hover { background: rgba(20,20,20,0.08); color: #141414; }
+  .tb-icon-b.active { color: #141414; background: rgba(20,20,20,0.10); }
+  .tb-divider-b { width: 1px; height: 18px; background: rgba(20,20,20,0.15); }
+  .node-b {
+    position: absolute;
+    background: #EAE6DC; border: 1px solid rgba(20,20,20,0.14);
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  }
+  .node-header-b {
+    padding: 11px 14px 10px; color: #141414;
+    border-bottom: 1px solid rgba(20,20,20,0.10);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .node-title-b { font-family: 'EB Garamond', serif; font-size: 14px; font-weight: 500; color: #141414; letter-spacing: -0.01em; }
+  .node-badge-b { font-size: 10px; font-weight: 600; color: #141414; background: rgba(20,20,20,0.10); padding: 2px 7px; border-radius: 999px; letter-spacing: 0.05em; }
+  .node-body-b { padding: 11px 14px; font-size: 12px; color: rgba(20,20,20,0.60); line-height: 1.55; }
+  .node-body-b .em { color: #c07a35; font-style: italic; }
+  .handle-b {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: #141414; border: 1.5px solid #EAE6DC; top: 50%; margin-top: -5px;
+  }
+  .handle-b.left { left: -5px; }
+  .handle-b.right { right: -5px; }
+
+  /* ── Option C: Full light canvas ── */
+  .canvas-c { background: #EAE6DC; border-radius: 16px; overflow: hidden; position: relative; height: 520px; }
+  .canvas-c .dot-grid {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(20,20,20,0.12) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .toolbar-c {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #141414; border-radius: 10px; padding: 8px 14px; display: flex; gap: 12px; align-items: center;
+    z-index: 10;
+  }
+  .tb-icon-c { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: rgba(234,230,220,0.55); font-size: 13px; cursor: pointer; }
+  .tb-icon-c:hover { background: rgba(234,230,220,0.08); color: #EAE6DC; }
+  .tb-icon-c.active { color: #8FD0D5; background: rgba(143,208,213,0.14); }
+  .tb-divider-c { width: 1px; height: 18px; background: rgba(234,230,220,0.12); }
+  .node-c {
+    position: absolute;
+    background: #ffffff; border: 1px solid rgba(20,20,20,0.18);
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 3px 3px 0 rgba(20,20,20,0.25);
+  }
+  .node-header-c {
+    padding: 11px 14px 10px; color: #141414;
+    border-bottom: 1px solid rgba(20,20,20,0.10);
+    display: flex; align-items: center; justify-content: space-between;
+    background: #f8f5ed;
+  }
+  .node-title-c { font-family: 'EB Garamond', serif; font-size: 14px; font-weight: 500; color: #141414; letter-spacing: -0.01em; }
+  .node-badge-c { font-size: 10px; font-weight: 600; color: #141414; background: rgba(143,208,213,0.35); padding: 2px 7px; border-radius: 999px; letter-spacing: 0.05em; }
+  .node-body-c { padding: 11px 14px; font-size: 12px; color: rgba(20,20,20,0.60); line-height: 1.55; }
+  .node-body-c .em { color: #c07a35; font-style: italic; }
+  .handle-c {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: #8FD0D5; border: 1.5px solid #ffffff; top: 50%; margin-top: -5px;
+  }
+  .handle-c.left { left: -5px; }
+  .handle-c.right { right: -5px; }
+
+  /* SVG icon helpers */
+  .i { display: inline-flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 1400px; margin: 0 auto 40px;">
+  <div class="option-label">Super Canvas Directions</div>
+  <h1>Which way should it go?</h1>
+  <div class="subtitle">Three concrete directions — all typography, spacing, and colors are exact palette values</div>
+</div>
+
+<div class="options">
+
+  <!-- ── A: Dark editorial whiteboard ── -->
+  <div>
+    <div class="option-label">A</div>
+    <div class="option-title">Dark editorial whiteboard</div>
+    <div class="option-desc">Ink canvas · Graphite node cards · Bone accents · Honey handles · thin neutral border. Consistent with the rest of the app.</div>
+    <div class="canvas-a">
+      <div class="dot-grid"></div>
+      <!-- toolbar -->
+      <div class="toolbar-a">
+        <div class="tb-label">Add</div>
+        <div class="tb-group">
+          <div class="tb-icon active" title="AI">⚡</div>
+          <div class="tb-icon" title="Note">📝</div>
+          <div class="tb-icon" title="Video">▶</div>
+        </div>
+        <div class="tb-divider"></div>
+        <div class="tb-label">Draw</div>
+        <div class="tb-group">
+          <div class="tb-icon" title="Pen">✏</div>
+          <div class="tb-icon" title="Erase">⬜</div>
+        </div>
+        <div class="tb-divider"></div>
+        <div class="tb-group">
+          <div class="tb-icon" title="Zoom in">+</div>
+          <div class="tb-icon" title="Zoom out">−</div>
+        </div>
+      </div>
+      <!-- node 1: AI assistant -->
+      <div class="node-a" style="width:220px; top:80px; left:20px;">
+        <div class="handle-a right"></div>
+        <div class="node-header-a">
+          <span class="node-title-a">AI Strategist</span>
+          <span class="node-badge-a">Active</span>
+        </div>
+        <div class="node-body-a">
+          What's trending in chiropractor content this week?
+          <br><br>
+          <span class="em">Looking at 12K+ posts…</span>
+        </div>
+      </div>
+      <!-- node 2: hook generator -->
+      <div class="node-a" style="width:210px; top:80px; left:260px;">
+        <div class="handle-a left"></div>
+        <div class="handle-a right"></div>
+        <div class="node-header-a">
+          <span class="node-title-a">Hook Generator</span>
+        </div>
+        <div class="node-body-a">
+          "The one adjustment that cracks your morning stiffness in 30 seconds"<br>
+          <span class="em">14× outlier hook · 62K reach</span>
+        </div>
+      </div>
+      <!-- node 3: text note -->
+      <div class="node-a" style="width:180px; top:250px; left:60px;">
+        <div class="handle-a right"></div>
+        <div class="node-header-a">
+          <span class="node-title-a">Research</span>
+        </div>
+        <div class="node-body-a">
+          Morning stiffness = #1 complaint. Trigger early in hook.
+        </div>
+      </div>
+      <!-- node 4: script -->
+      <div class="node-a" style="width:200px; top:250px; left:260px;">
+        <div class="handle-a left"></div>
+        <div class="node-header-a">
+          <span class="node-title-a">Script Output</span>
+          <span class="node-badge-a">Draft</span>
+        </div>
+        <div class="node-body-a">
+          Hook → Problem → Solution → CTA<br>
+          <span class="em">~38 seconds · Reels format</span>
+        </div>
+      </div>
+      <!-- edge SVG -->
+      <svg style="position:absolute;inset:0;pointer-events:none;overflow:visible;" width="100%" height="100%">
+        <path d="M 240 148 C 280 148 240 148 260 148" stroke="rgba(234,230,220,0.14)" stroke-width="1" fill="none"/>
+        <path d="M 240 148 L 260 148" stroke="rgba(234,230,220,0.14)" stroke-width="1" fill="none"/>
+        <path d="M 240 300 C 280 300 240 310 260 310" stroke="rgba(234,230,220,0.14)" stroke-width="1" fill="none"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── B: Bone inset cards on dark ── -->
+  <div>
+    <div class="option-label">B</div>
+    <div class="option-title">Bone inset cards on dark</div>
+    <div class="option-desc">Ink canvas · Bone node cards with dark text · like the landing's panel-bone sections. Bold contrast, editorial content feel.</div>
+    <div class="canvas-b">
+      <div class="dot-grid"></div>
+      <!-- toolbar -->
+      <div class="toolbar-b">
+        <div class="tb-icon-b active">⚡</div>
+        <div class="tb-icon-b">📝</div>
+        <div class="tb-icon-b">▶</div>
+        <div class="tb-divider-b"></div>
+        <div class="tb-icon-b">✏</div>
+        <div class="tb-icon-b">⬜</div>
+        <div class="tb-divider-b"></div>
+        <div class="tb-icon-b">+</div>
+        <div class="tb-icon-b">−</div>
+      </div>
+      <!-- node 1 -->
+      <div class="node-b" style="width:220px; top:80px; left:20px;">
+        <div class="handle-b right"></div>
+        <div class="node-header-b">
+          <span class="node-title-b">AI Strategist</span>
+          <span class="node-badge-b">Active</span>
+        </div>
+        <div class="node-body-b">
+          What's trending in chiropractor content this week?
+          <br><br>
+          <span class="em">Looking at 12K+ posts…</span>
+        </div>
+      </div>
+      <!-- node 2 -->
+      <div class="node-b" style="width:210px; top:80px; left:260px;">
+        <div class="handle-b left"></div>
+        <div class="handle-b right"></div>
+        <div class="node-header-b">
+          <span class="node-title-b">Hook Generator</span>
+        </div>
+        <div class="node-body-b">
+          "The one adjustment that cracks your morning stiffness in 30 seconds"<br>
+          <span class="em">14× outlier hook · 62K reach</span>
+        </div>
+      </div>
+      <!-- node 3 -->
+      <div class="node-b" style="width:180px; top:250px; left:60px;">
+        <div class="handle-b right"></div>
+        <div class="node-header-b">
+          <span class="node-title-b">Research</span>
+        </div>
+        <div class="node-body-b">
+          Morning stiffness = #1 complaint. Trigger early in hook.
+        </div>
+      </div>
+      <!-- node 4 -->
+      <div class="node-b" style="width:200px; top:250px; left:260px;">
+        <div class="handle-b left"></div>
+        <div class="node-header-b">
+          <span class="node-title-b">Script Output</span>
+          <span class="node-badge-b">Draft</span>
+        </div>
+        <div class="node-body-b">
+          Hook → Problem → Solution → CTA<br>
+          <span class="em">~38 seconds · Reels format</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── C: Full light canvas ── -->
+  <div>
+    <div class="option-label">C</div>
+    <div class="option-title">Full light canvas</div>
+    <div class="option-desc">Bone canvas · White cards · Ink shadows (landing signature) · Opens a light creative workspace inside the dark app.</div>
+    <div class="canvas-c">
+      <div class="dot-grid"></div>
+      <!-- toolbar -->
+      <div class="toolbar-c">
+        <div class="tb-icon-c active">⚡</div>
+        <div class="tb-icon-c">📝</div>
+        <div class="tb-icon-c">▶</div>
+        <div class="tb-divider-c"></div>
+        <div class="tb-icon-c">✏</div>
+        <div class="tb-icon-c">⬜</div>
+        <div class="tb-divider-c"></div>
+        <div class="tb-icon-c">+</div>
+        <div class="tb-icon-c">−</div>
+      </div>
+      <!-- node 1 -->
+      <div class="node-c" style="width:220px; top:80px; left:20px;">
+        <div class="handle-c right"></div>
+        <div class="node-header-c">
+          <span class="node-title-c">AI Strategist</span>
+          <span class="node-badge-c">Active</span>
+        </div>
+        <div class="node-body-c">
+          What's trending in chiropractor content this week?
+          <br><br>
+          <span class="em">Looking at 12K+ posts…</span>
+        </div>
+      </div>
+      <!-- node 2 -->
+      <div class="node-c" style="width:210px; top:80px; left:260px;">
+        <div class="handle-c left"></div>
+        <div class="handle-c right"></div>
+        <div class="node-header-c">
+          <span class="node-title-c">Hook Generator</span>
+        </div>
+        <div class="node-body-c">
+          "The one adjustment that cracks your morning stiffness in 30 seconds"<br>
+          <span class="em">14× outlier hook · 62K reach</span>
+        </div>
+      </div>
+      <!-- node 3 -->
+      <div class="node-c" style="width:180px; top:250px; left:60px;">
+        <div class="handle-c right"></div>
+        <div class="node-header-c">
+          <span class="node-title-c">Research</span>
+        </div>
+        <div class="node-body-c">
+          Morning stiffness = #1 complaint. Trigger early in hook.
+        </div>
+      </div>
+      <!-- node 4 -->
+      <div class="node-c" style="width:200px; top:250px; left:260px;">
+        <div class="handle-c left"></div>
+        <div class="node-header-c">
+          <span class="node-title-c">Script Output</span>
+          <span class="node-badge-c">Draft</span>
+        </div>
+        <div class="node-body-c">
+          Hook → Problem → Solution → CTA<br>
+          <span class="em">~38 seconds · Reels format</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width: 1400px; margin: 48px auto 0; padding: 0 4px;">
+  <p style="font-size: 12px; color: rgba(234,230,220,0.35); font-family: 'Figtree', sans-serif;">
+    All colors are exact Connecta palette values. Font: EB Garamond (node headers) + Figtree (body). Open at <code style="color: rgba(234,230,220,0.55);">http://localhost:8081/preview-canvas-directions.html</code>
+  </p>
+</div>
+
+</body>
+</html>

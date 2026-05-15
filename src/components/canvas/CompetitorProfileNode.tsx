@@ -78,8 +78,8 @@ const HOOK_TYPE_COLORS: Record<string, string> = {
   authority: "#f59e0b",
   story: "#a78bfa",
   comparison: "#F0BC7D",
-  shock: "#f43f5e",
-  random: "#94a3b8",
+  shock: "rgba(20,20,20,0.55)",
+  random: "rgba(20,20,20,0.45)",
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -97,7 +97,7 @@ function formatViews(n: number): string {
 function outlierColor(score: number): string {
   if (score >= 5) return "#8FD0D5";
   if (score >= 2.5) return "#F0BC7D";
-  return "#64748b";
+  return "rgba(20,20,20,0.45)";
 }
 
 export default function CompetitorProfileNode({ data, selected }: { data: NodeData; selected?: boolean }) {
@@ -307,18 +307,18 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
   const externalLinkLabel = savedPlatform === "youtube" ? "View on YouTube" : savedPlatform === "tiktok" ? "View on TikTok" : "View on Instagram";
 
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-xl relative flex flex-col" style={{ width: "100%", height: "100%", minWidth: 360, minHeight: 200 }}>
+    <div className="bg-card rounded-2xl relative flex flex-col" style={{ width: "100%", height: "100%", minWidth: 360, minHeight: 200, border: "1px solid #141414", boxShadow: "3px 3px 0 #141414" }}>
       <NodeResizer minWidth={360} minHeight={200} handleStyle={{ opacity: 0, width: 12, height: 12 }} lineStyle={{ opacity: 0 }} />
       <div className="overflow-hidden rounded-2xl flex flex-col flex-1" style={{ width: "100%", height: "100%" }}>
 
         {/* Header */}
-        <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: "linear-gradient(135deg, rgba(244,63,94,0.15), rgba(168,85,247,0.15))", borderBottom: "1px solid rgba(244,63,94,0.2)" }}>
+        <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: "rgba(20,20,20,0.04)", borderBottom: "1px solid rgba(20,20,20,0.10)" }}>
           {(profilePicB64 || profilePicUrl) ? (
             <img
               src={profilePicB64 || profilePicUrl!}
               alt={username || "Profile"}
               className="w-8 h-8 rounded-full object-cover flex-shrink-0 border"
-              style={{ borderColor: "rgba(244,63,94,0.4)" }}
+              style={{ borderColor: "rgba(20,20,20,0.20)" }}
               onError={(e) => {
                 const img = e.target as HTMLImageElement;
                 if (profilePicUrl && !img.src.includes("/api/proxy-image") && !img.src.startsWith("data:")) {
@@ -329,7 +329,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
               }}
             />
           ) : (
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)" }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "hsl(var(--aqua))" }}>
               <UserSearch className="w-3.5 h-3.5 text-white" />
             </div>
           )}
@@ -373,14 +373,14 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                 onChange={e => handleInputChange(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleFetch(); }}
                 placeholder="instagram.com/user · tiktok.com/@user · youtube.com/@channel"
-                className="mt-1.5 w-full px-3 py-2 text-xs rounded-xl border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[#f43f5e]/50 transition-colors"
+                className="mt-1.5 w-full px-3 py-2 text-xs rounded-xl border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
               />
               {inputUrl.trim() && !activePlatform && (
                 <p className="text-[10px] text-amber-400 mt-1">Unsupported URL — paste an Instagram, TikTok, or YouTube channel URL</p>
               )}
             </div>
             {status === "error" && errorMessage && <p className="text-xs text-red-400">{errorMessage}</p>}
-            <button onClick={handleFetch} disabled={!inputUrl.trim() || !activePlatform || status === "loading"} className="w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40" style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)", color: "white" }}>
+            <button onClick={handleFetch} disabled={!inputUrl.trim() || !activePlatform || status === "loading"} className="w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40" style={{ background: "hsl(var(--aqua))", color: "white" }}>
               Fetch &amp; Analyze →
             </button>
           </div>
@@ -389,7 +389,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
         {/* Loading */}
         {status === "loading" && (
           <div className="p-8 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#f43f5e" }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.55)" }} />
             <p className="text-xs text-muted-foreground">Fetching top posts from {platformLabel}...</p>
             <p className="text-[10px] text-muted-foreground/60">This may take up to 30 seconds</p>
           </div>
@@ -427,7 +427,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                   const isExpanded = expandedIndex === i;
                   const isAnalyzing = analyzingIndices.has(i);
                   const isTranscribing = transcribingIndices.has(i);
-                  const hookColor = post.hookType ? (HOOK_TYPE_COLORS[post.hookType] || "#64748b") : null;
+                  const hookColor = post.hookType ? (HOOK_TYPE_COLORS[post.hookType] || "rgba(20,20,20,0.45)") : null;
 
                   return (
                     <div key={i} className="border-b border-border/50 last:border-b-0">
@@ -467,7 +467,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                               </span>
                             )}
                             {post.transcription && (
-                              <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7" }}>
+                              <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(20,20,20,0.08)", color: "rgba(20,20,20,0.65)" }}>
                                 Transcribed
                               </span>
                             )}
@@ -488,7 +488,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
 
                       {/* Expanded detail panel */}
                       {isExpanded && (
-                        <div className="px-3 pb-3 pt-0 space-y-2.5 select-text" style={{ background: "rgba(0,0,0,0.15)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        <div className="px-3 pb-3 pt-0 space-y-2.5 select-text" style={{ background: "rgba(20,20,20,0.03)", borderTop: "1px solid rgba(20,20,20,0.08)" }}>
                           {isAnalyzing ? (
                             <div className="flex items-center gap-2 py-3">
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -516,18 +516,18 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
 
                               {/* Apply to client */}
                               {post.applyToClient && (
-                                <div className="rounded-lg p-2.5" style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.15)" }}>
+                                <div className="rounded-lg p-2.5" style={{ background: "rgba(143,208,213,0.06)", border: "1px solid rgba(143,208,213,0.15)" }}>
                                   <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "#8FD0D5" }}>
                                     Apply to {clientName || "Client"}
                                   </p>
-                                  <p className="text-[10px] leading-relaxed cursor-text" style={{ color: "#94d4db" }}>{post.applyToClient}</p>
+                                  <p className="text-[10px] leading-relaxed cursor-text" style={{ color: "#5ab0b7" }}>{post.applyToClient}</p>
                                 </div>
                               )}
 
                               {/* Transcription */}
                               {post.transcription && (
-                                <div className="rounded-lg p-2.5" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.2)" }}>
-                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "#a855f7" }}>Transcription</p>
+                                <div className="rounded-lg p-2.5" style={{ background: "rgba(20,20,20,0.04)", border: "1px solid rgba(20,20,20,0.10)" }}>
+                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(20,20,20,0.55)" }}>Transcription</p>
                                   <p className="text-[10px] leading-relaxed text-foreground/70 max-h-24 overflow-y-auto cursor-text">{post.transcription}</p>
                                 </div>
                               )}
@@ -538,7 +538,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                                   <button
                                     onClick={(e) => { e.stopPropagation(); onAddVideoNode(post.url); }}
                                     className="nodrag flex items-center gap-1 text-[9px] font-semibold px-2 py-1 rounded-md transition-colors"
-                                    style={{ background: "rgba(34,211,238,0.12)", color: "#8FD0D5", border: "1px solid rgba(34,211,238,0.25)" }}
+                                    style={{ background: "rgba(143,208,213,0.12)", color: "#8FD0D5", border: "1px solid rgba(143,208,213,0.25)" }}
                                   >
                                     + Add to Canvas
                                   </button>
@@ -587,12 +587,12 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                         Cancel
                       </button>
                     </div>
-                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(20,20,20,0.08)" }}>
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${deepProgress.total > 0 ? (deepProgress.done / deepProgress.total) * 100 : 0}%`,
-                          background: "linear-gradient(90deg, #f43f5e, #a855f7)",
+                          background: "#141414",
                         }}
                       />
                     </div>
@@ -607,7 +607,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                     onClick={deepAnalyzeAll}
                     title={`${posts.filter(p => !p.transcription).length * 50 + posts.filter(p => !p.hookType).length * 10} credits`}
                     className="nodrag w-full py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
-                    style={{ background: "linear-gradient(135deg, #f43f5e, #a855f7)", color: "white" }}
+                    style={{ background: "hsl(var(--aqua))", color: "white" }}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     Transcribe Top {posts.length} Outliers
@@ -619,8 +619,8 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
         )}
 
       </div>
-      <Handle type="target" position={Position.Left} className="!bg-[#f43f5e] !border-[#f43f5e] !w-3 !h-3" style={{ zIndex: 50 }} />
-      <Handle type="source" position={Position.Right} className="!bg-[#f43f5e] !border-[#f43f5e] !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="target" position={Position.Left} className="!bg-[hsl(var(--aqua))] !border-[hsl(var(--aqua))] !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-[hsl(var(--aqua))] !border-[hsl(var(--aqua))] !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 }

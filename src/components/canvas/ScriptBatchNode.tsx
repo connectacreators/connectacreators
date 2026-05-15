@@ -63,8 +63,8 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       className="rounded-xl shadow-lg relative overflow-hidden"
       style={{
         width: 260,
-        background: "#18181b",
-        border: selected ? "1px solid #8FD0D5" : "1px solid #27272a",
+        background: "#ffffff",
+        border: selected ? "1px solid #8FD0D5" : "1px solid rgba(20,20,20,0.12)",
         borderLeft: "4px solid #8FD0D5",
       }}
     >
@@ -77,7 +77,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       {/* Drag handle + delete */}
       <div
         className="drag-handle flex items-center justify-between px-3 py-2"
-        style={{ cursor: "grab", borderBottom: "1px solid #27272a" }}
+        style={{ cursor: "grab", borderBottom: "1px solid rgba(20,20,20,0.08)" }}
       >
         <div className="flex items-center gap-1.5">
           <div
@@ -93,7 +93,8 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
         {d.onDelete && (
           <button
             onClick={d.onDelete}
-            className="text-zinc-500 hover:text-red-400 transition-colors"
+            className="hover:text-red-400 transition-colors"
+            style={{ color: "rgba(20,20,20,0.45)" }}
             style={{ fontSize: 11 }}
           >
             ✕
@@ -113,7 +114,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           {/* Platform badge */}
           <div
             className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}
+            style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(0,0,0,0.2)" }}
           >
             <PlatformIcon className="w-2.5 h-2.5 text-white/80" />
           </div>
@@ -121,37 +122,37 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       ) : (
         <div
           className="flex items-center justify-center"
-          style={{ width: "100%", height: 60, background: "#27272a" }}
+          style={{ width: "100%", height: 60, background: "#ffffff" }}
         >
-          <PlatformIcon className="w-5 h-5 text-zinc-500" />
+          <PlatformIcon className="w-5 h-5" style={{ color: "rgba(20,20,20,0.35)" }} />
         </div>
       )}
 
       {/* Content */}
       <div className="px-3 py-2">
         {/* Title */}
-        <p style={{ fontSize: 13, fontWeight: 600, color: "#fafafa", marginBottom: 4 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#141414", marginBottom: 4 }}>
           {title}
         </p>
 
         {/* Source metadata */}
         <div className="flex items-center gap-1.5" style={{ marginBottom: 6 }}>
           {d.ownerUsername && (
-            <span style={{ fontSize: 10, color: "#71717a" }}>
+            <span style={{ fontSize: 10, color: "rgba(20,20,20,0.45)" }}>
               @{d.ownerUsername}
             </span>
           )}
           {d.outlierScore != null && (
             <>
-              <span style={{ fontSize: 10, color: "#3f3f46" }}>·</span>
-              <span style={{ fontSize: 10, color: "#71717a" }}>
+              <span style={{ fontSize: 10, color: "rgba(20,20,20,0.25)" }}>·</span>
+              <span style={{ fontSize: 10, color: "rgba(20,20,20,0.45)" }}>
                 {d.outlierScore >= 10 ? Math.round(d.outlierScore) : d.outlierScore.toFixed(1)}x
               </span>
             </>
           )}
           {d.script?.virality_score != null && (
             <>
-              <span style={{ fontSize: 10, color: "#3f3f46" }}>·</span>
+              <span style={{ fontSize: 10, color: "rgba(20,20,20,0.25)" }}>·</span>
               <span style={{ fontSize: 10, color: "#8FD0D5" }}>
                 {d.script.virality_score.toFixed(1)} virality
               </span>
@@ -164,7 +165,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <pre
             style={{
               fontSize: 11,
-              color: "#a1a1aa",
+              color: "rgba(20,20,20,0.55)",
               lineHeight: 1.5,
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
@@ -180,7 +181,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <p
             style={{
               fontSize: 11,
-              color: "#a1a1aa",
+              color: "rgba(20,20,20,0.55)",
               lineHeight: 1.4,
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -216,8 +217,8 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
               href={d.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 11, color: "#71717a" }}
-              className="hover:text-white transition-colors"
+              style={{ fontSize: 11, color: "rgba(20,20,20,0.45)" }}
+              className="hover:opacity-100 transition-colors"
             >
               <ExternalLink className="w-3 h-3" />
             </a>

@@ -718,7 +718,8 @@ const MediaNode = memo(({ data }: NodeProps) => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={togglePlay}
-                        className="nodrag flex-shrink-0 w-[30px] h-[30px] rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary hover:bg-primary/25 transition-colors"
+                        className="nodrag flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center transition-all"
+                        style={{ background: "#E0A560", border: "1.5px solid #141414", boxShadow: "2px 2px 0 #141414", color: "#141414" }}
                       >
                         {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
                       </button>

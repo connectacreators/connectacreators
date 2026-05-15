@@ -458,13 +458,115 @@ All colors MUST be HSL for consistency and theming.
   background: hsl(var(--honey) / 0.65) !important;
 }
 
-/* ReactFlow edge rebrand — Honey */
+/* === AI Assistant node — light card, dark ink text, Aqua accents ===
+   Inherits the white card base from .react-flow .glass-card but overrides
+   all dark-mode Tailwind tokens (text-foreground = bone, bg-muted = graphite)
+   to light-mode equivalents so it reads properly on the white background.
+   Aqua is kept as the AI interaction accent color ("the blue"). */
+.react-flow .glass-card.canvas-ai-node {
+  background: #ffffff !important;
+  border: 1px solid #141414 !important;
+  box-shadow: 3px 3px 0 #141414 !important;
+  color: #141414 !important;
+}
+.react-flow .glass-card.canvas-ai-node:hover {
+  box-shadow: 5px 5px 0 #141414 !important;
+  transform: translate(-1px, -1px);
+}
+/* Inner text tokens → dark ink */
+.react-flow .glass-card.canvas-ai-node .text-foreground,
+.react-flow .glass-card.canvas-ai-node [class*="text-foreground"] {
+  color: #141414 !important;
+}
+.react-flow .glass-card.canvas-ai-node .text-muted-foreground,
+.react-flow .glass-card.canvas-ai-node [class*="text-muted"] {
+  color: rgba(20, 20, 20, 0.50) !important;
+}
+/* Inner surfaces → light */
+.react-flow .glass-card.canvas-ai-node [class*="bg-muted"],
+.react-flow .glass-card.canvas-ai-node [class*="bg-card"],
+.react-flow .glass-card.canvas-ai-node [class*="bg-background"] {
+  background: #ffffff !important;
+}
+/* Inner borders → thin ink hairline */
+.react-flow .glass-card.canvas-ai-node [class*="border-border"] {
+  border-color: rgba(20, 20, 20, 0.10) !important;
+}
+/* Inputs → light surfaces with dark text */
+.react-flow .glass-card.canvas-ai-node input,
+.react-flow .glass-card.canvas-ai-node textarea {
+  background: #ffffff !important;
+  color: #141414 !important;
+  border-color: rgba(20, 20, 20, 0.14) !important;
+}
+/* Aqua as the AI interaction color — keep text-primary = Aqua */
+.react-flow .glass-card.canvas-ai-node [class*="text-primary"] {
+  color: hsl(var(--aqua)) !important;
+}
+.react-flow .glass-card.canvas-ai-node [class*="bg-primary"] {
+  background: hsl(var(--aqua) / 0.14) !important;
+}
+.react-flow .glass-card.canvas-ai-node [class*="border-primary"] {
+  border-color: hsl(var(--aqua) / 0.40) !important;
+}
+/* Handles — Aqua */
+.react-flow .glass-card.canvas-ai-node .react-flow__handle {
+  background: hsl(var(--aqua)) !important;
+  border-color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* ReactFlow edge lines — dark ink on light canvas */
 .react-flow__edge-path {
-  stroke: hsl(var(--honey) / 0.42) !important;
+  stroke: rgba(20, 20, 20, 0.60) !important;
   stroke-width: 1.5px !important;
 }
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: hsl(var(--honey) / 0.70) !important;
+  stroke: #141414 !important;
+  stroke-width: 2px !important;
+}
+.react-flow__connectionline {
+  stroke: rgba(20, 20, 20, 0.75) !important;
+  stroke-width: 1.5px !important;
+}
+
+/* === Fullscreen AI view — dark context, restore bone borders for inputs ===
+   AssistantTextInput uses rgba(20,20,20,X) borders (correct for light canvas
+   AI node). Inside the dark fullscreen view, those same borders are invisible.
+   This scope restores them to bone-equivalent values. */
+.fullscreen-ai-view .relative.rounded-xl.border {
+  border-color: rgba(234, 230, 220, 0.14) !important;
+  background: rgba(234, 230, 220, 0.04) !important;
+}
+.fullscreen-ai-view input,
+.fullscreen-ai-view textarea {
+  color: #EAE6DC !important;
+  caret-color: #EAE6DC !important;
+}
+.fullscreen-ai-view input::placeholder,
+.fullscreen-ai-view textarea::placeholder {
+  color: rgba(234, 230, 220, 0.35) !important;
+}
+/* + button, model selector, and all controls inside fullscreen dark view
+   — inline styles set rgba(20,20,20,X) which is invisible on dark bg.
+   Override via the fullscreen scope. */
+.fullscreen-ai-view button[style*="rgba(20,20,20"] {
+  color: rgba(234, 230, 220, 0.55) !important;
+}
+.fullscreen-ai-view [style*="rgba(20,20,20,0.38)"],
+.fullscreen-ai-view [style*="rgba(20,20,20,0.40)"],
+.fullscreen-ai-view [style*="rgba(20,20,20,0.45)"],
+.fullscreen-ai-view [style*="rgba(20,20,20,0.50)"] {
+  color: rgba(234, 230, 220, 0.50) !important;
+}
+.fullscreen-ai-view [style*="rgba(20,20,20,0.10)"][style*="background"],
+.fullscreen-ai-view [style*="rgba(20,20,20,0.06)"][style*="background"] {
+  background: rgba(234, 230, 220, 0.06) !important;
+}
+/* Separator lines */
+.fullscreen-ai-view [style*="rgba(20,20,20,0.10)"][style*="height: 1"],
+.fullscreen-ai-view [style*="rgba(20,20,20,0.10)"][style*="width: 1"] {
+  background: rgba(234, 230, 220, 0.15) !important;
 }
 
 /* CHATS sidebar list — hide the scrollbar entirely (still scrolls).
@@ -639,112 +741,269 @@ All colors MUST be HSL for consistency and theming.
   user-select: none !important;
 }
 
-/* ReactFlow — Dark charcoal canvas node cards */
+/* === ReactFlow canvas — force all Tailwind semantic text tokens to dark ink ===
+   Tailwind's text-foreground resolves to Bone (EAE6DC) in the global dark
+   theme. On the white canvas cards that's invisible. Override everything. */
+.react-flow .text-foreground,
+.react-flow [class*="text-foreground"] {
+  color: #141414 !important;
+}
+.react-flow .text-muted-foreground,
+.react-flow [class*="text-muted-foreground"],
+.react-flow [class*="text-muted"] {
+  color: rgba(20, 20, 20, 0.50) !important;
+}
+.react-flow .text-card-foreground {
+  color: #141414 !important;
+}
+/* bg-muted everywhere in react-flow → pure white (no tinting inside nodes) */
+.react-flow [class*="bg-muted"] {
+  background: #ffffff !important;
+}
+/* prose-invert inside canvas nodes: override to dark prose */
+.react-flow .prose-invert,
+.react-flow .prose,
+.react-flow .prose-sm {
+  color: #141414 !important;
+}
+.react-flow .prose p,
+.react-flow .prose li,
+.react-flow .prose td,
+.react-flow .prose h1,
+.react-flow .prose h2,
+.react-flow .prose h3,
+.react-flow .prose h4,
+.react-flow .prose strong,
+.react-flow .prose em {
+  color: #141414 !important;
+}
+
+/* === ReactFlow: ALL node wrappers using bg-card → white on light canvas ===
+   CompetitorProfileNode, TextNoteNode, and others use `bg-card` (not
+   `glass-card`) so the glass-card override didn't catch them. This rule
+   forces every direct bg-card element inside ReactFlow to the same white
+   editorial card treatment. */
+.react-flow .bg-card,
+.react-flow [class~="bg-card"] {
+  background: #ffffff !important;
+}
+.react-flow .bg-card p,
+.react-flow .bg-card span,
+.react-flow .bg-card label,
+.react-flow .bg-card strong {
+  color: #141414;
+}
+.react-flow .bg-card h1,
+.react-flow .bg-card h2,
+.react-flow .bg-card h3 {
+  color: #141414;
+  font-family: 'EB Garamond', Georgia, serif;
+}
+.react-flow .bg-card .text-muted-foreground,
+.react-flow .bg-card [class*="text-muted"] {
+  color: rgba(20, 20, 20, 0.50) !important;
+}
+.react-flow .bg-card [class*="bg-muted"],
+.react-flow .bg-card [class*="bg-card"] {
+  background: #ffffff !important;
+}
+
+/* === ReactFlow canvas node cards — White on Bone, Ink strokes ===
+   Canvas bg: Bone #EAE6DC. Cards: white #FFFFFF with ink border and
+   the landing's signature 3px hard-offset shadow. Ink text throughout.
+   EB Garamond headers. Aqua handles. Same sticker aesthetic as landing. */
+
 .react-flow .glass-card {
-  background: #1e1f24;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
-  color: #e0e0e0;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid #141414 !important;
+  box-shadow: 3px 3px 0 #141414 !important;
+  color: #141414 !important;
+  border-radius: 14px !important;
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+.react-flow .glass-card:hover {
+  box-shadow: 5px 5px 0 #141414 !important;
+  transform: translate(-1px, -1px);
 }
 .react-flow .glass-card::before {
   display: none;
 }
 
-/* Heading / general text inside nodes */
+/* Text inside nodes — Ink on white */
 .react-flow .glass-card p,
 .react-flow .glass-card strong,
 .react-flow .glass-card label,
+.react-flow .glass-card span {
+  color: #141414;
+}
 .react-flow .glass-card h1,
 .react-flow .glass-card h2,
 .react-flow .glass-card h3 {
-  color: #e0e0e0;
+  color: #141414;
+  font-family: 'EB Garamond', Georgia, serif;
+  letter-spacing: -0.015em;
+  font-weight: 500;
 }
 
-/* Muted text */
+/* Muted text — Ink at 50% */
 .react-flow .glass-card .text-muted-foreground,
 .react-flow .glass-card .text-muted-foreground\/50,
 .react-flow .glass-card .text-muted-foreground\/60,
 .react-flow .glass-card .text-muted-foreground\/70,
 .react-flow .glass-card [class*="text-muted"] {
-  color: #707278 !important;
+  color: rgba(20, 20, 20, 0.50) !important;
 }
 
-/* Inner borders */
-.react-flow .glass-card [class*="border-border"] {
-  border-color: rgba(255, 255, 255, 0.065) !important;
-}
-
-/* Strip cyan/teal inline borders from node headers */
+/* Inner borders — thin ink hairline */
+.react-flow .glass-card [class*="border-border"],
 .react-flow .glass-card [class*="border-[rgba(8,145,178"],
 .react-flow .glass-card [class*="border-[rgba(14,165,233"],
 .react-flow .glass-card [class*="border-[rgba(34,211,238"] {
-  border-color: rgba(255, 255, 255, 0.065) !important;
+  border-color: rgba(20, 20, 20, 0.10) !important;
 }
 
-/* Inner surface backgrounds (inputs, muted areas) */
-.react-flow .glass-card [class*="bg-muted"] {
-  background: #272830 !important;
-}
+/* Inner surfaces (inputs, muted areas) — warm off-white */
+.react-flow .glass-card [class*="bg-muted"],
 .react-flow .glass-card .bg-card,
 .react-flow .glass-card .bg-card\/80,
 .react-flow .glass-card .bg-card\/70,
-.react-flow .glass-card .bg-background {
-  background: #272830 !important;
-}
-
-/* Strip cyan/teal inline backgrounds from node headers */
+.react-flow .glass-card .bg-background,
 .react-flow .glass-card [class*="bg-[rgba(8,145,178"],
 .react-flow .glass-card [class*="bg-[rgba(14,165,233"],
 .react-flow .glass-card [class*="bg-[rgba(34,211,238"] {
-  background: #1e1f24 !important;
+  background: #ffffff !important;
 }
 
-/* Strip primary/cyan bg utility classes */
+/* Primary bg — Aqua tint */
 .react-flow .glass-card [class*="bg-primary"] {
-  background: #272830 !important;
+  background: rgba(143, 208, 213, 0.25) !important;
 }
 
-/* Strip hardcoded cyan/dark text utility classes */
+/* Primary / cyan text → Ink on white */
 .react-flow .glass-card [class*="text-[#22d3ee"],
 .react-flow .glass-card [class*="text-[#0891B2"],
 .react-flow .glass-card [class*="text-primary"],
 .react-flow .glass-card [class*="text-cyan"] {
-  color: #e0e0e0 !important;
+  color: #141414 !important;
 }
 
-/* Textarea inside canvas nodes — white text */
+/* Textarea — Ink text on warm off-white */
 .react-flow .glass-card textarea {
-  color: #e0e0e0 !important;
+  color: #141414 !important;
+  background: #ffffff !important;
+  border-color: rgba(20, 20, 20, 0.12) !important;
 }
 
-/* Generate Script + btn-17-primary inside canvas nodes */
+/* CTA buttons */
 .react-flow .glass-card .btn-17-primary,
 .react-flow .glass-card .btn-17-primary * {
-  color: #ffffff !important;
+  color: #141414 !important;
 }
 
-/* Handle connection dots — Aqua with glow */
+/* Handles — Aqua dot, white border (pops against bone canvas) */
 .react-flow .glass-card .react-flow__handle {
   background: hsl(var(--aqua)) !important;
-  border-color: hsl(var(--ink)) !important;
-  box-shadow: 0 0 6px hsl(var(--aqua) / 0.40) !important;
+  border-color: #ffffff !important;
+  box-shadow: none !important;
 }
 
-/* ReactFlow — Make connection handles bigger and above NodeResizer */
+/* === Canvas toolbar — light pill on bone canvas, all tokens go dark ===
+   The toolbar uses Tailwind tokens (text-muted-foreground, text-foreground,
+   hover:bg-muted) that resolve to bone/graphite in the global dark theme.
+   This scope-class overrides them to dark ink so icons are readable on
+   the off-white (#ffffff) toolbar background. */
+.canvas-toolbar-pill .text-muted-foreground,
+.canvas-toolbar-pill [class*="text-muted"],
+.canvas-toolbar-pill .text-\[\#94a3b8\] {
+  color: rgba(20, 20, 20, 0.50) !important;
+}
+.canvas-toolbar-pill .hover\:text-foreground:hover,
+.canvas-toolbar-pill [class*="hover:text-foreground"]:hover {
+  color: rgba(20, 20, 20, 0.85) !important;
+}
+.canvas-toolbar-pill [class*="hover:bg-muted"]:hover {
+  background: rgba(20, 20, 20, 0.08) !important;
+}
+.canvas-toolbar-pill [class*="bg-card"] {
+  background: rgba(20, 20, 20, 0.06) !important;
+}
+.canvas-toolbar-pill [class*="border-border"] {
+  border-color: rgba(20, 20, 20, 0.12) !important;
+}
+
+/* ReactFlow built-in controls — ink bg to contrast the bone canvas */
+.react-flow__controls {
+  background: #141414 !important;
+  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+.react-flow__controls-button {
+  background: #141414 !important;
+  border-bottom: 1px solid rgba(234, 230, 220, 0.08) !important;
+  fill: rgba(234, 230, 220, 0.60) !important;
+}
+.react-flow__controls-button:hover {
+  background: #1F1F1F !important;
+  fill: #EAE6DC !important;
+}
+.react-flow__minimap {
+  background: #141414 !important;
+  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  border-radius: 10px !important;
+}
+.react-flow__minimap-node {
+  fill: rgba(20, 20, 20, 0.30) !important;
+}
+.react-flow__panel {
+  background: transparent !important;
+}
+
+/* ReactFlow — connection handle size */
 .react-flow__handle {
-  width: 14px !important;
-  height: 14px !important;
+  width: 12px !important;
+  height: 12px !important;
   z-index: 10 !important;
-  border-width: 2px !important;
+  border-width: 1.5px !important;
 }
 .react-flow__handle:hover {
-  width: 18px !important;
-  height: 18px !important;
+  width: 16px !important;
+  height: 16px !important;
 }
 .react-flow__handle.connectionindicator {
   cursor: crosshair;
+}
+
+/* ReactFlow built-in controls / minimap — Ink bg to match dark toolbar */
+.react-flow__controls {
+  background: #141414 !important;
+  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+.react-flow__controls-button {
+  background: #141414 !important;
+  border-bottom: 1px solid rgba(234, 230, 220, 0.08) !important;
+  fill: rgba(234, 230, 220, 0.60) !important;
+}
+.react-flow__controls-button:hover {
+  background: #1F1F1F !important;
+  fill: #EAE6DC !important;
+}
+.react-flow__minimap {
+  background: #141414 !important;
+  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  border-radius: 10px !important;
+}
+.react-flow__minimap-node {
+  fill: rgba(234, 230, 220, 0.20) !important;
+}
+.react-flow__panel {
+  background: transparent !important;
 }
 
 /* ── Sidebar nav transition animations ── */

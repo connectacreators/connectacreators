@@ -200,7 +200,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
               disabled={saving}
               type="button"
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold cursor-pointer select-none"
-              style={{ background: "#f5f0e8", border: "1px solid rgba(20,20,20,0.12)", color: "#8FD0D5", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
+              style={{ background: "#ffffff", border: "1px solid rgba(20,20,20,0.12)", color: "#8FD0D5", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {saving ? "Saving..." : "Save Script"}

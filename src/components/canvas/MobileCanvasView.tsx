@@ -535,7 +535,7 @@ const ChatSidebar = memo(({
             className="w-full flex items-center gap-2 rounded-xl"
             style={{
               padding: "10px 12px",
-              background: "#f5f0e8",
+              background: "#ffffff",
               border: "1px solid rgba(20,20,20,0.12)",
               color: "#8FD0D5",
               fontSize: 13,
@@ -576,7 +576,7 @@ const ChatSidebar = memo(({
                       borderRadius: 10,
                       fontSize: 12,
                       color: isActive ? "#8FD0D5" : "rgba(20,20,20,0.40)",
-                      background: isActive ? "#f5f0e8" : "transparent",
+                      background: isActive ? rgba(20,20,20,0.04) : "transparent",
                       border: isActive ? "1px solid rgba(20,20,20,0.12)" : "1px solid transparent",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -736,7 +736,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   ...menuItemStyle,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: aiModel === key ? "#f5f0e8" : "none",
+                  background: aiModel === key ? rgba(20,20,20,0.04) : "none",
                   marginBottom: 2,
                 }}
               >
@@ -774,7 +774,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   ...menuItemStyle,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: format === key ? "#f5f0e8" : "none",
+                  background: format === key ? rgba(20,20,20,0.04) : "none",
                   marginBottom: 2,
                 }}
               >
@@ -812,7 +812,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
                   ...menuItemStyle,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: language === lang ? "#f5f0e8" : "none",
+                  background: language === lang ? rgba(20,20,20,0.04) : "none",
                   marginBottom: 2,
                 }}
               >

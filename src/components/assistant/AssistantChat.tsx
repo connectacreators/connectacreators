@@ -98,8 +98,12 @@ function UserBubble({
 }) {
   return (
     <div
-      className={`px-4 py-2.5 rounded-2xl ${fullscreen ? "text-sm" : "text-xs"} text-foreground`}
-      style={{ background: "rgba(255,255,255,0.06)" }}
+      className={`px-4 py-2.5 rounded-2xl ${fullscreen ? "text-sm" : "text-xs"}`}
+      style={{
+        background: fullscreen ? "rgba(234,230,220,0.10)" : "rgba(20,20,20,0.08)",
+        border: fullscreen ? "1px solid rgba(234,230,220,0.12)" : "1px solid rgba(20,20,20,0.10)",
+        color: fullscreen ? "#EAE6DC" : "#141414",
+      }}
     >
       {text}
     </div>
@@ -264,7 +268,7 @@ function PlanCard({
                 background: "transparent",
                 border: "none",
                 color: "rgba(255,255,255,0.45)",
-                borderBottom: "1px solid rgba(255,255,255,0.15)",
+                borderBottom: "1px solid rgba(255,255,255,0.45)",
                 paddingBottom: 1,
                 cursor: "pointer",
               }}
@@ -521,7 +525,7 @@ export function AssistantChat({
                       <p
                         style={{
                           fontSize: 10,
-                          color: "rgba(255,255,255,0.35)",
+                          color: "rgba(255,255,255,0.52)",
                           marginBottom: 4,
                           fontStyle: "italic",
                         }}
@@ -545,7 +549,7 @@ export function AssistantChat({
                     <img
                       src={resolveImageUrl(msg)}
                       alt={msg.revised_prompt || "Generated image"}
-                      className="rounded-lg max-w-full border border-[rgba(34,211,238,0.3)]"
+                      className="rounded-lg max-w-full border border-[rgba(143,208,213,0.35)]"
                     />
                     {msg.revised_prompt && (
                       <p className="text-[10px] text-muted-foreground mt-1.5 italic">
@@ -575,7 +579,7 @@ export function AssistantChat({
                   </svg>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "rgba(34,211,238,0.85)" }}>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "rgba(143,208,213,0.90)" }}>
                         Deep Research
                       </span>
                       {msg.source_count != null && msg.source_count > 0 && (
@@ -591,7 +595,7 @@ export function AssistantChat({
                     <button
                       onClick={() => handleSaveResearch(msg)}
                       className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
-                      style={{ color: "rgba(34,211,238,0.85)", borderColor: "rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.08)" }}
+                      style={{ color: "rgba(143,208,213,0.90)", borderColor: "rgba(143,208,213,0.35)", background: "rgba(143,208,213,0.10)" }}
                     >
                       <svg
                         className="w-3 h-3"
@@ -650,20 +654,20 @@ export function AssistantChat({
                           setTimeout(() => setCopiedIdx(null), 1500);
                         }}
                         className="text-[9px] transition-colors relative"
-                        style={{ color: copiedIdx === i ? "rgba(34,211,238,0.85)" : "rgba(255,255,255,0.28)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                        style={{ color: copiedIdx === i ? "rgba(143,208,213,0.90)" : "rgba(255,255,255,0.45)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
                         title="Copy"
                       >
                         {copiedIdx === i ? "copied" : "copy"}
-                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.15)", borderRadius: 1 }} />
+                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.45)", borderRadius: 1 }} />
                       </button>
                       <button
                         onClick={() => onRegenerateFromMessage?.(i)}
                         className="text-[9px] relative"
-                        style={{ color: "rgba(255,255,255,0.28)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                        style={{ color: "rgba(255,255,255,0.45)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
                         title="Regenerate"
                       >
                         retry
-                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.15)", borderRadius: 1 }} />
+                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.45)", borderRadius: 1 }} />
                       </button>
                       {msg.downgraded && msg.actual_model && (
                         <span
@@ -725,11 +729,11 @@ export function AssistantChat({
 
         {generatingImage && (
           <div className="flex gap-2 items-start">
-            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(34,211,238,0.6)" }} />
+            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(143,208,213,0.75)" }} />
             <div className="min-w-0 flex-1">
               <div
                 className="rounded-lg overflow-hidden relative"
-                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(34,211,238,0.15)", background: "rgba(34,211,238,0.03)" }}
+                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(143,208,213,0.18)", background: "rgba(143,208,213,0.05)" }}
               >
                 {/* Subtle shimmer — editorial neutral, no aqua glow */}
                 <div
@@ -742,11 +746,11 @@ export function AssistantChat({
                   }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(34,211,238,0.6)" }} />
-                  <span className="text-[11px] font-medium" style={{ color: "rgba(34,211,238,0.55)" }}>
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(143,208,213,0.75)" }} />
+                  <span className="text-[11px] font-medium" style={{ color: "rgba(143,208,213,0.70)" }}>
                     Creating image…
                   </span>
-                  <span className="text-[10px]" style={{ color: "rgba(34,211,238,0.35)" }}>
+                  <span className="text-[10px]" style={{ color: "rgba(143,208,213,0.50)" }}>
                     1024 × 1024
                   </span>
                 </div>

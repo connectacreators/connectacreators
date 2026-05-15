@@ -51,7 +51,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 function outlierColor(score: number): string {
   if (score >= 5) return "#8FD0D5";
   if (score >= 2.5) return "#F0BC7D";
-  return "#64748b";
+  return "rgba(20,20,20,0.45)";
 }
 
 const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
@@ -83,7 +83,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
     story: "#a78bfa",
     comparison: "#F0BC7D",
     shock: "#f43f5e",
-    random: "#94a3b8",
+    random: "rgba(20,20,20,0.45)",
   };
 
   // Profile picture with proxy fallback
@@ -134,7 +134,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
             <span
               key={hook}
               className="text-[8px] font-semibold px-1.5 py-0.5 rounded"
-              style={{ background: `${HOOK_COLORS[hook] || "#64748b"}20`, color: HOOK_COLORS[hook] || "#64748b" }}
+              style={{ background: `${HOOK_COLORS[hook] || "rgba(20,20,20,0.45)"}20`, color: HOOK_COLORS[hook] || "rgba(20,20,20,0.45)" }}
             >
               {hook} ×{count}
             </span>
@@ -183,7 +183,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   if (collapsed) {
     return (
       <div
-        className="bg-card border border-border rounded-xl shadow-xl relative"
+        className="bg-[#ffffff] border border-[#141414] rounded-xl shadow-xl relative"
         style={{ minWidth: 320 }}
       >
         {ProfileHeader}

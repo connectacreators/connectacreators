@@ -57,7 +57,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
     <div className="glass-card rounded-2xl min-w-[300px] max-w-[360px] relative">
       <div className="overflow-hidden rounded-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(132,204,22,0.06)] border-b border-[rgba(132,204,22,0.12)]">
+      <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(20,20,20,0.05)] border-b border-[rgba(20,20,20,0.12)]">
         <div className="flex items-center gap-2">
           <Target className="w-3.5 h-3.5 text-[#F0BC7D]" />
           <span className="text-xs font-semibold text-foreground">CTA Builder</span>
@@ -81,7 +81,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
         <button
           onClick={generate}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[rgba(132,204,22,0.08)] text-[#F0BC7D] border border-[rgba(132,204,22,0.2)] hover:bg-[rgba(132,204,22,0.15)] disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#ffffff] text-[#F0BC7D] border border-[rgba(20,20,20,0.12)] hover:bg-[rgba(20,20,20,0.05)] disabled:opacity-50 transition-colors flex items-center gap-1"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Generate"}
         </button>
@@ -95,7 +95,7 @@ export default function CTABuilderNode({ data: d }: NodeProps) {
               onClick={() => cd.onUpdate?.({ selectedCTA: cta })}
               className={`w-full text-left rounded-lg border px-2.5 py-2 text-xs transition-colors ${
                 selectedCTA === cta
-                  ? "bg-[rgba(132,204,22,0.1)] border-[rgba(132,204,22,0.25)] text-foreground"
+                  ? "bg-[rgba(20,20,20,0.08)] border-[rgba(20,20,20,0.12)] text-foreground"
                   : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >

@@ -1458,6 +1458,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     const onboardingNodes = contextNodes.filter(
       n => n.type === "onboardingFormNode" && (n.data as any).status === "done"
     );
+    // General-purpose folder/group nodes (manual groupings the user creates)
+    const groupNodes = contextNodes.filter(n => n.type === "groupNode");
 
     // IMPORTANT: filter first, then map both arrays from the same set to keep indexes aligned
     // Include nodes with transcription, videoAnalysis, OR structure (structure-only = visual breakdown exists)
@@ -1506,6 +1508,25 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         posts.forEach((p: any) => { if (p.hookType) hookCounts[p.hookType] = (hookCounts[p.hookType] || 0) + 1; });
         const hookStr = Object.entries(hookCounts).map(([k, v]) => `${k}:${v}`).join(", ");
         return `CompetitorFolder(@${d.username || "unknown"}, platform=${d.platform || "unknown"}, posts=${posts.length}, avg_outlier=${d.avgOutlierScore || 0}x, top_outlier=${d.topOutlierScore || 0}x, hooks=[${hookStr}])`;
+      }),
+      // General-purpose folder/group nodes — emit one summary entry per group
+      // listing the types and labels of all children so the AI gets a clear
+      // picture of what's bundled together.
+      ...groupNodes.map(n => {
+        const d = n.data as any;
+        const label = d.label || "Untitled group";
+        const children = contextNodes.filter(nd => nd.parentId === n.id);
+        if (children.length === 0) return `Group("${label}", empty)`;
+        // Count children by type
+        const typeCounts: Record<string, number> = {};
+        children.forEach(c => {
+          const t = c.type || "unknown";
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+        const typeStr = Object.entries(typeCounts)
+          .map(([t, c]) => `${c} ${t.replace(/Node$/, "")}`)
+          .join(", ");
+        return `Group("${label}", ${children.length} child${children.length === 1 ? "" : "ren"}: ${typeStr})`;
       }),
     ];
 
@@ -2504,11 +2525,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   }
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: "#131417" }}>
+    <div className="flex h-full overflow-hidden" style={{ background: "#EAE6DC" }}>
       {/* Canvas area — full width, sessions in toolbar */}
       <div
         className="flex-1 relative min-w-0"
-        style={{ background: "#131417" }}
+        style={{ background: "#EAE6DC" }}
         onDragOver={(e) => {
           const hasFile = Array.from(e.dataTransfer.items).some(
             i => i.kind === "file" && (CANVAS_ACCEPTED_MIME.has(i.type) || !i.type)
@@ -2623,7 +2644,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           connectOnClick
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
-          style={{ background: "#131417", position: "absolute", inset: 0 }}
+          style={{ background: "#EAE6DC", position: "absolute", inset: 0 }}
           onMouseMove={(e) => {
             // Broadcast cursor position in flow coordinates (throttled inside hook)
             const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
@@ -2632,8 +2653,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         >
           <Background
             variant={BackgroundVariant.Dots}
-            bgColor="#131417"
-            color="rgba(255,255,255,0.09)"
+            bgColor="#EAE6DC"
+            color="rgba(20,20,20,0.28)"
             gap={24}
             size={1.5}
           />

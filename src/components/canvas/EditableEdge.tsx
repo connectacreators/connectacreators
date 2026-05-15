@@ -11,7 +11,7 @@ import {
 
 const EDGE_COLORS = [
   "hsl(44 75% 87%)", "#8FD0D5", "#f43f5e", "#F0BC7D", "#f59e0b",
-  "#a78bfa", "#60a5fa", "#34d399", "#fb923c", "#ffffff",
+  "#a78bfa", "#60a5fa", "#8FD0D5", "#fb923c", "#ffffff",
 ];
 
 const EDGE_WIDTHS = [1, 2, 3, 5];
@@ -138,12 +138,12 @@ export default function EditableEdge({
               zIndex: 1000,
             }}
           >
-            <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-card/95 backdrop-blur-md border border-border/60 shadow-xl"
+            <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl"
               style={{ whiteSpace: "nowrap" }}
             >
               {/* Path type */}
               <div className="relative group">
-                <button className="p-1 rounded-lg text-[#94a3b8] hover:text-foreground hover:bg-muted/30 transition-colors">
+                <button className="p-1 rounded-lg hover:text-foreground hover:bg-muted/30 transition-colors" style={{ color: "rgba(20,20,20,0.45)" }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     {pathType === "straight" ? <line x1="4" y1="20" x2="20" y2="4" /> :
                      pathType === "smoothstep" ? <><line x1="4" y1="20" x2="4" y2="10" /><line x1="4" y1="10" x2="20" y2="10" /><line x1="20" y1="10" x2="20" y2="4" /></> :
@@ -151,10 +151,10 @@ export default function EditableEdge({
                   </svg>
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-card border border-border shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   {(["bezier", "smoothstep", "straight"] as const).map(t => (
                     <button key={t} onClick={() => updateEdge({ pathType: t })}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${pathType === t ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${pathType === t ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
                     >
                       {t === "bezier" ? "Curve" : t === "smoothstep" ? "Step" : "Straight"}
                     </button>
@@ -166,7 +166,7 @@ export default function EditableEdge({
 
               {/* Stroke style */}
               <div className="relative group">
-                <button className="p-1 rounded-lg text-[#94a3b8] hover:text-foreground hover:bg-muted/30 transition-colors">
+                <button className="p-1 rounded-lg hover:text-foreground hover:bg-muted/30 transition-colors" style={{ color: "rgba(20,20,20,0.45)" }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                     strokeDasharray={strokeStyle === "dashed" ? "6 3" : strokeStyle === "dotted" ? "2 3" : undefined}
                   >
@@ -174,10 +174,10 @@ export default function EditableEdge({
                   </svg>
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-card border border-border shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   {(["solid", "dashed", "dotted"] as const).map(s => (
                     <button key={s} onClick={() => updateStyle({ strokeStyle: s })}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left capitalize ${strokeStyle === s ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left capitalize ${strokeStyle === s ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
                     >
                       {s}
                     </button>
@@ -187,7 +187,8 @@ export default function EditableEdge({
 
               {/* Arrow toggle */}
               <button onClick={() => updateEdge({ arrow: !hasArrow })}
-                className={`p-1 rounded-lg transition-colors ${hasArrow ? "text-[#8FD0D5] bg-[rgba(8,145,178,0.15)]" : "text-[#94a3b8] hover:text-foreground hover:bg-muted/30"}`}
+                className={`p-1 rounded-lg transition-colors ${hasArrow ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.15)]" : "hover:text-foreground hover:bg-muted/30"}`}
+              style={!hasArrow ? { color: "rgba(20,20,20,0.45)" } : undefined}
                 title={hasArrow ? "Remove Arrow" : "Add Arrow"}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -200,14 +201,14 @@ export default function EditableEdge({
               {/* Color */}
               <div className="relative group">
                 <button className="p-1 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-center">
-                  <div className="w-3.5 h-3.5 rounded-full border border-white/30" style={{ background: edgeColor }} />
+                  <div className="w-3.5 h-3.5 rounded-full border border-black/20" style={{ background: edgeColor }} />
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-card border border-border shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   <div className="flex gap-1.5">
                     {EDGE_COLORS.map(c => (
                       <button key={c} onClick={() => updateStyle({ color: c, stroke: c })}
-                        className={`w-4 h-4 rounded-full border transition-transform hover:scale-110 ${edgeColor === c ? "border-white scale-110" : "border-transparent"}`}
+                        className={`w-4 h-4 rounded-full border transition-transform hover:scale-110 ${edgeColor === c ? "border-[#141414] scale-110" : "border-black/10"}`}
                         style={{ background: c }}
                       />
                     ))}
@@ -218,16 +219,16 @@ export default function EditableEdge({
               {/* Width */}
               <div className="relative group">
                 <button className="p-1 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-center">
-                  <div className="rounded-full bg-[#94a3b8]" style={{ width: Math.max(3, edgeWidth * 1.8), height: Math.max(3, edgeWidth * 1.8) }} />
+                  <div className="rounded-full" style={{ width: Math.max(3, edgeWidth * 1.8), height: Math.max(3, edgeWidth * 1.8), background: "rgba(20,20,20,0.45)" }} />
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-card border border-border shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   <div className="flex items-center gap-1.5">
                     {EDGE_WIDTHS.map(w => (
                       <button key={w} onClick={() => updateStyle({ width: w, strokeWidth: w })}
-                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${edgeWidth === w ? "bg-[rgba(8,145,178,0.2)]" : "hover:bg-muted/30"}`}
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${edgeWidth === w ? "bg-[rgba(143,208,213,0.2)]" : "hover:bg-muted/30"}`}
                       >
-                        <div className="rounded-full" style={{ width: Math.max(3, w * 1.8), height: Math.max(3, w * 1.8), background: edgeWidth === w ? "#8FD0D5" : "#94a3b8" }} />
+                        <div className="rounded-full" style={{ width: Math.max(3, w * 1.8), height: Math.max(3, w * 1.8), background: edgeWidth === w ? "#8FD0D5" : "rgba(20,20,20,0.45)" }} />
                       </button>
                     ))}
                   </div>
@@ -238,7 +239,8 @@ export default function EditableEdge({
 
               {/* Delete */}
               <button onClick={() => setEdges(eds => eds.filter(e => e.id !== id))}
-                className="p-1 rounded-lg text-[#94a3b8] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-1 rounded-lg hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                style={{ color: "rgba(20,20,20,0.45)" }}
                 title="Delete"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

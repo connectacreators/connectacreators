@@ -37,15 +37,13 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div
-      className={`group relative w-full h-full rounded-xl border backdrop-blur-md transition-colors ${
-        d.isDropTarget
-          ? "bg-purple-500/10 border-purple-500/50"
-          : "border-white/[0.12]"
-      }`}
+      className="group relative w-full h-full rounded-xl transition-colors"
       style={{
         minWidth: 200,
         minHeight: 150,
-        ...(!d.isDropTarget ? { background: "linear-gradient(145deg, rgba(180,180,190,0.18) 0%, rgba(100,100,115,0.22) 100%)" } : {}),
+        background: "#ffffff",
+        border: d.isDropTarget ? "1px solid #8FD0D5" : "1px solid #141414",
+        boxShadow: "3px 3px 0 #141414",
       }}
     >
       <NodeResizer
@@ -58,12 +56,13 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-white/10 rounded-md max-w-[80%]">
-          <Folder className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md max-w-[80%]" style={{ background: "rgba(20,20,20,0.05)" }}>
+          <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#141414" }} />
           {editing ? (
             <input
               ref={inputRef}
-              className="nodrag bg-transparent text-white/85 text-xs font-medium outline-none border-b border-purple-400/50 min-w-[60px] max-w-full"
+              className="nodrag bg-transparent text-xs font-medium outline-none min-w-[60px] max-w-full"
+              style={{ color: "#141414", borderBottom: "1px solid #141414" }}
               value={editValue}
               onChange={e => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -71,14 +70,15 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
             />
           ) : (
             <span
-              className="text-white/85 text-xs font-medium truncate cursor-text"
+              className="text-xs font-medium truncate cursor-text"
+              style={{ color: "#141414" }}
               onDoubleClick={() => { setEditValue(d.label || "New Group"); setEditing(true); }}
             >
               {d.label || "New Group"}
             </span>
           )}
           {(d.childCount ?? 0) > 0 && (
-            <span className="text-white/30 text-[10px] ml-1 flex-shrink-0">
+            <span className="text-[10px] ml-1 flex-shrink-0" style={{ color: "rgba(20,20,20,0.50)" }}>
               {d.childCount} node{(d.childCount ?? 0) !== 1 ? "s" : ""}
             </span>
           )}
@@ -86,7 +86,8 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
         {/* Delete button */}
         <button
-          className="nodrag ml-auto p-1 rounded-md text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+          className="nodrag ml-auto p-1 rounded-md hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+          style={{ color: "rgba(20,20,20,0.40)" }}
           onClick={() => d.onDelete?.()}
           title="Delete group"
         >

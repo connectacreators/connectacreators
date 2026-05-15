@@ -34,12 +34,13 @@ export function AssistantChipsBar({
           disabled={disabled}
           className="assistant-chip"
           style={{
-            background: disabled ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)",
-            border: `1px solid ${disabled ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.08)"}`,
+            background: disabled ? "rgba(143,208,213,0.30)" : "#8FD0D5",
+            border: `1px solid ${disabled ? "rgba(20,20,20,0.15)" : "#141414"}`,
             borderRadius: 999,
-            color: disabled ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.6)",
+            color: disabled ? "rgba(20,20,20,0.35)" : "#141414",
             padding: "4px 10px",
             fontSize: 10,
+            fontWeight: 500,
             whiteSpace: "nowrap",
             flexShrink: 0,
             cursor: disabled ? "default" : "pointer",

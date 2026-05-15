@@ -100,14 +100,14 @@ const PLATFORM_THEME: Record<Platform, {
   },
   default: {
     label: "Video Reference",
-    headerBg: "rgba(8,145,178,0.10)",
-    headerBorder: "rgba(8,145,178,0.20)",
-    cardBorder: "rgba(8,145,178,0.25)",
-    chevronColor: "rgba(34,211,238,0.5)",
-    transcriptBorder: "rgba(8,145,178,0.12)",
-    btnPrimaryBg: "rgba(8,145,178,0.12)",
-    btnPrimaryBorder: "rgba(8,145,178,0.30)",
-    btnPrimaryText: "rgba(34,211,238,0.85)",
+    headerBg: "rgba(143,208,213,0.10)",
+    headerBorder: "rgba(143,208,213,0.20)",
+    cardBorder: "rgba(143,208,213,0.25)",
+    chevronColor: "rgba(143,208,213,0.5)",
+    transcriptBorder: "rgba(143,208,213,0.12)",
+    btnPrimaryBg: "rgba(143,208,213,0.12)",
+    btnPrimaryBorder: "rgba(143,208,213,0.30)",
+    btnPrimaryText: "#8FD0D5",
   },
 };
 
@@ -225,9 +225,9 @@ const viralBadgeClass = (score: number): string => {
 };
 
 const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string; border: string }> = {
-  hook: { label: "Hook", accent: "text-[#8FD0D5]", bg: "bg-[rgba(8,145,178,0.08)]", border: "border-[rgba(8,145,178,0.2)]" },
-  body: { label: "Body", accent: "text-[#94a3b8]", bg: "bg-[rgba(148,163,184,0.06)]", border: "border-[rgba(148,163,184,0.15)]" },
-  cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[rgba(132,204,22,0.06)]", border: "border-[rgba(132,204,22,0.15)]" },
+  hook: { label: "Hook", accent: "text-[#8FD0D5]", bg: "bg-[rgba(143,208,213,0.08)]", border: "border-[rgba(143,208,213,0.2)]" },
+  body: { label: "Body", accent: "text-[rgba(20,20,20,0.55)]", bg: "bg-[rgba(20,20,20,0.04)]", border: "border-[rgba(20,20,20,0.08)]" },
+  cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[rgba(224,165,96,0.08)]", border: "border-[rgba(224,165,96,0.20)]" },
 };
 
 // ── Custom Video Player ─────────────────────────────────────────────
@@ -354,19 +354,19 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose, onAspectDetected }: { sr
         }}
       />
 
-      {/* Big play overlay when paused */}
+      {/* Big play overlay when paused — Honey fill, ink stroke */}
       {!playing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+        <div className="absolute inset-0 flex items-center justify-center">
           <div
             className="flex items-center justify-center"
             style={{
-              width: 56, height: 56, borderRadius: "50%",
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              backdropFilter: "blur(12px)",
+              width: 52, height: 52, borderRadius: "50%",
+              background: "#E0A560",
+              border: "1.5px solid #141414",
+              boxShadow: "2px 2px 0 #141414",
             }}
           >
-            <Play className="w-5 h-5 text-white/90 ml-0.5" fill="rgba(255,255,255,0.9)" />
+            <Play className="w-5 h-5 ml-0.5" style={{ color: "#141414" }} fill="#141414" />
           </div>
         </div>
       )}
@@ -394,7 +394,7 @@ function CanvasVideoPlayer({ src, aspectRatio, onClose, onAspectDetected }: { sr
         <div
           ref={progressRef}
           className="nodrag"
-          style={{ height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2, marginBottom: 8, cursor: "pointer", position: "relative" }}
+          style={{ height: 3, background: "rgba(20,20,20,0.15)", borderRadius: 2, marginBottom: 8, cursor: "pointer", position: "relative" }}
           onClick={handleSeek}
         >
           <div style={{ height: "100%", width: `${progress * 100}%`, background: accentColor, borderRadius: 2, position: "relative" }}>
@@ -1084,7 +1084,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
           {/* Debug status */}
           {stage === "transcribing" && (
-            <div className="px-3 py-1.5 bg-primary/5 border-b border-border/30 text-[10px] text-muted-foreground">
+            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "rgba(20,20,20,0.04)", borderColor: "rgba(20,20,20,0.10)", color: "rgba(20,20,20,0.60)" }}>
               Transcribing audio... {thumbStatus === "loading" ? "| Thumbnail loading..." : thumbStatus === "done" ? "| Thumbnail ready" : thumbStatus === "error" ? `| Thumb error: ${thumbError}` : ""}
             </div>
           )}
@@ -1127,7 +1127,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 ) : (
                   <div className="space-y-1.5">
                     {/* Structure progress */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-[rgba(132,204,22,0.06)] border border-[rgba(132,204,22,0.12)]" : "bg-primary/6 border border-primary/15"}`}>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${structureProgress === "done" ? "bg-[rgba(224,165,96,0.08)] border border-[rgba(224,165,96,0.15)]" : "bg-primary/6 border border-primary/15"}`}>
                       {structureProgress === "done"
                         ? <span className="text-[#F0BC7D] text-[11px]">✓</span>
                         : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
@@ -1136,7 +1136,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                       </span>
                     </div>
                     {/* Visual progress */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-[rgba(132,204,22,0.06)] border border-[rgba(132,204,22,0.12)]" : "bg-primary/6 border border-primary/15"}`}>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${visualProgress === "done" ? "bg-[rgba(224,165,96,0.08)] border border-[rgba(224,165,96,0.15)]" : "bg-primary/6 border border-primary/15"}`}>
                       {visualProgress === "done"
                         ? <span className="text-[#F0BC7D] text-[11px]">✓</span>
                         : <Loader2 className="w-3 h-3 animate-spin text-primary/70 flex-shrink-0" />}
@@ -1241,7 +1241,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                             {seg.text_on_screen && seg.text_on_screen.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {seg.text_on_screen.map((txt, j) => (
-                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[rgba(8,145,178,0.08)] border border-[rgba(8,145,178,0.2)] text-[#8FD0D5]/80">
+                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[rgba(143,208,213,0.08)] border border-[rgba(143,208,213,0.2)] text-[#8FD0D5]/80">
                                     <Type className="w-2.5 h-2.5 flex-shrink-0" />
                                     {txt}
                                   </span>
@@ -1284,7 +1284,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 <button
                   onClick={saveToVault}
                   disabled={savingVault || !d.clientId}
-                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(8,145,178,0.25)] bg-[rgba(8,145,178,0.08)] text-[#8FD0D5] hover:bg-[rgba(8,145,178,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
+                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(143,208,213,0.25)] bg-[rgba(143,208,213,0.08)] text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
                 >
                   {savingVault ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
                   {savingVault ? "Saving..." : "Save to Vault"}

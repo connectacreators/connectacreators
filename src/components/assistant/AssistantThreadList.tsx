@@ -260,7 +260,7 @@ export function AssistantThreadList({
   return (
     <div
       className={[
-        "flex flex-col h-full bg-[#111214] text-white",
+        "flex flex-col h-full bg-[#1F1F1F] text-white",
         className,
       ].join(" ")}
     >

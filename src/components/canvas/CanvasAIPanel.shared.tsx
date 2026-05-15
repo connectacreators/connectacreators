@@ -14,6 +14,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, FileText, Save } from "lucide-react";
 import type { DeckAnswer, DeckQuestion } from "@/lib/parseDeck";
 import robbyThinking from "@/assets/robby-thinking.webp";
+import connectaLogoHandInk from "@/assets/connecta-logo-hand-ink.png";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -62,11 +63,11 @@ export interface AssistantMessage {
 // ── Model labels ───────────────────────────────────────────────────────────
 
 export const AI_MODELS = [
-  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "rgba(255,255,255,0.22)", cost: "~3-8 cr" },
-  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "rgba(255,255,255,0.22)", cost: "~15-25 cr" },
-  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "rgba(255,255,255,0.22)", cost: "~60-100 cr" },
-  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "rgba(255,255,255,0.22)", cost: "~3-8 cr" },
-  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "rgba(255,255,255,0.22)", cost: "~10-20 cr" },
+  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "rgba(20,20,20,0.32)", cost: "~3-8 cr" },
+  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "rgba(20,20,20,0.32)", cost: "~15-25 cr" },
+  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "rgba(20,20,20,0.32)", cost: "~60-100 cr" },
+  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "rgba(20,20,20,0.32)", cost: "~3-8 cr" },
+  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "rgba(20,20,20,0.32)", cost: "~10-20 cr" },
 ] as const;
 
 export const MODEL_LABEL: Record<string, string> = Object.fromEntries(
@@ -123,7 +124,7 @@ export function renderInline(line: string): React.ReactNode[] {
             paddingLeft: 5,
             fontFamily: "monospace",
             fontSize: "0.9em",
-            color: "rgba(255,255,255,0.6)",
+            color: "rgba(20,20,20,0.58)",
           }}
         >
           {match[4]}
@@ -229,8 +230,8 @@ export function MarkdownText({ text }: { text: string }) {
           key={i}
           className="group/scriptline"
           style={{
-            background: "rgba(34,211,238,0.06)",
-            borderLeft: "3px solid rgba(34,211,238,0.45)",
+            background: "rgba(20,20,20,0.05)",
+            borderLeft: "3px solid rgba(20,20,20,0.20)",
             borderRadius: "0 6px 6px 0",
             padding: "4px 8px",
             margin: "3px 0",
@@ -256,7 +257,7 @@ export function MarkdownText({ text }: { text: string }) {
           <span
             style={{
               fontSize: 11,
-              color: "rgba(255,255,255,0.88)",
+              color: "rgba(20,20,20,0.85)",
               fontFamily: "ui-monospace, 'SF Mono', monospace",
               lineHeight: 1.45,
               flex: 1,
@@ -313,14 +314,14 @@ export function MarkdownText({ text }: { text: string }) {
 const LINE_COLORS: Record<string, { color: string; label: string }> = {
   filming: { color: "#f97316", label: "Filming" },
   actor: { color: "#d4d4d4", label: "Actor" },
-  editor: { color: "#4ade80", label: "Editor" },
+  editor: { color: "#8FD0D5", label: "Editor" },
   text_on_screen: { color: "#60a5fa", label: "Text" },
 };
 const SECTION_ORDER = ["hook", "body", "cta"] as const;
 const SECTION_COLORS: Record<string, string> = {
-  hook: "rgba(255,255,255,0.32)",
-  body: "rgba(255,255,255,0.32)",
-  cta: "rgba(255,255,255,0.32)",
+  hook: "rgba(20,20,20,0.35)",
+  body: "rgba(20,20,20,0.35)",
+  cta: "rgba(20,20,20,0.35)",
 };
 const MAX_PREVIEW_LINES = 5;
 
@@ -362,7 +363,7 @@ export function InlineScriptPreview({
     <div
       style={{
         background: "rgba(20, 20, 24, 0.85)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: "1px solid rgba(20,20,20,0.08)",
         borderRadius: 12,
         overflow: "hidden",
         backdropFilter: "blur(12px)",
@@ -375,11 +376,11 @@ export function InlineScriptPreview({
           display: "flex",
           alignItems: "center",
           gap: 8,
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          borderBottom: "1px solid rgba(20,20,20,0.07)",
           background: "transparent",
         }}
       >
-        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.45)" }} />
+        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(20,20,20,0.45)" }} />
         <span
           style={{
             flex: 1,
@@ -387,7 +388,7 @@ export function InlineScriptPreview({
             fontWeight: 300,
             fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
             letterSpacing: "0.02em",
-            color: "rgba(255,255,255,0.85)",
+            color: "rgba(20,20,20,0.82)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -415,7 +416,7 @@ export function InlineScriptPreview({
           <div
             style={{
               fontSize: 11,
-              color: "rgba(255,255,255,0.35)",
+              color: "rgba(20,20,20,0.35)",
               textAlign: "center",
               padding: "8px 0 4px",
               fontStyle: "italic",
@@ -467,7 +468,7 @@ export function InlineScriptPreview({
                           alignItems: "stretch",
                           borderBottom:
                             j < visible.length - 1
-                              ? "1px solid rgba(255,255,255,0.04)"
+                              ? "1px solid rgba(20,20,20,0.05)"
                               : "none",
                         }}
                       >
@@ -489,7 +490,7 @@ export function InlineScriptPreview({
                             style={{
                               fontSize: 11,
                               lineHeight: 1.35,
-                              color: "rgba(255,255,255,0.85)",
+                              color: "rgba(20,20,20,0.82)",
                               ...(expanded
                                 ? {}
                                 : {
@@ -515,7 +516,7 @@ export function InlineScriptPreview({
                 onClick={() => setExpanded(true)}
                 style={{
                   fontSize: 10,
-                  color: "rgba(34,211,238,0.5)",
+                  color: "rgba(20,20,20,0.45)",
                   textAlign: "center",
                   padding: "2px 0 4px",
                   cursor: "pointer",
@@ -534,7 +535,7 @@ export function InlineScriptPreview({
           padding: "8px 12px",
           display: "flex",
           gap: 8,
-          borderTop: "1px solid rgba(255,255,255,0.06)",
+          borderTop: "1px solid rgba(20,20,20,0.07)",
         }}
       >
         <button
@@ -552,8 +553,8 @@ export function InlineScriptPreview({
             fontSize: 11,
             fontWeight: 600,
             cursor: saving || saved ? "default" : "pointer",
-            background: saved ? "rgba(74, 222, 128, 0.15)" : "rgba(34, 211, 238, 0.15)",
-            color: saved ? "#4ade80" : "#8FD0D5",
+            background: saved ? "rgba(143,208,213,0.15)" : "rgba(143,208,213,0.15)",
+            color: saved ? "#8FD0D5" : "#8FD0D5",
             transition: "all 0.2s",
           }}
         >
@@ -570,12 +571,12 @@ export function InlineScriptPreview({
             gap: 6,
             padding: "7px 0",
             borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.1)",
+            border: "1px solid rgba(20,20,20,0.10)",
             fontSize: 11,
             fontWeight: 500,
             cursor: "pointer",
             background: "transparent",
-            color: "rgba(255,255,255,0.5)",
+            color: "rgba(20,20,20,0.50)",
             transition: "all 0.2s",
           }}
         >
@@ -633,19 +634,21 @@ export function ThinkingAnimation() {
   return (
     <div className="flex items-center gap-2">
       <img
-        src={robbyThinking}
+        src={connectaLogoHandInk}
         alt=""
         aria-hidden="true"
         style={{
-          width: 22,
-          height: 22,
-          opacity: 0.85,
+          width: 20,
+          height: 20,
+          objectFit: 'contain',
+          filter: 'brightness(0)',
           flexShrink: 0,
+          animation: 'ai-cursor-blink 1.2s ease-in-out infinite',
         }}
       />
       <span
-        className="text-[11px] text-muted-foreground/80 font-medium transition-opacity duration-200"
-        style={{ opacity: fade ? 1 : 0 }}
+        className="text-[11px] font-medium transition-opacity duration-200"
+        style={{ opacity: fade ? 1 : 0, color: 'rgba(20,20,20,0.55)' }}
       >
         {THINKING_VERBS[index]}
       </span>

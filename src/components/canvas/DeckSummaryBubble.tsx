@@ -13,11 +13,11 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
   return (
     <div
       style={{
-        background: "#1e293b",
-        border: "1px solid rgba(34,211,238,0.25)",
+        background: "#ffffff",
+        border: "1px solid rgba(20,20,20,0.12)",
         borderRadius: 10,
         padding: "10px 12px",
-        color: "#cbd5e1",
+        color: "rgba(20,20,20,0.7)",
         fontSize: 11,
         lineHeight: 1.5,
       }}
@@ -31,7 +31,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
             <div key={q.id} className="flex gap-1.5 py-0.5">
               <dt
                 style={{
-                  color: "rgba(148,163,184,0.6)",
+                  color: "rgba(20,20,20,0.4)",
                   flexShrink: 0,
                   width: 32,
                   fontVariantNumeric: "tabular-nums",
@@ -43,7 +43,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
               <dd
                 className="m-0 flex-1"
                 style={{
-                  color: "#f1f5f9",
+                  color: "#141414",
                   fontStyle: isTyped ? "italic" : "normal",
                 }}
               >
@@ -55,9 +55,9 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
       </dl>
       <div
         className="flex justify-between items-center mt-2 pt-1.5"
-        style={{ borderTop: "1px solid rgba(148,163,184,0.12)" }}
+        style={{ borderTop: "1px solid rgba(20,20,20,0.08)" }}
       >
-        <span style={{ color: "rgba(148,163,184,0.6)", fontSize: 9 }}>
+        <span style={{ color: "rgba(20,20,20,0.4)", fontSize: 9 }}>
           {answeredCount} / {questions.length} answered
         </span>
         {onEdit && (

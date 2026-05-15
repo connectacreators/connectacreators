@@ -356,9 +356,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     <aside
       className={`fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none will-change-transform ${closing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
       style={{
-        background: "rgba(20, 20, 20, 0.55)",
-        backdropFilter: "blur(28px)",
-        WebkitBackdropFilter: "blur(28px)",
+        background: "#141414",
         boxShadow: "-10px 0 40px rgba(0,0,0,0.5)",
       }}
     >
@@ -449,7 +447,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
                 <AssistantChat
                   messages={chatMessages}
                   loading={sending}
-                  variant="compact"
+                  variant="full"
                   greeting="What are we doing today?"
                   greetingSubtitle="Ask anything about your work."
                 />
@@ -465,9 +463,9 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
                       onClick={() => setAutonomyMode(m)}
                       className="text-[9px] font-medium px-2 py-0.5 rounded-md transition-all"
                       style={{
-                        background: autonomyMode === m ? "rgba(34,211,238,0.15)" : "transparent",
-                        color: autonomyMode === m ? "rgba(34,211,238,0.95)" : "rgba(255,255,255,0.4)",
-                        border: `1px solid ${autonomyMode === m ? "rgba(34,211,238,0.35)" : "rgba(255,255,255,0.08)"}`,
+                        background: autonomyMode === m ? "rgba(143,208,213,0.15)" : "transparent",
+                        color: autonomyMode === m ? "rgba(143,208,213,0.95)" : "rgba(234,230,220,0.40)",
+                        border: `1px solid ${autonomyMode === m ? "rgba(143,208,213,0.35)" : "rgba(234,230,220,0.10)"}`,
                       }}
                       title={
                         m === "auto"
@@ -486,7 +484,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
                   onChange={setInput}
                   onSend={handleSend}
                   loading={sending}
-                  variant="compact"
+                  variant="full"
                   placeholder="Ask anything..."
                 />
               </div>

@@ -108,7 +108,7 @@ function AnimTravelDot() {
       <div style={{ flex: 1, height: 1, position: "relative", background: "repeating-linear-gradient(to right, rgba(240,220,150,0.4) 0, rgba(240,220,150,0.4) 4px, transparent 4px, transparent 7px)" }}>
         <div style={{ position: "absolute", width: 7, height: 7, borderRadius: "50%", background: PRIMARY, top: "50%", transform: "translateY(-50%)", boxShadow: `0 0 8px rgba(240,220,150,0.9)`, animation: "ctDotTravel 1.8s cubic-bezier(0.4,0,0.6,1) infinite" }} />
       </div>
-      <div style={{ ...nodeBox, border: "1px solid rgba(160,220,160,0.4)", background: "rgba(120,220,150,0.08)", color: "rgba(140,220,160,0.7)" }}>
+      <div style={{ ...nodeBox, border: "1px solid rgba(143,208,213,0.4)", background: "rgba(143,208,213,0.08)", color: "rgba(143,208,213,0.7)" }}>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
       </div>
     </div>
@@ -122,7 +122,7 @@ function AnimChatBubs() {
       <div style={{ ...base, alignSelf: "flex-end", background: "rgba(240,220,150,0.12)", border: "1px solid rgba(240,220,150,0.22)", color: PRIMARY, animation: "ctBubIn 3.2s 0s ease-out infinite" }}>
         Make it more punchy!
       </div>
-      <div style={{ ...base, alignSelf: "flex-start", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#c0c0c0", animation: "ctBubIn 3.2s 0.85s ease-out infinite" }}>
+      <div style={{ ...base, alignSelf: "flex-start", background: "rgba(234,230,220,0.06)", border: "1px solid rgba(234,230,220,0.1)", color: "rgba(234,230,220,0.7)", animation: "ctBubIn 3.2s 0.85s ease-out infinite" }}>
         Sharp hook coming right up...
       </div>
     </div>
@@ -132,9 +132,9 @@ function AnimChatBubs() {
 function AnimScriptBars() {
   const lines = [
     { dot: "#f87171", bar: "rgba(248,113,113,0.4)", delay: "0s" },
-    { dot: "#818cf8", bar: "rgba(129,140,248,0.4)", delay: "0.2s" },
-    { dot: "#34d399", bar: "rgba(52,211,153,0.4)",  delay: "0.4s" },
-    { dot: "#818cf8", bar: "rgba(129,140,248,0.4)", delay: "0.6s" },
+    { dot: "#8FD0D5", bar: "rgba(143,208,213,0.4)", delay: "0.2s" },
+    { dot: "#E0A560", bar: "rgba(224,165,96,0.4)",  delay: "0.4s" },
+    { dot: "#8FD0D5", bar: "rgba(143,208,213,0.4)", delay: "0.6s" },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 16px", width: "100%", justifyContent: "center", height: "100%" }}>
@@ -259,7 +259,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
     border: "1px solid rgba(240,220,150,0.22)",
     borderRadius: 14,
     padding: "14px 16px",
-    boxShadow: "0 10px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(240,220,150,0.06), inset 0 1px 0 rgba(255,255,255,0.07)",
+    boxShadow: "0 10px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(240,220,150,0.06), inset 0 1px 0 rgba(234,230,220,0.07)",
     animation: "ctCalloutIn 0.28s ease both",
     pointerEvents: "all",
   };
@@ -342,7 +342,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
 
         {/* Mini animation box */}
         <div style={{
-          background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(234,230,220,0.03)", border: "1px solid rgba(234,230,220,0.07)",
           borderRadius: 9, height: 56, overflow: "hidden", marginBottom: 10,
           display: "flex", alignItems: "center",
         }} key={`anim-${animKey}`}>
@@ -350,7 +350,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
         </div>
 
         {/* Description */}
-        <div style={{ fontSize: 11, color: "#999", lineHeight: 1.55, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: "rgba(234,230,220,0.65)", lineHeight: 1.55, marginBottom: 10 }}>
           {STEPS[step].desc}
         </div>
 
@@ -363,13 +363,13 @@ export default function CanvasTutorial({ open, onClose }: Props) {
                 ? "rgba(240,220,150,0.4)"
                 : i === step
                   ? PRIMARY
-                  : "rgba(255,255,255,0.08)",
+                  : "rgba(234,230,220,0.08)",
               position: "relative", overflow: "hidden",
             }}>
               {i === step && (
                 <div style={{
                   position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%",
-                  background: "linear-gradient(to right, transparent, rgba(255,255,255,0.55), transparent)",
+                  background: "linear-gradient(to right, transparent, rgba(234,230,220,0.55), transparent)",
                   animation: "ctBlink 1.8s ease-in-out infinite",
                 }} />
               )}
@@ -405,8 +405,8 @@ export default function CanvasTutorial({ open, onClose }: Props) {
           <button
             onClick={finish}
             style={{
-              flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 8, padding: "6px 10px", fontSize: 11, color: "#555",
+              flex: 1, background: "transparent", border: "1px solid rgba(234,230,220,0.07)",
+              borderRadius: 8, padding: "6px 10px", fontSize: 11, color: "rgba(234,230,220,0.45)",
               cursor: "pointer",
             }}
           >

@@ -47,7 +47,7 @@ export function AssistantContextPanel({
       style={{
         width: collapsed ? 32 : 180,
         flexShrink: 0,
-        background: "#111214",
+        background: "#1F1F1F",
         borderLeft: "1px solid #2a2b30",
         display: "flex",
         flexDirection: "column",
@@ -137,7 +137,7 @@ export function AssistantContextPanel({
                   fontSize: 10,
                   fontWeight: 700,
                   color: "#8FD0D5",
-                  background: "rgba(34,211,238,0.1)",
+                  background: "rgba(143,208,213,0.12)",
                   borderRadius: 4,
                   padding: "1px 5px",
                 }}

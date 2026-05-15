@@ -579,7 +579,7 @@ export default function CommandCenter() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 flex flex-col text-white" style={{ background: "#131417" }}>
+    <div className="fixed inset-0 flex flex-col text-white" style={{ background: "#141414" }}>
       {/* Header — mirrors FullscreenAIView: just back button + centered title */}
       <header className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2.5 border-b border-white/5">
         <div className="flex items-center gap-2 w-fit">
@@ -633,7 +633,7 @@ export default function CommandCenter() {
           <>
             {/* CHATS sidebar — collapsible via header button or Cmd/Ctrl+. */}
             <aside
-              className="bg-[#1a1b1f] border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0"
+              className="bg-[#1F1F1F] border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0"
               style={{
                 width: chatsSidebarOpen ? 260 : 0,
                 borderRightWidth: chatsSidebarOpen ? 1 : 0,
@@ -713,9 +713,9 @@ export default function CommandCenter() {
                       onClick={() => setAutonomyMode(m)}
                       className="text-[10px] font-medium px-2.5 py-0.5 rounded-md transition-all"
                       style={{
-                        background: autonomyMode === m ? "rgba(34,211,238,0.15)" : "transparent",
-                        color: autonomyMode === m ? "rgba(34,211,238,0.95)" : "rgba(255,255,255,0.4)",
-                        border: `1px solid ${autonomyMode === m ? "rgba(34,211,238,0.35)" : "rgba(255,255,255,0.08)"}`,
+                        background: autonomyMode === m ? "rgba(143,208,213,0.15)" : "transparent",
+                        color: autonomyMode === m ? "rgba(143,208,213,0.95)" : "rgba(255,255,255,0.4)",
+                        border: `1px solid ${autonomyMode === m ? "rgba(143,208,213,0.35)" : "rgba(255,255,255,0.08)"}`,
                       }}
                       title={
                         m === "auto"

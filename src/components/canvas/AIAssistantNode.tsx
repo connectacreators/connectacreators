@@ -1,4 +1,5 @@
 import { memo, useState, useEffect, useCallback, useRef } from "react";
+import connectaLogoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import { Handle, Position, NodeProps, NodeResizer, useUpdateNodeInternals } from "@xyflow/react";
 import { X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Pencil, Check } from "lucide-react";
 import CanvasAIPanel, { type CanvasContext } from "./CanvasAIPanel";
@@ -471,11 +472,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
   return (
     <div
       data-tutorial-target="ai-node"
-      className="glass-card rounded-2xl shadow-2xl flex flex-row relative"
-      style={{ width: "100%", height: "100%", minWidth: "340px", minHeight: "400px",
-        boxShadow: isDragOverAI ? "0 0 0 2px rgba(201,169,110,0.5), 0 8px 40px rgba(0,0,0,0.5)" : "0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
-        border: "1px solid rgba(255,255,255,0.07)",
-      }}
+      className="glass-card canvas-ai-node rounded-2xl flex flex-row relative"
+      style={{ width: "100%", height: "100%", minWidth: "340px", minHeight: "400px" }}
       onDragOver={(e) => {
         const hasImage = Array.from(e.dataTransfer.items).some(i => i.kind === "file" && i.type.startsWith("image/"));
         if (!hasImage) return;
@@ -504,7 +502,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       {isDragOverAI && (
         <div className="absolute inset-0 z-50 rounded-2xl pointer-events-none flex items-center justify-center"
           style={{ background: "rgba(201,169,110,0.06)", border: "2px dashed rgba(201,169,110,0.4)" }}>
-          <div className="bg-card/90 backdrop-blur-sm border border-primary/30 rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
+          <div className="bg-[#ffffff] border border-[#141414] rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
             <Bot className="w-6 h-6 text-primary" />
             <p className="text-xs font-semibold text-foreground">Drop image for AI</p>
             <p className="text-[10px] text-muted-foreground">Claude will analyze it</p>
@@ -603,10 +601,16 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid rgba(20,20,20,0.08)' }}>
           <div className="flex items-center gap-2">
-            <span className="font-serif text-xs font-light" style={{ color: '#e0e0e0', letterSpacing: '0.04em' }}>{companionName}</span>
-            <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.22)' }}>Connect nodes to give me context, or just ask.</span>
+            <img
+              src={connectaLogoHandInk}
+              alt=""
+              aria-hidden="true"
+              style={{ width: 18, height: 18, objectFit: 'contain', filter: 'brightness(0)', flexShrink: 0 }}
+            />
+            <span className="font-serif text-xs font-light" style={{ color: '#141414', letterSpacing: '0.04em' }}>{companionName}</span>
+            <span className="text-[9px]" style={{ color: 'rgba(20,20,20,0.40)' }}>Connect nodes to give me context, or just ask.</span>
           </div>
           {d.onDelete && (
             <button

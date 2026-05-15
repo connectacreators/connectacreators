@@ -141,6 +141,11 @@ export function AssistantTextInput({
 }: AssistantTextInputProps) {
   const fullscreen = variant === "full";
 
+  // Derived color tokens — flip to bone when rendering on dark (fullscreen) bg
+  const ink = fullscreen
+    ? { h: "rgba(234,230,220,0.55)", m: "rgba(234,230,220,0.40)", s: "rgba(234,230,220,0.28)", b: "rgba(234,230,220,0.12)", bg4: "rgba(234,230,220,0.04)", bg6: "rgba(234,230,220,0.06)" }
+    : { h: "rgba(20,20,20,0.55)",    m: "rgba(20,20,20,0.40)",    s: "rgba(20,20,20,0.28)",    b: "rgba(20,20,20,0.10)",    bg4: "#ffffff",                  bg6: "#ffffff" };
+
   // ── Internal state owned by this component ────────────────────────────
   const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
@@ -267,7 +272,7 @@ export function AssistantTextInput({
             <button
               type="button"
               onClick={onClearPastedImage}
-              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ffffff] border border-[#141414] flex items-center justify-center text-[rgba(20,20,20,0.50)] hover:text-foreground"
             >
               <X className="w-2.5 h-2.5" />
             </button>
@@ -285,10 +290,10 @@ export function AssistantTextInput({
         style={{
           background: imageMode
             ? "rgba(143,208,213,0.05)"
-            : "rgba(20,20,20,0.04)",
+            : ink.bg4,
           borderColor: imageMode
             ? "rgba(143,208,213,0.3)"
-            : "rgba(20,20,20,0.10)",
+            : ink.b,
         }}
       >
         {/* @ mention dropdown portal */}
@@ -301,7 +306,7 @@ export function AssistantTextInput({
                 onMouseDown={() => setAtMentionQuery(null)}
               />
               <div
-                className="rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+                className="rounded-xl border border-[#141414] bg-[#ffffff] shadow-xl overflow-hidden"
                 style={{
                   position: "fixed",
                   zIndex: 99999,
@@ -440,7 +445,7 @@ export function AssistantTextInput({
         <div
           style={{
             height: 1,
-            background: "rgba(20,20,20,0.06)",
+            background: ink.bg6,
             margin: "0 10px",
           }}
         />
@@ -466,7 +471,7 @@ export function AssistantTextInput({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "rgba(20,20,20,0.50)",
+                color: ink.h,
                 fontSize: 18,
                 fontWeight: 300,
                 lineHeight: 1,
@@ -481,7 +486,7 @@ export function AssistantTextInput({
             </button>
             {plusMenuOpen && (
               <div
-                className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+                className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-[#141414] bg-[#ffffff] shadow-xl overflow-hidden"
                 style={{ zIndex: 99999 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
@@ -616,7 +621,7 @@ export function AssistantTextInput({
               style={{
                 width: 1,
                 height: 14,
-                background: "rgba(20,20,20,0.10)",
+                background: ink.b,
                 display: "inline-block",
                 flexShrink: 0,
               }}
@@ -634,7 +639,7 @@ export function AssistantTextInput({
                   display: "flex",
                   alignItems: "center",
                   gap: 3,
-                  color: "rgba(20,20,20,0.38)",
+                  color: ink.m,
                   fontSize: 11,
                   background: "none",
                   border: "none",
@@ -653,7 +658,7 @@ export function AssistantTextInput({
                     width: 10,
                     height: 10,
                     transform: modelDropdownOpen ? "" : "rotate(180deg)",
-                    color: "rgba(20,20,20,0.38)",
+                    color: ink.m,
                   }}
                 />
               </button>
@@ -666,7 +671,7 @@ export function AssistantTextInput({
                     />
                     <div
                       ref={modelPortalRef}
-                      className="w-52 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+                      className="w-52 rounded-xl border border-[#141414] bg-[#ffffff] shadow-xl overflow-hidden"
                       style={{
                         position: "fixed",
                         zIndex: 99999,
@@ -776,7 +781,7 @@ export function AssistantTextInput({
                                 borderRadius: 8,
                                 background: thinkingEnabled
                                   ? "#8FD0D5"
-                                  : "rgba(20,20,20,0.15)",
+                                  : ink.s,
                                 transition: "background 0.2s",
                               }}
                             >
@@ -824,7 +829,7 @@ export function AssistantTextInput({
                   height: 28,
                   background: "transparent",
                   border: "none",
-                  color: "rgba(20,20,20,0.50)",
+                  color: ink.h,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -877,7 +882,7 @@ export function AssistantTextInput({
                   borderRadius: "50%",
                   border: "none",
                   background: "none",
-                  color: recognizing ? "#f87171" : "rgba(20,20,20,0.38)",
+                  color: recognizing ? "#f87171" : ink.m,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

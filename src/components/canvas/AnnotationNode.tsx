@@ -27,7 +27,7 @@ interface AnnotationData {
 
 const COLORS = [
   "#ffffff", "#8FD0D5", "#F0BC7D", "#f59e0b", "#f43f5e",
-  "#a78bfa", "#60a5fa", "#34d399", "#fb923c", "#94a3b8",
+  "#a78bfa", "#60a5fa", "#8FD0D5", "#fb923c", "rgba(20,20,20,0.45)",
 ];
 
 const RADIUS_MAP = { sharp: 2, rounded: 8, pill: 999 } as const;
@@ -179,7 +179,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
     initializedRef.current = true;
   }, [d.html, d.text, d.bold, d.italic, d.underline, focused]);
 
-  const color = d.color || "#ffffff";
+  const color = d.color || "#141414";
   const align = d.align || "left";
 
   // V2 styling
@@ -286,12 +286,8 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
   const containerBorder = hasBorder
     ? `${brdWidth}px ${brdStyle} ${brdColor || hexAlpha(color, 0.5)}`
     : active ? `1px dashed ${hexAlpha(color, 0.25)}` : "1px dashed transparent";
-  const containerShadow = shadow === "subtle"
-    ? "0 4px 16px rgba(0,0,0,0.3)"
-    : shadow === "glow" ? `0 0 20px ${hexAlpha(color, 0.25)}, 0 0 40px ${hexAlpha(color, 0.08)}` : undefined;
-  const textShadowVal = shadow === "glow"
-    ? `0 0 20px ${hexAlpha(color, 0.4)}, 0 1px 4px rgba(0,0,0,0.5)`
-    : "0 1px 4px rgba(0,0,0,0.5)";
+  const containerShadow = undefined;
+  const textShadowVal = "none";
 
   const hasBg = !!bgColor;
   const hasStyle = hasBg || hasBorder || shadow !== "none" || nodeOpacity < 1 || brdRadius !== "rounded";
@@ -320,7 +316,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
         const btnCls = (on?: boolean) => `p-0.5 rounded transition-colors ${on ? "bg-[rgba(143,208,213,0.25)] text-[#8FD0D5]" : "text-muted-foreground hover:text-foreground"}`;
 
         return (
-        <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-card/90 backdrop-blur-md border border-border/60 shadow-xl z-10"
+        <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-[#ffffff] border border-[#141414] z-10"
           style={{ whiteSpace: "nowrap", bottom: "100%", marginBottom: 6 * s, transform: `scale(${s})`, transformOrigin: "bottom left" }}
         >
           {/* Color picker — single dot opens popover */}
@@ -476,7 +472,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
       <style>{`
         [data-placeholder]:empty::before {
           content: attr(data-placeholder);
-          color: rgba(20,20,20,0.20);
+          color: "rgba(20,20,20,0.20)",
           pointer-events: none;
         }
       `}</style>
