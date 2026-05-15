@@ -9,6 +9,9 @@ ALTER TABLE viral_videos
 
 -- Valid states: 'pending' | 'analyzing' | 'analyzed' | 'failed'.
 ALTER TABLE viral_videos
+  DROP CONSTRAINT IF EXISTS viral_videos_analysis_status_chk;
+
+ALTER TABLE viral_videos
   ADD CONSTRAINT viral_videos_analysis_status_chk
   CHECK (analysis_status IN ('pending', 'analyzing', 'analyzed', 'failed'));
 
@@ -36,14 +39,17 @@ INSERT INTO storage.buckets (id, name, public)
   ON CONFLICT (id) DO NOTHING;
 
 -- 5. RLS for the bucket: authenticated users can read, service role writes.
+DROP POLICY IF EXISTS "viral-videos: authenticated read" ON storage.objects;
 CREATE POLICY "viral-videos: authenticated read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'viral-videos' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "viral-videos: service role write" ON storage.objects;
 CREATE POLICY "viral-videos: service role write"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'viral-videos' AND auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "viral-videos: service role delete" ON storage.objects;
 CREATE POLICY "viral-videos: service role delete"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'viral-videos' AND auth.role() = 'service_role');
