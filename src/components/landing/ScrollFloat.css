@@ -23,8 +23,6 @@
   font-family: inherit;
   font-weight: inherit;
   line-height: inherit;
-}
-
-.scroll-float .char {
+  letter-spacing: inherit;
   display: inline-block;
 }
