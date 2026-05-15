@@ -14,7 +14,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, FileText, Save } from "lucide-react";
 import type { DeckAnswer, DeckQuestion } from "@/lib/parseDeck";
 import robbyThinking from "@/assets/robby-thinking.webp";
-import connectaLogoHandInk from "@/assets/connecta-logo-hand-ink.png";
+import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -634,14 +634,15 @@ export function ThinkingAnimation() {
   return (
     <div className="flex items-center gap-2">
       <img
-        src={connectaLogoHandInk}
+        src={connectaFavicon}
         alt=""
         aria-hidden="true"
         style={{
           width: 20,
           height: 20,
           objectFit: 'contain',
-          filter: 'brightness(0)',
+          filter: 'brightness(0) invert(1)',
+          opacity: 0.65,
           flexShrink: 0,
           animation: 'ai-cursor-blink 1.2s ease-in-out infinite',
         }}
