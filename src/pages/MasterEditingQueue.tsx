@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
