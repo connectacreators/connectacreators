@@ -863,8 +863,10 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* ── Unified Analyze button (shown when row is resolved but not yet analyzed) ── */}
-            {stage === "transcribed" && !hasStructure && (
+            {/* ── Unified Analyze button (shown when row is resolved but not yet analyzed) ──
+                 Hard guard: never show if the row already has transcript/structure/videoAnalysis.
+                 Legacy rows have transcript but the broader state may not have caught up yet. */}
+            {stage === "transcribed" && !hasStructure && !hasTranscript && !(d as any).videoAnalysis && (
               <div className="px-3 py-2">
                 <button
                   onClick={analyze}

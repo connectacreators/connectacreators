@@ -138,10 +138,10 @@ export function ViralVideoPlayer({
         className={className}
         style={{
           aspectRatio: aspectStyle,
-          background: "var(--bone)",
-          border: "1px solid var(--ink)",
+          background: "hsl(var(--bone))",
+          border: "1px solid hsl(var(--ink))",
           borderRadius: 22,
-          boxShadow: "6px 6px 0 var(--ink)",
+          boxShadow: "6px 6px 0 hsl(var(--ink))",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -171,8 +171,8 @@ export function ViralVideoPlayer({
         aspectRatio: fullscreen ? undefined : aspectStyle,
         borderRadius: fullscreen ? 0 : 22,
         overflow: "hidden",
-        border: "1px solid var(--ink)",
-        boxShadow: fullscreen ? "none" : "6px 6px 0 var(--ink)",
+        border: "1px solid hsl(var(--ink))",
+        boxShadow: fullscreen ? "none" : "6px 6px 0 hsl(var(--ink))",
         background: "#000",
         cursor: "pointer",
       }}
@@ -207,15 +207,15 @@ export function ViralVideoPlayer({
               {/* Hand-drawn imperfect circle */}
               <path
                 d="M 50 8 Q 84 10, 92 50 Q 90 86, 50 92 Q 12 88, 8 50 Q 12 12, 50 8 Z"
-                fill="var(--honey)"
-                stroke="var(--ink)"
+                fill="hsl(var(--honey))"
+                stroke="hsl(var(--ink))"
                 strokeWidth="3"
                 strokeLinejoin="round"
               />
               {/* Wobbly play triangle */}
               <path
                 d="M 40 32 Q 38 30, 42 32 L 70 48 Q 72 50, 70 52 L 42 68 Q 38 70, 40 68 Z"
-                fill="var(--ink)"
+                fill="hsl(var(--ink))"
                 strokeLinejoin="round"
               />
             </svg>
@@ -256,7 +256,7 @@ export function ViralVideoPlayer({
             style={{
               height: "100%",
               width: `${duration ? (current / duration) * 100 : 0}%`,
-              background: "var(--honey)",
+              background: "hsl(var(--honey))",
               borderRadius: 4,
               position: "relative",
             }}
@@ -270,8 +270,8 @@ export function ViralVideoPlayer({
                 width: 12,
                 height: 12,
                 borderRadius: "50%",
-                background: "var(--honey)",
-                border: "1px solid var(--ink)",
+                background: "hsl(var(--honey))",
+                border: "1px solid hsl(var(--ink))",
               }}
             />
           </div>
@@ -286,23 +286,23 @@ export function ViralVideoPlayer({
             }}
             aria-label={playing ? "Pause" : "Play"}
             style={{
-              background: "var(--honey)",
-              border: "1px solid var(--ink)",
+              background: "hsl(var(--honey))",
+              border: "1px solid hsl(var(--ink))",
               borderRadius: "50%",
               width: 32,
               height: 32,
               cursor: "pointer",
-              color: "var(--ink)",
+              color: "hsl(var(--ink))",
               padding: 0,
               display: "grid",
               placeItems: "center",
-              boxShadow: "2px 2px 0 var(--ink)",
+              boxShadow: "2px 2px 0 hsl(var(--ink))",
             }}
           >
             {playing ? (
-              <Pause size={13} fill="var(--ink)" />
+              <Pause size={13} fill="hsl(var(--ink))" />
             ) : (
-              <Play size={13} fill="var(--ink)" style={{ marginLeft: 1 }} />
+              <Play size={13} fill="hsl(var(--ink))" style={{ marginLeft: 1 }} />
             )}
           </button>
           <button
@@ -315,7 +315,7 @@ export function ViralVideoPlayer({
               background: "transparent",
               border: "none",
               cursor: "pointer",
-              color: "var(--bone)",
+              color: "hsl(var(--bone))",
               padding: 6,
               display: "grid",
               placeItems: "center",
@@ -345,7 +345,7 @@ export function ViralVideoPlayer({
               background: "transparent",
               border: "none",
               cursor: "pointer",
-              color: "var(--bone)",
+              color: "hsl(var(--bone))",
               padding: 6,
               display: "grid",
               placeItems: "center",
