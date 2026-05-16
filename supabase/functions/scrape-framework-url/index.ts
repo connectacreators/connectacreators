@@ -1,5 +1,14 @@
+// Admin-only: add a video as a "Top Framework" by URL.
+// - Canonicalizes the URL via the shared helper so (platform, apify_video_id) dedup
+//   works against everything else in viral_videos.
+// - If the row already exists, marks it as featured + runs analysis if missing.
+// - If it doesn't exist, fetches metadata from the VPS, inserts the row, then runs
+//   the same full analysis pipeline the cron and user-trigger endpoints use.
+// - No credit deduction (admin context, like analyze-viral-video cron).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
+import { canonicalizeVideoUrl } from "../_shared/canonicalize-video-url.ts";
+import { runFullAnalysis, type ViralVideoRow, AnalyzerError } from "../_shared/viral-video-analyzer.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -32,33 +41,6 @@ function computeFrameworkScore(
   return outlier * Math.log(1 + engagement) * Math.exp(-daysSince / 30);
 }
 
-function detectPlatform(url: string): "instagram" | "tiktok" | "youtube" {
-  if (/tiktok\.com/i.test(url)) return "tiktok";
-  if (/youtube\.com|youtu\.be/i.test(url)) return "youtube";
-  return "instagram";
-}
-
-// Extract the canonical video id from a public URL. Used as the apify_video_id
-// for upsert dedup so we don't fight the existing (platform, apify_video_id)
-// unique index.
-function extractVideoIdFromUrl(url: string, platform: string): string | null {
-  if (platform === "instagram") {
-    const m = url.match(/\/(?:reels?|p)\/([A-Za-z0-9_-]+)/);
-    return m?.[1] ?? null;
-  }
-  if (platform === "tiktok") {
-    const m = url.match(/\/video\/(\d+)/);
-    return m?.[1] ?? null;
-  }
-  if (platform === "youtube") {
-    const m = url.match(/[?&]v=([A-Za-z0-9_-]+)/)
-      ?? url.match(/youtu\.be\/([A-Za-z0-9_-]+)/)
-      ?? url.match(/\/shorts\/([A-Za-z0-9_-]+)/);
-    return m?.[1] ?? null;
-  }
-  return null;
-}
-
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -66,15 +48,13 @@ serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const adminClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: { user }, error: userError } = await userClient.auth.getUser();
   if (userError || !user) return json({ error: "Unauthorized" }, 401);
@@ -95,15 +75,85 @@ serve(async (req: Request) => {
   }
   if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
 
-  const platform = detectPlatform(url);
+  // ─── Step 1: Canonicalize ───
+  const canonical = canonicalizeVideoUrl(url);
+  if (!canonical) {
+    return json({ error: "Unsupported URL format" }, 400);
+  }
+  const { platform, postId, normalizedUrl } = canonical;
 
-  // Attempt VPS fetch for real metadata
-  let vpsData: any = null;
+  // ─── Step 2: Look for existing row ───
+  const { data: existing } = await adminClient
+    .from("viral_videos")
+    .select("*")
+    .eq("platform", platform)
+    .eq("apify_video_id", postId)
+    .maybeSingle();
+
+  if (existing) {
+    // Already in DB. Mark as featured framework if not already.
+    const updates: Record<string, unknown> = {};
+    if (!existing.is_featured_framework) updates.is_featured_framework = true;
+    if (Object.keys(updates).length > 0) {
+      await adminClient.from("viral_videos").update(updates).eq("id", existing.id);
+    }
+
+    // If already fully analyzed, return cached.
+    const alreadyAnalyzed = existing.analysis_status === "analyzed"
+      && existing.transcript
+      && existing.framework_meta;
+    if (alreadyAnalyzed) {
+      return json({
+        id: existing.id,
+        channel_username: existing.channel_username,
+        platform,
+        status: "already_analyzed",
+        cached: true,
+      });
+    }
+
+    // Row exists but missing analysis — run it now.
+    try {
+      const patch = await runFullAnalysis(
+        adminClient as never,
+        existing as ViralVideoRow,
+        existing.caption ?? null,
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+      );
+      await adminClient
+        .from("viral_videos")
+        .update({ ...patch, analysis_status: "analyzed", analysis_error: null })
+        .eq("id", existing.id);
+      return json({
+        id: existing.id,
+        channel_username: existing.channel_username,
+        platform,
+        status: "analyzed_existing",
+      });
+    } catch (err) {
+      const code = err instanceof AnalyzerError ? err.code : "unknown_error";
+      const message = err instanceof Error ? err.message : String(err);
+      await adminClient.from("viral_videos")
+        .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
+        .eq("id", existing.id);
+      return json({
+        id: existing.id,
+        channel_username: existing.channel_username,
+        platform,
+        status: "analysis_failed",
+        error: message,
+      }, 500);
+    }
+  }
+
+  // ─── Step 3: Not in DB — fetch metadata from VPS ───
+  let vpsData: Record<string, unknown> | null = null;
   try {
     const res = await fetch(`${VPS_SERVER}/scrape-single-url`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url: normalizedUrl }),
       signal: AbortSignal.timeout(60_000),
     });
     if (res.ok) vpsData = await res.json();
@@ -111,17 +161,22 @@ serve(async (req: Request) => {
     console.warn("[scrape-framework-url] VPS fetch failed:", (e as Error).message);
   }
 
+  // Derive channel_username from URL if VPS didn't provide one.
   const usernameMatch = url.match(/instagram\.com\/(?:reels?\/|p\/)?@?([^/?#\s]+)/i)
-    ?? url.match(/tiktok\.com\/@?([^/?#\s]+)/i);
-  const channelUsername = (vpsData?.owner_username ?? usernameMatch?.[1] ?? "unknown")
-    .replace(/^@/, "");
+    ?? url.match(/tiktok\.com\/@?([^/?#\s]+)/i)
+    ?? url.match(/youtube\.com\/@([^/?#\s]+)/i);
+  const channelUsername = String(
+    (vpsData?.owner_username as string | undefined)
+    ?? usernameMatch?.[1]
+    ?? "unknown"
+  ).replace(/^@/, "");
 
-  const caption = (vpsData?.title ?? "(admin-curated)").slice(0, 600);
+  const caption = String(vpsData?.title ?? vpsData?.caption ?? "").slice(0, 600);
   const views = Number(vpsData?.views) || 0;
   const likes = Number(vpsData?.likes) || 0;
   const comments = Number(vpsData?.comments) || 0;
   const engagementRate = views > 0 ? ((likes + comments) / views) * 100 : 0;
-  const outlier = Number(vpsData?.outlier_score) || 5; // default high — admin picked it
+  const outlier = Number(vpsData?.outlier_score) || 5; // default high — admin curated
 
   let postedAt: string | null = null;
   if (vpsData?.posted_at) {
@@ -131,19 +186,13 @@ serve(async (req: Request) => {
       postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
     }
   }
-  // If we couldn't determine the original post time (VPS unavailable or
-  // payload missing the field), fall back to "now". Otherwise the row gets
-  // posted_at=NULL and the default Viral Today date filter (>= 12 months ago)
-  // silently excludes it because NULL fails the comparison — admin sees
-  // "Framework added" but can't find the video.
   if (!postedAt) postedAt = new Date().toISOString();
 
-  const niche_tags = extractNicheTags(caption);
-  const framework_score = computeFrameworkScore(outlier, engagementRate, postedAt);
-  const apifyVideoId = String(vpsData?.id ?? extractVideoIdFromUrl(url, platform) ?? `manual_${Date.now()}`);
+  const nicheTagsFromCaption = extractNicheTags(caption);
+  const frameworkScore = computeFrameworkScore(outlier, engagementRate, postedAt);
 
-  // Cache thumbnail if CDN URL
-  let thumbnailUrl: string | null = vpsData?.thumbnail ?? null;
+  // Cache the thumbnail if VPS returned a CDN URL.
+  let thumbnailUrl: string | null = (vpsData?.thumbnail as string | undefined) ?? null;
   if (thumbnailUrl && /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent/.test(thumbnailUrl)) {
     try {
       const cacheRes = await fetch(`${VPS_SERVER}/cache-thumbnail`, {
@@ -158,14 +207,15 @@ serve(async (req: Request) => {
     } catch { /* non-blocking */ }
   }
 
-  const { data: inserted, error: upsertErr } = await adminClient
+  // ─── Step 4: Insert the row (pending analysis) ───
+  const { data: inserted, error: insertErr } = await adminClient
     .from("viral_videos")
-    .upsert({
+    .insert({
       channel_id: null,
       channel_username: channelUsername,
       platform,
-      video_url: url,
-      apify_video_id: apifyVideoId,
+      video_url: normalizedUrl,
+      apify_video_id: postId,
       thumbnail_url: thumbnailUrl,
       caption,
       views_count: views,
@@ -176,15 +226,71 @@ serve(async (req: Request) => {
       posted_at: postedAt,
       scraped_at: new Date().toISOString(),
       is_featured_framework: true,
-      niche_tags,
-      framework_score,
-    }, { onConflict: "platform,apify_video_id", ignoreDuplicates: false })
-    .select("id")
+      niche_tags: nicheTagsFromCaption,
+      framework_score: frameworkScore,
+      analysis_status: "pending",
+      user_submitted: true,
+      submitted_by: user.id,
+    })
+    .select("*")
     .single();
 
-  if (upsertErr || !inserted) {
-    return json({ error: upsertErr?.message ?? "Upsert failed" }, 500);
+  if (insertErr || !inserted) {
+    // 23505 race — another resolver inserted first.
+    if (insertErr?.code === "23505") {
+      const { data: winner } = await adminClient
+        .from("viral_videos")
+        .select("*")
+        .eq("platform", platform)
+        .eq("apify_video_id", postId)
+        .single();
+      if (winner) {
+        await adminClient
+          .from("viral_videos")
+          .update({ is_featured_framework: true })
+          .eq("id", winner.id);
+        return json({
+          id: winner.id,
+          channel_username: winner.channel_username,
+          platform,
+          status: "raced_existing",
+        });
+      }
+    }
+    return json({ error: insertErr?.message ?? "Insert failed" }, 500);
   }
 
-  return json({ id: inserted.id, channel_username: channelUsername, platform });
+  // ─── Step 5: Run full analysis on the newly-inserted row ───
+  try {
+    const patch = await runFullAnalysis(
+      adminClient as never,
+      inserted as ViralVideoRow,
+      caption,
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+    );
+    await adminClient
+      .from("viral_videos")
+      .update({ ...patch, analysis_status: "analyzed", analysis_error: null })
+      .eq("id", inserted.id);
+    return json({
+      id: inserted.id,
+      channel_username: channelUsername,
+      platform,
+      status: "analyzed",
+    });
+  } catch (err) {
+    const code = err instanceof AnalyzerError ? err.code : "unknown_error";
+    const message = err instanceof Error ? err.message : String(err);
+    await adminClient.from("viral_videos")
+      .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
+      .eq("id", inserted.id);
+    return json({
+      id: inserted.id,
+      channel_username: channelUsername,
+      platform,
+      status: "analysis_failed",
+      error: message,
+    }, 500);
+  }
 });

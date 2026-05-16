@@ -1679,8 +1679,25 @@ export default function ViralToday() {
         }
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add framework");
-      toast.success(`Framework added — @${data.channel_username}`);
+      if (!res.ok) {
+        // Analysis can fail even when the row was inserted. Still surface the row
+        // (it'll show as failed and the user can retry on the detail page).
+        if (data.id) {
+          toast.warning(`Framework added but analysis failed — @${data.channel_username}`);
+          setPasteUrl("");
+          fetchVideos();
+          return;
+        }
+        throw new Error(data.error || "Failed to add framework");
+      }
+      const status = data.status as string | undefined;
+      if (status === "already_analyzed" || status === "raced_existing") {
+        toast.info(`Already in your library — @${data.channel_username}`);
+      } else if (status === "analyzed_existing") {
+        toast.success(`Framework analyzed — @${data.channel_username}`);
+      } else {
+        toast.success(`Framework added & analyzed — @${data.channel_username}`);
+      }
       setPasteUrl("");
       fetchVideos();
     } catch (e: any) {
