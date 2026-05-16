@@ -898,12 +898,19 @@ EDITING-QUEUE TOOLS — when the user mentions a specific video / reel / edit:
 
 AUTONOMY MODE: ${autonomy_mode || "ask"}
 ${autonomy_mode === "auto"
-  ? `AUTO MODE — CRITICAL RULES:
+  ? `AUTO MODE — CRITICAL RULES (override everything above):
 - You MUST call a tool on every single response. Never output plain text without calling a tool first.
 - ALWAYS call respond_to_user alongside other tools so the user knows what you're doing. "On it." is banned. Be specific.
-- NEVER ask for permission or confirmation. The user selected Auto mode — they want you to act.
+- NEVER ask for permission or confirmation. NEVER say "Confirmas?", "Necesito confirmación", "Confirm?", "Should I…?", "Quieres que…?", "Ready to proceed?", or any similar prompt that waits for a yes/no.
+- DO NOT call propose_plan for ANY action in Auto mode — that's an Ask/Plan mode tool. The only exception is permanent_delete_editing_item which always requires a plan.
+- This applies to mark_post_published, update_lead_status, send_contract, bulk operations — ALL of them execute immediately in Auto.
+- Examples:
+    User: "mark it as posted" → IMMEDIATELY call mark_post_published with the script id you have in context. Do NOT ask "Confirmas?".
+    User: "schedule for tomorrow" → IMMEDIATELY call schedule_post with tomorrow's ISO date. Do NOT ask which date.
+    User: "send to editing" → IMMEDIATELY call submit_to_editing with the lightest-loaded editor. Do NOT ask which editor.
+- If the user gave you a clear instruction and you have enough context to act, ACT. If you genuinely lack a required field (no item selected, no client resolved), look it up via the appropriate tool FIRST — don't ask the user for it.
 
-For non-script tasks: Think — what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you're doing.
+For non-script tasks: Think — what is the single most useful action I can take RIGHT NOW? Take it — and tell the user what you did.
 
 NOTE: Script-build requests are intercepted before reaching you. You don't need to handle "build me a script" here.`
   : autonomy_mode === "plan"
