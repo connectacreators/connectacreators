@@ -5,9 +5,10 @@
 // CompanionDrawer and FullscreenAIView), groups by date.
 
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveChat } from "@/hooks/useActiveChat";
 import { Plus } from "lucide-react";
 
 interface Thread {
@@ -48,8 +49,12 @@ function groupByDate(threads: Thread[]): ThreadGroup[] {
 export function RecentChatsPanel() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const activeThreadId = searchParams.get("thread");
+  const location = useLocation();
+  // Use the shared useActiveChat hook (localStorage + cross-tab broadcast) so
+  // clicks in this sidebar sync immediately with CommandCenter's content
+  // pane. Reading the URL `?thread=...` alone wouldn't work — CommandCenter
+  // reads from useActiveChat, not the URL, so the two surfaces would diverge.
+  const { activeThreadId, setActiveChat, clearActiveChat } = useActiveChat();
   const [threads, setThreads] = useState<Thread[]>([]);
 
   useEffect(() => {
@@ -70,8 +75,14 @@ export function RecentChatsPanel() {
 
   const groups = groupByDate(threads);
 
-  const onNewChat = () => navigate("/ai");
-  const onChatClick = (id: string) => navigate(`/ai?thread=${id}`);
+  const onNewChat = () => {
+    clearActiveChat();
+    if (location.pathname !== "/ai") navigate("/ai");
+  };
+  const onChatClick = (id: string) => {
+    setActiveChat(id, null);
+    if (location.pathname !== "/ai") navigate("/ai");
+  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 pt-2 mt-2" style={{ borderTop: "1px solid rgba(234,230,220,0.06)" }}>
