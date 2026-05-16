@@ -29,7 +29,7 @@ const MOCK_TURNS: { title: string; turn: BroadcastTurn }[] = [
       }],
       narrative: "Pulled three. The split-screen one is hot — @joe_gennusa just dropped a comparison opener pacing for 12x in your sub-niche.",
       embeds: [
-        { type: "video-card", data: { id: "v1", thumbnail_url: null, caption_overlay: '"It's a bit expensive"', username: "joe_gennusa",    outlier: 8.2, views: 523_000,   engagement: 4.6, age: "2d ago", format_hint: "Comparison · split-screen" } },
+        { type: "video-card", data: { id: "v1", thumbnail_url: null, caption_overlay: "“It’s a bit expensive”", username: "joe_gennusa",    outlier: 8.2, views: 523_000,   engagement: 4.6, age: "2d ago", format_hint: "Comparison · split-screen" } },
         { type: "video-card", data: { id: "v2", thumbnail_url: null, caption_overlay: "Why most chiros lose",  username: "leilahormozi",   outlier: 7.1, views: 1_800_000, engagement: 3.8, age: "3w ago", format_hint: "Authority · talking head" } },
         { type: "video-card", data: { id: "v3", thumbnail_url: null, caption_overlay: "DOOR TO DOOR",          username: "kaysen.stevens", outlier: 5.4, views: 628_000,   engagement: 2.2, age: "2w ago", format_hint: "Tutorial · POV" } },
       ],
@@ -91,15 +91,15 @@ const MOCK_TURNS: { title: string; turn: BroadcastTurn }[] = [
         meta: "whisper + multimodal · marking hook / body / CTA",
         payload: {
           video_url: null,
-          caption: "It's a bit expensive",
+          caption: "It’s a bit expensive",
           markers: [
             { section: "hook", start: 0,  end: 5,  label: "hook · 0-5s" },
             { section: "body", start: 5,  end: 32, label: "body · 5-32s" },
             { section: "cta",  start: 32, end: 38, label: "CTA · 32-38s" },
           ],
           transcript: [
-            ...['"It's', "a", "bit", "expensive\"", "—"].map((w) => ({ word: w, section: "hook" as const })),
-            ...["here's", "what", "a", "$1,000", "salesman", "does:", "he", "apologizes,", "drops", "the", "price.", "The", "$1M", "salesman?", "He", "asks", "one", "question."].map((w) => ({ word: w, section: "body" as const })),
+            ...["“It’s", "a", "bit", "expensive”", "—"].map((w) => ({ word: w, section: "hook" as const })),
+            ...["here’s", "what", "a", "$1,000", "salesman", "does:", "he", "apologizes,", "drops", "the", "price.", "The", "$1M", "salesman?", "He", "asks", "one", "question."].map((w) => ({ word: w, section: "body" as const })),
             ...["Follow", "for", "part", "2."].map((w) => ({ word: w, section: "cta" as const })),
           ],
         },
