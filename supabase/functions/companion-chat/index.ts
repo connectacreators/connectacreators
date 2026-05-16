@@ -1824,6 +1824,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           isAdmin,
           accessibleClientIds,
           actions,
+          currentPath: current_path,
         };
         const moduleResult =
           await handleLeadTool(block, moduleCtx) ??
@@ -1902,9 +1903,9 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     //       delete both:" without actually calling propose_plan.
     // Both produce the same broken UX. See plan-preview spec 2026-05-16.
     const looksMultiTarget =
-      /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change)\b[\s\S]*?(\b(these|those|all|every|both)\b|:)/i.test(message);
+      /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change|borrar|borra|elimina|eliminar|publicar|publica|programar|programa|marcar|marca|cambiar|cambia|mover|mueve)\b[\s\S]*?(\b(these|those|all|every|both|estos|estas|esos|esas|todos|todas|ambos|ambas)\b|:)/i.test(message);
     const hasPlanProposal = actions.some((a: any) => a?.type === "plan_proposal");
-    const replyIsBannedPreamble = !!reply && !hasPlanProposal && /\b(here'?s (the|my) plan|the plan (to|for|is)|i'?ll (set|mark|move|delete|trash|schedule|reschedule)|first i'?ll|then i'?ll)\b/i.test(reply);
+    const replyIsBannedPreamble = !!reply && !hasPlanProposal && /\b(here'?s (the|my) plan|the plan (to|for|is)|i'?ll (set|mark|move|delete|trash|schedule|reschedule)|first i'?ll|then i'?ll|aqu[ií] (est[aá]|tienes?) (el|mi) plan|este es (el|mi) plan|el plan (es|para)|voy a (borrar|eliminar|publicar|programar|marcar|cambiar|mover))\b/i.test(reply);
     if ((!reply || replyIsBannedPreamble) && looksMultiTarget && !hasPlanProposal) {
       try {
           const forcedRes = await fetch("https://api.anthropic.com/v1/messages", {

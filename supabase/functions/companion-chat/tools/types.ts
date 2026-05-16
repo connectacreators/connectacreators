@@ -21,6 +21,10 @@ export interface ToolContext {
   accessibleClientIds: string[] | null;
   /** Mutable array — handlers push action objects here */
   actions: Array<{ type: string; [key: string]: unknown }>;
+  /** Caller's current URL path (e.g. "/editing-queue" or "/clients/<id>/editing-queue").
+   *  Tools use it to decide whether a navigate action is needed — if the user
+   *  is already on a page that would show the affected items, skip the nav. */
+  currentPath?: string;
 }
 
 /**

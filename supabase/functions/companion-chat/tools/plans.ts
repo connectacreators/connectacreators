@@ -142,7 +142,18 @@ export async function handlePlanTool(
           const path = resolvedClientId
             ? `/clients/${resolvedClientId}/editing-queue`
             : `/editing-queue`;
-          actions.push({ type: "navigate", path });
+          // Skip navigation if the user is already on a page that shows these
+          // rows — the master /editing-queue covers every client, so users
+          // there shouldn't get yanked to per-client view. Same for the
+          // already-correct per-client URL.
+          const currentPath = ctx.currentPath ?? "";
+          const alreadyOnAQueueView =
+            currentPath === "/editing-queue" ||
+            currentPath === path ||
+            currentPath.endsWith("/editing-queue");
+          if (!alreadyOnAQueueView) {
+            actions.push({ type: "navigate", path });
+          }
           actions.push({
             type: "highlight_items",
             scope: "editing_queue",
