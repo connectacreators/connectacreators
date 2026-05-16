@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { parseDeck, composeDeckAnswers, type DeckAnswer, type DeckQuestion } from "@/lib/parseDeck";
 import { QuestionDeckCard } from "@/components/canvas/QuestionDeckCard";
 import { DeckSummaryBubble } from "@/components/canvas/DeckSummaryBubble";
+import TurnRenderer from "@/components/companion/TurnRenderer";
 import {
   MarkdownText,
   InlineScriptPreview,
@@ -505,7 +506,13 @@ export function AssistantChat({
         {visibleMessages.map((msg, i) => (
           <div key={i}>
             {msg.role === "assistant" ? (
-              msg.is_progress ? (
+              msg.broadcast ? (
+                <div className="flex gap-2 items-start min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <TurnRenderer turn={msg.broadcast} />
+                  </div>
+                </div>
+              ) : msg.is_progress ? (
                 <div className="flex items-center gap-1.5 text-muted-foreground/60">
                   <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
                   <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic font-serif`}>{msg.content}</span>

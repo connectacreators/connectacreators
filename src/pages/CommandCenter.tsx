@@ -520,27 +520,49 @@ export default function CommandCenter() {
       } else {
         content = JSON.stringify(c ?? "");
       }
+      // Detect a script draft eagerly — when present, attach a live broadcast
+      // turn to the assistant text message so AssistantChat renders the
+      // DraftingScene animation. The existing script_preview synthetic still
+      // appears below, providing the Save button.
+      const draft = m.role === "assistant" && content ? parseScriptDraft(content) : null;
+      const draftSections = draft
+        ? ([
+            draft.hook && { tag: "Hook", body: draft.hook },
+            draft.body && { tag: "Body", body: draft.body },
+            draft.cta  && { tag: "CTA",  body: draft.cta },
+          ].filter(Boolean) as Array<{ tag: string; body: string }>)
+        : [];
+
       out.push({
         role: m.role as "user" | "assistant",
         content,
         is_progress: (m.content as any)?.is_progress === true,
+        broadcast: draft && draftSections.length > 0
+          ? {
+              scenes: [{
+                type: "drafting" as const,
+                verb: draft.title ? `Drafting: ${draft.title}` : "Drafting…",
+                meta: "claude · live",
+                payload: { sections: draftSections },
+              }],
+              narrative: "",
+              embeds: [],
+            }
+          : undefined,
       });
 
-      if (m.role === "assistant" && content) {
-        const draft = parseScriptDraft(content);
-        if (draft) {
-          out.push({
-            role: "assistant",
-            content: "",
-            type: "script_preview",
-            script_data: {
-              hook: draft.hook,
-              body: draft.body,
-              cta: draft.cta,
-              idea_title: draft.title ?? "Untitled draft",
-            } as any,
-          });
-        }
+      if (draft) {
+        out.push({
+          role: "assistant",
+          content: "",
+          type: "script_preview",
+          script_data: {
+            hook: draft.hook,
+            body: draft.body,
+            cta: draft.cta,
+            idea_title: draft.title ?? "Untitled draft",
+          } as any,
+        });
       }
     }
     // Append the latest plan_proposal card as a synthetic message AFTER the
