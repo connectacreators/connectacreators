@@ -729,12 +729,6 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   src={videoFileUrl}
                   aspectRatio="auto"
                 />
-                <button
-                  onClick={() => setPlayingVideo(false)}
-                  className="absolute top-2 left-2 p-1 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white/80 hover:text-white transition-colors z-10"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
               </div>
             ) : thumbnailUrl ? (
               <div className={`relative group ${isLongYt ? "cursor-default" : "cursor-pointer"}`} onClick={() => {
@@ -764,16 +758,41 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                     <p className="text-[11px] font-medium text-white/90 leading-snug line-clamp-2">{videoTitle}</p>
                   </div>
                 )}
-                {/* Play button overlay — hidden for long YouTube (Shorts get playback) */}
+                {/* Play button overlay — hidden for long YouTube (Shorts get playback).
+                    Hand-drawn doodle SVG matching ViralVideoPlayer's paused-state overlay. */}
                 {d.url && !isLongYt && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors pointer-events-none">
                     {downloadingVideo ? (
-                      <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      <div style={{ width: 64, height: 64 }}>
+                        <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%" }} aria-hidden>
+                          <path
+                            d="M 50 8 Q 84 10, 92 50 Q 90 86, 50 92 Q 12 88, 8 50 Q 12 12, 50 8 Z"
+                            fill="hsl(var(--honey))"
+                            stroke="hsl(var(--ink))"
+                            strokeWidth="3"
+                            strokeLinejoin="round"
+                          />
+                          <foreignObject x="32" y="32" width="36" height="36">
+                            <Loader2 className="w-9 h-9 animate-spin" style={{ color: "hsl(var(--ink))" }} />
+                          </foreignObject>
+                        </svg>
                       </div>
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
+                      <div style={{ width: 64, height: 64 }}>
+                        <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%" }} aria-hidden>
+                          <path
+                            d="M 50 8 Q 84 10, 92 50 Q 90 86, 50 92 Q 12 88, 8 50 Q 12 12, 50 8 Z"
+                            fill="hsl(var(--honey))"
+                            stroke="hsl(var(--ink))"
+                            strokeWidth="3"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M 40 32 Q 38 30, 42 32 L 70 48 Q 72 50, 70 52 L 42 68 Q 38 70, 40 68 Z"
+                            fill="hsl(var(--ink))"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
                       </div>
                     )}
                   </div>
