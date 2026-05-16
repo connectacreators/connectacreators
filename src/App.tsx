@@ -70,6 +70,7 @@ const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const About = lazy(() => import("./pages/About"));
 const ClientStrategy = lazy(() => import("./pages/ClientStrategy"));
 const CommandCenter = lazy(() => import("./pages/CommandCenter"));
+const CommandCenterPreview = lazy(() => import("./pages/CommandCenterPreview"));
 const PublicContract = lazy(() => import("./pages/PublicContract"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const SocialAccounts = lazy(() => import("./pages/SocialAccounts"));
@@ -163,6 +164,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/subscription" element={<Subscription />} />
               <Route path="/ai" element={<CommandCenter />} />
+              <Route path="/ai/preview" element={<CommandCenterPreview />} />
               <Route path="/editing-queue" element={<MasterEditingQueue />} />
               <Route path="/master-database" element={<MasterDatabase />} />
               <Route path="/trainings" element={<Trainings />} />
