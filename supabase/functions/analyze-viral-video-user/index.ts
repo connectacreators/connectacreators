@@ -78,12 +78,21 @@ Deno.serve(async (req) => {
   if (claimErr || !claimedRaw) return json({ error: "claim_failed", message: claimErr?.message }, 409);
   const claimed = claimedRaw as ViralVideoRow & { caption: string | null };
 
-  // Deduct credits.
-  const deductErr = await deductCredits(admin, user.id, ACTION, CREDIT_COST);
-  if (deductErr) {
-    // Revert claim.
-    await admin.from("viral_videos").update({ analysis_status: "pending" }).eq("id", row.id);
-    return json({ error: "insufficient_credits", details: deductErr }, 402);
+  // ─── Credit policy ───
+  // - Fresh analysis (no transcript yet): 50 credits — the Whisper step is the
+  //   bulk of our cost.
+  // - Partial cache (transcript already on the row, but visual breakdown or
+  //   file missing): FREE. The user paid for the transcript previously; we
+  //   only owe the marginal cost of the multimodal call + Haiku tagging
+  //   (~$0.006), well below threshold for charging again.
+  const hasCachedTranscript = typeof claimed.transcript === "string" && claimed.transcript.trim().length > 0;
+  if (!hasCachedTranscript) {
+    const deductErr = await deductCredits(admin, user.id, ACTION, CREDIT_COST);
+    if (deductErr) {
+      // Revert claim.
+      await admin.from("viral_videos").update({ analysis_status: "pending" }).eq("id", row.id);
+      return json({ error: "insufficient_credits", details: deductErr }, 402);
+    }
   }
 
   // Run pipeline.
@@ -96,14 +105,17 @@ Deno.serve(async (req) => {
       .select("*")
       .single();
     if (updateErr) throw new AnalyzerError("db_update_failed", updateErr.message);
-    return json({ row: updated, status: "analyzed" }, 200);
+    return json({ row: updated, status: "analyzed", free: hasCachedTranscript }, 200);
   } catch (err) {
     const code = err instanceof AnalyzerError ? err.code : "unknown_error";
     const message = err instanceof Error ? err.message : String(err);
     await admin.from("viral_videos")
       .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
       .eq("id", row.id);
-    await refundCredits(admin, user.id, ACTION, CREDIT_COST);
+    // Only refund if we actually charged.
+    if (!hasCachedTranscript) {
+      await refundCredits(admin, user.id, ACTION, CREDIT_COST);
+    }
     return json({ error: code, message }, 500);
   }
 });

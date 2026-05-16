@@ -180,13 +180,19 @@ serve(async (req) => {
       });
     }
 
-    // ─── Step 2: Credit deduction (after resolve, before work) ───
-    const creditErr = await deductCredits(adminClient, user.id, action, CREDIT_COST);
-    if (creditErr) {
-      return new Response(creditErr, {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // ─── Step 2: Credit deduction (only when there's no cached transcript) ───
+    // If the row already has a transcript, the Whisper step (the bulk of the
+    // cost) is cached. We only need the marginal multimodal + Haiku work,
+    // which is ~$0.006 — not worth a second 50-credit charge.
+    const hasCachedTranscript = typeof row.transcript === "string" && row.transcript.trim().length > 0;
+    if (!hasCachedTranscript) {
+      const creditErr = await deductCredits(adminClient, user.id, action, CREDIT_COST);
+      if (creditErr) {
+        return new Response(creditErr, {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // ─── Step 3: Run full analysis ───
@@ -201,8 +207,10 @@ serve(async (req) => {
       );
     } catch (analyzerErr: any) {
       console.error("[transcribe-video] runFullAnalysis failed:", analyzerErr);
-      // Refund credits and mark row as failed.
-      await refundCredits(adminClient, user.id, action, CREDIT_COST);
+      // Refund credits and mark row as failed (only if we actually charged).
+      if (!hasCachedTranscript) {
+        await refundCredits(adminClient, user.id, action, CREDIT_COST);
+      }
       await adminClient
         .from("viral_videos")
         .update({

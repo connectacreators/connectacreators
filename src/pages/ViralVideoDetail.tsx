@@ -552,8 +552,12 @@ export default function ViralVideoDetail() {
           <div className="flex flex-col min-w-0 min-h-0">
 
             {/* Tabs box — flex-1 with min-h-0 so it scrolls inside, not the page */}
+            {/* Treat any row with a cached transcript as analyzed for display purposes.
+                Legacy rows from the pre-unification single-step transcribe-video flow
+                have transcript but analysis_status='pending' — the user already paid
+                for that transcript, so show it instead of an Analyze prompt. */}
             <div className="flex-1 min-h-0 border border-border rounded-2xl flex flex-col overflow-hidden">
-              {video.analysis_status === "analyzed" ? (
+              {(video.analysis_status === "analyzed" || (video.transcript && video.transcript.trim().length > 0)) ? (
                 <>
                   <div className="flex gap-2 border-b border-border px-4 flex-shrink-0 overflow-x-auto">
                     {(["caption", "transcript", "visual", "hook", "story", "category"] as const).map((t) => (
