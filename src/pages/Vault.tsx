@@ -336,14 +336,14 @@ function VaultContent({
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-[#8FD0D5]" />
-            <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="text-[10px] font-sans tracking-[2px] uppercase text-muted-foreground">
               {isMasterMode
                 ? tr({ en: "Master Vault", es: "Vault Maestro" }, language)
                 : tr({ en: "Saved Videos", es: "Videos Guardados" }, language)}
             </span>
           </div>
-          <h1 className="text-xl font-black text-foreground leading-tight">
+          <h1 className="text-2xl font-serif text-foreground leading-tight">
             {isMasterMode ? tr({ en: "Master Vault", es: "Vault Maestro" }, language) : "Vault"}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -353,11 +353,11 @@ function VaultContent({
           </p>
         </div>
         <Button
-          variant="cta"
+          variant="default"
           size="sm"
           disabled={!hasClientId}
           onClick={() => setShowCreate(true)}
-          className="h-9 px-4 gap-2 rounded-lg font-semibold flex-shrink-0 shadow-lg shadow-primary/20"
+          className="h-9 px-4 gap-2 flex-shrink-0"
           title={isMasterMode && !hasClientId ? tr({ en: "Select a client filter first", es: "Selecciona un cliente primero" }, language) : undefined}
         >
           <Plus className="w-4 h-4" />
@@ -369,16 +369,16 @@ function VaultContent({
       {entries.length > 0 && (
         <div className="flex gap-5 py-2.5 mb-3 border-b border-border/40">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">{tr({ en: "Saved", es: "Guardados" }, language)}</span>
-            <span className="text-foreground font-bold text-sm ml-1.5">{stats.saved}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Saved", es: "Guardados" }, language)}</span>
+            <span className="text-foreground font-semibold text-sm ml-1.5 tabular-nums">{stats.saved}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">{tr({ en: "Analyzed", es: "Analizados" }, language)}</span>
-            <span className="text-emerald-400 font-bold text-sm ml-1.5">{stats.analyzed}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Analyzed", es: "Analizados" }, language)}</span>
+            <span className="text-primary font-semibold text-sm ml-1.5 tabular-nums">{stats.analyzed}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">{tr({ en: "Pending", es: "Pendientes" }, language)}</span>
-            <span className="text-[#F0BC7D] font-bold text-sm ml-1.5">{stats.pending}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Pending", es: "Pendientes" }, language)}</span>
+            <span className="text-accent font-semibold text-sm ml-1.5 tabular-nums">{stats.pending}</span>
           </div>
         </div>
       )}
@@ -479,22 +479,20 @@ function VaultContent({
         onClick={closeDrawer}
       />
       <div
-        className="fixed right-0 top-0 h-full z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-out"
+        className="fixed right-0 top-0 h-full z-50 flex flex-col bg-card border-l border-border/60 transition-transform duration-300 ease-out"
         style={{
           width: "420px",
           maxWidth: "100vw",
-          background: "#0f1623",
-          borderLeft: "1px solid rgba(255,255,255,0.08)",
           transform: showCreate ? "translateX(0)" : "translateX(100%)",
         }}
       >
-        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/40">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground">
+              <p className="text-sm font-serif text-foreground leading-tight">
                 {tr({ en: "Save Video by URL", es: "Guardar Video por URL" }, language)}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -504,8 +502,7 @@ function VaultContent({
           </div>
           <button
             onClick={closeDrawer}
-            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-            style={{ background: "rgba(255,255,255,0.05)" }}
+            className="w-7 h-7 rounded-full flex items-center justify-center bg-muted/40 hover:bg-muted transition-colors"
             aria-label="Close drawer"
           >
             <X className="w-4 h-4 text-muted-foreground" />
@@ -514,7 +511,7 @@ function VaultContent({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
               {tr({ en: "Video URL", es: "URL del Video" }, language)}
             </label>
             <div className="relative">
@@ -523,7 +520,7 @@ function VaultContent({
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 placeholder={tr({ en: "TikTok, Instagram, YouTube URL...", es: "URL de TikTok, Instagram, YouTube..." }, language)}
-                className="pl-10 h-12 rounded-xl bg-card border-border/60 focus:border-primary/60 text-sm"
+                className="pl-10 h-11 bg-background border-border/60 focus:border-primary/60 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !creating && newUrl.trim()) handlePasteUrl();
                 }}
@@ -532,8 +529,8 @@ function VaultContent({
           </div>
 
           {creating && (
-            <div className="border border-primary/20 rounded-2xl p-5 text-center space-y-3" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <Loader2 className="w-6 h-6 mx-auto animate-spin text-primary/70" />
+            <div className="border border-border/60 bg-muted/30 rounded-xl p-5 text-center space-y-3">
+              <Loader2 className="w-5 h-5 mx-auto animate-spin text-primary/70" />
               <p className="text-sm text-muted-foreground">
                 {tr({ en: "Adding & analyzing video...", es: "Agregando y analizando video..." }, language)}
               </p>
@@ -541,21 +538,21 @@ function VaultContent({
           )}
         </div>
 
-        <div className="p-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="p-6 border-t border-border/40">
           <Button
-            variant="cta"
+            variant="default"
             onClick={handlePasteUrl}
             disabled={creating || !newUrl.trim()}
-            className="w-full h-12 rounded-xl text-base font-semibold gap-3 shadow-lg shadow-primary/20"
+            className="w-full h-11 gap-2"
           >
             {creating ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
                 {tr({ en: "Adding & Analyzing...", es: "Agregando y Analizando..." }, language)}
               </>
             ) : (
               <>
-                <Sparkles className="w-5 h-5" />
+                <Sparkles className="w-4 h-4" />
                 {tr({ en: "Save to Vault", es: "Guardar en Vault" }, language)}
               </>
             )}
@@ -637,8 +634,8 @@ function SavedVideoCard({
         {/* Client badge (master mode) — second row down */}
         {clientName && (
           <div
-            className="absolute z-10 text-[9px] font-bold px-1.5 py-0.5 rounded truncate max-w-[80%]"
-            style={{ top: "36px", left: "8px", background: "rgba(8,145,178,0.25)", color: "#8FD0D5", border: "1px solid rgba(8,145,178,0.3)" }}
+            className="absolute z-10 text-[9px] font-medium px-1.5 py-0.5 rounded truncate max-w-[80%] bg-primary/15 text-primary border border-primary/25"
+            style={{ top: "36px", left: "8px" }}
           >
             {clientName}
           </div>
@@ -676,7 +673,7 @@ function SavedVideoCard({
         <div className="absolute bottom-2 right-2 z-10">
           {video.analysis_status === "analyzed" && (
             <div
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10"
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground text-[10px] font-medium border border-primary/30"
               title={tr({ en: "Analyzed", es: "Analizado" }, language)}
             >
               <Sparkles className="w-3 h-3" />
