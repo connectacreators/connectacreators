@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
-import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Eye, Type, Music2, Zap, MicOff, Clock } from "lucide-react";
+import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Eye, Type, Music2, Zap, MicOff, Clock, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
