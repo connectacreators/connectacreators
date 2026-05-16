@@ -663,16 +663,33 @@ All colors MUST be HSL for consistency and theming.
    while a propose_plan card is awaiting approval. Subtle ambient cue so
    the user knows which rows are about to change. */
 /* AI plan-preview selection ring — rows targeted by a pending propose_plan
-   pulse with an aqua editorial highlight (faint tint + breathing ring) so
-   the user can see which items Robby is about to touch before approving. */
+   pulse with an aqua editorial highlight so the user sees which items Robby
+   is about to touch before approving. <tr> boxes don't reliably render
+   inset box-shadows across all browsers, so we use a per-cell outline
+   approach: tint the row background and outline every cell with an aqua
+   border that pulses opacity. */
 @keyframes ai-row-pulse {
-  0%, 100% { box-shadow: inset 0 0 0 1px rgba(143,208,213,0.55); }
-  50%      { box-shadow: inset 0 0 0 1px rgba(143,208,213,1.00); }
+  0%, 100% {
+    background-color: rgba(143,208,213,0.10);
+    box-shadow: inset 0 0 0 2px rgba(143,208,213,0.55);
+  }
+  50% {
+    background-color: rgba(143,208,213,0.18);
+    box-shadow: inset 0 0 0 2px rgba(143,208,213,1.00);
+  }
 }
-.ai-preview-pulse {
-  background: rgba(143,208,213,0.08) !important;
+.ai-preview-pulse,
+.ai-preview-pulse > td,
+.ai-preview-pulse > th {
   animation: ai-row-pulse 1.6s ease-in-out infinite;
-  position: relative;
+}
+.ai-preview-pulse > td:first-child,
+.ai-preview-pulse > th:first-child {
+  border-left: 2px solid rgba(143,208,213,0.85) !important;
+}
+.ai-preview-pulse > td:last-child,
+.ai-preview-pulse > th:last-child {
+  border-right: 2px solid rgba(143,208,213,0.85) !important;
 }
 
 /* ReactFlow handle rebrand — Honey */

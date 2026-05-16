@@ -119,7 +119,12 @@ export async function handlePlanTool(
     // If the model named target editing-queue items, resolve them to ids and
     // emit a highlight action. The page pulses those rows so the user can
     // visually confirm what's about to change before approving.
-    if (Array.isArray(target_item_titles) && target_item_titles.length > 0 && resolvedClientId) {
+    // NOTE: we no longer gate on resolvedClientId — when the model forgets to
+    // pass client_name (common in forced retries), resolveEditingItem falls
+    // back to accessibleClientIds and searches across every client the user
+    // has access to. Better to highlight via global search than to skip the
+    // pulse entirely.
+    if (Array.isArray(target_item_titles) && target_item_titles.length > 0) {
       try {
         const { resolveEditingItem } = await import("../_shared/editing-resolver.ts");
         const itemIds: string[] = [];
