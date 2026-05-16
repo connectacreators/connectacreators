@@ -1896,16 +1896,17 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       }
     }
 
-    // Multi-target safety net: if the model bailed (empty reply) AND the user
-    // message looks like a bulk-action ask on a list ("trash these 3", "mark
-    // all X published", etc.), force one more round with tool_choice locked
-    // to propose_plan. Avoids the user seeing the unhelpful "Let me try again
-    // — could you rephrase that?" line. See plan-preview spec 2026-05-16.
-    if (!reply) {
-      const looksMultiTarget =
-        /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change)\b[\s\S]*?(\b(these|those|all|every)\b|:)/i.test(message);
-      if (looksMultiTarget && actions.every((a: any) => a?.type !== "plan_proposal")) {
-        try {
+    // Multi-target safety net: fire forced propose_plan retry in TWO cases —
+    //   (a) the model returned empty reply (turn 1 bailed), OR
+    //   (b) the model returned a banned preamble like "Here's the plan to
+    //       delete both:" without actually calling propose_plan.
+    // Both produce the same broken UX. See plan-preview spec 2026-05-16.
+    const looksMultiTarget =
+      /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change)\b[\s\S]*?(\b(these|those|all|every|both)\b|:)/i.test(message);
+    const hasPlanProposal = actions.some((a: any) => a?.type === "plan_proposal");
+    const replyIsBannedPreamble = !!reply && !hasPlanProposal && /\b(here'?s (the|my) plan|the plan (to|for|is)|i'?ll (set|mark|move|delete|trash|schedule|reschedule)|first i'?ll|then i'?ll)\b/i.test(reply);
+    if ((!reply || replyIsBannedPreamble) && looksMultiTarget && !hasPlanProposal) {
+      try {
           const forcedRes = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -1941,17 +1942,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               }
             }
           }
-        } catch (e) {
-          console.error("[companion-chat] Forced propose_plan retry failed:", e);
-        }
+      } catch (e) {
+        console.error("[companion-chat] Forced propose_plan retry failed:", e);
       }
     }
 
     if (!reply) {
       // If we tried the forced retry and still nothing produced a plan, ask
       // a useful clarifying question instead of the silent "rephrase that".
-      const looksMultiTarget =
-        /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change)\b[\s\S]*?(\b(these|those|all|every)\b|:)/i.test(message);
       const fallback = looksMultiTarget
         ? "I want to make sure I get the right items — can you list them by exact title, one per line?"
         : "Let me try again — could you rephrase that?";
