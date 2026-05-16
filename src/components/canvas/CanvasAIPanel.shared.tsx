@@ -596,22 +596,26 @@ export function InlineScriptPreview({
 
 // ── Thinking animation ─────────────────────────────────────────────────────
 
+// Action-oriented phrases that read like real progress. Rotated randomly while
+// the request is in flight. This is purely cosmetic — companion-chat doesn't
+// actually stream tool-call events yet, so the indicator isn't tied to what's
+// happening on the backend. Real progress streaming is a follow-up refactor.
 const THINKING_VERBS = [
-  "Thinking",
-  "Crafting",
-  "Composing",
-  "Reflecting",
-  "Considering",
-  "Exploring",
-  "Reasoning",
-  "Analyzing",
-  "Connecting",
-  "Drafting",
-  "Weighing",
+  "Reading your strategy",
+  "Searching Viral Today",
+  "Looking up the client",
+  "Checking the editing queue",
+  "Pulling the latest data",
+  "Drafting ideas",
+  "Composing the reply",
+  "Connecting the dots",
+  "Weighing the options",
+  "Generating hooks",
+  "Cross-referencing alerts",
+  "Reading recent posts",
+  "Sketching the angle",
   "Distilling",
-  "Searching",
-  "Reading",
-  "Writing",
+  "Thinking",
 ];
 
 /**
@@ -643,7 +647,7 @@ export function ThinkingAnimation({ tone = "dark" }: { tone?: "light" | "dark" }
         });
         setFade(true);
       }, 200);
-    }, 2400);
+    }, 1800);
     return () => clearInterval(interval);
   }, []);
 
