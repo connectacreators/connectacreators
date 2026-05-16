@@ -388,6 +388,7 @@ export default function ViralVideoDetail() {
           id: video.id,
           url: video.video_url,
           thumbnail_url: video.thumbnail_url,
+          video_file_url: video.video_file_url,
           caption: video.caption,
           channel_username: video.channel_username,
           platform: video.platform,

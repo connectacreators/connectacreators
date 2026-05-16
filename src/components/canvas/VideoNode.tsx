@@ -264,9 +264,16 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const [playingVideo, setPlayingVideo] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
 
-  // Dropdown states
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  // Dropdown states — start expanded when we landed with cached analysis
+  // (e.g. Remix from Viral Today passes autoExpandAnalysis=true). Falsy
+  // initial data leaves them collapsed as before.
+  const _autoExpand = !!(d as any).autoExpandAnalysis;
+  const [showTranscript, setShowTranscript] = useState(
+    _autoExpand && typeof d.transcription === "string" && d.transcription.trim().length > 0
+  );
+  const [showBreakdown, setShowBreakdown] = useState(
+    _autoExpand && (!!d.structure || !!(d as any).videoAnalysis)
+  );
 
   // ─── Helper: derive a readable label from available metadata ───
   const deriveVideoLabel = (title?: string | null, caption?: string | null, transcription?: string | null, username?: string | null): string => {

@@ -61,6 +61,7 @@ interface RemixVideo {
   id: string;
   url: string | null;
   thumbnail_url: string | null;
+  video_file_url?: string | null;
   caption: string | null;
   channel_username: string;
   platform: string;
@@ -982,6 +983,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             autoTranscribe: !remixVideo.isPreAnalyzed,
             channel_username: remixVideo.channel_username,
             caption: remixVideo.caption ?? undefined,
+            // Pre-fill playback assets so the node renders the thumbnail/player
+            // instead of the orange-gradient empty fallback.
+            thumbnailUrl: remixVideo.thumbnail_url ?? undefined,
+            videoFileUrl: remixVideo.video_file_url ?? undefined,
+            viralVideoId: remixVideo.id,
             authToken,
             clientId: selectedClient.id,
             // Pre-fill cached analysis to skip re-transcription on canvas
@@ -991,6 +997,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
                 sections: remixVideo.frameworkMeta.raw_structure,
                 detected_format: remixVideo.frameworkMeta.content_type ?? null,
               } : undefined,
+              // Auto-expand both transcript and visual breakdown drawers so
+              // the user lands with the full analysis already visible.
+              autoExpandAnalysis: true,
             } : {}),
             onUpdate: (updates: any) =>
               setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n)),
