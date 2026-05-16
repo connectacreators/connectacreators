@@ -1,5 +1,6 @@
 // supabase/functions/_shared/viral-video-analyzer.ts
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
+import { isValidContentFormat, normalizeNicheSlug, type ContentFormat } from "./video-taxonomy.ts";
 
 const VPS_BASE = "http://72.62.200.145:3099";
 const VPS_KEY = "ytdlp_connecta_2026_secret";
@@ -214,6 +215,8 @@ export interface TagResult {
   key_topics: string[];
   body_structure: string;
   hook_template: string;
+  content_format: ContentFormat | null;
+  primary_niche: string | null;
 }
 
 export async function tagFramework(
@@ -222,7 +225,7 @@ export async function tagFramework(
   isCaptionStyle: boolean,
 ): Promise<TagResult> {
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "" };
+  if (!anthropicKey) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "", content_format: null, primary_niche: null };
 
   const prompt = `You are tagging a viral short-form video for a creator-content database. Read the content and caption, then output ONLY a JSON object with these fields:
 
@@ -231,14 +234,17 @@ export async function tagFramework(
   "audience": "<one phrase describing the target viewer, e.g. 'creators 18-30 starting from zero'>",
   "key_topics": ["<3-5 specific topic labels, e.g. 'origin story', 'career pivot', 'rookie pitch contest'>"],
   "body_structure": "<one sentence summarizing the body's narrative pattern, e.g. '5 beats — origin, struggle, pivot, result, lesson'>",
-  "hook_template": "<the FIRST 1-3 sentences of the transcript (or first visual slide if caption-style) rewritten as a reusable hook template. Replace specific numbers, names, niches, products, dollar amounts, and concrete nouns with ALL-CAPS bracketed placeholders like [NICHE], [METRIC], [NUMBER], [PRODUCT], [PAIN POINT]. Keep the rhythm, sentence structure, and emotional beats intact. Match the source language — if the original is in Spanish, keep the template in Spanish; if in English, keep in English. Example: original '¿Por qué hay vídeos con un millón de visitas y otros no llegan ni a las 1000 visitas?' → template '¿Por qué hay [CONTENT TYPE] con [HIGH METRIC] y otros no llegan ni a [LOW METRIC]?'"
+  "hook_template": "<the FIRST 1-3 sentences of the transcript (or first visual slide if caption-style) rewritten as a reusable hook template. Replace specific numbers, names, niches, products, dollar amounts, and concrete nouns with ALL-CAPS bracketed placeholders like [NICHE], [METRIC], [NUMBER], [PRODUCT], [PAIN POINT]. Keep the rhythm, sentence structure, and emotional beats intact. Match the source language — if the original is in Spanish, keep the template in Spanish; if in English, keep in English. Example: original '¿Por qué hay vídeos con un millón de visitas y otros no llegan ni a las 1000 visitas?' → template '¿Por qué hay [CONTENT TYPE] con [HIGH METRIC] y otros no llegan ni a [LOW METRIC]?'",
+  "content_format": "<EXACTLY one of: caption_post, storytelling, educational, comparison, authority, reaction, listicle, tutorial, vlog, selling, funny. Pick the BEST single fit for the video's primary intent. caption_post = text-on-screen + music with no spoken narration. storytelling = personal anecdote or narrative. educational = teaches a concept or framework. comparison = X vs Y, before/after. authority = strong stance, hot take, calls out a misconception. reaction = responds to another video/trend/screenshot. listicle = 'Top 5', enumerated structure. tutorial = procedural step-by-step. vlog = day-in-the-life, behind-the-scenes. selling = product-focused with CTA. funny = comedy/skit/parody.>",
+  "primary_niche": "<the topic niche, snake_case. STRONGLY PREFER one of these canonical labels: personal_branding, fitness, sales, real_estate, finance, ecommerce, coaching, saas_tech, beauty, food, mindset, relationships, education, lifestyle, parenting. If the video clearly doesn't fit any of those (e.g., religion, gaming, comedy, politics, true_crime, parenting, art, music), output a new short snake_case slug (lowercase, words joined by underscores, no spaces, max 50 chars). EXACTLY ONE niche.>"
 }
 
 CAPTION: ${(caption ?? "").slice(0, 400)}
 
 ${isCaptionStyle ? "TEXT ON SCREEN (caption-style video):" : "TRANSCRIPT:"} ${effectiveText.slice(0, 2500)}
 
-Output ONLY the JSON object, no commentary.`;
+Output ONLY the JSON object, no commentary.
+The content_format MUST be one of the 11 allowed slugs.`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -250,24 +256,35 @@ Output ONLY the JSON object, no commentary.`;
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 800,
+        max_tokens: 1000,
         messages: [{ role: "user", content: prompt }],
       }),
     });
     const body: any = await res.json();
-    if (!res.ok) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "" };
+    if (!res.ok) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "", content_format: null, primary_niche: null };
     let raw = (body.content?.[0]?.text as string ?? "").trim();
     raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
     const parsed = JSON.parse(raw);
+
+    const rawFormat = typeof parsed.content_format === "string" ? parsed.content_format.trim().toLowerCase() : null;
+    const contentFormat: ContentFormat | null = isValidContentFormat(rawFormat)
+      ? rawFormat
+      : (isCaptionStyle ? "caption_post" : "storytelling");
+
+    const rawNiche = typeof parsed.primary_niche === "string" ? parsed.primary_niche : null;
+    const primaryNiche = normalizeNicheSlug(rawNiche) || null;
+
     return {
       niche_tags: Array.isArray(parsed.niche_tags) ? parsed.niche_tags.slice(0, 4) : [],
       audience: typeof parsed.audience === "string" ? parsed.audience.slice(0, 200) : "",
       key_topics: Array.isArray(parsed.key_topics) ? parsed.key_topics.slice(0, 5) : [],
       body_structure: typeof parsed.body_structure === "string" ? parsed.body_structure.slice(0, 300) : "",
       hook_template: typeof parsed.hook_template === "string" ? parsed.hook_template.slice(0, 400) : "",
+      content_format: contentFormat,
+      primary_niche: primaryNiche,
     };
   } catch {
-    return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "" };
+    return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "", content_format: null, primary_niche: null };
   }
 }
 
@@ -292,6 +309,8 @@ export async function runFullAnalysis(
   cta_text: string | null;
   framework_meta: Record<string, unknown>;
   transcribed_at: string;
+  content_format: ContentFormat | null;
+  primary_niche: string | null;
 }> {
   // 1. Acquire video file.
   const fileResult = await acquireVideoFile(admin, row);
@@ -384,5 +403,7 @@ export async function runFullAnalysis(
     cta_text: ctaText,
     framework_meta,
     transcribed_at: new Date().toISOString(),
+    content_format: tags.content_format,
+    primary_niche: tags.primary_niche,
   };
 }
