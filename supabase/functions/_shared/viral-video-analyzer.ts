@@ -213,6 +213,7 @@ export interface TagResult {
   audience: string;
   key_topics: string[];
   body_structure: string;
+  hook_template: string;
 }
 
 export async function tagFramework(
@@ -221,7 +222,7 @@ export async function tagFramework(
   isCaptionStyle: boolean,
 ): Promise<TagResult> {
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return { niche_tags: [], audience: "", key_topics: [], body_structure: "" };
+  if (!anthropicKey) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "" };
 
   const prompt = `You are tagging a viral short-form video for a creator-content database. Read the content and caption, then output ONLY a JSON object with these fields:
 
@@ -229,7 +230,8 @@ export async function tagFramework(
   "niche_tags": ["<2-4 short niche labels, lowercase, e.g. 'personal branding', 'fitness', 'pest control sales'>"],
   "audience": "<one phrase describing the target viewer, e.g. 'creators 18-30 starting from zero'>",
   "key_topics": ["<3-5 specific topic labels, e.g. 'origin story', 'career pivot', 'rookie pitch contest'>"],
-  "body_structure": "<one sentence summarizing the body's narrative pattern, e.g. '5 beats — origin, struggle, pivot, result, lesson'>"
+  "body_structure": "<one sentence summarizing the body's narrative pattern, e.g. '5 beats — origin, struggle, pivot, result, lesson'>",
+  "hook_template": "<the FIRST 1-3 sentences of the transcript (or first visual slide if caption-style) rewritten as a reusable hook template. Replace specific numbers, names, niches, products, dollar amounts, and concrete nouns with ALL-CAPS bracketed placeholders like [NICHE], [METRIC], [NUMBER], [PRODUCT], [PAIN POINT]. Keep the rhythm, sentence structure, and emotional beats intact. Match the source language — if the original is in Spanish, keep the template in Spanish; if in English, keep in English. Example: original '¿Por qué hay vídeos con un millón de visitas y otros no llegan ni a las 1000 visitas?' → template '¿Por qué hay [CONTENT TYPE] con [HIGH METRIC] y otros no llegan ni a [LOW METRIC]?'"
 }
 
 CAPTION: ${(caption ?? "").slice(0, 400)}
@@ -248,12 +250,12 @@ Output ONLY the JSON object, no commentary.`;
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 600,
+        max_tokens: 800,
         messages: [{ role: "user", content: prompt }],
       }),
     });
     const body: any = await res.json();
-    if (!res.ok) return { niche_tags: [], audience: "", key_topics: [], body_structure: "" };
+    if (!res.ok) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "" };
     let raw = (body.content?.[0]?.text as string ?? "").trim();
     raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
     const parsed = JSON.parse(raw);
@@ -262,9 +264,10 @@ Output ONLY the JSON object, no commentary.`;
       audience: typeof parsed.audience === "string" ? parsed.audience.slice(0, 200) : "",
       key_topics: Array.isArray(parsed.key_topics) ? parsed.key_topics.slice(0, 5) : [],
       body_structure: typeof parsed.body_structure === "string" ? parsed.body_structure.slice(0, 300) : "",
+      hook_template: typeof parsed.hook_template === "string" ? parsed.hook_template.slice(0, 400) : "",
     };
   } catch {
-    return { niche_tags: [], audience: "", key_topics: [], body_structure: "" };
+    return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "" };
   }
 }
 
@@ -362,6 +365,7 @@ export async function runFullAnalysis(
     audience: tags.audience,
     key_topics: tags.key_topics,
     body_structure: tags.body_structure,
+    hook_template: tags.hook_template,
     content_type: detectedFormat,
     is_caption_style: isCaptionStyle,
     visual_pacing: {

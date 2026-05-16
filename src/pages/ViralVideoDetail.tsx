@@ -53,6 +53,7 @@ interface ViralVideo {
     audience?: string;
     key_topics?: string[];
     body_structure?: string;
+    hook_template?: string;
     content_type?: string | null;
     visual_pacing?: { cuts_per_minute?: number | null; tempo?: string | null };
   } | null;
@@ -137,6 +138,10 @@ export default function ViralVideoDetail() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"caption" | "transcript" | "visual" | "hook" | "story">("caption");
 
+  // Hook template state (lazy-fetched / backfilled on first Hook tab view)
+  const [hookTemplate, setHookTemplate] = useState<string | null>(null);
+  const [templatizing, setTemplatizing] = useState(false);
+
   // Save to Vault state
   const [saveClientId, setSaveClientId] = useState("");
   const [saveMode, setSaveMode] = useState<"idle" | "transcribing" | "analyzing" | "saving" | "done" | "error">("idle");
@@ -209,6 +214,46 @@ export default function ViralVideoDetail() {
         .finally(() => setDetectingFormat(false));
     });
   }, [video]);
+
+  // ==================== HOOK TEMPLATE (lazy backfill) ====================
+  useEffect(() => {
+    if (activeTab !== "hook" || !video) return;
+    // Prefer framework_meta.hook_template if already cached.
+    const cached = video.framework_meta?.hook_template;
+    if (typeof cached === "string" && cached.length > 0) {
+      setHookTemplate(cached);
+      return;
+    }
+    if (video.analysis_status !== "analyzed" || !video.hook_text) {
+      setHookTemplate(null);
+      return;
+    }
+    if (templatizing || hookTemplate) return;
+    setTemplatizing(true);
+    (async () => {
+      try {
+        const token = await getAuthToken();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-templatize-hook`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ viral_video_id: video.id }),
+          },
+        );
+        const body = await res.json();
+        if (res.ok && body.hook_template) {
+          setHookTemplate(body.hook_template);
+        } else {
+          setHookTemplate(null);
+        }
+      } catch {
+        setHookTemplate(null);
+      } finally {
+        setTemplatizing(false);
+      }
+    })();
+  }, [activeTab, video?.id, video?.framework_meta, video?.hook_text, video?.analysis_status]);
 
   // ==================== CLIENT OPTIONS ====================
   const isStaff = isAdmin;
@@ -486,7 +531,14 @@ export default function ViralVideoDetail() {
                     {activeTab === "caption" && (video.caption ?? "(no caption)")}
                     {activeTab === "transcript" && (video.transcript ?? "(no transcript)")}
                     {activeTab === "visual" && renderVisualSegments(video.framework_meta)}
-                    {activeTab === "hook" && (video.hook_text ?? "(no hook)")}
+                    {activeTab === "hook" && (
+                      templatizing ? (
+                        <div className="flex items-center gap-2 text-muted-foreground italic">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Generating template…
+                        </div>
+                      ) : (hookTemplate ?? video.hook_text ?? "(no hook)")
+                    )}
                     {activeTab === "story" && ((video.framework_meta?.body_structure as string) ?? "(no story format)")}
                   </div>
                   {!video.video_file_url && (
