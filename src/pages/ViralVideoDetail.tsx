@@ -462,11 +462,6 @@ export default function ViralVideoDetail() {
     }
   };
 
-  const handleOpenInCanvas = () => {
-    if (!video) return;
-    navigate(`/canvas?attach=${video.id}`);
-  };
-
   // ==================== RENDER ====================
   if (loading) {
     return (
@@ -721,11 +716,11 @@ export default function ViralVideoDetail() {
             </div>
           ) : null}
 
-          {/* Remix Script */}
+          {/* Remix in Canvas */}
           {clientOptions.length === 1 ? (
             <Button onClick={handleRemixScript} variant="ghost" size="sm" className="gap-2">
               <Wand2 className="w-4 h-4" />
-              Remix Script
+              Remix in Canvas
             </Button>
           ) : clientOptions.length > 1 ? (
             <div className="flex items-center gap-1">
@@ -739,15 +734,10 @@ export default function ViralVideoDetail() {
               </select>
               <Button onClick={handleRemixScript} disabled={!remixClientId} variant="ghost" size="sm" className="gap-2">
                 <Wand2 className="w-4 h-4" />
-                Remix
+                Remix in Canvas
               </Button>
             </div>
           ) : null}
-
-          {/* Open in Canvas */}
-          <Button onClick={handleOpenInCanvas} variant="ghost" size="sm" className="gap-2">
-            Open in Canvas
-          </Button>
         </div>
       </div>
     </PageTransition>
