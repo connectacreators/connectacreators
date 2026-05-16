@@ -345,6 +345,36 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
       d.onUpdate?.(updates);
 
+      // ─── Legacy-row fallbacks: ensure playback + thumbnail exist ───
+      // Legacy rows from the pre-unification flow have transcript but no
+      // video_file_url or thumbnail_url. Wire up the VPS stream proxy (free —
+      // just URL construction) so playback works, and fire-and-forget the
+      // thumbnail fetch.
+      const sourceUrl = row.video_url ?? url.trim();
+      if (!row.video_file_url && sourceUrl) {
+        downloadVideoFile(sourceUrl, false);
+      }
+      if (!row.thumbnail_url && sourceUrl) {
+        setThumbStatus("loading");
+        fetch(`${SUPABASE_URL}/functions/v1/fetch-thumbnail`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ url: sourceUrl }),
+        })
+          .then((r) => r.ok ? r.json() : null)
+          .then((j) => {
+            if (j?.thumbnail_url) {
+              const proxied = proxyInstagramUrl(j.thumbnail_url);
+              setThumbnailUrl(proxied);
+              setThumbStatus("done");
+              d.onUpdate?.({ thumbnailUrl: proxied });
+            } else {
+              setThumbStatus("error");
+            }
+          })
+          .catch(() => setThumbStatus("error"));
+      }
+
       // Stage decision:
       // - If transcript exists (regardless of analysis_status), treat as already-analyzed.
       //   The user has paid for that transcript before — don't re-charge.
