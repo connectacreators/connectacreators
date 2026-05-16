@@ -45,7 +45,8 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMob
         </div>
       )}
       {/* Desktop collapsed: small bone sticker pill with an ink chevron.
-          Visible on both light editorial pages and dark surfaces. */}
+          Sits tight to the left margin, vertically below the page's
+          back/header row so it doesn't clog the top-left toolbar. */}
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
@@ -53,7 +54,7 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMob
           className="hidden lg:flex items-center justify-center focus:outline-none"
           style={{
             position: "fixed",
-            top: 14,
+            top: 64,
             left: 14,
             width: 30,
             height: 30,
