@@ -318,16 +318,10 @@ function ResearchDropdown({ onAddNode, onOpenViralPicker }: {
 export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, onFitView, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, eraserMode, onToggleEraser, onClearDrawing, drawColor, onDrawColorChange, drawTool = "freeform", onDrawToolChange, drawFill, onDrawFillToggle, drawWidth = 3, onDrawWidthChange, saveStatus, sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession, sessionStorageUsed = 0, onOpenFullscreenAI, presenceOthers, myAnimalName, myColor }: Props) {
   return (
     <div className="absolute top-3 left-0 right-0 z-10 flex items-center justify-center pointer-events-none">
-      {/* Back + session switcher + save status — absolute left */}
+      {/* Session switcher + save status — absolute left. Floating Back button
+          removed; users navigate back via the sidebar/topbar to avoid the
+          duplicate. onBack is still passed in case a future surface needs it. */}
       <div className="absolute left-3 pointer-events-auto flex items-center gap-2">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ffffff] border border-[#141414] text-xs text-[rgba(20,20,20,0.55)] hover:text-[rgba(20,20,20,0.90)] transition-colors"
-        >
-          <ChevronLeft className="w-3.5 h-3.5" /> Back
-        </button>
-
-
         {/* Session dropdown — only shown when session data provided */}
         {sessions && (
           <SessionDropdown

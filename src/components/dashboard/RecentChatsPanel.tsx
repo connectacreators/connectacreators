@@ -85,48 +85,27 @@ export function RecentChatsPanel() {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 pt-2 mt-2" style={{ borderTop: "1px solid rgba(234,230,220,0.06)" }}>
-      <div className="px-3 mb-2">
-        <button
-          type="button"
-          onClick={onNewChat}
-          className="w-full"
-          style={{
-            background: "#8FD0D5",
-            color: "#141414",
-            border: "1px solid #EAE6DC",
-            borderRadius: 999,
-            padding: "6px 11px",
-            fontSize: 11,
-            fontWeight: 500,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 5,
-            cursor: "pointer",
-          }}
-        >
-          <Plus size={12} strokeWidth={2} />
-          New chat
-        </button>
-      </div>
-
-      <div
-        className="px-3 mb-1.5"
-        style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(234,230,220,0.40)" }}
+    <div className="flex flex-col flex-1 min-h-0 pt-2 mt-1" style={{ borderTop: "1px solid rgba(234,230,220,0.06)" }}>
+      {/* New chat — subtle row, Claude-style. Same color treatment as the
+          nav items above so it reads as part of the same list. */}
+      <button
+        type="button"
+        onClick={onNewChat}
+        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#aaaaaa] hover:text-[#e8e8e8] transition-colors"
       >
-        Recent
-      </div>
+        <Plus className="w-4 h-4 flex-shrink-0" strokeWidth={1.75} />
+        New chat
+      </button>
 
       <div
-        className="flex-1 min-h-0 overflow-y-auto"
+        className="flex-1 min-h-0 overflow-y-auto pt-1"
         style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(234,230,220,0.20) transparent" }}
       >
         {groups.map((g) => (
-          <div key={g.label}>
+          <div key={g.label} className="mb-1">
             <div
-              className="px-3 pt-2 pb-1"
-              style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(234,230,220,0.30)" }}
+              className="px-3 pt-2 pb-0.5"
+              style={{ fontSize: 10, color: "rgba(234,230,220,0.32)" }}
             >
               {g.label}
             </div>
@@ -139,14 +118,15 @@ export function RecentChatsPanel() {
                   onClick={() => onChatClick(t.id)}
                   className="block w-full text-left truncate"
                   style={{
-                    padding: "5px 14px",
-                    fontSize: 11,
-                    color: isActive ? "#EAE6DC" : "rgba(234,230,220,0.62)",
-                    background: isActive ? "rgba(234,230,220,0.06)" : "transparent",
+                    padding: "4px 12px",
+                    fontSize: 12,
+                    lineHeight: 1.35,
+                    color: isActive ? "#EAE6DC" : "rgba(234,230,220,0.55)",
+                    background: isActive ? "rgba(234,230,220,0.05)" : "transparent",
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(234,230,220,0.04)";
+                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(234,230,220,0.03)";
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent";

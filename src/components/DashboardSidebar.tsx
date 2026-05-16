@@ -14,11 +14,21 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, LogOut, Settings, Target, CalendarDays,
-  Home, ChevronLeft, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
+  Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
 } from "lucide-react";
 
-type NavItem = { type?: 'item'; label: string; icon: React.ComponentType<{ className?: string }>; path: string; badge?: number };
+type NavItem = {
+  type?: 'item';
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  path: string;
+  badge?: number;
+  /** "essential" items render above the More expander on the /ai surface.
+   *  Anything without a tier falls under More on /ai; off-/ai surfaces
+   *  ignore this field and use group headers instead. */
+  tier?: 'essential' | 'more';
+};
 type NavGroup = { type: 'group'; label: string };
 type NavEntry = NavItem | NavGroup;
 
@@ -61,6 +71,14 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const isOnAi = useLocation().pathname === "/ai";
+  const [moreExpanded, setMoreExpanded] = useState(false);
+  // /ai surface defaults to a thin Claude-style icon rail. Off-/ai surfaces
+  // also use the rail when the external sidebarOpen prop is false — so
+  // clicking the close button anywhere collapses to icons instead of hiding
+  // the sidebar entirely.
+  const [aiRailMode, setAiRailMode] = useState(true);
+  const railMode = isOnAi ? aiRailMode : !sidebarOpen;
   const [clientLimit, setClientLimit] = useState(5);
   const [addingClient, setAddingClient] = useState(false);
   const [newClientName, setNewClientName] = useState("");
@@ -224,20 +242,30 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     }
     return `/clients/${viewMode}/scripts?view=canvas`;
   })();
+  const contentIdeasPath = (() => {
+    if (viewMode === "master" || viewMode === "me") {
+      const cid = viewMode === "me" ? ownClientId : null;
+      return cid ? `/clients/${cid}/scripts` : "/scripts";
+    }
+    return `/clients/${viewMode}/scripts`;
+  })();
 
+  // tier: 'essential' = surfaced above the More expander on /ai.
+  // Off /ai, the group headers below render normally and tier is ignored.
   const getNavItems = (): NavEntry[] => {
     if (isAdmin) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
+        { label: language === "en" ? "Content Ideas" : "Ideas de Contenido", icon: FileText, path: contentIdeasPath, tier: 'essential' },
         { type: 'group', label: 'Create' },
-        { label: "Super Canvas", icon: Layers, path: connectaAIPath },
+        { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { label: "Vault", icon: Archive, path: "/vault" },
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { type: 'group', label: 'Editing' },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         { type: 'group', label: 'Growth' },
-        { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Finances", icon: DollarSign, path: "/finances" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { type: 'group', label: 'Agency' },
@@ -251,14 +279,14 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isVideographer) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
         { type: 'group', label: 'Create' },
-        { label: "Super Canvas", icon: Layers, path: connectaAIPath },
+        { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { type: 'group', label: 'Editing' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         { type: 'group', label: 'Growth' },
-        { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
@@ -266,11 +294,11 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isEditor) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
         { type: 'group', label: 'Editing' },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue" },
-        { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
-        { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        { label: "Content Calendar", icon: Calendar, path: "/content-calendar", tier: 'essential' },
+        { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
@@ -278,20 +306,20 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
-        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
+        { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
         { type: 'group', label: 'Create' },
-        { label: "Super Canvas", icon: Layers, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+        { label: "Super Canvas", icon: Layers, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas", tier: 'essential' },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts" },
         { label: "Vault", icon: Archive, path: selectedClientId ? `/clients/${selectedClientId}/vault` : "/vault" },
         { type: 'group', label: 'Editing' },
-        { label: "Editing Queue", icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue" },
+        { label: "Editing Queue", icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
         { label: "Content Calendar", icon: Calendar, path: selectedClientId ? `/clients/${selectedClientId}/content-calendar` : "/content-calendar" },
         { type: 'group', label: 'Sales' },
         { label: "Public Calendar", icon: Globe, path: selectedClientId ? `/clients/${selectedClientId}/booking-settings` : "/dashboard" },
-        { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads" },
+        { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads", tier: 'essential' },
         { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: selectedClientId ? `/clients/${selectedClientId}/lead-calendar` : "/lead-calendar" },
         { type: 'group', label: 'Resources' },
-        { label: "Viral Today", icon: Flame, path: "/viral-today" },
+        { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { label: "Contracts", icon: ScrollText, path: selectedClientId ? `/clients/${selectedClientId}/contracts` : "/dashboard" },
         { type: 'group', label: 'Manage' },
@@ -304,20 +332,20 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     // Subscriber / Client / Connecta Plus
     return [
       { label: "Home", icon: Home, path: "/dashboard" },
-      { label: companionName, icon: Bot, path: "/ai", badge: companionBadge },
+      { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
       { type: 'group', label: 'Create' },
-      { label: "Super Canvas", icon: Layers, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas" },
+      { label: "Super Canvas", icon: Layers, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas", tier: 'essential' },
       { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
       { type: 'group', label: 'Editing' },
-      { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue" },
+      { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
       { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
       { type: 'group', label: 'Sales' },
       { label: "Public Calendar", icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },
-      { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads" },
+      { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads", tier: 'essential' },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
       { type: 'group', label: 'Resources' },
-      { label: "Viral Today", icon: Flame, path: "/viral-today" },
+      { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
       { label: "Trainings", icon: BookOpen, path: "/trainings" },
       { label: "Contracts", icon: ScrollText, path: ownClientId ? `/clients/${ownClientId}/contracts` : "/dashboard" },
       { type: 'group', label: 'Manage' },
@@ -330,12 +358,94 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
 
   const navItems = getNavItems();
 
+  // /ai always shows the sidebar (rail or full). Off-/ai: full sidebar when
+  // open, rail on desktop when closed, slide-off on mobile when closed.
+  const asideWidth = isOnAi
+    ? (railMode ? "w-14 translate-x-0" : "w-56 translate-x-0")
+    : (sidebarOpen
+        ? "w-56 translate-x-0"
+        : "-translate-x-full lg:w-14 lg:translate-x-0");
+
+  // Rail-mode render — short-circuits before the full sidebar markup so we
+  // don't have to thread `railMode &&` checks through every section.
+  if (railMode) {
+    const allItems = navItems.filter((e): e is NavItem => e.type !== 'group');
+    const essentials = allItems.filter((i) => i.tier === 'essential');
+    const renderRailIcon = (item: NavItem) => {
+      const currentPathname = currentPath.split("?")[0];
+      const itemPathname = item.path.split("?")[0];
+      const isActive = item.path.includes("?")
+        ? item.path === currentPath
+        : itemPathname === currentPathname;
+      return (
+        <button
+          key={item.label}
+          onClick={() => navigate(item.path)}
+          title={item.label}
+          className={`relative w-10 h-10 mx-auto flex items-center justify-center rounded-lg transition-colors ${
+            isActive ? "text-[#e8e8e8] bg-white/[0.06]" : "text-[#888888] hover:text-[#dddddd] hover:bg-white/[0.04]"
+          }`}
+        >
+          <item.icon className="w-[18px] h-[18px]" />
+          {(item.badge ?? 0) > 0 && (
+            <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+              {item.badge}
+            </span>
+          )}
+        </button>
+      );
+    };
+    return (
+      <aside className={`${asideWidth} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}>
+        {/* Top: expand toggle. On /ai we flip the internal aiRailMode flag;
+            off-/ai we set the external sidebarOpen prop. */}
+        <div className="flex items-center justify-center py-3 border-b border-[rgba(255,255,255,0.06)]">
+          <button
+            onClick={() => (isOnAi ? setAiRailMode(false) : setSidebarOpen(true))}
+            title={language === "en" ? "Expand sidebar" : "Expandir"}
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-[#888888] hover:text-[#dddddd] hover:bg-white/[0.04] transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* New chat (mini) — only on /ai */}
+        {isOnAi && (
+          <div className="flex justify-center pt-2 pb-1">
+            <button
+              type="button"
+              onClick={() => navigate("/ai")}
+              title={language === "en" ? "New chat" : "Nuevo chat"}
+              className="w-10 h-10 flex items-center justify-center rounded-lg text-[#888888] hover:text-[#dddddd] hover:bg-white/[0.04] transition-colors"
+            >
+              <Plus className="w-[18px] h-[18px]" strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
+
+        {/* Essentials as icons */}
+        <div className="flex-1 flex flex-col items-stretch py-1 space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+          {essentials.map(renderRailIcon)}
+        </div>
+
+        {/* Footer: language + sign out as icons */}
+        <div className="border-t border-[rgba(255,255,255,0.06)] py-2 flex flex-col items-center gap-1">
+          <button
+            onClick={signOut}
+            title={tr(t.dashboard.signOut, language)}
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-[#888888] hover:text-red-400/80 hover:bg-red-500/[0.04] transition-colors"
+          >
+            <LogOut className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <>
     <aside
-      className={`${
-        sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full lg:w-0 lg:translate-x-0 lg:overflow-hidden"
-      } fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
+      className={`${asideWidth} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-3 py-3 border-b border-[rgba(255,255,255,0.06)] relative z-10">
         <button onClick={() => navigate("/")} className="focus:outline-none">
@@ -347,7 +457,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           </span>
         </button>
         <button
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => (isOnAi ? setAiRailMode(true) : setSidebarOpen(false))}
+          title={language === "en" ? "Collapse" : "Colapsar"}
           className="ml-auto text-[#888888] hover:text-[#dddddd] transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -388,47 +499,77 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       )}
 
       <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onMouseLeave={() => setHoveredItem(null)}>
-        {navItems.map((entry, idx) => {
-          if (entry.type === 'group') {
+        {(() => {
+          const allItems = navItems.filter((e): e is NavItem => e.type !== 'group');
+          const renderItem = (item: NavItem) => {
+            const currentPathname = currentPath.split("?")[0];
+            const itemPathname = item.path.split("?")[0];
+            const itemHasQuery = item.path.includes("?");
+            const isActive = itemHasQuery
+              ? item.path === currentPath
+              : itemPathname === currentPathname && !allItems.some(
+                  other => other !== item && other.path.split("?")[0] === itemPathname && other.path === currentPath
+                );
+            const isHovered = hoveredItem === item.label;
+            const showActive = hoveredItem ? isHovered : isActive;
             return (
-              <div key={`group-${idx}`} className="px-3 pt-4 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-[#555]">
-                  {entry.label}
-                </span>
-              </div>
+              <button
+                key={item.label}
+                onClick={() => navigate(item.path)}
+                onMouseEnter={() => setHoveredItem(item.label)}
+                className={`nav-side-mark w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative ${
+                  showActive ? "text-[#e8e8e8] nav-active" : "text-[#aaaaaa] hover:text-[#cccccc]"
+                }`}
+              >
+                <item.icon className="w-4 h-4 flex-shrink-0" />
+                {item.label}
+                {(item.badge ?? 0) > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          };
+
+          // /ai: just essentials + More expander. No group headers.
+          if (isOnAi) {
+            const essentials = allItems.filter((i) => i.tier === 'essential');
+            const more = allItems.filter((i) => i.tier !== 'essential');
+            return (
+              <>
+                {essentials.map(renderItem)}
+                {more.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => setMoreExpanded((v) => !v)}
+                      onMouseEnter={() => setHoveredItem("__more__")}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#aaaaaa] hover:text-[#cccccc] transition-colors duration-150"
+                    >
+                      <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${moreExpanded ? 'rotate-180' : ''}`} />
+                      {language === "en" ? "More" : "Más"}
+                    </button>
+                    {moreExpanded && more.map(renderItem)}
+                  </>
+                )}
+              </>
             );
           }
-          const item = entry as NavItem;
-          const navItemsList = navItems.filter(e => e.type !== 'group') as NavItem[];
-          const currentPathname = currentPath.split("?")[0];
-          const itemPathname = item.path.split("?")[0];
-          const itemHasQuery = item.path.includes("?");
-          const isActive = itemHasQuery
-            ? item.path === currentPath
-            : itemPathname === currentPathname && !navItemsList.some(
-                other => other !== item && other.path.split("?")[0] === itemPathname && other.path === currentPath
+
+          // Other pages: keep the grouped layout.
+          return navItems.map((entry, idx) => {
+            if (entry.type === 'group') {
+              return (
+                <div key={`group-${idx}`} className="px-3 pt-4 pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#555]">
+                    {entry.label}
+                  </span>
+                </div>
               );
-          const isHovered = hoveredItem === item.label;
-          const showActive = hoveredItem ? isHovered : isActive;
-          return (
-            <button
-              key={item.label}
-              onClick={() => navigate(item.path)}
-              onMouseEnter={() => setHoveredItem(item.label)}
-              className={`nav-side-mark w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative ${
-                showActive ? "text-[#e8e8e8] nav-active" : "text-[#aaaaaa] hover:text-[#cccccc]"
-              }`}
-            >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              {item.label}
-              {(item.badge ?? 0) > 0 && (
-                <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+            }
+            return renderItem(entry as NavItem);
+          });
+        })()}
       </nav>
 
       {/* Hybrid chats panel — only renders when on /ai (Recent chats + New chat) */}

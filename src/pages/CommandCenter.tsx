@@ -23,7 +23,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   CheckCircle2,
   Clock,
   ListChecks,
@@ -40,6 +39,7 @@ import {
   AssistantChat,
   AssistantTextInput,
   AssistantThreadList,
+  FingerprintAvatar,
   type ThreadListItem,
 } from "@/components/assistant";
 import type { AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
@@ -83,6 +83,41 @@ interface MsgRow {
 
 type RightTab = "chat" | "tasks";
 type TaskFilter = "todo" | "in_progress" | "done";
+
+// Compact one-line mode selector — replaces the old 3-pill row. Cycles
+// auto → ask → plan on click; the active mode label sits inline so the
+// control fits inside the composer footer without screaming for attention.
+function CompactModeSelect({
+  mode,
+  setMode,
+}: {
+  mode: "auto" | "ask" | "plan";
+  setMode: (m: "auto" | "ask" | "plan") => void;
+}) {
+  const labels: Record<typeof mode, string> = { auto: "Auto", ask: "Ask", plan: "Plan" };
+  const tips: Record<typeof mode, string> = {
+    auto: "Auto — Robby acts without confirming",
+    ask: "Ask — Robby confirms before changing data",
+    plan: "Plan — Robby writes a plan and waits for approval",
+  };
+  const next = (cur: typeof mode): typeof mode => (cur === "auto" ? "ask" : cur === "ask" ? "plan" : "auto");
+  return (
+    <button
+      type="button"
+      onClick={() => setMode(next(mode))}
+      title={tips[mode]}
+      className="flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-md transition-all"
+      style={{
+        background: "rgba(143,208,213,0.10)",
+        color: "rgba(143,208,213,0.95)",
+        border: "1px solid rgba(143,208,213,0.25)",
+      }}
+    >
+      <span className="text-white/40 font-normal">Mode</span>
+      <span>{labels[mode]}</span>
+    </button>
+  );
+}
 
 export default function CommandCenter() {
   const { user } = useAuth();
@@ -580,24 +615,11 @@ export default function CommandCenter() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="flex-1 flex flex-col min-h-0 text-white" style={{ background: "#141414" }}>
-      {/* Header — mirrors FullscreenAIView: just back button + centered title */}
-      <header className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2.5 border-b border-white/5">
-        <div className="flex items-center gap-2 w-fit">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-xs text-white/45 hover:text-white/80 transition-colors"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            {en ? "Back" : "Atrás"}
-          </button>
-        </div>
-        <div className="text-center text-xs font-semibold truncate" style={{ color: "#e0e0e0" }}>
-          {companionName}
-        </div>
-        {/* Right slot: tasks toggle (kept tucked, neutral) */}
+      {/* Top-right tasks toggle — no name, no back button, just the action. */}
+      <header className="flex justify-end items-center px-4 py-2.5">
         <button
           onClick={() => setRightTab(rightTab === "tasks" ? "chat" : "tasks")}
-          className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded justify-self-end ${
+          className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded ${
             rightTab === "tasks"
               ? "bg-white/[0.08] text-white border border-white/15"
               : "text-white/45 hover:text-white/80 border border-transparent"
@@ -620,6 +642,74 @@ export default function CommandCenter() {
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
+              {/* Empty-state layout: Claude-style — greeting + composer + chips
+                  vertically centered in the viewport. Custom block (not the
+                  AssistantChat's empty state) because AssistantChat's internal
+                  flex-1 stretches and breaks vertical centering. As soon as the
+                  user sends a message, fall through to the normal scrolling
+                  chat. */}
+              {chatMessages.length === 0 && !sending ? (
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-8">
+                  <div className="w-full max-w-2xl flex flex-col items-center">
+                    {/* Greeting block */}
+                    <FingerprintAvatar size="md" tone="light" animated />
+                    <h1
+                      className="mt-4 text-center font-serif"
+                      style={{ fontSize: 28, lineHeight: 1.2, color: "rgba(234,230,220,0.85)", letterSpacing: "-0.01em" }}
+                    >
+                      {displayName
+                        ? en
+                          ? `What are we doing today, ${displayName}?`
+                          : `¿Qué hacemos hoy, ${displayName}?`
+                        : en
+                          ? "What are we doing today?"
+                          : "¿Qué hacemos hoy?"}
+                    </h1>
+                    <p
+                      className="mt-2 text-center"
+                      style={{ fontSize: 13, color: "rgba(234,230,220,0.45)" }}
+                    >
+                      {en
+                        ? "Ask anything about your pipeline, scripts, or clients."
+                        : "Pregunta lo que sea sobre tu pipeline, scripts o clientes."}
+                    </p>
+
+                    {/* Composer with mode pill on its own row inside the card */}
+                    <div className="w-full mt-6">
+                      <AssistantTextInput
+                        value={input}
+                        onChange={setInput}
+                        onSend={handleSend}
+                        loading={sending}
+                        variant="full"
+                        placeholder={en ? "Ask anything..." : "Pregunta lo que sea..."}
+                        bottomSlot={<CompactModeSelect mode={autonomyMode} setMode={setAutonomyMode} />}
+                      />
+                    </div>
+
+                    {/* Suggestion chips below the textbox, Claude-style. */}
+                    <div className="flex flex-wrap gap-2 mt-4 justify-center">
+                      {SUGGESTIONS.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setInput(s)}
+                          className="assistant-chip text-[11px] px-3 py-1.5"
+                          style={{
+                            color: "rgba(255,255,255,0.6)",
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: 999,
+                            transition: "background 160ms ease, border-color 160ms ease, color 160ms ease",
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AssistantChat
                   messages={chatMessages}
@@ -645,52 +735,6 @@ export default function CommandCenter() {
                 />
               </div>
               <div className="border-t border-white/[0.05]">
-                {chatMessages.length === 0 && !sending && (
-                  <div className="flex flex-wrap gap-2 px-3 pt-3 justify-center">
-                    {SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => setInput(s)}
-                        className="assistant-chip text-[11px] px-3 py-1.5"
-                        style={{
-                          color: "rgba(255,255,255,0.6)",
-                          background: "rgba(255,255,255,0.04)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          borderRadius: 999,
-                          transition: "background 160ms ease, border-color 160ms ease, color 160ms ease",
-                        }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {/* Autonomy mode toggle — Auto / Ask / Plan. Persisted via
-                    CompanionContext so the drawer and /ai stay in sync. */}
-                <div className="flex items-center justify-end gap-1 mb-2 px-1">
-                  <span className="text-[10px] text-white/35 mr-1">Mode:</span>
-                  {(["auto", "ask", "plan"] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setAutonomyMode(m)}
-                      className="text-[10px] font-medium px-2.5 py-0.5 rounded-md transition-all"
-                      style={{
-                        background: autonomyMode === m ? "rgba(143,208,213,0.15)" : "transparent",
-                        color: autonomyMode === m ? "rgba(143,208,213,0.95)" : "rgba(255,255,255,0.4)",
-                        border: `1px solid ${autonomyMode === m ? "rgba(143,208,213,0.35)" : "rgba(255,255,255,0.08)"}`,
-                      }}
-                      title={
-                        m === "auto"
-                          ? "Auto — Robby acts without confirming"
-                          : m === "ask"
-                            ? "Ask — Robby confirms before changing data"
-                            : "Plan — Robby writes a plan and waits for approval"
-                      }
-                    >
-                      {m[0].toUpperCase() + m.slice(1)}
-                    </button>
-                  ))}
-                </div>
                 <AssistantTextInput
                   value={input}
                   onChange={setInput}
@@ -702,6 +746,7 @@ export default function CommandCenter() {
                       ? "Ask anything..."
                       : "Pregunta lo que sea..."
                   }
+                  bottomSlot={<CompactModeSelect mode={autonomyMode} setMode={setAutonomyMode} />}
                   promptPresets={[
                     {
                       name: en ? "Morning brief" : "Resumen del día",
@@ -751,6 +796,8 @@ export default function CommandCenter() {
                   ]}
                 />
               </div>
+                </>
+              )}
             </main>
 
           </>

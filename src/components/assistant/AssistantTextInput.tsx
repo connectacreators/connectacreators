@@ -102,6 +102,10 @@ export interface AssistantTextInputProps {
   placeholder?: string;
   /** External ref to the textarea for imperative focus / measurement */
   inputRef?: React.RefObject<HTMLTextAreaElement>;
+  /** Optional row rendered at the very bottom of the input card, beneath the
+   *  send/mic controls. Used by /ai to inline the autonomy-mode selector
+   *  without overlapping the send button. */
+  bottomSlot?: React.ReactNode;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -138,6 +142,7 @@ export function AssistantTextInput({
   variant = "compact",
   placeholder,
   inputRef,
+  bottomSlot,
 }: AssistantTextInputProps) {
   const fullscreen = variant === "full";
 
@@ -829,6 +834,15 @@ export function AssistantTextInput({
                   </>,
                   document.body,
                 )}
+            </div>
+          )}
+
+          {/* Optional bottom-slot content (e.g. autonomy-mode pill) rendered
+              INSIDE the same controls row as +, model, and send — so the whole
+              textbox stays at 2 rows total: textarea + this row. */}
+          {bottomSlot && (
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+              {bottomSlot}
             </div>
           )}
 

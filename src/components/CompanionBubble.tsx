@@ -1,16 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
-import { useActiveChat } from "@/hooks/useActiveChat";
 import CompanionDrawer from "./CompanionDrawer";
 
 /**
  * Floating companion trigger — a 52px circle pinned to the bottom-right.
  * Click to toggle the right-side <CompanionDrawer>. The badge + pulse
  * indicator surface urgent task counts. The drawer owns all chat/threads UI.
+ *
+ * NOTE: We used to auto-open the drawer on route change when a thread had
+ * been "recently updated" (within 60s). That fired on every page nav for
+ * up to a minute after any chat activity, which felt intrusive. The drawer
+ * now only opens via explicit user click on the bubble — or it can be
+ * triggered externally via setIsOpen(true) when the AI genuinely needs
+ * the user's attention (pending plan approval, agentic in-flight, etc).
  */
 export default function CompanionBubble() {
   const { companionName, tasks, isOpen, setIsOpen } = useCompanion();
@@ -18,29 +24,6 @@ export default function CompanionBubble() {
   const { language } = useLanguage();
   const location = useLocation();
   const en = language === "en";
-
-  // Auto-open the drawer when the user lands on a page with a freshly
-  // active chat — i.e., the AI just navigated us here AND the chat was
-  // recent (within 60s). Lives here, not in CompanionDrawer, because the
-  // drawer is only mounted when isOpen=true; this needs to fire while the
-  // drawer is closed. Uses a ref to fire only ONCE per route change so we
-  // don't fight the user if they manually close it.
-  const { activeThreadId, wasUpdatedRecently } = useActiveChat();
-  const lastAutoOpenedRouteRef = useRef<string | null>(null);
-  useEffect(() => {
-    // Only auto-open on routes that aren't /ai (the bubble is hidden there
-    // anyway, and CommandCenter handles its own state).
-    if (location.pathname === "/ai") return;
-    // Only fire once per (route + activeThread) combo so re-renders don't
-    // re-open after the user closes manually.
-    const key = `${location.pathname}::${activeThreadId ?? ""}`;
-    if (lastAutoOpenedRouteRef.current === key) return;
-    if (activeThreadId && wasUpdatedRecently && !isOpen) {
-      setIsOpen(true);
-      lastAutoOpenedRouteRef.current = key;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, activeThreadId, wasUpdatedRecently]);
 
   // Keep the drawer mounted briefly after close so the slide-out animation
   // can play before unmount. Open immediately when isOpen flips true.
