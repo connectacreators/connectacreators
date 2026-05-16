@@ -1950,10 +1950,82 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       }
     }
 
+    // Approval safety net: when the model returned empty AND the user's
+    // message looks like an approval of a previously-proposed plan
+    // ("soft delete all", "yes", "approve", "sí", "dale", etc.), look up
+    // the most recent pending plan for this client and force-call
+    // confirm_plan with its id. Avoids the "I want to make sure I get the
+    // right items" loop after the user already confirmed.
+    const looksApproval =
+      /^\s*(yes|yep|yeah|sure|ok|okay|go|do it|do them|delete (all|them)|trash (all|them)|soft delete (all|them)|approve|proceed|confirm|si|s[íi] dale|dale|h[aá]zlo|adelante|apru[eé]balo|aprobar|aprobado|aprueba|confirmar|confirma|hagamoslo|hag[áa]moslo)\b/i.test(message.trim());
+    if (!reply && looksApproval && !hasPlanProposal) {
+      try {
+        const { data: pendingPlan } = await adminClient
+          .from("pending_plans")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("client_id", client.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (pendingPlan?.id) {
+          const forcedRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-6",
+              max_tokens: 1024,
+              system: finalSystemPrompt,
+              tools: effectiveTools,
+              tool_choice: { type: "tool", name: "confirm_plan" },
+              messages: [
+                ...messages,
+                {
+                  role: "user",
+                  content: `(System) The user approved pending plan ${pendingPlan.id}. Call confirm_plan with that exact plan_id now, then execute every step.`,
+                },
+              ],
+            }),
+          });
+          if (forcedRes.ok) {
+            const forcedResult = await forcedRes.json();
+            const moduleCtx = {
+              adminClient,
+              userId: user.id,
+              client,
+              lockedClient: urlClientId ? { id: client.id, name: client.name } : null,
+              isAdmin,
+              accessibleClientIds,
+              actions,
+              currentPath: current_path,
+            };
+            for (const block of forcedResult.content || []) {
+              if (block.type === "tool_use" && block.name === "confirm_plan") {
+                await handlePlanTool(block, moduleCtx as any);
+                reply = ""; // confirmation is implicit via row mutation
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[companion-chat] Forced confirm_plan retry failed:", e);
+      }
+    }
+
     if (!reply) {
-      // If we tried the forced retry and still nothing produced a plan, ask
-      // a useful clarifying question instead of the silent "rephrase that".
-      const fallback = looksMultiTarget
+      // If we tried both forced retries and still nothing produced a plan,
+      // ask a useful clarifying question instead of the silent "rephrase
+      // that". Skip the clarifying question if the user looked like they
+      // were just approving — the generic message is less confusing there.
+      const fallback = looksApproval
+        ? "Let me try again — could you rephrase that?"
+        : looksMultiTarget
         ? "I want to make sure I get the right items — can you list them by exact title, one per line?"
         : "Let me try again — could you rephrase that?";
       reply = turn1Reply || fallback;
