@@ -3,7 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ExternalLink,
-  Archive, Wand2, Loader2, CheckCircle2,
+  Archive, Wand2, Loader2, CheckCircle2, Pencil, Check, X as XIcon,
 } from "lucide-react";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { Button } from "@/components/ui/button";
@@ -157,6 +157,41 @@ export default function ViralVideoDetail() {
 
   // Remix state
   const [remixClientId, setRemixClientId] = useState("");
+
+  // Inline-edit state for channel_username + caption (rows scraped from URLs
+  // sometimes have unknown handles or no caption — let the user fix it).
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [editingCaption, setEditingCaption] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState("");
+
+  const saveUsername = async () => {
+    if (!video) return;
+    const next = usernameDraft.trim().replace(/^@/, "");
+    if (!next || next === video.channel_username) { setEditingUsername(false); return; }
+    const { error } = await supabase
+      .from("viral_videos")
+      .update({ channel_username: next })
+      .eq("id", video.id);
+    if (error) { toast.error(`Couldn't save: ${error.message}`); return; }
+    setVideo({ ...video, channel_username: next });
+    setEditingUsername(false);
+    toast.success(`Handle set to @${next}`);
+  };
+
+  const saveCaption = async () => {
+    if (!video) return;
+    const next = captionDraft.trim();
+    if (next === (video.caption ?? "")) { setEditingCaption(false); return; }
+    const { error } = await supabase
+      .from("viral_videos")
+      .update({ caption: next || null })
+      .eq("id", video.id);
+    if (error) { toast.error(`Couldn't save: ${error.message}`); return; }
+    setVideo({ ...video, caption: next || null });
+    setEditingCaption(false);
+    toast.success("Caption saved");
+  };
 
   // ==================== DATA FETCH + REALTIME ====================
   useEffect(() => {
@@ -455,9 +490,38 @@ export default function ViralVideoDetail() {
           Back
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">
-            @{video.channel_username}
-          </p>
+          {editingUsername ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-muted-foreground">@</span>
+              <input
+                autoFocus
+                value={usernameDraft}
+                onChange={(e) => setUsernameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveUsername();
+                  if (e.key === "Escape") setEditingUsername(false);
+                }}
+                placeholder="username"
+                className="text-sm font-medium text-foreground bg-transparent border-b border-border focus:border-foreground outline-none w-40"
+              />
+              <button onClick={saveUsername} className="p-1 text-muted-foreground hover:text-foreground" title="Save"><Check className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setEditingUsername(false)} className="p-1 text-muted-foreground hover:text-foreground" title="Cancel"><XIcon className="w-3.5 h-3.5" /></button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setUsernameDraft(video.channel_username === "unknown" ? "" : video.channel_username); setEditingUsername(true); }}
+              className={cn(
+                "group inline-flex items-center gap-1.5 text-sm font-medium truncate transition-colors",
+                video.channel_username === "unknown"
+                  ? "text-muted-foreground italic hover:text-foreground"
+                  : "text-foreground hover:text-foreground/80",
+              )}
+              title="Click to edit handle"
+            >
+              <span className="truncate">@{video.channel_username}</span>
+              <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" />
+            </button>
+          )}
         </div>
         <a
           href={video.video_url ?? "#"}
@@ -538,7 +602,39 @@ export default function ViralVideoDetail() {
                     ))}
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-foreground/80 whitespace-pre-wrap">
-                    {activeTab === "caption" && (video.caption ?? "(no caption)")}
+                    {activeTab === "caption" && (editingCaption ? (
+                      <div className="flex flex-col gap-2 not-prose">
+                        <textarea
+                          autoFocus
+                          value={captionDraft}
+                          onChange={(e) => setCaptionDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") setEditingCaption(false);
+                          }}
+                          placeholder="Paste the original caption…"
+                          className="w-full min-h-[180px] resize-y bg-transparent border border-border focus:border-foreground outline-none rounded-lg p-3 text-sm leading-relaxed"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button onClick={saveCaption} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background rounded-md text-xs font-medium hover:opacity-90">
+                            <Check className="w-3.5 h-3.5" /> Save
+                          </button>
+                          <button onClick={() => setEditingCaption(false)} className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setCaptionDraft(video.caption ?? ""); setEditingCaption(true); }}
+                        className="group block w-full text-left hover:bg-muted/20 rounded-md -m-2 p-2 transition-colors"
+                        title="Click to edit caption"
+                      >
+                        <span className={cn(video.caption ? "" : "text-muted-foreground italic")}>
+                          {video.caption ?? "(no caption — click to add one)"}
+                        </span>
+                        <Pencil className="inline-block ml-2 w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity align-baseline" />
+                      </button>
+                    ))}
                     {activeTab === "transcript" && (video.transcript ?? "(no transcript)")}
                     {activeTab === "visual" && renderVisualSegments(video.framework_meta)}
                     {activeTab === "hook" && (
