@@ -1296,6 +1296,73 @@ export default function ViralToday() {
     fetchVideos();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Background backfill: categorize analyzed-but-uncategorized videos ─────
+  // The /viral-video-categorize edge function runs per-video and was previously
+  // only fired by ViralVideoDetail when an admin opened a video. That left
+  // most videos with content_format=NULL so they never appeared in any
+  // format tab. Here we drain that backlog quietly on the landing: batches
+  // of 5, ~1s spacing, only for admins, only IDs we haven't tried this session.
+  const categorizeAttempted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isAdmin || !user) return;
+    if (videos.length === 0) return;
+
+    const pending = videos
+      .filter((v) => v.analysis_status === "analyzed")
+      .filter((v) => !v.content_format || !v.primary_niche)
+      .filter((v) => !categorizeAttempted.current.has(v.id))
+      .map((v) => v.id);
+
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    const BATCH = 5;
+    const GAP_MS = 1000;
+
+    (async () => {
+      const token = await getAuthToken();
+      for (let i = 0; i < pending.length; i += BATCH) {
+        if (cancelled) return;
+        const slice = pending.slice(i, i + BATCH);
+        slice.forEach((id) => categorizeAttempted.current.add(id));
+        await Promise.all(
+          slice.map(async (id) => {
+            try {
+              const res = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-categorize`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ viral_video_id: id }),
+                },
+              );
+              if (!res.ok) return;
+              const result = await res.json();
+              if (!cancelled && result?.content_format) {
+                setVideos((prev) =>
+                  prev.map((v) =>
+                    v.id === id
+                      ? { ...v, content_format: result.content_format, primary_niche: result.primary_niche }
+                      : v,
+                  ),
+                );
+              }
+            } catch {
+              // Silent fail — leave the row uncategorized; the next session will retry.
+            }
+          }),
+        );
+        if (i + BATCH < pending.length) {
+          await new Promise((r) => setTimeout(r, GAP_MS));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, user, videos]);
+
   // ── Re-fetch from server when heavy filters change (debounced) ────────────
   const filterGenRef = useRef(0);
   useEffect(() => {
