@@ -469,7 +469,7 @@ export default function ViralVideoDetail() {
   // ==================== RENDER ====================
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="editorial-page min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -480,9 +480,9 @@ export default function ViralVideoDetail() {
   const outlierColor = getOutlierColor(video.outlier_score);
 
   return (
-    <PageTransition className="min-h-screen bg-background">
+    <PageTransition className="editorial-page min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-background/85 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
