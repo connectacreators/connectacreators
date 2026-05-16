@@ -153,7 +153,7 @@ export default function ViralVideoDetail() {
 
   // Save to Vault state
   const [saveClientId, setSaveClientId] = useState("");
-  const [saveMode, setSaveMode] = useState<"idle" | "transcribing" | "analyzing" | "saving" | "done" | "error">("idle");
+  const [saveMode, setSaveMode] = useState<"idle" | "saving" | "done" | "error">("idle");
 
   // Remix state
   const [remixClientId, setRemixClientId] = useState("");
@@ -316,66 +316,34 @@ export default function ViralVideoDetail() {
 
   // ==================== SAVE TO VAULT ====================
   const handleSaveToVault = async () => {
-    if (!video || !saveClientId) return;
-    setSaveMode("transcribing");
-
+    if (!video || !saveClientId || !user) return;
+    setSaveMode("saving");
     try {
-      const token = await getAuthToken();
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-      const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+      // Detect pre-existing row so we can give the right toast.
+      const { data: existing } = await supabase
+        .from("saved_videos")
+        .select("id")
+        .eq("client_id", saveClientId)
+        .eq("viral_video_id", video.id)
+        .maybeSingle();
 
-      // Step 1: Transcribe
-      const transcribeRes = await fetch(`${baseUrl}/functions/v1/transcribe-video`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ url: video.video_url }),
-      });
-      if (!transcribeRes.ok) {
-        const err = await transcribeRes.json().catch(() => ({}));
-        if (err.insufficient_credits) {
-          showOutOfCreditsModal();
-          setSaveMode("idle");
-          return;
-        }
-        throw new Error(err.error || "Transcription failed");
+      if (existing) {
+        setSaveMode("done");
+        toast.info("Already saved to this client's Vault");
+        return;
       }
-      const { transcription } = await transcribeRes.json();
 
-      // Step 2: Analyze
-      setSaveMode("analyzing");
-      const analyzeRes = await fetch(`${baseUrl}/functions/v1/ai-build-script`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ step: "analyze-template", transcription }),
-      });
-      if (!analyzeRes.ok) {
-        const err = await analyzeRes.json().catch(() => ({}));
-        if (err.insufficient_credits) {
-          showOutOfCreditsModal();
-          setSaveMode("idle");
-          return;
-        }
-        throw new Error(err.error || "Analysis failed");
-      }
-      const analysis = await analyzeRes.json();
-
-      // Step 3: Save
-      setSaveMode("saving");
-      const { error: insertError } = await supabase.from("vault_templates").insert({
-        client_id: saveClientId,
-        name: analysis.suggested_name || `@${video.channel_username} template`,
-        source_url: video.video_url,
-        thumbnail_url: video.thumbnail_url,
-        transcription,
-        structure_analysis: analysis.structure_analysis || null,
-        template_lines: analysis.template_lines || null,
-      });
+      const { error: insertError } = await supabase
+        .from("saved_videos")
+        .insert({ client_id: saveClientId, viral_video_id: video.id, saved_by: user.id });
       if (insertError) throw insertError;
 
       setSaveMode("done");
       toast.success("Saved to Vault!");
     } catch (e: any) {
+      console.error(e);
       setSaveMode("error");
+      toast.error(e.message || "Failed to save");
     }
   };
 
@@ -663,22 +631,19 @@ export default function ViralVideoDetail() {
           {clientOptions.length === 1 ? (
             <Button
               onClick={handleSaveToVault}
-              disabled={saveMode !== "idle"}
+              disabled={saveMode === "saving"}
               variant="ghost"
               size="sm"
               className="gap-2"
             >
-              {saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving" ? (
+              {saveMode === "saving" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : saveMode === "done" ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               ) : (
                 <Archive className="w-4 h-4" />
               )}
-              {saveMode === "idle" ? "Save to Vault" :
-               saveMode === "transcribing" ? "Transcribing…" :
-               saveMode === "analyzing" ? "Analyzing…" :
-               saveMode === "saving" ? "Saving…" :
+              {saveMode === "saving" ? "Saving…" :
                saveMode === "done" ? "Saved" :
                saveMode === "error" ? "Failed — retry" : "Save to Vault"}
             </Button>
@@ -694,22 +659,19 @@ export default function ViralVideoDetail() {
               </select>
               <Button
                 onClick={handleSaveToVault}
-                disabled={!saveClientId || saveMode !== "idle"}
+                disabled={!saveClientId || saveMode === "saving"}
                 variant="ghost"
                 size="sm"
                 className="gap-2"
               >
-                {saveMode === "transcribing" || saveMode === "analyzing" || saveMode === "saving" ? (
+                {saveMode === "saving" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : saveMode === "done" ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 ) : (
                   <Archive className="w-4 h-4" />
                 )}
-                {saveMode === "idle" ? "Save" :
-                 saveMode === "transcribing" ? "Transcribing…" :
-                 saveMode === "analyzing" ? "Analyzing…" :
-                 saveMode === "saving" ? "Saving…" :
+                {saveMode === "saving" ? "Saving…" :
                  saveMode === "done" ? "Saved" :
                  saveMode === "error" ? "Retry" : "Save"}
               </Button>

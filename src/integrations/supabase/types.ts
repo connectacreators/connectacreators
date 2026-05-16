@@ -2193,6 +2193,48 @@ export type Database = {
           },
         ]
       }
+      saved_videos: {
+        Row: {
+          id: string
+          client_id: string
+          viral_video_id: string
+          saved_by: string | null
+          saved_at: string
+          note: string | null
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          viral_video_id: string
+          saved_by?: string | null
+          saved_at?: string
+          note?: string | null
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          viral_video_id?: string
+          saved_by?: string | null
+          saved_at?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_videos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_videos_viral_video_id_fkey"
+            columns: ["viral_video_id"]
+            isOneToOne: false
+            referencedRelation: "viral_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scripts: {
         Row: {
           canvas_user_id: string | null

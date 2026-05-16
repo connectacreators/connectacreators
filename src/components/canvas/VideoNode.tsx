@@ -1,8 +1,7 @@
 import { memo, useState, useEffect, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
-import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Eye, Type, Music2, Zap, MicOff, Clock, Play } from "lucide-react";
+import { Film, X, Loader2, Link, ChevronDown, ChevronUp, Sparkles, Archive, Eye, Type, Music2, Zap, MicOff, Clock, Play, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
@@ -256,6 +255,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(d.thumbnailUrl || null);
   const [selectedSections, setSelectedSections] = useState<string[]>(d.selectedSections || ["hook", "body", "cta"]);
   const [savingVault, setSavingVault] = useState(false);
+  const [vaultSaved, setVaultSaved] = useState(false);
   const [thumbStatus, setThumbStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [thumbError, setThumbError] = useState<string | null>(null);
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(d.videoFileUrl || null);
@@ -535,34 +535,29 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   // ─── Save to Vault ───
   const saveToVault = async () => {
     if (!d.clientId) { toast.error("No client selected."); return; }
+    if (!d.viralVideoId) { toast.error("Video still analyzing — try again in a moment."); return; }
     setSavingVault(true);
     try {
-      const token = await getAuthToken();
-
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ step: "analyze-template", transcription: d.transcription, url: urlInput }),
-      });
-      const analysis = await res.json();
-      if (!res.ok) {
-        if (analysis.insufficient_credits) {
-          showOutOfCreditsModal();
-          return;
-        }
-        throw new Error(analysis.error || "Analysis failed");
+      const { data: existing } = await supabase
+        .from("saved_videos")
+        .select("id")
+        .eq("client_id", d.clientId)
+        .eq("viral_video_id", d.viralVideoId)
+        .maybeSingle();
+      if (existing) {
+        toast.info("Already in Vault");
+        setVaultSaved(true);
+        return;
       }
-
-      await supabase.from("vault_templates").insert({
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("saved_videos").insert({
         client_id: d.clientId,
-        name: analysis.suggested_name || "Untitled",
-        source_url: urlInput,
-        transcription: d.transcription,
-        structure_analysis: d.structure || null,
-        template_lines: analysis.template_lines || null,
-        thumbnail_url: thumbnailUrl,
+        viral_video_id: d.viralVideoId,
+        saved_by: user?.id ?? null,
       });
+      if (error) throw error;
       toast.success("Saved to Vault!");
+      setVaultSaved(true);
     } catch (e: any) {
       toast.error(e.message || "Vault save failed");
     } finally {
@@ -590,6 +585,20 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Detect if this viral_video is already saved in the client's Vault
+  useEffect(() => {
+    if (!d.viralVideoId || !d.clientId) return;
+    let cancelled = false;
+    supabase
+      .from("saved_videos")
+      .select("id")
+      .eq("client_id", d.clientId)
+      .eq("viral_video_id", d.viralVideoId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setVaultSaved(true); });
+    return () => { cancelled = true; };
+  }, [d.viralVideoId, d.clientId]);
 
   // Realtime subscription — keep node in sync with viral_videos row
   useEffect(() => {
@@ -1028,11 +1037,18 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
               <div className="px-3 py-2.5 flex gap-2">
                 <button
                   onClick={saveToVault}
-                  disabled={savingVault || !d.clientId}
+                  disabled={savingVault || vaultSaved || !d.clientId || !d.viralVideoId}
+                  title={!d.viralVideoId ? "Analyzing — try again when ready" : undefined}
                   className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(143,208,213,0.25)] bg-[rgba(143,208,213,0.08)] text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
                 >
-                  {savingVault ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
-                  {savingVault ? "Saving..." : "Save to Vault"}
+                  {savingVault ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : vaultSaved ? (
+                    <CheckCircle2 className="w-3 h-3" />
+                  ) : (
+                    <Archive className="w-3 h-3" />
+                  )}
+                  {savingVault ? "Saving..." : vaultSaved ? "Saved" : "Save to Vault"}
                 </button>
               </div>
             )}
