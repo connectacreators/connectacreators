@@ -181,35 +181,59 @@ export default function Dashboard() {
 
       {!activeClient && (
         <>
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
-            style={{
-              fontSize: 26,
-              fontWeight: 500,
-              color: "#141414",
-              letterSpacing: "-0.01em",
-              marginBottom: 4,
-              fontFamily: "'EB Garamond', Georgia, serif",
-            }}
-          >
-            Hi {firstName}.
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
-            style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", marginBottom: 22 }}
-          >
-            {clientsLoading || pendingLoading
-              ? "Loading…"
-              : pendingCount === 0
-                ? clients.length === 0
-                  ? "Add your first client to get started."
-                  : `All caught up across your ${clients.length} client${clients.length === 1 ? "" : "s"}.`
-                : `${pendingCount} client${pendingCount === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
-          </motion.p>
+          {/* Centered header: small Figtree subtitle on top, big EB Garamond H1 below. */}
+          <div style={{ textAlign: "center", marginBottom: 22 }}>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{
+                fontSize: 13,
+                color: "rgba(20,20,20,0.55)",
+                marginBottom: 6,
+                fontFamily: "Figtree, sans-serif",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Hey {firstName}{" "}
+              <motion.span
+                style={{ display: "inline-block", transformOrigin: "70% 70%" }}
+                animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+              >
+                👋
+              </motion.span>
+            </motion.p>
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
+              style={{
+                fontSize: 38,
+                fontWeight: 500,
+                color: "#141414",
+                letterSpacing: "-0.015em",
+                marginBottom: 6,
+                fontFamily: "'EB Garamond', Georgia, serif",
+              }}
+            >
+              What are we doing today?
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
+              style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}
+            >
+              {clientsLoading || pendingLoading
+                ? "Loading…"
+                : pendingCount === 0
+                  ? clients.length === 0
+                    ? "Add your first client to get started."
+                    : `All caught up across your ${clients.length} client${clients.length === 1 ? "" : "s"}.`
+                  : `${pendingCount} client${pendingCount === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
+            </motion.p>
+          </div>
 
           {rosterClients.length > 0 && (
             <motion.section

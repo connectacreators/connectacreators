@@ -63,14 +63,18 @@ function buildFolders(clientId: string | null): Folder[] {
     {
       key: "setup",
       label: "Client Set Up",
+      // When no client is active, client-scoped tools land on /clients so the user
+      // can pick one — instead of self-routing back to /dashboard (the old "looks
+      // broken" behavior). Brand Setup keeps /onboarding (its agency-wide entry
+      // point) and Database keeps /master-database (a real agency-level page).
       tools: [
-        { label: "Content Strategy", icon: BarChart3,  path: c ? `/clients/${c}/strategy`         : "/dashboard" },
+        { label: "Content Strategy", icon: BarChart3,  path: c ? `/clients/${c}/strategy`         : "/clients" },
         { label: "Brand Setup",      icon: Sparkles,   path: c ? `/onboarding/${c}`               : "/onboarding" },
-        { label: "Public Booking",   icon: Globe,      path: c ? `/clients/${c}/booking-settings` : "/dashboard" },
-        { label: "Landing Page",     icon: Zap,        path: c ? `/clients/${c}/landing-page`     : "/" },
+        { label: "Public Booking",   icon: Globe,      path: c ? `/clients/${c}/booking-settings` : "/clients" },
+        { label: "Landing Page",     icon: Zap,        path: c ? `/clients/${c}/landing-page`     : "/clients" },
         { label: "Database",         icon: Database,   path: c ? `/clients/${c}/database`         : "/master-database" },
-        { label: "Contracts",        icon: ScrollText, path: c ? `/clients/${c}/contracts`        : "/dashboard" },
-        { label: "Social Accounts",  icon: Share2,     path: c ? `/clients/${c}/social-accounts`  : "/dashboard" },
+        { label: "Contracts",        icon: ScrollText, path: c ? `/clients/${c}/contracts`        : "/clients" },
+        { label: "Social Accounts",  icon: Share2,     path: c ? `/clients/${c}/social-accounts`  : "/clients" },
       ],
     },
   ];
