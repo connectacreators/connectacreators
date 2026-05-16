@@ -662,26 +662,28 @@ All colors MUST be HSL for consistency and theming.
 /* Row pulse for AI plan previews — gently fades the row 1 → 0.55 → 1
    while a propose_plan card is awaiting approval. Subtle ambient cue so
    the user knows which rows are about to change. */
-/* AI plan-preview selection ring — rows targeted by a pending propose_plan
-   pulse with an aqua editorial highlight so the user sees which items Robby
-   is about to touch before approving. <tr> boxes don't reliably render
-   inset box-shadows across all browsers, so we use a per-cell outline
-   approach: tint the row background and outline every cell with an aqua
-   border that pulses opacity. */
+/* AI plan-preview selection — rows targeted by a pending propose_plan get
+   a tinted fill + a single outside aqua border that pulses opacity. No
+   inner stroke so the rows don't read as double-bordered. */
 @keyframes ai-row-pulse {
   0%, 100% {
     background-color: rgba(143,208,213,0.10);
-    box-shadow: inset 0 0 0 2px rgba(143,208,213,0.55);
+    border-color: rgba(143,208,213,0.55) !important;
   }
   50% {
     background-color: rgba(143,208,213,0.18);
-    box-shadow: inset 0 0 0 2px rgba(143,208,213,1.00);
+    border-color: rgba(143,208,213,1.00) !important;
   }
 }
 .ai-preview-pulse,
 .ai-preview-pulse > td,
 .ai-preview-pulse > th {
   animation: ai-row-pulse 1.6s ease-in-out infinite;
+}
+.ai-preview-pulse > td,
+.ai-preview-pulse > th {
+  border-top: 2px solid rgba(143,208,213,0.85) !important;
+  border-bottom: 2px solid rgba(143,208,213,0.85) !important;
 }
 .ai-preview-pulse > td:first-child,
 .ai-preview-pulse > th:first-child {
@@ -1269,3 +1271,80 @@ All colors MUST be HSL for consistency and theming.
 .btn-17-primary { background: hsl(var(--aqua)); color: hsl(var(--ink)); position: relative; }
 .btn-17-secondary { background: hsl(var(--graphite)); border: 1px solid hsl(var(--aqua) / 0.30); color: hsl(var(--aqua)); }
 .btn-17 { background: hsl(var(--graphite)); border: 1px solid hsl(var(--bone) / 0.08); color: hsl(var(--bone) / 0.70); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   /ai live broadcast — editorial scenes + embeds
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap');
+
+.broadcast-card {
+  background: linear-gradient(180deg, #fdf3d6 0%, #f0e3b8 100%);
+  color: #1a1410;
+  border: 2px solid #1a1410;
+  border-radius: 12px;
+  box-shadow: 5px 6px 0 rgba(0, 0, 0, 0.50);
+}
+.broadcast-card-sm {
+  background: #fff8e8;
+  color: #1a1410;
+  border: 1.5px solid #1a1410;
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+.scribble-wavy {
+  text-decoration: underline wavy rgba(176, 72, 72, 0.55);
+  text-decoration-thickness: 1.5px;
+  color: #b04848;
+  font-style: italic;
+}
+.font-caveat { font-family: 'Caveat', cursive; }
+.font-jetbrains { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+@keyframes broadcast-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes broadcast-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+@keyframes broadcast-type-in {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes spin {
+  from { transform: rotate(0); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes scanline {
+  0%, 100% { top: 0; }
+  50%      { top: calc(100% - 3px); }
+}
+@keyframes pb-fill { to { width: 100%; } }
+@keyframes playhead-sweep { to { left: calc(100% - 2px); } }
+@keyframes think-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(143,208,213,0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(143,208,213,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="broadcast-fade-in"],
+  [style*="broadcast-type-in"],
+  [style*="bar-grow"],
+  [style*="playhead-sweep"],
+  [style*="pb-fill"] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+  [style*="broadcast-pulse"],
+  [style*="think-pulse"],
+  [style*="scanline"] {
+    animation: none !important;
+  }
+}
