@@ -81,13 +81,13 @@ const TOOLS = [
   //  now live in tools/memories.ts as the first-class memory subsystem.)
   {
     name: "find_viral_videos",
-    description: "Search the Viral Today database for viral video references. THIS IS the Viral Today page — the user does NOT need to navigate there to search; this tool queries the same data. Filters by topic (caption/transcript match), primary_niche (canonical slug), content_format (one of 11 slugs), platform, outlier score, recency. Returns videos with caption, transcript snippet, hook_text, cta_text, framework_meta, content_format, primary_niche — enough context to model a script after. Sorted by outlier_score desc. Use anytime the user asks to 'find references', 'search Viral Today', 'look for viral [topic]', or as the data source for generate_ideas_from_viral.",
+    description: "Search the Viral Today database for viral video references. THIS IS the Viral Today page — the user does NOT need to navigate there to search; this tool queries the same data. Every viral_videos row carries a categorized primary_niche (the audience the creator targets) and content_format (the structural pattern of the video) — ALWAYS use these filters when you can infer them, because narrow filters return more relevant references than a topic-only search. Default the niche to the active client's primary_niche (surfaced in the BRAND CONTEXT block). Infer content_format from the user's wording: if they say \"storytelling\" / \"tell a story\" → storytelling; \"funny\" / \"humor\" → funny; \"teach\" / \"explain\" / \"how X works\" → educational; \"how-to\" / \"step by step\" → tutorial; \"X vs Y\" / \"compare\" → comparison; \"top 5\" / \"list\" / \"reasons\" → listicle; \"react to\" / \"hot take\" → reaction; \"my expert opinion\" / \"as a doctor\" → authority; \"day in the life\" / \"behind the scenes\" → vlog; \"closing\" / \"selling\" / \"pitch\" → selling; \"caption-only post\" → caption_post. Returns videos with caption, transcript snippet, hook_text, cta_text, framework_meta, content_format, primary_niche. Sorted by outlier_score desc. Use anytime the user asks to 'find references', 'search Viral Today', 'look for viral [topic]', or as the data source for generate_ideas_from_viral.",
     input_schema: {
       type: "object",
       properties: {
         topic: { type: "string", description: "Optional keyword(s) — matched against caption AND transcript. Omit if filtering purely by niche/format." },
-        niche: { type: "string", description: "Optional primary_niche slug. Canonical values: personal_branding, fitness, sales, real_estate, finance, ecommerce, coaching, saas_tech, beauty, food, mindset, relationships, education, lifestyle, parenting. Other slugs allowed (extensible vocabulary)." },
-        content_format: { type: "string", description: "Optional format slug. One of: caption_post, storytelling, educational, comparison, authority, reaction, listicle, tutorial, vlog, selling, funny." },
+        niche: { type: "string", description: "Optional primary_niche slug — the AUDIENCE/INDUSTRY a creator targets. Canonical: personal_branding (doctors, lawyers, dentists, med spas, attorneys), fitness (PT, nutritionists, chiropractors, gyms), sales, real_estate, finance (CPAs, advisors, insurance), ecommerce (Shopify, DTC), coaching (life/business/career coaches), saas_tech (developers, founders), beauty (estheticians, salons), food (chefs, restaurants), mindset, relationships, education, lifestyle, parenting. Default to the active client's primary_niche (in BRAND CONTEXT). Other slugs allowed." },
+        content_format: { type: "string", description: "Optional format slug — the STRUCTURAL PATTERN of the video. One of: caption_post (static + caption overlay), storytelling (tension→resolution narrative), educational (teaches a concept), comparison (A vs B), authority (speaks with credentials), reaction (responds to another video/event), listicle (numbered list, e.g. '3 reasons'), tutorial (how-to step-by-step), vlog (day-in-the-life), selling (explicit offer/pitch), funny (comedic). Infer from the user's wording — see tool description." },
         platform: { type: "string", description: "Optional: instagram, tiktok, youtube" },
         min_outlier: { type: "number", description: "Minimum outlier score (default 3). Lower for niche searches with thin inventory." },
         days_back: { type: "number", description: "Optional recency window in days. Omit for all-time." },
@@ -703,9 +703,37 @@ serve(async (req) => {
 
     // Build brand context from existing onboarding data
     const od = client.onboarding_data || {};
+    // Derive the canonical primary_niche slug from the free-text industry so
+    // the AI knows EXACTLY what to pass to find_viral_videos / categorization
+    // tools. Kept inline (not imported) so this file stays self-contained.
+    const INDUSTRY_TO_NICHE: Array<[RegExp, string]> = [
+      [/chiropract|physical therap|physio|sports med|wellness|holistic|nutritionist|dietitian/i, "fitness"],
+      [/personal train|fitness|gym|crossfit|yoga|pilates/i, "fitness"],
+      [/realtor|real estate|mortgage|broker|home loan/i, "real_estate"],
+      [/sales|sdr|closer|appointment setter|outbound|cold call/i, "sales"],
+      [/financ|cpa|account|tax|wealth|invest|bookkeep|insurance/i, "finance"],
+      [/coach|consult|mentor|advisor|life coach|business coach/i, "coaching"],
+      [/ecommerce|shopify|amazon fba|dtc|drop ship|online store/i, "ecommerce"],
+      [/saas|software|tech|developer|engineer|startup|founder/i, "saas_tech"],
+      [/beauty|esthetic|skincare|makeup|cosmetic|hair stylist|salon|nail/i, "beauty"],
+      [/food|chef|restaurant|recipe|bakery|cafe/i, "food"],
+      [/mindset|self help|productivity|motivation|stoic/i, "mindset"],
+      [/dating|relationship|marriage|couples therapy/i, "relationships"],
+      [/teach|tutor|education|course creator|professor/i, "education"],
+      [/lifestyle|vlog|travel|fashion|home decor/i, "lifestyle"],
+      [/parent|mom|dad|family|baby|toddler/i, "parenting"],
+      [/lawyer|attorney|immigration|legal|law firm/i, "personal_branding"],
+      [/dentist|doctor|medical|surgeon|clinic|aesthetics|med spa/i, "personal_branding"],
+    ];
+    const derivedNiche = (() => {
+      const ind = od.industry as string | undefined;
+      if (!ind) return null;
+      for (const [re, slug] of INDUSTRY_TO_NICHE) if (re.test(ind)) return slug;
+      return null;
+    })();
     const brandLines = [
       od.clientName && `Client name: ${od.clientName}`,
-      od.industry && `Industry: ${od.industry}`,
+      od.industry && `Industry: ${od.industry}${derivedNiche ? ` → primary_niche slug: ${derivedNiche} (USE THIS slug when calling find_viral_videos)` : ""}`,
       od.uniqueOffer && `Unique offer: ${od.uniqueOffer}`,
       od.targetClient && `Target audience: ${od.targetClient}`,
       od.uniqueValues && `Key values: ${od.uniqueValues}`,
@@ -826,6 +854,11 @@ YOUR RULES — FOLLOW EXACTLY:
 16. WHAT'S NEXT: When asked "what to do", "what's next", "now what" — read the CLIENT STRATEGY section already in your context. You already know the goals and gaps. Give a specific numbers-driven recommendation immediately. No need to call get_client_strategy first — it's already loaded above.
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
+
+18-NICHE/FORMAT AWARENESS: Every viral_videos row is tagged with a primary_niche (audience/industry the creator targets — see the BRAND CONTEXT block for the active client's slug) and a content_format (structural pattern: storytelling, educational, comparison, listicle, tutorial, vlog, reaction, authority, selling, funny, caption_post). When you call find_viral_videos:
+- ALWAYS pass the niche param — default to the client's primary_niche slug from BRAND CONTEXT unless the user explicitly asks for cross-niche inspiration ("show me what's working in fitness for my real-estate client").
+- INFER the content_format param from the user's wording and pass it. Examples: "tell a story" / "share an experience" → storytelling · "explain how X works" / "teach" → educational · "how-to" / "step by step" → tutorial · "X vs Y" / "comparing two things" → comparison · "top 3" / "5 reasons" → listicle · "react to" / "hot take on" → reaction · "as a doctor I" / "expert perspective" → authority · "day in my life" / "behind the scenes" → vlog · "pitch" / "selling" / "close" → selling · "funny" / "comedy" / "skit" → funny · "text overlay only" → caption_post.
+- Niche+format filtering produces 10x more relevant references than topic-only searches. Always combine the two when both can be inferred. When the user asks something open-ended ("give me hook ideas"), pull the client's primary_niche + a high-engagement format like storytelling or educational.
 18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
 18c. PREVIEW BIG ACTIONS: Before executing (a) 3+ writes in one turn (e.g. bulk_schedule_posts of 5 posts) OR (b) ANY destructive action (delete_script, update_lead_status to lost/closed, send_contract, mark_post_published, permanent_delete_editing_item (ALWAYS requires plan, even in Auto mode), large strategy changes), call propose_plan first with a structured list of steps. Then ASK the user "approve to proceed?" in your reply. ONLY when the user says yes/approve/go-ahead, call confirm_plan(plan_id) and execute the steps. If the user says no, call reject_plan(plan_id). Do NOT propose for single-step non-destructive writes — those should just execute. The autonomy mode field overrides this: in "auto" mode skip the proposal and execute; in "ask" or "plan" modes follow this rule strictly.
 
