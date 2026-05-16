@@ -63,6 +63,41 @@ function parseScriptDraft(text: string): { title?: string; hook: string; body: s
   return { title, hook, body, cta };
 }
 
+/**
+ * Heuristic fallback for the common case where the agent writes a hook
+ * inside a quoted block instead of using TITLE/Hook/Body/CTA labels:
+ *
+ *   I have enough context to write a strong 30-second hook…
+ *   ---
+ *   "Most people who start treatment feel amazing after week one. Week
+ *    two is where they quit — and that one decision costs them months
+ *    of progress…"
+ *   ---
+ *
+ * Finds the longest straight or curly-quoted block ≥ 40 chars and
+ * treats it as a single-section "Hook" draft. Returns null if no
+ * substantial quoted block is found.
+ */
+function extractQuotedHook(text: string): { hook: string } | null {
+  if (!text) return null;
+  // Match either "...." or "...." or "...." spanning across lines.
+  const candidates: string[] = [];
+  const patterns = [
+    /"([^"]{40,}?)"/gs,    // straight quotes
+    /["]([^"]{40,}?)["]/gs,  // typographic
+  ];
+  for (const re of patterns) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      candidates.push(m[1].trim());
+    }
+  }
+  if (candidates.length === 0) return null;
+  // Take the longest — that's almost always the actual hook draft.
+  candidates.sort((a, b) => b.length - a.length);
+  return { hook: candidates[0] };
+}
+
 interface ThreadRow {
   id: string;
   title: string | null;
@@ -522,8 +557,8 @@ export default function CommandCenter() {
       }
       // Detect a script draft eagerly — when present, attach a live broadcast
       // turn to the assistant text message so AssistantChat renders the
-      // DraftingScene animation. The existing script_preview synthetic still
-      // appears below, providing the Save button.
+      // DraftingScene. The existing script_preview synthetic still appears
+      // below, providing the Save button.
       const draft = m.role === "assistant" && content ? parseScriptDraft(content) : null;
       const draftSections = draft
         ? ([
@@ -533,17 +568,30 @@ export default function CommandCenter() {
           ].filter(Boolean) as Array<{ tag: string; body: string }>)
         : [];
 
+      // Fallback: if the strict TITLE/Hook/Body/CTA parse failed but the
+      // assistant returned a quoted block ≥ 40 chars (the common shape for
+      // hook-only drafts), surface the quote as a single-section Hook card.
+      const quotedHook = !draft && m.role === "assistant" && content
+        ? extractQuotedHook(content)
+        : null;
+      const fallbackSections: Array<{ tag: string; body: string }> = quotedHook
+        ? [{ tag: "Hook", body: quotedHook.hook }]
+        : [];
+
+      const broadcastSections = draftSections.length > 0 ? draftSections : fallbackSections;
+      const broadcastTitle = draft?.title ? `Drafting: ${draft.title}` : "Hook draft";
+
       out.push({
         role: m.role as "user" | "assistant",
         content,
         is_progress: (m.content as any)?.is_progress === true,
-        broadcast: draft && draftSections.length > 0
+        broadcast: broadcastSections.length > 0
           ? {
               scenes: [{
                 type: "drafting" as const,
-                verb: draft.title ? `Drafting: ${draft.title}` : "Drafting…",
+                verb: broadcastTitle,
                 meta: "claude · live",
-                payload: { sections: draftSections },
+                payload: { sections: broadcastSections },
               }],
               narrative: "",
               embeds: [],
