@@ -1114,8 +1114,8 @@ export default function ViralToday() {
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState("12months");
   const [filterPlatform, setFilterPlatform] = useState("all");
-  const [filterOutlier, setFilterOutlier] = useState("2.5");
-  const [filterViews, setFilterViews] = useState("0");
+  const [filterOutlier, setFilterOutlier] = useState("5");
+  const [filterViews, setFilterViews] = useState("100000");
   const [filterEngagement, setFilterEngagement] = useState("0");
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [filterSource, setFilterSource] = useState("all"); // "all" | "channels" | "discovered"
@@ -1812,8 +1812,8 @@ export default function ViralToday() {
   const FILTER_DEFAULTS: FiltersPanelValue = {
     date: "12months",
     platform: "all",
-    outlier: "2.5",
-    views: "0",
+    outlier: "5",
+    views: "100000",
     engagement: "0",
     source: "all",
     featuredOnly: false,
@@ -2072,11 +2072,9 @@ export default function ViralToday() {
                     isActive={filterSort !== "foryou"}
                   />
 
-                </div>
-
-                {/* Filters button + format tabs — channel selection lives inside the
-                    Filters popover (was a standalone ChannelChip row before). */}
-                <div className="flex items-center justify-end gap-3 mb-3">
+                  {/* Filters button — channels + niche + date/views/outlier/etc
+                      live inside this single popover so this row is the one
+                      and only filter surface above the format tabs. */}
                   <FiltersPanel
                     value={filtersValue}
                     defaults={FILTER_DEFAULTS}
