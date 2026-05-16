@@ -1002,6 +1002,7 @@ const getSortOpts = (t: any): DropdownOption[] => [
 export default function ViralToday() {
   const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
   const { credits, refetch: refetchCredits } = useCredits();
+  const navigate = useNavigate();
   const [lang, setLang] = useState<Language>("en");
   const t = TRANSLATIONS[lang];
 
@@ -1598,7 +1599,20 @@ export default function ViralToday() {
         // Analysis can fail even when the row was inserted. Still surface the row
         // (it'll show as failed and the user can retry on the detail page).
         if (data.id) {
-          toast.warning(`Framework added but analysis failed — @${data.channel_username}`);
+          const handle = data.channel_username && data.channel_username !== "unknown"
+            ? ` @${data.channel_username}`
+            : "";
+          const reason = typeof data.error === "string" ? data.error.split(":")[0] : null;
+          toast.warning(
+            `Framework added but analysis failed${handle}${reason ? ` (${reason})` : ""}. Open the video to retry.`,
+            {
+              action: {
+                label: "Open",
+                onClick: () => navigate(`/viral-today/video/${data.id}`),
+              },
+              duration: 8000,
+            },
+          );
           setPasteUrl("");
           fetchVideos();
           return;

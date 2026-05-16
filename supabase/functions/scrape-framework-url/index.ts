@@ -162,9 +162,13 @@ serve(async (req: Request) => {
   }
 
   // Derive channel_username from URL if VPS didn't provide one.
-  const usernameMatch = url.match(/instagram\.com\/(?:reels?\/|p\/)?@?([^/?#\s]+)/i)
-    ?? url.match(/tiktok\.com\/@?([^/?#\s]+)/i)
-    ?? url.match(/youtube\.com\/@([^/?#\s]+)/i);
+  // IG: prefer URLs that actually embed the username (e.g. /username/reel/SHORTCODE/).
+  // Reject the `/reel/SHORTCODE/` shape — that has no username, and the previous
+  // regex was incorrectly capturing the shortcode itself (e.g. "DSTGcg9DkLW").
+  const usernameMatch =
+    url.match(/instagram\.com\/([a-zA-Z0-9_.]+)\/(?:reels?|p)\//i)
+    ?? url.match(/tiktok\.com\/@?([a-zA-Z0-9_.]+)/i)
+    ?? url.match(/youtube\.com\/@([a-zA-Z0-9_.-]+)/i);
   const channelUsername = String(
     (vpsData?.owner_username as string | undefined)
     ?? usernameMatch?.[1]

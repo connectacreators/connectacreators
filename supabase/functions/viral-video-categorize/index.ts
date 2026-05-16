@@ -75,20 +75,42 @@ Deno.serve(async (req) => {
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!anthropicKey) return json({ error: "anthropic_missing_key" }, 500);
 
-  const prompt = `Classify this video into a content_format (closed enum) and a primary_niche (canonical-preferred, extensible).
+  const prompt = `Classify this video into ONE content_format and ONE primary_niche.
 
 content_format MUST be EXACTLY one of these 11:
 - caption_post: text-on-screen + music, no spoken narration
-- storytelling: personal anecdote, origin story, narrative
-- educational: teaches a concept or framework (theory > steps)
-- comparison: X vs Y, before/after
-- authority: strong stance, hot take, calls out misconception
-- reaction: responds to another video/trend/content
-- listicle: "Top 5", enumerated structure
-- tutorial: procedural step-by-step
-- vlog: day-in-the-life, behind-the-scenes
-- selling: product-focused with CTA
-- funny: comedy/skit/parody
+- storytelling: personal anecdote/origin story/lived experience as the spine
+- educational: explains a concept or framework conceptually (theory-first, not steps)
+- comparison: X vs Y framing, split-screen, before/after, "this person did X vs Y"
+- authority: strong stance / hot take / "everyone is wrong about X" / contrarian claim
+- reaction: directly responds to another creator's video, trend, or news clip
+- listicle: enumerated "Top N", "5 things", numbered countdown
+- tutorial: procedural step-by-step "do this, then this" / "how to" demonstration
+- vlog: day-in-the-life, behind-the-scenes, lifestyle footage
+- selling: product-centered with explicit purchase CTA
+- funny: comedy / skit / parody where humor is the primary purpose
+
+PRIORITY RULES — apply IN THIS ORDER. The first rule that matches WINS, ignore later candidates:
+1. Split-screen, side-by-side panels, "X vs Y" framing visible on screen, or explicit before/after → comparison
+2. Numbered list visible on screen or spoken ("1...", "2...", "Top 5", "3 things") → listicle
+3. Direct response to another video/clip/trend (stitch, duet, "let me react to this") → reaction
+4. Day-in-the-life / behind-the-scenes / "come with me" / lifestyle vlog footage → vlog
+5. Pure text-on-screen narrative with music, no voice → caption_post
+6. Comedy skit / character / parody where the joke IS the content → funny
+7. Step-by-step procedural demonstration ("first do X, then Y") → tutorial
+8. Contrarian / "you're wrong about X" / hot take with strong claim → authority
+9. Product-centric with buy/get/order CTA → selling
+10. Personal narrative ("when I was…", "this happened to me") → storytelling
+11. Concept/framework explanation, no specific procedure → educational
+
+EXAMPLES:
+- "$1,000 Salesman vs $1M Salesman" split-screen → comparison (rule 1 wins over tutorial)
+- "5 things I wish I knew before launching" → listicle (rule 2 wins over educational)
+- "Reacting to this viral marketing fail" → reaction (rule 3 wins over authority)
+- "Step 1: open the app. Step 2: tap…" → tutorial (rule 7)
+- "Stop telling people to grind. It's killing them." (no split-screen, no list) → authority (rule 8)
+- "Why fascia matters for hip mobility" (concept, no steps) → educational (rule 11)
+- "How I lost 50K followers in a week" (personal narrative) → storytelling (rule 10)
 
 primary_niche: STRONGLY PREFER one of: personal_branding, fitness, sales, real_estate, finance, ecommerce, coaching, saas_tech, beauty, food, mindset, relationships, education, lifestyle, parenting.
 If the video clearly fits none of those (religion, gaming, comedy, politics, true_crime, art, music, etc.), output a new short snake_case slug. EXACTLY ONE niche.
