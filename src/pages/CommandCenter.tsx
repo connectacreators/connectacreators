@@ -19,7 +19,7 @@
 // Reads threads + messages from `assistant_threads` / `assistant_messages`
 // (Phase A foundation; second surface using the new tables after CompanionDrawer).
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -216,6 +216,14 @@ export default function CommandCenter() {
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Voice input via Web Speech API. Pattern matches CanvasAIPanel.tsx so the
+  // two assistants behave identically.
+  const [recognizing, setRecognizing] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  // AbortController for the in-flight companion-chat fetch. Stop button
+  // aborts this; the fetch path uses raw fetch so the signal actually
+  // cancels the network call (functions.invoke doesn't accept signal).
+  const abortControllerRef = useRef<AbortController | null>(null);
   // Latest pending plan proposal — rendered as an inline card under the
   // assistant's reply with Approve / Reject buttons. Cleared when the
   // user clicks either, or when a new plan arrives. Only one shown at a
@@ -403,6 +411,45 @@ export default function CommandCenter() {
     [en],
   );
 
+  /**
+   * Toggle Web Speech API recording. Mirrors CanvasAIPanel.toggleVoice so the
+   * two assistants behave identically. Result is appended to the input field.
+   */
+  const toggleVoice = useCallback(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error(en ? "Voice input not supported in this browser" : "Entrada de voz no soportada en este navegador");
+      return;
+    }
+    if (recognizing) {
+      recognitionRef.current?.stop();
+      setRecognizing(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = en ? "en-US" : "es-ES";
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      const transcript = e.results[0]?.[0]?.transcript || "";
+      if (transcript) {
+        setInput((prev) => (prev ? prev + " " + transcript : transcript));
+      }
+    };
+    rec.onerror = () => setRecognizing(false);
+    rec.onend = () => setRecognizing(false);
+    recognitionRef.current = rec;
+    rec.start();
+    setRecognizing(true);
+  }, [recognizing, en]);
+
+  /** Stop the in-flight companion-chat request. */
+  const stopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setSending(false);
+  }, []);
+
   // ── Send a message via companion-chat (dual-writes to new tables) ──────
   // Accepts an optional override so callers (e.g. the InlineScriptPreview
   // Approve button) can send a synthetic message without going through the
@@ -422,21 +469,37 @@ export default function CommandCenter() {
     };
     setMessages((prev) => [...prev, optimistic]);
 
+    // Fresh AbortController so the Stop button can interrupt this request.
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) return;
-      const { data } = await supabase.functions.invoke("companion-chat", {
-        body: {
+
+      // Raw fetch so we can pass the AbortSignal (functions.invoke doesn't
+      // expose it). Falls through to the same response shape consumed below.
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/companion-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: ANON,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           message: text,
           companion_name: companionName,
           current_path: path,
           autonomy_mode: autonomyMode,
           thread_id: activeThreadId ?? null,
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+        signal: controller.signal,
       });
+      const data = await res.json().catch(() => null);
 
       // Activate the thread from the response so Realtime subscription fires
       const returnedThreadId = data?.thread_id as string | undefined;
@@ -519,7 +582,19 @@ export default function CommandCenter() {
 
       await loadThreads();
       void refreshTasks();
+    } catch (err: any) {
+      // Abort is a clean user action — silently drop the pending optimistic
+      // message and let UI return to idle. Other errors surface a toast.
+      if (err?.name === "AbortError") {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      } else {
+        console.error("[ai] handleSend error:", err);
+        toast.error(en ? "Failed to send. Try again." : "Error al enviar. Inténtalo de nuevo.");
+      }
     } finally {
+      // Only clear the controller if it's still ours (stopGeneration may have
+      // already nulled it).
+      if (abortControllerRef.current === controller) abortControllerRef.current = null;
       setSending(false);
     }
   }, [
@@ -534,6 +609,8 @@ export default function CommandCenter() {
     refreshTasks,
     activeThreadId,
     loadMessagesForThread,
+    en,
+    setActiveChat,
   ]);
 
   // ── MsgRow[] → AssistantMessage[] for AssistantChat ────────────────────
@@ -750,10 +827,13 @@ export default function CommandCenter() {
                         value={input}
                         onChange={setInput}
                         onSend={handleSend}
+                        onStop={sending ? stopGeneration : undefined}
                         loading={sending}
                         variant="full"
                         placeholder={en ? "Ask anything..." : "Pregunta lo que sea..."}
                         bottomSlot={<CompactModeSelect mode={autonomyMode} setMode={setAutonomyMode} />}
+                        onToggleVoice={toggleVoice}
+                        recognizing={recognizing}
                       />
                     </div>
 
@@ -780,7 +860,7 @@ export default function CommandCenter() {
                 </div>
               ) : (
                 <>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 flex flex-col">
                 <AssistantChat
                   messages={chatMessages}
                   loading={sending}
@@ -809,6 +889,7 @@ export default function CommandCenter() {
                   value={input}
                   onChange={setInput}
                   onSend={handleSend}
+                  onStop={sending ? stopGeneration : undefined}
                   loading={sending}
                   variant="full"
                   placeholder={
@@ -817,6 +898,8 @@ export default function CommandCenter() {
                       : "Pregunta lo que sea..."
                   }
                   bottomSlot={<CompactModeSelect mode={autonomyMode} setMode={setAutonomyMode} />}
+                  onToggleVoice={toggleVoice}
+                  recognizing={recognizing}
                   promptPresets={[
                     {
                       name: en ? "Morning brief" : "Resumen del día",
