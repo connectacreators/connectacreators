@@ -256,7 +256,7 @@ export function ViralVideoPlayer({
             style={{
               height: "100%",
               width: `${duration ? (current / duration) * 100 : 0}%`,
-              background: "var(--aqua)",
+              background: "var(--honey)",
               borderRadius: 4,
               position: "relative",
             }}
@@ -270,7 +270,7 @@ export function ViralVideoPlayer({
                 width: 12,
                 height: 12,
                 borderRadius: "50%",
-                background: "var(--aqua)",
+                background: "var(--honey)",
                 border: "1px solid var(--ink)",
               }}
             />
