@@ -81,15 +81,19 @@ const TOOLS = [
   //  now live in tools/memories.ts as the first-class memory subsystem.)
   {
     name: "find_viral_videos",
-    description: "Search the Viral Today database for viral video references by topic or niche. THIS IS the Viral Today page — the user does NOT need to navigate there to search; this tool queries the same data. Returns videos sorted by outlier score. If no exact matches in our DB, the result includes suggested Instagram/TikTok hashtags + search keywords the user can run manually. Use this anytime the user asks to 'find references', 'search Viral Today', 'look for viral [topic]', etc.",
+    description: "Search the Viral Today database for viral video references. THIS IS the Viral Today page — the user does NOT need to navigate there to search; this tool queries the same data. Filters by topic (caption/transcript match), primary_niche (canonical slug), content_format (one of 11 slugs), platform, outlier score, recency. Returns videos with caption, transcript snippet, hook_text, cta_text, framework_meta, content_format, primary_niche — enough context to model a script after. Sorted by outlier_score desc. Use anytime the user asks to 'find references', 'search Viral Today', 'look for viral [topic]', or as the data source for generate_ideas_from_viral.",
     input_schema: {
       type: "object",
       properties: {
-        topic: { type: "string", description: "Topic or keyword to search (e.g. 'sales', 'fitness', 'immigration attorney')" },
+        topic: { type: "string", description: "Optional keyword(s) — matched against caption AND transcript. Omit if filtering purely by niche/format." },
+        niche: { type: "string", description: "Optional primary_niche slug. Canonical values: personal_branding, fitness, sales, real_estate, finance, ecommerce, coaching, saas_tech, beauty, food, mindset, relationships, education, lifestyle, parenting. Other slugs allowed (extensible vocabulary)." },
+        content_format: { type: "string", description: "Optional format slug. One of: caption_post, storytelling, educational, comparison, authority, reaction, listicle, tutorial, vlog, selling, funny." },
         platform: { type: "string", description: "Optional: instagram, tiktok, youtube" },
-        limit: { type: "number", description: "Number of results to return (default 5, max 10)" },
+        min_outlier: { type: "number", description: "Minimum outlier score (default 3). Lower for niche searches with thin inventory." },
+        days_back: { type: "number", description: "Optional recency window in days. Omit for all-time." },
+        limit: { type: "number", description: "Number of results (default 8, max 25)." },
       },
-      required: ["topic"],
+      required: [],
     },
   },
   {
@@ -826,6 +830,35 @@ Do NOT call bulk_* tools directly without going through propose_plan first for e
 - This rule applies in ask/plan autonomy modes. In auto mode, skip the card and just execute (the bulk tools themselves emit highlight_items, so the user still sees the pulse).
 19. USE TOOLS: every tool you have is documented in your tool descriptions — read them and call the right one. Don't describe what you'd do or paraphrase — do it. If the user asks something that maps to a tool (read or write), call the tool first, then summarize the result conversationally.
 
+20. IDEA GENERATION CONTEXT FLOW: when the user asks for MULTIPLE content ideas ("give me 15 ideas", "10 reels for X", "ideate", "brainstorm content"), follow this sequence — never just call find_viral_videos and improvise.
+
+   STEP A — RESOLVE TARGET CLIENT (silently, in your reasoning):
+   - URL-locked (active client section above is set)? → use that client. Do NOT name-match.
+   - Agency view + user named a client? → use that name as client_name; the resolver fuzzy-matches.
+   - Agency view + no client named? → ask once: "for which client?" Don't call list_all_clients unless they say "what are my options".
+
+   STEP B — READ WHAT'S ALREADY IN YOUR CONTEXT:
+   - The "Onboarding data" block above has industry, story, audience, offer, values for the locked client.
+   - The "CLIENT STRATEGY" block has mix_reach/mix_trust/mix_convert, audience_score, cta_goal.
+   - You do NOT need to call get_client_info or get_client_strategy for the locked client — it's already injected. Only fetch when targeting a DIFFERENT client (agency view).
+
+   STEP C — CONTEXT QUALITY CHECK:
+   - If onboarding for the target client is missing industry OR story OR target audience, OR audience_score is below 5, STOP. Tell the user in one sentence what's thin and ask whether to (a) generate anyway with weaker grounding, or (b) fix onboarding first. Wait for their answer.
+
+   STEP D — PARSE OVERRIDES FROM THE USER'S MESSAGE:
+   - count: the number they asked for (default 10 if vague).
+   - niche: did they name a niche different from the client's industry? ("15 ideas in the sales niche", "give me fitness ideas for Calvin") → pass as niche override.
+   - formats: did they name a format? ("15 funny reels", "10 educational ideas") → pass as formats override.
+   - topic_hint: did they name a topic? ("about lead magnets", "around morning routines") → pass as topic_hint.
+   - mix_override: did they specify a mix? ("all sales-focused", "more trust content") → adjust mix_override.
+
+   STEP E — CALL generate_ideas_from_viral WITH EXPLICIT PARAMS:
+   Do NOT collapse this into a one-shot find_viral_videos + improvisation. The dedicated tool pulls bucketed references (reach/trust/convert), grounds in transcripts and framework_meta, and respects the user's overrides explicitly.
+
+   STEP F — PRESENT:
+   - Read back the tool's output. Don't re-list every idea — surface the bucket distribution and ask which one to script first. The tool already returns a numbered list; let the UI show it.
+   - If the tool said references were thin, say so honestly: "the database is light on <niche> right now — these are partially generated from your profile. Want me to scrape a reference channel?"
+
 19b. NEVER PROMISE WITHOUT EXECUTING: phrases like "Let me…", "I'll get the…", "I'll pull up…", "Now I'll…", "Let me check…", "First I'll…" MUST be followed by an actual tool call in the SAME response. If you write a "Let me X" sentence and then return text with no tool call, the user gets a dead-end reply and nothing happens. BANNED patterns when you have not yet called a tool this turn:
 - "Let me get the list of …"
 - "I'll start by pulling up …"
@@ -1106,15 +1139,25 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         }
 
         if (block.name === "find_viral_videos") {
-          const { topic, platform, limit = 5 } = block.input;
+          const { topic, niche, content_format, platform, min_outlier = 3, days_back, limit = 8 } = block.input;
+          const cap = Math.min(Math.max(1, limit), 25);
           let query = adminClient
             .from("viral_videos")
-            .select("id, channel_username, platform, caption, views_count, likes_count, outlier_score, video_url, thumbnail_url")
-            .gte("outlier_score", 3)
+            .select("id, channel_username, platform, caption, transcript, views_count, likes_count, comments_count, engagement_rate, outlier_score, video_url, thumbnail_url, hook_text, cta_text, framework_meta, content_format, primary_niche, posted_at")
+            .gte("outlier_score", min_outlier)
             .order("outlier_score", { ascending: false })
-            .limit(Math.min(limit, 10));
-          if (topic) query = query.ilike("caption", "%" + topic + "%");
+            .limit(cap);
+          if (topic) {
+            const safe = String(topic).replace(/[%,]/g, "");
+            query = query.or(`caption.ilike.%${safe}%,transcript.ilike.%${safe}%`);
+          }
+          if (niche) query = query.eq("primary_niche", String(niche).toLowerCase());
+          if (content_format) query = query.eq("content_format", String(content_format).toLowerCase());
           if (platform) query = query.eq("platform", platform);
+          if (days_back && Number(days_back) > 0) {
+            const cutoff = new Date(Date.now() - Number(days_back) * 86_400_000).toISOString();
+            query = query.gte("posted_at", cutoff);
+          }
           const { data: videos } = await query;
 
           // Helper: build IG/TikTok search keywords from a topic so an ADMIN
@@ -1146,27 +1189,65 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             ].join("\n");
           };
 
+          const fmtFiltersUsed = (): string => {
+            const parts: string[] = [];
+            if (topic) parts.push(`topic="${topic}"`);
+            if (niche) parts.push(`niche=${niche}`);
+            if (content_format) parts.push(`format=${content_format}`);
+            if (platform) parts.push(`platform=${platform}`);
+            if (days_back) parts.push(`last ${days_back}d`);
+            parts.push(`outlier>=${min_outlier}`);
+            return parts.join(", ");
+          };
+
+          const fmtVideo = (v: any) => {
+            const handle = `@${v.channel_username}`;
+            const plat = v.platform ?? "?";
+            const views = (v.views_count ?? 0).toLocaleString();
+            const out = v.outlier_score?.toFixed?.(1) ?? v.outlier_score ?? "?";
+            const eng = v.engagement_rate ? `${v.engagement_rate}%` : "?";
+            const fmt = v.content_format ?? "uncategorized";
+            const nch = v.primary_niche ?? "?";
+            const cap = (v.caption ?? "").slice(0, 180);
+            const tx = (v.transcript ?? "").slice(0, 220);
+            const hook = v.hook_text ? `Hook: ${v.hook_text}` : "";
+            const cta = v.cta_text ? `CTA: ${v.cta_text}` : "";
+            const fm = v.framework_meta ? `Framework: ${typeof v.framework_meta === "string" ? v.framework_meta.slice(0, 200) : JSON.stringify(v.framework_meta).slice(0, 200)}` : "";
+            const lines = [
+              `${handle} (${plat}) — ${views} views, ${eng} eng, ${out}x outlier — [${fmt} / ${nch}]`,
+              `Caption: ${cap}`,
+              tx && `Transcript: ${tx}`,
+              hook,
+              cta,
+              fm,
+              v.video_url && `URL: ${v.video_url}`,
+            ].filter(Boolean);
+            return lines.join("\n");
+          };
+
           if (!videos || videos.length === 0) {
-            // Fallback: top viral videos regardless of caption match
+            // Fallback: top viral videos regardless of filters
             const { data: fallback } = await adminClient
               .from("viral_videos")
-              .select("id, channel_username, platform, caption, views_count, outlier_score, video_url")
+              .select("id, channel_username, platform, caption, views_count, outlier_score, content_format, primary_niche, video_url")
               .gte("outlier_score", 5)
               .order("outlier_score", { ascending: false })
               .limit(5);
             const info = (fallback || []).map((v: any) =>
-              "@" + v.channel_username + " (" + v.platform + ") — " + (v.views_count || 0).toLocaleString() + " views, outlier score " + v.outlier_score + ". Caption: " + (v.caption || "").slice(0, 100)
+              `@${v.channel_username} (${v.platform}) — ${(v.views_count ?? 0).toLocaleString()} views, ${v.outlier_score}x outlier — [${v.content_format ?? "?"} / ${v.primary_niche ?? "?"}]. Caption: ${(v.caption ?? "").slice(0, 120)}`
             ).join("\n\n");
             toolResults.push({
               type: "tool_result",
               tool_use_id: block.id,
-              content: `No exact matches in our database for "${topic ?? ""}". Top viral videos overall:\n${info}\n${buildSearchHints(topic)}`,
+              content: `No matches in our database for filters [${fmtFiltersUsed()}]. Top viral videos overall:\n${info}\n${buildSearchHints(topic)}`,
             });
           } else {
-            const info = videos.map((v: any) =>
-              "@" + v.channel_username + " (" + v.platform + ") — " + (v.views_count || 0).toLocaleString() + " views, outlier score " + v.outlier_score + ". Caption: " + (v.caption || "").slice(0, 150)
-            ).join("\n\n");
-            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: videos.length + " viral videos found in our DB:\n\n" + info });
+            const body = videos.map(fmtVideo).join("\n\n---\n\n");
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: `${videos.length} viral video(s) found [${fmtFiltersUsed()}]:\n\n${body}`,
+            });
           }
         }
 
