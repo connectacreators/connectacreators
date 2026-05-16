@@ -15,6 +15,7 @@ import { Check, ExternalLink, FileText, Save } from "lucide-react";
 import type { DeckAnswer, DeckQuestion } from "@/lib/parseDeck";
 import robbyThinking from "@/assets/robby-thinking.webp";
 import connectaFavicon from "@/assets/connecta-favicon-icon.png";
+import { FingerprintAvatar } from "@/components/assistant";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -608,7 +609,17 @@ const THINKING_VERBS = [
   "Writing",
 ];
 
-export function ThinkingAnimation() {
+/**
+ * In-flight indicator shown after a user message but before the assistant's
+ * first token arrives. Pairs the animated fingerprint MP4 with a rotating
+ * verb so it's obvious the model is working, not stuck.
+ *
+ * @param tone "light" for dark surfaces (drawer, /ai) where the MP4's
+ *             screen-blend reads on the dark bg. "dark" for the canvas's
+ *             editorial light surface, where the MP4 doesn't blend cleanly
+ *             so we fall back to the static ink fingerprint.
+ */
+export function ThinkingAnimation({ tone = "dark" }: { tone?: "light" | "dark" } = {}) {
   const [index, setIndex] = useState(() =>
     Math.floor(Math.random() * THINKING_VERBS.length),
   );
@@ -633,23 +644,13 @@ export function ThinkingAnimation() {
 
   return (
     <div className="flex items-center gap-2">
-      <img
-        src={connectaFavicon}
-        alt=""
-        aria-hidden="true"
-        style={{
-          width: 20,
-          height: 20,
-          objectFit: 'contain',
-          filter: 'brightness(0)',
-          opacity: 0.85,
-          flexShrink: 0,
-          animation: 'ai-cursor-blink 1.2s ease-in-out infinite',
-        }}
-      />
+      <FingerprintAvatar size="sm" tone={tone} animated />
       <span
         className="text-[11px] font-medium transition-opacity duration-200"
-        style={{ opacity: fade ? 1 : 0, color: 'rgba(20,20,20,0.55)' }}
+        style={{
+          opacity: fade ? 1 : 0,
+          color: tone === "dark" ? "rgba(20,20,20,0.55)" : "rgba(234,230,220,0.65)",
+        }}
       >
         {THINKING_VERBS[index]}
       </span>

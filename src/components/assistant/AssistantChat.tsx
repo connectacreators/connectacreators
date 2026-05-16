@@ -728,7 +728,7 @@ export function AssistantChat({
 
         {(loading || generating) && !generatingImage && streamingContent === null && remoteStreamingContent === null && (
           <div className="flex items-center">
-            <ThinkingAnimation />
+            <ThinkingAnimation tone={avatarTone === "dark" ? "dark" : "light"} />
           </div>
         )}
 
@@ -812,7 +812,9 @@ export function AssistantChat({
                   <path d="M11 8v6M8 11h6" />
                 </svg>
               ) : (
-                <FingerprintAvatar size="sm" tone={avatarTone} />
+                // Live streaming bubble — animate the fingerprint to signal
+                // the response is in flight.
+                <FingerprintAvatar size="sm" tone={avatarTone} animated />
               )}
               {liveText.includes("questions_deck") ? (
                 <div className="text-xs text-muted-foreground italic">
