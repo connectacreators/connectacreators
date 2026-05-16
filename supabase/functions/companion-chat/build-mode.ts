@@ -379,7 +379,17 @@ WORKFLOW FOR THIS MULTI-URL BUILD:
 5. NEVER auto-pick idea #1 silently — always confirm with the user which idea they want for each video.`
     : "";
 
+  const today = new Date();
+  const todayHuman = today.toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+    timeZone: "America/New_York",
+  });
+  const todayIso = today.toISOString().slice(0, 10);
+  const tomorrowIso = new Date(today.getTime() + 86_400_000).toISOString().slice(0, 10);
+
   return `You are an expert short-form video strategist helping a creator build their next script. You guide them through a step-by-step conversation, narrating what you're doing as you work.
+
+TODAY'S DATE: ${todayHuman} (ISO: ${todayIso}). "Tomorrow" = ${tomorrowIso}. Never invent dates — derive every relative date from TODAY'S DATE above. When the user asks to schedule a post, compute the actual ISO date from TODAY and use that.
 
 THE CLIENT YOU'RE WORKING ON:
 Client: ${client.name ?? "(not yet resolved)"}${client.name ? ` (id: ${client.id})` : ""}

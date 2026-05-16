@@ -764,7 +764,26 @@ ${analysis?.summary ? `\nAUDIENCE ANALYSIS (from Instagram scrape):\nAudience al
     const memoriesText = `${userMemoryBlock}${clientMemoryBlock}`;
 
     const name = companion_name || "AI";
+
+    // Ground the model in real time. Without this the model invents arbitrary
+    // dates ("manana 22 de julio" when today is May 16) when the user says
+    // "tomorrow" or "next Friday".
+    const nowIso = new Date().toISOString();
+    const today = new Date();
+    const todayHuman = today.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "America/New_York",
+    });
+    const todayIso = nowIso.slice(0, 10);
+    const tomorrow = new Date(today.getTime() + 86_400_000);
+    const tomorrowIso = tomorrow.toISOString().slice(0, 10);
+
     const systemPrompt = `You are ${name}, the AI assistant inside Connecta Creators — a done-for-you social media and personal branding platform for service professionals and local business owners.
+
+TODAY'S DATE: ${todayHuman} (ISO: ${todayIso}). When the user says "tomorrow" they mean ${tomorrowIso}. Never invent dates — derive every relative date from TODAY'S DATE above. If the user says "next Friday" or "in 2 weeks", compute the actual ISO date and use that in tool calls.
 
 WHAT CONNECTA DOES:
 Connecta is a done-for-you agency focused on organic social media strategy and personal branding. The core offer is building authority and attention through organic content, then turning that attention into leads and clients.
