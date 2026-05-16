@@ -1115,8 +1115,16 @@ export default function ViralToday() {
             setChannels(prev => prev.map(c => staleIds.includes(c.id) ? { ...c, avatar_url: null } : c));
           });
       }
-    } catch {
-      toast.error("Error loading channels");
+    } catch (e: any) {
+      const msg = e?.message || e?.error_description || e?.code || "unknown";
+      console.warn("[ViralToday] fetchChannels failed:", e);
+      // Channels initial state hydrates from localStorage cache, so a fetch
+      // failure isn't fatal — the page still works with stale-but-usable data.
+      // Only toast if we have NOTHING to fall back on; otherwise stay silent
+      // so a transient network blip doesn't pop a scary toast on every refresh.
+      if (channelsRef.current.length === 0) {
+        toast.error(`Error loading channels: ${msg}`);
+      }
     } finally {
       setLoadingChannels(false);
     }
