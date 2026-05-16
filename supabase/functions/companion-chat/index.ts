@@ -847,6 +847,23 @@ Do NOT call bulk_* tools directly without going through propose_plan first for e
 - Pass target_item_titles to propose_plan whenever the plan touches editing-queue rows. The UI uses it to highlight the affected rows with a pulse animation. Example: target_item_titles: ["VIDEO #4", "VIDEO #5", "(03) So, you're thinking..."].
 - The ONLY text exception: a clarifying question that isn't covered by the plan (e.g. "do you want this for all clients or just X?"). Plain plan presentations get zero text.
 - This rule applies in ask/plan autonomy modes. In auto mode, skip the card and just execute (the bulk tools themselves emit highlight_items, so the user still sees the pulse).
+- WORKED EXAMPLE (multi-target with explicit list — the most common failure mode):
+    User: "trash these videos: neuropatia vs ejercicio, neuropatia si o no, neuropatia diabetica explicada"
+    You: (no text, single tool call)
+      propose_plan({
+        summary: "Soft-delete 3 videos from the editing queue",
+        steps: [
+          { tool: "delete_editing_item", description: "Move 'Neuropatía vs Ejercicio' to Trash" },
+          { tool: "delete_editing_item", description: "Move 'Neuropatía Sí o No' to Trash" },
+          { tool: "delete_editing_item", description: "Move 'Neuropatía Diabética Explicada' to Trash" },
+        ],
+        target_item_titles: [
+          "Neuropatía vs Ejercicio",
+          "Neuropatía Sí o No",
+          "Neuropatía Diabética Explicada",
+        ],
+      })
+    NEVER return empty text without the tool call here. NEVER say "let me try again" — if titles look ambiguous, propose the plan with your best-fit titles and let highlight_items show the user what you matched. If you genuinely cannot resolve any of the titles, ask ONE specific clarifying question naming what's ambiguous — never the generic rephrase.
 19. USE TOOLS: every tool you have is documented in your tool descriptions — read them and call the right one. Don't describe what you'd do or paraphrase — do it. If the user asks something that maps to a tool (read or write), call the tool first, then summarize the result conversationally.
 
 20. IDEA GENERATION CONTEXT FLOW: when the user asks for MULTIPLE content ideas ("give me 15 ideas", "10 reels for X", "ideate", "brainstorm content"), follow this sequence — never just call find_viral_videos and improvise.
@@ -1879,8 +1896,66 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       }
     }
 
+    // Multi-target safety net: if the model bailed (empty reply) AND the user
+    // message looks like a bulk-action ask on a list ("trash these 3", "mark
+    // all X published", etc.), force one more round with tool_choice locked
+    // to propose_plan. Avoids the user seeing the unhelpful "Let me try again
+    // — could you rephrase that?" line. See plan-preview spec 2026-05-16.
     if (!reply) {
-      reply = turn1Reply || "Let me try again — could you rephrase that?";
+      const looksMultiTarget =
+        /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change)\b[\s\S]*?(\b(these|those|all|every)\b|:)/i.test(message);
+      if (looksMultiTarget && actions.every((a: any) => a?.type !== "plan_proposal")) {
+        try {
+          const forcedRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-6",
+              max_tokens: 1024,
+              system: finalSystemPrompt,
+              tools: effectiveTools,
+              tool_choice: { type: "tool", name: "propose_plan" },
+              messages,
+            }),
+          });
+          if (forcedRes.ok) {
+            const forcedResult = await forcedRes.json();
+            for (const block of forcedResult.content || []) {
+              if (block.type === "tool_use" && block.name === "propose_plan") {
+                const moduleCtx = {
+                  adminClient,
+                  userId: user.id,
+                  client,
+                  lockedClient: urlClientId ? { id: client.id, name: client.name } : null,
+                  isAdmin,
+                  accessibleClientIds,
+                  actions,
+                };
+                await handlePlanTool(block, moduleCtx as any);
+                reply = ""; // plan card is self-sufficient; no text needed
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[companion-chat] Forced propose_plan retry failed:", e);
+        }
+      }
+    }
+
+    if (!reply) {
+      // If we tried the forced retry and still nothing produced a plan, ask
+      // a useful clarifying question instead of the silent "rephrase that".
+      const looksMultiTarget =
+        /\b(trash|delete|remove|mark|set|move|reschedule|publish|schedule|change)\b[\s\S]*?(\b(these|those|all|every)\b|:)/i.test(message);
+      const fallback = looksMultiTarget
+        ? "I want to make sure I get the right items — can you list them by exact title, one per line?"
+        : "Let me try again — could you rephrase that?";
+      reply = turn1Reply || fallback;
     }
 
     // Save assistant reply
