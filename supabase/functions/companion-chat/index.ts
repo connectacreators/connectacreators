@@ -856,9 +856,10 @@ YOUR RULES — FOLLOW EXACTLY:
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
 
 18-NICHE/FORMAT AWARENESS: Every viral_videos row is tagged with a primary_niche (audience/industry the creator targets — see the BRAND CONTEXT block for the active client's slug) and a content_format (structural pattern: storytelling, educational, comparison, listicle, tutorial, vlog, reaction, authority, selling, funny, caption_post). When you call find_viral_videos:
-- ALWAYS pass the niche param — default to the client's primary_niche slug from BRAND CONTEXT unless the user explicitly asks for cross-niche inspiration ("show me what's working in fitness for my real-estate client").
-- INFER the content_format param from the user's wording and pass it. Examples: "tell a story" / "share an experience" → storytelling · "explain how X works" / "teach" → educational · "how-to" / "step by step" → tutorial · "X vs Y" / "comparing two things" → comparison · "top 3" / "5 reasons" → listicle · "react to" / "hot take on" → reaction · "as a doctor I" / "expert perspective" → authority · "day in my life" / "behind the scenes" → vlog · "pitch" / "selling" / "close" → selling · "funny" / "comedy" / "skit" → funny · "text overlay only" → caption_post.
+- PREFER passing the niche param — if the user names the active client (per BRAND CONTEXT) use that primary_niche slug. If the user names a DIFFERENT client (e.g. "viral hooks for Boby" when Calvin is active), either (a) call list_all_clients first to resolve Boby's industry → niche, OR (b) just call find_viral_videos WITHOUT a niche filter as a fallback. Returning a topic-only result is always better than freezing.
+- INFER the content_format param from the user's wording and pass it when possible. Examples: "tell a story" / "share an experience" → storytelling · "explain how X works" / "teach" → educational · "how-to" / "step by step" → tutorial · "X vs Y" / "comparing two things" → comparison · "top 3" / "5 reasons" → listicle · "react to" / "hot take on" → reaction · "as a doctor I" / "expert perspective" → authority · "day in my life" / "behind the scenes" → vlog · "pitch" / "selling" / "close" → selling · "funny" / "comedy" / "skit" → funny · "text overlay only" → caption_post.
 - Niche+format filtering produces 10x more relevant references than topic-only searches. Always combine the two when both can be inferred. When the user asks something open-ended ("give me hook ideas"), pull the client's primary_niche + a high-engagement format like storytelling or educational.
+- NEVER return an empty reply on a viral/hook/idea/reference ask. If unsure about params, call find_viral_videos with whatever you have and summarize what came back. Silence is the worst outcome.
 18b. CLIENT IDENTITY: Always use the exact client name from the conversation when calling tools that take client_name. If the user is on /clients/<id>/ the active client is locked from the URL — never name-match a different client. If you're unsure, call list_all_clients first.
 18c. PREVIEW BIG ACTIONS: Before executing (a) 3+ writes in one turn (e.g. bulk_schedule_posts of 5 posts) OR (b) ANY destructive action (delete_script, update_lead_status to lost/closed, send_contract, mark_post_published, permanent_delete_editing_item (ALWAYS requires plan, even in Auto mode), large strategy changes), call propose_plan first with a structured list of steps. Then ASK the user "approve to proceed?" in your reply. ONLY when the user says yes/approve/go-ahead, call confirm_plan(plan_id) and execute the steps. If the user says no, call reject_plan(plan_id). Do NOT propose for single-step non-destructive writes — those should just execute. The autonomy mode field overrides this: in "auto" mode skip the proposal and execute; in "ask" or "plan" modes follow this rule strictly.
 
@@ -2048,6 +2049,103 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         }
       } catch (e) {
         console.error("[companion-chat] Forced confirm_plan retry failed:", e);
+      }
+    }
+
+    // Viral-content safety net: when the model returns empty AND the user
+    // asked for viral references / hooks / ideas / framework inspiration,
+    // force one more round with tool_choice locked to find_viral_videos.
+    // Failure mode in the wild: user says "give me 3 viral hooks for Boby"
+    // when Boby isn't the active client → model can't infer niche → bails.
+    const looksViralAsk =
+      /\b(viral|hook|hooks|ideas?|references?|inspir|framework|references|guion(es)?|ganchos?|idea(s)?\s+(virales?|de\s+contenido))\b/i.test(message);
+    if (!reply && looksViralAsk && !hasPlanProposal && !looksApproval) {
+      try {
+        const forcedRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1024,
+            system: finalSystemPrompt,
+            tools: effectiveTools,
+            tool_choice: { type: "tool", name: "find_viral_videos" },
+            messages,
+          }),
+        });
+        if (forcedRes.ok) {
+          const forcedResult = await forcedRes.json();
+          // Let the next round summarize the find_viral_videos result. We push
+          // the assistant turn + the tool_result back into messages, then ask
+          // the model to write a final text reply without further tool calls.
+          for (const block of forcedResult.content || []) {
+            if (block.type === "tool_use" && block.name === "find_viral_videos") {
+              const { topic, niche, content_format, platform, min_outlier = 3, days_back, limit = 8 } = block.input as any;
+              // Run the same query the in-loop tool handler would have run.
+              let query = adminClient
+                .from("viral_videos")
+                .select("id, channel_username, platform, caption, transcript, views_count, likes_count, comments_count, engagement_rate, outlier_score, video_url, thumbnail_url, hook_text, cta_text, framework_meta, content_format, primary_niche, posted_at")
+                .gte("outlier_score", min_outlier ?? 3)
+                .order("outlier_score", { ascending: false })
+                .limit(Math.min(limit ?? 8, 25));
+              if (niche) query = query.eq("primary_niche", String(niche).toLowerCase());
+              if (content_format) query = query.eq("content_format", String(content_format).toLowerCase());
+              if (platform) query = query.eq("platform", String(platform).toLowerCase());
+              if (days_back) {
+                const cutoff = new Date(Date.now() - days_back * 86_400_000).toISOString();
+                query = query.gte("posted_at", cutoff);
+              }
+              if (topic) query = query.or(`caption.ilike.%${topic}%,transcript.ilike.%${topic}%`);
+              const { data: viralRows } = await query;
+              const compact = (viralRows || []).slice(0, 12).map((v: any) =>
+                `@${v.channel_username} (${v.platform}) — ${(v.views_count ?? 0).toLocaleString()} views, ${v.outlier_score}x outlier — [${v.content_format ?? "?"} / ${v.primary_niche ?? "?"}]. Hook: ${(v.hook_text ?? "").slice(0, 120)} | Caption: ${(v.caption ?? "").slice(0, 120)}`
+              ).join("\n");
+              // Append assistant + tool_result + ask for final text
+              const followupMessages = [
+                ...messages,
+                { role: "assistant", content: forcedResult.content },
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      content: compact || "(no matching viral videos found)",
+                    },
+                  ],
+                },
+              ];
+              const finalRes2 = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: {
+                  "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+                  "anthropic-version": "2023-06-01",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "claude-sonnet-4-6",
+                  max_tokens: 1024,
+                  system: finalSystemPrompt,
+                  tools: effectiveTools,
+                  tool_choice: { type: "none" },
+                  messages: followupMessages,
+                }),
+              });
+              if (finalRes2.ok) {
+                const finalResult2 = await finalRes2.json();
+                const finalText2 = (finalResult2.content || []).find((b: any) => b.type === "text");
+                if (finalText2?.text) reply = finalText2.text;
+              }
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[companion-chat] Forced find_viral_videos retry failed:", e);
       }
     }
 
