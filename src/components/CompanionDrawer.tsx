@@ -262,18 +262,13 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
 
       // Execute any actions returned by the AI
       if (Array.isArray(data?.actions)) {
-        // If this turn produced a plan proposal, KEEP the drawer open so the
-        // plan card stays visible. Otherwise navigate actions close it to
-        // reveal the destination page.
-        const hasPlanProposal = data.actions.some((a: any) => a?.type === "plan_proposal");
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
-            // Refresh the active-chat timestamp so the destination drawer
-            // recognizes this as a fresh nav and auto-opens to continue
-            // the conversation.
+            // Keep the drawer open across navigations so the conversation
+            // continues while the user sees the destination. They can close
+            // it manually if they want the page full-width.
             if (activeThreadId) setActiveChat(activeThreadId, null);
             navigate(action.path);
-            if (!hasPlanProposal) setIsOpen(false);
           } else if (
             action?.type !== "fill_onboarding" &&
             action?.type !== "open_client" &&
@@ -296,7 +291,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
           }
           if (action?.type === "open_client" && typeof action.client_id === "string") {
             navigate(`/clients/${action.client_id}`);
-            setIsOpen(false);
+            // Drawer stays open — user can keep talking about the client.
           }
           if (action?.type === "refresh_data") {
             window.dispatchEvent(
