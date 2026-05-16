@@ -333,9 +333,9 @@ function VaultContent({
     <div className="space-y-0">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <div className="w-1.5 h-1.5 rounded-full bg-primary" />
             <span className="text-[10px] font-sans tracking-[2px] uppercase text-muted-foreground">
               {isMasterMode
@@ -346,7 +346,7 @@ function VaultContent({
           <h1 className="text-2xl font-serif text-foreground leading-tight">
             {isMasterMode ? tr({ en: "Master Vault", es: "Vault Maestro" }, language) : "Vault"}
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-2">
             {isMasterMode
               ? tr({ en: "All clients' saved videos in one place", es: "Todos los videos guardados en un lugar" }, language)
               : tr({ en: "Your saved viral videos", es: "Tus videos virales guardados" }, language)}
@@ -367,7 +367,7 @@ function VaultContent({
 
       {/* ── Stats bar ── */}
       {entries.length > 0 && (
-        <div className="flex gap-5 py-2.5 mb-3 border-b border-border/40">
+        <div className="flex gap-8 py-4 mb-6 border-b border-border/40">
           <div>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Saved", es: "Guardados" }, language)}</span>
             <span className="text-foreground font-semibold text-sm ml-1.5 tabular-nums">{stats.saved}</span>
@@ -385,7 +385,7 @@ function VaultContent({
 
       {/* ── Master mode: client filter dropdown ── */}
       {isMasterMode && allClients && allClients.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-3 mb-8">
           <span className="text-xs text-muted-foreground font-medium shrink-0">Filter:</span>
           <Select
             value={filterClientId ?? "__all__"}

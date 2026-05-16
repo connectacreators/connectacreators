@@ -26,9 +26,14 @@ export class AnalyzerError extends Error {
 }
 
 /**
- * Step 1 of the pipeline: download the source video via VPS cobalt-proxy and
- * upload it to Supabase Storage. Idempotent — returns the cached signed URL if
- * row.video_file_url is set and not expired.
+ * Step 1 of the pipeline: download the source video and upload it to Supabase
+ * Storage. Idempotent — returns the cached signed URL if row.video_file_url
+ * is set and not expired.
+ *
+ * Two-stage source: Cobalt first (clean MP4 URL); if Cobalt has no URL for
+ * this video (common for plain /reel/SHORTCODE/ Instagram URLs), fall back to
+ * the VPS /stream-reel endpoint which is yt-dlp-backed and returns bytes
+ * directly.
  */
 export async function acquireVideoFile(
   admin: SupabaseClient,
@@ -41,28 +46,58 @@ export async function acquireVideoFile(
     }
   }
 
-  // 1. Resolve to a downloadable URL via VPS cobalt-proxy.
-  //    Response shape: { url, thumbnail, title }.
-  const cobaltRes = await fetch(`${VPS_BASE}/cobalt-proxy`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": VPS_KEY },
-    body: JSON.stringify({ url: row.video_url }),
-  });
-  if (!cobaltRes.ok) {
-    throw new AnalyzerError("cobalt_failed", `Cobalt proxy returned ${cobaltRes.status}`);
-  }
-  const cobaltData = await cobaltRes.json();
-  const downloadUrl: string | null = cobaltData.url || null;
-  if (!downloadUrl) {
-    throw new AnalyzerError("cobalt_no_url", "Cobalt returned no downloadable URL");
+  // 1a. Try Cobalt first — it returns a clean signed CDN URL we can fetch.
+  let mp4Bytes: Uint8Array | null = null;
+  let cobaltErr: string | null = null;
+  try {
+    const cobaltRes = await fetch(`${VPS_BASE}/cobalt-proxy`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": VPS_KEY },
+      body: JSON.stringify({ url: row.video_url }),
+    });
+    if (!cobaltRes.ok) {
+      cobaltErr = `proxy ${cobaltRes.status}`;
+    } else {
+      const cobaltData = await cobaltRes.json();
+      const downloadUrl: string | null = cobaltData.url || null;
+      if (!downloadUrl) {
+        cobaltErr = "no url returned";
+      } else {
+        const mp4Res = await fetch(downloadUrl);
+        if (!mp4Res.ok) {
+          cobaltErr = `mp4 fetch ${mp4Res.status}`;
+        } else {
+          mp4Bytes = new Uint8Array(await mp4Res.arrayBuffer());
+        }
+      }
+    }
+  } catch (e) {
+    cobaltErr = e instanceof Error ? e.message : String(e);
   }
 
-  // 2. Stream the MP4 down.
-  const mp4Res = await fetch(downloadUrl);
-  if (!mp4Res.ok) throw new AnalyzerError("download_failed", `MP4 fetch ${mp4Res.status}`);
-  const mp4Bytes = new Uint8Array(await mp4Res.arrayBuffer());
+  // 1b. Fall back to /stream-reel (yt-dlp on VPS) when Cobalt couldn't help.
+  //     This endpoint streams the bytes directly rather than returning a URL.
+  if (!mp4Bytes) {
+    const streamRes = await fetch(
+      `${VPS_BASE}/stream-reel?url=${encodeURIComponent(row.video_url)}&nocache=1`,
+      { headers: { "x-api-key": VPS_KEY } },
+    );
+    if (!streamRes.ok) {
+      throw new AnalyzerError(
+        "download_failed",
+        `cobalt: ${cobaltErr ?? "unknown"}; stream-reel: ${streamRes.status}`,
+      );
+    }
+    mp4Bytes = new Uint8Array(await streamRes.arrayBuffer());
+    if (mp4Bytes.length < 1024) {
+      throw new AnalyzerError(
+        "download_failed",
+        `cobalt: ${cobaltErr ?? "unknown"}; stream-reel returned ${mp4Bytes.length} bytes`,
+      );
+    }
+  }
 
-  // 3. Upload to Storage.
+  // 2. Upload to Storage.
   const path = `${row.id}.mp4`;
   const { error: uploadErr } = await admin.storage.from(BUCKET).upload(path, mp4Bytes, {
     contentType: "video/mp4",
@@ -70,7 +105,7 @@ export async function acquireVideoFile(
   });
   if (uploadErr) throw new AnalyzerError("storage_upload_failed", uploadErr.message);
 
-  // 4. Signed URL for playback (TTL ≈ file TTL: 90 days = 7,776,000 s).
+  // 3. Signed URL for playback (TTL ≈ file TTL: 90 days = 7,776,000 s).
   const { data: signed, error: signErr } = await admin
     .storage.from(BUCKET)
     .createSignedUrl(path, FILE_TTL_DAYS * 24 * 60 * 60);
