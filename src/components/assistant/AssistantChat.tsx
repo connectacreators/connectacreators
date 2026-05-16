@@ -513,9 +513,28 @@ export function AssistantChat({
                   </div>
                 </div>
               ) : msg.is_progress ? (
-                <div className="flex items-center gap-1.5 text-muted-foreground/60">
-                  <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
-                  <span className={`${fullscreen ? "text-sm" : "text-[11px]"} italic font-serif`}>{msg.content}</span>
+                <div className="flex items-baseline gap-2 my-1.5 pl-1">
+                  <span
+                    className="inline-block rounded-full flex-shrink-0"
+                    style={{
+                      width: 4,
+                      height: 4,
+                      background: "#8FD0D5",
+                      animation: "broadcast-pulse 1.2s ease-in-out infinite",
+                      transform: "translateY(-2px)",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: "'EB Garamond', Georgia, serif",
+                      fontStyle: "italic",
+                      fontSize: 15,
+                      lineHeight: 1.45,
+                      color: "rgba(234,230,220,0.78)",
+                    }}
+                  >
+                    {msg.content}
+                  </span>
                 </div>
               ) : msg.type === "plan_proposal" && msg.plan_data ? (
                 <div className="flex gap-2 items-start">

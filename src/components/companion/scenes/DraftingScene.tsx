@@ -4,13 +4,20 @@ import type { SceneEvent } from "@/lib/companion/turn-script";
 
 interface Props { scene: Extract<SceneEvent, { type: "drafting" }>; }
 
+// Stagger each section's text reveal — the script types itself in
+// section by section so the user can watch Robby write.
+function typeMs(text: string): number {
+  return Math.max(600, Math.min(2400, text.length * 20));
+}
+
 /**
- * Editorial script page — a quiet manuscript spread. No type-on theatre,
- * no honey "draft v1" sticker, no hard-shadow drama. The script content
- * is what matters; the layout frames it.
+ * Editorial script page — a quiet manuscript spread that types itself in
+ * section by section. Bone surface, ink hairline, red eyebrow tags.
  */
 export default function DraftingScene({ scene }: Props) {
   const { verb, meta, payload } = scene;
+  const sectionOffsets = payload.sections.map((_, i) => i * 1.6);
+
   return (
     <SceneFrame verb={verb} meta={meta}>
       <div
@@ -24,7 +31,14 @@ export default function DraftingScene({ scene }: Props) {
         }}
       >
         {payload.sections.map((s, i) => (
-          <div key={i} className={i < payload.sections.length - 1 ? "mb-4" : ""}>
+          <div
+            key={i}
+            className={i < payload.sections.length - 1 ? "mb-4" : ""}
+            style={{
+              opacity: 0,
+              animation: `broadcast-fade-in 0.4s ease-out ${sectionOffsets[i]}s forwards`,
+            }}
+          >
             <div
               className="font-bold text-[9.5px] uppercase tracking-[0.18em] mb-1"
               style={{ color: "rgba(176,72,72,0.85)", fontFamily: "Inter, sans-serif" }}
@@ -33,7 +47,11 @@ export default function DraftingScene({ scene }: Props) {
             </div>
             <div
               className="text-[16px] leading-snug"
-              style={{ color: "#1a1410", whiteSpace: "pre-wrap" }}
+              style={{
+                color: "#1a1410",
+                whiteSpace: "pre-wrap",
+                animation: `broadcast-type-in ${typeMs(s.body)}ms steps(80, end) ${sectionOffsets[i] + 0.2}s backwards`,
+              }}
               dangerouslySetInnerHTML={{
                 __html: s.body.replace(
                   /<scribble>(.*?)<\/scribble>/g,
