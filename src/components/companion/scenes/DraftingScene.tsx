@@ -30,37 +30,43 @@ export default function DraftingScene({ scene }: Props) {
           fontFamily: "'EB Garamond', Georgia, serif",
         }}
       >
-        {payload.sections.map((s, i) => (
-          <div
-            key={i}
-            className={i < payload.sections.length - 1 ? "mb-4" : ""}
-            style={{
-              opacity: 0,
-              animation: `broadcast-fade-in 0.4s ease-out ${sectionOffsets[i]}s forwards`,
-            }}
-          >
+        {payload.sections.map((s, i) => {
+          // Fade-in finishes at sectionOffsets[i] + 0.35s → start typing 50ms later
+          // so the user sees the card settle first, then the text writes itself in.
+          const fadeDuration = 0.35;
+          const typeStart = sectionOffsets[i] + fadeDuration + 0.05;
+          return (
             <div
-              className="font-bold text-[9.5px] uppercase tracking-[0.18em] mb-1"
-              style={{ color: "rgba(176,72,72,0.85)", fontFamily: "Inter, sans-serif" }}
-            >
-              {s.tag}
-            </div>
-            <div
-              className="text-[16px] leading-snug"
+              key={i}
+              className={i < payload.sections.length - 1 ? "mb-4" : ""}
               style={{
-                color: "#1a1410",
-                whiteSpace: "pre-wrap",
-                animation: `broadcast-type-in ${typeMs(s.body)}ms steps(80, end) ${sectionOffsets[i] + 0.2}s backwards`,
+                opacity: 0,
+                animation: `broadcast-fade-in ${fadeDuration}s ease-out ${sectionOffsets[i]}s forwards`,
               }}
-              dangerouslySetInnerHTML={{
-                __html: s.body.replace(
-                  /<scribble>(.*?)<\/scribble>/g,
-                  '<span class="scribble-wavy">$1</span>',
-                ),
-              }}
-            />
-          </div>
-        ))}
+            >
+              <div
+                className="font-bold text-[9.5px] uppercase tracking-[0.18em] mb-1"
+                style={{ color: "rgba(176,72,72,0.85)", fontFamily: "Inter, sans-serif" }}
+              >
+                {s.tag}
+              </div>
+              <div
+                className="text-[16px] leading-snug"
+                style={{
+                  color: "#1a1410",
+                  whiteSpace: "pre-wrap",
+                  animation: `broadcast-type-in ${typeMs(s.body)}ms steps(80, end) ${typeStart}s backwards`,
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: s.body.replace(
+                    /<scribble>(.*?)<\/scribble>/g,
+                    '<span class="scribble-wavy">$1</span>',
+                  ),
+                }}
+              />
+            </div>
+          );
+        })}
         {(payload.est_outlier || payload.read_time_sec || payload.matches_note) && (
           <div
             className="mt-4 pt-3 flex flex-wrap gap-2.5 items-center text-[11px]"
