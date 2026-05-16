@@ -28,9 +28,18 @@ export function FormatTabs({ active, onChange, counts }: FormatTabsProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [moreOpen]);
 
+  // Sort formats by count desc so the busiest categories sit next to "All".
+  // The lowest-count formats naturally fall into "More". Ties broken alphabetically.
+  const sortedFormats = [...CONTENT_FORMATS]
+    .map((f) => ({ ...f, count: counts[f.slug] ?? 0 }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label);
+    });
+
   const tabs: Array<{ slug: ContentFormat | "all"; label: string }> = [
     { slug: "all", label: "All" },
-    ...CONTENT_FORMATS.map((f) => ({ slug: f.slug, label: f.label })),
+    ...sortedFormats.map(({ slug, label }) => ({ slug, label })),
   ];
 
   // Promote the active tab into the visible row if it's currently in "More".
