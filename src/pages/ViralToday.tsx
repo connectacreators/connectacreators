@@ -175,6 +175,8 @@ interface ViralVideo {
   niche_tags?: string[];
   framework_score?: number;
   analysis_status?: "pending" | "analyzing" | "analyzed" | "failed" | null;
+  content_format?: string | null;
+  primary_niche?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -510,6 +512,18 @@ function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
   );
 }
 
+// Module-level semaphore — at most 3 concurrent categorize calls page-wide.
+const CATEGORIZE_MAX_CONCURRENT = 3;
+let categorizeInFlight = 0;
+function acquireCategorizeSlot(): boolean {
+  if (categorizeInFlight >= CATEGORIZE_MAX_CONCURRENT) return false;
+  categorizeInFlight++;
+  return true;
+}
+function releaseCategorizeSlot() {
+  if (categorizeInFlight > 0) categorizeInFlight--;
+}
+
 // Video card
 function VideoCard({
   video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured,
@@ -529,6 +543,7 @@ function VideoCard({
   const [deleting, setDeleting] = useState(false);
   const [localStatus, setLocalStatus] = useState<string | null | undefined>(video.analysis_status);
   const [analyzing, setAnalyzing] = useState(false);
+  const [categorizing, setCategorizing] = useState(false);
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -554,6 +569,55 @@ function VideoCard({
       if (timer) clearTimeout(timer);
     };
   }, [video.id, onSeen]);
+
+  // Lazy-backfill content_format / primary_niche on visible cards.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    // Skip if already categorized OR analysis not yet done.
+    if (video.content_format && video.primary_niche) return;
+    if ((localStatus ?? video.analysis_status) !== "analyzed") return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let fired = false;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || fired) return;
+      timer = setTimeout(async () => {
+        if (fired) return;
+        if (!acquireCategorizeSlot()) {
+          // Backed off — observer will re-fire if the card stays visible.
+          timer = null;
+          return;
+        }
+        fired = true;
+        setCategorizing(true);
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-categorize`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+              body: JSON.stringify({ viral_video_id: video.id }),
+            },
+          );
+          // Result lands via the row-level realtime subscription already wired up.
+        } catch {
+          // Silent fail — the user can retry by visiting the detail page.
+        } finally {
+          releaseCategorizeSlot();
+          setCategorizing(false);
+        }
+      }, 1500);  // 1.5s debounce per spec
+    }, { threshold: 0.5 });
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [video.id, video.content_format, video.primary_niche, video.analysis_status, localStatus]);
 
   // Card-level realtime: update analysis_status badge when analysis completes
   useEffect(() => {
@@ -746,6 +810,17 @@ function VideoCard({
           {(() => {
             const status = localStatus ?? video.analysis_status;
             if (status === "analyzed") {
+              if (categorizing) {
+                return (
+                  <div
+                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10"
+                    title="Categorizing…"
+                  >
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Categorizing…</span>
+                  </div>
+                );
+              }
               return (
                 <div
                   className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10"
