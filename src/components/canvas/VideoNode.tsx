@@ -296,13 +296,22 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
       }
       const { row } = await res.json();
 
-      // Hydrate UI from cached row fields
+      // Hydrate UI from cached row fields.
+      // `structure` matches the legacy ai-build-script output shape: {sections, hook_text, cta_text, detected_format}.
+      // framework_meta.raw_structure IS the sections array (from /analyze-video-multimodal).
       const updates: Partial<VideoData> = {
         viralVideoId: row.id,
         url: row.video_url ?? url.trim(),
         transcription: row.transcript ?? undefined,
         analysisStatus: row.analysis_status,
-        structure: row.framework_meta ?? undefined,
+        structure: row.framework_meta?.raw_structure
+          ? {
+              sections: row.framework_meta.raw_structure,
+              hook_text: row.hook_text,
+              cta_text: row.cta_text,
+              detected_format: row.framework_meta.content_type ?? null,
+            }
+          : undefined,
         videoAnalysis: row.framework_meta?.visual_segments
           ? { visual_segments: row.framework_meta.visual_segments, audio: row.framework_meta.audio, duration_seconds: row.framework_meta.duration_seconds }
           : undefined,
@@ -336,8 +345,12 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
       d.onUpdate?.(updates);
 
-      // Set stage from row's analysis_status
-      if (row.analysis_status === "analyzed") {
+      // Stage decision:
+      // - If transcript exists (regardless of analysis_status), treat as already-analyzed.
+      //   The user has paid for that transcript before — don't re-charge.
+      // - Otherwise gate on analysis_status.
+      const hasCachedTranscript = typeof row.transcript === "string" && row.transcript.trim().length > 0;
+      if (row.analysis_status === "analyzed" || hasCachedTranscript) {
         setStage("done");
       } else if (row.analysis_status === "analyzing") {
         setStage("analyzing");
@@ -554,7 +567,14 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
           const updates: Partial<VideoData> = {
             transcription: row.transcript,
             videoFileUrl: row.video_file_url,
-            structure: row.framework_meta,
+            structure: row.framework_meta?.raw_structure
+              ? {
+                  sections: row.framework_meta.raw_structure,
+                  hook_text: row.hook_text,
+                  cta_text: row.cta_text,
+                  detected_format: row.framework_meta.content_type ?? null,
+                }
+              : undefined,
             videoAnalysis: row.framework_meta?.visual_segments
               ? { visual_segments: row.framework_meta.visual_segments, audio: row.framework_meta.audio, duration_seconds: row.framework_meta.duration_seconds }
               : undefined,
@@ -868,7 +888,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   <div className="px-3 py-2.5 space-y-3 border-b border-border/40 nowheel" style={{ maxHeight: "400px", overflowY: "auto" }}>
 
                     {/* ── Script Structure sections ── */}
-                    {hasStructure && d.structure && d.structure.sections.map((sec, i) => {
+                    {hasStructure && d.structure && Array.isArray(d.structure.sections) && d.structure.sections.map((sec, i) => {
                       const c = SECTION_COLORS[sec.section] || SECTION_COLORS.body;
                       return (
                         <div key={i} className={`rounded-xl border ${c.border} ${c.bg} overflow-hidden`}>
