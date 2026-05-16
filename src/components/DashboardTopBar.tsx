@@ -44,26 +44,39 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMob
           </div>
         </div>
       )}
-      {/* Desktop collapsed: just a tiny chevron at the top-left
-          that re-opens the sidebar. No header chrome. */}
+      {/* Desktop collapsed: small bone sticker pill with an ink chevron.
+          Visible on both light editorial pages and dark surfaces. */}
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Open sidebar"
-          className="hidden lg:flex items-center justify-center hover:opacity-80 transition-opacity focus:outline-none"
+          className="hidden lg:flex items-center justify-center focus:outline-none"
           style={{
             position: "fixed",
             top: 14,
             left: 14,
-            width: 32,
-            height: 32,
+            width: 30,
+            height: 30,
             borderRadius: 8,
-            background: "transparent",
-            color: "rgba(255,255,255,0.55)",
-            zIndex: 20,
+            background: "#EAE6DC",
+            border: "1px solid #141414",
+            boxShadow: "2px 2px 0 #141414",
+            color: "#141414",
+            zIndex: 60,
+            transition: "box-shadow 120ms, transform 120ms",
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget;
+            el.style.boxShadow = "3px 3px 0 #141414";
+            el.style.transform = "translate(-1px,-1px)";
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget;
+            el.style.boxShadow = "2px 2px 0 #141414";
+            el.style.transform = "none";
           }}
         >
-          <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
+          <ChevronRight className="w-4 h-4" strokeWidth={2} />
         </button>
       )}
     </>
