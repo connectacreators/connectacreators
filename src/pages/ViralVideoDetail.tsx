@@ -14,6 +14,7 @@ import { getAuthToken } from "@/lib/getAuthToken";
 import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { cn } from "@/lib/utils";
+import { CONTENT_FORMATS, nicheLabel } from "@/lib/video-taxonomy";
 
 // ==================== TYPES ====================
 interface FormatDetection {
@@ -62,6 +63,8 @@ interface ViralVideo {
   video_file_expires_at: string | null;
   analysis_status: "pending" | "analyzing" | "analyzed" | "failed";
   analysis_error: string | null;
+  content_format: string | null;
+  primary_niche: string | null;
 }
 
 interface ClientOption {
@@ -136,11 +139,17 @@ export default function ViralVideoDetail() {
   // Analyze flow state
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"caption" | "transcript" | "visual" | "hook" | "story">("caption");
+  const [activeTab, setActiveTab] = useState<
+    "caption" | "transcript" | "visual" | "hook" | "story" | "category"
+  >("caption");
 
   // Hook template state (lazy-fetched / backfilled on first Hook tab view)
   const [hookTemplate, setHookTemplate] = useState<string | null>(null);
   const [templatizing, setTemplatizing] = useState(false);
+
+  // Categorize backfill state
+  const [categorizing, setCategorizing] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
   // Save to Vault state
   const [saveClientId, setSaveClientId] = useState("");
@@ -254,6 +263,39 @@ export default function ViralVideoDetail() {
       }
     })();
   }, [activeTab, video?.id, video?.framework_meta, video?.hook_text, video?.analysis_status]);
+
+  // ==================== CATEGORY BACKFILL ====================
+  // Auto-fire /viral-video-categorize on mount if analyzed but uncategorized.
+  useEffect(() => {
+    if (!video) return;
+    if (video.analysis_status !== "analyzed") return;
+    if (video.content_format && video.primary_niche) return;
+    if (categorizing) return;
+    setCategorizing(true);
+    setCategoryError(null);
+    (async () => {
+      try {
+        const token = await getAuthToken();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-categorize`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ viral_video_id: video.id }),
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setCategoryError(err.message || err.error || `HTTP ${res.status}`);
+        }
+        // Row update flows through the existing realtime subscription.
+      } catch (e: unknown) {
+        setCategoryError(e instanceof Error ? e.message : "Categorize failed");
+      } finally {
+        setCategorizing(false);
+      }
+    })();
+  }, [video?.id, video?.analysis_status, video?.content_format, video?.primary_niche]);
 
   // ==================== CLIENT OPTIONS ====================
   const isStaff = isAdmin;
@@ -514,7 +556,7 @@ export default function ViralVideoDetail() {
               {video.analysis_status === "analyzed" ? (
                 <>
                   <div className="flex gap-2 border-b border-border px-4 flex-shrink-0 overflow-x-auto">
-                    {(["caption", "transcript", "visual", "hook", "story"] as const).map((t) => (
+                    {(["caption", "transcript", "visual", "hook", "story", "category"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setActiveTab(t)}
@@ -523,7 +565,7 @@ export default function ViralVideoDetail() {
                           activeTab === t ? "text-foreground border-b-2 border-foreground" : "text-muted-foreground hover:text-foreground",
                         )}
                       >
-                        {t === "story" ? "Storytelling" : t === "visual" ? "Visual Layout" : t}
+                        {t === "story" ? "Storytelling" : t === "visual" ? "Visual Layout" : t === "category" ? "Category" : t}
                       </button>
                     ))}
                   </div>
@@ -540,6 +582,44 @@ export default function ViralVideoDetail() {
                       ) : (hookTemplate ?? video.hook_text ?? "(no hook)")
                     )}
                     {activeTab === "story" && ((video.framework_meta?.body_structure as string) ?? "(no story format)")}
+                    {activeTab === "category" && (
+                      <div className="space-y-4">
+                        {!video.content_format || !video.primary_niche ? (
+                          <div className="flex items-center gap-2 text-muted-foreground italic">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {categorizing ? "Categorizing…" : (categoryError ?? "Categorizing…")}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
+                              <span className="text-muted-foreground">Format</span>
+                              <span className="text-foreground font-medium">
+                                {CONTENT_FORMATS.find((f) => f.slug === video.content_format)?.label ?? video.content_format}
+                              </span>
+                              <span className="text-muted-foreground">Niche</span>
+                              <span className="text-foreground font-medium">
+                                {nicheLabel(video.primary_niche ?? "")}
+                              </span>
+                            </div>
+                            {Array.isArray(video.framework_meta?.niche_tags) && (video.framework_meta?.niche_tags ?? []).length > 0 && (
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-2">Topics</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(video.framework_meta?.niche_tags ?? []).map((tag, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 rounded-full bg-muted text-xs text-muted-foreground"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {!video.video_file_url && (
                     <button
