@@ -20,6 +20,9 @@ import { cn } from "@/lib/utils";
 import { useCredits } from "@/hooks/useCredits";
 import { getAuthToken } from "@/lib/getAuthToken";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
+import { FormatTabs } from "@/components/viral-today/FormatTabs";
+import { FiltersPanel, type FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
+import { type ContentFormat } from "@/lib/video-taxonomy";
 
 // ── Language support ──────────────────────────────────────────────────────
 
@@ -1122,6 +1125,10 @@ export default function ViralToday() {
   const [currentPage, setCurrentPage] = useState(0);
   const videosPerPage = 100;
 
+  // Format tab + niche filters
+  const [activeFormat, setActiveFormat] = useState<ContentFormat | "all">("all");
+  const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
+
   // Admin: paste URL to add framework
   const [pasteUrl, setPasteUrl] = useState("");
   const [pastingUrl, setPastingUrl] = useState(false);
@@ -1662,7 +1669,7 @@ export default function ViralToday() {
 
   // ── Filtered videos ──────────────────────────────────────────────────────────
 
-  const filteredVideos = (() => {
+  const { videos: filteredVideos, formatCounts, availableNiches } = (() => {
     let result = [...videos];
 
     // Channel filter
@@ -1680,6 +1687,11 @@ export default function ViralToday() {
     // Top frameworks toggle — show only admin-curated featured frameworks
     if (showOnlyFeatured) {
       result = result.filter((v) => v.is_featured_framework === true);
+    }
+
+    // Niche filter
+    if (selectedNiches.length > 0) {
+      result = result.filter((v) => v.primary_niche != null && selectedNiches.includes(v.primary_niche));
     }
 
     // Platform, date, outlier, views, engagement are filtered server-side in fetchVideos()
@@ -1733,7 +1745,30 @@ export default function ViralToday() {
         );
     }
 
-    return result;
+    // Tally per-format counts BEFORE applying activeFormat (counts reflect all other filters).
+    const formatTally: Partial<Record<ContentFormat | "all", number>> = { all: result.length };
+    const nicheTally = new Map<string, number>();
+    for (const v of result) {
+      if (v.content_format) {
+        formatTally[v.content_format as ContentFormat] =
+          (formatTally[v.content_format as ContentFormat] ?? 0) + 1;
+      }
+      if (v.primary_niche) {
+        nicheTally.set(v.primary_niche, (nicheTally.get(v.primary_niche) ?? 0) + 1);
+      }
+    }
+
+    // Apply the active-format filter for display.
+    const filteredByFormat =
+      activeFormat === "all"
+        ? result
+        : result.filter((v) => v.content_format === activeFormat);
+
+    return {
+      videos: filteredByFormat,
+      formatCounts: formatTally,
+      availableNiches: Array.from(nicheTally.entries()).map(([slug, count]) => ({ slug, count })),
+    };
   })();
 
   // Pagination
@@ -1751,7 +1786,9 @@ export default function ViralToday() {
     filterEngagement !== "0" ||
     filterSource !== "all" ||
     selectedChannelIds.length > 0 ||
-    showOnlyFeatured;
+    showOnlyFeatured ||
+    selectedNiches.length > 0 ||
+    activeFormat !== "all";
 
   const clearFilters = () => {
     setFilterDate("12months");
@@ -1765,7 +1802,44 @@ export default function ViralToday() {
     setSearch("");
     setShowSeen(false);
     setShowOnlyFeatured(false);
+    setSelectedNiches([]);
+    setActiveFormat("all");
     setCurrentPage(0);
+  };
+
+  // ── FiltersPanel integration ─────────────────────────────────────────────────
+
+  const FILTER_DEFAULTS: FiltersPanelValue = {
+    date: "12months",
+    platform: "all",
+    outlier: "2.5",
+    views: "0",
+    engagement: "0",
+    source: "all",
+    featuredOnly: false,
+    niches: [],
+  };
+
+  const filtersValue: FiltersPanelValue = {
+    date: filterDate,
+    platform: filterPlatform,
+    outlier: filterOutlier,
+    views: filterViews,
+    engagement: filterEngagement,
+    source: filterSource,
+    featuredOnly: showOnlyFeatured,
+    niches: selectedNiches,
+  };
+
+  const handleFiltersChange = (next: FiltersPanelValue) => {
+    setFilterDate(next.date);
+    setFilterPlatform(next.platform);
+    setFilterOutlier(next.outlier);
+    setFilterViews(next.views);
+    setFilterEngagement(next.engagement);
+    setFilterSource(next.source);
+    setShowOnlyFeatured(next.featuredOnly);
+    setSelectedNiches(next.niches);
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -2000,93 +2074,68 @@ export default function ViralToday() {
 
                 </div>
 
-                {/* Filter chips */}
-                <div className="flex items-center gap-1.5 mb-5 flex-wrap">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#94a3b8] flex-shrink-0" />
-
+                {/* Channel chip row */}
+                <div className="flex items-center gap-2 mb-3">
                   <ChannelChip
                     channels={channels}
                     selected={selectedChannelIds}
                     onChange={setSelectedChannelIds}
                   />
-
-                  <FilterChip
-                    label="Source"
-                    options={[
-                      { label: "All sources", value: "all" },
-                      { label: "Channels", value: "channels" },
-                      { label: "Discovered", value: "discovered" },
-                    ]}
-                    value={filterSource}
-                    onChange={setFilterSource}
-                    isActive={filterSource !== "all"}
-                  />
-
-                  <FilterChip
-                    label={t.allTime}
-                    options={getDateOpts(t)}
-                    value={filterDate}
-                    onChange={setFilterDate}
-                    isActive={filterDate !== "all" && filterDate !== "12months"}
-                  />
-
-                  <FilterChip
-                    label={t.platforms}
-                    options={getPlatformOpts(t)}
-                    value={filterPlatform}
-                    onChange={setFilterPlatform}
-                    isActive={filterPlatform !== "all"}
-                  />
-
-                  <FilterChip
-                    label={t.outlier}
-                    options={getOutlierOpts(t)}
-                    value={filterOutlier}
-                    onChange={setFilterOutlier}
-                    isActive={filterOutlier !== "0"}
-                  />
-
-                  <FilterChip
-                    label={t.views}
-                    options={getViewsOpts(t)}
-                    value={filterViews}
-                    onChange={setFilterViews}
-                    isActive={filterViews !== "0"}
-                  />
-
-                  <FilterChip
-                    label={t.engagement}
-                    options={getEngagementOpts(t)}
-                    value={filterEngagement}
-                    onChange={setFilterEngagement}
-                    isActive={filterEngagement !== "0"}
-                  />
-
-                  <button
-                    onClick={() => setShowOnlyFeatured((v) => !v)}
-                    className={`h-7 px-3 rounded-full text-[11px] font-medium border transition-all flex items-center gap-1 ${
-                      showOnlyFeatured
-                        ? "text-yellow-300 border-yellow-400/40 bg-yellow-400/10"
-                        : "text-white/70 border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                    }`}
-                    title="Show only admin-curated top frameworks"
-                  >
-                    <Star
-                      className={`w-3 h-3 ${showOnlyFeatured ? "fill-yellow-400 text-yellow-400" : ""}`}
-                    />
-                    Top Only
-                  </button>
-
-                  {hasActiveFilters && (
-                    <button
-                      onClick={clearFilters}
-                      className="h-7 px-3 rounded-full text-[11px] font-medium text-destructive border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 transition-all flex items-center gap-1"
-                    >
-                      <X className="w-3 h-3" />
-                      {t.clear}
-                    </button>
-                  )}
                 </div>
+
+                {/* Filters button + format tabs */}
+                <div className="flex items-center justify-end gap-3 mb-3">
+                  <FiltersPanel
+                    value={filtersValue}
+                    defaults={FILTER_DEFAULTS}
+                    onChange={handleFiltersChange}
+                    availableNiches={availableNiches}
+                    dateOptions={[
+                      { value: "all", label: "All time" },
+                      { value: "7days", label: "Last 7 days" },
+                      { value: "30days", label: "Last 30 days" },
+                      { value: "3months", label: "Last 3 months" },
+                      { value: "6months", label: "Last 6 months" },
+                      { value: "12months", label: "Last 12 months" },
+                    ]}
+                    platformOptions={[
+                      { value: "all", label: "All platforms" },
+                      { value: "instagram", label: "Instagram" },
+                      { value: "tiktok", label: "TikTok" },
+                      { value: "youtube", label: "YouTube" },
+                    ]}
+                    outlierOptions={[
+                      { value: "0", label: "Any outlier" },
+                      { value: "1.5", label: "1.5x and above" },
+                      { value: "2.5", label: "2.5x and above" },
+                      { value: "5", label: "5x and above" },
+                      { value: "10", label: "10x and above" },
+                    ]}
+                    viewsOptions={[
+                      { value: "0", label: "Any views" },
+                      { value: "10000", label: "10K+" },
+                      { value: "100000", label: "100K+" },
+                      { value: "1000000", label: "1M+" },
+                    ]}
+                    engagementOptions={[
+                      { value: "0", label: "Any engagement" },
+                      { value: "1", label: "1%+" },
+                      { value: "3", label: "3%+" },
+                      { value: "5", label: "5%+" },
+                    ]}
+                    sourceOptions={[
+                      { value: "all", label: "All sources" },
+                      { value: "channels", label: "Channels" },
+                      { value: "discovered", label: "Discovered" },
+                    ]}
+                  />
+                </div>
+
+                <FormatTabs
+                  active={activeFormat}
+                  onChange={setActiveFormat}
+                  counts={formatCounts}
+                />
 
                 {/* Running indicator */}
                 {runningChannels.length > 0 && (
