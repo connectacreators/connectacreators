@@ -63,7 +63,7 @@ interface SavedEntry {
 function VaultSkeleton() {
   return (
     <div className="flex-1 px-4 sm:px-6 py-6 max-w-6xl mx-auto w-full">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {Array.from({ length: 10 }).map((_, i) => (
           <Skeleton key={i} className="rounded-xl" style={{ aspectRatio: "4/5" }} />
         ))}
@@ -412,7 +412,7 @@ function VaultContent({
       <div className="space-y-6">
         {/* ── Entry list ── */}
         {loadingEntries ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {Array.from({ length: 10 }).map((_, i) => (
               <Skeleton key={i} className="rounded-xl" style={{ aspectRatio: "4/5" }} />
             ))}
@@ -454,7 +454,7 @@ function VaultContent({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {entries.map((entry) => (
               <SavedVideoCard
                 key={entry.id}
@@ -690,7 +690,7 @@ function SavedVideoCard({
       </div>
 
       {/* Info */}
-      <div className="p-3 flex flex-col gap-1.5">
+      <div className="px-4 pt-3 pb-4 flex flex-col gap-3">
         <p className="text-[11px] text-foreground leading-snug line-clamp-2 font-medium min-h-[2.5em]">
           {video.caption || <span className="text-muted-foreground italic">No caption</span>}
         </p>
@@ -700,7 +700,7 @@ function SavedVideoCard({
           <span className="text-[10px] text-muted-foreground">{timeAgo(entry.saved_at)}</span>
         </div>
 
-        <div className="flex items-center gap-3 pt-0.5 border-t border-border">
+        <div className="flex items-center gap-3 pt-3 border-t border-border">
           <div className="flex items-center gap-1" title="Outlier score">
             {video.outlier_score >= 15 ? (
               <Flame className="text-orange-400 w-3.5 h-3.5" />
