@@ -2074,22 +2074,17 @@ export default function ViralToday() {
 
                 </div>
 
-                {/* Channel chip row */}
-                <div className="flex items-center gap-2 mb-3">
-                  <ChannelChip
-                    channels={channels}
-                    selected={selectedChannelIds}
-                    onChange={setSelectedChannelIds}
-                  />
-                </div>
-
-                {/* Filters button + format tabs */}
+                {/* Filters button + format tabs — channel selection lives inside the
+                    Filters popover (was a standalone ChannelChip row before). */}
                 <div className="flex items-center justify-end gap-3 mb-3">
                   <FiltersPanel
                     value={filtersValue}
                     defaults={FILTER_DEFAULTS}
                     onChange={handleFiltersChange}
                     availableNiches={availableNiches}
+                    channels={channels}
+                    selectedChannelIds={selectedChannelIds}
+                    onChannelsChange={setSelectedChannelIds}
                     dateOptions={[
                       { value: "all", label: "All time" },
                       { value: "7days", label: "Last 7 days" },

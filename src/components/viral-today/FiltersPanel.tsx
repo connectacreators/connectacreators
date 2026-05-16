@@ -21,11 +21,24 @@ interface NicheOption {
   count: number;
 }
 
+interface ChannelOption {
+  id: string;
+  username: string;
+  video_count: number;
+}
+
 interface FiltersPanelProps {
   value: FiltersPanelValue;
   defaults: FiltersPanelValue;
   onChange: (next: FiltersPanelValue) => void;
   availableNiches: NicheOption[];
+
+  // Channels — moved in from the standalone ChannelChip so all filters live
+  // behind the single Filters button. Selection toggles immediately (no draft)
+  // since channel choice is a high-level corpus filter, not a fine-tuning knob.
+  channels?: ChannelOption[];
+  selectedChannelIds?: string[];
+  onChannelsChange?: (ids: string[]) => void;
 
   dateOptions: Array<{ value: string; label: string }>;
   platformOptions: Array<{ value: string; label: string }>;
@@ -36,11 +49,17 @@ interface FiltersPanelProps {
 }
 
 const NICHES_VISIBLE_BY_DEFAULT = 8;
+const CHANNELS_VISIBLE_BY_DEFAULT = 8;
 
 export function FiltersPanel(props: FiltersPanelProps) {
   const [open, setOpen] = useState(false);
   const [showAllNiches, setShowAllNiches] = useState(false);
+  const [showAllChannels, setShowAllChannels] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const channelList = props.channels ?? [];
+  const selectedChannels = props.selectedChannelIds ?? [];
+  const channelsTotal = channelList.length;
 
   // Local draft state — only commit on Apply.
   const [draft, setDraft] = useState<FiltersPanelValue>(props.value);
@@ -72,6 +91,7 @@ export function FiltersPanel(props: FiltersPanelProps) {
     if (v.source !== d.source) n++;
     if (v.featuredOnly !== d.featuredOnly) n++;
     if (v.niches.length > 0) n++;
+    if (selectedChannels.length > 0) n++;
     return n;
   })();
 
@@ -159,6 +179,62 @@ export function FiltersPanel(props: FiltersPanelProps) {
               className="w-4 h-4 accent-foreground"
             />
           </FilterRow>
+
+          {props.channels && props.onChannelsChange && (
+            <div className="border-t border-border pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Channels
+                  <span className="ml-1.5 normal-case text-muted-foreground/60">
+                    {selectedChannels.length > 0
+                      ? `${selectedChannels.length} of ${channelsTotal} selected`
+                      : `all ${channelsTotal}`}
+                  </span>
+                </div>
+                {selectedChannels.length > 0 && (
+                  <button
+                    onClick={() => props.onChannelsChange?.([])}
+                    className="text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+                {channelList.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No channels added yet</div>
+                ) : (
+                  (showAllChannels ? channelList : channelList.slice(0, CHANNELS_VISIBLE_BY_DEFAULT)).map((ch) => (
+                    <label key={ch.id} className="flex items-center justify-between gap-2 text-sm py-0.5 cursor-pointer">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedChannels.includes(ch.id)}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...selectedChannels, ch.id]
+                              : selectedChannels.filter((s) => s !== ch.id);
+                            props.onChannelsChange?.(next);
+                          }}
+                          className="w-3.5 h-3.5 accent-foreground flex-shrink-0"
+                        />
+                        <span className="text-foreground truncate">@{ch.username}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">{ch.video_count}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {channelList.length > CHANNELS_VISIBLE_BY_DEFAULT && (
+                <button
+                  onClick={() => setShowAllChannels((s) => !s)}
+                  className="mt-2 text-xs text-muted-foreground hover:text-foreground underline"
+                >
+                  {showAllChannels ? "Show fewer" : `Show all ${channelList.length} channels`}
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="border-t border-border pt-3">
             <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Niche</div>
