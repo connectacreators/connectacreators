@@ -14,9 +14,15 @@ A future v1.1 layers AI script alignment on top of the same surface, but v1 keep
 
 ## 2. Users & Access
 
-Anyone who can already open the video_edits row. No new role gates in v1 — same access rules as `EditingQueue` / `MasterEditingQueue`.
-
 The editor opens from a `video_edits` row via a new "Edit" action and lives at `/editing/:id/edit` (full-screen route, dark theme). FKs in this spec reference `video_edits.id` — the table backing the editing-queue UI.
+
+Access is gated in two stages:
+
+1. **Local only** — during initial development, the route and the "Edit" entry point are dev-mode only. Production builds do not render the entry point and the route 404s. Implementation: a single `IS_VIDEO_EDITOR_ENABLED` constant gated by `import.meta.env.DEV`. The VPS worker and Edge Functions can be deployed to prod safely (they're inert without browser traffic), but easier to leave undeployed until stage 2.
+2. **Admin-only in prod** — once local testing is complete, flip the gate to the existing `is_admin()` Postgres function (already exported in `src/integrations/supabase/types.ts`). Non-admin users still get a 404 on the route and no entry point in the UI. RLS on the four new tables uses `is_admin()` at this stage.
+3. **(Later, out of scope here)** Open to all users with `video_edits` access. Spec stage 2 will be revisited before this happens — we may discover constraints during admin testing.
+
+No feature-flag service is needed — a constant + a role check is sufficient for the two gates. The third stage is a deliberate future decision, not an automatic next step.
 
 ## 3. Scope
 
