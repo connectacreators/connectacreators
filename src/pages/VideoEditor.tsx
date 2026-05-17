@@ -78,6 +78,7 @@ export default function VideoEditor() {
   const [playheadMs, setPlayheadMs] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [resultSignedUrl, setResultSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -101,6 +102,21 @@ export default function VideoEditor() {
 
   const { state: jobState, submit: submitJob } = useRenderJob();
 
+  useEffect(() => {
+    if (jobState.phase === "done" && jobState.job.output_storage_path) {
+      let cancelled = false;
+      supabase.storage
+        .from("footage")
+        .createSignedUrl(jobState.job.output_storage_path, 3600)
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          setResultSignedUrl(error ? null : data?.signedUrl ?? null);
+        });
+      return () => { cancelled = true; };
+    }
+    setResultSignedUrl(null);
+  }, [jobState]);
+
   if (!id) return <Navigate to="/master-editing-queue" replace />;
   if (sourceErr) {
     return <div className="p-8 text-red-400">Source error: {sourceErr}</div>;
@@ -122,10 +138,7 @@ export default function VideoEditor() {
 
   const exportPolling =
     jobState.phase === "polling" ? jobState.job.progress : null;
-  const exportResultUrl =
-    jobState.phase === "done" && jobState.job.output_storage_path
-      ? jobState.job.output_storage_path
-      : null;
+  const exportResultUrl = resultSignedUrl;
   const exportError = jobState.phase === "error" ? jobState.message : null;
 
   return (
