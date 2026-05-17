@@ -27,6 +27,11 @@ export function useEditorProject(opts: Options) {
     let cancelled = false;
     (async () => {
       try {
+        // Don't create a project until we have a real source. VideoEditor passes
+        // empty placeholders while the source meta is still loading.
+        if (!opts.initialSource.storage_path || opts.initialSource.duration_ms <= 0) {
+          return;
+        }
         const existing = await loadEditorProject(opts.videoEditId);
         if (cancelled) return;
         if (existing) {
