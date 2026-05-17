@@ -1376,6 +1376,39 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               tool_use_id: block.id,
               content: `${videos.length} viral video(s) found [${fmtFiltersUsed()}]:\n\n${body}`,
             });
+
+            // Emit video-card embeds so the FE can render thumbnail previews
+            // inline with Robby's reply. The user sees the actual videos he's
+            // referencing instead of just a paragraph of @handle bullet points.
+            const ageOf = (postedAt: string | null | undefined): string => {
+              if (!postedAt) return "—";
+              const days = Math.floor((Date.now() - new Date(postedAt).getTime()) / 86_400_000);
+              if (days < 1) return "today";
+              if (days === 1) return "1d ago";
+              if (days < 7) return `${days}d ago`;
+              if (days < 30) return `${Math.floor(days / 7)}w ago`;
+              if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+              return `${Math.floor(days / 365)}y ago`;
+            };
+            emit({
+              type: "embeds",
+              embeds: videos.slice(0, 6).map((v: any) => ({
+                type: "video-card",
+                data: {
+                  id: v.id,
+                  thumbnail_url: v.thumbnail_url ?? null,
+                  username: v.channel_username ?? "unknown",
+                  outlier: Number(v.outlier_score ?? 0),
+                  views: Number(v.views_count ?? 0),
+                  engagement: Number(v.engagement_rate ?? 0),
+                  age: ageOf(v.posted_at),
+                  format_hint: v.content_format ?? undefined,
+                  caption_overlay: typeof v.caption === "string" && v.caption.length > 0
+                    ? v.caption.slice(0, 80)
+                    : undefined,
+                },
+              })),
+            });
           }
         }
 

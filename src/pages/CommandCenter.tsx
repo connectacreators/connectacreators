@@ -35,7 +35,7 @@ import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useActiveChat } from "@/hooks/useActiveChat";
 import { supabase } from "@/integrations/supabase/client";
-import { streamCompanionChat, type SceneEvent } from "@/lib/companion/stream-companion-chat";
+import { streamCompanionChat, type SceneEvent, type EmbedRef } from "@/lib/companion/stream-companion-chat";
 import {
   AssistantChat,
   AssistantTextInput,
@@ -43,7 +43,25 @@ import {
   FingerprintAvatar,
   type ThreadListItem,
 } from "@/components/assistant";
-import type { AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
+import { AI_MODELS, type AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
+
+// Persisted across sessions so the user's last model/thinking choice survives
+// reloads. Keys are versioned so we can invalidate in a future migration.
+const PREFS_KEY = "ai_command_center_prefs_v1";
+interface AiPrefs { model: string; thinkingEnabled: boolean }
+function loadPrefs(): AiPrefs {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (typeof p?.model === "string") return { model: p.model, thinkingEnabled: Boolean(p.thinkingEnabled) };
+    }
+  } catch { /* ignore */ }
+  return { model: "claude-sonnet-4-5", thinkingEnabled: false };
+}
+function savePrefs(prefs: AiPrefs) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+}
 
 // Detect a build-mode script draft in an assistant message. draft_script
 // emits a strict format: TITLE: ...\nHOOK: ...\nBODY: ...\nCTA: ... — this
@@ -236,8 +254,38 @@ export default function CommandCenter() {
   // aborts this; the fetch path uses raw fetch so the signal actually
   // cancels the network call (functions.invoke doesn't accept signal).
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ── Tier-2 input controls (parity with Canvas AI panel) ───────────────
+  // Persisted: model choice + thinking toggle (user usually picks once).
+  // Per-message: image attachment + image-gen mode + research mode.
+  const initialPrefs = useMemo(() => loadPrefs(), []);
+  const [selectedModel, setSelectedModel] = useState<string>(initialPrefs.model);
+  const [thinkingEnabled, setThinkingEnabled] = useState<boolean>(initialPrefs.thinkingEnabled);
+  useEffect(() => { savePrefs({ model: selectedModel, thinkingEnabled }); }, [selectedModel, thinkingEnabled]);
+  const [pastedImage, setPastedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
+  const [imageMode, setImageMode] = useState<boolean>(false);
+  const [isResearchMode, setIsResearchMode] = useState<boolean>(false);
+
+  // Image paste handler — same shape as CanvasAIPanel.handlePaste
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imageItem = items.find((it) => it.type.startsWith("image/"));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) setPastedImage({ dataUrl, mimeType: file.type });
+    };
+    reader.readAsDataURL(file);
+  }, []);
   // Live scene from companion-chat SSE — drives ThinkingAnimation.
   const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
+  // Embeds collected from the SSE stream (e.g. video-card previews for
+  // find_viral_videos). Attached to the most recent assistant message.
+  const [pendingEmbeds, setPendingEmbeds] = useState<EmbedRef[]>([]);
   // Latest pending plan proposal — rendered as an inline card under the
   // assistant's reply with Approve / Reject buttons. Cleared when the
   // user clicks either, or when a new plan arrives. Only one shown at a
@@ -482,6 +530,8 @@ export default function CommandCenter() {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
+    // Reset embeds carried over from the previous turn.
+    setPendingEmbeds([]);
 
     // Fresh AbortController so the Stop button can interrupt this request.
     const controller = new AbortController();
@@ -509,12 +559,24 @@ export default function CommandCenter() {
           current_path: path,
           autonomy_mode: autonomyMode,
           thread_id: activeThreadId ?? null,
+          // Tier-2 controls — passed through to companion-chat which already
+          // honors these fields when sent (same payload Canvas uses).
+          model: selectedModel,
+          extended_thinking: thinkingEnabled,
+          image_mode: imageMode,
+          is_research: isResearchMode,
+          image_b64: pastedImage?.dataUrl ?? null,
+          image_mime_type: pastedImage?.mimeType ?? null,
         },
         signal: controller.signal,
         callbacks: {
           onScene: (scene) => setCurrentScene(scene),
+          onEmbeds: (event) => setPendingEmbeds((prev) => [...prev, ...event.embeds]),
         },
       });
+      // Clear the pasted image on successful send so the next message
+      // starts fresh — same UX as Canvas.
+      setPastedImage(null);
       setCurrentScene(null);
       const data = streamResult.done ?? null;
 
@@ -628,6 +690,11 @@ export default function CommandCenter() {
     loadMessagesForThread,
     en,
     setActiveChat,
+    selectedModel,
+    thinkingEnabled,
+    imageMode,
+    isResearchMode,
+    pastedImage,
   ]);
 
   // ── MsgRow[] → AssistantMessage[] for AssistantChat ────────────────────
@@ -718,8 +785,26 @@ export default function CommandCenter() {
         plan_data: latestPlan,
       });
     }
+    // Attach pending embeds (video-card thumbnails for find_viral_videos
+    // results, etc.) to the most recent non-progress assistant text message
+    // so the user sees thumbnail previews of what Robby is referencing.
+    if (pendingEmbeds.length > 0) {
+      for (let i = out.length - 1; i >= 0; i--) {
+        const m = out[i];
+        if (m.role === "assistant" && !m.is_progress && m.type !== "plan_proposal" && m.type !== "script_preview") {
+          const existing = m.broadcast;
+          out[i] = {
+            ...m,
+            broadcast: existing
+              ? { ...existing, embeds: [...existing.embeds, ...pendingEmbeds] }
+              : { scenes: [], narrative: "", embeds: pendingEmbeds },
+          };
+          break;
+        }
+      }
+    }
     return out;
-  }, [messages, latestPlan]);
+  }, [messages, latestPlan, pendingEmbeds]);
 
   const handleApprovePlan = useCallback(async (planId: string) => {
     setLatestPlan(null);
@@ -851,6 +936,18 @@ export default function CommandCenter() {
                         bottomSlot={<CompactModeSelect mode={autonomyMode} setMode={setAutonomyMode} />}
                         onToggleVoice={toggleVoice}
                         recognizing={recognizing}
+                        selectedModel={selectedModel}
+                        models={AI_MODELS}
+                        onModelChange={setSelectedModel}
+                        thinkingEnabled={thinkingEnabled}
+                        onToggleThinking={() => setThinkingEnabled((v) => !v)}
+                        imageMode={imageMode}
+                        onToggleImageMode={() => setImageMode((v) => !v)}
+                        isResearchMode={isResearchMode}
+                        onToggleResearchMode={() => setIsResearchMode((v) => !v)}
+                        pastedImage={pastedImage}
+                        onClearPastedImage={() => setPastedImage(null)}
+                        onPaste={handlePaste}
                       />
                     </div>
 

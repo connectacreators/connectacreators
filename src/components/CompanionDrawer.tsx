@@ -23,7 +23,7 @@ import { useActiveBuildSessions } from "@/hooks/useActiveBuildSessions";
 import { BuildBanner } from "@/components/companion/BuildBanner";
 import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { supabase } from "@/integrations/supabase/client";
-import { streamCompanionChat, type SceneEvent } from "@/lib/companion/stream-companion-chat";
+import { streamCompanionChat, type SceneEvent, type EmbedRef } from "@/lib/companion/stream-companion-chat";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveChat } from "@/hooks/useActiveChat";
 import {
@@ -94,6 +94,12 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
   // ThinkingAnimation while a request is in flight. Cleared when the
   // stream closes (done or error).
   const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
+  // Embeds collected from the SSE stream (e.g. video-card previews for
+  // find_viral_videos results). Attached to the most recent assistant
+  // message in the chat list so the user sees thumbnail previews of the
+  // videos Robby references. Keyed by thread_id so concurrent threads
+  // don't cross-pollinate.
+  const [pendingEmbeds, setPendingEmbeds] = useState<EmbedRef[]>([]);
 
   // Read pending prompt handed off by Dashboard / RobbyInsightRow.
   // One-shot: consume and clear so subsequent opens don't replay it.
@@ -227,6 +233,10 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     const text = input.trim();
     setInput("");
     setSending(true);
+    // Reset embeds from the previous turn so they don't leak onto the new
+    // reply. Cleared per-send (not per-stream-start) so the embed cards
+    // persist while the user reads the reply.
+    setPendingEmbeds([]);
 
     // Optimistic user message — shown immediately, Realtime will replace it
     // with the real DB row when companion-chat dual-writes it.
@@ -260,6 +270,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
         },
         callbacks: {
           onScene: (scene) => setCurrentScene(scene),
+          onEmbeds: (event) => setPendingEmbeds((prev) => [...prev, ...event.embeds]),
         },
       });
       setCurrentScene(null);
@@ -353,7 +364,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
 
   // ── Convert MsgRow[] → AssistantMessage[] for AssistantChat ─────────────
   const chatMessages: AssistantMessage[] = useMemo(() => {
-    return messages
+    const mapped = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
       .map<AssistantMessage>((m) => {
         const c: any = m.content;
@@ -371,7 +382,27 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
           is_progress: (m.content as any)?.is_progress === true,
         };
       });
-  }, [messages]);
+
+    // Attach pending embeds (collected from the SSE stream) to the most
+    // recent NON-progress assistant message. The user sees their referenced
+    // viral videos as thumbnail cards beneath Robby's reply.
+    if (pendingEmbeds.length > 0) {
+      for (let i = mapped.length - 1; i >= 0; i--) {
+        if (mapped[i].role === "assistant" && !mapped[i].is_progress) {
+          mapped[i] = {
+            ...mapped[i],
+            broadcast: {
+              scenes: [],
+              narrative: "",
+              embeds: pendingEmbeds,
+            },
+          };
+          break;
+        }
+      }
+    }
+    return mapped;
+  }, [messages, pendingEmbeds]);
 
   return (
     <aside

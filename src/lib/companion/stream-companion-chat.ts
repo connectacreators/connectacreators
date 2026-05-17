@@ -7,7 +7,7 @@
 //   - { type: "scene", scene, verb, meta, tool } — emitted before each tool
 //   - { type: "done", reply, actions, thread_id, build_session_id? } — final
 //   - { type: "error", message, status? } — fatal
-import type { SceneType } from "./turn-script";
+import type { SceneType, EmbedRef } from "./turn-script";
 
 export interface SceneEvent {
   type: "scene";
@@ -16,6 +16,15 @@ export interface SceneEvent {
   meta: string;
   tool: string;
 }
+
+export interface EmbedsEvent {
+  type: "embeds";
+  embeds: EmbedRef[];
+}
+
+// Re-export EmbedRef so callers can type their state without importing
+// from two modules.
+export type { EmbedRef };
 
 export interface DoneEvent {
   type: "done";
@@ -31,10 +40,11 @@ export interface ErrorEvent {
   status?: number;
 }
 
-export type CompanionChatEvent = SceneEvent | DoneEvent | ErrorEvent;
+export type CompanionChatEvent = SceneEvent | EmbedsEvent | DoneEvent | ErrorEvent;
 
 export interface StreamCallbacks {
   onScene?: (event: SceneEvent) => void;
+  onEmbeds?: (event: EmbedsEvent) => void;
   onDone?: (event: DoneEvent) => void;
   onError?: (event: ErrorEvent) => void;
 }
@@ -128,6 +138,8 @@ export async function streamCompanionChat({
 
         if (event.type === "scene") {
           callbacks?.onScene?.(event);
+        } else if (event.type === "embeds") {
+          callbacks?.onEmbeds?.(event);
         } else if (event.type === "done") {
           result.done = event;
           callbacks?.onDone?.(event);
