@@ -1,0 +1,176 @@
+// src/pages/VideoEditor.tsx
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
+import { useEditorProject } from "@/hooks/useEditorProject";
+import { useRenderJob } from "@/hooks/useRenderJob";
+import { EditorTopBar } from "@/components/videoEditor/EditorTopBar";
+import { PreviewStage } from "@/components/videoEditor/PreviewStage";
+import { TrimTimeline } from "@/components/videoEditor/TrimTimeline";
+import { ExportDialog } from "@/components/videoEditor/ExportDialog";
+import type { AspectRatio } from "@/lib/videoEditor/edl";
+
+type SourceMeta = { storagePath: string; signedUrl: string; durationMs: number; title: string };
+
+// Storage bucket confirmed from codebase: FootagePanel.tsx + videoUrl.ts both use "footage".
+// The plan guessed "video-edits" — that bucket does not exist.
+const STORAGE_BUCKET = "footage";
+
+async function loadSourceMeta(videoEditId: string): Promise<SourceMeta | null> {
+  // Pull the video_edits row to discover storage path + title.
+  // Columns confirmed from EditingQueue.tsx line 317:
+  //   - storage_path  (in-Supabase-Storage path)
+  //   - reel_title    (display title; "footage_url" does not exist in schema)
+  const { data, error } = await supabase
+    .from("video_edits")
+    .select("*")
+    .eq("id", videoEditId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  // For Phase 1 we require an in-Storage source. If only an external URL exists,
+  // surface a clear error rather than guessing.
+  const storagePath: string | null = (data as any).storage_path ?? null;
+  if (!storagePath) return null;
+
+  const { data: signed, error: signErr } = await supabase
+    .storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(storagePath, 3600);
+  if (signErr) throw signErr;
+
+  const durationMs = await probeDurationMs(signed.signedUrl);
+
+  // Title derivation mirrors EditingQueue.tsx lines 326-328:
+  // prefer reel_title unless it's a placeholder, then fall back to id.
+  const raw: string | null | undefined = (data as any).reel_title;
+  const isPlaceholder = !raw || raw === "Sin titulo" || raw === "Sin título";
+  const title = isPlaceholder ? `Edit ${videoEditId.slice(0, 8)}` : raw;
+
+  return {
+    storagePath,
+    signedUrl: signed.signedUrl,
+    durationMs,
+    title,
+  };
+}
+
+function probeDurationMs(url: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.src = url;
+    v.addEventListener("loadedmetadata", () => {
+      resolve(Math.round((v.duration || 0) * 1000));
+    });
+    v.addEventListener("error", () => reject(new Error("probe failed")));
+  });
+}
+
+export default function VideoEditor() {
+  if (!IS_VIDEO_EDITOR_ENABLED) return <Navigate to="/master-editing-queue" replace />;
+
+  const { id } = useParams<{ id: string }>();
+  const [source, setSource] = useState<SourceMeta | null>(null);
+  const [sourceErr, setSourceErr] = useState<string | null>(null);
+  const [playheadMs, setPlayheadMs] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    loadSourceMeta(id)
+      .then((s) => {
+        if (!s) setSourceErr("No Supabase-Storage source for this video_edits row.");
+        else setSource(s);
+      })
+      .catch((e: Error) => setSourceErr(e.message));
+  }, [id]);
+
+  const initialSource = useMemo(
+    () => source && { storage_path: source.storagePath, duration_ms: source.durationMs },
+    [source],
+  );
+
+  const { state: projState, setEdl } = useEditorProject({
+    videoEditId: id!,
+    initialSource: initialSource ?? { storage_path: "", duration_ms: 0 },
+  });
+
+  const { state: jobState, submit: submitJob } = useRenderJob();
+
+  if (!id) return <Navigate to="/master-editing-queue" replace />;
+  if (sourceErr) {
+    return <div className="p-8 text-red-400">Source error: {sourceErr}</div>;
+  }
+  if (!source || projState.phase === "loading") {
+    return <div className="p-8 text-neutral-400">Loading editor…</div>;
+  }
+  if (projState.phase === "error") {
+    return <div className="p-8 text-red-400">Project error: {projState.message}</div>;
+  }
+
+  const handleExport = async (aspect: AspectRatio) => {
+    await submitJob({
+      editorProjectId: projState.projectId,
+      edl: projState.edl,
+      aspectRatio: aspect,
+    });
+  };
+
+  const exportPolling =
+    jobState.phase === "polling" ? jobState.job.progress : null;
+  const exportResultUrl =
+    jobState.phase === "done" && jobState.job.output_storage_path
+      ? jobState.job.output_storage_path
+      : null;
+  const exportError = jobState.phase === "error" ? jobState.message : null;
+
+  return (
+    <div className="fixed inset-0 bg-neutral-950 text-neutral-100 flex flex-col">
+      <EditorTopBar
+        title={source.title}
+        saveStatus={projState.saving ? "saving" : "saved"}
+        onExportClick={() => setExportOpen(true)}
+      />
+
+      <div className="flex-1 flex">
+        <div className="flex-1 flex flex-col">
+          <PreviewStage
+            sourceUrl={source.signedUrl}
+            edl={projState.edl}
+            playheadMs={playheadMs}
+            playing={playing}
+            onPlayheadChange={setPlayheadMs}
+            onEnded={() => setPlaying(false)}
+          />
+          <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
+            <button
+              onClick={() => setPlaying((p) => !p)}
+              className="px-3 py-1 bg-neutral-800 rounded"
+            >
+              {playing ? "Pause" : "Play"}
+            </button>
+            <span className="text-neutral-500 self-center">
+              {(playheadMs / 1000).toFixed(1)}s
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <TrimTimeline edl={projState.edl} onChange={setEdl} />
+
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={(o) => setExportOpen(o)}
+        onSubmit={handleExport}
+        submitting={jobState.phase === "submitting"}
+        pollingProgress={exportPolling}
+        resultUrl={exportResultUrl}
+        errorMessage={exportError}
+      />
+    </div>
+  );
+}
