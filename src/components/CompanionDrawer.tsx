@@ -414,6 +414,9 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     // Attach pending embeds (collected from the SSE stream for the active
     // thread) to the most recent non-progress assistant message. Scoped to
     // the active thread so switching threads doesn't carry embeds across.
+    // CRITICAL: pass the message's text content as `narrative` so the text
+    // still renders — TurnRenderer ELSE the regular text path; setting
+    // broadcast switches AssistantChat off the regular path.
     if (activePendingEmbeds.length > 0) {
       for (let i = mapped.length - 1; i >= 0; i--) {
         if (mapped[i].role === "assistant" && !mapped[i].is_progress) {
@@ -421,7 +424,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
             ...mapped[i],
             broadcast: {
               scenes: [],
-              narrative: "",
+              narrative: mapped[i].content,
               embeds: activePendingEmbeds,
             },
           };

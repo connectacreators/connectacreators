@@ -71,7 +71,10 @@ export default function TurnRenderer({ turn, onEmbedClick }: Props) {
         </div>
       )}
       {videoCards.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        // Horizontal video-card variant — stack vertically as a list. Each card
+        // is its own full-width row (thumbnail left, info right). The grid
+        // layout was for the old big 9:16 poster style.
+        <div className="flex flex-col gap-2">
           {videoCards.map((e, i) => (
             <div key={`vc-${i}`}>{renderEmbed(e, onEmbedClick)}</div>
           ))}

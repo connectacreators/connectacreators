@@ -88,6 +88,7 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
               ? `https://connectacreators.com/api/stream-reel?url=${encodeURIComponent(data.video_url)}&nocache=1`
               : null}
             aspectRatio="9:16"
+            compact
           />
         ) : (
           <>

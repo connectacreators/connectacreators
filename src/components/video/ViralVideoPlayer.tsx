@@ -7,6 +7,10 @@ interface ViralVideoPlayerProps {
   aspectRatio?: "9:16" | "16:9" | "auto";
   onExpired?: () => void;
   className?: string;
+  /** Scale controls down for tiny inline players (e.g. chat embed cards
+   *  at ~96px wide). Drops the fullscreen button, shrinks the play
+   *  button + scrubber + paddings + time text. */
+  compact?: boolean;
 }
 
 export function ViralVideoPlayer({
@@ -15,6 +19,7 @@ export function ViralVideoPlayer({
   aspectRatio = "auto",
   onExpired,
   className,
+  compact = false,
 }: ViralVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -169,10 +174,10 @@ export function ViralVideoPlayer({
         position: "relative",
         width: "100%",
         aspectRatio: fullscreen ? undefined : aspectStyle,
-        borderRadius: fullscreen ? 0 : 22,
+        borderRadius: fullscreen ? 0 : (compact ? 0 : 22),
         overflow: "hidden",
-        border: "1px solid hsl(var(--ink))",
-        boxShadow: fullscreen ? "none" : "6px 6px 0 hsl(var(--ink))",
+        border: compact ? "none" : "1px solid hsl(var(--ink))",
+        boxShadow: (fullscreen || compact) ? "none" : "6px 6px 0 hsl(var(--ink))",
         background: "#000",
         cursor: "pointer",
       }}
@@ -198,7 +203,7 @@ export function ViralVideoPlayer({
             pointerEvents: "none",
           }}
         >
-          <div style={{ width: 96, height: 96, position: "relative" }}>
+          <div style={{ width: compact ? 36 : 96, height: compact ? 36 : 96, position: "relative" }}>
             <svg
               viewBox="0 0 100 100"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
@@ -231,7 +236,7 @@ export function ViralVideoPlayer({
           bottom: 0,
           left: 0,
           right: 0,
-          padding: "32px 18px 16px",
+          padding: compact ? "16px 6px 6px" : "32px 18px 16px",
           background:
             "linear-gradient(0deg, rgba(10,14,18,0.92) 0%, rgba(10,14,18,0.55) 60%, transparent 100%)",
           transition: "transform 350ms cubic-bezier(0.4, 0, 0.2, 1)",
@@ -243,13 +248,13 @@ export function ViralVideoPlayer({
           ref={progressRef}
           onClick={handleSeek}
           style={{
-            height: 4,
+            height: compact ? 2 : 4,
             background: "rgba(234,230,220,0.18)",
             borderRadius: 4,
-            marginBottom: 12,
+            marginBottom: compact ? 4 : 12,
             cursor: "pointer",
             position: "relative",
-            border: "1px solid rgba(10,14,18,0.6)",
+            border: compact ? "none" : "1px solid rgba(10,14,18,0.6)",
           }}
         >
           <div
@@ -261,24 +266,26 @@ export function ViralVideoPlayer({
               position: "relative",
             }}
           >
-            <div
-              style={{
-                position: "absolute",
-                right: -6,
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                background: "hsl(var(--honey))",
-                border: "1px solid hsl(var(--ink))",
-              }}
-            />
+            {!compact && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: -6,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  background: "hsl(var(--honey))",
+                  border: "1px solid hsl(var(--ink))",
+                }}
+              />
+            )}
           </div>
         </div>
 
         {/* Controls row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: compact ? 6 : 12 }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -289,20 +296,20 @@ export function ViralVideoPlayer({
               background: "hsl(var(--honey))",
               border: "1px solid hsl(var(--ink))",
               borderRadius: "50%",
-              width: 32,
-              height: 32,
+              width: compact ? 18 : 32,
+              height: compact ? 18 : 32,
               cursor: "pointer",
               color: "hsl(var(--ink))",
               padding: 0,
               display: "grid",
               placeItems: "center",
-              boxShadow: "2px 2px 0 hsl(var(--ink))",
+              boxShadow: compact ? "1px 1px 0 hsl(var(--ink))" : "2px 2px 0 hsl(var(--ink))",
             }}
           >
             {playing ? (
-              <Pause size={13} fill="hsl(var(--ink))" />
+              <Pause size={compact ? 8 : 13} fill="hsl(var(--ink))" />
             ) : (
-              <Play size={13} fill="hsl(var(--ink))" style={{ marginLeft: 1 }} />
+              <Play size={compact ? 8 : 13} fill="hsl(var(--ink))" style={{ marginLeft: compact ? 0.5 : 1 }} />
             )}
           </button>
           <button
@@ -316,43 +323,47 @@ export function ViralVideoPlayer({
               border: "none",
               cursor: "pointer",
               color: "hsl(var(--bone))",
-              padding: 6,
+              padding: compact ? 2 : 6,
               display: "grid",
               placeItems: "center",
             }}
           >
-            {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            {muted ? <VolumeX size={compact ? 10 : 15} /> : <Volume2 size={compact ? 10 : 15} />}
           </button>
-          <span
-            style={{
-              fontFamily: "'Figtree', monospace",
-              fontSize: 12,
-              color: "rgba(234,230,220,0.62)",
-              fontVariantNumeric: "tabular-nums",
-              letterSpacing: "0.02em",
-            }}
-          >
-            {fmt(current)} / {fmt(duration)}
-          </span>
+          {!compact && (
+            <span
+              style={{
+                fontFamily: "'Figtree', monospace",
+                fontSize: 12,
+                color: "rgba(234,230,220,0.62)",
+                fontVariantNumeric: "tabular-nums",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {fmt(current)} / {fmt(duration)}
+            </span>
+          )}
           <div style={{ flex: 1 }} />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFullscreen();
-            }}
-            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "hsl(var(--bone))",
-              padding: 6,
-              display: "grid",
-              placeItems: "center",
-            }}
-          >
-            {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
-          </button>
+          {!compact && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFullscreen();
+              }}
+              aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "hsl(var(--bone))",
+                padding: 6,
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+            </button>
+          )}
         </div>
       </div>
     </div>
