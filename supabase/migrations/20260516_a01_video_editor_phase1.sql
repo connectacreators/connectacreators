@@ -40,26 +40,22 @@ create index if not exists render_jobs_editor_project_id_idx
 alter table public.editor_projects enable row level security;
 alter table public.render_jobs enable row level security;
 
+drop policy if exists editor_projects_admin_all on public.editor_projects;
 create policy editor_projects_admin_all
   on public.editor_projects
   for all
   using (public.is_admin())
   with check (public.is_admin());
 
+drop policy if exists render_jobs_admin_all on public.render_jobs;
 create policy render_jobs_admin_all
   on public.render_jobs
   for all
   using (public.is_admin())
   with check (public.is_admin());
 
--- updated_at trigger
-create or replace function public.editor_projects_set_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at := now();
-  return new;
-end $$;
-
+-- updated_at trigger (reuses shared function)
+drop trigger if exists editor_projects_updated_at on public.editor_projects;
 create trigger editor_projects_updated_at
   before update on public.editor_projects
-  for each row execute procedure public.editor_projects_set_updated_at();
+  for each row execute function public.update_updated_at_column();
