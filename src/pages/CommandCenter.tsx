@@ -860,22 +860,20 @@ export default function CommandCenter() {
     // Attach pending embeds (scoped to the active thread) to the most recent
     // non-progress assistant text message so the user sees thumbnail previews
     // of what Robby is referencing. Per-thread scoping prevents the bug
-    // where every chat showed the same find_viral_videos cards.
-    // CRITICAL: preserve the message's text as `narrative` so it still
-    // renders — setting broadcast switches AssistantChat off the regular
-    // text-rendering path.
+    // where every chat showed the same find_viral_videos cards. Set `embeds`
+    // directly (not `broadcast`) so the text reply keeps its normal style —
+    // AssistantChat renders embeds after the text body, not as italic
+    // narrative. If a broadcast IS present (live draft scenes), merge the
+    // embeds into it so the existing TurnRenderer path keeps working.
     const threadEmbeds = (activeThreadId && pendingEmbedsByThread[activeThreadId]) || [];
     if (threadEmbeds.length > 0) {
       for (let i = out.length - 1; i >= 0; i--) {
         const m = out[i];
         if (m.role === "assistant" && !m.is_progress && m.type !== "plan_proposal" && m.type !== "script_preview") {
           const existing = m.broadcast;
-          out[i] = {
-            ...m,
-            broadcast: existing
-              ? { ...existing, embeds: [...existing.embeds, ...threadEmbeds] }
-              : { scenes: [], narrative: m.content, embeds: threadEmbeds },
-          };
+          out[i] = existing && existing.scenes.length > 0
+            ? { ...m, broadcast: { ...existing, embeds: [...existing.embeds, ...threadEmbeds] } }
+            : { ...m, embeds: [...(m.embeds ?? []), ...threadEmbeds] };
           break;
         }
       }

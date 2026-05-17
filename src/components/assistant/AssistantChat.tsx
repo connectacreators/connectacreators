@@ -27,6 +27,13 @@ import { parseDeck, composeDeckAnswers, type DeckAnswer, type DeckQuestion } fro
 import { QuestionDeckCard } from "@/components/canvas/QuestionDeckCard";
 import { DeckSummaryBubble } from "@/components/canvas/DeckSummaryBubble";
 import TurnRenderer from "@/components/companion/TurnRenderer";
+import VideoCardEmbed from "@/components/companion/embeds/VideoCardEmbed";
+import VideoPlayerEmbed from "@/components/companion/embeds/VideoPlayerEmbed";
+import MetricStripEmbed from "@/components/companion/embeds/MetricStripEmbed";
+import FrameworkDeckEmbed from "@/components/companion/embeds/FrameworkDeckEmbed";
+import ChannelGridEmbed from "@/components/companion/embeds/ChannelGridEmbed";
+import ScriptCardEmbed from "@/components/companion/embeds/ScriptCardEmbed";
+import type { EmbedRef } from "@/lib/companion/turn-script";
 import {
   MarkdownText,
   InlineScriptPreview,
@@ -293,6 +300,33 @@ function PlanCard({
   );
 }
 
+// ── Embeds renderer ───────────────────────────────────────────────────────
+// Renders the same set of embed types as TurnRenderer, but standalone — used
+// when a message carries `msg.embeds` (e.g. video cards from
+// find_viral_videos) but no broadcast scenes. Keeps the regular text bubble
+// intact (not wrapped in italic narrative styling).
+function renderEmbed(e: EmbedRef) {
+  switch (e.type) {
+    case "video-card":     return <VideoCardEmbed data={e.data} />;
+    case "video-player":   return <VideoPlayerEmbed data={e.data} />;
+    case "metric-strip":   return <MetricStripEmbed data={e.data} />;
+    case "framework-deck": return <FrameworkDeckEmbed data={e.data} />;
+    case "channel-grid":   return <ChannelGridEmbed data={e.data} />;
+    case "script-card":    return <ScriptCardEmbed data={e.data} />;
+  }
+}
+
+function EmbedsList({ embeds }: { embeds: EmbedRef[] }) {
+  if (!embeds || embeds.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2 mt-2">
+      {embeds.map((e, i) => (
+        <div key={`embed-${i}`}>{renderEmbed(e)}</div>
+      ))}
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function AssistantChat({
@@ -514,7 +548,9 @@ export function AssistantChat({
         {visibleMessages.map((msg, i) => (
           <div key={i}>
             {msg.role === "assistant" ? (
-              msg.broadcast ? (
+              (msg.broadcast && msg.broadcast.scenes.length > 0) ? (
+                // Broadcast turn with live scenes — TurnRenderer handles
+                // scenes + italic narrative + embeds together.
                 <div className="flex gap-2 items-start min-w-0">
                   <div className="min-w-0 flex-1">
                     <TurnRenderer turn={msg.broadcast} />
@@ -757,6 +793,18 @@ export function AssistantChat({
                 </div>
               </div>
             )}
+            {/* Standalone embeds — rendered after the message body so the
+                text bubble keeps its normal styling (not italic narrative).
+                Skipped when broadcast scenes already cover this turn, since
+                TurnRenderer renders embeds inline in that case. */}
+            {msg.role === "assistant" &&
+              msg.embeds &&
+              msg.embeds.length > 0 &&
+              !(msg.broadcast && msg.broadcast.scenes.length > 0) && (
+                <div className="pl-7 mt-1">
+                  <EmbedsList embeds={msg.embeds} />
+                </div>
+              )}
           </div>
         ))}
 

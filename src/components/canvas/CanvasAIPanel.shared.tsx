@@ -13,7 +13,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, FileText, Save } from "lucide-react";
 import type { DeckAnswer, DeckQuestion } from "@/lib/parseDeck";
-import type { BroadcastTurn } from "@/lib/companion/turn-script";
+import type { BroadcastTurn, EmbedRef } from "@/lib/companion/turn-script";
 import robbyThinking from "@/assets/robby-thinking.webp";
 import connectaFavicon from "@/assets/connecta-favicon-icon.png";
 import { FingerprintAvatar } from "@/components/assistant";
@@ -54,10 +54,16 @@ export interface AssistantMessage {
     steps: Array<{ tool?: string; description?: string }>;
   };
   _imagePreview?: string;
-  /** Phase A: when present, AssistantChat renders this turn via TurnRenderer
-   *  (live broadcast scenes + embeds) instead of the plain text content. The
-   *  text content stays as a fallback so non-upgraded surfaces still render. */
+  /** Phase A: when present AND scenes is non-empty, AssistantChat renders this
+   *  turn via TurnRenderer (live broadcast scenes) instead of the plain text
+   *  content. The text content stays as a fallback so non-upgraded surfaces
+   *  still render. */
   broadcast?: BroadcastTurn;
+  /** Phase B: standalone embeds (e.g. video cards from find_viral_videos),
+   *  rendered AFTER the regular text content. Decoupled from `broadcast` so
+   *  the assistant's text reply still renders in its normal style — not as
+   *  italic editorial narrative. */
+  embeds?: EmbedRef[];
   is_research?: boolean;
   source_count?: number;
   research_topic?: string;
