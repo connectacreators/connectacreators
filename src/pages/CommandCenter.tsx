@@ -1016,6 +1016,18 @@ export default function CommandCenter() {
                   bottomSlot={<CompactModeSelect mode={autonomyMode} setMode={setAutonomyMode} />}
                   onToggleVoice={toggleVoice}
                   recognizing={recognizing}
+                  selectedModel={selectedModel}
+                  models={AI_MODELS}
+                  onModelChange={setSelectedModel}
+                  thinkingEnabled={thinkingEnabled}
+                  onToggleThinking={() => setThinkingEnabled((v) => !v)}
+                  imageMode={imageMode}
+                  onToggleImageMode={() => setImageMode((v) => !v)}
+                  isResearchMode={isResearchMode}
+                  onToggleResearchMode={() => setIsResearchMode((v) => !v)}
+                  pastedImage={pastedImage}
+                  onClearPastedImage={() => setPastedImage(null)}
+                  onPaste={handlePaste}
                   promptPresets={[
                     {
                       name: en ? "Morning brief" : "Resumen del día",
