@@ -95,11 +95,11 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
   // stream closes (done or error).
   const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
   // Embeds collected from the SSE stream (e.g. video-card previews for
-  // find_viral_videos results). Attached to the most recent assistant
-  // message in the chat list so the user sees thumbnail previews of the
-  // videos Robby references. Keyed by thread_id so concurrent threads
-  // don't cross-pollinate.
-  const [pendingEmbeds, setPendingEmbeds] = useState<EmbedRef[]>([]);
+  // find_viral_videos results). Keyed by thread_id so they only attach
+  // to messages in the thread they were emitted from — prevents the
+  // previous bug where switching threads carried embeds across.
+  const [pendingEmbedsByThread, setPendingEmbedsByThread] = useState<Record<string, EmbedRef[]>>({});
+  const activePendingEmbeds = (activeThreadId && pendingEmbedsByThread[activeThreadId]) || [];
 
   // Read pending prompt handed off by Dashboard / RobbyInsightRow.
   // One-shot: consume and clear so subsequent opens don't replay it.
@@ -233,10 +233,16 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     const text = input.trim();
     setInput("");
     setSending(true);
-    // Reset embeds from the previous turn so they don't leak onto the new
+    // Reset embeds for the active thread so they don't leak onto the new
     // reply. Cleared per-send (not per-stream-start) so the embed cards
     // persist while the user reads the reply.
-    setPendingEmbeds([]);
+    if (activeThreadId) {
+      setPendingEmbedsByThread((prev) => {
+        const next = { ...prev };
+        delete next[activeThreadId];
+        return next;
+      });
+    }
 
     // Optimistic user message — shown immediately, Realtime will replace it
     // with the real DB row when companion-chat dual-writes it.
@@ -270,11 +276,33 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
         },
         callbacks: {
           onScene: (scene) => setCurrentScene(scene),
-          onEmbeds: (event) => setPendingEmbeds((prev) => [...prev, ...event.embeds]),
+          onEmbeds: (event) => {
+            // Use the thread we just submitted into (might not be set yet
+            // if this is the first message in a brand-new thread — fall back
+            // to a sentinel and rebind once `done` arrives below).
+            const tid = activeThreadId ?? "__pending__";
+            setPendingEmbedsByThread((prev) => ({
+              ...prev,
+              [tid]: [...(prev[tid] ?? []), ...event.embeds],
+            }));
+          },
         },
       });
       setCurrentScene(null);
       const data = streamResult.done ?? null;
+
+      // If we collected embeds under the __pending__ sentinel (brand-new
+      // thread case), rebind them now to the real thread id.
+      if (data?.thread_id) {
+        setPendingEmbedsByThread((prev) => {
+          if (!prev["__pending__"]) return prev;
+          const realId = data.thread_id as string;
+          return {
+            ...Object.fromEntries(Object.entries(prev).filter(([k]) => k !== "__pending__")),
+            [realId]: [...(prev[realId] ?? []), ...prev["__pending__"]],
+          };
+        });
+      }
 
       // If companion-chat returns a thread_id, activate that thread so the
       // Realtime subscription picks up FSM messages automatically.
@@ -383,10 +411,10 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
         };
       });
 
-    // Attach pending embeds (collected from the SSE stream) to the most
-    // recent NON-progress assistant message. The user sees their referenced
-    // viral videos as thumbnail cards beneath Robby's reply.
-    if (pendingEmbeds.length > 0) {
+    // Attach pending embeds (collected from the SSE stream for the active
+    // thread) to the most recent non-progress assistant message. Scoped to
+    // the active thread so switching threads doesn't carry embeds across.
+    if (activePendingEmbeds.length > 0) {
       for (let i = mapped.length - 1; i >= 0; i--) {
         if (mapped[i].role === "assistant" && !mapped[i].is_progress) {
           mapped[i] = {
@@ -394,7 +422,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
             broadcast: {
               scenes: [],
               narrative: "",
-              embeds: pendingEmbeds,
+              embeds: activePendingEmbeds,
             },
           };
           break;
@@ -402,7 +430,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
       }
     }
     return mapped;
-  }, [messages, pendingEmbeds]);
+  }, [messages, activePendingEmbeds]);
 
   return (
     <aside

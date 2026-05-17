@@ -80,6 +80,18 @@ export interface VideoCardEmbedData {
   engagement: number;             // 4.6 → "4.6%"
   age: string;                    // "2d ago"
   format_hint?: string;           // "Comparison · split-screen"
+  // Rich breakdown fields — populated by find_viral_videos so the embed
+  // can render a compact horizontal card with hook/body/CTA snippets
+  // instead of just a thumbnail. All optional so legacy payloads still
+  // render the simple card.
+  platform?: string;              // "instagram" | "tiktok" | "youtube"
+  content_format?: string;        // canonical slug e.g. "comparison"
+  primary_niche?: string;         // canonical slug e.g. "sales"
+  hook_text?: string;
+  body_structure?: string;
+  cta_text?: string;
+  video_url?: string;             // source URL (linked from the card)
+  video_file_url?: string | null; // Supabase Storage signed URL for inline playback
 }
 
 export interface VideoPlayerEmbedData extends VideoCardEmbedData {

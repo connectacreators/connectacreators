@@ -1271,7 +1271,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           const cap = Math.min(Math.max(1, limit), 25);
           let query = adminClient
             .from("viral_videos")
-            .select("id, channel_username, platform, caption, transcript, views_count, likes_count, comments_count, engagement_rate, outlier_score, video_url, thumbnail_url, hook_text, cta_text, framework_meta, content_format, primary_niche, posted_at")
+            .select("id, channel_username, platform, caption, transcript, views_count, likes_count, comments_count, engagement_rate, outlier_score, video_url, thumbnail_url, hook_text, cta_text, framework_meta, content_format, primary_niche, posted_at, video_file_url")
             .gte("outlier_score", min_outlier)
             .order("outlier_score", { ascending: false })
             .limit(cap);
@@ -1392,22 +1392,35 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             };
             emit({
               type: "embeds",
-              embeds: videos.slice(0, 6).map((v: any) => ({
-                type: "video-card",
-                data: {
-                  id: v.id,
-                  thumbnail_url: v.thumbnail_url ?? null,
-                  username: v.channel_username ?? "unknown",
-                  outlier: Number(v.outlier_score ?? 0),
-                  views: Number(v.views_count ?? 0),
-                  engagement: Number(v.engagement_rate ?? 0),
-                  age: ageOf(v.posted_at),
-                  format_hint: v.content_format ?? undefined,
-                  caption_overlay: typeof v.caption === "string" && v.caption.length > 0
-                    ? v.caption.slice(0, 80)
-                    : undefined,
-                },
-              })),
+              embeds: videos.slice(0, 6).map((v: any) => {
+                const fm = (typeof v.framework_meta === "object" && v.framework_meta !== null)
+                  ? v.framework_meta
+                  : null;
+                const bodyStruct = typeof fm?.body_structure === "string"
+                  ? fm.body_structure
+                  : undefined;
+                return {
+                  type: "video-card" as const,
+                  data: {
+                    id: v.id,
+                    thumbnail_url: v.thumbnail_url ?? null,
+                    username: v.channel_username ?? "unknown",
+                    outlier: Number(v.outlier_score ?? 0),
+                    views: Number(v.views_count ?? 0),
+                    engagement: Number(v.engagement_rate ?? 0),
+                    age: ageOf(v.posted_at),
+                    format_hint: v.content_format ?? undefined,
+                    platform: v.platform ?? undefined,
+                    content_format: v.content_format ?? undefined,
+                    primary_niche: v.primary_niche ?? undefined,
+                    hook_text: typeof v.hook_text === "string" ? v.hook_text.slice(0, 200) : undefined,
+                    body_structure: bodyStruct ? bodyStruct.slice(0, 200) : undefined,
+                    cta_text: typeof v.cta_text === "string" ? v.cta_text.slice(0, 200) : undefined,
+                    video_url: v.video_url ?? undefined,
+                    video_file_url: v.video_file_url ?? null,
+                  },
+                };
+              }),
             });
           }
         }
@@ -2170,7 +2183,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               // Run the same query the in-loop tool handler would have run.
               let query = adminClient
                 .from("viral_videos")
-                .select("id, channel_username, platform, caption, transcript, views_count, likes_count, comments_count, engagement_rate, outlier_score, video_url, thumbnail_url, hook_text, cta_text, framework_meta, content_format, primary_niche, posted_at")
+                .select("id, channel_username, platform, caption, transcript, views_count, likes_count, comments_count, engagement_rate, outlier_score, video_url, thumbnail_url, hook_text, cta_text, framework_meta, content_format, primary_niche, posted_at, video_file_url")
                 .gte("outlier_score", min_outlier ?? 3)
                 .order("outlier_score", { ascending: false })
                 .limit(Math.min(limit ?? 8, 25));

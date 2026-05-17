@@ -590,8 +590,14 @@ export default function CommandCenter() {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
-    // Reset embeds carried over from the previous turn.
-    setPendingEmbeds([]);
+    // Reset embeds for this thread so they don't leak into the new reply.
+    if (activeThreadId) {
+      setPendingEmbedsByThread((prev) => {
+        const next = { ...prev };
+        delete next[activeThreadId];
+        return next;
+      });
+    }
 
     // Fresh AbortController so the Stop button can interrupt this request.
     const controller = new AbortController();
@@ -631,7 +637,13 @@ export default function CommandCenter() {
         signal: controller.signal,
         callbacks: {
           onScene: (scene) => setCurrentScene(scene),
-          onEmbeds: (event) => setPendingEmbeds((prev) => [...prev, ...event.embeds]),
+          onEmbeds: (event) => {
+            const tid = activeThreadId ?? "__pending__";
+            setPendingEmbedsByThread((prev) => ({
+              ...prev,
+              [tid]: [...(prev[tid] ?? []), ...event.embeds],
+            }));
+          },
         },
       });
       // Clear the pasted image on successful send so the next message
@@ -845,10 +857,12 @@ export default function CommandCenter() {
         plan_data: latestPlan,
       });
     }
-    // Attach pending embeds (video-card thumbnails for find_viral_videos
-    // results, etc.) to the most recent non-progress assistant text message
-    // so the user sees thumbnail previews of what Robby is referencing.
-    if (pendingEmbeds.length > 0) {
+    // Attach pending embeds (scoped to the active thread) to the most recent
+    // non-progress assistant text message so the user sees thumbnail previews
+    // of what Robby is referencing. Per-thread scoping prevents the bug
+    // where every chat showed the same find_viral_videos cards.
+    const threadEmbeds = (activeThreadId && pendingEmbedsByThread[activeThreadId]) || [];
+    if (threadEmbeds.length > 0) {
       for (let i = out.length - 1; i >= 0; i--) {
         const m = out[i];
         if (m.role === "assistant" && !m.is_progress && m.type !== "plan_proposal" && m.type !== "script_preview") {
@@ -856,15 +870,15 @@ export default function CommandCenter() {
           out[i] = {
             ...m,
             broadcast: existing
-              ? { ...existing, embeds: [...existing.embeds, ...pendingEmbeds] }
-              : { scenes: [], narrative: "", embeds: pendingEmbeds },
+              ? { ...existing, embeds: [...existing.embeds, ...threadEmbeds] }
+              : { scenes: [], narrative: "", embeds: threadEmbeds },
           };
           break;
         }
       }
     }
     return out;
-  }, [messages, latestPlan, pendingEmbeds]);
+  }, [messages, latestPlan, pendingEmbedsByThread, activeThreadId]);
 
   const handleApprovePlan = useCallback(async (planId: string) => {
     setLatestPlan(null);
