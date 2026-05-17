@@ -1,11 +1,10 @@
 // render-worker/src/render.ts
 import ffmpegPath from "ffmpeg-static";
-import ffmpeg from "fluent-ffmpeg";
+import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
 if (!ffmpegPath) throw new Error("ffmpeg-static did not resolve a binary path");
-ffmpeg.setFfmpegPath(ffmpegPath);
 
 export type Clip = { source_start_ms: number; source_end_ms: number };
 
@@ -44,9 +43,13 @@ export async function runRender(input: string, clips: Clip[], output: string): P
   await fs.mkdir(path.dirname(output), { recursive: true });
   const args = buildTrimConcatArgs(input, clips, output);
   await new Promise<void>((resolve, reject) => {
-    const cmd = ffmpeg().input(input).outputOptions(args.slice(1, -1)).output(output);
-    cmd.on("end", () => resolve());
-    cmd.on("error", (err) => reject(err));
-    cmd.run();
+    const proc = spawn(ffmpegPath as string, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-500)}`));
+    });
   });
 }
