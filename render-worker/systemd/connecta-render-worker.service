@@ -1,0 +1,17 @@
+[Unit]
+Description=ConnectACreators render worker
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/connectacreators-render-worker
+ExecStart=/usr/bin/node /var/www/connectacreators-render-worker/dist/index.js
+EnvironmentFile=/etc/connecta-render-worker.env
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+User=root
+
+[Install]
+WantedBy=multi-user.target
