@@ -229,39 +229,55 @@ function detectPlatformAndUsername(raw: string): { username: string; platform: "
 }
 
 // ── Feed score algorithm ─────────────────────────────────────────────────────
-// Used by "For You" sort. Higher = shown first.
+// Used by "For You" sort. Higher = shown first. Ranking philosophy:
+//  - HARD signal first: the client's canonical primary_niche slug. Anything
+//    matching that gets a big boost so it floats over everything else.
+//  - Soft signal next: keyword/affinity bumps for slight personalization.
+//  - Fallback (no niche, no match): raw outlier × views × recency so top
+//    performers surface — matches the user's stated fallback.
 function buildFeedScorer(
   interactions: Map<string, { seen_count: number; clicked: boolean }>,
   nicheKeywords: string[],
   userChannelIds: Set<string>,
+  clientNiche: string | null,
 ) {
   return (v: ViralVideo, now: number): number => {
-    // 1. Outlier base (0–100+)
-    let score = v.outlier_score * 10;
+    // 1. Outlier base (0–100+) — every algorithm starts with raw virality
+    let score = (v.outlier_score ?? 0) * 10;
 
-    // 2. Recency boost (0–30): 30 pts if today, 0 if 90+ days old
+    // 2. Views ladder (0–25) — log-scaled so 10M views ≈ +25, 100k ≈ +12
+    const views = v.views_count ?? 0;
+    if (views > 0) score += Math.min(25, Math.log10(views + 1) * 3.5);
+
+    // 3. Recency boost (0–30): 30 pts if today, 0 if 90+ days old
     const ageMs = now - new Date(v.posted_at ?? v.scraped_at).getTime();
     const ageDays = ageMs / 86_400_000;
     score += Math.max(0, 30 - (ageDays / 90) * 30);
 
-    // 3. Niche relevance (+40)
+    // 4. PRIMARY NICHE MATCH (+60) — canonical slug check, the strongest
+    //    personalization signal. Matches "fitness" → "fitness", etc.
+    if (clientNiche && v.primary_niche === clientNiche) {
+      score += 60;
+    }
+
+    // 5. Keyword fallback (+15) — softer signal for clients without a
+    //    derivable niche slug. Caption / channel substring match.
     if (nicheKeywords.length > 0) {
-      const text = ((v.caption || "") + " " + v.channel_username).toLowerCase();
+      const text = ((v.caption || "") + " " + (v.channel_username || "")).toLowerCase();
       if (nicheKeywords.some(kw => text.includes(kw))) {
-        score += 40;
+        score += 15;
       }
     }
 
-    // 4. Channel affinity (+20) — user added this channel
+    // 6. Channel affinity (+20) — user explicitly added this channel
     if (v.channel_id && userChannelIds.has(v.channel_id)) {
       score += 20;
     }
 
-    // 5. Unseen bonus (+25) — reward videos the user hasn't seen
+    // 7. Unseen bonus (+15) — reward fresh-to-user videos but don't
+    //    crowd out objectively-better-but-seen ones
     const inter = interactions.get(v.id);
-    if (!inter) {
-      score += 25;
-    }
+    if (!inter) score += 15;
 
     return score;
   };
@@ -629,9 +645,9 @@ function VideoCard({
           className="absolute inset-0"
           style={{ background: gridGradientFor(video.channel_username) }}
         />
-        {!imgError && (video.thumbnail_url || video.video_url) ? (
+        {!imgError && video.thumbnail_url ? (
           <img
-            src={proxyImg(video.thumbnail_url, video.video_url) ?? undefined}
+            src={proxyImg(video.thumbnail_url) ?? undefined}
             alt={video.caption?.slice(0, 60) ?? "video"}
             className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImgError(true)}
@@ -1055,6 +1071,11 @@ export default function ViralToday() {
   const [initialInteractions, setInitialInteractions] = useState<Map<string, { seen_count: number; clicked: boolean }>>(new Map());
   const [nicheKeywords, setNicheKeywords] = useState<string[]>([]);
   const [userChannelIds, setUserChannelIds] = useState<Set<string>>(new Set());
+  // Canonical primary_niche slug derived from the active client's industry —
+  // the strongest signal for "For You" relevance. Null when no client is
+  // selected or industry doesn't map to a known slug; in that case For You
+  // falls back to top-performer ranking (outlier × views × recency).
+  const [clientNiche, setClientNiche] = useState<string | null>(null);
 
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
@@ -1316,11 +1337,12 @@ export default function ViralToday() {
     })();
   }, [user]);
 
-  // ── Fetch niche keywords from selected client ─────────────────────────────
+  // ── Fetch niche keywords + derived primary_niche from selected client ────
   useEffect(() => {
     const clientId = localStorage.getItem("dashboard_viewMode");
     if (!clientId || clientId === "master" || clientId === "me") {
       setNicheKeywords([]);
+      setClientNiche(null);
       return;
     }
     (async () => {
@@ -1332,8 +1354,8 @@ export default function ViralToday() {
       if (!data) return;
       // Use stored keywords, or auto-extract from onboarding
       let kws: string[] = data.niche_keywords ?? [];
+      const od = (data.onboarding_data ?? {}) as Record<string, string>;
       if (kws.length === 0 && data.onboarding_data) {
-        const od = data.onboarding_data as Record<string, string>;
         const fields = [od.industry, od.industryOther, od.niche, od.target_client, od.unique_offer].filter(Boolean);
         const extracted = fields.join(" ").toLowerCase().split(/[\s,;|]+/).filter(w => w.length > 2);
         kws = [...new Set(extracted)];
@@ -1343,6 +1365,35 @@ export default function ViralToday() {
         }
       }
       setNicheKeywords(kws);
+
+      // Map the client's free-text industry to a canonical primary_niche slug
+      // (same vocabulary as viral_videos.primary_niche). Lets the For You
+      // scorer do a hard slug-equality match instead of fuzzy keyword search.
+      const INDUSTRY_TO_NICHE: Array<[RegExp, string]> = [
+        [/chiropract|physical therap|physio|sports med|wellness|holistic|nutritionist|dietitian/i, "fitness"],
+        [/personal train|fitness|gym|crossfit|yoga|pilates/i, "fitness"],
+        [/realtor|real estate|mortgage|broker|home loan/i, "real_estate"],
+        [/sales|sdr|closer|appointment setter|outbound|cold call/i, "sales"],
+        [/financ|cpa|account|tax|wealth|invest|bookkeep|insurance/i, "finance"],
+        [/coach|consult|mentor|advisor|life coach|business coach/i, "coaching"],
+        [/ecommerce|shopify|amazon fba|dtc|drop ship|online store/i, "ecommerce"],
+        [/saas|software|tech|developer|engineer|startup|founder/i, "saas_tech"],
+        [/beauty|esthetic|skincare|makeup|cosmetic|hair stylist|salon|nail/i, "beauty"],
+        [/food|chef|restaurant|recipe|bakery|cafe/i, "food"],
+        [/mindset|self help|productivity|motivation|stoic/i, "mindset"],
+        [/dating|relationship|marriage|couples therapy/i, "relationships"],
+        [/teach|tutor|education|course creator|professor/i, "education"],
+        [/lifestyle|vlog|travel|fashion|home decor/i, "lifestyle"],
+        [/parent|mom|dad|family|baby|toddler/i, "parenting"],
+        [/lawyer|attorney|immigration|legal|law firm/i, "personal_branding"],
+        [/dentist|doctor|medical|surgeon|clinic|aesthetics|med spa/i, "personal_branding"],
+      ];
+      const industryText = [od.industry, od.industryOther, od.niche].filter(Boolean).join(" ");
+      let derivedNiche: string | null = null;
+      for (const [re, slug] of INDUSTRY_TO_NICHE) {
+        if (re.test(industryText)) { derivedNiche = slug; break; }
+      }
+      setClientNiche(derivedNiche);
     })();
   }, []);
 
@@ -1684,8 +1735,8 @@ export default function ViralToday() {
 
   // ── Feed score function (memoized) ─────────────────────────────────────────
   const computeFeedScore = useMemo(
-    () => buildFeedScorer(initialInteractions, nicheKeywords, userChannelIds),
-    [initialInteractions, nicheKeywords, userChannelIds]
+    () => buildFeedScorer(initialInteractions, nicheKeywords, userChannelIds, clientNiche),
+    [initialInteractions, nicheKeywords, userChannelIds, clientNiche]
   );
 
   // ── Filtered videos ──────────────────────────────────────────────────────────
