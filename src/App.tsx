@@ -14,6 +14,8 @@ import NamingModal from "@/components/NamingModal";
 import FloatingUploadProgress from "@/components/FloatingUploadProgress";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
+import VideoEditor from "@/pages/VideoEditor";
+import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
 // Lazy-loaded pages — each becomes its own chunk, loaded on demand
 const Home = lazy(() => import("./pages/Home"));
@@ -178,6 +180,9 @@ const App = () => (
               <Route path="/clients/:clientId/social-accounts" element={<SocialAccounts />} />
               <Route path="/clients/:clientId/strategy" element={<ClientStrategy />} />
             </Route>
+
+            {/* Video editor — dev-gated, standalone (no DashboardLayout) */}
+            {IS_VIDEO_EDITOR_ENABLED && <Route path="/editing/:id/edit" element={<VideoEditor />} />}
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
