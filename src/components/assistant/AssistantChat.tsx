@@ -91,6 +91,12 @@ export interface AssistantChatProps {
    *  editorial light surfaces (canvas), "light" = white-tinted for
    *  dark surfaces (drawer, /ai). Defaults to "light". */
   avatarTone?: "light" | "dark";
+  /** Live tool verb from the companion-chat SSE stream — overrides the
+   *  rotating verb in ThinkingAnimation when present. */
+  thinkingVerb?: string | null;
+  /** Optional technical meta line (e.g. "viral_videos · query") shown
+   *  below the verb in JetBrains Mono. */
+  thinkingMeta?: string | null;
   className?: string;
 }
 
@@ -315,6 +321,8 @@ export function AssistantChat({
   isResearchMode = false,
   onAutoScrolledToBottom,
   avatarTone = "light",
+  thinkingVerb = null,
+  thinkingMeta = null,
   className = "",
 }: AssistantChatProps) {
   const fullscreen = variant === "full";
@@ -754,7 +762,11 @@ export function AssistantChat({
 
         {(loading || generating) && !generatingImage && streamingContent === null && remoteStreamingContent === null && (
           <div className="flex items-center">
-            <ThinkingAnimation tone={avatarTone === "dark" ? "dark" : "light"} />
+            <ThinkingAnimation
+              tone={avatarTone === "dark" ? "dark" : "light"}
+              verb={thinkingVerb ?? undefined}
+              meta={thinkingMeta ?? undefined}
+            />
           </div>
         )}
 

@@ -23,6 +23,7 @@ import { useActiveBuildSessions } from "@/hooks/useActiveBuildSessions";
 import { BuildBanner } from "@/components/companion/BuildBanner";
 import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { supabase } from "@/integrations/supabase/client";
+import { streamCompanionChat, type SceneEvent } from "@/lib/companion/stream-companion-chat";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveChat } from "@/hooks/useActiveChat";
 import {
@@ -89,6 +90,10 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Live scene event from the companion-chat SSE stream — drives the
+  // ThinkingAnimation while a request is in flight. Cleared when the
+  // stream closes (done or error).
+  const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
 
   // Read pending prompt handed off by Dashboard / RobbyInsightRow.
   // One-shot: consume and clear so subsequent opens don't replay it.
@@ -238,7 +243,14 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) return;
-      const { data } = await supabase.functions.invoke("companion-chat", {
+
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+      const streamResult = await streamCompanionChat({
+        supabaseUrl: SUPABASE_URL,
+        anonKey: ANON_KEY,
+        accessToken: session.access_token,
         body: {
           message: text,
           companion_name: companionName,
@@ -246,8 +258,12 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
           autonomy_mode: autonomyMode,
           thread_id: activeThreadId ?? null,
         },
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        callbacks: {
+          onScene: (scene) => setCurrentScene(scene),
+        },
       });
+      setCurrentScene(null);
+      const data = streamResult.done ?? null;
 
       // If companion-chat returns a thread_id, activate that thread so the
       // Realtime subscription picks up FSM messages automatically.
@@ -455,6 +471,8 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
                   variant="full"
                   greeting="What are we doing today?"
                   greetingSubtitle="Ask anything about your work."
+                  thinkingVerb={currentScene?.verb ?? null}
+                  thinkingMeta={currentScene?.meta ?? null}
                 />
               </div>
               <div className="p-2 border-t border-white/[0.04]">

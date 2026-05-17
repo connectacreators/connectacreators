@@ -628,13 +628,27 @@ const THINKING_VERBS = [
  *             editorial light surface, where the MP4 doesn't blend cleanly
  *             so we fall back to the static ink fingerprint.
  */
-export function ThinkingAnimation({ tone = "dark" }: { tone?: "light" | "dark" } = {}) {
+export function ThinkingAnimation({
+  tone = "dark",
+  verb: explicitVerb,
+  meta: explicitMeta,
+}: {
+  tone?: "light" | "dark";
+  /** When provided (e.g. live from a companion-chat SSE scene event), this
+   *  exact verb is shown and the random rotation is paused. */
+  verb?: string;
+  /** Optional technical hint shown small under the verb (JetBrains Mono). */
+  meta?: string;
+} = {}) {
   const [index, setIndex] = useState(() =>
     Math.floor(Math.random() * THINKING_VERBS.length),
   );
   const [fade, setFade] = useState(true);
 
   useEffect(() => {
+    // Pause the rotation when the parent is feeding us a real verb — no
+    // point rotating placeholder phrases under a live signal.
+    if (explicitVerb) return;
     const interval = setInterval(() => {
       setFade(false);
       setTimeout(() => {
@@ -649,20 +663,39 @@ export function ThinkingAnimation({ tone = "dark" }: { tone?: "light" | "dark" }
       }, 200);
     }, 1800);
     return () => clearInterval(interval);
-  }, []);
+  }, [explicitVerb]);
+
+  // Fade the explicit verb on change too so transitions feel intentional.
+  useEffect(() => {
+    if (!explicitVerb) return;
+    setFade(false);
+    const t = setTimeout(() => setFade(true), 60);
+    return () => clearTimeout(t);
+  }, [explicitVerb]);
+
+  const verbText = explicitVerb ?? THINKING_VERBS[index];
+  const verbColor = tone === "dark" ? "rgba(20,20,20,0.55)" : "rgba(234,230,220,0.65)";
+  const metaColor = tone === "dark" ? "rgba(20,20,20,0.35)" : "rgba(234,230,220,0.40)";
 
   return (
     <div className="flex items-center gap-2">
       <FingerprintAvatar size="sm" tone={tone} animated />
-      <span
-        className="text-[11px] font-medium transition-opacity duration-200"
-        style={{
-          opacity: fade ? 1 : 0,
-          color: tone === "dark" ? "rgba(20,20,20,0.55)" : "rgba(234,230,220,0.65)",
-        }}
-      >
-        {THINKING_VERBS[index]}
-      </span>
+      <div className="flex flex-col leading-tight">
+        <span
+          className="text-[11px] font-medium transition-opacity duration-200"
+          style={{ opacity: fade ? 1 : 0, color: verbColor }}
+        >
+          {verbText}
+        </span>
+        {explicitMeta && (
+          <span
+            className="text-[9px] font-jetbrains transition-opacity duration-200"
+            style={{ opacity: fade ? 1 : 0, color: metaColor, letterSpacing: "0.02em" }}
+          >
+            {explicitMeta}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useActiveChat } from "@/hooks/useActiveChat";
 import { supabase } from "@/integrations/supabase/client";
+import { streamCompanionChat, type SceneEvent } from "@/lib/companion/stream-companion-chat";
 import {
   AssistantChat,
   AssistantTextInput,
@@ -235,6 +236,8 @@ export default function CommandCenter() {
   // aborts this; the fetch path uses raw fetch so the signal actually
   // cancels the network call (functions.invoke doesn't accept signal).
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Live scene from companion-chat SSE — drives ThinkingAnimation.
+  const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
   // Latest pending plan proposal — rendered as an inline card under the
   // assistant's reply with Approve / Reject buttons. Cleared when the
   // user clicks either, or when a new plan arrives. Only one shown at a
@@ -490,27 +493,30 @@ export default function CommandCenter() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Raw fetch so we can pass the AbortSignal (functions.invoke doesn't
-      // expose it). Falls through to the same response shape consumed below.
+      // SSE stream — companion-chat emits scene events live so we can update
+      // the ThinkingAnimation as tools fire, then emits a final `done` event
+      // with the same {reply, actions, thread_id} shape the rest of this
+      // function expects.
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
       const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/companion-chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: ANON,
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
+      const streamResult = await streamCompanionChat({
+        supabaseUrl: SUPABASE_URL,
+        anonKey: ANON,
+        accessToken: session.access_token,
+        body: {
           message: text,
           companion_name: companionName,
           current_path: path,
           autonomy_mode: autonomyMode,
           thread_id: activeThreadId ?? null,
-        }),
+        },
         signal: controller.signal,
+        callbacks: {
+          onScene: (scene) => setCurrentScene(scene),
+        },
       });
-      const data = await res.json().catch(() => null);
+      setCurrentScene(null);
+      const data = streamResult.done ?? null;
 
       // Activate the thread from the response so Realtime subscription fires
       const returnedThreadId = data?.thread_id as string | undefined;
@@ -879,6 +885,8 @@ export default function CommandCenter() {
                   onSaveScript={handleApproveScript}
                   onApprovePlan={handleApprovePlan}
                   onRejectPlan={handleRejectPlan}
+                  thinkingVerb={currentScene?.verb ?? null}
+                  thinkingMeta={currentScene?.meta ?? null}
                   greeting={
                     displayName
                       ? en
