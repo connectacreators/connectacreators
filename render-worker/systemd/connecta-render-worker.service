@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/connectacreators-render-worker
-ExecStart=/usr/bin/node /var/www/connectacreators-render-worker/dist/index.js
+WorkingDirectory=/var/www/connectacreators-render-worker/render-worker
+ExecStart=/usr/bin/node /var/www/connectacreators-render-worker/render-worker/dist/index.js
 EnvironmentFile=/etc/connecta-render-worker.env
 Restart=on-failure
 RestartSec=5s
