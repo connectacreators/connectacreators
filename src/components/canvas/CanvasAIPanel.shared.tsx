@@ -157,7 +157,13 @@ export function renderInline(line: string): React.ReactNode[] {
 }
 
 /** Render full markdown text: headings, bullets, numbered lists, paragraphs */
-export function MarkdownText({ text }: { text: string }) {
+export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "light" | "dark" }) {
+  // tone = "light" → white text for DARK surfaces (drawer, /ai page)
+  // tone = "dark" → ink text for LIGHT surfaces (editorial canvas)
+  const isDarkSurface = tone === "light";
+  const scriptLineBg = isDarkSurface ? "rgba(234,230,220,0.05)" : "rgba(20,20,20,0.05)";
+  const scriptLineBorder = isDarkSurface ? "rgba(234,230,220,0.20)" : "rgba(20,20,20,0.20)";
+  const scriptLineText = isDarkSurface ? "rgba(234,230,220,0.85)" : "rgba(20,20,20,0.85)";
   // Strip leading whitespace so the first rendered element is real content,
   // not an empty-line spacer. This is what makes [&:first-child]:mt-0 fire on
   // a leading heading or bullet list, which keeps the fingerprint icon aligned
@@ -236,8 +242,8 @@ export function MarkdownText({ text }: { text: string }) {
           key={i}
           className="group/scriptline"
           style={{
-            background: "rgba(20,20,20,0.05)",
-            borderLeft: "3px solid rgba(20,20,20,0.20)",
+            background: scriptLineBg,
+            borderLeft: `3px solid ${scriptLineBorder}`,
             borderRadius: "0 6px 6px 0",
             padding: "4px 8px",
             margin: "3px 0",
@@ -263,10 +269,12 @@ export function MarkdownText({ text }: { text: string }) {
           <span
             style={{
               fontSize: 11,
-              color: "rgba(20,20,20,0.85)",
+              color: scriptLineText,
               fontFamily: "ui-monospace, 'SF Mono', monospace",
               lineHeight: 1.45,
               flex: 1,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
             }}
           >
             {scriptText}
