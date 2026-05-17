@@ -80,7 +80,7 @@ function parseScriptDraft(text: string): { title?: string; hook: string; body: s
  */
 function extractQuotedHook(text: string): { hook: string } | null {
   if (!text) return null;
-  // Match either "...." or "...." or "...." spanning across lines.
+  // Match either "...." or "...." spanning across lines.
   const candidates: string[] = [];
   const patterns = [
     /"([^"]{40,}?)"/gs,    // straight quotes
@@ -93,9 +93,20 @@ function extractQuotedHook(text: string): { hook: string } | null {
     }
   }
   if (candidates.length === 0) return null;
-  // Take the longest — that's almost always the actual hook draft.
-  candidates.sort((a, b) => b.length - a.length);
-  return { hook: candidates[0] };
+  // Only fire on SINGLE-hook drafts. If the message has multiple quoted
+  // blocks (user asked for "3 hooks") or substantial surrounding prose
+  // (>240 non-quoted chars — usually a multi-hook breakdown or general
+  // chat), let it render as normal text. The card UI swallows everything
+  // around the quote, which felt great for one-shot hook drafts and
+  // terrible for everything else.
+  if (candidates.length > 1) return null;
+  const quoted = candidates[0];
+  const nonQuotedChars = text.replace(/"[^"]+"/g, "").replace(/["][^"]+["]/g, "").trim().length;
+  if (nonQuotedChars > 240) return null;
+  // Skip placeholder hooks — if the quote contains [X], [name], <bracket>
+  // tokens, the model returned a template not a real hook.
+  if (/\[[A-Za-z][^\]]{0,20}\]|<[A-Za-z][^>]{0,20}>/.test(quoted)) return null;
+  return { hook: quoted };
 }
 
 interface ThreadRow {

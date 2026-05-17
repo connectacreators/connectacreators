@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { VIRAL_HOOKS } from "./hookData.ts";
+import { toolToScene } from "../_shared/tool-to-scene.ts";
 import {
   createThread as assistantCreateThread,
   appendMessage as assistantAppendMessage,
@@ -430,13 +431,50 @@ async function dualWriteCompanionTurn(
   }
 }
 
+// ─── SSE plumbing ───────────────────────────────────────────────────────────
+// companion-chat streams its response as Server-Sent Events so the FE can
+// render live scene events (Searching Viral Today…, Drafting hook…, etc.)
+// before the model finishes its full tool loop. Event types:
+//   - { type: "scene", scene, verb, meta } — emitted before each tool fires
+//   - { type: "done", reply, actions, thread_id } — emitted once at the end
+//   - { type: "error", message } — fatal failures
+// All FE callers consume via `fetch` + `ReadableStream.getReader()` and parse
+// the `data: {...}\n\n` event frames.
+const SSE_HEADERS = {
+  ...corsHeaders,
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  "Connection": "keep-alive",
+  "X-Accel-Buffering": "no",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  try {
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        let closed = false;
+        const emit = (event: Record<string, unknown>): void => {
+          if (closed) return;
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          } catch {
+            closed = true;
+          }
+        };
+        const closeStream = (): void => {
+          if (closed) return;
+          closed = true;
+          try { controller.close(); } catch { /* already closed */ }
+        };
+
+        try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      emit({ type: "error", message: "Unauthorized", status: 401 });
+      return closeStream();
     }
 
     const { message, companion_name, current_path, autonomy_mode, thread_id: incomingThreadId } = await req.json() as {
@@ -448,7 +486,8 @@ serve(async (req) => {
     };
 
     if (!message?.trim()) {
-      return new Response(JSON.stringify({ error: "message is required" }), { status: 400, headers: corsHeaders });
+      emit({ type: "error", message: "message is required", status: 400 });
+      return closeStream();
     }
 
     const adminClient = createClient(
@@ -463,7 +502,8 @@ serve(async (req) => {
     ).auth.getUser();
 
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      emit({ type: "error", message: "Unauthorized", status: 401 });
+      return closeStream();
     }
 
     // Resolve the caller's access model once and thread it through every tool.
@@ -540,7 +580,8 @@ serve(async (req) => {
     }
 
     if (!client) {
-      return new Response(JSON.stringify({ error: "No client found" }), { status: 400, headers: corsHeaders });
+      emit({ type: "error", message: "No client found", status: 400 });
+      return closeStream();
     }
 
     // Centralized client lookup used by every inline handler. Delegates to
@@ -607,10 +648,8 @@ serve(async (req) => {
 
     if (buildRoute.route) {
       if (!resolvedThreadId) {
-        return new Response(JSON.stringify({
-          reply: "Couldn't set up the build session. Please try again.",
-          actions: [],
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        emit({ type: "done", reply: "Couldn't set up the build session. Please try again.", actions: [] });
+        return closeStream();
       }
 
       const buildResult = await handleBuildTurn({
@@ -627,12 +666,14 @@ serve(async (req) => {
         accessibleClientIds,
       });
 
-      return new Response(JSON.stringify({
+      emit({
+        type: "done",
         reply: buildResult.reply,
         actions: [],
         thread_id: resolvedThreadId,
         build_session_id: buildResult.buildSessionId,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      });
+      return closeStream();
     }
 
     // Open-alerts count for the system-prompt insert. Cheap (count-only) and
@@ -1132,6 +1173,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       const toolResults: any[] = [];
 
       for (const block of toolUseBlocks) {
+        // Emit a scene hint so the FE can swap its loading indicator from a
+        // rotating verb to the real tool's "doing" line. respond_to_user is a
+        // pure text pass-through and doesn't deserve a scene flash.
+        if (block.name !== "respond_to_user") {
+          const hint = toolToScene(block.name);
+          emit({ type: "scene", scene: hint.scene, verb: hint.verb, meta: hint.meta, tool: block.name });
+        }
+
         if (block.name === "respond_to_user") {
           // Pure text response wrapped as a tool call (used in auto mode).
           // Only assign reply if we got a non-empty string — otherwise we
@@ -2104,7 +2153,22 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               const compact = (viralRows || []).slice(0, 12).map((v: any) =>
                 `@${v.channel_username} (${v.platform}) — ${(v.views_count ?? 0).toLocaleString()} views, ${v.outlier_score}x outlier — [${v.content_format ?? "?"} / ${v.primary_niche ?? "?"}]. Hook: ${(v.hook_text ?? "").slice(0, 120)} | Caption: ${(v.caption ?? "").slice(0, 120)}`
               ).join("\n");
-              // Append assistant + tool_result + ask for final text
+              // Append assistant + tool_result + ask for final text.
+              // Extract a count from the user's original message ("give me 3
+              // hooks") so we can tell the model exactly how many items to
+              // produce — and explicitly forbid [X]-style placeholders.
+              const countMatch = message.match(/\b(\d+)\b/);
+              const askedCount = countMatch ? Math.min(parseInt(countMatch[1], 10) || 3, 12) : 3;
+              const wantsHooks = /\bhooks?\b|\bganchos?\b/i.test(message);
+              const itemLabel = wantsHooks ? "hooks" : /\bidea/i.test(message) ? "ideas" : "items";
+              const itemSingular = itemLabel.slice(0, -1);
+              const formatGuidance = "\n\nUsing the references above as inspiration, write " +
+                askedCount + " " + itemLabel + " tailored to the active client.\n" +
+                "Format: a 1-2 sentence intro explaining what these are and the patterns you pulled from. " +
+                "Then a numbered list — for each item, give a 1-2 sentence explanation of WHY it works " +
+                "(referencing the viral pattern), then the actual " + itemSingular + " in quotes. " +
+                "Use SPECIFIC client details from BRAND CONTEXT — NEVER use placeholder brackets like [X], [client], or <name>. " +
+                "If you don't have a specific detail, omit it rather than templating.";
               const followupMessages = [
                 ...messages,
                 { role: "assistant", content: forcedResult.content },
@@ -2114,7 +2178,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                     {
                       type: "tool_result",
                       tool_use_id: block.id,
-                      content: compact || "(no matching viral videos found)",
+                      content: (compact || "(no matching viral videos found)") + formatGuidance,
                     },
                   ],
                 },
@@ -2176,13 +2240,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       assistantReplyText: reply,
     });
 
-    return new Response(JSON.stringify({ reply, actions, thread_id: threadId }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    emit({ type: "done", reply, actions, thread_id: threadId });
+    return closeStream();
+        } catch (err) {
+          emit({ type: "error", message: String(err), status: 500 });
+          return closeStream();
+        }
+      },
+    }),
+    { headers: SSE_HEADERS },
+  );
 });
