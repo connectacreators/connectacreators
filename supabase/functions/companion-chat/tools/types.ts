@@ -174,5 +174,44 @@ export async function resolveClient(
     if (startsWith) return { id: startsWith.id, name: startsWith.name };
   }
 
+  // Strategy 5: typo-tolerant edit-distance match. Catches "Boby" → "Bobby",
+  // "calvinns" → "Calvin's", missing/doubled letters, etc. Compares the
+  // query against the first token of each candidate name (clients are usually
+  // referenced by first name / brand). Threshold scales with length so short
+  // names need a tight match and long names allow slightly more drift.
+  const editDistance = (a: string, b: string): number => {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const dp: number[] = Array(b.length + 1).fill(0);
+    for (let j = 0; j <= b.length; j++) dp[j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      let prev = dp[0];
+      dp[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const tmp = dp[j];
+        dp[j] = a[i - 1] === b[j - 1]
+          ? prev
+          : Math.min(prev, dp[j], dp[j - 1]) + 1;
+        prev = tmp;
+      }
+    }
+    return dp[b.length];
+  };
+  const queryFirst = queryWords[0] ?? normalizedQuery;
+  // Tight on short queries (<=4 chars: 1 typo allowed), looser on longer
+  // ones. Never allow more than 3 — beyond that it's not a typo.
+  const threshold = Math.min(3, Math.max(1, Math.floor(queryFirst.length / 4)));
+  let bestMatch: { id: string; name: string; dist: number } | null = null;
+  for (const c of candidates) {
+    const candidateFirst = c.normalized.split(/\s+/)[0] ?? "";
+    if (!candidateFirst) continue;
+    const dist = editDistance(queryFirst, candidateFirst);
+    if (dist <= threshold && (bestMatch === null || dist < bestMatch.dist)) {
+      bestMatch = { id: c.id, name: c.name, dist };
+    }
+  }
+  if (bestMatch) return { id: bestMatch.id, name: bestMatch.name };
+
   return null;
 }
