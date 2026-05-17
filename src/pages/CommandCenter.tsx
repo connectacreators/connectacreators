@@ -293,20 +293,20 @@ export default function CommandCenter() {
           .limit(30),
       ]);
       if (cancelled) return;
+      // AssistantTextInput filters by `typeLabel` + `detail` (case-insensitive
+      // substring) and inserts `@<typeLabel>(<detail>)` into the message. Put
+      // the entity NAME in `detail` so (a) the user can filter by typing the
+      // name and (b) the inserted token is human-readable AND machine-parseable
+      // by the companion-chat function: "@Client(Dr Calvin)", "@Video(<title>)".
       const nodes: MentionableNode[] = [];
       for (const c of clientsRes.data ?? []) {
         if (!c?.name) continue;
-        nodes.push({ id: `client:${c.id}`, type: "client", label: c.name, detail: "client" });
+        nodes.push({ id: `client:${c.id}`, type: "client", detail: c.name });
       }
       for (const v of editsRes.data ?? []) {
         const v2 = v as { id: string; reel_title: string | null; clients?: { name?: string } | null };
         if (!v2.reel_title) continue;
-        nodes.push({
-          id: `edit:${v2.id}`,
-          type: "edit",
-          label: v2.reel_title,
-          detail: v2.clients?.name ?? "video",
-        });
+        nodes.push({ id: `edit:${v2.id}`, type: "edit", detail: v2.reel_title });
       }
       setMentionableNodes(nodes);
     })();

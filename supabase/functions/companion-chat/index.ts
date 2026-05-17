@@ -519,6 +519,94 @@ serve(async (req) => {
     const isAdmin = roleRow?.role === "admin";
     const accessibleClientIds = await getAccessibleClientIds(adminClient, user.id, isAdmin);
 
+    // ── @-mention resolution ───────────────────────────────────────────
+    // The /ai composer inserts `@<Type>(<entity name>)` tokens via the
+    // AssistantTextInput dropdown. Parse them, look up the referenced
+    // entities (constrained to the caller's access scope), and build a
+    // small context block that gets prepended to the message the model
+    // sees. The raw message saved to companion_messages stays untouched
+    // — only the model-facing copy is enriched.
+    //
+    // Token grammar (deliberately permissive — typeLabels can drift):
+    //   @<word>(<entity name>)
+    // Supported types so far: Client, Video. Unknown types are ignored.
+    let modelFacingMessage = message;
+    try {
+      const mentionRe = /@(Client|Video)\(([^)]+)\)/g;
+      const mentions: Array<{ kind: "client" | "video"; name: string }> = [];
+      let m: RegExpExecArray | null;
+      while ((m = mentionRe.exec(message)) !== null) {
+        const kind = m[1].toLowerCase() === "client" ? "client" : "video";
+        const name = m[2].trim();
+        if (name) mentions.push({ kind, name });
+      }
+      if (mentions.length > 0) {
+        const lookupClient = async (rawName: string) => {
+          const q = adminClient
+            .from("clients")
+            .select("id, name, onboarding_data")
+            .ilike("name", rawName)
+            .limit(1);
+          if (!isAdmin && accessibleClientIds) q.in("id", accessibleClientIds);
+          const { data } = await q;
+          return data?.[0] ?? null;
+        };
+        const lookupVideo = async (rawName: string) => {
+          const q = adminClient
+            .from("video_edits")
+            .select("id, reel_title, caption, status, post_status, lifecycle_status, schedule_date, deadline, clients(name)")
+            .ilike("reel_title", rawName)
+            .limit(1);
+          if (!isAdmin && accessibleClientIds) q.in("client_id", accessibleClientIds);
+          const { data } = await q;
+          return data?.[0] as
+            | { id: string; reel_title: string; caption: string | null; status: string | null; post_status: string | null; lifecycle_status: string | null; schedule_date: string | null; deadline: string | null; clients?: { name?: string } | null }
+            | null;
+        };
+        const blocks: string[] = [];
+        for (const ref of mentions) {
+          if (ref.kind === "client") {
+            const c = await lookupClient(ref.name);
+            if (!c) {
+              blocks.push(`- Client "${ref.name}": (not found or not in your access scope)`);
+              continue;
+            }
+            const onb = c.onboarding_data ?? {};
+            const facts: string[] = [];
+            if (onb.niche)              facts.push(`Niche: ${onb.niche}`);
+            if (onb.target_audience)    facts.push(`Audience: ${onb.target_audience}`);
+            if (onb.brand_voice)        facts.push(`Voice: ${onb.brand_voice}`);
+            if (onb.content_goal)       facts.push(`Goal: ${onb.content_goal}`);
+            if (onb.posting_frequency)  facts.push(`Posting: ${onb.posting_frequency}`);
+            const factStr = facts.length ? facts.join(" · ") : "no onboarding data yet";
+            blocks.push(`- Client "${c.name}" (id=${c.id}): ${factStr}`);
+          } else {
+            const v = await lookupVideo(ref.name);
+            if (!v) {
+              blocks.push(`- Video "${ref.name}": (not found or not in your access scope)`);
+              continue;
+            }
+            const ownerName = v.clients?.name ?? "—";
+            const lifecycle = v.lifecycle_status ?? v.post_status ?? v.status ?? "—";
+            const captionSnippet = v.caption ? ` Caption: "${v.caption.slice(0, 160)}${v.caption.length > 160 ? "…" : ""}"` : "";
+            const when = v.schedule_date ? ` Scheduled: ${v.schedule_date}.` : "";
+            const deadline = v.deadline ? ` Deadline: ${v.deadline}.` : "";
+            blocks.push(`- Video "${v.reel_title}" (id=${v.id}, client=${ownerName}): status=${lifecycle}.${when}${deadline}${captionSnippet}`);
+          }
+        }
+        if (blocks.length > 0) {
+          modelFacingMessage =
+            `Referenced via @-mention (resolved from the user's accessible records):\n` +
+            blocks.join("\n") +
+            `\n\nUser message:\n${message}`;
+        }
+      }
+    } catch (err) {
+      // Resolution is best-effort — if it explodes, fall back to the raw
+      // message so the user's request still goes through.
+      console.warn("[companion-chat] @-mention resolution failed:", err);
+    }
+
     // If user is on /clients/:clientId/... use THAT client (URL trumps name-matching)
     const urlClientMatch = current_path?.match(/\/clients\/([0-9a-f-]{36})/i);
     const urlClientId = urlClientMatch?.[1] ?? null;
@@ -1039,7 +1127,10 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     // Multi-round Claude tool-use loop. Lets Claude chain tool calls
     // (e.g. get_client_info → find_viral_videos → respond) instead of stalling
     // after one round and falling back to "On it.".
-    const messages: any[] = [...cleanPriorMessages, { role: "user", content: message }];
+    // modelFacingMessage may include resolved @-mention context blocks
+    // prepended above the user's raw text; we keep the persisted
+    // companion_messages row unchanged.
+    const messages: any[] = [...cleanPriorMessages, { role: "user", content: modelFacingMessage }];
     const actions: any[] = [];
     let reply = "";
     let turn1Reply = "";
