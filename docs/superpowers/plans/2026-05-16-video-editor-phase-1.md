@@ -998,7 +998,7 @@ async function loadSourceMeta(videoEditId: string): Promise<SourceMeta | null> {
   // Signed URL for the <video> element (one hour).
   const { data: signed, error: signErr } = await supabase
     .storage
-    .from("video-edits")          // bucket name — confirm in Storage UI; adjust if different
+    .from("footage")          // bucket name — confirm in Storage UI; adjust if different
     .createSignedUrl(storagePath, 3600);
   if (signErr) throw signErr;
 
@@ -1412,8 +1412,8 @@ dist
 ```
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_STORAGE_BUCKET=video-edits
-SUPABASE_OUTPUT_BUCKET=video-edits
+SUPABASE_STORAGE_BUCKET=footage
+SUPABASE_OUTPUT_BUCKET=footage
 POLL_INTERVAL_MS=4000
 WORK_DIR=/tmp/connecta-renders
 ```
@@ -1767,8 +1767,8 @@ import { runRender } from "./render.js";
 
 const POLL_MS = Number(process.env.POLL_INTERVAL_MS ?? 4000);
 const WORK_DIR = process.env.WORK_DIR ?? "/tmp/connecta-renders";
-const SOURCE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET ?? "video-edits";
-const OUT_BUCKET = process.env.SUPABASE_OUTPUT_BUCKET ?? "video-edits";
+const SOURCE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET ?? "footage";
+const OUT_BUCKET = process.env.SUPABASE_OUTPUT_BUCKET ?? "footage";
 
 async function processJob(client: ReturnType<typeof makeClient>, job: RenderJobRow) {
   const workDir = path.join(WORK_DIR, job.id);
@@ -1832,8 +1832,8 @@ Export the required env vars in your shell (don't commit a `.env` — `.gitignor
 cd render-worker
 export SUPABASE_URL=...
 export SUPABASE_SERVICE_ROLE_KEY=...
-export SUPABASE_STORAGE_BUCKET=video-edits
-export SUPABASE_OUTPUT_BUCKET=video-edits
+export SUPABASE_STORAGE_BUCKET=footage
+export SUPABASE_OUTPUT_BUCKET=footage
 export POLL_INTERVAL_MS=4000
 export WORK_DIR=/tmp/connecta-renders
 npm run dev
@@ -1908,8 +1908,8 @@ This service polls Supabase for queued render jobs and runs FFmpeg.
    ```
    SUPABASE_URL=https://<project>.supabase.co
    SUPABASE_SERVICE_ROLE_KEY=<service role key>
-   SUPABASE_STORAGE_BUCKET=video-edits
-   SUPABASE_OUTPUT_BUCKET=video-edits
+   SUPABASE_STORAGE_BUCKET=footage
+   SUPABASE_OUTPUT_BUCKET=footage
    POLL_INTERVAL_MS=4000
    WORK_DIR=/tmp/connecta-renders
    ```
@@ -1933,7 +1933,7 @@ After the first install, run `./deploy-render-worker.sh` from your laptop.
 
 ## Storage bucket
 
-Confirm a Supabase Storage bucket named `video-edits` exists. If you use a
+Confirm a Supabase Storage bucket named `footage` exists. If you use a
 different name, update `SUPABASE_STORAGE_BUCKET` and `SUPABASE_OUTPUT_BUCKET`
 in `/etc/connecta-render-worker.env`.
 
@@ -2011,7 +2011,7 @@ This is a manual verification task. No code; just a documented run-through that 
 
 - [ ] **Step 1: Prepare a test video_edits row**
 
-In the local Supabase Studio, find or create a `video_edits` row whose `storage_path` points to a real MP4 in the `video-edits` bucket. The clip should be at least 15 seconds long so trimming is visible.
+In the local Supabase Studio, find or create a `video_edits` row whose `storage_path` points to a real MP4 in the `footage` bucket (existing). The clip should be at least 15 seconds long so trimming is visible.
 
 - [ ] **Step 2: Open the editor**
 
@@ -2054,7 +2054,7 @@ Click **Export** in the editor → **Start render** (leave aspect at "source"). 
 
 - [ ] **Step 7: Verify the output**
 
-In Supabase Studio → Storage → `video-edits` → `renders/<project_id>/<job_id>.mp4`. Download it and confirm:
+In Supabase Studio → Storage → `footage` → `renders/<project_id>/<job_id>.mp4`. Download it and confirm:
 - It opens in QuickTime / VLC.
 - Its duration matches the trimmed range (within ~100ms).
 - Audio plays.
