@@ -28,7 +28,10 @@ import {
   ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
+  User as UserIcon,
+  Clapperboard,
 } from "lucide-react";
+import type { MentionableNode } from "@/components/assistant";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
@@ -266,6 +269,62 @@ export default function CommandCenter() {
   const [imageMode, setImageMode] = useState<boolean>(false);
   const [isResearchMode, setIsResearchMode] = useState<boolean>(false);
 
+  // ── @-mention sources (Tier-3 parity, adapted for /ai) ────────────────
+  // Canvas mentions canvas nodes; /ai doesn't have those, so we surface the
+  // closest agency-relevant entities: clients the user has access to, plus
+  // their 30 most-recently-touched editing-queue items. These get formatted
+  // into MentionableNode[] and rendered in the @-dropdown that's already
+  // wired in AssistantTextInput.
+  const [mentionableNodes, setMentionableNodes] = useState<MentionableNode[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const [clientsRes, editsRes] = await Promise.all([
+        supabase
+          .from("clients")
+          .select("id, name")
+          .order("name", { ascending: true })
+          .limit(200),
+        supabase
+          .from("video_edits")
+          .select("id, reel_title, clients(name)")
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(30),
+      ]);
+      if (cancelled) return;
+      const nodes: MentionableNode[] = [];
+      for (const c of clientsRes.data ?? []) {
+        if (!c?.name) continue;
+        nodes.push({ id: `client:${c.id}`, type: "client", label: c.name, detail: "client" });
+      }
+      for (const v of editsRes.data ?? []) {
+        const v2 = v as { id: string; reel_title: string | null; clients?: { name?: string } | null };
+        if (!v2.reel_title) continue;
+        nodes.push({
+          id: `edit:${v2.id}`,
+          type: "edit",
+          label: v2.reel_title,
+          detail: v2.clients?.name ?? "video",
+        });
+      }
+      setMentionableNodes(nodes);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const mentionIconMap = useMemo<Record<string, React.ReactNode>>(
+    () => ({
+      client: <UserIcon className="w-3.5 h-3.5" />,
+      edit:   <Clapperboard className="w-3.5 h-3.5" />,
+    }),
+    [],
+  );
+  const mentionLabelMap = useMemo<Record<string, string>>(
+    () => ({ client: "Client", edit: "Video" }),
+    [],
+  );
+
   // Image paste handler — same shape as CanvasAIPanel.handlePaste
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = Array.from(e.clipboardData?.items ?? []);
@@ -283,9 +342,10 @@ export default function CommandCenter() {
   }, []);
   // Live scene from companion-chat SSE — drives ThinkingAnimation.
   const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
-  // Embeds collected from the SSE stream (e.g. video-card previews for
-  // find_viral_videos). Attached to the most recent assistant message.
-  const [pendingEmbeds, setPendingEmbeds] = useState<EmbedRef[]>([]);
+  // Embeds keyed by thread_id so switching threads doesn't carry embeds
+  // across — previous bug: every chat showed the same find_viral_videos
+  // thumbnails because state was global.
+  const [pendingEmbedsByThread, setPendingEmbedsByThread] = useState<Record<string, EmbedRef[]>>({});
   // Latest pending plan proposal — rendered as an inline card under the
   // assistant's reply with Approve / Reject buttons. Cleared when the
   // user clicks either, or when a new plan arrives. Only one shown at a
@@ -948,6 +1008,9 @@ export default function CommandCenter() {
                         pastedImage={pastedImage}
                         onClearPastedImage={() => setPastedImage(null)}
                         onPaste={handlePaste}
+                        mentionableNodes={mentionableNodes}
+                        mentionIconMap={mentionIconMap}
+                        mentionLabelMap={mentionLabelMap}
                       />
                     </div>
 
@@ -1028,6 +1091,9 @@ export default function CommandCenter() {
                   pastedImage={pastedImage}
                   onClearPastedImage={() => setPastedImage(null)}
                   onPaste={handlePaste}
+                  mentionableNodes={mentionableNodes}
+                  mentionIconMap={mentionIconMap}
+                  mentionLabelMap={mentionLabelMap}
                   promptPresets={[
                     {
                       name: en ? "Morning brief" : "Resumen del día",
