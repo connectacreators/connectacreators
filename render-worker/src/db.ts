@@ -81,3 +81,99 @@ export async function markError(client: SupabaseClient, id: string, message: str
     })
     .eq("id", id);
 }
+
+// ---- Transcribe jobs ----
+
+export type TranscribeJobRow = {
+  id: string;
+  video_edit_id: string;
+  status: "queued" | "running" | "done" | "error";
+};
+
+export async function claimNextTranscribeJob(client: SupabaseClient): Promise<TranscribeJobRow | null> {
+  const { data: candidate } = await client
+    .from("transcribe_jobs")
+    .select("id")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!candidate) return null;
+
+  const { data: claimed, error } = await client
+    .from("transcribe_jobs")
+    .update({ status: "running", claimed_at: new Date().toISOString(), progress: 1 })
+    .eq("id", candidate.id)
+    .eq("status", "queued")
+    .select("id, video_edit_id, status")
+    .maybeSingle();
+  if (error) throw error;
+  return (claimed as TranscribeJobRow | null) ?? null;
+}
+
+export async function updateTranscribeProgress(client: SupabaseClient, id: string, progress: number) {
+  await client.from("transcribe_jobs").update({ progress }).eq("id", id);
+}
+
+export async function markTranscribeDone(client: SupabaseClient, id: string) {
+  await client
+    .from("transcribe_jobs")
+    .update({ status: "done", progress: 100, finished_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
+export async function markTranscribeError(client: SupabaseClient, id: string, message: string) {
+  await client
+    .from("transcribe_jobs")
+    .update({
+      status: "error",
+      error_message: message.slice(0, 2000),
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+}
+
+export async function saveTranscript(
+  client: SupabaseClient,
+  videoEditId: string,
+  words: { text: string; start_ms: number; end_ms: number }[],
+  provider: "openai" | "deepgram",
+) {
+  // upsert by video_edit_id
+  await client
+    .from("transcripts")
+    .upsert({ video_edit_id: videoEditId, words, provider }, { onConflict: "video_edit_id" });
+}
+
+export async function saveSilenceSegments(
+  client: SupabaseClient,
+  videoEditId: string,
+  segments: { start_ms: number; end_ms: number }[],
+  minDurationMs: number,
+  noiseDb: number,
+) {
+  // Replace any prior segments for this video — current threshold values
+  // overwrite previous detection runs.
+  await client.from("silence_segments").delete().eq("video_edit_id", videoEditId);
+  if (segments.length === 0) return;
+  await client.from("silence_segments").insert(
+    segments.map((s) => ({
+      video_edit_id: videoEditId,
+      start_ms: s.start_ms,
+      end_ms: s.end_ms,
+      min_duration_ms: minDurationMs,
+      noise_db: noiseDb,
+    })),
+  );
+}
+
+// Fetch the source storage_path for a video_edit. The worker resolves the
+// storage path itself rather than trusting client-supplied state.
+export async function getVideoEditStoragePath(client: SupabaseClient, videoEditId: string): Promise<string | null> {
+  const { data } = await client
+    .from("video_edits")
+    .select("storage_path")
+    .eq("id", videoEditId)
+    .maybeSingle();
+  return (data as { storage_path: string | null } | null)?.storage_path ?? null;
+}

@@ -9,8 +9,14 @@ import { useRenderJob } from "@/hooks/useRenderJob";
 import { EditorTopBar } from "@/components/videoEditor/EditorTopBar";
 import { PreviewStage } from "@/components/videoEditor/PreviewStage";
 import { TrimTimeline } from "@/components/videoEditor/TrimTimeline";
+import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
-import type { AspectRatio } from "@/lib/videoEditor/edl";
+import { useTranscript } from "@/hooks/useTranscript";
+import {
+  clipsFromSilences,
+  sourceTimeToEdlTime,
+  type AspectRatio,
+} from "@/lib/videoEditor/edl";
 
 type SourceMeta = { storagePath: string; signedUrl: string; durationMs: number; title: string };
 
@@ -106,6 +112,34 @@ export default function VideoEditor() {
 
   const { state: jobState, submit: submitJob } = useRenderJob();
 
+  const { state: transcriptState, start: startTranscribe } = useTranscript(id);
+
+  // Auto-start a transcription when the editor opens and none exists yet.
+  // The user can re-trigger manually from the panel if they want different
+  // silence thresholds later.
+  useEffect(() => {
+    if (transcriptState.phase === "missing") {
+      startTranscribe();
+    }
+  }, [transcriptState.phase, startTranscribe]);
+
+  const handleSeekFromTranscript = (sourceMs: number) => {
+    if (projState.phase !== "ready") return;
+    setPlayheadMs(sourceTimeToEdlTime(projState.edl, sourceMs));
+  };
+
+  const handleRemoveSilences = () => {
+    if (projState.phase !== "ready") return;
+    if (transcriptState.phase !== "ready") return;
+    const clips = clipsFromSilences(
+      projState.edl.source.duration_ms,
+      transcriptState.silences,
+    );
+    if (clips.length === 0) return;
+    setEdl({ ...projState.edl, clips });
+    setPlayheadMs(0);
+  };
+
   useEffect(() => {
     if (jobState.phase === "done" && jobState.job.output_storage_path) {
       let cancelled = false;
@@ -181,6 +215,15 @@ export default function VideoEditor() {
               {(playheadMs / 1000).toFixed(1)}s
             </span>
           </div>
+        </div>
+        <div className="w-[280px] shrink-0">
+          <TranscriptPanel
+            state={transcriptState}
+            playheadMs={playheadMs}
+            onSeek={handleSeekFromTranscript}
+            onStart={startTranscribe}
+            onRemoveSilences={handleRemoveSilences}
+          />
         </div>
       </div>
 
