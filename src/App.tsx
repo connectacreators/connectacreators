@@ -50,6 +50,7 @@ const TopupSuccess = lazy(() => import("./pages/TopupSuccess"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const EditingQueue = lazy(() => import("./pages/EditingQueue"));
 const MasterEditingQueue = lazy(() => import("./pages/MasterEditingQueue"));
+const EditorIndex = lazy(() => import("./pages/Editor"));
 const MasterDatabase = lazy(() => import("./pages/MasterDatabase"));
 const ClientDatabase = lazy(() => import("./pages/ClientDatabase"));
 const ClientFollowUpAutomation = lazy(() => import("./pages/ClientFollowUpAutomation"));
@@ -168,6 +169,9 @@ const App = () => (
               <Route path="/ai" element={<CommandCenter />} />
               <Route path="/ai/preview" element={<CommandCenterPreview />} />
               <Route path="/editing-queue" element={<MasterEditingQueue />} />
+              {IS_VIDEO_EDITOR_ENABLED && (
+                <Route path="/editor" element={<EditorIndex />} />
+              )}
               <Route path="/master-database" element={<MasterDatabase />} />
               <Route path="/trainings" element={<Trainings />} />
               <Route path="/finances" element={<Finances />} />

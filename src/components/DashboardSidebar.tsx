@@ -16,7 +16,9 @@ import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
+  Film,
 } from "lucide-react";
+import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
 type NavItem = {
   type?: 'item';
@@ -264,6 +266,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
         { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Finances", icon: DollarSign, path: "/finances" },
@@ -285,6 +288,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: 'Editing' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
         { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
@@ -297,6 +301,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
         { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
         { label: "Content Calendar", icon: Calendar, path: "/content-calendar", tier: 'essential' },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
@@ -313,6 +318,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Vault", icon: Archive, path: selectedClientId ? `/clients/${selectedClientId}/vault` : "/vault" },
         { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
+        ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
         { label: "Content Calendar", icon: Calendar, path: selectedClientId ? `/clients/${selectedClientId}/content-calendar` : "/content-calendar" },
         { type: 'group', label: 'Sales' },
         { label: "Public Calendar", icon: Globe, path: selectedClientId ? `/clients/${selectedClientId}/booking-settings` : "/dashboard" },
@@ -339,6 +345,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
       { type: 'group', label: 'Editing' },
       { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
+      ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
       { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
       { type: 'group', label: 'Sales' },
       { label: "Public Calendar", icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },

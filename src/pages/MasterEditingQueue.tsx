@@ -31,6 +31,7 @@ import FootagePanel from '@/components/FootagePanel';
 import VideoReviewModal from '@/components/VideoReviewModal';
 import { revisionCommentService } from '@/services/revisionCommentService';
 import { useSchedulerEnabled } from "@/lib/featureFlags";
+import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 import { PublishComposer } from "@/components/scheduler/PublishComposer";
 
 interface EditingQueueItem {
@@ -1322,6 +1323,11 @@ export default function MasterEditingQueue() {
                                 <Save className="w-3.5 h-3.5 mr-2" />
                                 {item.caption ? "Edit Caption" : "Add Caption"}
                               </DropdownMenuItem>
+                              {IS_VIDEO_EDITOR_ENABLED && (
+                                <DropdownMenuItem onClick={() => navigate(`/editing/${item.id}/edit`)} className="text-xs">
+                                  <Clapperboard className="w-3.5 h-3.5 mr-2" /> Open editor
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => setDeleteConfirmItem(item)} className="text-xs text-destructive focus:text-destructive focus:bg-destructive/10">
                                 <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
