@@ -10,12 +10,15 @@ import { EditorTopBar } from "@/components/videoEditor/EditorTopBar";
 import { PreviewStage } from "@/components/videoEditor/PreviewStage";
 import { TrimTimeline } from "@/components/videoEditor/TrimTimeline";
 import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
+import { CaptionsList } from "@/components/videoEditor/CaptionsList";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
-import { useTranscript } from "@/hooks/useTranscript";
+import { useTranscript, type TranscriptWord } from "@/hooks/useTranscript";
 import {
   clipsFromSilences,
   sourceTimeToEdlTime,
   type AspectRatio,
+  type Caption,
+  type CaptionPreset,
 } from "@/lib/videoEditor/edl";
 
 type SourceMeta = { storagePath: string; signedUrl: string; durationMs: number; title: string };
@@ -140,6 +143,39 @@ export default function VideoEditor() {
     setPlayheadMs(0);
   };
 
+  const handleCreateCaption = (words: TranscriptWord[], preset: CaptionPreset) => {
+    if (projState.phase !== "ready") return;
+    const newCaption: Caption = {
+      id: crypto.randomUUID(),
+      preset,
+      words: words.map((w) => ({ text: w.text, start_ms: w.start_ms, end_ms: w.end_ms })),
+      // Default to bottom-center, a common short-form caption position.
+      position: { x_pct: 50, y_pct: 80, anchor: "center" },
+    };
+    setEdl({
+      ...projState.edl,
+      captions: [...(projState.edl.captions ?? []), newCaption],
+    });
+  };
+
+  const handleChangeCaptionPreset = (id: string, preset: CaptionPreset) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).map((c) =>
+        c.id === id ? { ...c, preset } : c,
+      ),
+    });
+  };
+
+  const handleDeleteCaption = (id: string) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).filter((c) => c.id !== id),
+    });
+  };
+
   useEffect(() => {
     if (jobState.phase === "done" && jobState.job.output_storage_path) {
       let cancelled = false;
@@ -216,13 +252,22 @@ export default function VideoEditor() {
             </span>
           </div>
         </div>
-        <div className="w-[280px] shrink-0">
-          <TranscriptPanel
-            state={transcriptState}
-            playheadMs={playheadMs}
+        <div className="w-[280px] shrink-0 flex flex-col bg-neutral-950 border-l border-neutral-800 overflow-hidden">
+          <div className="flex-1 overflow-hidden">
+            <TranscriptPanel
+              state={transcriptState}
+              playheadMs={playheadMs}
+              onSeek={handleSeekFromTranscript}
+              onStart={startTranscribe}
+              onRemoveSilences={handleRemoveSilences}
+              onCreateCaption={handleCreateCaption}
+            />
+          </div>
+          <CaptionsList
+            captions={projState.edl.captions ?? []}
+            onChangePreset={handleChangeCaptionPreset}
+            onDelete={handleDeleteCaption}
             onSeek={handleSeekFromTranscript}
-            onStart={startTranscribe}
-            onRemoveSilences={handleRemoveSilences}
           />
         </div>
       </div>

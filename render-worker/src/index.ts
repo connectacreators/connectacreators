@@ -27,8 +27,9 @@ import {
 } from "./db.js";
 import { downloadToFile } from "./storage.js";
 import { uploadFile } from "./storage.js";
-import { runRender } from "./render.js";
+import { runRender, totalOutputDurationMs } from "./render.js";
 import { detectSilences, extractAudio, transcribeWithWhisper } from "./transcribe.js";
+import { writeAssFile, type Caption } from "./captions.js";
 
 const POLL_MS = Number(process.env.POLL_INTERVAL_MS ?? 4000);
 const WORK_DIR = process.env.WORK_DIR ?? "/tmp/connecta-renders";
@@ -46,8 +47,22 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   await updateProgress(client, job.id, 5);
   await downloadToFile(client, SOURCE_BUCKET, job.edl_snapshot.source.storage_path, input);
 
+  // If the EDL ships captions, write an .ass file and pass it to the
+  // renderer so they burn in. Output duration is what the captions clip to.
+  const captions: Caption[] = (job.edl_snapshot as { captions?: Caption[] }).captions ?? [];
+  const outputDurationMs = totalOutputDurationMs(job.edl_snapshot.clips);
+  const assPath = path.join(workDir, "captions.ass");
+  const { hadCaptions } = await writeAssFile(
+    assPath,
+    captions,
+    job.edl_snapshot.clips,
+    outputDurationMs,
+  );
+
   await updateProgress(client, job.id, 20);
-  await runRender(input, job.edl_snapshot.clips, output);
+  await runRender(input, job.edl_snapshot.clips, output, {
+    subtitlesAssPath: hadCaptions ? assPath : undefined,
+  });
 
   await updateProgress(client, job.id, 80);
   const outPath = `renders/${job.editor_project_id}/${job.id}.mp4`;

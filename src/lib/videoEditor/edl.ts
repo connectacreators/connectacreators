@@ -8,6 +8,25 @@ export type Clip = {
   source_end_ms: number;
 };
 
+export type CaptionPreset = "tiktok_word_pop" | "ig_reels_classic" | "shorts_bold";
+
+// Times on caption words are in SOURCE time (same as transcript words). The
+// worker maps them to output time using the clips array.
+export type CaptionWord = {
+  text: string;
+  start_ms: number;
+  end_ms: number;
+};
+
+export type Caption = {
+  id: string;
+  preset: CaptionPreset;
+  words: CaptionWord[];
+  // x_pct/y_pct are anchor positions in 0-100 space (left-to-right, top-to-bottom).
+  // anchor "center" means the text block is centered on (x, y).
+  position: { x_pct: number; y_pct: number; anchor: "center" };
+};
+
 export type EDL = {
   source: {
     storage_path: string;       // e.g. "footage/<video_edit_id>/source.mp4"
@@ -15,9 +34,10 @@ export type EDL = {
   };
   aspect_ratio: AspectRatio;
   clips: Clip[];
+  captions?: Caption[];
 
-  // Phase 1 stops here. Phase 2+ will add: silence_segments, captions,
-  // text_overlays, music. Keep the shape forward-compatible (additive only).
+  // Phase 2 stops here. Phase 4+ adds: text_overlays, music. Keep the shape
+  // forward-compatible (additive only).
 };
 
 export function emptyEDL(sourceStoragePath: string, durationMs: number): EDL {

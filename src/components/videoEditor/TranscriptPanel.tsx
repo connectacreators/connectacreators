@@ -1,6 +1,8 @@
 // src/components/videoEditor/TranscriptPanel.tsx
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranscriptWord, SilenceSegment } from "@/hooks/useTranscript";
+import type { CaptionPreset } from "@/lib/videoEditor/edl";
+import { CAPTION_PRESETS } from "@/lib/videoEditor/captionPresets";
 
 type Props = {
   state:
@@ -14,6 +16,7 @@ type Props = {
   onSeek: (ms: number) => void;
   onStart: () => void;
   onRemoveSilences: () => void;
+  onCreateCaption: (words: TranscriptWord[], preset: CaptionPreset) => void;
 };
 
 function formatSeconds(ms: number) {
@@ -24,6 +27,25 @@ function formatSeconds(ms: number) {
 export function TranscriptPanel(props: Props) {
   const activeRef = useRef<HTMLSpanElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Drag-select state for "Make caption from this range."
+  // dragStart/dragEnd are word indices. While the user is mid-drag, dragging
+  // is true; on release, dragging flips back to false but start/end stay so
+  // the "Make caption" toolbar can read them. A single-word click without
+  // movement still triggers a seek instead of a selection — see handlers.
+  const [dragStart, setDragStart] = useState<number | null>(null);
+  const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [dragMoved, setDragMoved] = useState(false);
+
+  // Auto-end drag when the mouse releases anywhere — handles users dragging
+  // out of the panel before letting go.
+  useEffect(() => {
+    if (!isMouseDown) return;
+    const onUp = () => setIsMouseDown(false);
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, [isMouseDown]);
 
   // Find active word index (first whose range contains the playhead).
   const activeIndex = useMemo(() => {
@@ -66,7 +88,6 @@ export function TranscriptPanel(props: Props) {
         silences[silenceCursor].end_ms <= nextStart
       ) {
         const s = silences[silenceCursor];
-        // Only show silences strictly after this word — skip ones we've already passed.
         if (s.start_ms >= words[i].end_ms) {
           list.push({ kind: "silence", ms: s.end_ms - s.start_ms });
         }
@@ -80,6 +101,43 @@ export function TranscriptPanel(props: Props) {
     if (props.state.phase !== "ready") return 0;
     return props.state.silences.reduce((acc, s) => acc + (s.end_ms - s.start_ms), 0);
   }, [props.state]);
+
+  const selectionRange = useMemo(() => {
+    if (dragStart === null || dragEnd === null) return null;
+    const lo = Math.min(dragStart, dragEnd);
+    const hi = Math.max(dragStart, dragEnd);
+    if (lo === hi && !dragMoved) return null;          // single-click = seek, not selection
+    return { lo, hi };
+  }, [dragStart, dragEnd, dragMoved]);
+
+  const handleWordMouseDown = (i: number) => {
+    setDragStart(i);
+    setDragEnd(i);
+    setDragMoved(false);
+    setIsMouseDown(true);
+  };
+  const handleWordMouseEnter = (i: number) => {
+    if (!isMouseDown) return;
+    setDragEnd(i);
+    setDragMoved(true);
+  };
+  const handleWordClick = (i: number, ms: number) => {
+    // Only treat as a seek if the user did not drag-select.
+    if (!dragMoved) props.onSeek(ms);
+  };
+
+  const isSelected = (i: number) =>
+    selectionRange ? i >= selectionRange.lo && i <= selectionRange.hi : false;
+
+  const createCaption = (preset: CaptionPreset) => {
+    if (!selectionRange || props.state.phase !== "ready") return;
+    const words = props.state.words.slice(selectionRange.lo, selectionRange.hi + 1);
+    if (words.length === 0) return;
+    props.onCreateCaption(words, preset);
+    setDragStart(null);
+    setDragEnd(null);
+    setDragMoved(false);
+  };
 
   return (
     <div className="h-full flex flex-col bg-neutral-950 border-l border-neutral-800 text-neutral-200 text-sm">
@@ -101,6 +159,33 @@ export function TranscriptPanel(props: Props) {
           </>
         )}
       </div>
+
+      {/* Caption toolbar — only visible when a range of words is drag-selected. */}
+      {selectionRange && props.state.phase === "ready" && (
+        <div className="p-3 border-b border-neutral-800 bg-neutral-900/60 space-y-2">
+          <div className="text-[11px] text-neutral-400">
+            {selectionRange.hi - selectionRange.lo + 1} words selected — pick a caption style:
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {(Object.keys(CAPTION_PRESETS) as CaptionPreset[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => createCaption(p)}
+                title={CAPTION_PRESETS[p].description}
+                className="text-[10px] px-2 py-1 bg-neutral-800 hover:bg-blue-700 text-white rounded leading-tight"
+              >
+                {CAPTION_PRESETS[p].label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => { setDragStart(null); setDragEnd(null); setDragMoved(false); }}
+            className="w-full text-[10px] text-neutral-500 hover:text-neutral-300"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
 
       <div ref={containerRef} className="flex-1 overflow-y-auto p-3 leading-relaxed">
         {props.state.phase === "idle" || props.state.phase === "loading" ? (
@@ -133,15 +218,19 @@ export function TranscriptPanel(props: Props) {
         ) : props.state.phase === "error" ? (
           <p className="text-red-400 text-xs">Error: {props.state.message}</p>
         ) : (
-          <p className="text-xs">
+          <p className="text-xs select-none">
             {units.map((u, idx) =>
               u.kind === "word" ? (
                 <span
                   key={`w${idx}`}
                   ref={u.index === activeIndex ? activeRef : null}
-                  onClick={() => props.onSeek(u.word.start_ms)}
+                  onMouseDown={() => handleWordMouseDown(u.index)}
+                  onMouseEnter={() => handleWordMouseEnter(u.index)}
+                  onClick={() => handleWordClick(u.index, u.word.start_ms)}
                   className={`cursor-pointer rounded px-0.5 ${
-                    u.index === activeIndex
+                    isSelected(u.index)
+                      ? "bg-emerald-700 text-white"
+                      : u.index === activeIndex
                       ? "bg-blue-600 text-white"
                       : "hover:bg-neutral-800"
                   }`}

@@ -1,0 +1,58 @@
+// src/components/videoEditor/CaptionsList.tsx
+// Compact list of caption blocks attached to the EDL. Lets the user swap a
+// caption's preset or delete it. Lives below the transcript panel.
+import type { Caption, CaptionPreset } from "@/lib/videoEditor/edl";
+import { CAPTION_PRESETS } from "@/lib/videoEditor/captionPresets";
+
+type Props = {
+  captions: Caption[];
+  onChangePreset: (id: string, preset: CaptionPreset) => void;
+  onDelete: (id: string) => void;
+  onSeek: (sourceMs: number) => void;
+};
+
+function previewText(c: Caption): string {
+  const words = c.words.map((w) => w.text).join(" ");
+  return words.length > 60 ? words.slice(0, 57) + "…" : words;
+}
+
+export function CaptionsList({ captions, onChangePreset, onDelete, onSeek }: Props) {
+  if (captions.length === 0) return null;
+  return (
+    <div className="p-3 border-t border-neutral-800 space-y-2">
+      <div className="text-xs uppercase tracking-wider text-neutral-500">
+        Captions ({captions.length})
+      </div>
+      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+        {captions.map((c) => (
+          <div key={c.id} className="bg-neutral-900 rounded p-2 text-[11px] space-y-1.5">
+            <button
+              onClick={() => onSeek(c.words[0]?.start_ms ?? 0)}
+              className="text-left w-full text-neutral-200 hover:text-blue-400 line-clamp-2"
+            >
+              {previewText(c)}
+            </button>
+            <div className="flex items-center gap-1">
+              <select
+                value={c.preset}
+                onChange={(e) => onChangePreset(c.id, e.target.value as CaptionPreset)}
+                className="flex-1 bg-neutral-800 text-neutral-200 text-[10px] rounded px-1 py-0.5 border border-neutral-700"
+              >
+                {(Object.keys(CAPTION_PRESETS) as CaptionPreset[]).map((p) => (
+                  <option key={p} value={p}>{CAPTION_PRESETS[p].label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => onDelete(c.id)}
+                className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5"
+                title="Delete caption"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
