@@ -27,16 +27,49 @@ export function timeAgo(dateStr: string | null): string {
 
 // Exported so callers (e.g. ViralToday's channel-avatar scrubbing) can use
 // the same expiry detection rule. Defined once here so we don't drift.
+//
+// Matches Instagram / Facebook signed-CDN hosts that expire silently. TikTok
+// is handled separately below — TikTok URLs always live on `tiktokcdn` so we
+// can't blanket-skip them; we check the embedded `x-expires` timestamp.
 export const EXPIRED_CDN_PATTERN = /cdninstagram\.com|fbcdn\.net|scontent[-.]|instagram\.f[a-z]{3}/;
+
+/**
+ * True if the URL is a signed TikTok CDN URL whose `x-expires` query param
+ * is in the past. Returns false for non-TikTok URLs and for TikTok URLs
+ * without a parseable x-expires (treat as "try it, may succeed").
+ */
+function isExpiredTikTokUrl(url: string): boolean {
+  if (!/tiktokcdn|tiktokv\.com/i.test(url)) return false;
+  try {
+    const m = url.match(/[?&]x-expires=(\d+)/);
+    if (!m) return false;
+    const exp = parseInt(m[1], 10);
+    if (!Number.isFinite(exp)) return false;
+    // x-expires is unix seconds. Compare to seconds, not ms.
+    return exp * 1000 < Date.now();
+  } catch {
+    return false;
+  }
+}
 
 export function proxyImg(url: string | null, videoUrl?: string | null): string | null {
   if (url?.includes("connectacreators.com/thumb-cache")) return url;
   if (url?.includes("connectacreators.com")) return url;
+  // Expired signed URLs would always 403 through the proxy — short-circuit
+  // to the videoUrl-derived resolver if we have a videoUrl, else null so
+  // the card falls back to the gradient placeholder instead of flashing
+  // a broken image.
+  const sourceExpired = url
+    ? EXPIRED_CDN_PATTERN.test(url) || isExpiredTikTokUrl(url)
+    : false;
+  if (sourceExpired && videoUrl) {
+    return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
+  }
+  if (sourceExpired) return null;
   if (videoUrl) {
     return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
   }
   if (!url) return null;
-  if (EXPIRED_CDN_PATTERN.test(url)) return null;
   return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
