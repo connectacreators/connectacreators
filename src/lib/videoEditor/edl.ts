@@ -57,6 +57,44 @@ export function totalDurationMs(edl: EDL): number {
   );
 }
 
+// Build a default set of caption blocks from a flat transcript. Chunks the
+// words into short groups so each caption block stays readable on a phone
+// screen — break at any pause longer than `pauseBreakMs`, otherwise cap at
+// `maxWordsPerBlock` words per chunk. This is the auto-caption equivalent
+// of drag-selecting every sensible phrase and applying the preset.
+export function captionsFromTranscript(
+  words: { text: string; start_ms: number; end_ms: number }[],
+  preset: CaptionPreset,
+  opts: { maxWordsPerBlock?: number; pauseBreakMs?: number; position?: { x_pct: number; y_pct: number } } = {},
+): Caption[] {
+  const maxWords = opts.maxWordsPerBlock ?? 5;
+  const pauseBreak = opts.pauseBreakMs ?? 600;
+  const pos = opts.position ?? { x_pct: 50, y_pct: 80 };
+
+  const blocks: Caption[] = [];
+  let current: CaptionWord[] = [];
+  const flush = () => {
+    if (current.length === 0) return;
+    blocks.push({
+      id: crypto.randomUUID(),
+      preset,
+      words: current,
+      position: { x_pct: pos.x_pct, y_pct: pos.y_pct, anchor: "center" },
+    });
+    current = [];
+  };
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    current.push({ text: w.text, start_ms: w.start_ms, end_ms: w.end_ms });
+    const next = words[i + 1];
+    const reachedSize = current.length >= maxWords;
+    const reachedPause = !!next && next.start_ms - w.end_ms >= pauseBreak;
+    if (reachedSize || reachedPause || !next) flush();
+  }
+  return blocks;
+}
+
 // Convert a timestamp in source time to the equivalent timestamp in EDL
 // output time (what the preview's playhead uses). If the source time falls
 // inside a clip, return the corresponding output offset. If it falls inside

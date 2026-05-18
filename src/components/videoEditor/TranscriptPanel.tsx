@@ -13,10 +13,12 @@ type Props = {
     | { phase: "ready"; words: TranscriptWord[]; silences: SilenceSegment[] }
     | { phase: "error"; message: string };
   playheadMs: number;
+  hasCaptions: boolean;
   onSeek: (ms: number) => void;
   onStart: () => void;
   onRemoveSilences: () => void;
   onCreateCaption: (words: TranscriptWord[], preset: CaptionPreset) => void;
+  onAutoCaption: (preset: CaptionPreset) => void;
 };
 
 function formatSeconds(ms: number) {
@@ -156,6 +158,31 @@ export function TranscriptPanel(props: Props) {
             >
               Remove all silences
             </button>
+            {/* Auto-caption: builds short caption blocks across the whole transcript.
+                The user can still drag-select words to override or add specific blocks. */}
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-neutral-500 pt-1">
+                Auto captions
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {(Object.keys(CAPTION_PRESETS) as CaptionPreset[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => props.onAutoCaption(p)}
+                    title={`Auto-caption everything in ${CAPTION_PRESETS[p].label} style`}
+                    className="text-[10px] px-1 py-1 bg-neutral-800 hover:bg-emerald-700 text-white rounded leading-tight"
+                  >
+                    {CAPTION_PRESETS[p].label.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+              {props.hasCaptions && (
+                <p className="text-[9px] text-neutral-500">Tip: drag-select words to add or replace a specific block.</p>
+              )}
+              {!props.hasCaptions && (
+                <p className="text-[9px] text-neutral-500">Tip: drag words to caption a specific phrase.</p>
+              )}
+            </div>
           </>
         )}
       </div>

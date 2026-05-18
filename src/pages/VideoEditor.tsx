@@ -14,6 +14,7 @@ import { CaptionsList } from "@/components/videoEditor/CaptionsList";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
 import { useTranscript, type TranscriptWord } from "@/hooks/useTranscript";
 import {
+  captionsFromTranscript,
   clipsFromSilences,
   sourceTimeToEdlTime,
   type AspectRatio,
@@ -176,6 +177,16 @@ export default function VideoEditor() {
     });
   };
 
+  const handleAutoCaption = (preset: CaptionPreset) => {
+    if (projState.phase !== "ready") return;
+    if (transcriptState.phase !== "ready") return;
+    if (transcriptState.words.length === 0) return;
+    // Replace any existing auto-generated captions wholesale. Users who want
+    // to keep manual blocks should drag-select instead — that's the design.
+    const generated = captionsFromTranscript(transcriptState.words, preset);
+    setEdl({ ...projState.edl, captions: generated });
+  };
+
   useEffect(() => {
     if (jobState.phase === "done" && jobState.job.output_storage_path) {
       let cancelled = false;
@@ -257,10 +268,12 @@ export default function VideoEditor() {
             <TranscriptPanel
               state={transcriptState}
               playheadMs={playheadMs}
+              hasCaptions={(projState.edl.captions?.length ?? 0) > 0}
               onSeek={handleSeekFromTranscript}
               onStart={startTranscribe}
               onRemoveSilences={handleRemoveSilences}
               onCreateCaption={handleCreateCaption}
+              onAutoCaption={handleAutoCaption}
             />
           </div>
           <CaptionsList
