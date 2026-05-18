@@ -33,14 +33,22 @@ export function ExportDialog(props: Props) {
         {props.resultUrl ? (
           <div className="space-y-3">
             <p className="text-sm">Render complete.</p>
-            <a
-              href={props.resultUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="block px-3 py-2 bg-emerald-900 text-emerald-100 rounded text-sm text-center"
-            >
-              Open / download
-            </a>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={props.resultUrl.replace(/[?&]download=[^&]*/, "")}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 bg-neutral-800 text-neutral-100 rounded text-sm text-center"
+              >
+                Preview in tab
+              </a>
+              <a
+                href={props.resultUrl}
+                className="px-3 py-2 bg-emerald-900 text-emerald-100 rounded text-sm text-center"
+              >
+                Download
+              </a>
+            </div>
           </div>
         ) : props.errorMessage ? (
           <p className="text-sm text-red-400">Error: {props.errorMessage}</p>

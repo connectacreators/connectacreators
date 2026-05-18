@@ -109,9 +109,12 @@ export default function VideoEditor() {
   useEffect(() => {
     if (jobState.phase === "done" && jobState.job.output_storage_path) {
       let cancelled = false;
+      // Derive a friendly download filename from the source title.
+      const safeTitle = (source?.title ?? "edit").replace(/[^\w.-]+/g, "-").slice(0, 80);
+      const downloadName = `${safeTitle}-export.mp4`;
       supabase.storage
         .from("footage")
-        .createSignedUrl(jobState.job.output_storage_path, 3600)
+        .createSignedUrl(jobState.job.output_storage_path, 3600, { download: downloadName })
         .then(({ data, error }) => {
           if (cancelled) return;
           setResultSignedUrl(error ? null : data?.signedUrl ?? null);
@@ -119,7 +122,7 @@ export default function VideoEditor() {
       return () => { cancelled = true; };
     }
     setResultSignedUrl(null);
-  }, [jobState]);
+  }, [jobState, source]);
 
   if (!id) return <Navigate to="/editing-queue" replace />;
   if (authLoading) {
