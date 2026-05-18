@@ -86,7 +86,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
   }, [edl, onPlayheadChange, onEnded]);
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-black">
+    <div className="flex-1 flex items-center justify-center bg-black min-h-0">
       <video
         ref={videoRef}
         src={sourceUrl}

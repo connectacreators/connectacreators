@@ -149,8 +149,8 @@ export default function VideoEditor() {
         onExportClick={() => setExportOpen(true)}
       />
 
-      <div className="flex-1 flex">
-        <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex flex-col min-h-0">
           <PreviewStage
             sourceUrl={source.signedUrl}
             edl={projState.edl}
@@ -173,7 +173,9 @@ export default function VideoEditor() {
         </div>
       </div>
 
-      <TrimTimeline edl={projState.edl} onChange={setEdl} />
+      <div className="shrink-0">
+        <TrimTimeline edl={projState.edl} onChange={setEdl} />
+      </div>
 
       <ExportDialog
         open={exportOpen}
