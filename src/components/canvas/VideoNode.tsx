@@ -263,6 +263,12 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const [videoLabel, setVideoLabel] = useState<string | null>(d.videoLabel ?? null);
   const [playingVideo, setPlayingVideo] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
+  // Pre-transcribe (the free, transcript-only fetch fired on paste) was
+  // previously silent — no spinner while in flight and no toast on error,
+  // so a failed transcription was indistinguishable from "still working".
+  // These two states surface both.
+  const [preTranscribing, setPreTranscribing] = useState(false);
+  const [preTranscribeError, setPreTranscribeError] = useState<string | null>(null);
 
   // Dropdown states — start expanded when we landed with cached analysis
   // (e.g. Remix from Viral Today passes autoExpandAnalysis=true). Falsy
@@ -383,20 +389,72 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
       }
 
       // Stage decision:
-      // - If transcript exists (regardless of analysis_status), treat as already-analyzed.
-      //   The user has paid for that transcript before — don't re-charge.
-      // - Otherwise gate on analysis_status.
+      // - "done" only when visual breakdown is complete (framework_meta /
+      //   structure on the row). Cached transcript alone is NOT enough —
+      //   transcript is now a free pre-analyze step, the deep visual
+      //   analysis still needs the Analyze button click.
+      // - "analyzing" while a deep analysis is in flight.
+      // - "transcribed" once the row is resolved (whether transcript exists
+      //   or not). Pre-transcribe fires in the background if missing.
       const hasCachedTranscript = typeof row.transcript === "string" && row.transcript.trim().length > 0;
-      if (row.analysis_status === "analyzed" || hasCachedTranscript) {
+      const hasVisualBreakdown = !!row.framework_meta?.raw_structure || !!row.framework_meta?.visual_segments;
+      if (row.analysis_status === "analyzed" && hasVisualBreakdown) {
         setStage("done");
       } else if (row.analysis_status === "analyzing") {
         setStage("analyzing");
       } else {
-        setStage("transcribed"); // row resolved, ready to analyze
+        setStage("transcribed"); // row resolved, ready for deep analyze
+        // Pre-analyze: kick off transcript-only fetch right away (free) if
+        // no transcript yet. Realtime sub hydrates the node when it lands.
+        if (!hasCachedTranscript) preTranscribe(row.id);
       }
     } catch (e: any) {
       toast.error(e.message || "Failed to resolve URL");
       setStage("idle");
+    }
+  };
+
+  // ─── Pre-analyze: lightweight transcript fetch on drop ─────────────────
+  // Calls /transcribe-viral-video edge function (charges 0 credits). On
+  // success, the row's `transcript` field is written and the realtime
+  // subscription set up below updates the node's local state.
+  //
+  // Surfaces a "Transcribing audio…" indicator while in flight, and shows
+  // an inline error message (with retry) on failure — previously this was
+  // entirely silent, which made a failed transcript look identical to
+  // "still working" or "doesn't transcribe at all".
+  const preTranscribe = async (viralVideoId: string) => {
+    setPreTranscribing(true);
+    setPreTranscribeError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setPreTranscribeError("Not signed in"); return; }
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-viral-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ viral_video_id: viralVideoId }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null as any);
+        const code = errBody?.error ?? `http_${res.status}`;
+        const human =
+          code === "empty_transcript" ? "Couldn't extract speech from this video" :
+          code === "audio_extraction_failed" ? "Couldn't extract audio" :
+          code === "video_not_found" ? "Video record missing on server" :
+          `Transcription failed (${code})`;
+        setPreTranscribeError(human);
+        return;
+      }
+      const json = await res.json();
+      if (json?.transcript) {
+        d.onUpdate?.({ transcription: json.transcript });
+      } else {
+        setPreTranscribeError("No transcript returned");
+      }
+    } catch (err) {
+      setPreTranscribeError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setPreTranscribing(false);
     }
   };
 
@@ -877,6 +935,26 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
           {/* ──────── Content below thumbnail ──────── */}
           <div className="space-y-0">
 
+            {/* ── Pre-transcribe progress / error ── */}
+            {!hasTranscript && preTranscribing && (
+              <div className="px-3 py-2 flex items-center gap-1.5 text-[11px] text-muted-foreground border-b border-border/30">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Transcribing audio…</span>
+              </div>
+            )}
+            {!hasTranscript && !preTranscribing && preTranscribeError && d.viralVideoId && (
+              <div className="px-3 py-2 flex items-center justify-between gap-2 text-[11px] border-b border-border/30 bg-amber-500/[0.05]">
+                <span className="text-amber-500/90 truncate">{preTranscribeError}</span>
+                <button
+                  type="button"
+                  onClick={() => preTranscribe(d.viralVideoId!)}
+                  className="nodrag text-amber-500 hover:text-amber-400 underline shrink-0"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* ── Dropdown 1: Transcript ── */}
             {hasTranscript && (
               <div>
@@ -898,16 +976,19 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* ── Unified Analyze button (shown when row is resolved but not yet analyzed) ──
-                 Hard guard: never show if the row already has transcript/structure/videoAnalysis.
-                 Legacy rows have transcript but the broader state may not have caught up yet. */}
-            {stage === "transcribed" && !hasStructure && !hasTranscript && !(d as any).videoAnalysis && (
+            {/* ── Unified Analyze button — visible whenever the visual
+                 breakdown (structure / videoAnalysis) hasn't been generated
+                 yet. Transcript on its own doesn't hide this button anymore;
+                 pre-transcribe is free, the deep visual analysis is the
+                 paid step. */}
+            {stage === "transcribed" && !hasStructure && !(d as any).videoAnalysis && (
               <div className="px-3 py-2">
                 <button
                   onClick={analyze}
                   className="nodrag px-3 py-1.5 bg-accent text-accent-foreground rounded text-xs flex items-center gap-1.5 hover:opacity-90 transition-opacity"
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Analyze (50 credits)
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {hasTranscript ? "Analyze visuals" : "Analyze (50 credits)"}
                 </button>
               </div>
             )}
