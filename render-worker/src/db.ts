@@ -1,5 +1,6 @@
 // render-worker/src/db.ts
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 export type RenderJobRow = {
   id: string;
@@ -17,7 +18,12 @@ export function makeClient(): SupabaseClient {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required");
-  return createClient(url, key, { auth: { persistSession: false } });
+  // Node 20 lacks native WebSocket; supply the ws polyfill so supabase-js's
+  // realtime client can initialize even though the worker doesn't use realtime.
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    realtime: { transport: ws as unknown as typeof WebSocket },
+  });
 }
 
 // Claim the oldest queued job atomically. Returns null if nothing to do.
