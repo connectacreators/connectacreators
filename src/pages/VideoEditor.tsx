@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 import { useEditorProject } from "@/hooks/useEditorProject";
 import { useRenderJob } from "@/hooks/useRenderJob";
@@ -70,9 +71,10 @@ function probeDurationMs(url: string): Promise<number> {
 }
 
 export default function VideoEditor() {
-  if (!IS_VIDEO_EDITOR_ENABLED) return <Navigate to="/master-editing-queue" replace />;
+  if (!IS_VIDEO_EDITOR_ENABLED) return <Navigate to="/editing-queue" replace />;
 
   const { id } = useParams<{ id: string }>();
+  const { user, loading: authLoading } = useAuth();
   const [source, setSource] = useState<SourceMeta | null>(null);
   const [sourceErr, setSourceErr] = useState<string | null>(null);
   const [playheadMs, setPlayheadMs] = useState(0);
@@ -81,14 +83,16 @@ export default function VideoEditor() {
   const [resultSignedUrl, setResultSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    // Wait for auth to hydrate. Storage RLS allows authenticated reads only —
+    // signing before the JWT is attached returns "Object not found".
+    if (!id || authLoading || !user) return;
     loadSourceMeta(id)
       .then((s) => {
         if (!s) setSourceErr("No Supabase-Storage source for this video_edits row.");
         else setSource(s);
       })
       .catch((e: Error) => setSourceErr(e.message));
-  }, [id]);
+  }, [id, authLoading, user]);
 
   const initialSource = useMemo(
     () => source && { storage_path: source.storagePath, duration_ms: source.durationMs },
@@ -117,7 +121,11 @@ export default function VideoEditor() {
     setResultSignedUrl(null);
   }, [jobState]);
 
-  if (!id) return <Navigate to="/master-editing-queue" replace />;
+  if (!id) return <Navigate to="/editing-queue" replace />;
+  if (authLoading) {
+    return <div className="p-8 text-neutral-400">Loading editor…</div>;
+  }
+  if (!user) return <Navigate to="/" replace />;
   if (sourceErr) {
     return <div className="p-8 text-red-400">Source error: {sourceErr}</div>;
   }
