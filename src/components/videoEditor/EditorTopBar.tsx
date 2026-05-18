@@ -14,7 +14,7 @@ export function EditorTopBar({ title, saveStatus, onExportClick, exportDisabled 
   return (
     <div className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 text-neutral-200">
       <div className="flex items-center gap-3 text-xs">
-        <Link to="/master-editing-queue" className="flex items-center gap-1 text-neutral-400 hover:text-neutral-100">
+        <Link to="/editing-queue" className="flex items-center gap-1 text-neutral-400 hover:text-neutral-100">
           <ArrowLeft className="w-3.5 h-3.5" /> Queue
         </Link>
         <span className="text-neutral-600">/</span>
