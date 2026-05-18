@@ -25,7 +25,9 @@ export function timeAgo(dateStr: string | null): string {
   return `${Math.floor(d / 365)}y ago`;
 }
 
-const EXPIRED_CDN_PATTERN = /cdninstagram\.com|fbcdn\.net|scontent[-.]|instagram\.f[a-z]{3}/;
+// Exported so callers (e.g. ViralToday's channel-avatar scrubbing) can use
+// the same expiry detection rule. Defined once here so we don't drift.
+export const EXPIRED_CDN_PATTERN = /cdninstagram\.com|fbcdn\.net|scontent[-.]|instagram\.f[a-z]{3}/;
 
 export function proxyImg(url: string | null, videoUrl?: string | null): string | null {
   if (url?.includes("connectacreators.com/thumb-cache")) return url;

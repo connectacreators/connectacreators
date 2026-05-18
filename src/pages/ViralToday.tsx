@@ -35,6 +35,7 @@ import {
   gridGradientFor,
   PLATFORM_ICON,
   TikTokIcon,
+  EXPIRED_CDN_PATTERN,
 } from "@/lib/viral-card-utils";
 
 // ── Language support ──────────────────────────────────────────────────────
