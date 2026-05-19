@@ -209,7 +209,8 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
         </div>
       )}
 
-      {/* Active text overlays — each is independent. Multiple can show at once. */}
+      {/* Active text overlays — center-anchored at their (x_pct, y_pct).
+          Multiple can show at once. */}
       {activeOverlays.map((ov) => {
         const ovSpec = TEXT_OVERLAY_PRESETS[ov.preset];
         const text = ovSpec.uppercase ? ov.text.toUpperCase() : ov.text;
@@ -219,13 +220,13 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
             className={onMoveOverlay ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
             style={{
               left: `${ov.position.x_pct}%`,
-              bottom: `${100 - ov.position.y_pct}%`,
-              transform: "translateX(-50%)",
+              top: `${ov.position.y_pct}%`,
+              transform: "translate(-50%, -50%)",
               maxWidth: "95%",
               textAlign: "center",
               background: ovSpec.background === "none" ? undefined : ovSpec.background,
-              padding: ovSpec.background === "none" ? 0 : "0.4em 1em",
-              borderRadius: ovSpec.background === "none" ? 0 : 999,
+              padding: ovSpec.background === "none" ? 0 : "0.25em 0.6em",
+              borderRadius: ovSpec.background === "none" ? 0 : 4,
               pointerEvents: onMoveOverlay ? "auto" : "none",
               whiteSpace: "nowrap",
             }}

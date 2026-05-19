@@ -21,11 +21,7 @@ export type Caption = {
   size?: number;
 };
 
-export type TextOverlayPreset =
-  | "title_card"
-  | "lower_third"
-  | "cta_chip"
-  | "subtle_caption";
+export type TextOverlayPreset = "tiktok" | "helvetica" | "impact";
 
 export type TextOverlay = {
   id: string;
@@ -146,8 +142,8 @@ const PRESET_STYLES: Record<CaptionPreset, {
   },
 };
 
-// Text overlay preset styles. Independent ASS Style block per preset so each
-// looks visually distinct from the captions.
+// Text overlay preset styles — mirror the user-spec'd three presets that
+// the browser preview also uses.
 const OVERLAY_STYLES: Record<TextOverlayPreset, {
   fontName: string;
   fontSize: number;
@@ -161,57 +157,47 @@ const OVERLAY_STYLES: Record<TextOverlayPreset, {
   backColour: string;
   alignment: number;
 }> = {
-  title_card: {
+  // Montserrat Black, white fill, black stroke, no background.
+  tiktok: {
     fontName: "Montserrat",
-    fontSize: 76,
+    fontSize: 64,
     bold: 1,
-    uppercase: true,
+    uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
     outlineWidth: 4,
-    shadowDepth: 3,
+    shadowDepth: 0,
     borderStyle: 1,
-    backColour: cssHexToAssBGR("#000000", 0x80),
-    alignment: 2,
+    backColour: cssHexToAssBGR("#000000", 0),
+    alignment: 5, // center, since user wants center anchoring for text on screen
   },
-  lower_third: {
-    fontName: "Inter",
-    fontSize: 35,
+  // Helvetica, white on translucent black box, no shadow/outline.
+  helvetica: {
+    fontName: "Helvetica Neue",
+    fontSize: 45,
     bold: 1,
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
-    outlineWidth: 0,
-    shadowDepth: 2,
-    borderStyle: 3,
-    backColour: cssHexToAssBGR("#000000", 0x55),
-    alignment: 2,
-  },
-  cta_chip: {
-    fontName: "Montserrat",
-    fontSize: 44,
-    bold: 1,
-    uppercase: true,
-    primaryColour: cssHexToAssBGR("#000000"),
-    outlineColour: cssHexToAssBGR("#ffd400"),
     outlineWidth: 0,
     shadowDepth: 0,
-    borderStyle: 3,
-    backColour: cssHexToAssBGR("#ffd400", 0),
-    alignment: 2,
+    borderStyle: 3,                       // opaque box
+    backColour: cssHexToAssBGR("#000000", 0x33), // 80% opaque → 0x33 transparency
+    alignment: 5,
   },
-  subtle_caption: {
-    fontName: "Inter",
-    fontSize: 32,
-    bold: 0,
+  // Impact/Anton condensed, white fill, black stroke, no background.
+  impact: {
+    fontName: "Anton",
+    fontSize: 76,
+    bold: 1,
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
-    outlineWidth: 2,
-    shadowDepth: 2,
+    outlineWidth: 5,
+    shadowDepth: 0,
     borderStyle: 1,
-    backColour: cssHexToAssBGR("#000000", 0x80),
-    alignment: 2,
+    backColour: cssHexToAssBGR("#000000", 0),
+    alignment: 5,
   },
 };
 
