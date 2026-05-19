@@ -322,6 +322,24 @@ export default function VideoEditor() {
     });
   };
 
+  // Trim a caption's word range. Words whose [start,end] falls fully outside
+  // the new [newStart, newEnd] window are dropped. newStart=null leaves the
+  // start edge as-is; newEnd=null leaves the end edge as-is.
+  const handleTrimCaption = (id: string, newStart: number | null, newEnd: number | null) => {
+    if (projState.phase !== "ready") return;
+    const captions = projState.edl.captions ?? [];
+    const c = captions.find((cap) => cap.id === id);
+    if (!c) return;
+    const lo = newStart ?? c.words[0]?.start_ms ?? 0;
+    const hi = newEnd ?? c.words[c.words.length - 1]?.end_ms ?? lo + 200;
+    const keep = c.words.filter((w) => w.end_ms > lo && w.start_ms < hi);
+    if (keep.length === 0) return;
+    setEdl({
+      ...projState.edl,
+      captions: captions.map((cap) => cap.id === id ? { ...cap, words: keep } : cap),
+    });
+  };
+
   // Shift an entire caption block in source time so the first word starts
   // at the given timestamp. All other words preserve their internal gaps
   // (same delta applied to all).
@@ -645,6 +663,50 @@ export default function VideoEditor() {
         pasteFromClipboard();
         return;
       }
+
+      // S = split the selected caption / b-roll at the current playhead.
+      if (!mod && key === "s" && timelineSelection) {
+        if (timelineSelection.kind === "caption") {
+          const c = projState.edl.captions?.find((x) => x.id === timelineSelection.id);
+          if (!c) return;
+          // Split at the first word whose start_ms >= source playhead.
+          const idx = c.words.findIndex((w) => w.start_ms >= playheadSource);
+          if (idx > 0 && idx < c.words.length) {
+            e.preventDefault();
+            handleSplitCaption(c.id, idx);
+          }
+          return;
+        }
+        if (timelineSelection.kind === "broll") {
+          const b = projState.edl.b_roll?.find((x) => x.id === timelineSelection.id);
+          if (!b) return;
+          // Split window: [output_start, output_start+dur]. Playhead in EDL
+          // output time must fall strictly inside it.
+          const dur = b.trim_end_ms - b.trim_start_ms;
+          const headOut = playheadMs;
+          if (headOut <= b.output_start_ms + 50 || headOut >= b.output_start_ms + dur - 50) return;
+          e.preventDefault();
+          const splitOffset = headOut - b.output_start_ms;
+          const left: BRollClip = {
+            ...b,
+            id: crypto.randomUUID(),
+            trim_end_ms: b.trim_start_ms + splitOffset,
+          };
+          const right: BRollClip = {
+            ...b,
+            id: crypto.randomUUID(),
+            trim_start_ms: b.trim_start_ms + splitOffset,
+            output_start_ms: b.output_start_ms + splitOffset,
+          };
+          const brolls = projState.edl.b_roll ?? [];
+          const idx = brolls.findIndex((x) => x.id === b.id);
+          const next = [...brolls];
+          next.splice(idx, 1, left, right);
+          setEdl({ ...projState.edl, b_roll: next });
+          setTimelineSelection({ kind: "broll", id: left.id });
+          return;
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -808,6 +870,7 @@ export default function VideoEditor() {
           onSeek={handleSeekFromTranscript}
           onChangeTrim={handleChangeTrim}
           onShiftCaption={handleShiftCaption}
+          onTrimCaption={handleTrimCaption}
           onChangeOverlay={handleChangeOverlay}
           onChangeBRoll={handleChangeBRoll}
           onChangeMusic={(music) => handleSetMusic(music)}

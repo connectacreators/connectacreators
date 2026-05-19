@@ -39,6 +39,9 @@ type Props = {
   onSeek: (sourceMs: number) => void;
   onChangeTrim: (sourceStartMs: number, sourceEndMs: number) => void;
   onShiftCaption: (id: string, newFirstWordStartMs: number) => void;
+  // Trim a caption's word range. Pass null for the edge you're not moving.
+  // Words whose start/end fall outside the new range are dropped.
+  onTrimCaption: (id: string, newStartMs: number | null, newEndMs: number | null) => void;
   onChangeOverlay: (id: string, patch: Partial<TextOverlay>) => void;
   onChangeBRoll: (id: string, patch: Partial<BRollClip>) => void;
   onChangeMusic: (music: Music) => void;
@@ -106,7 +109,7 @@ function useTimeDrag(
 export function MultiTrackTimeline(props: Props) {
   const {
     edl, playheadMs, selection, onSelect, onSeek, onChangeTrim,
-    onShiftCaption, onChangeOverlay, onChangeBRoll, onChangeMusic,
+    onShiftCaption, onTrimCaption, onChangeOverlay, onChangeBRoll, onChangeMusic,
   } = props;
   const totalSourceMs = edl.source.duration_ms;
   const trackWidthRef = useRef<HTMLDivElement | null>(null);
@@ -260,6 +263,7 @@ export function MultiTrackTimeline(props: Props) {
             selected={isSelected({ kind: "caption", id: c.id })}
             onSelect={() => onSelect({ kind: "caption", id: c.id })}
             onShift={(t) => onShiftCaption(c.id, t)}
+            onTrimCaption={onTrimCaption}
             onSeek={onSeek}
             beginDrag={beginDrag}
           />
@@ -340,6 +344,7 @@ function CaptionBlock({
   selected,
   onSelect,
   onShift,
+  onTrimCaption,
   onSeek,
   beginDrag,
 }: {
@@ -348,24 +353,37 @@ function CaptionBlock({
   selected: boolean;
   onSelect: () => void;
   onShift: (newFirstWordStartMs: number) => void;
+  onTrimCaption: (id: string, newStartMs: number | null, newEndMs: number | null) => void;
   onSeek: (sourceMs: number) => void;
   beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
 }) {
   const start = cap.words[0]?.start_ms ?? 0;
   const end = cap.words[cap.words.length - 1]?.end_ms ?? start + 200;
   const snapStart = useRef(start);
-  const onDown = beginDrag((delta) => {
+  const snapRange = useRef({ start, end });
+
+  const onBodyDown = beginDrag((delta) => {
     const dur = end - snapStart.current;
     const next = Math.max(0, Math.min(totalSourceMs - dur, snapStart.current + delta));
     onShift(next);
   });
+  const onLeftDown = beginDrag((delta) => {
+    const target = Math.max(0, Math.min(snapRange.current.end - 100, snapRange.current.start + delta));
+    onTrimCaption(cap.id, target, null);
+  });
+  const onRightDown = beginDrag((delta) => {
+    const target = Math.max(snapRange.current.start + 100, Math.min(totalSourceMs, snapRange.current.end + delta));
+    onTrimCaption(cap.id, null, target);
+  });
+  const captureRange = () => { snapRange.current = { start, end }; };
+
   return (
     <div
       onMouseDown={(e) => {
         e.stopPropagation();
         snapStart.current = cap.words[0]?.start_ms ?? 0;
         onSelect();
-        onDown(e);
+        onBodyDown(e);
       }}
       onClick={(e) => { e.stopPropagation(); onSeek(start); }}
       className={`absolute top-0 bottom-0 bg-blue-700/30 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
@@ -375,7 +393,17 @@ function CaptionBlock({
       }}
       title={cap.words.map((w) => w.text).join(" ")}
     >
-      <span className="text-[9px] text-blue-200 truncate">
+      <div
+        onMouseDown={(e) => { e.stopPropagation(); captureRange(); onSelect(); onLeftDown(e); }}
+        className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-300 cursor-ew-resize"
+        title="Trim caption start (drops earlier words)"
+      />
+      <div
+        onMouseDown={(e) => { e.stopPropagation(); captureRange(); onSelect(); onRightDown(e); }}
+        className="absolute right-0 top-0 bottom-0 w-1.5 bg-blue-300 cursor-ew-resize"
+        title="Trim caption end (drops later words)"
+      />
+      <span className="text-[9px] text-blue-200 truncate px-2">
         {cap.words.map((w) => w.text).join(" ")}
       </span>
     </div>
@@ -462,20 +490,33 @@ function BRollBlock({
   onSeek: (sourceMs: number) => void;
   beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
 }) {
-  // Display position uses output→source mapping. Width uses the source
-  // distance between start and end so cuts collapse the visible block.
   const startSource = outputToSource(br.output_start_ms);
   const dur = br.trim_end_ms - br.trim_start_ms;
   const endSource = outputToSource(br.output_start_ms + dur);
 
+  // Body drag — move output_start_ms.
   const snap = useRef(br.output_start_ms);
-  const onDown = beginDrag((deltaMs) => {
-    // Convert the source-time delta into a target source position, then
-    // forward-map through clips to the new output-time start. Snap-forward
-    // if dropped inside a removed gap.
+  const onBodyDown = beginDrag((deltaMs) => {
     const desiredSource = Math.max(0, Math.min(totalSourceMs, outputToSource(snap.current) + deltaMs));
     const newOutput = sourceTimeToEdlTime(edl, desiredSource);
     onChange({ output_start_ms: Math.round(newOutput) });
+  });
+
+  // Edge trim drags modify the b-roll's internal trim window (trim_start_ms
+  // / trim_end_ms), keeping output_start_ms fixed. Left handle pushes
+  // trim_start in, right handle pulls trim_end back. Both clamp within
+  // [0, source_duration_ms].
+  const trimSnap = useRef({ ts: br.trim_start_ms, te: br.trim_end_ms });
+  const captureTrim = () => { trimSnap.current = { ts: br.trim_start_ms, te: br.trim_end_ms }; };
+  // Source-side pixel scale is the same as the rest of the timeline. ms
+  // here means "ms of internal trim shift", which equals 1:1 source-time.
+  const onLeftDown = beginDrag((deltaMs) => {
+    const next = Math.max(0, Math.min(trimSnap.current.te - 100, trimSnap.current.ts + deltaMs));
+    onChange({ trim_start_ms: next });
+  });
+  const onRightDown = beginDrag((deltaMs) => {
+    const next = Math.max(trimSnap.current.ts + 100, Math.min(br.source_duration_ms, trimSnap.current.te + deltaMs));
+    onChange({ trim_end_ms: next });
   });
 
   return (
@@ -484,7 +525,7 @@ function BRollBlock({
         e.stopPropagation();
         snap.current = br.output_start_ms;
         onSelect();
-        onDown(e);
+        onBodyDown(e);
       }}
       onClick={(e) => { e.stopPropagation(); onSeek(startSource); }}
       className={`absolute top-0 bottom-0 bg-purple-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-purple-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
@@ -494,7 +535,17 @@ function BRollBlock({
       }}
       title={`B-roll · ${br.mode} · ${(dur / 1000).toFixed(1)}s`}
     >
-      <span className="text-[9px] text-purple-200 truncate">{br.mode}</span>
+      <div
+        onMouseDown={(e) => { e.stopPropagation(); captureTrim(); onSelect(); onLeftDown(e); }}
+        className="absolute left-0 top-0 bottom-0 w-1.5 bg-purple-300 cursor-ew-resize"
+        title="Trim b-roll start"
+      />
+      <div
+        onMouseDown={(e) => { e.stopPropagation(); captureTrim(); onSelect(); onRightDown(e); }}
+        className="absolute right-0 top-0 bottom-0 w-1.5 bg-purple-300 cursor-ew-resize"
+        title="Trim b-roll end"
+      />
+      <span className="text-[9px] text-purple-200 truncate px-2">{br.mode}</span>
     </div>
   );
 }
