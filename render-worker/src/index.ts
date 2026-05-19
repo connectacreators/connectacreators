@@ -10,10 +10,13 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), override: false
 
 import { promises as fs } from "node:fs";
 import {
+  claimNextAudioImportJob,
   claimNextJob,
   claimNextTranscribeJob,
   getVideoEditStoragePath,
   makeClient,
+  markAudioImportDone,
+  markAudioImportError,
   markDone,
   markError,
   markTranscribeDone,
@@ -21,11 +24,14 @@ import {
   reclaimOrphanedJobs,
   saveSilenceSegments,
   saveTranscript,
+  updateAudioImportProgress,
   updateProgress,
   updateTranscribeProgress,
+  type AudioImportJobRow,
   type RenderJobRow,
   type TranscribeJobRow,
 } from "./db.js";
+import { extractAudioFromUrl } from "./audioImport.js";
 import { downloadToFile } from "./storage.js";
 import { uploadFile } from "./storage.js";
 import { runRender, totalOutputDurationMs, type BRollInput } from "./render.js";
@@ -155,14 +161,29 @@ async function processTranscribeJob(client: ReturnType<typeof makeClient>, job: 
   await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
 }
 
+async function processAudioImportJob(client: ReturnType<typeof makeClient>, job: AudioImportJobRow) {
+  const workDir = path.join(WORK_DIR, `audio-${job.id}`);
+  await fs.mkdir(workDir, { recursive: true });
+
+  await updateAudioImportProgress(client, job.id, 10);
+  const { filePath, durationMs } = await extractAudioFromUrl(job.url, workDir);
+
+  await updateAudioImportProgress(client, job.id, 70);
+  const storagePath = `music/${job.video_edit_id}/imported-${Date.now()}.mp3`;
+  await uploadFile(client, SOURCE_BUCKET, storagePath, filePath);
+
+  await markAudioImportDone(client, job.id, storagePath, durationMs);
+
+  await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+}
+
 async function tick(client: ReturnType<typeof makeClient>) {
-  // Reclaim any 'running' jobs whose worker died mid-render. The dev cycle
-  // restarts tsx on every file edit so this happens often locally.
   await reclaimOrphanedJobs(client).catch((e) => {
     console.error("[render-worker] orphan reclaim failed", e);
   });
 
-  // Render jobs first — they're user-facing exports. Transcribe is background.
+  // Render jobs first — they're user-facing exports. Transcribe + audio
+  // imports are background and yield to renders.
   const render = await claimNextJob(client);
   if (render) {
     try {
@@ -183,6 +204,18 @@ async function tick(client: ReturnType<typeof makeClient>) {
       const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
       console.error(`[render-worker] transcribe ${tj.id} failed:`, msg);
       await markTranscribeError(client, tj.id, msg);
+    }
+    return;
+  }
+
+  const aj = await claimNextAudioImportJob(client);
+  if (aj) {
+    try {
+      await processAudioImportJob(client, aj);
+    } catch (err) {
+      const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+      console.error(`[render-worker] audio-import ${aj.id} failed:`, msg);
+      await markAudioImportError(client, aj.id, msg);
     }
   }
 }

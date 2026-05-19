@@ -43,6 +43,11 @@ export async function reclaimOrphanedJobs(client: SupabaseClient, staleMs = 60_0
     .update({ status: "queued", claimed_at: null, progress: 0 })
     .eq("status", "running")
     .lt("claimed_at", cutoff);
+  await client
+    .from("audio_import_jobs")
+    .update({ status: "queued", claimed_at: null, progress: 0 })
+    .eq("status", "running")
+    .lt("claimed_at", cutoff);
 }
 
 // Claim the oldest queued job atomically. Returns null if nothing to do.
@@ -188,6 +193,69 @@ export async function saveSilenceSegments(
 
 // Fetch the source storage_path for a video_edit. The worker resolves the
 // storage path itself rather than trusting client-supplied state.
+// ---- Audio-import jobs ----
+
+export type AudioImportJobRow = {
+  id: string;
+  video_edit_id: string;
+  url: string;
+  status: "queued" | "running" | "done" | "error";
+};
+
+export async function claimNextAudioImportJob(client: SupabaseClient): Promise<AudioImportJobRow | null> {
+  const { data: candidate } = await client
+    .from("audio_import_jobs")
+    .select("id")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!candidate) return null;
+
+  const { data: claimed, error } = await client
+    .from("audio_import_jobs")
+    .update({ status: "running", claimed_at: new Date().toISOString(), progress: 1 })
+    .eq("id", candidate.id)
+    .eq("status", "queued")
+    .select("id, video_edit_id, url, status")
+    .maybeSingle();
+  if (error) throw error;
+  return (claimed as AudioImportJobRow | null) ?? null;
+}
+
+export async function updateAudioImportProgress(client: SupabaseClient, id: string, progress: number) {
+  await client.from("audio_import_jobs").update({ progress }).eq("id", id);
+}
+
+export async function markAudioImportDone(
+  client: SupabaseClient,
+  id: string,
+  outputStoragePath: string,
+  durationMs: number,
+) {
+  await client
+    .from("audio_import_jobs")
+    .update({
+      status: "done",
+      progress: 100,
+      output_storage_path: outputStoragePath,
+      duration_ms: durationMs,
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+}
+
+export async function markAudioImportError(client: SupabaseClient, id: string, message: string) {
+  await client
+    .from("audio_import_jobs")
+    .update({
+      status: "error",
+      error_message: message.slice(0, 2000),
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+}
+
 export async function getVideoEditStoragePath(client: SupabaseClient, videoEditId: string): Promise<string | null> {
   const { data } = await client
     .from("video_edits")

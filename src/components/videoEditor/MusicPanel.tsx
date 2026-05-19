@@ -4,9 +4,10 @@
 // at `music/<videoEditId>/<filename>` and the storage_path is stored in
 // the EDL — the worker pulls it down at render time and mixes it under
 // the source audio with `amix`.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Music } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
+import { useAudioImport } from "@/hooks/useAudioImport";
 
 type Props = {
   music: Music | null;
@@ -18,6 +19,21 @@ export function MusicPanel({ music, videoEditId, onSet }: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const { state: importState, submit: submitImport, reset: resetImport } = useAudioImport(videoEditId);
+
+  // When the import finishes, automatically attach the resulting MP3 as
+  // this video's music track.
+  useEffect(() => {
+    if (importState.phase === "done") {
+      onSet({
+        storage_path: importState.storagePath,
+        volume: music?.volume ?? 0.3,
+      });
+      resetImport();
+      setImportUrl("");
+    }
+  }, [importState, music?.volume, onSet, resetImport]);
 
   const handleUpload = async (file: File) => {
     setError(null);
@@ -106,9 +122,53 @@ export function MusicPanel({ music, videoEditId, onSet }: Props) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleUpload(file);
-          e.currentTarget.value = ""; // allow re-uploading the same file
+          e.currentTarget.value = "";
         }}
       />
+
+      {/* Audio-from-URL importer. Paste a TikTok / IG Reel / YouTube link
+          and the local worker runs yt-dlp to pull the audio. Useful when
+          recreating inspiration content with the original audio. */}
+      <div className="bg-neutral-900/60 rounded p-2 space-y-2">
+        <div className="text-[9px] uppercase tracking-wider text-neutral-500">
+          Or import from a URL
+        </div>
+        <input
+          value={importUrl}
+          onChange={(e) => setImportUrl(e.target.value)}
+          placeholder="https://www.tiktok.com/@…/video/…  or IG Reel / YT link"
+          className="w-full bg-neutral-800 text-neutral-100 text-[10px] rounded px-2 py-1 border border-neutral-700"
+        />
+        {importState.phase === "polling" || importState.phase === "submitting" ? (
+          <div className="space-y-1">
+            <div className="h-1.5 bg-neutral-800 rounded overflow-hidden">
+              <div
+                className="h-full bg-blue-500 transition-all"
+                style={{
+                  width: importState.phase === "polling" ? `${importState.progress}%` : "5%",
+                }}
+              />
+            </div>
+            <p className="text-[9px] text-neutral-400">
+              {importState.phase === "submitting" ? "Submitting…" : "Importing audio…"}
+            </p>
+          </div>
+        ) : (
+          <button
+            onClick={() => importUrl.trim() && submitImport(importUrl.trim())}
+            disabled={!importUrl.trim()}
+            className="w-full px-2 py-1 text-xs bg-emerald-700 hover:bg-emerald-600 text-white rounded disabled:opacity-50"
+          >
+            Import audio from URL
+          </button>
+        )}
+        {importState.phase === "error" && (
+          <p className="text-[10px] text-red-400">{importState.message}</p>
+        )}
+        <p className="text-[9px] text-neutral-500">
+          Worker uses yt-dlp locally (install with <code>brew install yt-dlp</code> on macOS).
+        </p>
+      </div>
 
       <p className="text-[9px] text-neutral-500">
         Music plays under the source audio at the chosen volume. Source audio
