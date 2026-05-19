@@ -1,6 +1,7 @@
 // src/components/videoEditor/PreviewStage.tsx
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EDL } from "@/lib/videoEditor/edl";
+import { supabase } from "@/integrations/supabase/client";
 import { CaptionOverlay, useVideoPictureBox } from "./CaptionOverlay";
 
 type Props = {
@@ -32,7 +33,49 @@ function edlTimeToSourceTime(edl: EDL, edlMs: number): { sourceMs: number; clipI
 
 export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoBox = useVideoPictureBox(videoRef);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+
+  // Sign the music track on demand so the preview can play it. Re-signs
+  // when the storage_path changes.
+  const musicStoragePath = edl.music?.storage_path ?? null;
+  useEffect(() => {
+    if (!musicStoragePath) {
+      setMusicUrl(null);
+      return;
+    }
+    let cancelled = false;
+    supabase.storage
+      .from("footage")
+      .createSignedUrl(musicStoragePath, 3600)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setMusicUrl(error ? null : data?.signedUrl ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [musicStoragePath]);
+
+  // Sync music play/pause + currentTime with the video. The audio plays
+  // continuously from music_start_ms during preview — this matches the
+  // worker's amix behaviour where music is one continuous track underneath
+  // the source audio regardless of clip cuts.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const music = edl.music;
+    if (!music) return;
+    a.volume = Math.max(0, Math.min(1, music.volume ?? 0.3));
+    const desired = (music.music_start_ms ?? 0) / 1000 + playheadMs / 1000;
+    if (Math.abs(a.currentTime - desired) > 0.15) {
+      try { a.currentTime = desired; } catch { /* ignore seek-while-loading */ }
+    }
+    if (playing) {
+      void a.play().catch(() => {});
+    } else {
+      a.pause();
+    }
+  }, [playing, playheadMs, edl.music]);
 
   // Sync video element's currentTime with edl playhead.
   useEffect(() => {
@@ -117,6 +160,11 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
         playsInline
         controls={false}
       />
+      {/* Hidden audio element for the EDL.music track. Synced manually via
+          effect above so it stays aligned with the video. */}
+      {musicUrl && (
+        <audio ref={audioRef} src={musicUrl} preload="auto" className="hidden" />
+      )}
       <CaptionOverlay
         captions={edl.captions ?? []}
         overlays={edl.text_overlays ?? []}

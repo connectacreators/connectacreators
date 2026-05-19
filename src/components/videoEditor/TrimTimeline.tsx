@@ -63,11 +63,9 @@ export function TrimTimeline({ edl, onChange }: Props) {
         const deltaPx = ev.clientX - startPx;
         // Same pixel-to-ms scale as the video track: full width = totalSourceMs.
         const deltaMs = Math.round((deltaPx / rect.width) * totalSourceMs);
-        // Dragging right shifts the music LATER in the output, which is
-        // equivalent to a NEGATIVE music_start_ms (we'd want to skip
-        // backward in the file). Since we can't go before t=0, clamp at 0.
-        // Dragging left effectively skips forward in the music file.
-        const nextOffset = Math.max(0, startOffset - deltaMs);
+        // Drag right → start LATER in the music file (skip ahead) → larger
+        // music_start_ms. Drag left → start EARLIER (clamp at 0).
+        const nextOffset = Math.max(0, startOffset + deltaMs);
         onChange({ ...edl, music: { ...music, music_start_ms: nextOffset } });
       };
       const up = () => {
