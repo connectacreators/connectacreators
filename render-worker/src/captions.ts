@@ -52,6 +52,7 @@ const PRESET_STYLES: Record<CaptionPreset, {
   fontName: string;
   fontSize: number;             // assumes 1080p playres
   bold: 1 | 0;
+  uppercase: boolean;           // applied to every word's text before emission
   primaryColour: string;        // fill
   secondaryColour: string;      // karaoke highlight fill (for `\k` if used)
   outlineColour: string;
@@ -63,12 +64,17 @@ const PRESET_STYLES: Record<CaptionPreset, {
   marginV: number;
 }> = {
   tiktok_word_pop: {
-    fontName: "Inter",
+    // Helvetica Neue ships with macOS + most Linux distros' fontconfig
+    // packages, and the frontend preview defaults to it too. Inter would
+    // require shipping a .ttf and pointing ffmpeg at a fonts dir; not worth
+    // it for a system that's mostly Helvetica-family-equivalent.
+    fontName: "Helvetica Neue",
     // Base sizes correspond to fontSizePctHeight in the frontend preset
     // module (e.g. 4.5% of 1080 = 48.6 → 48). Per-caption `size` multiplies
     // this via a `\fs` override on each Dialogue line.
     fontSize: 48,
     bold: 1,
+    uppercase: true,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
@@ -80,9 +86,10 @@ const PRESET_STYLES: Record<CaptionPreset, {
     marginV: 0,
   },
   ig_reels_classic: {
-    fontName: "Helvetica",
+    fontName: "Helvetica Neue",
     fontSize: 40,
     bold: 1,
+    uppercase: true,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
@@ -97,6 +104,7 @@ const PRESET_STYLES: Record<CaptionPreset, {
     fontName: "Impact",
     fontSize: 56,
     bold: 1,
+    uppercase: true,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
@@ -203,9 +211,9 @@ export function buildAssFile(
 
     // Per-caption size multiplier is applied via a \fs<int> override at the
     // start of the line. ASS doesn't support floats here so we round.
+    const presetSpec = PRESET_STYLES[cap.preset];
     const sizeMult = cap.size ?? 1;
-    const presetBase = PRESET_STYLES[cap.preset].fontSize;
-    const scaledFs = Math.max(8, Math.round(presetBase * sizeMult));
+    const scaledFs = Math.max(8, Math.round(presetSpec.fontSize * sizeMult));
 
     // Build word tokens. For per-word pop we use the highlight color via
     // the karaoke `\kf` (fill animation) so the *current* word changes
@@ -218,8 +226,11 @@ export function buildAssFile(
       const gap = Math.max(0, w.start - cursor);
       if (gap > 0) textBuf += `{\\k${Math.round(gap / 10)}}`;
       const dur = Math.max(1, w.end - w.start);
+      // Match the browser preview's text-transform setting so what you see
+      // is what you get — preview uppercases via CSS, we uppercase here.
+      const wordText = presetSpec.uppercase ? w.text.toUpperCase() : w.text;
       // \kf = sweep highlight; we treat the duration as the highlight time.
-      textBuf += `{\\kf${Math.round(dur / 10)}}${escapeAss(w.text)}`;
+      textBuf += `{\\kf${Math.round(dur / 10)}}${escapeAss(wordText)}`;
       if (i < mapped.length - 1) textBuf += " ";
       cursor = w.end;
     }

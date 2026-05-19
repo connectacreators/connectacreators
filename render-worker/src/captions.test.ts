@@ -67,6 +67,18 @@ describe("buildAssFile", () => {
     expect(ass).not.toContain("GONE");
   });
 
+  it("uppercases words when the preset requires it (matches browser preview)", () => {
+    const cap: Caption = {
+      ...baseCaption,
+      preset: "tiktok_word_pop",
+      words: [{ text: "okay so", start_ms: 100, end_ms: 600 }],
+    };
+    const ass = buildAssFile([cap], [{ source_start_ms: 0, source_end_ms: 5000 }], 5000);
+    // Whisper's lowercase text should be uppercased before reaching ASS.
+    expect(ass).toContain("OKAY");
+    expect(ass).not.toContain("okay so}");
+  });
+
   it("emits no Dialogue line when every word is in a removed range", () => {
     const cap: Caption = {
       ...baseCaption,

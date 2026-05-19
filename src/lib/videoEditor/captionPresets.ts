@@ -32,7 +32,9 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     id: "tiktok_word_pop",
     label: "TikTok Word Pop",
     description: "Bold sans, current word pops on black",
-    font: '"Inter", "Helvetica Neue", Arial, sans-serif',
+    // Helvetica Neue is what the worker actually uses; keep them aligned.
+    // Inter would require shipping a font with the worker.
+    font: '"Helvetica Neue", Helvetica, Arial, sans-serif',
     fontSizePctHeight: 4.5,
     weight: 900,
     uppercase: true,
