@@ -51,7 +51,12 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     else v.pause();
   }, [playing]);
 
-  // Per-frame: emit playhead changes and stop at clip boundary.
+  // Per-frame: emit playhead in EDL time and jump across removed clip gaps.
+  // The previous version only checked the current clip's end boundary, which
+  // failed when sourceMs landed BETWEEN clips (e.g. after "Remove all silences"
+  // created multiple non-contiguous segments). Playback would freeze in the
+  // first silence and never reach the next clip — the user reported that as
+  // "the silence function only trims to the first sentence."
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -59,24 +64,32 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     const tick = () => {
       if (!v.paused) {
         const sourceMs = v.currentTime * 1000;
-        let acc = 0;
-        for (const c of edl.clips) {
+        // Find which clip (if any) currently contains the video's source time.
+        // Accumulate edl-time only for clips that have *already fully played*.
+        let edlMs = 0;
+        let insideClipIdx = -1;
+        for (let i = 0; i < edl.clips.length; i++) {
+          const c = edl.clips[i];
           if (sourceMs >= c.source_start_ms && sourceMs <= c.source_end_ms) {
-            onPlayheadChange(acc + (sourceMs - c.source_start_ms));
+            edlMs += sourceMs - c.source_start_ms;
+            insideClipIdx = i;
             break;
           }
-          acc += Math.max(0, c.source_end_ms - c.source_start_ms);
+          if (c.source_end_ms < sourceMs) {
+            edlMs += Math.max(0, c.source_end_ms - c.source_start_ms);
+          }
         }
-        const mapped = edlTimeToSourceTime(edl, acc);
-        if (mapped) {
-          const active = edl.clips[mapped.clipIndex];
-          if (sourceMs > active.source_end_ms) {
-            const nextClip = edl.clips[mapped.clipIndex + 1];
-            if (nextClip) v.currentTime = nextClip.source_start_ms / 1000;
-            else {
-              v.pause();
-              onEnded();
-            }
+        if (insideClipIdx >= 0) {
+          onPlayheadChange(edlMs);
+        } else {
+          // We're in a removed gap. Jump to the next clip that starts after
+          // the current sourceMs; if there isn't one, we've fallen off the end.
+          const next = edl.clips.find((c) => c.source_start_ms > sourceMs);
+          if (next) {
+            v.currentTime = next.source_start_ms / 1000;
+          } else {
+            v.pause();
+            onEnded();
           }
         }
       }

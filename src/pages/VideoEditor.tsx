@@ -169,6 +169,16 @@ export default function VideoEditor() {
     });
   };
 
+  const handleChangeCaptionSize = (id: string, size: number) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).map((c) =>
+        c.id === id ? { ...c, size } : c,
+      ),
+    });
+  };
+
   const handleDeleteCaption = (id: string) => {
     if (projState.phase !== "ready") return;
     setEdl({
@@ -285,6 +295,7 @@ export default function VideoEditor() {
           <CaptionsList
             captions={projState.edl.captions ?? []}
             onChangePreset={handleChangeCaptionPreset}
+            onChangeSize={handleChangeCaptionSize}
             onDelete={handleDeleteCaption}
             onSeek={handleSeekFromTranscript}
           />

@@ -17,6 +17,8 @@ export type Caption = {
   preset: CaptionPreset;
   words: CaptionWord[];
   position: { x_pct: number; y_pct: number; anchor: "center" };
+  // Multiplier on the preset's base font size. Defaults to 1 when missing.
+  size?: number;
 };
 
 export type Clip = { source_start_ms: number; source_end_ms: number };
@@ -62,12 +64,15 @@ const PRESET_STYLES: Record<CaptionPreset, {
 }> = {
   tiktok_word_pop: {
     fontName: "Inter",
-    fontSize: 80,
+    // Base sizes correspond to fontSizePctHeight in the frontend preset
+    // module (e.g. 4.5% of 1080 = 48.6 → 48). Per-caption `size` multiplies
+    // this via a `\fs` override on each Dialogue line.
+    fontSize: 48,
     bold: 1,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
-    outlineWidth: 4,
+    outlineWidth: 3,
     shadowDepth: 2,
     borderStyle: 1,
     backColour: cssHexToAssBGR("#000000", 0x80),
@@ -76,7 +81,7 @@ const PRESET_STYLES: Record<CaptionPreset, {
   },
   ig_reels_classic: {
     fontName: "Helvetica",
-    fontSize: 60,
+    fontSize: 40,
     bold: 1,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
@@ -84,18 +89,18 @@ const PRESET_STYLES: Record<CaptionPreset, {
     outlineWidth: 2,
     shadowDepth: 0,
     borderStyle: 3,
-    backColour: cssHexToAssBGR("#000000", 0x40),
+    backColour: cssHexToAssBGR("#000000", 0x55),
     alignment: 2,
     marginV: 0,
   },
   shorts_bold: {
     fontName: "Impact",
-    fontSize: 90,
+    fontSize: 56,
     bold: 1,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
-    outlineWidth: 5,
+    outlineWidth: 4,
     shadowDepth: 3,
     borderStyle: 1,
     backColour: cssHexToAssBGR("#000000", 0x80),
@@ -196,10 +201,16 @@ export function buildAssFile(
     const x = Math.round((cap.position.x_pct / 100) * PLAYRES_W);
     const y = Math.round((cap.position.y_pct / 100) * PLAYRES_H);
 
+    // Per-caption size multiplier is applied via a \fs<int> override at the
+    // start of the line. ASS doesn't support floats here so we round.
+    const sizeMult = cap.size ?? 1;
+    const presetBase = PRESET_STYLES[cap.preset].fontSize;
+    const scaledFs = Math.max(8, Math.round(presetBase * sizeMult));
+
     // Build word tokens. For per-word pop we use the highlight color via
     // the karaoke `\kf` (fill animation) so the *current* word changes
     // appearance briefly — sufficient for the v1 effect.
-    let textBuf = `{\\pos(${x},${y})}`;
+    let textBuf = `{\\pos(${x},${y})\\fs${scaledFs}}`;
     let cursor = blockStart;
     for (let i = 0; i < mapped.length; i++) {
       const w = mapped[i];

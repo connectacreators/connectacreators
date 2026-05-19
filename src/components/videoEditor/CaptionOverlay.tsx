@@ -54,7 +54,7 @@ export function CaptionOverlay({ captions, sourceMs, videoBox }: Props) {
       {active.words.map((w, i) => (
         <span
           key={i}
-          style={toPreviewStyle(spec, videoBox.height, i === activeWordIdx)}
+          style={toPreviewStyle(spec, videoBox.height, i === activeWordIdx, active.size ?? 1)}
         >
           {w.text + (i === active.words.length - 1 ? "" : " ")}
         </span>

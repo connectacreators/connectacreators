@@ -25,6 +25,10 @@ export type Caption = {
   // x_pct/y_pct are anchor positions in 0-100 space (left-to-right, top-to-bottom).
   // anchor "center" means the text block is centered on (x, y).
   position: { x_pct: number; y_pct: number; anchor: "center" };
+  // Size multiplier applied to the preset's base font size. 1.0 = default,
+  // 0.75 / 1.25 / 1.5 are the canned S / L / XL options exposed in the UI.
+  // Older EDLs without this field render at the default size.
+  size?: number;
 };
 
 export type EDL = {

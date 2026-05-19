@@ -3,6 +3,12 @@
 //   1. The browser overlay preview (CSS via toPreviewStyle)
 //   2. The worker's ASS subtitle generation (server-side, see render-worker)
 // Keep the two views aligned by deriving both from the same record.
+//
+// fontSizePctHeight is expressed as a percentage of the rendered frame height
+// (NOT the preview window height). The worker's ASS PlayResY is 1080, so
+// fontSizePctHeight=4.5 means ~49px text at 1080p. The preview multiplies the
+// same percentage by the live <video> picture-box height so what you see is
+// roughly what gets burned in.
 import type { CaptionPreset } from "./edl";
 
 export type CaptionPresetSpec = {
@@ -10,16 +16,14 @@ export type CaptionPresetSpec = {
   label: string;
   description: string;
   font: string;                 // CSS font-family stack used for preview
-  fontSizePctHeight: number;    // font-size as % of the preview frame height
+  fontSizePctHeight: number;    // base font-size as % of the output frame height
   weight: number;
   uppercase: boolean;
-  // Colors are CSS strings; the ASS generator converts to BGR hex.
   fillColor: string;
   highlightFillColor: string;   // applied to the currently-active word
   strokeColor: string;
-  strokeWidthPx: number;        // approximate stroke width in preview pixels
+  strokeWidthPctHeight: number; // stroke width as % of frame height (so it scales)
   shadow: boolean;
-  // Background pill behind the whole line ("none" or "rgba(...)").
   background: string;
 };
 
@@ -29,13 +33,13 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     label: "TikTok Word Pop",
     description: "Bold sans, current word pops on black",
     font: '"Inter", "Helvetica Neue", Arial, sans-serif',
-    fontSizePctHeight: 6.5,
+    fontSizePctHeight: 4.5,
     weight: 900,
     uppercase: true,
     fillColor: "#ffffff",
     highlightFillColor: "#ffffff",
     strokeColor: "#000000",
-    strokeWidthPx: 3,
+    strokeWidthPctHeight: 0.25,
     shadow: true,
     background: "none",
   },
@@ -44,13 +48,13 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     label: "IG Reels Classic",
     description: "All-caps white on translucent black pill",
     font: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-    fontSizePctHeight: 5,
+    fontSizePctHeight: 3.7,
     weight: 700,
     uppercase: true,
     fillColor: "#ffffff",
     highlightFillColor: "#ffffff",
     strokeColor: "transparent",
-    strokeWidthPx: 0,
+    strokeWidthPctHeight: 0,
     shadow: false,
     background: "rgba(0,0,0,0.55)",
   },
@@ -59,23 +63,37 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     label: "Shorts Bold",
     description: "Impact, white fill, black outline",
     font: '"Impact", "Inter", sans-serif',
-    fontSizePctHeight: 7,
+    fontSizePctHeight: 5.2,
     weight: 900,
     uppercase: true,
     fillColor: "#ffffff",
     highlightFillColor: "#ffffff",
     strokeColor: "#000000",
-    strokeWidthPx: 5,
+    strokeWidthPctHeight: 0.4,
     shadow: true,
     background: "none",
   },
 };
 
-// CSS object for the active-word preview overlay. The frame height is the
-// available height of the preview stage; using `em` derived from height keeps
-// the size proportional regardless of video aspect.
-export function toPreviewStyle(spec: CaptionPresetSpec, frameHeightPx: number, isActive: boolean): React.CSSProperties {
-  const fontSize = (frameHeightPx * spec.fontSizePctHeight) / 100;
+export type CaptionSizeOption = { label: string; value: number };
+export const CAPTION_SIZE_OPTIONS: CaptionSizeOption[] = [
+  { label: "S", value: 0.75 },
+  { label: "M", value: 1.0 },
+  { label: "L", value: 1.25 },
+  { label: "XL", value: 1.5 },
+];
+
+// CSS object for the active-word preview overlay. `frameHeightPx` is the
+// height of the <video>'s rendered picture box. `size` is the per-caption
+// multiplier (default 1.0).
+export function toPreviewStyle(
+  spec: CaptionPresetSpec,
+  frameHeightPx: number,
+  isActive: boolean,
+  size = 1,
+): React.CSSProperties {
+  const fontSize = (frameHeightPx * spec.fontSizePctHeight * size) / 100;
+  const strokeWidth = (frameHeightPx * spec.strokeWidthPctHeight * size) / 100;
   const color = isActive ? spec.highlightFillColor : spec.fillColor;
   return {
     fontFamily: spec.font,
@@ -83,9 +101,8 @@ export function toPreviewStyle(spec: CaptionPresetSpec, frameHeightPx: number, i
     fontSize: `${fontSize}px`,
     color,
     textTransform: spec.uppercase ? "uppercase" : "none",
-    WebkitTextStroke:
-      spec.strokeWidthPx > 0 ? `${spec.strokeWidthPx}px ${spec.strokeColor}` : undefined,
-    textShadow: spec.shadow ? "0 2px 6px rgba(0,0,0,0.7)" : undefined,
+    WebkitTextStroke: strokeWidth > 0 ? `${strokeWidth}px ${spec.strokeColor}` : undefined,
+    textShadow: spec.shadow ? `0 ${frameHeightPx * 0.002}px ${frameHeightPx * 0.005}px rgba(0,0,0,0.7)` : undefined,
     letterSpacing: "0.02em",
     lineHeight: 1.05,
   };
