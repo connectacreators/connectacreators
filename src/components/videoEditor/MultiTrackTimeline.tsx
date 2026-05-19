@@ -13,7 +13,7 @@
 //
 // Phase A adds: selection (click any block to select), keyboard delete
 // (Backspace / Delete clears the selected item), b-roll drag, ruler scrub.
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   BRollClip,
   Caption,
@@ -31,6 +31,13 @@ export type TimelineSelection =
   | { kind: "music" }
   | null;
 
+// Right-click context-menu state.
+type CtxMenuState = {
+  x: number;
+  y: number;
+  selection: TimelineSelection;
+} | null;
+
 type Props = {
   edl: EDL;
   playheadMs: number;
@@ -45,6 +52,14 @@ type Props = {
   onChangeOverlay: (id: string, patch: Partial<TextOverlay>) => void;
   onChangeBRoll: (id: string, patch: Partial<BRollClip>) => void;
   onChangeMusic: (music: Music) => void;
+  // Phase D context-menu actions. The timeline raises a context-menu DOM
+  // node and calls these when the user clicks an item.
+  onCopy: () => void;
+  onCut: () => void;
+  onPaste: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onSplit: () => void;
 };
 
 const TRACK_HEIGHT = 24;
@@ -110,10 +125,35 @@ export function MultiTrackTimeline(props: Props) {
   const {
     edl, playheadMs, selection, onSelect, onSeek, onChangeTrim,
     onShiftCaption, onTrimCaption, onChangeOverlay, onChangeBRoll, onChangeMusic,
+    onCopy, onCut, onPaste, onDuplicate, onDelete, onSplit,
   } = props;
   const totalSourceMs = edl.source.duration_ms;
   const trackWidthRef = useRef<HTMLDivElement | null>(null);
   const beginDrag = useTimeDrag(trackWidthRef, totalSourceMs);
+
+  // Zoom (1x..8x). Cmd/Ctrl + scroll-wheel adjusts. The inner content is
+  // rendered at `${100 * zoom}%` width inside a horizontally-scrolling
+  // container, so 2x doubles the timeline width and reveals fine detail.
+  const [zoom, setZoom] = useState(1);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const onWheelZoom = (e: React.WheelEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    setZoom((z) => Math.max(1, Math.min(8, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+  };
+
+  // Right-click context menu state.
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState>(null);
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [ctxMenu]);
 
   // Source-time playhead for the cursor on this source-time axis.
   const playheadSourceMs = useMemo(() => {
@@ -178,15 +218,24 @@ export function MultiTrackTimeline(props: Props) {
     return true;
   };
 
+  // Helper to capture right-click on a block and open the context menu.
+  const showCtx = (e: React.MouseEvent, sel: TimelineSelection) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelect(sel);
+    setCtxMenu({ x: e.clientX, y: e.clientY, selection: sel });
+  };
+
   return (
     <div
-      className="bg-neutral-950 border-t border-neutral-800 p-3 space-y-1.5"
+      ref={scrollerRef}
+      className="bg-neutral-950 border-t border-neutral-800 p-3 overflow-x-auto"
+      onWheel={onWheelZoom}
       onMouseDown={(e) => {
-        // Clicking on bare timeline whitespace clears the selection. Blocks
-        // stopPropagation so this only fires on actual whitespace clicks.
         if (e.target === e.currentTarget) onSelect(null);
       }}
     >
+    <div className="space-y-1.5" style={{ width: `${100 * zoom}%`, minWidth: "100%" }}>
       {/* Ruler — click/drag to seek. */}
       <div ref={trackWidthRef} className="flex items-stretch gap-2" style={{ height: RULER_HEIGHT }}>
         <div className="w-14 shrink-0 text-[9px] uppercase tracking-wider text-neutral-500 flex items-center">
@@ -231,6 +280,7 @@ export function MultiTrackTimeline(props: Props) {
       <TrackRow label="Video" height={VIDEO_TRACK_HEIGHT}>
         <div
           onClick={() => onSelect({ kind: "video" })}
+          onContextMenu={(e) => showCtx(e, { kind: "video" })}
           className={`absolute top-0 bottom-0 bg-blue-900/40 border ${isSelected({ kind: "video" }) ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} cursor-pointer`}
           style={{
             left: toPct(clip.source_start_ms, totalSourceMs),
@@ -262,6 +312,7 @@ export function MultiTrackTimeline(props: Props) {
             totalSourceMs={totalSourceMs}
             selected={isSelected({ kind: "caption", id: c.id })}
             onSelect={() => onSelect({ kind: "caption", id: c.id })}
+            onContextMenu={(e) => showCtx(e, { kind: "caption", id: c.id })}
             onShift={(t) => onShiftCaption(c.id, t)}
             onTrimCaption={onTrimCaption}
             onSeek={onSeek}
@@ -279,6 +330,7 @@ export function MultiTrackTimeline(props: Props) {
             totalSourceMs={totalSourceMs}
             selected={isSelected({ kind: "text", id: ov.id })}
             onSelect={() => onSelect({ kind: "text", id: ov.id })}
+            onContextMenu={(e) => showCtx(e, { kind: "text", id: ov.id })}
             onSeek={onSeek}
             onChange={(patch) => onChangeOverlay(ov.id, patch)}
             beginDrag={beginDrag}
@@ -296,6 +348,7 @@ export function MultiTrackTimeline(props: Props) {
             totalSourceMs={totalSourceMs}
             selected={isSelected({ kind: "broll", id: br.id })}
             onSelect={() => onSelect({ kind: "broll", id: br.id })}
+            onContextMenu={(e) => showCtx(e, { kind: "broll", id: br.id })}
             outputToSource={outputToSource}
             onChange={(patch) => onChangeBRoll(br.id, patch)}
             onSeek={onSeek}
@@ -313,6 +366,7 @@ export function MultiTrackTimeline(props: Props) {
               onChangeMusic({ ...edl.music!, music_start_ms: next });
             })}
             onClick={() => onSelect({ kind: "music" })}
+            onContextMenu={(e) => showCtx(e, { kind: "music" })}
             className={`absolute top-0 bottom-0 left-0 right-0 bg-emerald-900/50 border ${isSelected({ kind: "music" }) ? "border-yellow-400 ring-1 ring-yellow-400" : "border-emerald-500"} rounded cursor-grab active:cursor-grabbing flex items-center px-2`}
             title="Drag to shift music start offset"
           >
@@ -329,11 +383,50 @@ export function MultiTrackTimeline(props: Props) {
         </TrackRow>
       )}
 
-      <div className="text-[10px] text-neutral-500 pl-16">
-        Trim {(clip.source_start_ms / 1000).toFixed(1)}s → {(clip.source_end_ms / 1000).toFixed(1)}s
-        · {((clip.source_end_ms - clip.source_start_ms) / 1000).toFixed(1)}s out
-        {selection && ` · selected: ${selection.kind}${"id" in selection ? ` (${selection.id.slice(0, 6)})` : ""}`}
+      <div className="text-[10px] text-neutral-500 pl-16 flex items-center justify-between">
+        <span>
+          Trim {(clip.source_start_ms / 1000).toFixed(1)}s → {(clip.source_end_ms / 1000).toFixed(1)}s
+          · {((clip.source_end_ms - clip.source_start_ms) / 1000).toFixed(1)}s out
+          {selection && ` · selected: ${selection.kind}${"id" in selection ? ` (${selection.id.slice(0, 6)})` : ""}`}
+        </span>
+        <span className="text-neutral-600">
+          Zoom {zoom.toFixed(1)}× · Cmd+scroll to zoom · Cmd+C/X/V/D · S to split · Del to remove
+        </span>
       </div>
+    </div>
+
+    {/* Context menu — fixed-positioned at click coords. Closes on outside
+        click via the effect above. */}
+    {ctxMenu && (
+      <div
+        className="fixed z-50 bg-neutral-900 border border-neutral-700 rounded shadow-lg py-1 text-[11px] min-w-[140px]"
+        style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {(() => {
+          const sel = ctxMenu.selection;
+          const canSplit = sel && (sel.kind === "caption" || sel.kind === "broll");
+          const items: { label: string; action: () => void; danger?: boolean; disabled?: boolean }[] = [
+            { label: "Copy",       action: () => { onCopy(); setCtxMenu(null); }, disabled: !sel },
+            { label: "Cut",        action: () => { onCut(); setCtxMenu(null); },  disabled: !sel },
+            { label: "Paste",      action: () => { onPaste(); setCtxMenu(null); } },
+            { label: "Duplicate",  action: () => { onDuplicate(); setCtxMenu(null); }, disabled: !sel },
+            { label: "Split at playhead", action: () => { onSplit(); setCtxMenu(null); }, disabled: !canSplit },
+            { label: "Delete",     action: () => { onDelete(); setCtxMenu(null); }, disabled: !sel, danger: true },
+          ];
+          return items.map((it) => (
+            <button
+              key={it.label}
+              disabled={it.disabled}
+              onClick={it.action}
+              className={`w-full text-left px-3 py-1 ${it.disabled ? "text-neutral-600 cursor-not-allowed" : it.danger ? "text-red-400 hover:bg-red-950" : "text-neutral-200 hover:bg-neutral-800"}`}
+            >
+              {it.label}
+            </button>
+          ));
+        })()}
+      </div>
+    )}
     </div>
   );
 }
@@ -343,6 +436,7 @@ function CaptionBlock({
   totalSourceMs,
   selected,
   onSelect,
+  onContextMenu,
   onShift,
   onTrimCaption,
   onSeek,
@@ -352,6 +446,7 @@ function CaptionBlock({
   totalSourceMs: number;
   selected: boolean;
   onSelect: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
   onShift: (newFirstWordStartMs: number) => void;
   onTrimCaption: (id: string, newStartMs: number | null, newEndMs: number | null) => void;
   onSeek: (sourceMs: number) => void;
@@ -386,6 +481,7 @@ function CaptionBlock({
         onBodyDown(e);
       }}
       onClick={(e) => { e.stopPropagation(); onSeek(start); }}
+      onContextMenu={onContextMenu}
       className={`absolute top-0 bottom-0 bg-blue-700/30 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
       style={{
         left: toPct(start, totalSourceMs),
@@ -415,6 +511,7 @@ function OverlayBlock({
   totalSourceMs,
   selected,
   onSelect,
+  onContextMenu,
   onSeek,
   onChange,
   beginDrag,
@@ -423,6 +520,7 @@ function OverlayBlock({
   totalSourceMs: number;
   selected: boolean;
   onSelect: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
   onSeek: (sourceMs: number) => void;
   onChange: (patch: Partial<TextOverlay>) => void;
   beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
@@ -449,6 +547,7 @@ function OverlayBlock({
     <div
       onMouseDown={(e) => { e.stopPropagation(); captureStart(); onSelect(); onBodyDown(e); }}
       onClick={(e) => { e.stopPropagation(); onSeek(ov.start_ms); }}
+      onContextMenu={onContextMenu}
       className={`absolute top-0 bottom-0 bg-amber-800/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-amber-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
       style={{
         left: toPct(ov.start_ms, totalSourceMs),
@@ -475,6 +574,7 @@ function BRollBlock({
   totalSourceMs,
   selected,
   onSelect,
+  onContextMenu,
   outputToSource,
   onChange,
   onSeek,
@@ -485,6 +585,7 @@ function BRollBlock({
   totalSourceMs: number;
   selected: boolean;
   onSelect: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
   outputToSource: (outMs: number) => number;
   onChange: (patch: Partial<BRollClip>) => void;
   onSeek: (sourceMs: number) => void;
@@ -528,6 +629,7 @@ function BRollBlock({
         onBodyDown(e);
       }}
       onClick={(e) => { e.stopPropagation(); onSeek(startSource); }}
+      onContextMenu={onContextMenu}
       className={`absolute top-0 bottom-0 bg-purple-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-purple-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
       style={{
         left: toPct(startSource, totalSourceMs),

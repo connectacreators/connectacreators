@@ -537,176 +537,136 @@ export default function VideoEditor() {
     return <div className="p-8 text-red-400">Project error: {projState.message}</div>;
   }
 
-  // Keyboard: Delete / Backspace removes the currently-selected timeline
-  // item; Cmd/Ctrl+C/X/V/D copy/cut/paste/duplicate it. Inputs and
-  // contenteditable surfaces are skipped so caption-text edits aren't
-  // hijacked.
+  // EDL-output-time playhead → source-time playhead. Used by paste/split
+  // actions that operate in source space.
+  const playheadSourceMs = useMemo(() => {
+    if (projState.phase !== "ready") return 0;
+    let acc = 0;
+    for (const c of projState.edl.clips) {
+      const len = Math.max(0, c.source_end_ms - c.source_start_ms);
+      if (playheadMs <= acc + len) return c.source_start_ms + (playheadMs - acc);
+      acc += len;
+    }
+    return projState.edl.clips[projState.edl.clips.length - 1]?.source_end_ms ?? 0;
+  }, [projState, playheadMs]);
+
+  // Returns a deep-cloned snapshot of the currently-selected item for
+  // copy/cut/duplicate, or null if nothing is selected / target is missing.
+  const selectedPayload = (): ClipboardItem => {
+    if (projState.phase !== "ready" || !timelineSelection) return null;
+    if (timelineSelection.kind === "caption") {
+      const c = projState.edl.captions?.find((x) => x.id === timelineSelection.id);
+      return c ? { kind: "caption", payload: structuredClone(c) } : null;
+    }
+    if (timelineSelection.kind === "text") {
+      const x = projState.edl.text_overlays?.find((o) => o.id === timelineSelection.id);
+      return x ? { kind: "text", payload: structuredClone(x) } : null;
+    }
+    if (timelineSelection.kind === "broll") {
+      const b = projState.edl.b_roll?.find((c) => c.id === timelineSelection.id);
+      return b ? { kind: "broll", payload: structuredClone(b) } : null;
+    }
+    return null;
+  };
+
+  const runPaste = () => {
+    const item = clipboardRef.current;
+    if (!item || projState.phase !== "ready") return;
+    const totalSource = projState.edl.source.duration_ms;
+    if (item.kind === "caption") {
+      const oldFirst = item.payload.words[0]?.start_ms ?? 0;
+      const targetSource = Math.min(playheadSourceMs, totalSource - 1000);
+      const delta = targetSource - oldFirst;
+      const newWords = item.payload.words.map((w) => ({
+        text: w.text,
+        start_ms: Math.max(0, w.start_ms + delta),
+        end_ms: Math.max(0, w.end_ms + delta),
+      }));
+      const newCap: Caption = { ...item.payload, id: crypto.randomUUID(), words: newWords };
+      setEdl({ ...projState.edl, captions: [...(projState.edl.captions ?? []), newCap] });
+      setTimelineSelection({ kind: "caption", id: newCap.id });
+    } else if (item.kind === "text") {
+      const dur = item.payload.end_ms - item.payload.start_ms;
+      const nextStart = Math.max(0, Math.min(totalSource - dur, playheadSourceMs));
+      const newOv: TextOverlay = {
+        ...item.payload, id: crypto.randomUUID(),
+        start_ms: nextStart, end_ms: nextStart + dur,
+      };
+      setEdl({ ...projState.edl, text_overlays: [...(projState.edl.text_overlays ?? []), newOv] });
+      setTimelineSelection({ kind: "text", id: newOv.id });
+    } else if (item.kind === "broll") {
+      const newBr: BRollClip = {
+        ...item.payload, id: crypto.randomUUID(),
+        output_start_ms: Math.max(0, playheadMs),
+      };
+      setEdl({ ...projState.edl, b_roll: [...(projState.edl.b_roll ?? []), newBr] });
+      setTimelineSelection({ kind: "broll", id: newBr.id });
+    }
+  };
+
+  const runDelete = () => {
+    if (!timelineSelection) return;
+    switch (timelineSelection.kind) {
+      case "caption": handleDeleteCaption(timelineSelection.id); break;
+      case "text":    handleDeleteOverlay(timelineSelection.id); break;
+      case "broll":   handleDeleteBRoll(timelineSelection.id); break;
+      case "music":   handleSetMusic(null); break;
+      default: return;
+    }
+    setTimelineSelection(null);
+  };
+  const runCopy = () => { const item = selectedPayload(); if (item) clipboardRef.current = item; };
+  const runCut = () => { runCopy(); runDelete(); };
+  const runDuplicate = () => { const item = selectedPayload(); if (!item) return; clipboardRef.current = item; runPaste(); };
+
+  const runSplit = () => {
+    if (projState.phase !== "ready" || !timelineSelection) return;
+    if (timelineSelection.kind === "caption") {
+      const c = projState.edl.captions?.find((x) => x.id === timelineSelection.id);
+      if (!c) return;
+      const idx = c.words.findIndex((w) => w.start_ms >= playheadSourceMs);
+      if (idx > 0 && idx < c.words.length) handleSplitCaption(c.id, idx);
+      return;
+    }
+    if (timelineSelection.kind === "broll") {
+      const b = projState.edl.b_roll?.find((x) => x.id === timelineSelection.id);
+      if (!b) return;
+      const dur = b.trim_end_ms - b.trim_start_ms;
+      const headOut = playheadMs;
+      if (headOut <= b.output_start_ms + 50 || headOut >= b.output_start_ms + dur - 50) return;
+      const splitOffset = headOut - b.output_start_ms;
+      const left: BRollClip = { ...b, id: crypto.randomUUID(), trim_end_ms: b.trim_start_ms + splitOffset };
+      const right: BRollClip = { ...b, id: crypto.randomUUID(),
+        trim_start_ms: b.trim_start_ms + splitOffset,
+        output_start_ms: b.output_start_ms + splitOffset };
+      const brolls = projState.edl.b_roll ?? [];
+      const idx = brolls.findIndex((x) => x.id === b.id);
+      const next = [...brolls];
+      next.splice(idx, 1, left, right);
+      setEdl({ ...projState.edl, b_roll: next });
+      setTimelineSelection({ kind: "broll", id: left.id });
+    }
+  };
+
+  // Keyboard: delete + Cmd-C/X/V/D + S all route through the run* functions
+  // so the context menu reuses the same code path.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (projState.phase !== "ready") return;
-
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
-
-      const selectedPayload = (): ClipboardItem => {
-        if (!timelineSelection) return null;
-        if (timelineSelection.kind === "caption") {
-          const c = projState.edl.captions?.find((x) => x.id === timelineSelection.id);
-          return c ? { kind: "caption", payload: structuredClone(c) } : null;
-        }
-        if (timelineSelection.kind === "text") {
-          const x = projState.edl.text_overlays?.find((o) => o.id === timelineSelection.id);
-          return x ? { kind: "text", payload: structuredClone(x) } : null;
-        }
-        if (timelineSelection.kind === "broll") {
-          const b = projState.edl.b_roll?.find((c) => c.id === timelineSelection.id);
-          return b ? { kind: "broll", payload: structuredClone(b) } : null;
-        }
-        return null;
-      };
-
-      // Compute SOURCE-time playhead since captions/text live in source time.
-      const playheadSource = (() => {
-        let acc = 0;
-        for (const c of projState.edl.clips) {
-          const len = Math.max(0, c.source_end_ms - c.source_start_ms);
-          if (playheadMs <= acc + len) return c.source_start_ms + (playheadMs - acc);
-          acc += len;
-        }
-        return projState.edl.clips[projState.edl.clips.length - 1]?.source_end_ms ?? 0;
-      })();
-      const totalSource = projState.edl.source.duration_ms;
-
-      // Paste places the clipboard payload at the current playhead.
-      const pasteFromClipboard = () => {
-        const item = clipboardRef.current;
-        if (!item) return;
-        if (item.kind === "caption") {
-          const oldFirst = item.payload.words[0]?.start_ms ?? 0;
-          const targetSource = Math.min(playheadSource, totalSource - 1000);
-          const delta = targetSource - oldFirst;
-          const newWords = item.payload.words.map((w) => ({
-            text: w.text,
-            start_ms: Math.max(0, w.start_ms + delta),
-            end_ms: Math.max(0, w.end_ms + delta),
-          }));
-          const newCap: Caption = { ...item.payload, id: crypto.randomUUID(), words: newWords };
-          setEdl({ ...projState.edl, captions: [...(projState.edl.captions ?? []), newCap] });
-          setTimelineSelection({ kind: "caption", id: newCap.id });
-        } else if (item.kind === "text") {
-          const dur = item.payload.end_ms - item.payload.start_ms;
-          const nextStart = Math.max(0, Math.min(totalSource - dur, playheadSource));
-          const newOv: TextOverlay = {
-            ...item.payload,
-            id: crypto.randomUUID(),
-            start_ms: nextStart,
-            end_ms: nextStart + dur,
-          };
-          setEdl({ ...projState.edl, text_overlays: [...(projState.edl.text_overlays ?? []), newOv] });
-          setTimelineSelection({ kind: "text", id: newOv.id });
-        } else if (item.kind === "broll") {
-          const newBr: BRollClip = {
-            ...item.payload,
-            id: crypto.randomUUID(),
-            // For b-roll, the playhead is in EDL output time already.
-            output_start_ms: Math.max(0, playheadMs),
-          };
-          setEdl({ ...projState.edl, b_roll: [...(projState.edl.b_roll ?? []), newBr] });
-          setTimelineSelection({ kind: "broll", id: newBr.id });
-        }
-      };
-
       if (e.key === "Delete" || e.key === "Backspace") {
         if (!timelineSelection) return;
         e.preventDefault();
-        switch (timelineSelection.kind) {
-          case "caption": handleDeleteCaption(timelineSelection.id); break;
-          case "text":    handleDeleteOverlay(timelineSelection.id); break;
-          case "broll":   handleDeleteBRoll(timelineSelection.id); break;
-          case "music":   handleSetMusic(null); break;
-          default: return;
-        }
-        setTimelineSelection(null);
+        runDelete();
         return;
       }
-
-      if (mod && key === "c") {
-        const item = selectedPayload();
-        if (item) { clipboardRef.current = item; e.preventDefault(); }
-        return;
-      }
-      if (mod && key === "x") {
-        const item = selectedPayload();
-        if (!item) return;
-        e.preventDefault();
-        clipboardRef.current = item;
-        if (item.kind === "caption") handleDeleteCaption(item.payload.id);
-        else if (item.kind === "text") handleDeleteOverlay(item.payload.id);
-        else if (item.kind === "broll") handleDeleteBRoll(item.payload.id);
-        setTimelineSelection(null);
-        return;
-      }
-      if (mod && key === "v") {
-        if (!clipboardRef.current) return;
-        e.preventDefault();
-        pasteFromClipboard();
-        return;
-      }
-      if (mod && key === "d") {
-        // Duplicate = copy current selection then immediately paste at playhead.
-        const item = selectedPayload();
-        if (!item) return;
-        e.preventDefault();
-        clipboardRef.current = item;
-        pasteFromClipboard();
-        return;
-      }
-
-      // S = split the selected caption / b-roll at the current playhead.
-      if (!mod && key === "s" && timelineSelection) {
-        if (timelineSelection.kind === "caption") {
-          const c = projState.edl.captions?.find((x) => x.id === timelineSelection.id);
-          if (!c) return;
-          // Split at the first word whose start_ms >= source playhead.
-          const idx = c.words.findIndex((w) => w.start_ms >= playheadSource);
-          if (idx > 0 && idx < c.words.length) {
-            e.preventDefault();
-            handleSplitCaption(c.id, idx);
-          }
-          return;
-        }
-        if (timelineSelection.kind === "broll") {
-          const b = projState.edl.b_roll?.find((x) => x.id === timelineSelection.id);
-          if (!b) return;
-          // Split window: [output_start, output_start+dur]. Playhead in EDL
-          // output time must fall strictly inside it.
-          const dur = b.trim_end_ms - b.trim_start_ms;
-          const headOut = playheadMs;
-          if (headOut <= b.output_start_ms + 50 || headOut >= b.output_start_ms + dur - 50) return;
-          e.preventDefault();
-          const splitOffset = headOut - b.output_start_ms;
-          const left: BRollClip = {
-            ...b,
-            id: crypto.randomUUID(),
-            trim_end_ms: b.trim_start_ms + splitOffset,
-          };
-          const right: BRollClip = {
-            ...b,
-            id: crypto.randomUUID(),
-            trim_start_ms: b.trim_start_ms + splitOffset,
-            output_start_ms: b.output_start_ms + splitOffset,
-          };
-          const brolls = projState.edl.b_roll ?? [];
-          const idx = brolls.findIndex((x) => x.id === b.id);
-          const next = [...brolls];
-          next.splice(idx, 1, left, right);
-          setEdl({ ...projState.edl, b_roll: next });
-          setTimelineSelection({ kind: "broll", id: left.id });
-          return;
-        }
-      }
+      if (mod && key === "c") { e.preventDefault(); runCopy(); return; }
+      if (mod && key === "x") { e.preventDefault(); runCut(); return; }
+      if (mod && key === "v") { e.preventDefault(); runPaste(); return; }
+      if (mod && key === "d") { e.preventDefault(); runDuplicate(); return; }
+      if (!mod && key === "s") { e.preventDefault(); runSplit(); return; }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -874,6 +834,12 @@ export default function VideoEditor() {
           onChangeOverlay={handleChangeOverlay}
           onChangeBRoll={handleChangeBRoll}
           onChangeMusic={(music) => handleSetMusic(music)}
+          onCopy={runCopy}
+          onCut={runCut}
+          onPaste={runPaste}
+          onDuplicate={runDuplicate}
+          onDelete={runDelete}
+          onSplit={runSplit}
         />
       </div>
 
