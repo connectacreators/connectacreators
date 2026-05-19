@@ -407,6 +407,44 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
+  // ── Vault (Phase 2) ───────────────────────────────────────────────────
+  {
+    name: "save_video_to_vault",
+    description: "Bookmark a viral_videos row into a client's vault (saved_videos). Use when the user says 'save that to my vault', 'add to vault', 'bookmark this'. Pass viral_video_id from find_viral_videos / find_viral_videos embed payload. Optional `note` field for why they're saving it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        viral_video_id: { type: "string", description: "UUID of the viral_videos row (from find_viral_videos / embed)." },
+        note: { type: "string", description: "Optional note explaining why they're saving it." },
+      },
+      required: ["viral_video_id"],
+    },
+  },
+  {
+    name: "unsave_video_from_vault",
+    description: "Remove a video from a client's vault. Idempotent — no error if the row doesn't exist.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        viral_video_id: { type: "string", description: "UUID of the viral_videos row to unbookmark." },
+      },
+      required: ["viral_video_id"],
+    },
+  },
+  {
+    name: "list_saved_videos",
+    description: "List videos bookmarked to a client's vault. Returns recent saves first. Use when the user asks 'what's in my vault' / 'show my saved videos'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        limit: { type: "number", description: "Max results. Default 20." },
+      },
+      required: [],
+    },
+  },
   // ── Canvas write surface (Phase 1) ────────────────────────────────────
   {
     name: "add_canvas_node",
@@ -2179,6 +2217,62 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 await adminClient.from("canvas_states").update({ nodes: updated }).eq("id", canvasState.id);
                 toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Moved ${node_id} to (${x}, ${y}).` });
               }
+            }
+          }
+        }
+
+        if (block.name === "save_video_to_vault") {
+          const { client_name, viral_video_id, note } = block.input as { client_name?: string; viral_video_id: string; note?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to save to." });
+          } else {
+            const { error } = await adminClient
+              .from("saved_videos")
+              .upsert(
+                { client_id: targetClient.id, viral_video_id, saved_by: user.id, note: note ?? null },
+                { onConflict: "client_id,viral_video_id", ignoreDuplicates: false },
+              );
+            if (error) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Failed to save: ${error.message}` });
+            } else {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Saved video ${viral_video_id} to ${targetClient.name}'s vault.` });
+            }
+          }
+        }
+
+        if (block.name === "unsave_video_from_vault") {
+          const { client_name, viral_video_id } = block.input as { client_name?: string; viral_video_id: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to unsave from." });
+          } else {
+            await adminClient.from("saved_videos").delete().eq("client_id", targetClient.id).eq("viral_video_id", viral_video_id);
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Removed video ${viral_video_id} from ${targetClient.name}'s vault.` });
+          }
+        }
+
+        if (block.name === "list_saved_videos") {
+          const { client_name, limit = 20 } = block.input as { client_name?: string; limit?: number };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to list for." });
+          } else {
+            const { data: rows } = await adminClient
+              .from("saved_videos")
+              .select("viral_video_id, note, saved_at, viral_videos(channel_username, platform, views_count, outlier_score, hook_text)")
+              .eq("client_id", targetClient.id)
+              .order("saved_at", { ascending: false })
+              .limit(Math.min(Math.max(limit, 1), 50));
+            if (!rows || rows.length === 0) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${targetClient.name}'s vault is empty.` });
+            } else {
+              const lines = rows.map((r: any) => {
+                const v = r.viral_videos;
+                const meta = v ? `@${v.channel_username} · ${v.views_count?.toLocaleString() ?? "?"} views · ${v.outlier_score ?? "?"}x` : "(viral_video missing)";
+                return `${r.viral_video_id} — ${meta}${r.note ? ` — note: ${r.note}` : ""}`;
+              });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${rows.length} saved video(s) in ${targetClient.name}'s vault:\n${lines.join("\n")}` });
             }
           }
         }

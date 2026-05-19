@@ -83,6 +83,9 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "scrape_viral_channel",
     "generate_ideas_from_viral",
     "deep_research",
+    "save_video_to_vault",
+    "unsave_video_from_vault",
+    "list_saved_videos",
   ],
   scripts: [
     "create_script",
@@ -155,7 +158,7 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
 export function classifyMode(message: string): Mode {
   const m = message.toLowerCase();
   // Most specific intents first
-  if (/\b(viral|trending|outlier|inspirations?|references?|find videos?|reels? to model|reference reels?)\b/.test(m)) return "discovery";
+  if (/\b(viral|trending|outlier|inspirations?|references?|find videos?|reels? to model|reference reels?|vault|saved videos?|bookmark)\b/.test(m)) return "discovery";
   if (/\b(analyz\w*|audit|hook patterns?|format mix|outlier band|competitor.*profile|my profile|profile.*strategy|@\w+'s? profile)\b/.test(m)) return "profile-analysis";
   if (/\b(edit|reel|clip|footage|queue|caption|publish|render|assign editor|mark.*(done|published|in progress)|revision)\b/.test(m)) return "editing";
   if (/\b(lead|booking|prospect|outreach|follow.?up|pipeline|interested|sales call|book.*call)\b/.test(m)) return "leads";
