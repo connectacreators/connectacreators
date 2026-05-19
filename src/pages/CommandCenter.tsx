@@ -652,6 +652,22 @@ export default function CommandCenter() {
       setCurrentScene(null);
       const data = streamResult.done ?? null;
 
+      // If we collected embeds under the __pending__ sentinel (brand-new
+      // thread case where activeThreadId was null when SSE started), rebind
+      // them now to the real thread id returned by the stream. Without
+      // this, the chatMessages memo can never find the embeds and the
+      // card silently never renders.
+      if (data?.thread_id) {
+        setPendingEmbedsByThread((prev) => {
+          if (!prev["__pending__"]) return prev;
+          const realId = data.thread_id as string;
+          return {
+            ...Object.fromEntries(Object.entries(prev).filter(([k]) => k !== "__pending__")),
+            [realId]: [...(prev[realId] ?? []), ...prev["__pending__"]],
+          };
+        });
+      }
+
       // Activate the thread from the response so Realtime subscription fires
       const returnedThreadId = data?.thread_id as string | undefined;
       if (returnedThreadId && !activeThreadId) {
