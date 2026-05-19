@@ -730,21 +730,19 @@ export function AssistantChat({
                           setCopiedIdx(i);
                           setTimeout(() => setCopiedIdx(null), 1500);
                         }}
-                        className="text-[9px] transition-colors relative"
-                        style={{ color: copiedIdx === i ? "rgba(143,208,213,0.90)" : "rgba(255,255,255,0.45)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                        className={`text-[9px] transition-colors relative bg-transparent border-0 cursor-pointer px-0.5 ${copiedIdx === i ? "text-cyan-400/90" : "text-muted-foreground/70 hover:text-foreground"}`}
                         title="Copy"
                       >
                         {copiedIdx === i ? "copied" : "copy"}
-                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.45)", borderRadius: 1 }} />
+                        <span className="absolute inset-x-0 -bottom-px h-px bg-current opacity-70" />
                       </button>
                       <button
                         onClick={() => onRegenerateFromMessage?.(i)}
-                        className="text-[9px] relative"
-                        style={{ color: "rgba(255,255,255,0.45)", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                        className="text-[9px] relative bg-transparent border-0 cursor-pointer px-0.5 text-muted-foreground/70 hover:text-foreground transition-colors"
                         title="Regenerate"
                       >
                         retry
-                        <span style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: "0.75px", background: "rgba(255,255,255,0.45)", borderRadius: 1 }} />
+                        <span className="absolute inset-x-0 -bottom-px h-px bg-current opacity-70" />
                       </button>
                       {msg.downgraded && msg.actual_model && (
                         <span
