@@ -578,7 +578,11 @@ export default function CommandCenter() {
   // input field.
   const handleSend = useCallback(async (override?: string) => {
     const raw = override ?? input;
-    if (!raw.trim() || sending || !user) return;
+    console.log("[ai] handleSend called", { hasText: !!raw.trim(), sending, hasUser: !!user, raw: raw.slice(0, 60) });
+    if (!raw.trim() || sending || !user) {
+      console.warn("[ai] handleSend early-return", { hasText: !!raw.trim(), sending, hasUser: !!user });
+      return;
+    }
     const text = raw.trim();
     if (!override) setInput("");
     setSending(true);
