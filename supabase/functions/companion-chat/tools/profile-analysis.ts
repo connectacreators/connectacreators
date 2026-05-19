@@ -51,6 +51,10 @@ export interface AnalyzeMyProfileInput {
   handle?: string;
   platform: "instagram";
   include_competitors?: boolean;
+  /** Skip both caches (client_strategies + viral_channels) and re-scrape
+   *  from VPS. Set when the user explicitly asks to refresh, redo, or
+   *  scrape again. */
+  force_refresh?: boolean;
 }
 
 export interface AnalyzeMyProfileResult {
@@ -101,8 +105,10 @@ export async function runAnalyzeMyProfile(args: {
   // the cached payload covers what was requested (including comparison if
   // include_competitors=true), re-render from cache instead of re-scraping.
   // Saves credits and turns a 30-60s VPS call into an instant response.
+  // Skipped when force_refresh=true (user explicitly asked for a fresh scrape).
   const wantsCompetitors = input.include_competitors === true;
-  const { data: existing } = await admin
+  const forceRefresh = input.force_refresh === true;
+  const { data: existing } = forceRefresh ? { data: null } : await admin
     .from("client_strategies")
     .select("audience_analysis")
     .eq("client_id", input.client_id)

@@ -351,6 +351,56 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       { onConflict: "client_id" }
     );
 
+    // Mirror the client's scrape into viral_channels + viral_videos so
+    // (a) any future analyze_my_profile call for this handle can pull
+    // the posts from DB instead of re-scraping, and (b) the profile
+    // shows up in /viral-today's reference corpus for find_viral_videos.
+    // Best-effort: errors here must NOT fail the analysis response.
+    try {
+      const { data: channelRow } = await adminClient
+        .from("viral_channels")
+        .upsert({
+          platform: "instagram",
+          username: instagramHandle.toLowerCase(),
+          display_name: instagramHandle,
+          avatar_url: profilePicUrl || null,
+          follower_count: followers || null,
+          video_count: clientResult.posts.length,
+          avg_views: clientResult.posts.length > 0
+            ? Math.round(clientResult.posts.reduce((s, p) => s + p.views, 0) / clientResult.posts.length)
+            : 0,
+          last_scraped_at: new Date().toISOString(),
+          scrape_status: "done",
+          created_by: user.id,
+        }, { onConflict: "platform,username" })
+        .select("id")
+        .maybeSingle();
+      const channelId = channelRow?.id;
+      if (channelId && clientResult.posts.length > 0) {
+        const medianViews = (() => {
+          const arr = clientResult.posts.map((p) => p.views).sort((a, b) => a - b);
+          return arr[Math.floor(arr.length / 2)] || 1;
+        })();
+        await adminClient.from("viral_videos").upsert(
+          clientResult.posts.map((p) => ({
+            channel_id: channelId,
+            channel_username: instagramHandle.toLowerCase(),
+            platform: "instagram",
+            thumbnail_url: p.thumbnail,
+            caption: p.caption,
+            views_count: p.views,
+            likes_count: p.likes,
+            outlier_score: medianViews > 0 ? Number((p.views / medianViews).toFixed(2)) : 1,
+            apify_video_id: p.id,
+            scraped_at: new Date().toISOString(),
+          })),
+          { onConflict: "platform,apify_video_id", ignoreDuplicates: false },
+        );
+      }
+    } catch (err) {
+      console.warn("[analyze-audience-alignment] viral_today mirror failed (non-fatal):", err);
+    }
+
     return new Response(JSON.stringify({ success: true, analysis: analysisPayload }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

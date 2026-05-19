@@ -113,6 +113,7 @@ const TOOLS = [
         handle: { type: "string", description: "Optional. IG @handle to analyze. Defaults to onboarding_data.instagram." },
         platform: { type: "string", enum: ["instagram"], description: "v1 = instagram only" },
         include_competitors: { type: "boolean", description: "When true, also pulls the client's emulation_profiles and produces a `comparison` section. Default false. ONLY set true after the user has approved a propose_plan card for the comparison." },
+        force_refresh: { type: "boolean", description: "When true, skip caches and re-scrape from VPS. Set ONLY when the user explicitly asks to refresh, redo, scrape again, or use the latest data. Default false." },
       },
       required: ["platform"],
     },
@@ -1095,6 +1096,7 @@ If you find yourself wanting to type any of these, call the tool FIRST, then you
   e. On user approval of the propose_plan card (confirm_plan), call analyze_my_profile AGAIN with include_competitors=true.
   f. NEVER call analyze_my_profile with platform other than "instagram" in v1 — if the user asks about TikTok/YouTube, explain we'll support those soon and offer to analyze IG instead.
   g. When the user re-asks "analyze my profile" in the same thread after a previous run, JUST CALL THE TOOL AGAIN. Do not present menus, do not summarize previous results, do not ask "are you sure" — call the tool. The user wants the card.
+  h. If the user uses words like "refresh", "redo", "scrape again", "from scratch", or "latest", pass force_refresh: true on the analyze_my_profile call. Otherwise omit it (the tool will use cached data when available, which is the default).
 
 EDITING-QUEUE TOOLS — when the user mentions a specific video / reel / edit:
 - set_lifecycle_status / bulk_set_lifecycle_status: PRIMARY state-change tools. Values: Not started | In progress | Needs Revisions | Scheduled | Published. Use these for any "mark X as Y" / "change all to Z" / "set this to scheduled" request.
@@ -1557,6 +1559,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             handle?: string;
             platform: "instagram";
             include_competitors?: boolean;
+            force_refresh?: boolean;
           };
 
           // Resolution order: explicit client_name → URL-locked client →
@@ -1593,6 +1596,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 handle: input.handle,
                 platform: input.platform,
                 include_competitors: input.include_competitors === true,
+                force_refresh: input.force_refresh === true,
               },
               onboarding: (fullClient?.onboarding_data as Record<string, unknown>) || {},
             });
