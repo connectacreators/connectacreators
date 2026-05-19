@@ -51,6 +51,9 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   // renderer so they burn in. Output duration is what the captions clip to.
   const captions: Caption[] = (job.edl_snapshot as { captions?: Caption[] }).captions ?? [];
   const overlays: TextOverlay[] = (job.edl_snapshot as { text_overlays?: TextOverlay[] }).text_overlays ?? [];
+  const music = (job.edl_snapshot as {
+    music?: { storage_path: string; volume: number };
+  }).music;
   const outputDurationMs = totalOutputDurationMs(job.edl_snapshot.clips);
   const assPath = path.join(workDir, "captions.ass");
   const { hadCaptions } = await writeAssFile(
@@ -61,9 +64,19 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     overlays,
   );
 
+  // Optionally pull the music track to local disk so ffmpeg can ingest it.
+  let musicPath: string | undefined;
+  if (music?.storage_path) {
+    musicPath = path.join(workDir, "music" + path.extname(music.storage_path));
+    await downloadToFile(client, SOURCE_BUCKET, music.storage_path, musicPath);
+  }
+
   await updateProgress(client, job.id, 20);
   await runRender(input, job.edl_snapshot.clips, output, {
     subtitlesAssPath: hadCaptions ? assPath : undefined,
+    aspectRatio: job.aspect_ratio as "source" | "9:16" | "1:1" | "16:9",
+    musicPath,
+    musicVolume: music?.volume,
   });
 
   await updateProgress(client, job.id, 80);

@@ -50,6 +50,18 @@ export type TextOverlay = {
   size?: number;          // multiplier on preset's base font size
 };
 
+// Optional background music track. The worker mixes this in at the end of
+// the render. Volume is 0..1 (1 = full); the source video's own audio
+// stays at full volume above the music.
+export type Music = {
+  storage_path: string;         // Storage path in the footage bucket
+  volume: number;                // 0..1
+  // Where to start playing the music inside the music file. Trim from this
+  // point. Useful when the user uploaded a long track and only wants a
+  // specific section.
+  music_start_ms?: number;
+};
+
 export type EDL = {
   source: {
     storage_path: string;       // e.g. "footage/<video_edit_id>/source.mp4"
@@ -59,10 +71,11 @@ export type EDL = {
   clips: Clip[];
   captions?: Caption[];
   text_overlays?: TextOverlay[];
+  music?: Music;
 
-  // Phase 4 stops here. Phase 5 adds music{}; Phase 6 adds a b-roll track.
-  // Keep the shape forward-compatible (additive only). AI / Robby builds
-  // these JSON documents directly via Supabase update on editor_projects.edl.
+  // Phase 5 stops here. Phase 6 adds a b-roll track. Keep additive only.
+  // AI / Robby builds this JSON directly via Supabase update on
+  // editor_projects.edl.
 };
 
 export function emptyEDL(sourceStoragePath: string, durationMs: number): EDL {
