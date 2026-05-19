@@ -89,6 +89,10 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
         top: videoBox.top,
         width: videoBox.width,
         height: videoBox.height,
+        // DEBUG: temporarily show the wrapper's outline so we can verify the
+        // measured video picture box matches the visible <video> element.
+        // Remove this border once preview/export positions agree.
+        outline: "1px dashed rgba(255, 0, 255, 0.6)",
       }}
     >
       <div
