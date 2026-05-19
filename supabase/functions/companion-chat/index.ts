@@ -105,7 +105,7 @@ const TOOLS = [
   },
   {
     name: "analyze_my_profile",
-    description: "Pull the client's top 10 IG posts and run a deep analysis: audience fit, uniqueness, hook patterns, format mix, posting cadence, outlier band. Use when the user asks to analyze their profile, audit their account, or get IG strategy recommendations. If include_competitors=true, also pulls the emulation_profiles from onboarding and adds a comparison section. ALWAYS verify the handle matches onboarding_data.instagram first — if the user passes a different @handle, do NOT call this; ask them whether it's a new account, typo, or competitor.",
+    description: "Pull the top 10 IG posts and render a deep ProfileAnalysisEmbed card: audience fit, uniqueness, hook patterns, format mix, posting cadence, outlier band, top-3 posts with thumbnails. CALL THIS whenever the user asks to analyze a profile, audit an account, or get IG strategy recommendations — even if you already have analysis numbers from a previous turn (the card is what the user wants to see, and only this tool emits it). Pass the @handle from the user's message as `handle`. The tool itself handles the case where onboarding has no handle yet (it just uses the one you passed). The tool also handles handle-mismatch detection — its tool_result_text will start with 'handle_mismatch:' in that case, and only THEN should you ask the user the 3-option clarification. If include_competitors=true, also pulls the emulation_profiles from onboarding and adds a comparison section. ONLY set include_competitors=true after the user has approved a propose_plan card.",
     input_schema: {
       type: "object",
       properties: {
@@ -1087,14 +1087,14 @@ Do NOT call bulk_* tools directly without going through propose_plan first for e
 - "Let me confirm the …"
 If you find yourself wanting to type any of these, call the tool FIRST, then your text can summarize what came back. After confirm_plan in particular: immediately proceed to execute the steps via the relevant tools — DO NOT just say "let me execute" and stop.
 
-21. PROFILE ANALYSIS: When the user asks to analyze their profile, audit their account, or get strategy recommendations:
-  a. If the user's message contains an @handle, verify it matches the locked client's onboarding_data.instagram BEFORE calling any tool.
-  b. If the handle does NOT match onboarding, ASK first — do not scrape: "That doesn't match the IG handle on {client}'s onboarding (@{onboarding_handle}). Is @{user_handle} (a) a new account for {client}, (b) a typo, or (c) a competitor you want analyzed instead?" Wait for the answer.
-  c. Call analyze_my_profile WITHOUT include_competitors first. After the embed renders, write a 2-3 sentence prose framing (not a full breakdown — the embed already shows the data).
-  d. If the client has emulation_profiles in onboarding, IMMEDIATELY call propose_plan with summary "Compare against {N} competitors from onboarding (~2 min)" and one step per competitor handle.
-  e. On user approval (confirm_plan), call analyze_my_profile AGAIN with include_competitors=true. Render the second embed with the comparison section.
-  f. NEVER call analyze_my_profile without a locked client. Ask which client first.
-  g. NEVER call analyze_my_profile with platform other than "instagram" in v1 — if the user asks about TikTok/YouTube, explain we'll support those soon and offer to analyze IG instead.
+21. PROFILE ANALYSIS — ABSOLUTE RULES (do not invent your own variants):
+  a. When the user asks to analyze a profile, audit an account, or get IG strategy: CALL analyze_my_profile. Always. Even if you already have audience_score/uniqueness_score from a previous turn — the embed CARD is what the user wants to see, and only analyze_my_profile renders it.
+  b. Pass the @handle from the user's message as the handle argument. Pass platform: "instagram". Do NOT include_competitors on the first call.
+  c. If the tool result contains the literal string handle_mismatch: that means onboarding has a different non-empty handle. ONLY in that case, ask the user EXACTLY: "That doesn't match the IG handle on {client}'s onboarding (@{onboarding_handle}). Is @{user_handle} (a) a new account, (b) a typo, or (c) a competitor to analyze instead?" — those three options and nothing else. Never invent your own options like "create client" or "skip the analysis."
+  d. After the tool fires successfully and the embed renders, follow the NEXT instructions inside the tool_result_text — they tell you exactly what prose to write and whether to call propose_plan.
+  e. On user approval of the propose_plan card (confirm_plan), call analyze_my_profile AGAIN with include_competitors=true.
+  f. NEVER call analyze_my_profile with platform other than "instagram" in v1 — if the user asks about TikTok/YouTube, explain we'll support those soon and offer to analyze IG instead.
+  g. When the user re-asks "analyze my profile" in the same thread after a previous run, JUST CALL THE TOOL AGAIN. Do not present menus, do not summarize previous results, do not ask "are you sure" — call the tool. The user wants the card.
 
 EDITING-QUEUE TOOLS — when the user mentions a specific video / reel / edit:
 - set_lifecycle_status / bulk_set_lifecycle_status: PRIMARY state-change tools. Values: Not started | In progress | Needs Revisions | Scheduled | Published. Use these for any "mark X as Y" / "change all to Z" / "set this to scheduled" request.
