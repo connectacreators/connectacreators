@@ -1559,9 +1559,15 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             include_competitors?: boolean;
           };
 
+          // Resolution order: explicit client_name → URL-locked client →
+          // the request-level resolved client (subscriber's primary, or
+          // the user's own owned client). On /ai there is no locked
+          // client but `client` IS populated from the subscriber_clients
+          // junction — falling back to it lets users analyze themselves
+          // without first locking a thread.
           const targetClient = input.client_name
             ? await lookupClient(input.client_name)
-            : lockedClient;
+            : lockedClient ?? { id: client.id, name: client.name };
 
           if (!targetClient) {
             toolResults.push({
