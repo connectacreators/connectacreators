@@ -35,10 +35,9 @@ export type Caption = {
 // these aren't tied to per-word timing — they appear for a fixed range of
 // SOURCE time and disappear when that range ends.
 export type TextOverlayPreset =
-  | "title_card"          // big centered title, top of frame
-  | "lower_third"         // small text in lower-third, bottom-left
-  | "cta_chip"            // pill-shaped CTA banner, center-bottom
-  | "subtle_caption";     // minimal sans label, anywhere
+  | "tiktok"              // Montserrat Black, no bg, black stroke + white fill
+  | "helvetica"           // Helvetica, white fill on black 80% box, no stroke/shadow
+  | "impact";             // Anton/Impact condensed, no bg, black stroke + white fill
 
 export type TextOverlay = {
   id: string;

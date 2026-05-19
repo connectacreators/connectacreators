@@ -26,6 +26,25 @@ export function makeClient(): SupabaseClient {
   });
 }
 
+// Reclaim "running" jobs that haven't progressed in `staleMs` and put them
+// back in the queue. Called on each tick — survives worker restarts that
+// would otherwise orphan in-flight jobs at their last-known progress.
+export async function reclaimOrphanedJobs(client: SupabaseClient, staleMs = 60_000) {
+  const cutoff = new Date(Date.now() - staleMs).toISOString();
+  // Render jobs: anything 'running' with claimed_at older than staleMs goes
+  // back to 'queued'. The next claim will pick it up.
+  await client
+    .from("render_jobs")
+    .update({ status: "queued", claimed_at: null, progress: 0 })
+    .eq("status", "running")
+    .lt("claimed_at", cutoff);
+  await client
+    .from("transcribe_jobs")
+    .update({ status: "queued", claimed_at: null, progress: 0 })
+    .eq("status", "running")
+    .lt("claimed_at", cutoff);
+}
+
 // Claim the oldest queued job atomically. Returns null if nothing to do.
 export async function claimNextJob(client: SupabaseClient): Promise<RenderJobRow | null> {
   // Single-row UPDATE ... RETURNING via a transactional RPC would be ideal, but

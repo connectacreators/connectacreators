@@ -66,7 +66,8 @@ export function buildTrimConcatArgs(
     subtitlesAssPath?: string;
     aspectRatio?: AspectRatio;
     musicPath?: string;
-    musicVolume?: number; // 0..1
+    musicVolume?: number;        // 0..1
+    musicStartMs?: number;       // offset into the music file (skip first N ms)
     brolls?: BRollInput[];
   } = {},
 ): string[] {
@@ -192,8 +193,10 @@ export function buildTrimConcatArgs(
   let musicFilter = "";
   if (hasMusic) {
     const vol = Math.max(0, Math.min(1, options.musicVolume ?? 0.3));
+    const startSec = ((options.musicStartMs ?? 0) / 1000).toFixed(3);
+    // Skip into the music file via atrim, then volume + resample, then mix.
     musicFilter =
-      `;[1:a]volume=${vol},aresample=async=1[aMusic]` +
+      `;[1:a]atrim=start=${startSec},asetpts=PTS-STARTPTS,volume=${vol},aresample=async=1[aMusic]` +
       `;[aConcat][aMusic]amix=inputs=2:dropout_transition=0:duration=first[aout]`;
   }
 
@@ -228,6 +231,7 @@ export async function runRender(
     aspectRatio?: AspectRatio;
     musicPath?: string;
     musicVolume?: number;
+    musicStartMs?: number;
     brolls?: BRollInput[];
   } = {},
 ): Promise<void> {

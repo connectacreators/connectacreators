@@ -1,8 +1,7 @@
 // src/lib/videoEditor/textOverlayPresets.ts
-// Visual presets for static text overlays (title cards, lower-thirds, CTAs).
-// Mirror structure to captionPresets so both surfaces share patterns and
-// the worker's ASS generation can be uniform. Same single-source-of-truth
-// approach: this spec drives both browser CSS preview and worker ASS style.
+// Visual presets for static text overlays. Three options matching common
+// short-form social-video looks. Spec drives both browser CSS preview and
+// the worker's ASS style block.
 import type { TextOverlayPreset } from "./edl";
 
 export type TextOverlayPresetSpec = {
@@ -17,69 +16,54 @@ export type TextOverlayPresetSpec = {
   strokeColor: string;
   strokeWidthPctHeight: number;
   shadow: boolean;
-  background: string;
-  // Default position when a new overlay is dropped via this preset.
+  background: string;       // CSS — "none" for transparent, else a color/rgba
+  // Default position when a new overlay is created with this preset.
   defaultPosition: { x_pct: number; y_pct: number };
 };
 
 export const TEXT_OVERLAY_PRESETS: Record<TextOverlayPreset, TextOverlayPresetSpec> = {
-  title_card: {
-    id: "title_card",
-    label: "Title Card",
-    description: "Big bold title near the top",
+  tiktok: {
+    id: "tiktok",
+    label: "TikTok",
+    description: "Montserrat Black, white text, black stroke, no background",
     font: '"Montserrat", "Inter", "Helvetica Neue", sans-serif',
-    fontSizePctHeight: 7,
+    fontSizePctHeight: 6,
     weight: 900,
-    uppercase: true,
+    uppercase: false,
     fillColor: "#ffffff",
     strokeColor: "#000000",
-    strokeWidthPctHeight: 0.3,
-    shadow: true,
+    strokeWidthPctHeight: 0.35,
+    shadow: false,
     background: "none",
-    defaultPosition: { x_pct: 50, y_pct: 18 },
+    defaultPosition: { x_pct: 50, y_pct: 50 },
   },
-  lower_third: {
-    id: "lower_third",
-    label: "Lower Third",
-    description: "Subtle label in the lower-third area",
-    font: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
-    fontSizePctHeight: 3.2,
+  helvetica: {
+    id: "helvetica",
+    label: "Helvetica",
+    description: "Helvetica, white text on 80% black box, no shadow",
+    font: '"Helvetica Neue", Helvetica, "Inter", Arial, sans-serif',
+    fontSizePctHeight: 4.2,
     weight: 700,
     uppercase: false,
     fillColor: "#ffffff",
     strokeColor: "transparent",
     strokeWidthPctHeight: 0,
-    shadow: true,
-    background: "rgba(0,0,0,0.55)",
-    defaultPosition: { x_pct: 25, y_pct: 88 },
-  },
-  cta_chip: {
-    id: "cta_chip",
-    label: "CTA Chip",
-    description: "Pill banner with a call to action",
-    font: '"Montserrat", "Inter", sans-serif',
-    fontSizePctHeight: 4,
-    weight: 800,
-    uppercase: true,
-    fillColor: "#000000",
-    strokeColor: "transparent",
-    strokeWidthPctHeight: 0,
     shadow: false,
-    background: "#ffd400",
-    defaultPosition: { x_pct: 50, y_pct: 88 },
+    background: "rgba(0,0,0,0.8)",
+    defaultPosition: { x_pct: 50, y_pct: 50 },
   },
-  subtle_caption: {
-    id: "subtle_caption",
-    label: "Subtle Caption",
-    description: "Minimal label, place anywhere",
-    font: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
-    fontSizePctHeight: 3,
-    weight: 500,
+  impact: {
+    id: "impact",
+    label: "Impact",
+    description: "Impact-style condensed, white text, black stroke, no background",
+    font: '"Anton", "Impact", "Helvetica Neue", sans-serif',
+    fontSizePctHeight: 7,
+    weight: 400,
     uppercase: false,
     fillColor: "#ffffff",
     strokeColor: "#000000",
-    strokeWidthPctHeight: 0.15,
-    shadow: true,
+    strokeWidthPctHeight: 0.4,
+    shadow: false,
     background: "none",
     defaultPosition: { x_pct: 50, y_pct: 50 },
   },

@@ -18,6 +18,7 @@ import {
   markError,
   markTranscribeDone,
   markTranscribeError,
+  reclaimOrphanedJobs,
   saveSilenceSegments,
   saveTranscript,
   updateProgress,
@@ -52,7 +53,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   const captions: Caption[] = (job.edl_snapshot as { captions?: Caption[] }).captions ?? [];
   const overlays: TextOverlay[] = (job.edl_snapshot as { text_overlays?: TextOverlay[] }).text_overlays ?? [];
   const music = (job.edl_snapshot as {
-    music?: { storage_path: string; volume: number };
+    music?: { storage_path: string; volume: number; music_start_ms?: number };
   }).music;
   const outputDurationMs = totalOutputDurationMs(job.edl_snapshot.clips);
   const assPath = path.join(workDir, "captions.ass");
@@ -107,6 +108,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     aspectRatio: job.aspect_ratio as "source" | "9:16" | "1:1" | "16:9",
     musicPath,
     musicVolume: music?.volume,
+    musicStartMs: music?.music_start_ms,
     brolls,
   });
 
@@ -154,6 +156,12 @@ async function processTranscribeJob(client: ReturnType<typeof makeClient>, job: 
 }
 
 async function tick(client: ReturnType<typeof makeClient>) {
+  // Reclaim any 'running' jobs whose worker died mid-render. The dev cycle
+  // restarts tsx on every file edit so this happens often locally.
+  await reclaimOrphanedJobs(client).catch((e) => {
+    console.error("[render-worker] orphan reclaim failed", e);
+  });
+
   // Render jobs first — they're user-facing exports. Transcribe is background.
   const render = await claimNextJob(client);
   if (render) {
