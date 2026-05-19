@@ -537,6 +537,16 @@ export default function VideoEditor() {
     });
   };
 
+  const handleResizeOverlay = (id: string, size: number) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      text_overlays: (projState.edl.text_overlays ?? []).map((o) =>
+        o.id === id ? { ...o, size } : o,
+      ),
+    });
+  };
+
   // Drag handler for the on-preview overlay — accepts both x and y.
   // Respects applyToAll so dragging one caption moves them all when linked.
   const handleMoveCaption = (id: string, x_pct: number, y_pct: number) => {
@@ -813,6 +823,7 @@ export default function VideoEditor() {
             onMoveCaption={handleMoveCaption}
             onResizeCaption={handleChangeCaptionSize}
             onMoveOverlay={handleMoveOverlay}
+            onResizeOverlay={handleResizeOverlay}
             onEditOverlayText={(id, text) => handleChangeOverlay(id, { text })}
           />
           <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">

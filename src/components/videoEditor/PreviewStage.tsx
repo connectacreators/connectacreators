@@ -17,6 +17,7 @@ type Props = {
   onMoveCaption?: (captionId: string, x_pct: number, y_pct: number) => void;
   onResizeCaption?: (captionId: string, size: number) => void;
   onMoveOverlay?: (overlayId: string, x_pct: number, y_pct: number) => void;
+  onResizeOverlay?: (overlayId: string, size: number) => void;
   onEditOverlayText?: (overlayId: string, newText: string) => void;
 };
 
@@ -35,7 +36,7 @@ function locateClip(edl: EDL, edlMs: number): { clipIdx: number; sourceMs: numbe
   return last ? { clipIdx: edl.clips.length - 1, sourceMs: last.source_end_ms } : null;
 }
 
-export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay, onEditOverlayText }: Props) {
+export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay, onResizeOverlay, onEditOverlayText }: Props) {
   // Two-layer playback. Two <video> elements alternate as "active" (visible
   // and playing) and "standby" (hidden and pre-seeked to the next clip's
   // start). At a clip boundary we just pause active and play standby, then
@@ -262,6 +263,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
         onMoveCaption={onMoveCaption}
         onResizeCaption={onResizeCaption}
         onMoveOverlay={onMoveOverlay}
+        onResizeOverlay={onResizeOverlay}
         onEditOverlayText={onEditOverlayText}
       />
     </div>

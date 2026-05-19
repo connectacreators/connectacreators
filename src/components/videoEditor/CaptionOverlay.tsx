@@ -22,10 +22,11 @@ type Props = {
   onMoveCaption?: (captionId: string, x_pct: number, y_pct: number) => void;
   onResizeCaption?: (captionId: string, size: number) => void;
   onMoveOverlay?: (overlayId: string, x_pct: number, y_pct: number) => void;
+  onResizeOverlay?: (overlayId: string, size: number) => void;
   onEditOverlayText?: (overlayId: string, newText: string) => void;
 };
 
-export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveCaption, onResizeCaption, onMoveOverlay, onEditOverlayText }: Props) {
+export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveCaption, onResizeCaption, onMoveOverlay, onResizeOverlay, onEditOverlayText }: Props) {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ captionId: string; offsetX: number; offsetY: number } | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
@@ -40,6 +41,11 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
   // Which text-overlay is in inline-edit mode (double-clicked).
   const [editingOverlayId, setEditingOverlayId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
+  // Text-overlay drag/resize state. Mirrors the caption equivalents but
+  // keyed by overlay id so each overlay drags independently.
+  const overlayDragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const overlayResizeRef = useRef<{ id: string; startSize: number; startDist: number; centerX: number; centerY: number } | null>(null);
+  const [overlayActiveId, setOverlayActiveId] = useState<string | null>(null);
 
   if (!videoBox) return null;
   const hasContent = captions.length > 0 || overlays.length > 0;
@@ -143,6 +149,69 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
     setResizing(false);
   };
 
+  // Text-overlay drag (center anchor at x_pct, y_pct) and corner resize.
+  // Same pattern as the caption drag/resize above, but anchored to the
+  // overlay's CENTER instead of bottom-center, and keyed by overlay id.
+  const onOverlayPointerDown = (id: string) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onMoveOverlay || editingOverlayId === id) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const anchorX = rect.left + rect.width / 2;
+    const anchorY = rect.top + rect.height / 2;
+    overlayDragRef.current = {
+      id,
+      offsetX: e.clientX - anchorX,
+      offsetY: e.clientY - anchorY,
+    };
+    setOverlayActiveId(id);
+  };
+  const onOverlayPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!overlayDragRef.current || !onMoveOverlay) return;
+    const frame = (e.currentTarget.parentElement as HTMLElement | null)?.getBoundingClientRect();
+    if (!frame) return;
+    const desiredX = e.clientX - overlayDragRef.current.offsetX;
+    const desiredY = e.clientY - overlayDragRef.current.offsetY;
+    const pctX = ((desiredX - frame.left) / frame.width) * 100;
+    const pctY = ((desiredY - frame.top) / frame.height) * 100;
+    const clampedX = Math.max(5, Math.min(95, pctX));
+    const clampedY = Math.max(5, Math.min(95, pctY));
+    onMoveOverlay(overlayDragRef.current.id, clampedX, clampedY);
+  };
+  const onOverlayPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    overlayDragRef.current = null;
+  };
+  const onOverlayResizeStart = (id: string, currentSize: number) => (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!onResizeOverlay) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // currentTarget is the corner handle; its parent is the overlay div.
+    const overlayDiv = e.currentTarget.parentElement as HTMLElement;
+    const rect = overlayDiv.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY) || 1;
+    overlayResizeRef.current = { id, startSize: currentSize, startDist, centerX, centerY };
+    setOverlayActiveId(id);
+  };
+  const onOverlayResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!overlayResizeRef.current || !onResizeOverlay) return;
+    e.stopPropagation();
+    const dist = Math.hypot(
+      e.clientX - overlayResizeRef.current.centerX,
+      e.clientY - overlayResizeRef.current.centerY,
+    );
+    const ratio = dist / overlayResizeRef.current.startDist;
+    const next = Math.max(0.375, Math.min(2.5, overlayResizeRef.current.startSize * ratio));
+    onResizeOverlay(overlayResizeRef.current.id, next);
+  };
+  const onOverlayResizeEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    overlayResizeRef.current = null;
+  };
+
   // Use a frame-shaped wrapper that exactly matches the rendered video
   // picture box. Position the caption inside it with CSS percentages — the
   // browser handles all the math natively, so there's no computed-pixel
@@ -230,6 +299,7 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
           }
           setEditingOverlayId(null);
         };
+        const isActive = overlayActiveId === ov.id;
         return (
           <div
             key={ov.id}
@@ -238,7 +308,11 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
               setEditingOverlayId(ov.id);
               setEditingValue(ov.text);
             }}
-            className={onMoveOverlay ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
+            onPointerDown={isEditing ? undefined : onOverlayPointerDown(ov.id)}
+            onPointerMove={isEditing ? undefined : onOverlayPointerMove}
+            onPointerUp={isEditing ? undefined : onOverlayPointerUp}
+            onClick={() => setOverlayActiveId(ov.id)}
+            className={onMoveOverlay && !isEditing ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
             style={{
               left: `${ov.position.x_pct}%`,
               top: `${ov.position.y_pct}%`,
@@ -253,9 +327,10 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
               borderRadius: 0,
               pointerEvents: onMoveOverlay ? "auto" : "none",
               whiteSpace: "nowrap",
-              outline: isEditing ? "1px dashed rgba(59,130,246,0.7)" : undefined,
+              touchAction: "none",
+              outline: isEditing || isActive ? "1px dashed rgba(59,130,246,0.7)" : undefined,
             }}
-            title={isEditing ? undefined : "Double-click to edit text"}
+            title={isEditing ? undefined : "Drag to move · double-click to edit · corner to resize"}
           >
             {isEditing ? (
               <input
@@ -273,9 +348,24 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
                 style={toOverlayPreviewStyle(ovSpec, videoBox.height, ov.size ?? 1)}
               />
             ) : (
-              <span style={toOverlayPreviewStyle(ovSpec, videoBox.height, ov.size ?? 1)}>
-                {text}
-              </span>
+              <>
+                <span style={toOverlayPreviewStyle(ovSpec, videoBox.height, ov.size ?? 1)}>
+                  {text}
+                </span>
+                {/* Corner resize handle — drag outward to enlarge, inward to
+                    shrink. Only shown when the overlay is the active one so
+                    the picture stays clean for the other overlays. */}
+                {onResizeOverlay && isActive && (
+                  <div
+                    onPointerDown={onOverlayResizeStart(ov.id, ov.size ?? 1)}
+                    onPointerMove={onOverlayResizeMove}
+                    onPointerUp={onOverlayResizeEnd}
+                    className="absolute -right-1.5 -bottom-1.5 w-3 h-3 bg-blue-500 border border-white cursor-nwse-resize"
+                    style={{ touchAction: "none" }}
+                    title="Drag to resize"
+                  />
+                )}
+              </>
             )}
           </div>
         );
