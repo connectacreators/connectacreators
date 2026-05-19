@@ -407,6 +407,59 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
+  // ── Canvas write surface (Phase 1) ────────────────────────────────────
+  {
+    name: "add_canvas_node",
+    description: "Add a node to the client's active Super Canvas. Use this for any node type not covered by the specific add_* tools above. Supported node_type values and their `data` fields (extra fields are ignored, missing fields default sensibly):\n- brand_guide: tone (Casual|Formal|Funny|Bold), brand_values, forbidden_words, tagline\n- cta_builder: topic, ctas (array of strings), selectedCTA\n- hook_generator: topic, hooks (array of {category, text}), selectedHook, selectedCategory\n- competitor_profile: profileUrl, username (analyzes a competitor IG/TikTok account)\n- competitor_folder: username, posts, platform\n- instagram_profile: profileUrl, username (the client's own profile, for hook mining)\n- annotation: text, color (hex), fontSize, bold, italic, align (left|center|right), bgColor\n- group: label (organizes other nodes into a labelled group)\nPosition is auto-computed unless explicitly provided. Use the add_video_to_canvas / add_research_note_to_canvas / add_idea_nodes_to_canvas / add_script_draft_to_canvas tools above for those specific node types — they have tuned positioning and side effects.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "The client's name. Defaults to the locked client if omitted." },
+        node_type: { type: "string", enum: ["brand_guide", "cta_builder", "hook_generator", "competitor_profile", "competitor_folder", "instagram_profile", "annotation", "group"] },
+        data: { type: "object", description: "Node-specific payload — see the description for required fields per type.", additionalProperties: true },
+        position: { type: "object", description: "Optional {x, y} position. Auto-positioned to the right of the latest column if omitted.", properties: { x: { type: "number" }, y: { type: "number" } } },
+      },
+      required: ["node_type", "data"],
+    },
+  },
+  {
+    name: "delete_canvas_node",
+    description: "Remove a node from the client's active Super Canvas by node id. Use after read_canvas to identify the right id. Confirm with the user before deleting non-trivial work (script drafts, populated competitor folders, brand guides).",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        node_id: { type: "string", description: "The id of the node to delete (from read_canvas)." },
+      },
+      required: ["node_id"],
+    },
+  },
+  {
+    name: "move_canvas_node",
+    description: "Reposition a node on the canvas. Useful for organizing the layout when the user asks to move things around.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        node_id: { type: "string" },
+        x: { type: "number" },
+        y: { type: "number" },
+      },
+      required: ["node_id", "x", "y"],
+    },
+  },
+  {
+    name: "switch_active_canvas",
+    description: "Switch which canvas is active for a client. Use when the user has multiple saved canvases (e.g. a 'brainstorm' canvas and an 'execution' canvas) and asks to switch between them. Call read_canvas first if you need to list available canvases.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        canvas_id: { type: "string", description: "The target canvas_states.id to activate." },
+      },
+      required: ["canvas_id"],
+    },
+  },
   // Wave 2 tools
   ...LEAD_TOOLS,
   ...FINANCE_TOOLS,
@@ -2016,6 +2069,136 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               if (!isOnAiSurface) actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
               actions.push({ type: "refresh_data", scope: "scripts" });
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script "${title}" saved to ${targetClient.name}'s scripts library.` });
+            }
+          }
+        }
+
+        // ── Canvas write-surface dispatch (Phase 1) ──────────────────────
+        // Resolution: explicit client_name → URL-locked → request-level
+        // resolved client. Matches the pattern analyze_my_profile uses.
+        const resolveCanvasClient = async (clientName: string | undefined) =>
+          clientName ? await lookupClient(clientName)
+            : lockedClient ?? { id: client.id, name: client.name };
+
+        if (block.name === "add_canvas_node") {
+          const { client_name, node_type, data, position } = block.input as {
+            client_name?: string; node_type: string; data: Record<string, unknown>; position?: { x: number; y: number };
+          };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to add the node to. Ask which client." });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No active canvas for ${targetClient.name}. Have the user open Super Canvas first.` });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              // Map our enum to the FE node `type` string and pick a reasonable
+              // default position based on existing column counts.
+              const typeMap: Record<string, string> = {
+                brand_guide: "brandGuideNode",
+                cta_builder: "ctaBuilderNode",
+                hook_generator: "hookGeneratorNode",
+                competitor_profile: "competitorProfileNode",
+                competitor_folder: "competitorFolderNode",
+                instagram_profile: "instagramProfileNode",
+                annotation: "annotationNode",
+                group: "groupNode",
+              };
+              const feType = typeMap[node_type];
+              if (!feType) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Unknown node_type: ${node_type}. Valid: ${Object.keys(typeMap).join(", ")}.` });
+              } else {
+                const sameTypeCount = existingNodes.filter((n: any) => n.type === feType).length;
+                const fallbackPos = {
+                  x: 1000 + (sameTypeCount % 3) * 380,
+                  y: Math.floor(sameTypeCount / 3) * 440,
+                };
+                const nodeId = `${feType}_${Date.now()}`;
+                const newNode = {
+                  id: nodeId,
+                  type: feType,
+                  position: position ?? fallbackPos,
+                  data,
+                };
+                await adminClient.from("canvas_states").update({ nodes: [...existingNodes, newNode] }).eq("id", canvasState.id);
+                if (!isOnAiSurface) actions.push({ type: "navigate", path: "/scripts?view=canvas" });
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${feType} (id=${nodeId}) added to ${targetClient.name}'s canvas at (${newNode.position.x}, ${newNode.position.y}).` });
+              }
+            }
+          }
+        }
+
+        if (block.name === "delete_canvas_node") {
+          const { client_name, node_id } = block.input as { client_name?: string; node_id: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to delete from." });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No active canvas for ${targetClient.name}.` });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              const filtered = existingNodes.filter((n: any) => n?.id !== node_id);
+              if (filtered.length === existingNodes.length) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Node ${node_id} not found on ${targetClient.name}'s canvas.` });
+              } else {
+                await adminClient.from("canvas_states").update({ nodes: filtered }).eq("id", canvasState.id);
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Deleted node ${node_id} from ${targetClient.name}'s canvas.` });
+              }
+            }
+          }
+        }
+
+        if (block.name === "move_canvas_node") {
+          const { client_name, node_id, x, y } = block.input as { client_name?: string; node_id: string; x: number; y: number };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to move on." });
+          } else {
+            const { data: canvasState } = await adminClient
+              .from("canvas_states").select("id, nodes").eq("client_id", targetClient.id).eq("is_active", true).limit(1).maybeSingle();
+            if (!canvasState) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No active canvas for ${targetClient.name}.` });
+            } else {
+              const existingNodes = Array.isArray(canvasState.nodes) ? canvasState.nodes : [];
+              let found = false;
+              const updated = existingNodes.map((n: any) => {
+                if (n?.id === node_id) {
+                  found = true;
+                  return { ...n, position: { x, y } };
+                }
+                return n;
+              });
+              if (!found) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Node ${node_id} not found.` });
+              } else {
+                await adminClient.from("canvas_states").update({ nodes: updated }).eq("id", canvasState.id);
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Moved ${node_id} to (${x}, ${y}).` });
+              }
+            }
+          }
+        }
+
+        if (block.name === "switch_active_canvas") {
+          const { client_name, canvas_id } = block.input as { client_name?: string; canvas_id: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to switch canvases for." });
+          } else {
+            // Verify the target canvas belongs to this client.
+            const { data: target } = await adminClient
+              .from("canvas_states").select("id, name").eq("id", canvas_id).eq("client_id", targetClient.id).maybeSingle();
+            if (!target) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Canvas ${canvas_id} not found for ${targetClient.name}.` });
+            } else {
+              // Deactivate the others, activate this one.
+              await adminClient.from("canvas_states").update({ is_active: false }).eq("client_id", targetClient.id);
+              await adminClient.from("canvas_states").update({ is_active: true }).eq("id", canvas_id);
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Activated canvas "${target.name ?? canvas_id}" for ${targetClient.name}.` });
             }
           }
         }

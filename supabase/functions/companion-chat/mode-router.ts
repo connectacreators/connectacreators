@@ -99,6 +99,10 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "add_idea_nodes_to_canvas",
     "add_script_draft_to_canvas",
     "save_script_from_canvas",
+    "add_canvas_node",
+    "delete_canvas_node",
+    "move_canvas_node",
+    "switch_active_canvas",
   ],
   "profile-analysis": [
     "analyze_my_profile",
