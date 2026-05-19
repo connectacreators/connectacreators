@@ -40,19 +40,17 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
     (w) => sourceMs >= w.start_ms && sourceMs <= w.end_ms,
   );
 
-  const left = videoBox.left + (active.position.x_pct / 100) * videoBox.width;
-  const top = videoBox.top + (active.position.y_pct / 100) * videoBox.height;
-
   // Drag math: track the offset from the pointer to the caption's
-  // BOTTOM-CENTER on screen at pointer-down. (left, top) now positions the
-  // caption's bottom-center, so we lock that anchor to the pointer.
+  // BOTTOM-CENTER on screen. (active.position.x_pct, y_pct) describes the
+  // bottom-center inside the picture box.
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!onMoveCaption) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
-    if (!containerRect) return;
-    const anchorScreenX = containerRect.left + left;
-    const anchorScreenY = containerRect.top + top;
+    const rect = e.currentTarget.getBoundingClientRect();
+    // The element is positioned with its bottom-center at the anchor point —
+    // that's the bottom-center of its bounding rect.
+    const anchorScreenX = rect.left + rect.width / 2;
+    const anchorScreenY = rect.bottom;
     dragRef.current = {
       captionId: active.id,
       offsetX: e.clientX - anchorScreenX,
@@ -61,15 +59,14 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
     setDragOffset({ x: 0, y: 0 });
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current || !onMoveCaption) return;
-    const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
-    if (!containerRect) return;
+    if (!dragRef.current || !onMoveCaption || !videoBox) return;
+    // Frame-shaped wrapper rect (we hardcode its parent's offsetParent below).
+    const frame = (e.currentTarget.parentElement as HTMLElement | null)?.getBoundingClientRect();
+    if (!frame) return;
     const desiredAnchorScreenX = e.clientX - dragRef.current.offsetX;
     const desiredAnchorScreenY = e.clientY - dragRef.current.offsetY;
-    const desiredContainerX = desiredAnchorScreenX - containerRect.left;
-    const desiredContainerY = desiredAnchorScreenY - containerRect.top;
-    const pctX = ((desiredContainerX - videoBox.left) / videoBox.width) * 100;
-    const pctY = ((desiredContainerY - videoBox.top) / videoBox.height) * 100;
+    const pctX = ((desiredAnchorScreenX - frame.left) / frame.width) * 100;
+    const pctY = ((desiredAnchorScreenY - frame.top) / frame.height) * 100;
     const clampedX = Math.max(5, Math.min(95, pctX));
     const clampedY = Math.max(5, Math.min(95, pctY));
     onMoveCaption(dragRef.current.captionId, clampedX, clampedY);
@@ -80,40 +77,52 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
     setDragOffset(null);
   };
 
+  // Use a frame-shaped wrapper that exactly matches the rendered video
+  // picture box. Position the caption inside it with CSS percentages — the
+  // browser handles all the math natively, so there's no computed-pixel
+  // drift between videoBox measurements and actual layout.
   return (
     <div
-      className={onMoveCaption ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
+      className="pointer-events-none absolute"
       style={{
-        left,
-        top,
-        // BOTTOM-anchored: y_pct is "where the bottom of the caption sits".
-        // This matches how social-media captions are positioned (Btm = bottom
-        // of text near 80% mark) and matches the worker's ASS alignment=2
-        // (bottom-center) interpretation of \pos(x,y).
-        transform: "translate(-50%, -100%)",
-        // Effective text width — kept slightly wider than the previous 0.9
-        // so wrapping behaviour matches the worker's ASS, which has tiny
-        // MarginL/MarginR (~97% of frame usable).
-        maxWidth: videoBox.width * 0.95,
-        textAlign: "center",
-        background: spec.background === "none" ? undefined : spec.background,
-        padding: spec.background === "none" ? 0 : "0.2em 0.6em",
-        borderRadius: spec.background === "none" ? 0 : 8,
-        outline: dragOffset !== null ? "2px dashed rgba(59,130,246,0.7)" : undefined,
-        touchAction: "none",
+        left: videoBox.left,
+        top: videoBox.top,
+        width: videoBox.width,
+        height: videoBox.height,
       }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
     >
-      {active.words.map((w, i) => (
-        <span
-          key={i}
-          style={toPreviewStyle(spec, videoBox.height, i === activeWordIdx, active.size ?? 1)}
-        >
-          {w.text + (i === active.words.length - 1 ? "" : " ")}
-        </span>
-      ))}
+      <div
+        className={onMoveCaption ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
+        style={{
+          left: `${active.position.x_pct}%`,
+          // bottom: <N>% positions the element's BOTTOM EDGE N% from the
+          // parent's bottom. y_pct=80 → "caption bottom is 80% down from top"
+          // → 20% from bottom → bottom: 20%.
+          bottom: `${100 - active.position.y_pct}%`,
+          transform: "translateX(-50%)",
+          maxWidth: "95%",
+          textAlign: "center",
+          background: spec.background === "none" ? undefined : spec.background,
+          padding: spec.background === "none" ? 0 : "0.2em 0.6em",
+          borderRadius: spec.background === "none" ? 0 : 8,
+          outline: dragOffset !== null ? "2px dashed rgba(59,130,246,0.7)" : undefined,
+          touchAction: "none",
+          pointerEvents: onMoveCaption ? "auto" : "none",
+          whiteSpace: "nowrap",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
+        {active.words.map((w, i) => (
+          <span
+            key={i}
+            style={toPreviewStyle(spec, videoBox.height, i === activeWordIdx, active.size ?? 1)}
+          >
+            {w.text + (i === active.words.length - 1 ? "" : " ")}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
