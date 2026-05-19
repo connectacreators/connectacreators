@@ -170,8 +170,12 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
             maxWidth: "95%",
             textAlign: "center",
             background: spec.background === "none" ? undefined : spec.background,
-            padding: spec.background === "none" ? 0 : "0.2em 0.6em",
-            borderRadius: spec.background === "none" ? 0 : 8,
+            // Sharp rectangle to match the worker's libass BorderStyle 3
+            // box (no rounded corners). Padding is tightened from 0.2/0.6em
+            // to match libass's tight glyph-hug — without this the preview
+            // box looks fatter than the burned-in render.
+            padding: spec.background === "none" ? 0 : "0.05em 0.35em",
+            borderRadius: 0,
             outline: dragOffset !== null || resizing ? "2px dashed rgba(59,130,246,0.7)" : undefined,
             touchAction: "none",
             pointerEvents: onMoveCaption ? "auto" : "none",
@@ -243,8 +247,11 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
               maxWidth: "95%",
               textAlign: "center",
               background: ovSpec.background === "none" ? undefined : ovSpec.background,
-              padding: ovSpec.background === "none" ? 0 : "0.25em 0.6em",
-              borderRadius: ovSpec.background === "none" ? 0 : 4,
+              // Sharp rectangle to match libass's BorderStyle 3 (no rounded
+              // corners). Padding tightened to mimic libass's glyph-hug
+              // around the text — keeps the preview WYSIWYG with the burn-in.
+              padding: ovSpec.background === "none" ? 0 : "0.05em 0.35em",
+              borderRadius: 0,
               pointerEvents: onMoveOverlay ? "auto" : "none",
               whiteSpace: "nowrap",
               outline: isEditing ? "1px dashed rgba(59,130,246,0.7)" : undefined,
