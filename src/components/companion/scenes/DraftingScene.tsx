@@ -1,4 +1,5 @@
 // src/components/companion/scenes/DraftingScene.tsx
+import { useMemo } from "react";
 import SceneFrame from "./SceneFrame";
 import type { SceneEvent } from "@/lib/companion/turn-script";
 
@@ -10,13 +11,70 @@ function typeMs(text: string): number {
   return Math.max(600, Math.min(2400, text.length * 20));
 }
 
+// Stable content key for the draft so we only animate once per draft.
+// Same payload (same tag + body across sections) → same key → no replay
+// when the user reopens /ai or remounts the chat list.
+function draftKey(payload: { sections: Array<{ tag: string; body: string }> }): string {
+  return payload.sections.map((s) => `${s.tag}::${s.body}`).join("|||");
+}
+
+// djb2 — tiny stable hash so the localStorage key stays short.
+function hash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+const STORAGE_PREFIX = "companion_drafting_seen:";
+
+function hasBeenAnimated(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(STORAGE_PREFIX + key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markAnimated(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_PREFIX + key, "1");
+  } catch {
+    // Storage full or disabled — animation will replay once, no harm.
+  }
+}
+
 /**
  * Editorial script page — a quiet manuscript spread that types itself in
  * section by section. Bone surface, ink hairline, red eyebrow tags.
+ *
+ * The type-on animation runs ONCE per draft content. We hash the section
+ * bodies, persist "seen" state in localStorage, and skip the animation
+ * (rendering the final settled state) on subsequent mounts so revisiting
+ * /ai doesn't replay the typewriter on every old draft.
  */
 export default function DraftingScene({ scene }: Props) {
   const { verb, meta, payload } = scene;
   const sectionOffsets = payload.sections.map((_, i) => i * 1.6);
+  // useMemo so hash isn't recomputed every render; the result is referentially
+  // stable across remounts for the same payload.
+  const key = useMemo(() => hash(draftKey(payload)), [payload]);
+  const alreadySeen = useMemo(() => hasBeenAnimated(key), [key]);
+  // First-time mounts: schedule the "seen" flag for after the slowest section
+  // finishes typing, so an interrupted view doesn't mark prematurely.
+  useMemo(() => {
+    if (alreadySeen) return;
+    const slowestEndMs =
+      sectionOffsets.length === 0
+        ? 0
+        : (sectionOffsets[sectionOffsets.length - 1] * 1000) +
+          350 + 50 +
+          typeMs(payload.sections[payload.sections.length - 1].body);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => markAnimated(key), slowestEndMs + 100);
+    }
+  }, [alreadySeen, key]);
 
   return (
     <SceneFrame verb={verb} meta={meta}>
@@ -39,10 +97,14 @@ export default function DraftingScene({ scene }: Props) {
             <div
               key={i}
               className={i < payload.sections.length - 1 ? "mb-4" : ""}
-              style={{
-                opacity: 0,
-                animation: `broadcast-fade-in ${fadeDuration}s ease-out ${sectionOffsets[i]}s forwards`,
-              }}
+              style={
+                alreadySeen
+                  ? undefined
+                  : {
+                      opacity: 0,
+                      animation: `broadcast-fade-in ${fadeDuration}s ease-out ${sectionOffsets[i]}s forwards`,
+                    }
+              }
             >
               <div
                 className="font-bold text-[9.5px] uppercase tracking-[0.18em] mb-1"
@@ -55,7 +117,9 @@ export default function DraftingScene({ scene }: Props) {
                 style={{
                   color: "#1a1410",
                   whiteSpace: "pre-wrap",
-                  animation: `broadcast-type-in ${typeMs(s.body)}ms steps(80, end) ${typeStart}s backwards`,
+                  ...(alreadySeen
+                    ? null
+                    : { animation: `broadcast-type-in ${typeMs(s.body)}ms steps(80, end) ${typeStart}s backwards` }),
                 }}
                 dangerouslySetInnerHTML={{
                   __html: s.body.replace(

@@ -11,7 +11,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 
 const BOTTOM_TABS = [
   { icon: Home, label: "Home", path: "/dashboard" },
-  { icon: Flame, label: "Viral", path: "/viral-today/reels" },
+  { icon: Flame, label: "Viral", path: "/viral-today" },
   { icon: Layers, label: "Canvas", path: "/scripts?view=canvas", hero: true as const },
   { icon: Clapperboard, label: "Queue", path: "/editing-queue" },
 ];

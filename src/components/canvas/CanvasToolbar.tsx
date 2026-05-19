@@ -165,11 +165,24 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
             return (
               <div
                 key={session.id}
-                className={`group flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer ${
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                }`}
+                className="group flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer"
+                style={{
+                  background: isActive ? "rgba(143,208,213,0.18)" : "transparent",
+                  color: isActive ? "#141414" : "rgba(20,20,20,0.72)",
+                  fontWeight: isActive ? 600 : 400,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "rgba(20,20,20,0.05)";
+                    e.currentTarget.style.color = "#141414";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgba(20,20,20,0.72)";
+                  }
+                }}
                 onClick={() => {
                   if (!isRenaming && !isConfirming) {
                     onSwitchSession?.(session);
@@ -214,7 +227,7 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
                 ) : (
                   <>
                     <span className="flex-1 truncate">{session.name}</span>
-                    <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{relativeTime(session.updated_at)}</span>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(20,20,20,0.45)" }}>{relativeTime(session.updated_at)}</span>
                     <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
                       <button
                         className="p-0.5 rounded hover:bg-muted/60"

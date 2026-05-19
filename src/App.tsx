@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
 import { OutOfCreditsProvider } from "@/contexts/OutOfCreditsContext";
@@ -64,7 +64,6 @@ const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const PublicEditingQueue = lazy(() => import("./pages/PublicEditingQueue"));
 const Trainings = lazy(() => import("./pages/Trainings"));
 const ViralToday = lazy(() => import("./pages/ViralToday"));
-const ViralReelFeed = lazy(() => import("./pages/ViralReelFeed"));
 const ViralVideoDetail = lazy(() => import("./pages/ViralVideoDetail"));
 const Subscribers = lazy(() => import("./pages/Subscribers"));
 const PublicVideoReview = lazy(() => import("./pages/PublicVideoReview"));
@@ -176,7 +175,9 @@ const App = () => (
               <Route path="/trainings" element={<Trainings />} />
               <Route path="/finances" element={<Finances />} />
               <Route path="/viral-today" element={<ViralToday />} />
-              <Route path="/viral-today/reels" element={<ViralReelFeed />} />
+              {/* Reels feed removed — redirect any stale URL (bookmarks, mobile
+                  bottom-nav cache, shared links) to the dashboard. */}
+              <Route path="/viral-today/reels" element={<Navigate to="/dashboard" replace />} />
               <Route path="/viral-today/video/:videoId" element={<ViralVideoDetail />} />
               <Route path="/subscribers" element={<Subscribers />} />
               <Route path="/change-password" element={<ChangePassword />} />

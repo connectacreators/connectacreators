@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from "react";
-const ViralReelFeed = lazy(() => import("./ViralReelFeed"));
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from "react";
 import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -647,7 +646,15 @@ function VideoCard({
           style={{ background: gridGradientFor(video.channel_username) }}
         />
         {(() => {
-          const src = proxyImg(video.thumbnail_url);
+          // For analyzed videos with a missing/expired thumbnail_url, allow
+          // proxyImg to fall back to the resolve-thumb server endpoint via
+          // video_url — the video file already exists on our side because it
+          // was downloaded during analysis, so the cost is sunk. For
+          // unanalyzed videos, only use cached thumbnail_url (no preemptive
+          // server-side download just to make a card thumbnail).
+          const status = localStatus ?? video.analysis_status;
+          const allowResolveThumb = status === "analyzed";
+          const src = proxyImg(video.thumbnail_url, allowResolveThumb ? video.video_url : null);
           return !imgError && src ? (
             <img
               src={src}
@@ -1038,7 +1045,7 @@ export default function ViralToday() {
     : undefined;
 
   // View: videos | channels
-  const [view, setView] = useState<"videos" | "channels" | "reels">(isAdmin ? "reels" : "videos");
+  const [view, setView] = useState<"videos" | "channels">("videos");
 
   // Data — hydrate from cache for instant render, refetch in background.
   const [videos, setVideos] = useState<ViralVideo[]>(() => readCache<ViralVideo[]>("viral_videos", []));
@@ -1930,47 +1937,6 @@ export default function ViralToday() {
 
   const runningChannels = channels.filter((c) => c.scrape_status === "running");
 
-  // ── Reels view — admin only, full-height, own scroll context ────────────
-  if (view === "reels" && isAdmin) {
-    return (
-      <PageTransition className="editorial-page flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Compact header */}
-        <div className="px-5 sm:px-8 py-4 border-b border-border flex-shrink-0">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-xl font-bold text-foreground tracking-tight font-serif">Viral Reels</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Scroll through your top viral content</p>
-            </div>
-            <div className="flex items-center gap-1 bg-muted border border-border rounded-lg p-0.5">
-              <button
-                onClick={() => setView("videos")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                Grid
-              </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-card text-foreground transition-all">
-                <Play className="w-3.5 h-3.5" />
-                Reels
-              </button>
-              <button
-                onClick={() => setView("channels")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
-              >
-                <Radio className="w-3.5 h-3.5" />
-                {t.channels}
-              </button>
-            </div>
-          </div>
-        </div>
-        {/* Reel feed fills remaining height */}
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
-          <ViralReelFeed />
-        </Suspense>
-      </PageTransition>
-    );
-  }
-
   return (
     <PageTransition className="editorial-page flex-1 flex flex-col min-h-screen overflow-hidden">
 
@@ -1981,14 +1947,10 @@ export default function ViralToday() {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <h1 className="text-xl font-bold text-foreground tracking-tight font-serif">
-                  {view === "videos" ? "Videos" : view === "reels" ? "Viral Reels" : t.channels}
+                  {view === "videos" ? "Videos" : t.channels}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {view === "videos"
-                    ? t.videosDesc
-                    : view === "reels"
-                    ? "Scroll through your top viral content"
-                    : t.channelsDesc}
+                  {view === "videos" ? t.videosDesc : t.channelsDesc}
                 </p>
               </div>
 
@@ -2018,26 +1980,6 @@ export default function ViralToday() {
                       </span>
                     )}
                   </button>
-                  {isAdmin ? (
-                    <button
-                      onClick={() => setView("reels")}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                        view === "reels"
-                          ? "bg-card text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Play className="w-3.5 h-3.5" />
-                      Reels
-                    </button>
-                  ) : (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground/50 cursor-default" title="Coming soon">
-                      <Play className="w-3.5 h-3.5" />
-                      Reels
-                      <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded-full">Soon</span>
-                    </span>
-                  )}
                   <button
                     onClick={() => setView("channels")}
                     className={cn(

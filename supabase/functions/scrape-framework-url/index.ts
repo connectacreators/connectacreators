@@ -273,9 +273,27 @@ serve(async (req: Request) => {
       SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY,
     );
+    // Caption fallback: for caption-style videos (text on screen, no spoken
+    // narration) Instagram often returns an empty caption from the VPS. The
+    // analyzer already extracted the visible on-screen text into hook_text
+    // and the transcript itself. If our caption is empty/whitespace, derive
+    // one from the best available signal so the card doesn't show
+    // "No caption" for content we already understand.
+    let derivedCaption: string | null = null;
+    if (!caption.trim()) {
+      const hook = (patch.hook_text ?? "").trim();
+      const tx = (patch.transcript ?? "").trim();
+      const fallback = hook.length >= 8 ? hook : tx;
+      if (fallback) derivedCaption = fallback.slice(0, 600);
+    }
     await adminClient
       .from("viral_videos")
-      .update({ ...patch, analysis_status: "analyzed", analysis_error: null })
+      .update({
+        ...patch,
+        ...(derivedCaption ? { caption: derivedCaption } : {}),
+        analysis_status: "analyzed",
+        analysis_error: null,
+      })
       .eq("id", inserted.id);
     return json({
       id: inserted.id,
