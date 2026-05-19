@@ -166,7 +166,7 @@ export function MusicPanel({ music, videoEditId, onSet }: Props) {
           <p className="text-[10px] text-red-400">{importState.message}</p>
         )}
         <p className="text-[9px] text-neutral-500">
-          Worker uses yt-dlp locally (install with <code>brew install yt-dlp</code> on macOS).
+          Audio is extracted on the VPS — TikTok, Reels, Shorts, or any direct media link.
         </p>
       </div>
 
