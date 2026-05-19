@@ -279,6 +279,7 @@ export function MultiTrackTimeline(props: Props) {
             startMs={c.source_start_ms}
             endMs={c.source_end_ms}
             totalSourceMs={totalSourceMs}
+            siblings={edl.clips.filter((other) => other.id !== c.id)}
             selected={isSelected({ kind: "video", id: c.id })}
             onSelect={() => onSelect({ kind: "video", id: c.id })}
             onContextMenu={(e) => showCtx(e, { kind: "video", id: c.id })}
@@ -422,10 +423,11 @@ export function MultiTrackTimeline(props: Props) {
 }
 
 function VideoClipBlock({
-  clipId,
+  clipId: _clipId, // not consumed inside the block; parent binds onChangeTrim to it
   startMs,
   endMs,
   totalSourceMs,
+  siblings,
   selected,
   onSelect,
   onContextMenu,
@@ -437,6 +439,10 @@ function VideoClipBlock({
   startMs: number;
   endMs: number;
   totalSourceMs: number;
+  // All OTHER video clips on the timeline. Used to clamp drag / trim so
+  // this clip can never overlap a neighbour on the same track — standard
+  // NLE behaviour. Snap to the neighbour's edge instead.
+  siblings: { id: string; source_start_ms: number; source_end_ms: number }[];
   selected: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -448,19 +454,35 @@ function VideoClipBlock({
   const snap = useRef({ start: startMs, end: endMs });
   const captureSnap = () => { snap.current = { start: startMs, end: endMs }; };
 
+  // Find the nearest sibling on each side of this clip's CURRENT (snapshot)
+  // position so drag/trim can clamp against them. Computed at drag start so
+  // the constraints don't shift as the user drags.
+  const getBounds = () => {
+    const left = siblings
+      .filter((s) => s.source_end_ms <= snap.current.start)
+      .reduce<number>((max, s) => Math.max(max, s.source_end_ms), 0);
+    const right = siblings
+      .filter((s) => s.source_start_ms >= snap.current.end)
+      .reduce<number>((min, s) => Math.min(min, s.source_start_ms), totalSourceMs);
+    return { left, right };
+  };
+
   // Body drag — translates the clip's [start, end] in source space (keeps
-  // its duration). Useful when the user wants to re-position a split clip.
+  // its duration). Clamped against neighbouring clips to prevent overlap.
   const onBodyDown = beginDrag((delta) => {
     const dur = snap.current.end - snap.current.start;
-    const nextStart = Math.max(0, Math.min(totalSourceMs - dur, snap.current.start + delta));
+    const { left, right } = getBounds();
+    const nextStart = Math.max(left, Math.min(right - dur, snap.current.start + delta));
     onChangeTrim(nextStart, nextStart + dur);
   });
   const onLeftDown = beginDrag((delta) => {
-    const next = Math.max(0, Math.min(snap.current.end - 100, snap.current.start + delta));
+    const { left } = getBounds();
+    const next = Math.max(left, Math.min(snap.current.end - 100, snap.current.start + delta));
     onChangeTrim(next, snap.current.end);
   });
   const onRightDown = beginDrag((delta) => {
-    const next = Math.max(snap.current.start + 100, Math.min(totalSourceMs, snap.current.end + delta));
+    const { right } = getBounds();
+    const next = Math.max(snap.current.start + 100, Math.min(right, snap.current.end + delta));
     onChangeTrim(snap.current.start, next);
   });
 
