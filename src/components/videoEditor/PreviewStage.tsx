@@ -99,21 +99,65 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     else v.pause();
   }, [playing]);
 
-  // Per-frame: emit playhead in EDL time and jump across removed clip gaps.
-  // The previous version only checked the current clip's end boundary, which
-  // failed when sourceMs landed BETWEEN clips (e.g. after "Remove all silences"
-  // created multiple non-contiguous segments). Playback would freeze in the
-  // first silence and never reach the next clip — the user reported that as
-  // "the silence function only trims to the first sentence."
+  // Drive playhead emission + seamless transitions across removed clip gaps.
+  //
+  // Two cooperating mechanisms:
+  //   1. A pre-scheduled setTimeout that fires ~10ms before the current clip
+  //      ends and seeks the video to the next clip's start. This is what makes
+  //      Remove-all-silences playback feel seamless — the seek begins WHILE
+  //      we're still inside the current clip, so the browser lands on the
+  //      next clip's first frame with no audible bleed through the silent gap.
+  //   2. A RAF loop that emits playhead in EDL time and acts as a safety net
+  //      if the timer drifts (background-tab throttling, slow seeks). Without
+  //      this we'd also fail when sourceMs lands BETWEEN clips after a manual
+  //      scrub — playback would freeze in the first silence.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+
     let raf = 0;
+    let seekTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cancelTimer = () => {
+      if (seekTimer !== null) {
+        clearTimeout(seekTimer);
+        seekTimer = null;
+      }
+    };
+
+    // Schedule a precise seek at the current clip's end so playback never
+    // crosses into a removed range. Reschedules itself via the 'seeked' event
+    // after each hop.
+    const scheduleClipEnd = () => {
+      cancelTimer();
+      if (v.paused) return;
+      const sourceMs = v.currentTime * 1000;
+      const idx = edl.clips.findIndex(
+        (c) => sourceMs >= c.source_start_ms - 1 && sourceMs <= c.source_end_ms,
+      );
+      if (idx < 0) return;
+      const c = edl.clips[idx];
+      const next = edl.clips[idx + 1];
+      const rate = v.playbackRate || 1;
+      // Fire 10ms early to give the browser headroom to start the seek before
+      // we'd otherwise enter the silent gap. The RAF safety check below
+      // catches anything that still slips past.
+      const wallMsUntilEnd = Math.max(0, (c.source_end_ms - sourceMs - 10) / rate);
+      seekTimer = setTimeout(() => {
+        seekTimer = null;
+        if (!next) {
+          v.pause();
+          onEnded();
+          return;
+        }
+        v.currentTime = next.source_start_ms / 1000;
+        // 'seeked' will trigger scheduleClipEnd for the new clip.
+      }, wallMsUntilEnd);
+    };
+
     const tick = () => {
       if (!v.paused) {
         const sourceMs = v.currentTime * 1000;
-        // Find which clip (if any) currently contains the video's source time.
-        // Accumulate edl-time only for clips that have *already fully played*.
         let edlMs = 0;
         let insideClipIdx = -1;
         for (let i = 0; i < edl.clips.length; i++) {
@@ -130,8 +174,6 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
         if (insideClipIdx >= 0) {
           onPlayheadChange(edlMs);
         } else {
-          // We're in a removed gap. Jump to the next clip that starts after
-          // the current sourceMs; if there isn't one, we've fallen off the end.
           const next = edl.clips.find((c) => c.source_start_ms > sourceMs);
           if (next) {
             v.currentTime = next.source_start_ms / 1000;
@@ -144,7 +186,26 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+
+    const onPlay = () => scheduleClipEnd();
+    const onSeeked = () => scheduleClipEnd();
+    const onRate = () => scheduleClipEnd();
+    const onPause = () => cancelTimer();
+
+    v.addEventListener("play", onPlay);
+    v.addEventListener("seeked", onSeeked);
+    v.addEventListener("ratechange", onRate);
+    v.addEventListener("pause", onPause);
+    if (!v.paused) scheduleClipEnd();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      cancelTimer();
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("seeked", onSeeked);
+      v.removeEventListener("ratechange", onRate);
+      v.removeEventListener("pause", onPause);
+    };
   }, [edl, onPlayheadChange, onEnded]);
 
   // Caption overlay needs the source time, not EDL time.
