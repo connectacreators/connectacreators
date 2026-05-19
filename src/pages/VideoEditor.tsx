@@ -412,7 +412,37 @@ export default function VideoEditor() {
     const clips = projState.edl.clips;
     const idx = clips.findIndex((c) => c.id === clipId);
     if (idx === -1) return;
-    const dup = { ...clips[idx], id: crypto.randomUUID() };
+    const original = clips[idx];
+    const dur = original.source_end_ms - original.source_start_ms;
+    const total = projState.edl.source.duration_ms;
+    // Place the duplicate at the first source range that doesn't overlap
+    // any existing clip — walking right from the original's end. Keeps the
+    // timeline visually unambiguous: no two clips share the same
+    // source-time pixel column.
+    const sorted = clips
+      .filter((c) => c.id !== clipId)
+      .sort((a, b) => a.source_start_ms - b.source_start_ms);
+    let placeStart = original.source_end_ms;
+    for (const s of sorted) {
+      if (s.source_end_ms <= placeStart) continue;
+      if (placeStart + dur <= s.source_start_ms) break; // fits in the gap
+      placeStart = s.source_end_ms;
+    }
+    if (placeStart + dur > total) {
+      // No room to the right of the original. Try the gaps to the left.
+      placeStart = 0;
+      for (const s of sorted) {
+        if (placeStart + dur <= s.source_start_ms) break;
+        placeStart = s.source_end_ms;
+      }
+    }
+    if (placeStart + dur > total) return; // no room anywhere — abort
+    const dup = {
+      ...original,
+      id: crypto.randomUUID(),
+      source_start_ms: placeStart,
+      source_end_ms: placeStart + dur,
+    };
     const next = [...clips];
     next.splice(idx + 1, 0, dup);
     setEdl({ ...projState.edl, clips: next });
@@ -720,6 +750,9 @@ export default function VideoEditor() {
       if (mod && key === "v") { e.preventDefault(); runPaste(); return; }
       if (mod && key === "d") { e.preventDefault(); runDuplicate(); return; }
       if (!mod && key === "s") { e.preventDefault(); runSplit(); return; }
+      // Space toggles play/pause from anywhere on the editor — matches
+      // every NLE convention. preventDefault stops the page from scrolling.
+      if (!mod && e.key === " ") { e.preventDefault(); setPlaying((p) => !p); return; }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

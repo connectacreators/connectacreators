@@ -94,6 +94,57 @@ function toPct(ms: number, totalMs: number): string {
   return `${(ms / totalMs) * 100}%`;
 }
 
+// Given a desired source-time start for a clip of length `dur`, return the
+// closest valid start that doesn't overlap any `siblings`. Builds free
+// intervals between the (merged) sibling ranges and picks the placement
+// that fits and is nearest to `target`. Works even when siblings overlap
+// each other or the target — the dragged clip snaps into a free gap.
+function clampToFreeRange(
+  target: number,
+  dur: number,
+  siblings: Array<{ source_start_ms: number; source_end_ms: number }>,
+  totalSourceMs: number,
+): number {
+  if (siblings.length === 0) {
+    return Math.max(0, Math.min(totalSourceMs - dur, target));
+  }
+  const sorted = [...siblings].sort((a, b) => a.source_start_ms - b.source_start_ms);
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const s of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && s.source_start_ms <= last.end) {
+      last.end = Math.max(last.end, s.source_end_ms);
+    } else {
+      merged.push({ start: s.source_start_ms, end: s.source_end_ms });
+    }
+  }
+  const free: Array<{ start: number; end: number }> = [];
+  let cursor = 0;
+  for (const m of merged) {
+    if (m.start > cursor) free.push({ start: cursor, end: m.start });
+    cursor = Math.max(cursor, m.end);
+  }
+  if (cursor < totalSourceMs) free.push({ start: cursor, end: totalSourceMs });
+
+  let best = Math.max(0, Math.min(totalSourceMs - dur, target));
+  let bestDist = Infinity;
+  let foundFit = false;
+  for (const iv of free) {
+    if (iv.end - iv.start < dur) continue;
+    const clamped = Math.max(iv.start, Math.min(iv.end - dur, target));
+    const dist = Math.abs(clamped - target);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = clamped;
+      foundFit = true;
+    }
+  }
+  // No free interval can hold the clip — fall back to the bounds-clamped
+  // target (caller's last resort; should be rare). Don't return a position
+  // that would silently shrink the clip.
+  return foundFit ? best : Math.max(0, Math.min(totalSourceMs - dur, target));
+}
+
 // Returns a function that wraps a per-drag handler — captures startPx on
 // mousedown, then on each mousemove emits a delta-from-start in ms.
 function useTimeDrag(
@@ -454,10 +505,22 @@ function VideoClipBlock({
   const snap = useRef({ start: startMs, end: endMs });
   const captureSnap = () => { snap.current = { start: startMs, end: endMs }; };
 
-  // Find the nearest sibling on each side of this clip's CURRENT (snapshot)
-  // position so drag/trim can clamp against them. Computed at drag start so
-  // the constraints don't shift as the user drags.
-  const getBounds = () => {
+  // Body drag — translates the clip's [start, end] in source space (keeps
+  // its duration). Clamps against neighbouring clips so no two clips can
+  // ever overlap on the source-time axis. Uses a free-interval algorithm
+  // so it stays correct even when the EDL already contains overlaps (e.g.
+  // from a prior Cmd-D duplicate before this was fixed) — the dragged
+  // clip snaps into whichever free gap is nearest to the target.
+  const onBodyDown = beginDrag((delta) => {
+    const dur = snap.current.end - snap.current.start;
+    const target = snap.current.start + delta;
+    const nextStart = clampToFreeRange(target, dur, siblings, totalSourceMs);
+    onChangeTrim(nextStart, nextStart + dur);
+  });
+  // Trim handles use a simpler clamp: just snap to the nearest sibling
+  // edge on the relevant side. Doesn't auto-resolve existing overlaps
+  // (that would shrink the clip), but prevents new overlap on each side.
+  const trimBounds = () => {
     const left = siblings
       .filter((s) => s.source_end_ms <= snap.current.start)
       .reduce<number>((max, s) => Math.max(max, s.source_end_ms), 0);
@@ -466,22 +529,13 @@ function VideoClipBlock({
       .reduce<number>((min, s) => Math.min(min, s.source_start_ms), totalSourceMs);
     return { left, right };
   };
-
-  // Body drag — translates the clip's [start, end] in source space (keeps
-  // its duration). Clamped against neighbouring clips to prevent overlap.
-  const onBodyDown = beginDrag((delta) => {
-    const dur = snap.current.end - snap.current.start;
-    const { left, right } = getBounds();
-    const nextStart = Math.max(left, Math.min(right - dur, snap.current.start + delta));
-    onChangeTrim(nextStart, nextStart + dur);
-  });
   const onLeftDown = beginDrag((delta) => {
-    const { left } = getBounds();
+    const { left } = trimBounds();
     const next = Math.max(left, Math.min(snap.current.end - 100, snap.current.start + delta));
     onChangeTrim(next, snap.current.end);
   });
   const onRightDown = beginDrag((delta) => {
-    const { right } = getBounds();
+    const { right } = trimBounds();
     const next = Math.max(snap.current.start + 100, Math.min(right, snap.current.end + delta));
     onChangeTrim(snap.current.start, next);
   });
