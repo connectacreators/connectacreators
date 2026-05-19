@@ -611,18 +611,21 @@ function SavedVideoCard({
           className="absolute inset-0"
           style={{ background: gridGradientFor(video.channel_username) }}
         />
-        {!imgError && (video.thumbnail_url || video.video_url) ? (
-          <img
-            src={proxyImg(video.thumbnail_url, video.video_url) ?? undefined}
-            alt={video.caption?.slice(0, 60) ?? "video"}
-            className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Play className="w-8 h-8 text-white/60" />
-          </div>
-        )}
+        {(() => {
+          const src = proxyImg(video.thumbnail_url, video.video_url);
+          return !imgError && src ? (
+            <img
+              src={src}
+              alt={video.caption?.slice(0, 60) ?? "video"}
+              className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Play className="w-8 h-8 text-white/60" />
+            </div>
+          );
+        })()}
 
         {/* Platform badge — top left */}
         <div className="absolute top-2 left-2 z-10">

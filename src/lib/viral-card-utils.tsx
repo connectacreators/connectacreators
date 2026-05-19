@@ -56,14 +56,15 @@ export function proxyImg(url: string | null, _videoUrl?: string | null): string 
   if (!url) return null;
   // Self-hosted thumb-cache (or any path on our own domain) is always fine.
   if (url.includes("connectacreators.com")) return url;
-  // TikTok URLs whose embedded x-expires is in the past are definitively dead.
-  // Returning null lets the card render a gradient placeholder instead of a
-  // broken-image icon. Once refresh-stale-thumbnails backfills, these rows
-  // get a stable connectacreators.com/thumb-cache URL instead.
+  // Instagram + Facebook signed CDNs rotate within ~1h and reject hotlinks
+  // from third parties shortly after. Anything not already self-hosted is
+  // effectively dead — return null so the card renders its gradient
+  // placeholder instead of a broken-img icon. New scrapes go through
+  // /cache-thumbnail at insert time, so this only filters legacy rows.
+  if (EXPIRED_CDN_PATTERN.test(url)) return null;
+  // TikTok URLs are valid until their embedded x-expires passes.
   if (isExpiredTikTokUrl(url)) return null;
-  // For everything else (IG/FB signed CDN — fresh or aging — YouTube, direct
-  // images): hand the raw URL to the browser. Fresh ones load; old ones show
-  // a broken-img icon, but that pool shrinks as the backfill cron runs.
+  // YouTube img.youtube.com, fresh TikTok signed URLs, direct images — pass.
   return url;
 }
 
