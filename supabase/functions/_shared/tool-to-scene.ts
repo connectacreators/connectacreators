@@ -29,6 +29,7 @@ const TOOL_HINTS: Record<string, SceneHint> = {
   get_client_strategy:   { scene: "scanning", verb: "Reading your strategy",           meta: "client_strategies" },
   list_client_scripts:   { scene: "scanning", verb: "Pulling up the scripts",          meta: "scripts · list" },
   find_viral_videos:     { scene: "scanning", verb: "Searching Viral Today",           meta: "viral_videos · query" },
+  analyze_my_profile:    { scene: "video-analysis", verb: "Analyzing your profile",      meta: "fetch-profile-top-posts · top 10" },
   get_hooks:             { scene: "scanning", verb: "Gathering hook templates",        meta: "viral_hooks" },
   get_editing_queue:     { scene: "scanning", verb: "Checking the editing queue",      meta: "editing_queue" },
   get_content_calendar:  { scene: "stats",    verb: "Pulling the content calendar",    meta: "scheduled_posts" },
