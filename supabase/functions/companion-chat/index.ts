@@ -424,6 +424,26 @@ const TOOLS = [
   // ...MEMORY_TOOLS,
 ];
 
+// ── Anthropic prompt caching helpers ──────────────────────────────────────
+// Wrap the system prompt + tools array with cache_control breakpoints so
+// repeated calls within Anthropic's 5-min TTL only pay ~10% of the input
+// token cost for these blocks. Saves significant cost on multi-turn
+// conversations and forced-retry loops.
+function buildCachedSystem(prompt: string): unknown[] {
+  return [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }];
+}
+
+function buildCachedTools<T extends Record<string, unknown>>(tools: T[]): T[] {
+  if (tools.length === 0) return tools;
+  // Mark cache breakpoint on the LAST tool — Anthropic caches the entire
+  // tools array up to and including this point.
+  const last = tools[tools.length - 1];
+  return [
+    ...tools.slice(0, -1),
+    { ...last, cache_control: { type: "ephemeral" } } as T,
+  ];
+}
+
 /**
  * Append the user + assistant messages to the already-resolved assistant_thread.
  * Failures are logged but don't block the response.
@@ -1231,8 +1251,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         body: JSON.stringify({
           model: chosenModel,
           max_tokens: 4096,
-          system: finalSystemPrompt,
-          tools: effectiveTools,
+          system: buildCachedSystem(finalSystemPrompt),
+          tools: buildCachedTools(effectiveTools),
           // Force a tool call when:
           // (a) round 0 + Auto mode or mechanical prompt — prevents the
           //     initial "Let me pull up…" stall on bulk requests.
@@ -1246,6 +1266,10 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         }),
       });
       const result = await apiRes.json();
+      const usage = result?.usage as { cache_creation_input_tokens?: number; cache_read_input_tokens?: number; input_tokens?: number; output_tokens?: number } | undefined;
+      if (usage) {
+        console.log(`[companion-chat][cache] round=${round} create=${usage.cache_creation_input_tokens ?? 0} read=${usage.cache_read_input_tokens ?? 0} input=${usage.input_tokens ?? 0} output=${usage.output_tokens ?? 0}`);
+      }
       if (!apiRes.ok) {
         console.error("[companion-chat] Claude API error:", result?.error || result);
         const errMsg = `Anthropic returned an error (${apiRes.status}). Try again in a moment.`;
@@ -2225,8 +2249,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           body: JSON.stringify({
             model: "claude-sonnet-4-6",
             max_tokens: 1024,
-            system: finalSystemPrompt,
-            tools: effectiveTools,
+            system: buildCachedSystem(finalSystemPrompt),
+            tools: buildCachedTools(effectiveTools),
             tool_choice: { type: "none" },
             messages,
           }),
@@ -2264,8 +2288,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             body: JSON.stringify({
               model: "claude-sonnet-4-6",
               max_tokens: 1024,
-              system: finalSystemPrompt,
-              tools: effectiveTools,
+              system: buildCachedSystem(finalSystemPrompt),
+              tools: buildCachedTools(effectiveTools),
               tool_choice: { type: "tool", name: "propose_plan" },
               messages,
             }),
@@ -2324,8 +2348,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             body: JSON.stringify({
               model: "claude-sonnet-4-6",
               max_tokens: 1024,
-              system: finalSystemPrompt,
-              tools: effectiveTools,
+              system: buildCachedSystem(finalSystemPrompt),
+              tools: buildCachedTools(effectiveTools),
               tool_choice: { type: "tool", name: "confirm_plan" },
               messages: [
                 ...messages,
@@ -2381,8 +2405,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           body: JSON.stringify({
             model: "claude-sonnet-4-6",
             max_tokens: 1024,
-            system: finalSystemPrompt,
-            tools: effectiveTools,
+            system: buildCachedSystem(finalSystemPrompt),
+            tools: buildCachedTools(effectiveTools),
             tool_choice: { type: "tool", name: "find_viral_videos" },
             messages,
           }),
@@ -2454,8 +2478,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 body: JSON.stringify({
                   model: "claude-sonnet-4-6",
                   max_tokens: 1024,
-                  system: finalSystemPrompt,
-                  tools: effectiveTools,
+                  system: buildCachedSystem(finalSystemPrompt),
+                  tools: buildCachedTools(effectiveTools),
                   tool_choice: { type: "none" },
                   messages: followupMessages,
                 }),
