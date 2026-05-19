@@ -43,22 +43,20 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
   const left = videoBox.left + (active.position.x_pct / 100) * videoBox.width;
   const top = videoBox.top + (active.position.y_pct / 100) * videoBox.height;
 
-  // Drag math: track the offset from the pointer to the caption's CENTER on
-  // screen at the moment of pointer-down. On every move, keep that offset
-  // constant — the caption follows the pointer without snapping. Mixing
-  // screen-coords and container-relative coords was the previous bug: the
-  // caption appeared to jump up before the user could drag it.
+  // Drag math: track the offset from the pointer to the caption's
+  // BOTTOM-CENTER on screen at pointer-down. (left, top) now positions the
+  // caption's bottom-center, so we lock that anchor to the pointer.
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!onMoveCaption) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
     if (!containerRect) return;
-    const captionCenterScreenX = containerRect.left + left;
-    const captionCenterScreenY = containerRect.top + top;
+    const anchorScreenX = containerRect.left + left;
+    const anchorScreenY = containerRect.top + top;
     dragRef.current = {
       captionId: active.id,
-      offsetX: e.clientX - captionCenterScreenX,
-      offsetY: e.clientY - captionCenterScreenY,
+      offsetX: e.clientX - anchorScreenX,
+      offsetY: e.clientY - anchorScreenY,
     };
     setDragOffset({ x: 0, y: 0 });
   };
@@ -66,13 +64,10 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
     if (!dragRef.current || !onMoveCaption) return;
     const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
     if (!containerRect) return;
-    // Desired caption center, in screen coords, that keeps the same offset
-    // to the pointer as on pointer-down.
-    const desiredCenterScreenX = e.clientX - dragRef.current.offsetX;
-    const desiredCenterScreenY = e.clientY - dragRef.current.offsetY;
-    // Convert to container-relative → picture-box-relative → percentage.
-    const desiredContainerX = desiredCenterScreenX - containerRect.left;
-    const desiredContainerY = desiredCenterScreenY - containerRect.top;
+    const desiredAnchorScreenX = e.clientX - dragRef.current.offsetX;
+    const desiredAnchorScreenY = e.clientY - dragRef.current.offsetY;
+    const desiredContainerX = desiredAnchorScreenX - containerRect.left;
+    const desiredContainerY = desiredAnchorScreenY - containerRect.top;
     const pctX = ((desiredContainerX - videoBox.left) / videoBox.width) * 100;
     const pctY = ((desiredContainerY - videoBox.top) / videoBox.height) * 100;
     const clampedX = Math.max(5, Math.min(95, pctX));
@@ -91,7 +86,11 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
       style={{
         left,
         top,
-        transform: "translate(-50%, -50%)",
+        // BOTTOM-anchored: y_pct is "where the bottom of the caption sits".
+        // This matches how social-media captions are positioned (Btm = bottom
+        // of text near 80% mark) and matches the worker's ASS alignment=2
+        // (bottom-center) interpretation of \pos(x,y).
+        transform: "translate(-50%, -100%)",
         // Effective text width — kept slightly wider than the previous 0.9
         // so wrapping behaviour matches the worker's ASS, which has tiny
         // MarginL/MarginR (~97% of frame usable).
