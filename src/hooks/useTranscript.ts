@@ -7,6 +7,38 @@ import { supabase } from "@/integrations/supabase/client";
 export type TranscriptWord = { text: string; start_ms: number; end_ms: number };
 export type SilenceSegment = { id: string; start_ms: number; end_ms: number };
 
+// Pause length below which we don't consider it a silence. Matches the
+// worker's default SILENCE_MIN_MS so the two sources stay aligned.
+const MIN_GAP_MS = 400;
+
+function deriveSilencesFromWordGaps(words: TranscriptWord[]): SilenceSegment[] {
+  if (words.length === 0) return [];
+  const sorted = [...words].sort((a, b) => a.start_ms - b.start_ms);
+  const out: SilenceSegment[] = [];
+  // Leading silence — before the first spoken word.
+  if (sorted[0].start_ms >= MIN_GAP_MS) {
+    out.push({
+      id: crypto.randomUUID(),
+      start_ms: 0,
+      end_ms: sorted[0].start_ms,
+    });
+  }
+  // Gaps between consecutive words.
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    const gap = cur.start_ms - prev.end_ms;
+    if (gap >= MIN_GAP_MS) {
+      out.push({
+        id: crypto.randomUUID(),
+        start_ms: prev.end_ms,
+        end_ms: cur.start_ms,
+      });
+    }
+  }
+  return out;
+}
+
 type JobStatus = "queued" | "running" | "done" | "error";
 
 type State =
@@ -46,10 +78,19 @@ export function useTranscript(videoEditId: string | undefined) {
     ]);
 
     if (transcript.data) {
+      const words = (transcript.data as { words: TranscriptWord[] }).words ?? [];
+      const dbSilences = (silences.data as SilenceSegment[] | null) ?? [];
+      // Fallback: if the worker's ffmpeg silencedetect produced nothing
+      // (very common for talking-head footage where room tone exceeds the
+      // -30dB threshold), derive silences from Whisper word gaps. Whisper
+      // word timestamps reflect when someone stopped speaking regardless
+      // of background audio level.
+      const effectiveSilences =
+        dbSilences.length > 0 ? dbSilences : deriveSilencesFromWordGaps(words);
       setState({
         phase: "ready",
-        words: (transcript.data as { words: TranscriptWord[] }).words ?? [],
-        silences: (silences.data as SilenceSegment[] | null) ?? [],
+        words,
+        silences: effectiveSilences,
       });
       return;
     }
