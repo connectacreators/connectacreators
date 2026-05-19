@@ -210,9 +210,11 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
       )}
 
       {/* Active text overlays — center-anchored at their (x_pct, y_pct).
-          Multiple can show at once. */}
+          Multiple can show at once. Fall back to the TikTok preset for
+          any legacy preset names left over from earlier schema versions
+          (older EDLs may reference title_card / lower_third / etc). */}
       {activeOverlays.map((ov) => {
-        const ovSpec = TEXT_OVERLAY_PRESETS[ov.preset];
+        const ovSpec = TEXT_OVERLAY_PRESETS[ov.preset] ?? TEXT_OVERLAY_PRESETS.tiktok;
         const text = ovSpec.uppercase ? ov.text.toUpperCase() : ov.text;
         return (
           <div

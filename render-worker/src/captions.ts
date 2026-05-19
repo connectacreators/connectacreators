@@ -343,13 +343,16 @@ export function buildAssFile(
     const endOut = sourceMsToOutputMs(ov.end_ms, clips);
     if (startOut === null || endOut === null || endOut <= startOut) continue;
 
-    const ovSpec = OVERLAY_STYLES[ov.preset];
+    // Fall back to the TikTok preset for legacy preset names left over
+    // from earlier schema versions (old EDLs may reference title_card etc).
+    const ovSpec = OVERLAY_STYLES[ov.preset] ?? OVERLAY_STYLES.tiktok;
+    const effectivePresetName = (OVERLAY_STYLES[ov.preset] ? ov.preset : "tiktok") as TextOverlayPreset;
     const sizeMult = ov.size ?? 1;
     const scaledFs = Math.max(8, Math.round(ovSpec.fontSize * sizeMult));
     const x = Math.round((ov.position.x_pct / 100) * PLAYRES_W);
     const y = Math.round((ov.position.y_pct / 100) * PLAYRES_H);
     const text = ovSpec.uppercase ? ov.text.toUpperCase() : ov.text;
-    const styleName = `overlay_${ov.preset}`;
+    const styleName = `overlay_${effectivePresetName}`;
     const line = `Dialogue: 1,${msToAssTime(startOut)},${msToAssTime(endOut)},${styleName},,0,0,0,,{\\pos(${x},${y})\\fs${scaledFs}}${escapeAss(text)}`;
     lines.push(line);
   }
