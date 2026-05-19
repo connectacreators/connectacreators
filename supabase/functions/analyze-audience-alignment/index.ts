@@ -44,9 +44,22 @@ function parseUsername(raw: string): string {
 }
 
 // VPS expects POST with JSON body { platform, username, limit }
-async function scrapeProfile(handle: string, limit: number): Promise<{ caption: string; views: number; likes: number }[]> {
+interface ScrapedPost {
+  id: string;
+  caption: string;
+  views: number;
+  likes: number;
+  thumbnail: string | null;
+}
+interface ScrapeResult {
+  posts: ScrapedPost[];
+  profilePicUrl: string | null;
+  followers: number | null;
+}
+async function scrapeProfile(handle: string, limit: number): Promise<ScrapeResult> {
+  const empty: ScrapeResult = { posts: [], profilePicUrl: null, followers: null };
   const username = parseUsername(handle);
-  if (!username) return [];
+  if (!username) return empty;
 
   let res: Response;
   try {
@@ -60,18 +73,20 @@ async function scrapeProfile(handle: string, limit: number): Promise<{ caption: 
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    return [];
+    return empty;
   }
-  if (!res.ok) return [];
+  if (!res.ok) return empty;
 
   const data = await res.json().catch(() => null);
-  if (!data?.posts) return { posts: [], profilePicUrl: null, followers: null };
+  if (!data?.posts) return empty;
 
   return {
-    posts: (data.posts as any[]).slice(0, limit).map((p) => ({
+    posts: (data.posts as any[]).slice(0, limit).map((p, i) => ({
+      id: String(p.id || `post-${i}`),
       caption: String(p.title || p.caption || "").slice(0, 300),
       views: Number(p.views) || 0,
       likes: Number(p.likes) || 0,
+      thumbnail: p.thumbnail || null,
     })),
     profilePicUrl: data.profilePicUrl || null,
     followers: data.followers ? Number(data.followers) : null,
@@ -282,6 +297,30 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
     const extended: ExtendedAnalysisPayload | null = extended_dimensions
       ? parseExtendedAnalysis(analysis as unknown)
       : null;
+
+    // Override Claude's top_posts + outlier_band with real scrape data. Claude
+    // doesn't see post IDs or thumbnail URLs in the prompt (we only feed it
+    // captions+views+likes), so its top_posts entries would have null
+    // thumbnails. Replace with the actual top-3-by-views from scrape data.
+    if (extended && clientResult.posts.length > 0) {
+      const sorted = clientResult.posts.slice().sort((a, b) => b.views - a.views);
+      const viewsList = clientResult.posts.map((p) => p.views).sort((a, b) => a - b);
+      const median = viewsList.length > 0
+        ? viewsList[Math.floor(viewsList.length / 2)] || 1
+        : 1;
+      extended.top_posts = sorted.slice(0, 3).map((p) => ({
+        id: p.id,
+        thumbnail: p.thumbnail,
+        views: p.views,
+        outlier_ratio: median > 0 ? Number((p.views / median).toFixed(1)) : 0,
+        hook: p.caption.slice(0, 100),
+      }));
+      extended.outlier_band = {
+        median,
+        top: sorted[0]?.views ?? 0,
+        top_post_id: sorted[0]?.id ?? null,
+      };
+    }
 
     const analysisPayload = {
       audience_score: audienceScore,

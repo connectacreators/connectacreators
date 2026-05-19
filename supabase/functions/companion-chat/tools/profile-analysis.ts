@@ -116,14 +116,29 @@ export async function runAnalyzeMyProfile(args: {
   const body = await res.json() as { success?: boolean; analysis?: Record<string, unknown> };
   const analysis = body.analysis ?? {};
 
-  // Two-line summary the model uses to compose its prose framing.
+  const onboardingCompetitors = Array.isArray(onboarding.top3Profiles)
+    ? (onboarding.top3Profiles as unknown[]).filter((s): s is string => typeof s === "string" && s.length > 0)
+    : typeof onboarding.top3Profiles === "string" && onboarding.top3Profiles.length > 0
+      ? String(onboarding.top3Profiles).split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)
+      : [];
+
   const summaryLines = [
     `Analyzed @${resolution.handle}. audience=${analysis.audience_score}/10, uniqueness=${analysis.uniqueness_score}/10.`,
     typeof analysis.summary === "string" ? analysis.summary : "",
   ].filter(Boolean).join(" ");
 
+  // Explicit next-action instructions baked into the tool result so Haiku
+  // doesn't terminate the turn after one tool call. Rule 21 alone wasn't
+  // landing — the model was emitting the embed and stopping.
+  const isFirstPass = input.include_competitors !== true;
+  const nextActions = isFirstPass && onboardingCompetitors.length > 0
+    ? ` NEXT, YOU MUST DO BOTH OF THESE IN THIS TURN: (1) write a 2-3 sentence prose reply summarizing what stands out (the card already shows the data, so don't list it again — give your interpretation). (2) AFTER your prose, CALL propose_plan with summary "Compare against ${onboardingCompetitors.length} competitor${onboardingCompetitors.length === 1 ? "" : "s"} from onboarding (~2 min)" and one step per competitor: ${onboardingCompetitors.map((h) => `"Pull @${h.replace(/^@/, "")}"`).join(", ")}. Do not skip step 2.`
+    : isFirstPass
+      ? ` NEXT: write a 2-3 sentence prose reply summarizing what stands out (don't list the numbers — the card shows them). Mention that there are no competitors in onboarding, so a comparative analysis isn't available — they can add up to 3 competitor handles in onboarding to unlock that.`
+      : ` NEXT: write a 2-3 sentence prose reply summarizing the comparison findings — what's the most important strategic takeaway from comparing against the competitors.`;
+
   return {
-    tool_result_text: summaryLines + " A ProfileAnalysisEmbed card has been rendered for the user — your prose reply should be 2-3 sentences framing the result, not a full breakdown.",
+    tool_result_text: summaryLines + " A ProfileAnalysisEmbed card has been rendered for the user." + nextActions,
     embed_payload: { ...analysis, handle: resolution.handle, platform: "instagram" },
   };
 }
