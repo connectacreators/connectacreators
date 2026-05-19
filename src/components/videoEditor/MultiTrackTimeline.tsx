@@ -469,11 +469,14 @@ function VideoClipBlock({
       onMouseDown={(e) => { e.stopPropagation(); captureSnap(); onSelect(); onBodyDown(e); }}
       onClick={(e) => { e.stopPropagation(); onSeek(startMs); }}
       onContextMenu={onContextMenu}
-      className={`absolute top-0 bottom-0 bg-blue-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} cursor-grab active:cursor-grabbing`}
+      className={`absolute top-0 bottom-0 bg-blue-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} cursor-grab active:cursor-grabbing box-border`}
       style={{
         left: toPct(startMs, totalSourceMs),
         width: toPct(endMs - startMs, totalSourceMs),
-        minWidth: 60,
+        // No minWidth — small clips render at their true width so adjacent
+        // segments after Remove-all-silences don't visually overlap each
+        // other. If a clip is too narrow to click, zoom (Cmd+scroll).
+        minWidth: 2,
       }}
       title={`Video clip · ${((endMs - startMs) / 1000).toFixed(1)}s · drag to move, S to split`}
     >

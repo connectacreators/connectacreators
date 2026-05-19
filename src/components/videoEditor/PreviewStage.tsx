@@ -1,5 +1,5 @@
 // src/components/videoEditor/PreviewStage.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EDL } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
 import { CaptionOverlay, useVideoPictureBox } from "./CaptionOverlay";
@@ -19,28 +19,40 @@ type Props = {
   onEditOverlayText?: (overlayId: string, newText: string) => void;
 };
 
-// Map EDL playhead (output time) -> source time (input time) by walking clips.
-function edlTimeToSourceTime(edl: EDL, edlMs: number): { sourceMs: number; clipIndex: number } | null {
+// Find which clip the EDL output time `edlMs` is inside, and how far in.
+function locateClip(edl: EDL, edlMs: number): { clipIdx: number; sourceMs: number } | null {
   let acc = 0;
   for (let i = 0; i < edl.clips.length; i++) {
     const c = edl.clips[i];
     const len = Math.max(0, c.source_end_ms - c.source_start_ms);
     if (edlMs <= acc + len) {
-      return { sourceMs: c.source_start_ms + (edlMs - acc), clipIndex: i };
+      return { clipIdx: i, sourceMs: c.source_start_ms + (edlMs - acc) };
     }
     acc += len;
   }
-  return null;
+  const last = edl.clips[edl.clips.length - 1];
+  return last ? { clipIdx: edl.clips.length - 1, sourceMs: last.source_end_ms } : null;
 }
 
 export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay, onEditOverlayText }: Props) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Two-layer playback. Two <video> elements alternate as "active" (visible
+  // and playing) and "standby" (hidden and pre-seeked to the next clip's
+  // start). At a clip boundary we just pause active and play standby, then
+  // flip CSS visibility — the cut is instant, with no seek latency, no
+  // frozen frame, and no audio bleed across the silent range. This is the
+  // standard pattern for seamless multi-clip playback in the browser; the
+  // single-element seek-on-boundary approach we used before is too slow
+  // because browser seeks to non-keyframe positions can take 100–300ms.
+  const videoARef = useRef<HTMLVideoElement | null>(null);
+  const videoBRef = useRef<HTMLVideoElement | null>(null);
+  const [activeLayer, setActiveLayer] = useState<"A" | "B">("A");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const videoBox = useVideoPictureBox(videoRef);
+  // Picture box for caption / b-roll overlays. Both videos share the same
+  // source so their bounding rects match — measuring A is enough.
+  const videoBox = useVideoPictureBox(videoARef);
   const [musicUrl, setMusicUrl] = useState<string | null>(null);
 
-  // Sign the music track on demand so the preview can play it. Re-signs
-  // when the storage_path changes.
+  // Sign the music track on demand so the preview can play it.
   const musicStoragePath = edl.music?.storage_path ?? null;
   useEffect(() => {
     if (!musicStoragePath) {
@@ -58,10 +70,9 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     return () => { cancelled = true; };
   }, [musicStoragePath]);
 
-  // Sync music play/pause + currentTime with the video. The audio plays
-  // continuously from music_start_ms during preview — this matches the
-  // worker's amix behaviour where music is one continuous track underneath
-  // the source audio regardless of clip cuts.
+  // Music audio stays continuous — the worker's amix mixes it under both
+  // clips, so the preview matches by never seeking the music in step with
+  // the source-video swaps.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -70,7 +81,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     a.volume = Math.max(0, Math.min(1, music.volume ?? 0.3));
     const desired = (music.music_start_ms ?? 0) / 1000 + playheadMs / 1000;
     if (Math.abs(a.currentTime - desired) > 0.15) {
-      try { a.currentTime = desired; } catch { /* ignore seek-while-loading */ }
+      try { a.currentTime = desired; } catch { /* ignore */ }
     }
     if (playing) {
       void a.play().catch(() => {});
@@ -79,158 +90,163 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     }
   }, [playing, playheadMs, edl.music]);
 
-  // Sync video element's currentTime with edl playhead.
+  // Derive the current clip / source offset from the controlled playhead.
+  const playheadInfo = useMemo(() => locateClip(edl, playheadMs), [edl, playheadMs]);
+  const currentClipIdx = playheadInfo?.clipIdx ?? 0;
+  const currentSourceMs = playheadInfo?.sourceMs ?? 0;
+
+  // Sync the active <video>'s currentTime with the playhead. Skip tiny
+  // diffs to avoid re-triggering seeks on every RAF tick.
   useEffect(() => {
-    const v = videoRef.current;
+    const v = activeLayer === "A" ? videoARef.current : videoBRef.current;
     if (!v) return;
-    const mapped = edlTimeToSourceTime(edl, playheadMs);
-    if (!mapped) return;
-    const sourceSec = mapped.sourceMs / 1000;
-    if (Math.abs(v.currentTime - sourceSec) > 0.05) {
-      v.currentTime = sourceSec;
+    const desiredSec = currentSourceMs / 1000;
+    if (Math.abs(v.currentTime - desiredSec) > 0.1) {
+      try { v.currentTime = desiredSec; } catch { /* before metadata */ }
     }
-  }, [playheadMs, edl]);
+  }, [activeLayer, currentSourceMs]);
 
-  // Drive play/pause.
+  // Pre-seek the standby <video> to the NEXT clip's start so the swap at
+  // clip-end is instant. If there's no next clip the standby sits paused at
+  // 0 — it'll just not get used.
   useEffect(() => {
-    const v = videoRef.current;
+    const v = activeLayer === "A" ? videoBRef.current : videoARef.current;
     if (!v) return;
-    if (playing) void v.play();
-    else v.pause();
-  }, [playing]);
+    const next = edl.clips[currentClipIdx + 1];
+    const targetSec = next ? next.source_start_ms / 1000 : 0;
+    if (Math.abs(v.currentTime - targetSec) > 0.1) {
+      try { v.currentTime = targetSec; } catch { /* before metadata */ }
+    }
+    if (!v.paused) v.pause();
+  }, [activeLayer, currentClipIdx, edl.clips]);
 
-  // Drive playhead emission + seamless transitions across removed clip gaps.
+  // Drive play/pause. Only the active element plays; standby always paused.
+  useEffect(() => {
+    const active = activeLayer === "A" ? videoARef.current : videoBRef.current;
+    const standby = activeLayer === "A" ? videoBRef.current : videoARef.current;
+    if (!active) return;
+    if (standby && !standby.paused) standby.pause();
+    if (playing) {
+      void active.play().catch(() => {});
+    } else {
+      active.pause();
+    }
+  }, [playing, activeLayer]);
+
+  // Schedule the layer swap at the current clip's source_end_ms. Fires
+  // exactly when active's currentTime reaches the clip end — at that
+  // instant we pause active, play standby (already pre-seeked), and flip
+  // activeLayer. The visible frame transitions in one paint cycle.
   //
-  // Two cooperating mechanisms:
-  //   1. A pre-scheduled setTimeout that fires ~10ms before the current clip
-  //      ends and seeks the video to the next clip's start. This is what makes
-  //      Remove-all-silences playback feel seamless — the seek begins WHILE
-  //      we're still inside the current clip, so the browser lands on the
-  //      next clip's first frame with no audible bleed through the silent gap.
-  //   2. A RAF loop that emits playhead in EDL time and acts as a safety net
-  //      if the timer drifts (background-tab throttling, slow seeks). Without
-  //      this we'd also fail when sourceMs lands BETWEEN clips after a manual
-  //      scrub — playback would freeze in the first silence.
+  // We also reschedule on the active video's 'seeked' event so that user
+  // scrubs *within* the current clip (which don't change currentClipIdx)
+  // still produce an accurate end-of-clip timer.
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    if (!playing) return;
+    const active = activeLayer === "A" ? videoARef.current : videoBRef.current;
+    const standby = activeLayer === "A" ? videoBRef.current : videoARef.current;
+    if (!active || !standby) return;
+    const c = edl.clips[currentClipIdx];
+    const next = edl.clips[currentClipIdx + 1];
+    if (!c) return;
 
-    let raf = 0;
-    let seekTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const cancelTimer = () => {
-      if (seekTimer !== null) {
-        clearTimeout(seekTimer);
-        seekTimer = null;
-      }
-    };
-
-    // Schedule a precise seek at the current clip's end so playback never
-    // crosses into a removed range. Reschedules itself via the 'seeked' event
-    // after each hop.
-    const scheduleClipEnd = () => {
-      cancelTimer();
-      if (v.paused) return;
-      const sourceMs = v.currentTime * 1000;
-      const idx = edl.clips.findIndex(
-        (c) => sourceMs >= c.source_start_ms - 1 && sourceMs <= c.source_end_ms,
-      );
-      if (idx < 0) return;
-      const c = edl.clips[idx];
-      const next = edl.clips[idx + 1];
-      const rate = v.playbackRate || 1;
-      // Fire 10ms early to give the browser headroom to start the seek before
-      // we'd otherwise enter the silent gap. The RAF safety check below
-      // catches anything that still slips past.
-      const wallMsUntilEnd = Math.max(0, (c.source_end_ms - sourceMs - 10) / rate);
-      seekTimer = setTimeout(() => {
-        seekTimer = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer !== null) clearTimeout(timer);
+      const sourceMs = active.currentTime * 1000;
+      const msUntilEnd = c.source_end_ms - sourceMs;
+      const rate = active.playbackRate || 1;
+      const wallMs = Math.max(0, msUntilEnd / rate);
+      timer = setTimeout(() => {
+        timer = null;
         if (!next) {
-          v.pause();
+          active.pause();
           onEnded();
           return;
         }
-        v.currentTime = next.source_start_ms / 1000;
-        // 'seeked' will trigger scheduleClipEnd for the new clip.
-      }, wallMsUntilEnd);
+        // Defensive: make sure standby is exactly at next.source_start_ms
+        // before we hand off, in case pre-seek hadn't landed yet.
+        const targetSec = next.source_start_ms / 1000;
+        if (Math.abs(standby.currentTime - targetSec) > 0.05) {
+          try { standby.currentTime = targetSec; } catch { /* ignore */ }
+        }
+        active.pause();
+        void standby.play().catch(() => {});
+        setActiveLayer((l) => (l === "A" ? "B" : "A"));
+      }, wallMs);
     };
+    schedule();
+    active.addEventListener("seeked", schedule);
+    active.addEventListener("ratechange", schedule);
+    return () => {
+      if (timer !== null) clearTimeout(timer);
+      active.removeEventListener("seeked", schedule);
+      active.removeEventListener("ratechange", schedule);
+    };
+  }, [activeLayer, currentClipIdx, edl.clips, playing, onEnded]);
 
+  // RAF: emit EDL playhead based on the active video's currentTime. We do
+  // this every frame instead of relying solely on setTimeout so scrubs,
+  // pauses, and rate changes all surface their position to the parent
+  // immediately. No gap-detection logic anymore — the timer above handles
+  // boundaries, so RAF only needs to translate active.currentTime → edlMs
+  // within the current clip.
+  useEffect(() => {
+    let raf = 0;
     const tick = () => {
-      if (!v.paused) {
-        const sourceMs = v.currentTime * 1000;
+      const active = activeLayer === "A" ? videoARef.current : videoBRef.current;
+      if (active && !active.paused) {
+        const sourceMs = active.currentTime * 1000;
         let edlMs = 0;
-        let insideClipIdx = -1;
-        for (let i = 0; i < edl.clips.length; i++) {
-          const c = edl.clips[i];
-          if (sourceMs >= c.source_start_ms && sourceMs <= c.source_end_ms) {
-            edlMs += sourceMs - c.source_start_ms;
-            insideClipIdx = i;
-            break;
-          }
-          if (c.source_end_ms < sourceMs) {
-            edlMs += Math.max(0, c.source_end_ms - c.source_start_ms);
-          }
+        for (let i = 0; i < currentClipIdx; i++) {
+          edlMs += Math.max(0, edl.clips[i].source_end_ms - edl.clips[i].source_start_ms);
         }
-        if (insideClipIdx >= 0) {
-          onPlayheadChange(edlMs);
-        } else {
-          const next = edl.clips.find((c) => c.source_start_ms > sourceMs);
-          if (next) {
-            v.currentTime = next.source_start_ms / 1000;
-          } else {
-            v.pause();
-            onEnded();
-          }
+        const c = edl.clips[currentClipIdx];
+        if (c && sourceMs >= c.source_start_ms && sourceMs <= c.source_end_ms) {
+          edlMs += sourceMs - c.source_start_ms;
         }
+        onPlayheadChange(edlMs);
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-
-    const onPlay = () => scheduleClipEnd();
-    const onSeeked = () => scheduleClipEnd();
-    const onRate = () => scheduleClipEnd();
-    const onPause = () => cancelTimer();
-
-    v.addEventListener("play", onPlay);
-    v.addEventListener("seeked", onSeeked);
-    v.addEventListener("ratechange", onRate);
-    v.addEventListener("pause", onPause);
-    if (!v.paused) scheduleClipEnd();
-
-    return () => {
-      cancelAnimationFrame(raf);
-      cancelTimer();
-      v.removeEventListener("play", onPlay);
-      v.removeEventListener("seeked", onSeeked);
-      v.removeEventListener("ratechange", onRate);
-      v.removeEventListener("pause", onPause);
-    };
-  }, [edl, onPlayheadChange, onEnded]);
-
-  // Caption overlay needs the source time, not EDL time.
-  const sourceMs = (() => {
-    const mapped = edlTimeToSourceTime(edl, playheadMs);
-    return mapped ? mapped.sourceMs : 0;
-  })();
+    return () => cancelAnimationFrame(raf);
+  }, [activeLayer, currentClipIdx, edl.clips, onPlayheadChange]);
 
   return (
     <div className="relative flex-1 flex items-center justify-center bg-black min-h-0">
+      {/* Two layered <video>s sharing the same source. Toggling CSS
+          visibility on swap gives an instant cut without re-seeking the
+          element that's about to play. */}
       <video
-        ref={videoRef}
+        ref={videoARef}
         src={sourceUrl}
-        className="max-h-full max-w-full"
+        className="absolute max-h-full max-w-full"
+        style={{
+          visibility: activeLayer === "A" ? "visible" : "hidden",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
         playsInline
         controls={false}
       />
-      {/* Hidden audio element for the EDL.music track. Synced manually via
-          effect above so it stays aligned with the video. */}
+      <video
+        ref={videoBRef}
+        src={sourceUrl}
+        className="absolute max-h-full max-w-full"
+        style={{
+          visibility: activeLayer === "B" ? "visible" : "hidden",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
+        playsInline
+        controls={false}
+      />
       {musicUrl && (
         <audio ref={audioRef} src={musicUrl} preload="auto" className="hidden" />
       )}
-      {/* B-roll renders ABOVE the main video element but BELOW captions /
-          text overlays so picture-in-picture or fullscreen cutaway visuals
-          don't get hidden behind text. */}
       <BRollPreview
         brolls={edl.b_roll ?? []}
         playheadMs={playheadMs}
@@ -240,7 +256,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
       <CaptionOverlay
         captions={edl.captions ?? []}
         overlays={edl.text_overlays ?? []}
-        sourceMs={sourceMs}
+        sourceMs={currentSourceMs}
         videoBox={videoBox}
         onMoveCaption={onMoveCaption}
         onResizeCaption={onResizeCaption}
