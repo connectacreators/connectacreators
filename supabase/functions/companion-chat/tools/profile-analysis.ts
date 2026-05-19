@@ -55,6 +55,12 @@ export interface AnalyzeMyProfileInput {
    *  from VPS. Set when the user explicitly asks to refresh, redo, or
    *  scrape again. */
   force_refresh?: boolean;
+  /** Set true when the @handle being analyzed is NOT the client's own
+   *  profile (e.g. user asked to analyze a competitor). Skips the
+   *  handle-mismatch ask and tells the edge function to mirror the
+   *  scrape into viral_channels + viral_videos WITHOUT overwriting
+   *  the client's audience_analysis. */
+  analyze_as_competitor?: boolean;
 }
 
 export interface AnalyzeMyProfileResult {
@@ -94,50 +100,62 @@ export async function runAnalyzeMyProfile(args: {
     };
   }
 
-  if (resolution.kind === "mismatch") {
+  // Mismatch check: if user explicitly said this is a competitor, skip
+  // the ask and proceed with the provided handle. Otherwise return the
+  // 3-option clarification.
+  if (resolution.kind === "mismatch" && !input.analyze_as_competitor) {
     return {
       tool_result_text: `handle_mismatch: provided @${resolution.provided}, onboarding has @${resolution.onboarding}. Ask the user: "That's not the IG handle on ${input.client_name}'s onboarding (@${resolution.onboarding}). Is @${resolution.provided} (a) a new account, (b) a typo, or (c) a competitor to analyze instead?" Do NOT call analyze_my_profile again until you have an answer.`,
       embed_payload: null,
     };
   }
+  // For competitor mode with mismatch, treat the PROVIDED handle as the
+  // target. Re-synthesize the resolution as a match on that handle.
+  const targetHandle = resolution.kind === "mismatch"
+    ? resolution.provided
+    : resolution.handle;
+  const asCompetitor = input.analyze_as_competitor === true;
 
-  // Cache check — if we ran this analysis recently for the same handle and
-  // the cached payload covers what was requested (including comparison if
-  // include_competitors=true), re-render from cache instead of re-scraping.
-  // Saves credits and turns a 30-60s VPS call into an instant response.
-  // Skipped when force_refresh=true (user explicitly asked for a fresh scrape).
+  // Cache check — only meaningful for the client's own profile. Competitor
+  // analyses live in viral_channels and don't get a per-client cache row.
+  // (Future: layer-2 cache by viral_channels.last_scraped_at for any handle.)
+  // Skipped when force_refresh=true.
   const wantsCompetitors = input.include_competitors === true;
   const forceRefresh = input.force_refresh === true;
-  const { data: existing } = forceRefresh ? { data: null } : await admin
-    .from("client_strategies")
-    .select("audience_analysis")
-    .eq("client_id", input.client_id)
-    .maybeSingle();
-  const cached = (existing?.audience_analysis ?? null) as Record<string, unknown> | null;
-  if (cached) {
-    const cachedAnalyzedAt = typeof cached.analyzed_at === "string" ? cached.analyzed_at : null;
-    const cachedHandle = typeof cached.handle === "string" ? cached.handle.toLowerCase() : null;
-    const ageMs = cachedAnalyzedAt ? Date.now() - new Date(cachedAnalyzedAt).getTime() : Infinity;
-    const isFresh = ageMs < CACHE_TTL_HOURS * 60 * 60 * 1000;
-    const handleMatches = cachedHandle === resolution.handle.toLowerCase();
-    const hasExtended = Array.isArray(cached.hook_patterns);
-    const coversComparison = !wantsCompetitors || cached.comparison != null;
-    if (isFresh && handleMatches && hasExtended && coversComparison) {
-      const ageHours = Math.max(1, Math.floor(ageMs / (60 * 60 * 1000)));
-      const cachedSummary = typeof cached.summary === "string" ? cached.summary : "";
-      return {
-        tool_result_text: `Using cached analysis (${ageHours}h old) for @${resolution.handle}. ${cachedSummary} A ProfileAnalysisEmbed card has been rendered from cache — no new scrape, no credit charge. NEXT: write a 2-3 sentence prose reply summarizing what stands out. If the user explicitly asked for a fresh re-analysis, tell them you used cached data and offer to force-refresh on their next message.`,
-        embed_payload: { ...cached, handle: resolution.handle, platform: "instagram" },
-        cached: true,
-      };
+  if (!asCompetitor && !forceRefresh) {
+    const { data: existing } = await admin
+      .from("client_strategies")
+      .select("audience_analysis")
+      .eq("client_id", input.client_id)
+      .maybeSingle();
+    const cached = (existing?.audience_analysis ?? null) as Record<string, unknown> | null;
+    if (cached) {
+      const cachedAnalyzedAt = typeof cached.analyzed_at === "string" ? cached.analyzed_at : null;
+      const cachedHandle = typeof cached.handle === "string" ? cached.handle.toLowerCase() : null;
+      const ageMs = cachedAnalyzedAt ? Date.now() - new Date(cachedAnalyzedAt).getTime() : Infinity;
+      const isFresh = ageMs < CACHE_TTL_HOURS * 60 * 60 * 1000;
+      const handleMatches = cachedHandle === targetHandle.toLowerCase();
+      const hasExtended = Array.isArray(cached.hook_patterns);
+      const coversComparison = !wantsCompetitors || cached.comparison != null;
+      if (isFresh && handleMatches && hasExtended && coversComparison) {
+        const ageHours = Math.max(1, Math.floor(ageMs / (60 * 60 * 1000)));
+        const cachedSummary = typeof cached.summary === "string" ? cached.summary : "";
+        return {
+          tool_result_text: `Using cached analysis (${ageHours}h old) for @${targetHandle}. ${cachedSummary} A ProfileAnalysisEmbed card has been rendered from cache — no new scrape, no credit charge. NEXT: write a 2-3 sentence prose reply summarizing what stands out. If the user explicitly asked for a fresh re-analysis, tell them you used cached data and offer to force-refresh on their next message.`,
+          embed_payload: { ...cached, handle: targetHandle, platform: "instagram" },
+          cached: true,
+        };
+      }
     }
   }
 
-  // resolution.kind === "match" — call the edge function
+  // resolution.kind === "match" (or competitor bypass) — call the edge function
   const payload = {
     client_id: input.client_id,
     extended_dimensions: true,
     include_competitors: wantsCompetitors,
+    target_handle: targetHandle,
+    is_competitor_view: asCompetitor,
   };
 
   const res = await fetch(`${supabaseUrl}/functions/v1/analyze-audience-alignment`, {
@@ -167,7 +185,7 @@ export async function runAnalyzeMyProfile(args: {
       : [];
 
   const summaryLines = [
-    `Analyzed @${resolution.handle}. audience=${analysis.audience_score}/10, uniqueness=${analysis.uniqueness_score}/10.`,
+    `Analyzed @${targetHandle}. audience=${analysis.audience_score}/10, uniqueness=${analysis.uniqueness_score}/10.`,
     typeof analysis.summary === "string" ? analysis.summary : "",
   ].filter(Boolean).join(" ");
 
@@ -175,14 +193,19 @@ export async function runAnalyzeMyProfile(args: {
   // doesn't terminate the turn after one tool call. Rule 21 alone wasn't
   // landing — the model was emitting the embed and stopping.
   const isFirstPass = input.include_competitors !== true;
-  const nextActions = isFirstPass && onboardingCompetitors.length > 0
-    ? ` NEXT, YOU MUST DO BOTH OF THESE IN THIS TURN: (1) write a 2-3 sentence prose reply summarizing what stands out (the card already shows the data, so don't list it again — give your interpretation). (2) AFTER your prose, CALL propose_plan with summary "Compare against ${onboardingCompetitors.length} competitor${onboardingCompetitors.length === 1 ? "" : "s"} from onboarding (~2 min)" and one step per competitor: ${onboardingCompetitors.map((h) => `"Pull @${h.replace(/^@/, "")}"`).join(", ")}. Do not skip step 2.`
-    : isFirstPass
-      ? ` NEXT: write a 2-3 sentence prose reply summarizing what stands out (don't list the numbers — the card shows them). Mention that there are no competitors in onboarding, so a comparative analysis isn't available — they can add up to 3 competitor handles in onboarding to unlock that.`
-      : ` NEXT: write a 2-3 sentence prose reply summarizing the comparison findings — what's the most important strategic takeaway from comparing against the competitors.`;
+  let nextActions: string;
+  if (asCompetitor) {
+    nextActions = ` NEXT: write a 2-3 sentence prose reply summarizing what stands out about @${targetHandle}'s strategy (what they're doing that's working). Then OFFER to add @${targetHandle} to ${input.client_name}'s onboarding emulation_profiles for future side-by-side comparisons — but do NOT add it automatically; wait for explicit user confirmation.`;
+  } else if (isFirstPass && onboardingCompetitors.length > 0) {
+    nextActions = ` NEXT, YOU MUST DO BOTH OF THESE IN THIS TURN: (1) write a 2-3 sentence prose reply summarizing what stands out (the card already shows the data, so don't list it again — give your interpretation). (2) AFTER your prose, CALL propose_plan with summary "Compare against ${onboardingCompetitors.length} competitor${onboardingCompetitors.length === 1 ? "" : "s"} from onboarding (~2 min)" and one step per competitor: ${onboardingCompetitors.map((h) => `"Pull @${h.replace(/^@/, "")}"`).join(", ")}. Do not skip step 2.`;
+  } else if (isFirstPass) {
+    nextActions = ` NEXT: write a 2-3 sentence prose reply summarizing what stands out (don't list the numbers — the card shows them). Mention that there are no competitors in onboarding, so a comparative analysis isn't available — they can add up to 3 competitor handles in onboarding to unlock that.`;
+  } else {
+    nextActions = ` NEXT: write a 2-3 sentence prose reply summarizing the comparison findings — what's the most important strategic takeaway from comparing against the competitors.`;
+  }
 
   return {
     tool_result_text: summaryLines + " A ProfileAnalysisEmbed card has been rendered for the user." + nextActions,
-    embed_payload: { ...analysis, handle: resolution.handle, platform: "instagram" },
+    embed_payload: { ...analysis, handle: targetHandle, platform: "instagram" },
   };
 }

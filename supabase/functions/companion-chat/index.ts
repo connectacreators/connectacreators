@@ -114,6 +114,7 @@ const TOOLS = [
         platform: { type: "string", enum: ["instagram"], description: "v1 = instagram only" },
         include_competitors: { type: "boolean", description: "When true, also pulls the client's emulation_profiles and produces a `comparison` section. Default false. ONLY set true after the user has approved a propose_plan card for the comparison." },
         force_refresh: { type: "boolean", description: "When true, skip caches and re-scrape from VPS. Set ONLY when the user explicitly asks to refresh, redo, scrape again, or use the latest data. Default false." },
+        analyze_as_competitor: { type: "boolean", description: "Set true when the @handle being analyzed is NOT the user's/client's own profile (e.g. user said 'analyze my competitor @X' or chose option (c) from the handle-mismatch question). Skips the mismatch check, scrapes the provided handle as a standalone competitor analysis, and does NOT overwrite the client's audience_analysis. Default false." },
       },
       required: ["platform"],
     },
@@ -1092,6 +1093,9 @@ If you find yourself wanting to type any of these, call the tool FIRST, then you
   a. When the user asks to analyze a profile, audit an account, or get IG strategy: CALL analyze_my_profile. Always. Even if you already have audience_score/uniqueness_score from a previous turn — the embed CARD is what the user wants to see, and only analyze_my_profile renders it.
   b. Pass the @handle from the user's message as the handle argument. Pass platform: "instagram". Do NOT include_competitors on the first call.
   c. If the tool result contains the literal string handle_mismatch: that means onboarding has a different non-empty handle. ONLY in that case, ask the user EXACTLY: "That doesn't match the IG handle on {client}'s onboarding (@{onboarding_handle}). Is @{user_handle} (a) a new account, (b) a typo, or (c) a competitor to analyze instead?" — those three options and nothing else. Never invent your own options like "create client" or "skip the analysis."
+    - On answer (a) new account: call analyze_my_profile again with handle=user_handle (no special flags). The tool will analyze it.
+    - On answer (b) typo: ask the user for the correct handle. Do NOT call the tool until you have one.
+    - On answer (c) competitor: call analyze_my_profile again with handle=user_handle AND analyze_as_competitor=true. The tool will scrape that handle as a standalone competitor analysis without overwriting your client's record. After the card renders, OFFER to add the competitor to onboarding for future comparisons.
   d. After the tool fires successfully and the embed renders, follow the NEXT instructions inside the tool_result_text — they tell you exactly what prose to write and whether to call propose_plan.
   e. On user approval of the propose_plan card (confirm_plan), call analyze_my_profile AGAIN with include_competitors=true.
   f. NEVER call analyze_my_profile with platform other than "instagram" in v1 — if the user asks about TikTok/YouTube, explain we'll support those soon and offer to analyze IG instead.
@@ -1560,6 +1564,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             platform: "instagram";
             include_competitors?: boolean;
             force_refresh?: boolean;
+            analyze_as_competitor?: boolean;
           };
 
           // Resolution order: explicit client_name → URL-locked client →
@@ -1597,6 +1602,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 platform: input.platform,
                 include_competitors: input.include_competitors === true,
                 force_refresh: input.force_refresh === true,
+                analyze_as_competitor: input.analyze_as_competitor === true,
               },
               onboarding: (fullClient?.onboarding_data as Record<string, unknown>) || {},
             });

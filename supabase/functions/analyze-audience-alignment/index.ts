@@ -114,11 +114,15 @@ serve(async (req) => {
       language,
       extended_dimensions = false,
       include_competitors = true,
+      target_handle,
+      is_competitor_view = false,
     } = await req.json() as {
       client_id: string;
       language?: string;
       extended_dimensions?: boolean;
       include_competitors?: boolean;
+      target_handle?: string;
+      is_competitor_view?: boolean;
     };
     if (!client_id) {
       return new Response(JSON.stringify({ error: "client_id required" }), { status: 400, headers: corsHeaders });
@@ -150,12 +154,25 @@ serve(async (req) => {
     }
 
     const od = client.onboarding_data || {};
-    const instagramHandle = String(od.instagram || "").trim();
+    const onboardingHandle = String(od.instagram || "").trim();
     const emulationProfiles = parseProfiles(od.top3Profiles);
 
+    // Use the explicit target_handle if provided; otherwise fall back to the
+    // client's own onboarded handle. This is what lets analyze_my_profile
+    // run on a competitor's profile without overwriting the client record.
+    const instagramHandle = (target_handle && target_handle.trim()) || onboardingHandle;
+
     if (!instagramHandle) {
-      return new Response(JSON.stringify({ error: "No Instagram handle in onboarding data" }), { status: 400, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "No Instagram handle provided and onboarding has none" }), { status: 400, headers: corsHeaders });
     }
+
+    // Competitor view = the scrape target isn't the client's own profile.
+    // Detected either explicitly (is_competitor_view from the tool) or by
+    // mismatch between the scrape target and onboarding.
+    const isCompetitor = is_competitor_view || (
+      onboardingHandle.length > 0 &&
+      instagramHandle.toLowerCase() !== onboardingHandle.toLowerCase()
+    );
 
     const competitorsRequested = include_competitors && emulationProfiles.length > 0;
     const [clientResult, ...emulationResults] = await Promise.all([
@@ -340,16 +357,21 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       platform: "instagram" as const,
     };
 
-    await adminClient.from("client_strategies").upsert(
-      {
-        client_id,
-        audience_score: audienceScore,
-        uniqueness_score: uniquenessScore,
-        audience_analysis: analysisPayload,
-        audience_analyzed_at: new Date().toISOString(),
-      },
-      { onConflict: "client_id" }
-    );
+    // Only overwrite the client's own analysis when this scrape IS the
+    // client's profile. Competitor scrapes still flow to viral_channels +
+    // viral_videos below, but they don't replace the client record.
+    if (!isCompetitor) {
+      await adminClient.from("client_strategies").upsert(
+        {
+          client_id,
+          audience_score: audienceScore,
+          uniqueness_score: uniquenessScore,
+          audience_analysis: analysisPayload,
+          audience_analyzed_at: new Date().toISOString(),
+        },
+        { onConflict: "client_id" }
+      );
+    }
 
     // Mirror the client's scrape into viral_channels + viral_videos so
     // (a) any future analyze_my_profile call for this handle can pull
