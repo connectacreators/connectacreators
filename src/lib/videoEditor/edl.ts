@@ -31,6 +31,25 @@ export type Caption = {
   size?: number;
 };
 
+// Static text overlay (title card, lower-third, CTA chip). Unlike captions
+// these aren't tied to per-word timing — they appear for a fixed range of
+// SOURCE time and disappear when that range ends.
+export type TextOverlayPreset =
+  | "title_card"          // big centered title, top of frame
+  | "lower_third"         // small text in lower-third, bottom-left
+  | "cta_chip"            // pill-shaped CTA banner, center-bottom
+  | "subtle_caption";     // minimal sans label, anywhere
+
+export type TextOverlay = {
+  id: string;
+  text: string;
+  preset: TextOverlayPreset;
+  start_ms: number;       // SOURCE time
+  end_ms: number;
+  position: { x_pct: number; y_pct: number; anchor: "center" };
+  size?: number;          // multiplier on preset's base font size
+};
+
 export type EDL = {
   source: {
     storage_path: string;       // e.g. "footage/<video_edit_id>/source.mp4"
@@ -39,9 +58,11 @@ export type EDL = {
   aspect_ratio: AspectRatio;
   clips: Clip[];
   captions?: Caption[];
+  text_overlays?: TextOverlay[];
 
-  // Phase 2 stops here. Phase 4+ adds: text_overlays, music. Keep the shape
-  // forward-compatible (additive only).
+  // Phase 4 stops here. Phase 5 adds music{}; Phase 6 adds a b-roll track.
+  // Keep the shape forward-compatible (additive only). AI / Robby builds
+  // these JSON documents directly via Supabase update on editor_projects.edl.
 };
 
 export function emptyEDL(sourceStoragePath: string, durationMs: number): EDL {

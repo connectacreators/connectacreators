@@ -29,7 +29,7 @@ import { downloadToFile } from "./storage.js";
 import { uploadFile } from "./storage.js";
 import { runRender, totalOutputDurationMs } from "./render.js";
 import { detectSilences, extractAudio, transcribeWithWhisper } from "./transcribe.js";
-import { writeAssFile, type Caption } from "./captions.js";
+import { writeAssFile, type Caption, type TextOverlay } from "./captions.js";
 
 const POLL_MS = Number(process.env.POLL_INTERVAL_MS ?? 4000);
 const WORK_DIR = process.env.WORK_DIR ?? "/tmp/connecta-renders";
@@ -50,6 +50,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   // If the EDL ships captions, write an .ass file and pass it to the
   // renderer so they burn in. Output duration is what the captions clip to.
   const captions: Caption[] = (job.edl_snapshot as { captions?: Caption[] }).captions ?? [];
+  const overlays: TextOverlay[] = (job.edl_snapshot as { text_overlays?: TextOverlay[] }).text_overlays ?? [];
   const outputDurationMs = totalOutputDurationMs(job.edl_snapshot.clips);
   const assPath = path.join(workDir, "captions.ass");
   const { hadCaptions } = await writeAssFile(
@@ -57,6 +58,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     captions,
     job.edl_snapshot.clips,
     outputDurationMs,
+    overlays,
   );
 
   await updateProgress(client, job.id, 20);

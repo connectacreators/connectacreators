@@ -11,6 +11,7 @@ import { PreviewStage } from "@/components/videoEditor/PreviewStage";
 import { TrimTimeline } from "@/components/videoEditor/TrimTimeline";
 import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
 import { CaptionsPanel } from "@/components/videoEditor/CaptionsPanel";
+import { TextOverlaysPanel } from "@/components/videoEditor/TextOverlaysPanel";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
 import { useTranscript, type TranscriptWord } from "@/hooks/useTranscript";
 import {
@@ -20,7 +21,10 @@ import {
   type AspectRatio,
   type Caption,
   type CaptionPreset,
+  type TextOverlay,
+  type TextOverlayPreset,
 } from "@/lib/videoEditor/edl";
+import { TEXT_OVERLAY_PRESETS } from "@/lib/videoEditor/textOverlayPresets";
 
 type SourceMeta = { storagePath: string; signedUrl: string; durationMs: number; title: string };
 
@@ -91,8 +95,8 @@ export default function VideoEditor() {
   const [playing, setPlaying] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [resultSignedUrl, setResultSignedUrl] = useState<string | null>(null);
-  // Right-panel tab: Transcript (default) or Captions.
-  const [rightTab, setRightTab] = useState<"transcript" | "captions">("transcript");
+  // Right-panel tab: Transcript (default), Captions, or Text overlays.
+  const [rightTab, setRightTab] = useState<"transcript" | "captions" | "text">("transcript");
   // CapCut-style "Apply changes to all captions" toggle. When on, any
   // per-block edit (size/style/position/drag) propagates to every block.
   const [applyToAll, setApplyToAll] = useState(true);
@@ -311,6 +315,52 @@ export default function VideoEditor() {
     });
   };
 
+  // ===== Text overlay handlers =====
+  const handleAddOverlay = (preset: TextOverlayPreset, text: string, start_ms: number, end_ms: number) => {
+    if (projState.phase !== "ready") return;
+    const defaultPos = TEXT_OVERLAY_PRESETS[preset].defaultPosition;
+    const newOverlay: TextOverlay = {
+      id: crypto.randomUUID(),
+      text,
+      preset,
+      start_ms,
+      end_ms,
+      position: { x_pct: defaultPos.x_pct, y_pct: defaultPos.y_pct, anchor: "center" },
+    };
+    setEdl({
+      ...projState.edl,
+      text_overlays: [...(projState.edl.text_overlays ?? []), newOverlay],
+    });
+  };
+
+  const handleChangeOverlay = (id: string, patch: Partial<TextOverlay>) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      text_overlays: (projState.edl.text_overlays ?? []).map((o) =>
+        o.id === id ? { ...o, ...patch } : o,
+      ),
+    });
+  };
+
+  const handleDeleteOverlay = (id: string) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      text_overlays: (projState.edl.text_overlays ?? []).filter((o) => o.id !== id),
+    });
+  };
+
+  const handleMoveOverlay = (id: string, x_pct: number, y_pct: number) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      text_overlays: (projState.edl.text_overlays ?? []).map((o) =>
+        o.id === id ? { ...o, position: { ...o.position, x_pct, y_pct } } : o,
+      ),
+    });
+  };
+
   // Drag handler for the on-preview overlay — accepts both x and y.
   // Respects applyToAll so dragging one caption moves them all when linked.
   const handleMoveCaption = (id: string, x_pct: number, y_pct: number) => {
@@ -421,6 +471,7 @@ export default function VideoEditor() {
             onEnded={() => setPlaying(false)}
             onMoveCaption={handleMoveCaption}
             onResizeCaption={handleChangeCaptionSize}
+            onMoveOverlay={handleMoveOverlay}
           />
           <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
             <button
@@ -435,19 +486,23 @@ export default function VideoEditor() {
           </div>
         </div>
         <div className="w-[280px] shrink-0 flex flex-col bg-neutral-950 border-l border-neutral-800 overflow-hidden">
-          {/* Tab switcher: Transcript (default) and Captions */}
+          {/* Tab switcher: Transcript / Captions / Text overlays */}
           <div className="flex border-b border-neutral-800 shrink-0">
-            {(["transcript", "captions"] as const).map((tab) => (
+            {(["transcript", "captions", "text"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setRightTab(tab)}
-                className={`flex-1 py-2 text-[11px] uppercase tracking-wider transition-colors ${
+                className={`flex-1 py-2 text-[10px] uppercase tracking-wider transition-colors ${
                   rightTab === tab
                     ? "text-white border-b-2 border-blue-500"
                     : "text-neutral-500 hover:text-neutral-300"
                 }`}
               >
-                {tab === "transcript" ? "Transcript" : `Captions (${projState.edl.captions?.length ?? 0})`}
+                {tab === "transcript"
+                  ? "Script"
+                  : tab === "captions"
+                  ? `Captions (${projState.edl.captions?.length ?? 0})`
+                  : `Text (${projState.edl.text_overlays?.length ?? 0})`}
               </button>
             ))}
           </div>
@@ -463,7 +518,7 @@ export default function VideoEditor() {
                 onCreateCaption={handleCreateCaption}
                 onAutoCaption={handleAutoCaption}
               />
-            ) : (
+            ) : rightTab === "captions" ? (
               <CaptionsPanel
                 captions={projState.edl.captions ?? []}
                 applyToAll={applyToAll}
@@ -477,6 +532,28 @@ export default function VideoEditor() {
                 onSetPosition={handleSetCaptionPosition}
                 onSplit={handleSplitCaption}
                 onReplaceText={handleReplaceCaptionText}
+              />
+            ) : (
+              <TextOverlaysPanel
+                overlays={projState.edl.text_overlays ?? []}
+                sourceDurationMs={projState.edl.source.duration_ms}
+                // Convert EDL playhead → source time for the "add at playhead" UX.
+                sourcePlayheadMs={(() => {
+                  // Walk clips to convert.
+                  let edlMs = 0;
+                  for (const c of projState.edl.clips) {
+                    const len = Math.max(0, c.source_end_ms - c.source_start_ms);
+                    if (playheadMs <= edlMs + len) {
+                      return c.source_start_ms + (playheadMs - edlMs);
+                    }
+                    edlMs += len;
+                  }
+                  return projState.edl.clips[projState.edl.clips.length - 1]?.source_end_ms ?? 0;
+                })()}
+                onAdd={handleAddOverlay}
+                onChange={handleChangeOverlay}
+                onDelete={handleDeleteOverlay}
+                onSeek={handleSeekFromTranscript}
               />
             )}
           </div>

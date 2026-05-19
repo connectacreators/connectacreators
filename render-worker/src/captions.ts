@@ -21,6 +21,22 @@ export type Caption = {
   size?: number;
 };
 
+export type TextOverlayPreset =
+  | "title_card"
+  | "lower_third"
+  | "cta_chip"
+  | "subtle_caption";
+
+export type TextOverlay = {
+  id: string;
+  text: string;
+  preset: TextOverlayPreset;
+  start_ms: number;
+  end_ms: number;
+  position: { x_pct: number; y_pct: number; anchor: "center" };
+  size?: number;
+};
+
 export type Clip = { source_start_ms: number; source_end_ms: number };
 
 // ASS uses centiseconds (1/100s). Output dimensions inform x/y placement.
@@ -130,6 +146,75 @@ const PRESET_STYLES: Record<CaptionPreset, {
   },
 };
 
+// Text overlay preset styles. Independent ASS Style block per preset so each
+// looks visually distinct from the captions.
+const OVERLAY_STYLES: Record<TextOverlayPreset, {
+  fontName: string;
+  fontSize: number;
+  bold: 1 | 0;
+  uppercase: boolean;
+  primaryColour: string;
+  outlineColour: string;
+  outlineWidth: number;
+  shadowDepth: number;
+  borderStyle: 1 | 3;
+  backColour: string;
+  alignment: number;
+}> = {
+  title_card: {
+    fontName: "Montserrat",
+    fontSize: 76,
+    bold: 1,
+    uppercase: true,
+    primaryColour: cssHexToAssBGR("#ffffff"),
+    outlineColour: cssHexToAssBGR("#000000"),
+    outlineWidth: 4,
+    shadowDepth: 3,
+    borderStyle: 1,
+    backColour: cssHexToAssBGR("#000000", 0x80),
+    alignment: 2,
+  },
+  lower_third: {
+    fontName: "Inter",
+    fontSize: 35,
+    bold: 1,
+    uppercase: false,
+    primaryColour: cssHexToAssBGR("#ffffff"),
+    outlineColour: cssHexToAssBGR("#000000"),
+    outlineWidth: 0,
+    shadowDepth: 2,
+    borderStyle: 3,
+    backColour: cssHexToAssBGR("#000000", 0x55),
+    alignment: 2,
+  },
+  cta_chip: {
+    fontName: "Montserrat",
+    fontSize: 44,
+    bold: 1,
+    uppercase: true,
+    primaryColour: cssHexToAssBGR("#000000"),
+    outlineColour: cssHexToAssBGR("#ffd400"),
+    outlineWidth: 0,
+    shadowDepth: 0,
+    borderStyle: 3,
+    backColour: cssHexToAssBGR("#ffd400", 0),
+    alignment: 2,
+  },
+  subtle_caption: {
+    fontName: "Inter",
+    fontSize: 32,
+    bold: 0,
+    uppercase: false,
+    primaryColour: cssHexToAssBGR("#ffffff"),
+    outlineColour: cssHexToAssBGR("#000000"),
+    outlineWidth: 2,
+    shadowDepth: 2,
+    borderStyle: 1,
+    backColour: cssHexToAssBGR("#000000", 0x80),
+    alignment: 2,
+  },
+};
+
 // Map a source-time millisecond to an output-time millisecond by walking the
 // clips. Returns null if the source time falls inside a removed (silence)
 // segment — caller should drop those words from the caption.
@@ -169,6 +254,7 @@ export function buildAssFile(
   captions: Caption[],
   clips: Clip[],
   outputDurationMs: number,
+  overlays: TextOverlay[] = [],
 ): string {
   // Header: define PlayResX/Y so positioning math agrees with the renderer.
   // Most TikTok-style content is 9:16 (1080x1920), and even 1080p horizontal
@@ -190,6 +276,15 @@ export function buildAssFile(
     const s = PRESET_STYLES[preset];
     header.push(
       `Style: ${preset},${s.fontName},${s.fontSize},${s.primaryColour},${s.secondaryColour},${s.outlineColour},${s.backColour},${s.bold},0,0,0,100,100,0,0,${s.borderStyle},${s.outlineWidth},${s.shadowDepth},${s.alignment},20,20,${s.marginV},1`,
+    );
+  }
+  // Overlay styles share the same ASS Style table — namespaced with a
+  // 'overlay_' prefix to avoid colliding with caption preset names if both
+  // ever overlap.
+  for (const preset of Object.keys(OVERLAY_STYLES) as TextOverlayPreset[]) {
+    const s = OVERLAY_STYLES[preset];
+    header.push(
+      `Style: overlay_${preset},${s.fontName},${s.fontSize},${s.primaryColour},${s.primaryColour},${s.outlineColour},${s.backColour},${s.bold},0,0,0,100,100,0,0,${s.borderStyle},${s.outlineWidth},${s.shadowDepth},${s.alignment},20,20,0,1`,
     );
   }
   header.push("", "[Events]");
@@ -253,6 +348,26 @@ export function buildAssFile(
     );
   }
 
+  // Static text overlays — each maps a SOURCE time range to OUTPUT time
+  // via the clips array. If a range falls fully inside a removed clip we
+  // drop the overlay; if partially, we clip to the visible portion.
+  for (const ov of overlays) {
+    if (!ov.text.trim()) continue;
+    const startOut = sourceMsToOutputMs(ov.start_ms, clips);
+    const endOut = sourceMsToOutputMs(ov.end_ms, clips);
+    if (startOut === null || endOut === null || endOut <= startOut) continue;
+
+    const ovSpec = OVERLAY_STYLES[ov.preset];
+    const sizeMult = ov.size ?? 1;
+    const scaledFs = Math.max(8, Math.round(ovSpec.fontSize * sizeMult));
+    const x = Math.round((ov.position.x_pct / 100) * PLAYRES_W);
+    const y = Math.round((ov.position.y_pct / 100) * PLAYRES_H);
+    const text = ovSpec.uppercase ? ov.text.toUpperCase() : ov.text;
+    const styleName = `overlay_${ov.preset}`;
+    const line = `Dialogue: 1,${msToAssTime(startOut)},${msToAssTime(endOut)},${styleName},,0,0,0,,{\\pos(${x},${y})\\fs${scaledFs}}${escapeAss(text)}`;
+    lines.push(line);
+  }
+
   return header.concat(lines).join("\n") + "\n";
 }
 
@@ -261,9 +376,12 @@ export async function writeAssFile(
   captions: Caption[],
   clips: Clip[],
   outputDurationMs: number,
+  overlays: TextOverlay[] = [],
 ): Promise<{ path: string; hadCaptions: boolean }> {
-  if (captions.length === 0) return { path: outputPath, hadCaptions: false };
-  const ass = buildAssFile(captions, clips, outputDurationMs);
+  if (captions.length === 0 && overlays.length === 0) {
+    return { path: outputPath, hadCaptions: false };
+  }
+  const ass = buildAssFile(captions, clips, outputDurationMs, overlays);
   await fs.writeFile(outputPath, ass, "utf-8");
   return { path: outputPath, hadCaptions: true };
 }
