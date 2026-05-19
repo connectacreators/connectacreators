@@ -20,6 +20,7 @@ import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
 import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
 import { PLAN_TOOLS, handlePlanTool } from "./tools/plans.ts";
+import { classifyMode, toolNamesForMode } from "./mode-router.ts";
 // Memory subsystem disabled for now — tools/memories.ts and the
 // assistant_memories table remain in place for future reactivation.
 // import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
@@ -1156,9 +1157,16 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 }`;
 
     // Build mode is handled separately above (build-mode.ts). Here we just use
-    // the regular system prompt and full TOOLS array.
+    // the regular system prompt and a MODE-FILTERED subset of TOOLS — see
+    // mode-router.ts. Classifies the message to ~10 modes via keyword regex
+    // and ships only that mode's tools (+ COMMON_TOOLS). Net: ~70% fewer
+    // tool definitions per call, which compounds with prompt caching for a
+    // large input-token reduction.
     const finalSystemPrompt = systemPrompt;
-    const effectiveTools = TOOLS;
+    const detectedMode = classifyMode(message);
+    const allowedToolNames = toolNamesForMode(detectedMode);
+    const effectiveTools = TOOLS.filter((t) => allowedToolNames.has((t as { name: string }).name));
+    console.log(`[companion-chat][mode] detected=${detectedMode} tools=${effectiveTools.length}/${TOOLS.length}`);
 
     // Save user message
     await adminClient.from("companion_messages").insert({
