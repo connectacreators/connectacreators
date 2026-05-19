@@ -19,11 +19,21 @@ type Props = {
   // overlay's offsetParent).
   videoBox: VideoBox | null;
   onMoveCaption?: (captionId: string, x_pct: number, y_pct: number) => void;
+  onResizeCaption?: (captionId: string, size: number) => void;
 };
 
-export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: Props) {
+export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption, onResizeCaption }: Props) {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ captionId: string; offsetX: number; offsetY: number } | null>(null);
+  const captionRef = useRef<HTMLDivElement | null>(null);
+  const resizeRef = useRef<{
+    captionId: string;
+    startSize: number;
+    startDist: number;
+    centerX: number;
+    centerY: number;
+  } | null>(null);
+  const [resizing, setResizing] = useState(false);
 
   if (!videoBox || captions.length === 0) return null;
 
@@ -77,6 +87,44 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
     setDragOffset(null);
   };
 
+  // Corner resize: grab the bottom-right handle and drag outward → bigger,
+  // inward → smaller. Scale is computed from the change in pointer distance
+  // to the caption's screen center.
+  const onResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!onResizeCaption || !captionRef.current) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const rect = captionRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY) || 1;
+    resizeRef.current = {
+      captionId: active.id,
+      startSize: active.size ?? 1,
+      startDist,
+      centerX,
+      centerY,
+    };
+    setResizing(true);
+  };
+  const onResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeRef.current || !onResizeCaption) return;
+    e.stopPropagation();
+    const dist = Math.hypot(
+      e.clientX - resizeRef.current.centerX,
+      e.clientY - resizeRef.current.centerY,
+    );
+    const ratio = dist / resizeRef.current.startDist;
+    const nextSize = Math.max(0.375, Math.min(2.0, resizeRef.current.startSize * ratio));
+    onResizeCaption(resizeRef.current.captionId, nextSize);
+  };
+  const onResizeEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    resizeRef.current = null;
+    setResizing(false);
+  };
+
   // Use a frame-shaped wrapper that exactly matches the rendered video
   // picture box. Position the caption inside it with CSS percentages — the
   // browser handles all the math natively, so there's no computed-pixel
@@ -92,6 +140,7 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
       }}
     >
       <div
+        ref={captionRef}
         className={onMoveCaption ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
         style={{
           left: `${active.position.x_pct}%`,
@@ -105,7 +154,7 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
           background: spec.background === "none" ? undefined : spec.background,
           padding: spec.background === "none" ? 0 : "0.2em 0.6em",
           borderRadius: spec.background === "none" ? 0 : 8,
-          outline: dragOffset !== null ? "2px dashed rgba(59,130,246,0.7)" : undefined,
+          outline: dragOffset !== null || resizing ? "2px dashed rgba(59,130,246,0.7)" : undefined,
           touchAction: "none",
           pointerEvents: onMoveCaption ? "auto" : "none",
           whiteSpace: "nowrap",
@@ -122,6 +171,29 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
             {w.text + (i === active.words.length - 1 ? "" : " ")}
           </span>
         ))}
+        {/* Bottom-right resize handle. Dragging it outward grows the caption
+            (size multiplier scales with distance from caption center). */}
+        {onResizeCaption && (
+          <div
+            onPointerDown={onResizeStart}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            style={{
+              position: "absolute",
+              right: -6,
+              bottom: -6,
+              width: 14,
+              height: 14,
+              borderRadius: 3,
+              background: "rgba(59, 130, 246, 0.85)",
+              border: "1.5px solid white",
+              cursor: "nwse-resize",
+              touchAction: "none",
+              pointerEvents: "auto",
+            }}
+            title="Drag to resize"
+          />
+        )}
       </div>
     </div>
   );

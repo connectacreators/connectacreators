@@ -1,13 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* Inter is loaded locally so the browser preview uses the EXACT same font
-   file the render worker burns into the exported MP4 (render-worker ships
-   the matching Inter.ttf and points libass at it via fontsdir). Variable
-   font — supports weights 100-900 and the opsz axis. */
+   file the render worker burns into the exported MP4. Static weights (Bold
+   700 + Black 900) match what libass picks based on the ASS style's bold
+   flag — variable fonts can be picked up inconsistently by libass. */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/Inter.ttf') format('truetype-variations');
-  font-weight: 100 900;
+  src: url('/fonts/Inter-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Black.ttf') format('truetype');
+  font-weight: 900;
   font-style: normal;
   font-display: swap;
 }

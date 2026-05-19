@@ -246,6 +246,61 @@ export default function VideoEditor() {
     });
   };
 
+  // Rewrite the entire word list of a block from a new text string. Tries
+  // to preserve timing: if the word count is unchanged, rename in place;
+  // otherwise redistribute the block's total duration evenly across the
+  // new words (so caption playback still tracks the same time range).
+  const handleReplaceCaptionText = (id: string, newText: string) => {
+    if (projState.phase !== "ready") return;
+    const tokens = newText.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).map((c) => {
+        if (c.id !== id) return c;
+        if (tokens.length === c.words.length) {
+          return { ...c, words: c.words.map((w, i) => ({ ...w, text: tokens[i] })) };
+        }
+        const blockStart = c.words[0]?.start_ms ?? 0;
+        const blockEnd = c.words[c.words.length - 1]?.end_ms ?? blockStart + 1000;
+        const totalMs = Math.max(1, blockEnd - blockStart);
+        const slotMs = totalMs / tokens.length;
+        const newWords = tokens.map((tok, i) => ({
+          text: tok,
+          start_ms: Math.round(blockStart + i * slotMs),
+          end_ms: Math.round(blockStart + (i + 1) * slotMs),
+        }));
+        return { ...c, words: newWords };
+      }),
+    });
+  };
+
+  // Drag-to-reorder: place the dragged caption into the target's timeslot.
+  // Both blocks swap their word time ranges so playback order changes.
+  const handleReorderCaptionTo = (draggedId: string, targetId: string) => {
+    if (projState.phase !== "ready") return;
+    const captions = projState.edl.captions ?? [];
+    const a = captions.find((c) => c.id === draggedId);
+    const b = captions.find((c) => c.id === targetId);
+    if (!a || !b || a.id === b.id) return;
+    const aOrigin = a.words[0].start_ms;
+    const bOrigin = b.words[0].start_ms;
+    const shift = (words: typeof a.words, from: number, to: number) =>
+      words.map((w) => ({
+        text: w.text,
+        start_ms: w.start_ms - from + to,
+        end_ms: w.end_ms - from + to,
+      }));
+    setEdl({
+      ...projState.edl,
+      captions: captions.map((c) => {
+        if (c.id === a.id) return { ...a, words: shift(a.words, aOrigin, bOrigin) };
+        if (c.id === b.id) return { ...b, words: shift(b.words, bOrigin, aOrigin) };
+        return c;
+      }),
+    });
+  };
+
   const handleSetCaptionPosition = (id: string, y_pct: number) => {
     if (projState.phase !== "ready") return;
     setEdl({
@@ -365,6 +420,7 @@ export default function VideoEditor() {
             onPlayheadChange={setPlayheadMs}
             onEnded={() => setPlaying(false)}
             onMoveCaption={handleMoveCaption}
+            onResizeCaption={handleChangeCaptionSize}
           />
           <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
             <button
@@ -417,9 +473,10 @@ export default function VideoEditor() {
                 onDelete={handleDeleteCaption}
                 onSeek={handleSeekFromTranscript}
                 onReorder={handleReorderCaption}
-                onEditWord={handleEditCaptionWord}
+                onReorderTo={handleReorderCaptionTo}
                 onSetPosition={handleSetCaptionPosition}
                 onSplit={handleSplitCaption}
+                onReplaceText={handleReplaceCaptionText}
               />
             )}
           </div>

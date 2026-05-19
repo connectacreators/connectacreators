@@ -2,7 +2,7 @@
 // Dedicated captions panel — used when the right-side tab switcher is on
 // "Captions". Owns the "Apply to all" toggle that controls whether
 // per-block edits propagate to every block (CapCut-style).
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Caption, CaptionPreset } from "@/lib/videoEditor/edl";
 import { CAPTION_PRESETS } from "@/lib/videoEditor/captionPresets";
 
@@ -20,17 +20,20 @@ type Props = {
   captions: Caption[];
   applyToAll: boolean;
   onSetApplyToAll: (v: boolean) => void;
-  // The per-block handlers below already do the right thing when applyToAll
-  // is true (VideoEditor branches on the flag), so this component only has
-  // to wire the toggle and pass through.
   onChangePreset: (id: string, preset: CaptionPreset) => void;
   onChangeSize: (id: string, size: number) => void;
   onDelete: (id: string) => void;
   onSeek: (sourceMs: number) => void;
+  // Old per-direction reorder (kept for arrow keyboards / accessibility) —
+  // the visible UX is drag-to-reorder now.
   onReorder: (id: string, direction: "up" | "down") => void;
-  onEditWord: (id: string, wordIdx: number, newText: string) => void;
-  onSetPosition: (id: string, y_pct: number) => void;
+  // Move a caption to land at the target caption's timeslot. Receives both
+  // ids in the order they were dropped.
+  onReorderTo: (draggedId: string, targetId: string) => void;
   onSplit: (id: string, atWordIdx: number) => void;
+  // Replace the entire word array (preserves timing by re-splitting the
+  // input text by spaces and reassigning durations proportionally).
+  onReplaceText: (id: string, newText: string) => void;
 };
 
 function SizeSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -93,12 +96,10 @@ export function CaptionsPanel(props: Props) {
       </div>
 
       <div className="space-y-1.5 max-h-[calc(100vh-260px)] overflow-y-auto">
-        {sorted.map((c, idx) => (
+        {sorted.map((c) => (
           <CaptionBlockRow
             key={c.id}
             caption={c}
-            isFirst={idx === 0}
-            isLast={idx === sorted.length - 1}
             {...props}
           />
         ))}
@@ -109,74 +110,111 @@ export function CaptionsPanel(props: Props) {
 
 function CaptionBlockRow({
   caption: c,
-  isFirst,
-  isLast,
   applyToAll,
   onChangePreset,
   onChangeSize,
   onDelete,
   onSeek,
-  onReorder,
-  onEditWord,
+  onReorderTo,
   onSetPosition,
   onSplit,
-}: Props & { caption: Caption; isFirst: boolean; isLast: boolean }) {
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editingValue, setEditingValue] = useState("");
+  onReplaceText,
+}: Props & { caption: Caption } & { onSetPosition: (id: string, y_pct: number) => void }) {
+  const editableRef = useRef<HTMLDivElement | null>(null);
+  const [isDraggedOver, setIsDraggedOver] = useState(false);
 
   const size = c.size ?? 1;
   const yPct = c.position.y_pct;
+  const joinedText = c.words.map((w) => w.text).join(" ");
 
-  const startEdit = (i: number) => {
-    setEditingIdx(i);
-    setEditingValue(c.words[i].text);
-  };
-  const commitEdit = () => {
-    if (editingIdx !== null && editingValue.trim() !== "") {
-      onEditWord(c.id, editingIdx, editingValue.trim());
+  // Map a character offset within the joined text to a word index. Used by
+  // Enter-to-split: cursor at offset N → split AFTER the word containing N.
+  const offsetToSplitIndex = (offset: number): number => {
+    let cursor = 0;
+    for (let i = 0; i < c.words.length; i++) {
+      const wordLen = c.words[i].text.length;
+      // Cursor inside word i, OR at its trailing space.
+      if (offset <= cursor + wordLen) return i + 1;
+      cursor += wordLen + 1; // +1 for the joining space
     }
-    setEditingIdx(null);
+    return c.words.length;
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const sel = window.getSelection();
+      const root = editableRef.current;
+      if (!sel || !root || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      // Compute the character offset of the cursor relative to the root.
+      const pre = range.cloneRange();
+      pre.selectNodeContents(root);
+      pre.setEnd(range.startContainer, range.startOffset);
+      const offset = pre.toString().length;
+      const splitAt = offsetToSplitIndex(offset);
+      if (splitAt >= 1 && splitAt < c.words.length) {
+        onSplit(c.id, splitAt);
+      }
+    }
+  };
+
+  // Commit text edits on blur — re-distribute word timings to the new word
+  // list. If word count is unchanged we just rename in place; if changed,
+  // we evenly redistribute the block's total time across the new words.
+  const onBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const newText = (e.currentTarget.textContent ?? "").trim();
+    if (newText === joinedText.trim()) return;
+    if (newText.length === 0) return;
+    onReplaceText(c.id, newText);
   };
 
   return (
-    <div className={`bg-neutral-900 rounded p-2 text-[11px] space-y-1.5 ${applyToAll ? "ring-1 ring-blue-700/40" : ""}`}>
-      <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 leading-relaxed">
-        {c.words.map((w, i) =>
-          editingIdx === i ? (
-            <input
-              key={i}
-              autoFocus
-              value={editingValue}
-              onChange={(e) => setEditingValue(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitEdit();
-                if (e.key === "Escape") setEditingIdx(null);
-              }}
-              className="bg-neutral-800 text-white text-[11px] px-1 py-0 rounded border border-blue-600 w-20"
-            />
-          ) : (
-            <span key={i} className="inline-flex items-center">
-              <button
-                onClick={() => onSeek(w.start_ms)}
-                onDoubleClick={() => startEdit(i)}
-                title="Click to seek · double-click to edit"
-                className="text-neutral-200 hover:text-blue-400"
-              >
-                {w.text}
-              </button>
-              {i < c.words.length - 1 && (
-                <button
-                  onClick={() => onSplit(c.id, i + 1)}
-                  title="Split block here"
-                  className="text-[8px] text-neutral-600 hover:text-emerald-400 px-0.5"
-                >
-                  ✂
-                </button>
-              )}
-            </span>
-          ),
-        )}
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/caption-id", c.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setIsDraggedOver(true);
+      }}
+      onDragLeave={() => setIsDraggedOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDraggedOver(false);
+        const draggedId = e.dataTransfer.getData("text/caption-id");
+        if (draggedId && draggedId !== c.id) onReorderTo(draggedId, c.id);
+      }}
+      className={`bg-neutral-900 rounded p-2 text-[11px] space-y-1.5 cursor-grab ${
+        applyToAll ? "ring-1 ring-blue-700/40" : ""
+      } ${isDraggedOver ? "ring-2 ring-emerald-500" : ""}`}
+      title="Drag this card up/down to reorder · click a word to seek"
+    >
+      {/* Editable textbox. Enter at the cursor position splits the block;
+          editing the text and blurring rewrites the words in place. */}
+      <div
+        ref={editableRef}
+        contentEditable
+        suppressContentEditableWarning
+        spellCheck={false}
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
+        onClick={(e) => {
+          // Allow click-to-seek on the first word's timestamp if the user
+          // just clicks (not selects). Useful for jumping to this block.
+          if (window.getSelection()?.isCollapsed) {
+            onSeek(c.words[0]?.start_ms ?? 0);
+          }
+          e.stopPropagation();
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="text-neutral-100 outline-none focus:bg-neutral-800 rounded px-1 py-0.5 leading-relaxed"
+        style={{ caretColor: "white" }}
+      >
+        {joinedText}
       </div>
 
       <div className="flex items-center gap-1">
@@ -220,25 +258,9 @@ function CaptionBlockRow({
         ))}
       </div>
 
-      <div className="flex items-center gap-1">
-        <span className="text-[9px] text-neutral-500 w-8">Order</span>
-        <button
-          onClick={() => onReorder(c.id, "up")}
-          disabled={isFirst}
-          className="flex-1 text-[10px] px-1 py-0.5 rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Swap timeslot with the previous block"
-        >
-          ↑
-        </button>
-        <button
-          onClick={() => onReorder(c.id, "down")}
-          disabled={isLast}
-          className="flex-1 text-[10px] px-1 py-0.5 rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Swap timeslot with the next block"
-        >
-          ↓
-        </button>
-      </div>
+      <p className="text-[9px] text-neutral-500 italic">
+        Press Enter inside the text to split here · drag this card to reorder
+      </p>
     </div>
   );
 }
