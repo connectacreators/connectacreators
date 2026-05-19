@@ -33,6 +33,7 @@ import MetricStripEmbed from "@/components/companion/embeds/MetricStripEmbed";
 import FrameworkDeckEmbed from "@/components/companion/embeds/FrameworkDeckEmbed";
 import ChannelGridEmbed from "@/components/companion/embeds/ChannelGridEmbed";
 import ScriptCardEmbed from "@/components/companion/embeds/ScriptCardEmbed";
+import ProfileAnalysisEmbed from "@/components/companion/embeds/ProfileAnalysisEmbed";
 import type { EmbedRef } from "@/lib/companion/turn-script";
 import {
   MarkdownText,
@@ -313,6 +314,7 @@ function renderEmbed(e: EmbedRef) {
     case "framework-deck": return <FrameworkDeckEmbed data={e.data} />;
     case "channel-grid":   return <ChannelGridEmbed data={e.data} />;
     case "script-card":    return <ScriptCardEmbed data={e.data} />;
+    case "profile-analysis": return <ProfileAnalysisEmbed data={e.data} />;
   }
 }
 

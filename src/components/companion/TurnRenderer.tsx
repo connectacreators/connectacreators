@@ -11,6 +11,7 @@ import MetricStripEmbed from "./embeds/MetricStripEmbed";
 import FrameworkDeckEmbed from "./embeds/FrameworkDeckEmbed";
 import ChannelGridEmbed from "./embeds/ChannelGridEmbed";
 import ScriptCardEmbed from "./embeds/ScriptCardEmbed";
+import ProfileAnalysisEmbed from "./embeds/ProfileAnalysisEmbed";
 
 import type { BroadcastTurn, SceneEvent, EmbedRef } from "@/lib/companion/turn-script";
 
@@ -37,6 +38,7 @@ function renderEmbed(e: EmbedRef, onClick?: (e: EmbedRef) => void) {
     case "framework-deck":  return <FrameworkDeckEmbed data={e.data} />;
     case "channel-grid":    return <ChannelGridEmbed data={e.data} />;
     case "script-card":     return <ScriptCardEmbed data={e.data} />;
+    case "profile-analysis": return <ProfileAnalysisEmbed data={e.data} />;
   }
 }
 
