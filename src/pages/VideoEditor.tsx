@@ -8,7 +8,7 @@ import { useEditorProject } from "@/hooks/useEditorProject";
 import { useRenderJob } from "@/hooks/useRenderJob";
 import { EditorTopBar } from "@/components/videoEditor/EditorTopBar";
 import { PreviewStage } from "@/components/videoEditor/PreviewStage";
-import { TrimTimeline } from "@/components/videoEditor/TrimTimeline";
+import { MultiTrackTimeline } from "@/components/videoEditor/MultiTrackTimeline";
 import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
 import { CaptionsPanel } from "@/components/videoEditor/CaptionsPanel";
 import { TextOverlaysPanel } from "@/components/videoEditor/TextOverlaysPanel";
@@ -309,6 +309,42 @@ export default function VideoEditor() {
         return c;
       }),
     });
+  };
+
+  // Shift an entire caption block in source time so the first word starts
+  // at the given timestamp. All other words preserve their internal gaps
+  // (same delta applied to all).
+  const handleShiftCaption = (id: string, newFirstWordStartMs: number) => {
+    if (projState.phase !== "ready") return;
+    const captions = projState.edl.captions ?? [];
+    const c = captions.find((cap) => cap.id === id);
+    if (!c) return;
+    const currentFirst = c.words[0]?.start_ms ?? 0;
+    const delta = newFirstWordStartMs - currentFirst;
+    if (delta === 0) return;
+    const newWords = c.words.map((w) => ({
+      text: w.text,
+      start_ms: w.start_ms + delta,
+      end_ms: w.end_ms + delta,
+    }));
+    setEdl({
+      ...projState.edl,
+      captions: captions.map((cap) =>
+        cap.id === id ? { ...cap, words: newWords } : cap,
+      ),
+    });
+  };
+
+  // Trim handler for the multi-track timeline: replace clip 0 with a new
+  // [start, end] range. Other clips (added by 'Remove all silences' later)
+  // are preserved.
+  const handleChangeTrim = (sourceStartMs: number, sourceEndMs: number) => {
+    if (projState.phase !== "ready") return;
+    const clips = projState.edl.clips;
+    if (clips.length === 0) return;
+    const next = [...clips];
+    next[0] = { ...clips[0], source_start_ms: sourceStartMs, source_end_ms: sourceEndMs };
+    setEdl({ ...projState.edl, clips: next });
   };
 
   const handleSetCaptionPosition = (id: string, y_pct: number) => {
@@ -622,7 +658,15 @@ export default function VideoEditor() {
       </div>
 
       <div className="shrink-0">
-        <TrimTimeline edl={projState.edl} onChange={setEdl} />
+        <MultiTrackTimeline
+          edl={projState.edl}
+          playheadMs={playheadMs}
+          onSeek={handleSeekFromTranscript}
+          onChangeTrim={handleChangeTrim}
+          onShiftCaption={handleShiftCaption}
+          onChangeOverlay={handleChangeOverlay}
+          onChangeMusic={(music) => handleSetMusic(music)}
+        />
       </div>
 
       <ExportDialog

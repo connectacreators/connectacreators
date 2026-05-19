@@ -78,13 +78,11 @@ const PRESET_STYLES: Record<CaptionPreset, {
   tiktok_word_pop: {
     // Montserrat Black ships with the worker (assets/fonts/Montserrat-Black.ttf)
     // and matches the browser preview's Montserrat 900. libass loads it
-    // through ffmpeg's fontsdir.
+    // through ffmpeg's fontsdir. bold=0 keeps libass from synthesizing a
+    // faux-bold on top of the already-Black weight.
     fontName: "Montserrat",
-    // Base sizes correspond to fontSizePctHeight in the frontend preset
-    // module (e.g. 4.5% of 1080 = 48.6 → 48). Per-caption `size` multiplies
-    // this via a `\fs` override on each Dialogue line.
     fontSize: 48,
-    bold: 1,
+    bold: 0,
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
@@ -121,10 +119,11 @@ const PRESET_STYLES: Record<CaptionPreset, {
   },
   shorts_bold: {
     // Anton ships with the worker (assets/fonts/Anton-Regular.ttf); it's the
-    // iconic YouTube Shorts caption font — narrow tall heavy sans.
+    // iconic YouTube Shorts caption font — narrow tall heavy sans. Single
+    // weight only; bold=0 stops libass synthesizing a thicker version.
     fontName: "Anton",
     fontSize: 56,
-    bold: 1,
+    bold: 0,
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     secondaryColour: cssHexToAssBGR("#ffffff"),
@@ -157,11 +156,14 @@ const OVERLAY_STYLES: Record<TextOverlayPreset, {
   backColour: string;
   alignment: number;
 }> = {
-  // Montserrat Black, white fill, black stroke, no background.
+  // Montserrat Black, white fill, black stroke, no background. The bundled
+  // Montserrat-Black.ttf is already weight 900 — leave bold=0 so libass
+  // doesn't synthesize a faux-bold on top of it (that's what was making
+  // the worker render look thicker than the browser preview).
   tiktok: {
     fontName: "Montserrat",
     fontSize: 64,
-    bold: 1,
+    bold: 0,
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
@@ -186,10 +188,12 @@ const OVERLAY_STYLES: Record<TextOverlayPreset, {
     alignment: 5,
   },
   // Impact/Anton condensed, white fill, black stroke, no background.
+  // Anton is intrinsically heavy and ships in a single weight — bold=0
+  // prevents libass synthesizing a thicker version.
   impact: {
     fontName: "Anton",
     fontSize: 76,
-    bold: 1,
+    bold: 0,
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
