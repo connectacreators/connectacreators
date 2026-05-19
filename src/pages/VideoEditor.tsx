@@ -8,7 +8,7 @@ import { useEditorProject } from "@/hooks/useEditorProject";
 import { useRenderJob } from "@/hooks/useRenderJob";
 import { EditorTopBar } from "@/components/videoEditor/EditorTopBar";
 import { PreviewStage } from "@/components/videoEditor/PreviewStage";
-import { MultiTrackTimeline } from "@/components/videoEditor/MultiTrackTimeline";
+import { MultiTrackTimeline, type TimelineSelection } from "@/components/videoEditor/MultiTrackTimeline";
 import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
 import { CaptionsPanel } from "@/components/videoEditor/CaptionsPanel";
 import { TextOverlaysPanel } from "@/components/videoEditor/TextOverlaysPanel";
@@ -106,6 +106,9 @@ export default function VideoEditor() {
   // CapCut-style "Apply changes to all captions" toggle. When on, any
   // per-block edit (size/style/position/drag) propagates to every block.
   const [applyToAll, setApplyToAll] = useState(true);
+  // Currently selected timeline item — drives the yellow ring + keyboard
+  // shortcuts (Delete, Esc, copy/paste in later phases).
+  const [timelineSelection, setTimelineSelection] = useState<TimelineSelection>(null);
 
   useEffect(() => {
     // Wait for auth to hydrate. Storage RLS allows authenticated reads only —
@@ -508,6 +511,30 @@ export default function VideoEditor() {
     return <div className="p-8 text-red-400">Project error: {projState.message}</div>;
   }
 
+  // Keyboard: Delete / Backspace removes the currently-selected timeline
+  // item. Ignored while typing in any input or contenteditable surface so
+  // we don't erase captions while the user edits a word.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (!timelineSelection) return;
+      e.preventDefault();
+      switch (timelineSelection.kind) {
+        case "caption": handleDeleteCaption(timelineSelection.id); break;
+        case "text":    handleDeleteOverlay(timelineSelection.id); break;
+        case "broll":   handleDeleteBRoll(timelineSelection.id); break;
+        case "music":   handleSetMusic(null); break;
+        // video deletion isn't meaningful (it's the source) — no-op
+        default: return;
+      }
+      setTimelineSelection(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [timelineSelection]);
+
   const handleExport = async (aspect: AspectRatio) => {
     await submitJob({
       editorProjectId: projState.projectId,
@@ -661,10 +688,13 @@ export default function VideoEditor() {
         <MultiTrackTimeline
           edl={projState.edl}
           playheadMs={playheadMs}
+          selection={timelineSelection}
+          onSelect={setTimelineSelection}
           onSeek={handleSeekFromTranscript}
           onChangeTrim={handleChangeTrim}
           onShiftCaption={handleShiftCaption}
           onChangeOverlay={handleChangeOverlay}
+          onChangeBRoll={handleChangeBRoll}
           onChangeMusic={(music) => handleSetMusic(music)}
         />
       </div>

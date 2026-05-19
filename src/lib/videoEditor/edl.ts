@@ -148,6 +148,20 @@ export function captionsFromTranscript(
   return blocks;
 }
 
+// Output-time → Source-time inverse mapping. Walks the clips array
+// the same way edlTimeToSourceTime does inside PreviewStage — useful for
+// timeline blocks (b-roll) whose times live in OUTPUT space but need to
+// be drawn on a SOURCE-time axis.
+export function edlOutputTimeToSourceTime(edl: EDL, outMs: number): number {
+  let acc = 0;
+  for (const c of edl.clips) {
+    const len = Math.max(0, c.source_end_ms - c.source_start_ms);
+    if (outMs <= acc + len) return c.source_start_ms + (outMs - acc);
+    acc += len;
+  }
+  return edl.clips[edl.clips.length - 1]?.source_end_ms ?? 0;
+}
+
 // Convert a timestamp in source time to the equivalent timestamp in EDL
 // output time (what the preview's playhead uses). If the source time falls
 // inside a clip, return the corresponding output offset. If it falls inside
