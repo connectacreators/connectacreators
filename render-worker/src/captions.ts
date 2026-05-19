@@ -82,7 +82,11 @@ const PRESET_STYLES: Record<CaptionPreset, {
     shadowDepth: 2,
     borderStyle: 1,
     backColour: cssHexToAssBGR("#000000", 0x80),
-    alignment: 2,
+    // alignment 5 = center. With \pos(x,y) this anchors the text's CENTER
+    // at (x,y), matching the browser preview which uses translate(-50%,-50%).
+    // Using the default alignment=2 (bottom-center) made the caption sit
+    // higher in the export than the user dragged it in the editor.
+    alignment: 5,
     marginV: 0,
   },
   ig_reels_classic: {
@@ -97,7 +101,11 @@ const PRESET_STYLES: Record<CaptionPreset, {
     shadowDepth: 0,
     borderStyle: 3,
     backColour: cssHexToAssBGR("#000000", 0x55),
-    alignment: 2,
+    // alignment 5 = center. With \pos(x,y) this anchors the text's CENTER
+    // at (x,y), matching the browser preview which uses translate(-50%,-50%).
+    // Using the default alignment=2 (bottom-center) made the caption sit
+    // higher in the export than the user dragged it in the editor.
+    alignment: 5,
     marginV: 0,
   },
   shorts_bold: {
@@ -112,7 +120,11 @@ const PRESET_STYLES: Record<CaptionPreset, {
     shadowDepth: 3,
     borderStyle: 1,
     backColour: cssHexToAssBGR("#000000", 0x80),
-    alignment: 2,
+    // alignment 5 = center. With \pos(x,y) this anchors the text's CENTER
+    // at (x,y), matching the browser preview which uses translate(-50%,-50%).
+    // Using the default alignment=2 (bottom-center) made the caption sit
+    // higher in the export than the user dragged it in the editor.
+    alignment: 5,
     marginV: 0,
   },
 };

@@ -43,26 +43,38 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
   const left = videoBox.left + (active.position.x_pct / 100) * videoBox.width;
   const top = videoBox.top + (active.position.y_pct / 100) * videoBox.height;
 
+  // Drag math: track the offset from the pointer to the caption's CENTER on
+  // screen at the moment of pointer-down. On every move, keep that offset
+  // constant — the caption follows the pointer without snapping. Mixing
+  // screen-coords and container-relative coords was the previous bug: the
+  // caption appeared to jump up before the user could drag it.
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!onMoveCaption) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+    if (!containerRect) return;
+    const captionCenterScreenX = containerRect.left + left;
+    const captionCenterScreenY = containerRect.top + top;
     dragRef.current = {
       captionId: active.id,
-      offsetX: e.clientX - left,
-      offsetY: e.clientY - top,
+      offsetX: e.clientX - captionCenterScreenX,
+      offsetY: e.clientY - captionCenterScreenY,
     };
     setDragOffset({ x: 0, y: 0 });
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current || !onMoveCaption) return;
-    // Convert client coords back to container-relative, then to picture-box
-    // percentage. Clamp 0-100 so the caption can't be dragged out of frame.
     const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
     if (!containerRect) return;
-    const rawX = e.clientX - dragRef.current.offsetX - containerRect.left;
-    const rawY = e.clientY - dragRef.current.offsetY - containerRect.top;
-    const pctX = ((rawX - videoBox.left) / videoBox.width) * 100;
-    const pctY = ((rawY - videoBox.top) / videoBox.height) * 100;
+    // Desired caption center, in screen coords, that keeps the same offset
+    // to the pointer as on pointer-down.
+    const desiredCenterScreenX = e.clientX - dragRef.current.offsetX;
+    const desiredCenterScreenY = e.clientY - dragRef.current.offsetY;
+    // Convert to container-relative → picture-box-relative → percentage.
+    const desiredContainerX = desiredCenterScreenX - containerRect.left;
+    const desiredContainerY = desiredCenterScreenY - containerRect.top;
+    const pctX = ((desiredContainerX - videoBox.left) / videoBox.width) * 100;
+    const pctY = ((desiredContainerY - videoBox.top) / videoBox.height) * 100;
     const clampedX = Math.max(5, Math.min(95, pctX));
     const clampedY = Math.max(5, Math.min(95, pctY));
     onMoveCaption(dragRef.current.captionId, clampedX, clampedY);
