@@ -290,23 +290,6 @@ export default function VideoEditor() {
     setEdl({ ...projState.edl, captions: next });
   };
 
-  // Merge with the *next* block in chronological order. The merged block
-  // inherits this block's preset/size/position.
-  const handleMergeCaptionWithNext = (id: string) => {
-    if (projState.phase !== "ready") return;
-    const captions = projState.edl.captions ?? [];
-    const sorted = [...captions].sort(
-      (a, b) => (a.words[0]?.start_ms ?? 0) - (b.words[0]?.start_ms ?? 0),
-    );
-    const idx = sorted.findIndex((c) => c.id === id);
-    if (idx === -1 || idx >= sorted.length - 1) return;
-    const a = sorted[idx];
-    const b = sorted[idx + 1];
-    const merged = { ...a, words: [...a.words, ...b.words] };
-    sorted.splice(idx, 2, merged);
-    setEdl({ ...projState.edl, captions: sorted });
-  };
-
   const handleAutoCaption = (preset: CaptionPreset) => {
     if (projState.phase !== "ready") return;
     if (transcriptState.phase !== "ready") return;
@@ -425,7 +408,6 @@ export default function VideoEditor() {
             onEditWord={handleEditCaptionWord}
             onSetPosition={handleSetCaptionPosition}
             onSplit={handleSplitCaption}
-            onMergeWithNext={handleMergeCaptionWithNext}
           />
         </div>
       </div>

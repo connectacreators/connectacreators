@@ -1,10 +1,17 @@
 // src/components/videoEditor/CaptionsList.tsx
 // Compact list of caption blocks attached to the EDL. Lets the user swap a
-// caption's preset, resize it, reorder, edit words, split, merge, position,
+// caption's preset, resize it (slider), reorder, edit words, split, position,
 // or delete it. Lives below the transcript panel.
 import { useState } from "react";
 import type { Caption, CaptionPreset } from "@/lib/videoEditor/edl";
-import { CAPTION_PRESETS, CAPTION_SIZE_OPTIONS } from "@/lib/videoEditor/captionPresets";
+import { CAPTION_PRESETS } from "@/lib/videoEditor/captionPresets";
+
+// Size slider range — minimum is 37.5% (half of the prior S preset) so users
+// can fit captions on very tight portrait crops; max gives headroom past the
+// previous XL = 1.5x.
+const SIZE_MIN = 0.375;
+const SIZE_MAX = 2.0;
+const SIZE_STEP = 0.05;
 
 type Props = {
   captions: Caption[];
@@ -18,7 +25,6 @@ type Props = {
   onEditWord: (id: string, wordIdx: number, newText: string) => void;
   onSetPosition: (id: string, y_pct: number) => void;
   onSplit: (id: string, atWordIdx: number) => void;
-  onMergeWithNext: (id: string) => void;
 };
 
 const POSITION_PRESETS = [
@@ -27,11 +33,29 @@ const POSITION_PRESETS = [
   { label: "Btm", y: 80 },
 ];
 
+function SizeSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-2 flex-1">
+      <input
+        type="range"
+        min={SIZE_MIN}
+        max={SIZE_MAX}
+        step={SIZE_STEP}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="flex-1 accent-blue-500"
+      />
+      <span className="text-[9px] text-neutral-400 w-8 text-right tabular-nums">
+        {Math.round(value * 100)}%
+      </span>
+    </div>
+  );
+}
+
 export function CaptionsList(props: Props) {
   const { captions } = props;
   if (captions.length === 0) return null;
 
-  // Sort by first-word start so display order matches playback order.
   const sorted = [...captions].sort(
     (a, b) => (a.words[0]?.start_ms ?? 0) - (b.words[0]?.start_ms ?? 0),
   );
@@ -51,23 +75,11 @@ export function CaptionsList(props: Props) {
 
       <div className="bg-neutral-900/60 rounded p-2 space-y-1.5">
         <div className="text-[9px] uppercase tracking-wider text-neutral-500">All blocks</div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <span className="text-[9px] text-neutral-500 w-8">Size</span>
-          {CAPTION_SIZE_OPTIONS.map((opt) => (
-            <button
-              key={opt.label}
-              onClick={() => props.onChangeAllSizes(opt.value)}
-              className={`flex-1 text-[10px] px-1 py-0.5 rounded ${
-                uniformSize !== null && Math.abs(uniformSize - opt.value) < 0.01
-                  ? "bg-blue-600 text-white"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          <SizeSlider value={uniformSize ?? 1} onChange={props.onChangeAllSizes} />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <span className="text-[9px] text-neutral-500 w-8">Style</span>
           <select
             value={uniformPreset ?? ""}
@@ -97,7 +109,6 @@ export function CaptionsList(props: Props) {
   );
 }
 
-// One row per caption block with all manipulation controls.
 function CaptionBlockRow({
   caption: c,
   isFirst,
@@ -110,7 +121,6 @@ function CaptionBlockRow({
   onEditWord,
   onSetPosition,
   onSplit,
-  onMergeWithNext,
 }: Props & { caption: Caption; isFirst: boolean; isLast: boolean }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState("");
@@ -131,7 +141,6 @@ function CaptionBlockRow({
 
   return (
     <div className="bg-neutral-900 rounded p-2 text-[11px] space-y-1.5">
-      {/* Word strip — click a word to edit, the ✂ icon between words splits here. */}
       <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 leading-relaxed">
         {c.words.map((w, i) =>
           editingIdx === i ? (
@@ -190,21 +199,9 @@ function CaptionBlockRow({
         </button>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <span className="text-[9px] text-neutral-500 w-8">Size</span>
-        {CAPTION_SIZE_OPTIONS.map((opt) => (
-          <button
-            key={opt.label}
-            onClick={() => onChangeSize(c.id, opt.value)}
-            className={`flex-1 text-[9px] px-1 py-0.5 rounded ${
-              Math.abs(size - opt.value) < 0.01
-                ? "bg-blue-600 text-white"
-                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        <SizeSlider value={size} onChange={(v) => onChangeSize(c.id, v)} />
       </div>
 
       <div className="flex items-center gap-1">
@@ -241,14 +238,6 @@ function CaptionBlockRow({
           title="Swap timeslot with the next block"
         >
           ↓
-        </button>
-        <button
-          onClick={() => onMergeWithNext(c.id)}
-          disabled={isLast}
-          className="flex-[1.4] text-[9px] px-1 py-0.5 rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Merge this block with the next one"
-        >
-          Merge ↓
         </button>
       </div>
     </div>

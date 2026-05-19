@@ -75,14 +75,6 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
   },
 };
 
-export type CaptionSizeOption = { label: string; value: number };
-export const CAPTION_SIZE_OPTIONS: CaptionSizeOption[] = [
-  { label: "S", value: 0.75 },
-  { label: "M", value: 1.0 },
-  { label: "L", value: 1.25 },
-  { label: "XL", value: 1.5 },
-];
-
 // CSS object for the active-word preview overlay. `frameHeightPx` is the
 // height of the <video>'s rendered picture box. `size` is the per-caption
 // multiplier (default 1.0).
