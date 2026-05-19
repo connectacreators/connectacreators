@@ -52,25 +52,19 @@ function isExpiredTikTokUrl(url: string): boolean {
   }
 }
 
-export function proxyImg(url: string | null, videoUrl?: string | null): string | null {
-  if (url?.includes("connectacreators.com/thumb-cache")) return url;
-  if (url?.includes("connectacreators.com")) return url;
-  // Expired signed URLs would always 403 through the proxy — short-circuit
-  // to the videoUrl-derived resolver if we have a videoUrl, else null so
-  // the card falls back to the gradient placeholder instead of flashing
-  // a broken image.
-  const sourceExpired = url
-    ? EXPIRED_CDN_PATTERN.test(url) || isExpiredTikTokUrl(url)
-    : false;
-  if (sourceExpired && videoUrl) {
-    return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
-  }
-  if (sourceExpired) return null;
-  if (videoUrl) {
-    return `https://connectacreators.com/api/resolve-thumb?url=${encodeURIComponent(videoUrl)}`;
-  }
+export function proxyImg(url: string | null, _videoUrl?: string | null): string | null {
   if (!url) return null;
-  return `https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(url)}`;
+  // Self-hosted thumb-cache (or any path on our own domain) is always fine.
+  if (url.includes("connectacreators.com")) return url;
+  // TikTok URLs whose embedded x-expires is in the past are definitively dead.
+  // Returning null lets the card render a gradient placeholder instead of a
+  // broken-image icon. Once refresh-stale-thumbnails backfills, these rows
+  // get a stable connectacreators.com/thumb-cache URL instead.
+  if (isExpiredTikTokUrl(url)) return null;
+  // For everything else (IG/FB signed CDN — fresh or aging — YouTube, direct
+  // images): hand the raw URL to the browser. Fresh ones load; old ones show
+  // a broken-img icon, but that pool shrinks as the backfill cron runs.
+  return url;
 }
 
 export function getOutlierColor(score: number): string {
