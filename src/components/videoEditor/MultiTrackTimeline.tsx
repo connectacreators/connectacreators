@@ -486,19 +486,24 @@ function CaptionBlock({
       style={{
         left: toPct(start, totalSourceMs),
         width: toPct(Math.max(200, end - start), totalSourceMs),
+        minWidth: 60,
       }}
       title={cap.words.map((w) => w.text).join(" ")}
     >
-      <div
-        onMouseDown={(e) => { e.stopPropagation(); captureRange(); onSelect(); onLeftDown(e); }}
-        className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-300 cursor-ew-resize"
-        title="Trim caption start (drops earlier words)"
-      />
-      <div
-        onMouseDown={(e) => { e.stopPropagation(); captureRange(); onSelect(); onRightDown(e); }}
-        className="absolute right-0 top-0 bottom-0 w-1.5 bg-blue-300 cursor-ew-resize"
-        title="Trim caption end (drops later words)"
-      />
+      {selected && (
+        <>
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureRange(); onLeftDown(e); }}
+            className="absolute left-0 top-0 bottom-0 w-2 bg-blue-300 cursor-ew-resize z-10"
+            title="Trim caption start (drops earlier words)"
+          />
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureRange(); onRightDown(e); }}
+            className="absolute right-0 top-0 bottom-0 w-2 bg-blue-300 cursor-ew-resize z-10"
+            title="Trim caption end (drops later words)"
+          />
+        </>
+      )}
       <span className="text-[9px] text-blue-200 truncate px-2">
         {cap.words.map((w) => w.text).join(" ")}
       </span>
@@ -552,17 +557,22 @@ function OverlayBlock({
       style={{
         left: toPct(ov.start_ms, totalSourceMs),
         width: toPct(Math.max(200, ov.end_ms - ov.start_ms), totalSourceMs),
+        minWidth: 60,
       }}
       title={ov.text}
     >
-      <div
-        onMouseDown={(e) => { e.stopPropagation(); captureStart(); onLeftDown(e); }}
-        className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-400 cursor-ew-resize"
-      />
-      <div
-        onMouseDown={(e) => { e.stopPropagation(); captureStart(); onRightDown(e); }}
-        className="absolute right-0 top-0 bottom-0 w-1.5 bg-amber-400 cursor-ew-resize"
-      />
+      {selected && (
+        <>
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureStart(); onLeftDown(e); }}
+            className="absolute left-0 top-0 bottom-0 w-2 bg-amber-400 cursor-ew-resize z-10"
+          />
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureStart(); onRightDown(e); }}
+            className="absolute right-0 top-0 bottom-0 w-2 bg-amber-400 cursor-ew-resize z-10"
+          />
+        </>
+      )}
       <span className="text-[9px] text-amber-200 truncate px-2">{ov.text}</span>
     </div>
   );
@@ -634,19 +644,27 @@ function BRollBlock({
       style={{
         left: toPct(startSource, totalSourceMs),
         width: toPct(Math.max(120, endSource - startSource), totalSourceMs),
+        // Always at least 60px wide so the user can grab the body even when
+        // the source-time mapping collapses (e.g., b-roll placed past the
+        // current trim).
+        minWidth: 60,
       }}
-      title={`B-roll · ${br.mode} · ${(dur / 1000).toFixed(1)}s`}
+      title={`B-roll · ${br.mode} · ${(dur / 1000).toFixed(1)}s · drag to reposition`}
     >
-      <div
-        onMouseDown={(e) => { e.stopPropagation(); captureTrim(); onSelect(); onLeftDown(e); }}
-        className="absolute left-0 top-0 bottom-0 w-1.5 bg-purple-300 cursor-ew-resize"
-        title="Trim b-roll start"
-      />
-      <div
-        onMouseDown={(e) => { e.stopPropagation(); captureTrim(); onSelect(); onRightDown(e); }}
-        className="absolute right-0 top-0 bottom-0 w-1.5 bg-purple-300 cursor-ew-resize"
-        title="Trim b-roll end"
-      />
+      {selected && (
+        <>
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureTrim(); onLeftDown(e); }}
+            className="absolute left-0 top-0 bottom-0 w-2 bg-purple-300 cursor-ew-resize z-10"
+            title="Trim b-roll start"
+          />
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureTrim(); onRightDown(e); }}
+            className="absolute right-0 top-0 bottom-0 w-2 bg-purple-300 cursor-ew-resize z-10"
+            title="Trim b-roll end"
+          />
+        </>
+      )}
       <span className="text-[9px] text-purple-200 truncate px-2">{br.mode}</span>
     </div>
   );

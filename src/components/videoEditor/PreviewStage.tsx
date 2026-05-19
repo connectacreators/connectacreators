@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EDL } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
 import { CaptionOverlay, useVideoPictureBox } from "./CaptionOverlay";
+import { BRollPreview } from "./BRollPreview";
 
 type Props = {
   sourceUrl: string;
@@ -165,6 +166,15 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
       {musicUrl && (
         <audio ref={audioRef} src={musicUrl} preload="auto" className="hidden" />
       )}
+      {/* B-roll renders ABOVE the main video element but BELOW captions /
+          text overlays so picture-in-picture or fullscreen cutaway visuals
+          don't get hidden behind text. */}
+      <BRollPreview
+        brolls={edl.b_roll ?? []}
+        playheadMs={playheadMs}
+        playing={playing}
+        videoBox={videoBox}
+      />
       <CaptionOverlay
         captions={edl.captions ?? []}
         overlays={edl.text_overlays ?? []}
