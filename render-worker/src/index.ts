@@ -27,7 +27,7 @@ import {
 } from "./db.js";
 import { downloadToFile } from "./storage.js";
 import { uploadFile } from "./storage.js";
-import { runRender, totalOutputDurationMs } from "./render.js";
+import { runRender, totalOutputDurationMs, type BRollInput } from "./render.js";
 import { detectSilences, extractAudio, transcribeWithWhisper } from "./transcribe.js";
 import { writeAssFile, type Caption, type TextOverlay } from "./captions.js";
 
@@ -71,12 +71,43 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     await downloadToFile(client, SOURCE_BUCKET, music.storage_path, musicPath);
   }
 
+  // Download each b-roll clip locally; the filter graph needs file paths.
+  type BRollEdl = {
+    id: string;
+    source_storage_path: string;
+    source_duration_ms: number;
+    trim_start_ms: number;
+    trim_end_ms: number;
+    output_start_ms: number;
+    mode: "fullscreen" | "pip";
+    position: { x_pct: number; y_pct: number; width_pct: number };
+  };
+  const brollEdls: BRollEdl[] =
+    (job.edl_snapshot as { b_roll?: BRollEdl[] }).b_roll ?? [];
+  const brolls: BRollInput[] = [];
+  for (let i = 0; i < brollEdls.length; i++) {
+    const br = brollEdls[i];
+    const localPath = path.join(workDir, `broll-${i}` + path.extname(br.source_storage_path));
+    await downloadToFile(client, SOURCE_BUCKET, br.source_storage_path, localPath);
+    brolls.push({
+      id: br.id,
+      local_path: localPath,
+      source_duration_ms: br.source_duration_ms,
+      trim_start_ms: br.trim_start_ms,
+      trim_end_ms: br.trim_end_ms,
+      output_start_ms: br.output_start_ms,
+      mode: br.mode,
+      position: br.position,
+    });
+  }
+
   await updateProgress(client, job.id, 20);
   await runRender(input, job.edl_snapshot.clips, output, {
     subtitlesAssPath: hadCaptions ? assPath : undefined,
     aspectRatio: job.aspect_ratio as "source" | "9:16" | "1:1" | "16:9",
     musicPath,
     musicVolume: music?.volume,
+    brolls,
   });
 
   await updateProgress(client, job.id, 80);

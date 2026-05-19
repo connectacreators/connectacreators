@@ -50,6 +50,21 @@ export type TextOverlay = {
   size?: number;          // multiplier on preset's base font size
 };
 
+// A secondary video clip overlaid on the main timeline. Two modes:
+//   - fullscreen: covers the main video for the placement window
+//   - pip: a smaller box positioned at x_pct/y_pct, width = width_pct of main
+// Times are in OUTPUT time (after trim + reframe), not source time.
+export type BRollClip = {
+  id: string;
+  source_storage_path: string;  // in the footage bucket
+  source_duration_ms: number;   // probed on upload so the worker can validate
+  trim_start_ms: number;        // start time within the b-roll source
+  trim_end_ms: number;          // end time within the b-roll source
+  output_start_ms: number;      // when in the main output the b-roll begins
+  mode: "fullscreen" | "pip";
+  position: { x_pct: number; y_pct: number; width_pct: number };
+};
+
 // Optional background music track. The worker mixes this in at the end of
 // the render. Volume is 0..1 (1 = full); the source video's own audio
 // stays at full volume above the music.
@@ -72,10 +87,11 @@ export type EDL = {
   captions?: Caption[];
   text_overlays?: TextOverlay[];
   music?: Music;
+  b_roll?: BRollClip[];
 
-  // Phase 5 stops here. Phase 6 adds a b-roll track. Keep additive only.
-  // AI / Robby builds this JSON directly via Supabase update on
-  // editor_projects.edl.
+  // EDL is the full spec of a render. Every editor action mutates this
+  // document. AI (Robby on /ai) builds the same JSON shape directly via
+  // Supabase update on editor_projects.edl — keep schema additive only.
 };
 
 export function emptyEDL(sourceStoragePath: string, durationMs: number): EDL {

@@ -13,6 +13,7 @@ import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
 import { CaptionsPanel } from "@/components/videoEditor/CaptionsPanel";
 import { TextOverlaysPanel } from "@/components/videoEditor/TextOverlaysPanel";
 import { MusicPanel } from "@/components/videoEditor/MusicPanel";
+import { BRollPanel } from "@/components/videoEditor/BRollPanel";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
 import { useTranscript, type TranscriptWord } from "@/hooks/useTranscript";
 import {
@@ -21,6 +22,7 @@ import {
   sourceTimeToEdlTime,
   type AspectRatio,
   type Caption,
+  type BRollClip,
   type CaptionPreset,
   type Music,
   type TextOverlay,
@@ -97,8 +99,10 @@ export default function VideoEditor() {
   const [playing, setPlaying] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [resultSignedUrl, setResultSignedUrl] = useState<string | null>(null);
-  // Right-panel tab: Transcript (default), Captions, Text overlays, or Music.
-  const [rightTab, setRightTab] = useState<"transcript" | "captions" | "text" | "music">("transcript");
+  // Right-panel tab: Transcript / Captions / Text / Music / B-roll.
+  const [rightTab, setRightTab] = useState<
+    "transcript" | "captions" | "text" | "music" | "broll"
+  >("transcript");
   // CapCut-style "Apply changes to all captions" toggle. When on, any
   // per-block edit (size/style/position/drag) propagates to every block.
   const [applyToAll, setApplyToAll] = useState(true);
@@ -353,6 +357,31 @@ export default function VideoEditor() {
     });
   };
 
+  // ===== B-roll handlers =====
+  const handleAddBRoll = (clip: BRollClip) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      b_roll: [...(projState.edl.b_roll ?? []), clip],
+    });
+  };
+  const handleChangeBRoll = (id: string, patch: Partial<BRollClip>) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      b_roll: (projState.edl.b_roll ?? []).map((c) =>
+        c.id === id ? { ...c, ...patch } : c,
+      ),
+    });
+  };
+  const handleDeleteBRoll = (id: string) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      b_roll: (projState.edl.b_roll ?? []).filter((c) => c.id !== id),
+    });
+  };
+
   const handleSetMusic = (music: Music | null) => {
     if (projState.phase !== "ready") return;
     const next = { ...projState.edl };
@@ -496,13 +525,13 @@ export default function VideoEditor() {
           </div>
         </div>
         <div className="w-[280px] shrink-0 flex flex-col bg-neutral-950 border-l border-neutral-800 overflow-hidden">
-          {/* Tab switcher: Transcript / Captions / Text overlays / Music */}
+          {/* Tab switcher: Script / Captions / Text / Music / B-roll */}
           <div className="flex border-b border-neutral-800 shrink-0">
-            {(["transcript", "captions", "text", "music"] as const).map((tab) => (
+            {(["transcript", "captions", "text", "music", "broll"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setRightTab(tab)}
-                className={`flex-1 py-2 text-[10px] uppercase tracking-wider transition-colors ${
+                className={`flex-1 py-2 text-[9px] uppercase tracking-wider transition-colors ${
                   rightTab === tab
                     ? "text-white border-b-2 border-blue-500"
                     : "text-neutral-500 hover:text-neutral-300"
@@ -511,12 +540,12 @@ export default function VideoEditor() {
                 {tab === "transcript"
                   ? "Script"
                   : tab === "captions"
-                  ? `Caps (${projState.edl.captions?.length ?? 0})`
+                  ? `Caps ${projState.edl.captions?.length ?? 0}`
                   : tab === "text"
-                  ? `Text (${projState.edl.text_overlays?.length ?? 0})`
-                  : projState.edl.music
-                  ? "Music ●"
-                  : "Music"}
+                  ? `Text ${projState.edl.text_overlays?.length ?? 0}`
+                  : tab === "music"
+                  ? (projState.edl.music ? "Music ●" : "Music")
+                  : `B-roll ${projState.edl.b_roll?.length ?? 0}`}
               </button>
             ))}
           </div>
@@ -568,11 +597,24 @@ export default function VideoEditor() {
                 onDelete={handleDeleteOverlay}
                 onSeek={handleSeekFromTranscript}
               />
-            ) : (
+            ) : rightTab === "music" ? (
               <MusicPanel
                 music={projState.edl.music ?? null}
                 videoEditId={id!}
                 onSet={handleSetMusic}
+              />
+            ) : (
+              <BRollPanel
+                brolls={projState.edl.b_roll ?? []}
+                videoEditId={id!}
+                outputPlayheadMs={playheadMs}
+                outputDurationMs={(projState.edl.clips ?? []).reduce(
+                  (acc, c) => acc + Math.max(0, c.source_end_ms - c.source_start_ms),
+                  0,
+                )}
+                onAdd={handleAddBRoll}
+                onChange={handleChangeBRoll}
+                onDelete={handleDeleteBRoll}
               />
             )}
           </div>
