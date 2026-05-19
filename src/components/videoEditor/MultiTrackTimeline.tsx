@@ -24,7 +24,7 @@ import type {
 import { sourceTimeToEdlTime } from "@/lib/videoEditor/edl";
 
 export type TimelineSelection =
-  | { kind: "video" }
+  | { kind: "video"; id: string }
   | { kind: "caption"; id: string }
   | { kind: "text"; id: string }
   | { kind: "broll"; id: string }
@@ -44,7 +44,10 @@ type Props = {
   selection: TimelineSelection;
   onSelect: (sel: TimelineSelection) => void;
   onSeek: (sourceMs: number) => void;
-  onChangeTrim: (sourceStartMs: number, sourceEndMs: number) => void;
+  // Trim a specific video clip by id (every EDL clip has its own id, so this
+  // works for the single-clip case AND for the multi-clip case produced by
+  // 'Remove all silences' or a manual split).
+  onChangeTrim: (clipId: string, sourceStartMs: number, sourceEndMs: number) => void;
   onShiftCaption: (id: string, newFirstWordStartMs: number) => void;
   // Trim a caption's word range. Pass null for the edge you're not moving.
   // Words whose start/end fall outside the new range are dropped.
@@ -187,18 +190,6 @@ export function MultiTrackTimeline(props: Props) {
     return out;
   }, [totalSourceMs]);
 
-  // Trim handles.
-  const onTrimEdge = (which: "in" | "out") => beginDrag((deltaMs) => {
-    const clip = edl.clips[0];
-    if (which === "in") {
-      const next = Math.max(0, Math.min(clip.source_end_ms - 100, clip.source_start_ms + deltaMs));
-      onChangeTrim(next, clip.source_end_ms);
-    } else {
-      const next = Math.max(clip.source_start_ms + 100, Math.min(totalSourceMs, clip.source_end_ms + deltaMs));
-      onChangeTrim(clip.source_start_ms, next);
-    }
-  });
-
   const clip = edl.clips[0];
 
   const outputToSource = (outMs: number): number => {
@@ -276,27 +267,26 @@ export function MultiTrackTimeline(props: Props) {
         </div>
       </div>
 
-      {/* Video — trim region with handles. */}
+      {/* Video — one block per EDL clip. Multiple clips happen after the
+          user splits the source or runs 'Remove all silences'. Each block
+          has its own trim handles (visible when selected) and the entire
+          body is draggable as a selection target. */}
       <TrackRow label="Video" height={VIDEO_TRACK_HEIGHT}>
-        <div
-          onClick={() => onSelect({ kind: "video" })}
-          onContextMenu={(e) => showCtx(e, { kind: "video" })}
-          className={`absolute top-0 bottom-0 bg-blue-900/40 border ${isSelected({ kind: "video" }) ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} cursor-pointer`}
-          style={{
-            left: toPct(clip.source_start_ms, totalSourceMs),
-            width: toPct(clip.source_end_ms - clip.source_start_ms, totalSourceMs),
-          }}
-        />
-        <div
-          onMouseDown={onTrimEdge("in")}
-          className="absolute top-0 bottom-0 w-2 -ml-1 bg-blue-400 cursor-ew-resize hover:bg-blue-300"
-          style={{ left: toPct(clip.source_start_ms, totalSourceMs) }}
-        />
-        <div
-          onMouseDown={onTrimEdge("out")}
-          className="absolute top-0 bottom-0 w-2 -ml-1 bg-blue-400 cursor-ew-resize hover:bg-blue-300"
-          style={{ left: toPct(clip.source_end_ms, totalSourceMs) }}
-        />
+        {edl.clips.map((c) => (
+          <VideoClipBlock
+            key={c.id}
+            clipId={c.id}
+            startMs={c.source_start_ms}
+            endMs={c.source_end_ms}
+            totalSourceMs={totalSourceMs}
+            selected={isSelected({ kind: "video", id: c.id })}
+            onSelect={() => onSelect({ kind: "video", id: c.id })}
+            onContextMenu={(e) => showCtx(e, { kind: "video", id: c.id })}
+            onChangeTrim={(s, e) => onChangeTrim(c.id, s, e)}
+            onSeek={onSeek}
+            beginDrag={beginDrag}
+          />
+        ))}
         <div
           className="absolute top-0 bottom-0 w-px bg-yellow-400 pointer-events-none"
           style={{ left: toPct(playheadSourceMs, totalSourceMs) }}
@@ -427,6 +417,80 @@ export function MultiTrackTimeline(props: Props) {
         })()}
       </div>
     )}
+    </div>
+  );
+}
+
+function VideoClipBlock({
+  clipId,
+  startMs,
+  endMs,
+  totalSourceMs,
+  selected,
+  onSelect,
+  onContextMenu,
+  onChangeTrim,
+  onSeek,
+  beginDrag,
+}: {
+  clipId: string;
+  startMs: number;
+  endMs: number;
+  totalSourceMs: number;
+  selected: boolean;
+  onSelect: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  // Replace this clip's [start, end] with new source-time bounds.
+  onChangeTrim: (sourceStartMs: number, sourceEndMs: number) => void;
+  onSeek: (sourceMs: number) => void;
+  beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
+}) {
+  const snap = useRef({ start: startMs, end: endMs });
+  const captureSnap = () => { snap.current = { start: startMs, end: endMs }; };
+
+  // Body drag — translates the clip's [start, end] in source space (keeps
+  // its duration). Useful when the user wants to re-position a split clip.
+  const onBodyDown = beginDrag((delta) => {
+    const dur = snap.current.end - snap.current.start;
+    const nextStart = Math.max(0, Math.min(totalSourceMs - dur, snap.current.start + delta));
+    onChangeTrim(nextStart, nextStart + dur);
+  });
+  const onLeftDown = beginDrag((delta) => {
+    const next = Math.max(0, Math.min(snap.current.end - 100, snap.current.start + delta));
+    onChangeTrim(next, snap.current.end);
+  });
+  const onRightDown = beginDrag((delta) => {
+    const next = Math.max(snap.current.start + 100, Math.min(totalSourceMs, snap.current.end + delta));
+    onChangeTrim(snap.current.start, next);
+  });
+
+  return (
+    <div
+      onMouseDown={(e) => { e.stopPropagation(); captureSnap(); onSelect(); onBodyDown(e); }}
+      onClick={(e) => { e.stopPropagation(); onSeek(startMs); }}
+      onContextMenu={onContextMenu}
+      className={`absolute top-0 bottom-0 bg-blue-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} cursor-grab active:cursor-grabbing`}
+      style={{
+        left: toPct(startMs, totalSourceMs),
+        width: toPct(endMs - startMs, totalSourceMs),
+        minWidth: 60,
+      }}
+      title={`Video clip · ${((endMs - startMs) / 1000).toFixed(1)}s · drag to move, S to split`}
+    >
+      {selected && (
+        <>
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureSnap(); onLeftDown(e); }}
+            className="absolute left-0 top-0 bottom-0 w-2 bg-blue-400 cursor-ew-resize z-10"
+            title="Trim clip start"
+          />
+          <div
+            onMouseDown={(e) => { e.stopPropagation(); captureSnap(); onRightDown(e); }}
+            className="absolute right-0 top-0 bottom-0 w-2 bg-blue-400 cursor-ew-resize z-10"
+            title="Trim clip end"
+          />
+        </>
+      )}
     </div>
   );
 }

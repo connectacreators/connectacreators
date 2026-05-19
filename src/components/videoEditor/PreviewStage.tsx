@@ -16,6 +16,7 @@ type Props = {
   onMoveCaption?: (captionId: string, x_pct: number, y_pct: number) => void;
   onResizeCaption?: (captionId: string, size: number) => void;
   onMoveOverlay?: (overlayId: string, x_pct: number, y_pct: number) => void;
+  onEditOverlayText?: (overlayId: string, newText: string) => void;
 };
 
 // Map EDL playhead (output time) -> source time (input time) by walking clips.
@@ -32,7 +33,7 @@ function edlTimeToSourceTime(edl: EDL, edlMs: number): { sourceMs: number; clipI
   return null;
 }
 
-export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay }: Props) {
+export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay, onEditOverlayText }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoBox = useVideoPictureBox(videoRef);
@@ -183,6 +184,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
         onMoveCaption={onMoveCaption}
         onResizeCaption={onResizeCaption}
         onMoveOverlay={onMoveOverlay}
+        onEditOverlayText={onEditOverlayText}
       />
     </div>
   );

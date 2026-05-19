@@ -23,9 +23,10 @@ type Props = {
   onMoveCaption?: (captionId: string, x_pct: number, y_pct: number) => void;
   onResizeCaption?: (captionId: string, size: number) => void;
   onMoveOverlay?: (overlayId: string, x_pct: number, y_pct: number) => void;
+  onEditOverlayText?: (overlayId: string, newText: string) => void;
 };
 
-export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveCaption, onResizeCaption, onMoveOverlay }: Props) {
+export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveCaption, onResizeCaption, onMoveOverlay, onEditOverlayText }: Props) {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ captionId: string; offsetX: number; offsetY: number } | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
@@ -37,6 +38,9 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
     centerY: number;
   } | null>(null);
   const [resizing, setResizing] = useState(false);
+  // Which text-overlay is in inline-edit mode (double-clicked).
+  const [editingOverlayId, setEditingOverlayId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
 
   if (!videoBox) return null;
   const hasContent = captions.length > 0 || overlays.length > 0;
@@ -216,9 +220,21 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
       {activeOverlays.map((ov) => {
         const ovSpec = TEXT_OVERLAY_PRESETS[ov.preset] ?? TEXT_OVERLAY_PRESETS.tiktok;
         const text = ovSpec.uppercase ? ov.text.toUpperCase() : ov.text;
+        const isEditing = editingOverlayId === ov.id;
+        const commit = () => {
+          if (onEditOverlayText && editingValue.trim() !== "") {
+            onEditOverlayText(ov.id, editingValue.trim());
+          }
+          setEditingOverlayId(null);
+        };
         return (
           <div
             key={ov.id}
+            onDoubleClick={() => {
+              if (!onEditOverlayText) return;
+              setEditingOverlayId(ov.id);
+              setEditingValue(ov.text);
+            }}
             className={onMoveOverlay ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
             style={{
               left: `${ov.position.x_pct}%`,
@@ -231,11 +247,30 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
               borderRadius: ovSpec.background === "none" ? 0 : 4,
               pointerEvents: onMoveOverlay ? "auto" : "none",
               whiteSpace: "nowrap",
+              outline: isEditing ? "1px dashed rgba(59,130,246,0.7)" : undefined,
             }}
+            title={isEditing ? undefined : "Double-click to edit text"}
           >
-            <span style={toOverlayPreviewStyle(ovSpec, videoBox.height, ov.size ?? 1)}>
-              {text}
-            </span>
+            {isEditing ? (
+              <input
+                autoFocus
+                value={editingValue}
+                onChange={(e) => setEditingValue(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commit();
+                  if (e.key === "Escape") setEditingOverlayId(null);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="bg-transparent border-none outline-none text-center"
+                style={toOverlayPreviewStyle(ovSpec, videoBox.height, ov.size ?? 1)}
+              />
+            ) : (
+              <span style={toOverlayPreviewStyle(ovSpec, videoBox.height, ov.size ?? 1)}>
+                {text}
+              </span>
+            )}
           </div>
         );
       })}

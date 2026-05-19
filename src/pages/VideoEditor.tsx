@@ -364,15 +364,57 @@ export default function VideoEditor() {
     });
   };
 
-  // Trim handler for the multi-track timeline: replace clip 0 with a new
-  // [start, end] range. Other clips (added by 'Remove all silences' later)
-  // are preserved.
-  const handleChangeTrim = (sourceStartMs: number, sourceEndMs: number) => {
+  // Trim handler for the multi-track timeline: replace a specific clip by
+  // id with a new [start, end] range. Other clips are preserved so the
+  // multi-clip case (after 'Remove all silences' or a manual S-split)
+  // still works.
+  const handleChangeTrim = (clipId: string, sourceStartMs: number, sourceEndMs: number) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      clips: projState.edl.clips.map((c) =>
+        c.id === clipId
+          ? { ...c, source_start_ms: sourceStartMs, source_end_ms: sourceEndMs }
+          : c,
+      ),
+    });
+  };
+
+  // Delete a single video clip. The EDL must always have at least one clip;
+  // deleting the last clip is a no-op (we don't want a zero-clip render).
+  const handleDeleteVideoClip = (clipId: string) => {
     if (projState.phase !== "ready") return;
     const clips = projState.edl.clips;
-    if (clips.length === 0) return;
+    if (clips.length <= 1) return;
+    setEdl({ ...projState.edl, clips: clips.filter((c) => c.id !== clipId) });
+  };
+
+  // Split a clip at the given source-time. Replaces the clip with two new
+  // clips that together cover the original range. Used by the S-key
+  // shortcut when a video clip is selected.
+  const handleSplitVideoClipAtSource = (clipId: string, sourceSplitMs: number) => {
+    if (projState.phase !== "ready") return;
+    const clips = projState.edl.clips;
+    const idx = clips.findIndex((c) => c.id === clipId);
+    if (idx === -1) return;
+    const c = clips[idx];
+    if (sourceSplitMs <= c.source_start_ms + 50 || sourceSplitMs >= c.source_end_ms - 50) return;
+    const left = { ...c, id: crypto.randomUUID(), source_end_ms: sourceSplitMs };
+    const right = { ...c, id: crypto.randomUUID(), source_start_ms: sourceSplitMs };
     const next = [...clips];
-    next[0] = { ...clips[0], source_start_ms: sourceStartMs, source_end_ms: sourceEndMs };
+    next.splice(idx, 1, left, right);
+    setEdl({ ...projState.edl, clips: next });
+  };
+
+  // Duplicate a video clip (copy + insert after the original, same range).
+  const handleDuplicateVideoClip = (clipId: string) => {
+    if (projState.phase !== "ready") return;
+    const clips = projState.edl.clips;
+    const idx = clips.findIndex((c) => c.id === clipId);
+    if (idx === -1) return;
+    const dup = { ...clips[idx], id: crypto.randomUUID() };
+    const next = [...clips];
+    next.splice(idx + 1, 0, dup);
     setEdl({ ...projState.edl, clips: next });
   };
 
@@ -601,6 +643,7 @@ export default function VideoEditor() {
   const runDelete = () => {
     if (!timelineSelection) return;
     switch (timelineSelection.kind) {
+      case "video":   handleDeleteVideoClip(timelineSelection.id); break;
       case "caption": handleDeleteCaption(timelineSelection.id); break;
       case "text":    handleDeleteOverlay(timelineSelection.id); break;
       case "broll":   handleDeleteBRoll(timelineSelection.id); break;
@@ -611,10 +654,26 @@ export default function VideoEditor() {
   };
   const runCopy = () => { const item = selectedPayload(); if (item) clipboardRef.current = item; };
   const runCut = () => { runCopy(); runDelete(); };
-  const runDuplicate = () => { const item = selectedPayload(); if (!item) return; clipboardRef.current = item; runPaste(); };
+  const runDuplicate = () => {
+    // Video clips have their own duplicate that inserts into the clips
+    // array; everything else goes through the clipboard path so paste
+    // places it at the playhead.
+    if (timelineSelection?.kind === "video") {
+      handleDuplicateVideoClip(timelineSelection.id);
+      return;
+    }
+    const item = selectedPayload();
+    if (!item) return;
+    clipboardRef.current = item;
+    runPaste();
+  };
 
   const runSplit = () => {
     if (projState.phase !== "ready" || !timelineSelection) return;
+    if (timelineSelection.kind === "video") {
+      handleSplitVideoClipAtSource(timelineSelection.id, playheadSourceMs);
+      return;
+    }
     if (timelineSelection.kind === "caption") {
       const c = projState.edl.captions?.find((x) => x.id === timelineSelection.id);
       if (!c) return;
@@ -721,6 +780,7 @@ export default function VideoEditor() {
             onMoveCaption={handleMoveCaption}
             onResizeCaption={handleChangeCaptionSize}
             onMoveOverlay={handleMoveOverlay}
+            onEditOverlayText={(id, text) => handleChangeOverlay(id, { text })}
           />
           <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
             <button
