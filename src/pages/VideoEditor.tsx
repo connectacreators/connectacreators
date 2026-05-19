@@ -203,6 +203,110 @@ export default function VideoEditor() {
     });
   };
 
+  // Swap two caption blocks in the list. Captions are time-bound, so we
+  // also swap their word ranges' start/end offsets — that way "move up"
+  // makes this block play at the previous block's spot in the timeline,
+  // and the previous block plays where this one used to.
+  const handleReorderCaption = (id: string, direction: "up" | "down") => {
+    if (projState.phase !== "ready") return;
+    const captions = projState.edl.captions ?? [];
+    // Display order = chronological. Sort by first-word start_ms to be safe.
+    const sorted = [...captions].sort(
+      (a, b) => (a.words[0]?.start_ms ?? 0) - (b.words[0]?.start_ms ?? 0),
+    );
+    const idx = sorted.findIndex((c) => c.id === id);
+    if (idx === -1) return;
+    const otherIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (otherIdx < 0 || otherIdx >= sorted.length) return;
+
+    const a = sorted[idx];
+    const b = sorted[otherIdx];
+    // Shift A into B's timeslot and B into A's timeslot by translating word
+    // start/end timestamps. Anchor each shift on the first word so internal
+    // word gaps within a block are preserved.
+    const aOrigin = a.words[0].start_ms;
+    const bOrigin = b.words[0].start_ms;
+    const shiftWords = (words: typeof a.words, origin: number, newOrigin: number) =>
+      words.map((w) => ({
+        text: w.text,
+        start_ms: w.start_ms - origin + newOrigin,
+        end_ms: w.end_ms - origin + newOrigin,
+      }));
+    const newA = { ...a, words: shiftWords(a.words, aOrigin, bOrigin) };
+    const newB = { ...b, words: shiftWords(b.words, bOrigin, aOrigin) };
+    sorted[idx] = newA;
+    sorted[otherIdx] = newB;
+    setEdl({ ...projState.edl, captions: sorted });
+  };
+
+  const handleEditCaptionWord = (id: string, wordIdx: number, newText: string) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).map((c) =>
+        c.id !== id
+          ? c
+          : {
+              ...c,
+              words: c.words.map((w, i) => (i === wordIdx ? { ...w, text: newText } : w)),
+            },
+      ),
+    });
+  };
+
+  const handleSetCaptionPosition = (id: string, y_pct: number) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).map((c) =>
+        c.id === id ? { ...c, position: { ...c.position, y_pct } } : c,
+      ),
+    });
+  };
+
+  // Drag handler for the on-preview overlay — accepts both x and y.
+  const handleMoveCaption = (id: string, x_pct: number, y_pct: number) => {
+    if (projState.phase !== "ready") return;
+    setEdl({
+      ...projState.edl,
+      captions: (projState.edl.captions ?? []).map((c) =>
+        c.id === id ? { ...c, position: { ...c.position, x_pct, y_pct } } : c,
+      ),
+    });
+  };
+
+  const handleSplitCaption = (id: string, atWordIdx: number) => {
+    if (projState.phase !== "ready") return;
+    const captions = projState.edl.captions ?? [];
+    const idx = captions.findIndex((c) => c.id === id);
+    if (idx === -1) return;
+    const c = captions[idx];
+    // Need at least one word on each side of the split.
+    if (atWordIdx < 1 || atWordIdx >= c.words.length) return;
+    const left = { ...c, id: crypto.randomUUID(), words: c.words.slice(0, atWordIdx) };
+    const right = { ...c, id: crypto.randomUUID(), words: c.words.slice(atWordIdx) };
+    const next = [...captions];
+    next.splice(idx, 1, left, right);
+    setEdl({ ...projState.edl, captions: next });
+  };
+
+  // Merge with the *next* block in chronological order. The merged block
+  // inherits this block's preset/size/position.
+  const handleMergeCaptionWithNext = (id: string) => {
+    if (projState.phase !== "ready") return;
+    const captions = projState.edl.captions ?? [];
+    const sorted = [...captions].sort(
+      (a, b) => (a.words[0]?.start_ms ?? 0) - (b.words[0]?.start_ms ?? 0),
+    );
+    const idx = sorted.findIndex((c) => c.id === id);
+    if (idx === -1 || idx >= sorted.length - 1) return;
+    const a = sorted[idx];
+    const b = sorted[idx + 1];
+    const merged = { ...a, words: [...a.words, ...b.words] };
+    sorted.splice(idx, 2, merged);
+    setEdl({ ...projState.edl, captions: sorted });
+  };
+
   const handleAutoCaption = (preset: CaptionPreset) => {
     if (projState.phase !== "ready") return;
     if (transcriptState.phase !== "ready") return;
@@ -282,6 +386,7 @@ export default function VideoEditor() {
             playing={playing}
             onPlayheadChange={setPlayheadMs}
             onEnded={() => setPlaying(false)}
+            onMoveCaption={handleMoveCaption}
           />
           <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
             <button
@@ -316,6 +421,11 @@ export default function VideoEditor() {
             onChangeAllPresets={handleChangeAllCaptionPresets}
             onDelete={handleDeleteCaption}
             onSeek={handleSeekFromTranscript}
+            onReorder={handleReorderCaption}
+            onEditWord={handleEditCaptionWord}
+            onSetPosition={handleSetCaptionPosition}
+            onSplit={handleSplitCaption}
+            onMergeWithNext={handleMergeCaptionWithNext}
           />
         </div>
       </div>

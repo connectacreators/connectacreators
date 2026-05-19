@@ -2,7 +2,9 @@
 // Renders the active caption (the one whose word range contains the current
 // playhead in source time) on top of the preview <video>. Mirrors the styles
 // the worker burns in via ASS so what you see is roughly what you export.
-import { useEffect, useLayoutEffect, useState } from "react";
+// Drag the caption to reposition it on the video — emits the new x_pct/y_pct
+// (clamped to [0, 100]) via onMoveCaption.
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Caption } from "@/lib/videoEditor/edl";
 import { CAPTION_PRESETS, toPreviewStyle } from "@/lib/videoEditor/captionPresets";
 
@@ -16,9 +18,13 @@ type Props = {
   // in container-relative coords (left/top relative to the absolute-positioned
   // overlay's offsetParent).
   videoBox: VideoBox | null;
+  onMoveCaption?: (captionId: string, x_pct: number, y_pct: number) => void;
 };
 
-export function CaptionOverlay({ captions, sourceMs, videoBox }: Props) {
+export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: Props) {
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ captionId: string; offsetX: number; offsetY: number } | null>(null);
+
   if (!videoBox || captions.length === 0) return null;
 
   const active = captions.find((c) => {
@@ -37,9 +43,39 @@ export function CaptionOverlay({ captions, sourceMs, videoBox }: Props) {
   const left = videoBox.left + (active.position.x_pct / 100) * videoBox.width;
   const top = videoBox.top + (active.position.y_pct / 100) * videoBox.height;
 
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onMoveCaption) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      captionId: active.id,
+      offsetX: e.clientX - left,
+      offsetY: e.clientY - top,
+    };
+    setDragOffset({ x: 0, y: 0 });
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current || !onMoveCaption) return;
+    // Convert client coords back to container-relative, then to picture-box
+    // percentage. Clamp 0-100 so the caption can't be dragged out of frame.
+    const containerRect = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+    if (!containerRect) return;
+    const rawX = e.clientX - dragRef.current.offsetX - containerRect.left;
+    const rawY = e.clientY - dragRef.current.offsetY - containerRect.top;
+    const pctX = ((rawX - videoBox.left) / videoBox.width) * 100;
+    const pctY = ((rawY - videoBox.top) / videoBox.height) * 100;
+    const clampedX = Math.max(5, Math.min(95, pctX));
+    const clampedY = Math.max(5, Math.min(95, pctY));
+    onMoveCaption(dragRef.current.captionId, clampedX, clampedY);
+  };
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+    setDragOffset(null);
+  };
+
   return (
     <div
-      className="pointer-events-none absolute"
+      className={onMoveCaption ? "absolute select-none cursor-move" : "pointer-events-none absolute"}
       style={{
         left,
         top,
@@ -49,7 +85,12 @@ export function CaptionOverlay({ captions, sourceMs, videoBox }: Props) {
         background: spec.background === "none" ? undefined : spec.background,
         padding: spec.background === "none" ? 0 : "0.2em 0.6em",
         borderRadius: spec.background === "none" ? 0 : 8,
+        outline: dragOffset !== null ? "2px dashed rgba(59,130,246,0.7)" : undefined,
+        touchAction: "none",
       }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
     >
       {active.words.map((w, i) => (
         <span
