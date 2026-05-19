@@ -59,7 +59,15 @@ export interface AnalyzeMyProfileResult {
   /** When set, the SSE caller should emit a profile-analysis embed event
    *  with this payload. Null when no analysis ran (mismatch, missing handle). */
   embed_payload: Record<string, unknown> | null;
+  /** True when the result was served from client_strategies.audience_analysis
+   *  cache instead of a fresh scrape — caller should skip credit deduction. */
+  cached?: boolean;
 }
+
+/** How long a cached analysis stays valid before we re-scrape. 24h is a
+ *  reasonable cadence for IG content changes — most accounts post < daily,
+ *  and a day-old audit is still actionable. */
+const CACHE_TTL_HOURS = 24;
 
 export async function runAnalyzeMyProfile(args: {
   admin: SupabaseClient;
@@ -68,7 +76,7 @@ export async function runAnalyzeMyProfile(args: {
   input: AnalyzeMyProfileInput;
   onboarding: Record<string, unknown>;
 }): Promise<AnalyzeMyProfileResult> {
-  const { admin: _admin, authHeader, supabaseUrl, input, onboarding } = args;
+  const { admin, authHeader, supabaseUrl, input, onboarding } = args;
 
   const resolution = resolveTargetHandle({
     provided: input.handle,
@@ -89,11 +97,41 @@ export async function runAnalyzeMyProfile(args: {
     };
   }
 
+  // Cache check — if we ran this analysis recently for the same handle and
+  // the cached payload covers what was requested (including comparison if
+  // include_competitors=true), re-render from cache instead of re-scraping.
+  // Saves credits and turns a 30-60s VPS call into an instant response.
+  const wantsCompetitors = input.include_competitors === true;
+  const { data: existing } = await admin
+    .from("client_strategies")
+    .select("audience_analysis")
+    .eq("client_id", input.client_id)
+    .maybeSingle();
+  const cached = (existing?.audience_analysis ?? null) as Record<string, unknown> | null;
+  if (cached) {
+    const cachedAnalyzedAt = typeof cached.analyzed_at === "string" ? cached.analyzed_at : null;
+    const cachedHandle = typeof cached.handle === "string" ? cached.handle.toLowerCase() : null;
+    const ageMs = cachedAnalyzedAt ? Date.now() - new Date(cachedAnalyzedAt).getTime() : Infinity;
+    const isFresh = ageMs < CACHE_TTL_HOURS * 60 * 60 * 1000;
+    const handleMatches = cachedHandle === resolution.handle.toLowerCase();
+    const hasExtended = Array.isArray(cached.hook_patterns);
+    const coversComparison = !wantsCompetitors || cached.comparison != null;
+    if (isFresh && handleMatches && hasExtended && coversComparison) {
+      const ageHours = Math.max(1, Math.floor(ageMs / (60 * 60 * 1000)));
+      const cachedSummary = typeof cached.summary === "string" ? cached.summary : "";
+      return {
+        tool_result_text: `Using cached analysis (${ageHours}h old) for @${resolution.handle}. ${cachedSummary} A ProfileAnalysisEmbed card has been rendered from cache — no new scrape, no credit charge. NEXT: write a 2-3 sentence prose reply summarizing what stands out. If the user explicitly asked for a fresh re-analysis, tell them you used cached data and offer to force-refresh on their next message.`,
+        embed_payload: { ...cached, handle: resolution.handle, platform: "instagram" },
+        cached: true,
+      };
+    }
+  }
+
   // resolution.kind === "match" — call the edge function
   const payload = {
     client_id: input.client_id,
     extended_dimensions: true,
-    include_competitors: input.include_competitors === true,
+    include_competitors: wantsCompetitors,
   };
 
   const res = await fetch(`${supabaseUrl}/functions/v1/analyze-audience-alignment`, {

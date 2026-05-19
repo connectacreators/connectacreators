@@ -1603,17 +1603,20 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               content: result.tool_result_text,
             });
 
-            // Charge credits only when an analysis actually ran (embed_payload
-            // present). Mismatch and missing-handle paths are free.
+            // Charge credits only when an analysis actually ran fresh
+            // (embed_payload present AND not served from cache). Mismatch,
+            // missing-handle, and cache-hit paths are all free.
             if (result.embed_payload && user?.id) {
-              const onboardingData = (fullClient?.onboarding_data as Record<string, unknown>) || {};
-              const compCount = Array.isArray(onboardingData.top3Profiles)
-                ? (onboardingData.top3Profiles as unknown[]).length
-                : 0;
-              const cost = input.include_competitors === true
-                ? PROFILE_ANALYSIS_COST + (PROFILE_ANALYSIS_COST_PER_COMPETITOR * compCount)
-                : PROFILE_ANALYSIS_COST;
-              await deductCredits(adminClient, user.id, "analyze_my_profile", cost);
+              if (!result.cached) {
+                const onboardingData = (fullClient?.onboarding_data as Record<string, unknown>) || {};
+                const compCount = Array.isArray(onboardingData.top3Profiles)
+                  ? (onboardingData.top3Profiles as unknown[]).length
+                  : 0;
+                const cost = input.include_competitors === true
+                  ? PROFILE_ANALYSIS_COST + (PROFILE_ANALYSIS_COST_PER_COMPETITOR * compCount)
+                  : PROFILE_ANALYSIS_COST;
+                await deductCredits(adminClient, user.id, "analyze_my_profile", cost);
+              }
 
               firedProfileAnalysis = true;
               emit({

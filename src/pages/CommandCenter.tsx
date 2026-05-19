@@ -865,8 +865,15 @@ export default function CommandCenter() {
     // AssistantChat renders embeds after the text body, not as italic
     // narrative. If a broadcast IS present (live draft scenes), merge the
     // embeds into it so the existing TurnRenderer path keeps working.
+    //
+    // CRITICAL: only attach when a turn is NOT in flight. During streaming
+    // (sending=true) the "most recent assistant message" is the PREVIOUS
+    // turn — attaching the embed to it makes the card appear above the
+    // user's current prompt and BEFORE the model's prose has finished.
+    // Once the turn completes, messages reload with the new assistant
+    // message and the embed attaches to that one (correct position).
     const threadEmbeds = (activeThreadId && pendingEmbedsByThread[activeThreadId]) || [];
-    if (threadEmbeds.length > 0) {
+    if (threadEmbeds.length > 0 && !sending) {
       for (let i = out.length - 1; i >= 0; i--) {
         const m = out[i];
         if (m.role === "assistant" && !m.is_progress && m.type !== "plan_proposal" && m.type !== "script_preview") {
@@ -879,7 +886,7 @@ export default function CommandCenter() {
       }
     }
     return out;
-  }, [messages, latestPlan, pendingEmbedsByThread, activeThreadId]);
+  }, [messages, latestPlan, pendingEmbedsByThread, activeThreadId, sending]);
 
   const handleApprovePlan = useCallback(async (planId: string) => {
     setLatestPlan(null);

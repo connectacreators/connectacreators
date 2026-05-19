@@ -416,7 +416,14 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     // the active thread so switching threads doesn't carry embeds across.
     // Set `embeds` directly (not `broadcast`) so the text reply keeps its
     // normal styling — AssistantChat renders embeds after the text body.
-    if (activePendingEmbeds.length > 0) {
+    //
+    // CRITICAL: only attach when sending=false. During streaming the most
+    // recent assistant message is the PREVIOUS turn, so attaching the
+    // embeds there makes them appear above the user's current prompt and
+    // BEFORE the model's prose finishes. After the turn completes,
+    // messages reload and the embed attaches to the NEW assistant
+    // message (correct position).
+    if (activePendingEmbeds.length > 0 && !sending) {
       for (let i = mapped.length - 1; i >= 0; i--) {
         if (mapped[i].role === "assistant" && !mapped[i].is_progress) {
           mapped[i] = {
@@ -428,7 +435,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
       }
     }
     return mapped;
-  }, [messages, activePendingEmbeds]);
+  }, [messages, activePendingEmbeds, sending]);
 
   return (
     <aside
