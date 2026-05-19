@@ -92,7 +92,10 @@ export function CaptionOverlay({ captions, sourceMs, videoBox, onMoveCaption }: 
         left,
         top,
         transform: "translate(-50%, -50%)",
-        maxWidth: videoBox.width * 0.9,
+        // Effective text width — kept slightly wider than the previous 0.9
+        // so wrapping behaviour matches the worker's ASS, which has tiny
+        // MarginL/MarginR (~97% of frame usable).
+        maxWidth: videoBox.width * 0.95,
         textAlign: "center",
         background: spec.background === "none" ? undefined : spec.background,
         padding: spec.background === "none" ? 0 : "0.2em 0.6em",
