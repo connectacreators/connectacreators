@@ -10,7 +10,7 @@ import { EditorTopBar } from "@/components/videoEditor/EditorTopBar";
 import { PreviewStage } from "@/components/videoEditor/PreviewStage";
 import { TrimTimeline } from "@/components/videoEditor/TrimTimeline";
 import { TranscriptPanel } from "@/components/videoEditor/TranscriptPanel";
-import { CaptionsList } from "@/components/videoEditor/CaptionsList";
+import { CaptionsPanel } from "@/components/videoEditor/CaptionsPanel";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
 import { useTranscript, type TranscriptWord } from "@/hooks/useTranscript";
 import {
@@ -91,6 +91,11 @@ export default function VideoEditor() {
   const [playing, setPlaying] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [resultSignedUrl, setResultSignedUrl] = useState<string | null>(null);
+  // Right-panel tab: Transcript (default) or Captions.
+  const [rightTab, setRightTab] = useState<"transcript" | "captions">("transcript");
+  // CapCut-style "Apply changes to all captions" toggle. When on, any
+  // per-block edit (size/style/position/drag) propagates to every block.
+  const [applyToAll, setApplyToAll] = useState(true);
 
   useEffect(() => {
     // Wait for auth to hydrate. Storage RLS allows authenticated reads only —
@@ -159,12 +164,15 @@ export default function VideoEditor() {
     });
   };
 
+  // Style/size/position handlers all check the applyToAll flag — when on,
+  // the change propagates to every caption block (CapCut-style linked edit).
+  // When off, only the targeted block is mutated.
   const handleChangeCaptionPreset = (id: string, preset: CaptionPreset) => {
     if (projState.phase !== "ready") return;
     setEdl({
       ...projState.edl,
       captions: (projState.edl.captions ?? []).map((c) =>
-        c.id === id ? { ...c, preset } : c,
+        applyToAll || c.id === id ? { ...c, preset } : c,
       ),
     });
   };
@@ -174,24 +182,8 @@ export default function VideoEditor() {
     setEdl({
       ...projState.edl,
       captions: (projState.edl.captions ?? []).map((c) =>
-        c.id === id ? { ...c, size } : c,
+        applyToAll || c.id === id ? { ...c, size } : c,
       ),
-    });
-  };
-
-  const handleChangeAllCaptionSizes = (size: number) => {
-    if (projState.phase !== "ready") return;
-    setEdl({
-      ...projState.edl,
-      captions: (projState.edl.captions ?? []).map((c) => ({ ...c, size })),
-    });
-  };
-
-  const handleChangeAllCaptionPresets = (preset: CaptionPreset) => {
-    if (projState.phase !== "ready") return;
-    setEdl({
-      ...projState.edl,
-      captions: (projState.edl.captions ?? []).map((c) => ({ ...c, preset })),
     });
   };
 
@@ -259,18 +251,21 @@ export default function VideoEditor() {
     setEdl({
       ...projState.edl,
       captions: (projState.edl.captions ?? []).map((c) =>
-        c.id === id ? { ...c, position: { ...c.position, y_pct } } : c,
+        applyToAll || c.id === id ? { ...c, position: { ...c.position, y_pct } } : c,
       ),
     });
   };
 
   // Drag handler for the on-preview overlay — accepts both x and y.
+  // Respects applyToAll so dragging one caption moves them all when linked.
   const handleMoveCaption = (id: string, x_pct: number, y_pct: number) => {
     if (projState.phase !== "ready") return;
     setEdl({
       ...projState.edl,
       captions: (projState.edl.captions ?? []).map((c) =>
-        c.id === id ? { ...c, position: { ...c.position, x_pct, y_pct } } : c,
+        applyToAll || c.id === id
+          ? { ...c, position: { ...c.position, x_pct, y_pct } }
+          : c,
       ),
     });
   };
@@ -384,31 +379,50 @@ export default function VideoEditor() {
           </div>
         </div>
         <div className="w-[280px] shrink-0 flex flex-col bg-neutral-950 border-l border-neutral-800 overflow-hidden">
-          <div className="flex-1 overflow-hidden">
-            <TranscriptPanel
-              state={transcriptState}
-              playheadMs={playheadMs}
-              hasCaptions={(projState.edl.captions?.length ?? 0) > 0}
-              onSeek={handleSeekFromTranscript}
-              onStart={startTranscribe}
-              onRemoveSilences={handleRemoveSilences}
-              onCreateCaption={handleCreateCaption}
-              onAutoCaption={handleAutoCaption}
-            />
+          {/* Tab switcher: Transcript (default) and Captions */}
+          <div className="flex border-b border-neutral-800 shrink-0">
+            {(["transcript", "captions"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setRightTab(tab)}
+                className={`flex-1 py-2 text-[11px] uppercase tracking-wider transition-colors ${
+                  rightTab === tab
+                    ? "text-white border-b-2 border-blue-500"
+                    : "text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                {tab === "transcript" ? "Transcript" : `Captions (${projState.edl.captions?.length ?? 0})`}
+              </button>
+            ))}
           </div>
-          <CaptionsList
-            captions={projState.edl.captions ?? []}
-            onChangePreset={handleChangeCaptionPreset}
-            onChangeSize={handleChangeCaptionSize}
-            onChangeAllSizes={handleChangeAllCaptionSizes}
-            onChangeAllPresets={handleChangeAllCaptionPresets}
-            onDelete={handleDeleteCaption}
-            onSeek={handleSeekFromTranscript}
-            onReorder={handleReorderCaption}
-            onEditWord={handleEditCaptionWord}
-            onSetPosition={handleSetCaptionPosition}
-            onSplit={handleSplitCaption}
-          />
+          <div className="flex-1 overflow-hidden">
+            {rightTab === "transcript" ? (
+              <TranscriptPanel
+                state={transcriptState}
+                playheadMs={playheadMs}
+                hasCaptions={(projState.edl.captions?.length ?? 0) > 0}
+                onSeek={handleSeekFromTranscript}
+                onStart={startTranscribe}
+                onRemoveSilences={handleRemoveSilences}
+                onCreateCaption={handleCreateCaption}
+                onAutoCaption={handleAutoCaption}
+              />
+            ) : (
+              <CaptionsPanel
+                captions={projState.edl.captions ?? []}
+                applyToAll={applyToAll}
+                onSetApplyToAll={setApplyToAll}
+                onChangePreset={handleChangeCaptionPreset}
+                onChangeSize={handleChangeCaptionSize}
+                onDelete={handleDeleteCaption}
+                onSeek={handleSeekFromTranscript}
+                onReorder={handleReorderCaption}
+                onEditWord={handleEditCaptionWord}
+                onSetPosition={handleSetCaptionPosition}
+                onSplit={handleSplitCaption}
+              />
+            )}
+          </div>
         </div>
       </div>
 

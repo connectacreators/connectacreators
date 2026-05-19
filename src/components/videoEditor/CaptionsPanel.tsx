@@ -1,24 +1,30 @@
-// src/components/videoEditor/CaptionsList.tsx
-// Compact list of caption blocks attached to the EDL. Lets the user swap a
-// caption's preset, resize it (slider), reorder, edit words, split, position,
-// or delete it. Lives below the transcript panel.
+// src/components/videoEditor/CaptionsPanel.tsx
+// Dedicated captions panel — used when the right-side tab switcher is on
+// "Captions". Owns the "Apply to all" toggle that controls whether
+// per-block edits propagate to every block (CapCut-style).
 import { useState } from "react";
 import type { Caption, CaptionPreset } from "@/lib/videoEditor/edl";
 import { CAPTION_PRESETS } from "@/lib/videoEditor/captionPresets";
 
-// Size slider range — minimum is 37.5% (half of the prior S preset) so users
-// can fit captions on very tight portrait crops; max gives headroom past the
-// previous XL = 1.5x.
 const SIZE_MIN = 0.375;
 const SIZE_MAX = 2.0;
 const SIZE_STEP = 0.05;
 
+const POSITION_PRESETS = [
+  { label: "Top", y: 15 },
+  { label: "Mid", y: 50 },
+  { label: "Btm", y: 80 },
+];
+
 type Props = {
   captions: Caption[];
+  applyToAll: boolean;
+  onSetApplyToAll: (v: boolean) => void;
+  // The per-block handlers below already do the right thing when applyToAll
+  // is true (VideoEditor branches on the flag), so this component only has
+  // to wire the toggle and pass through.
   onChangePreset: (id: string, preset: CaptionPreset) => void;
   onChangeSize: (id: string, size: number) => void;
-  onChangeAllSizes: (size: number) => void;
-  onChangeAllPresets: (preset: CaptionPreset) => void;
   onDelete: (id: string) => void;
   onSeek: (sourceMs: number) => void;
   onReorder: (id: string, direction: "up" | "down") => void;
@@ -26,12 +32,6 @@ type Props = {
   onSetPosition: (id: string, y_pct: number) => void;
   onSplit: (id: string, atWordIdx: number) => void;
 };
-
-const POSITION_PRESETS = [
-  { label: "Top", y: 15 },
-  { label: "Mid", y: 50 },
-  { label: "Btm", y: 80 },
-];
 
 function SizeSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
@@ -52,49 +52,47 @@ function SizeSlider({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-export function CaptionsList(props: Props) {
-  const { captions } = props;
-  if (captions.length === 0) return null;
+export function CaptionsPanel(props: Props) {
+  const { captions, applyToAll } = props;
+
+  if (captions.length === 0) {
+    return (
+      <div className="p-4 text-center text-[11px] text-neutral-500">
+        No captions yet. Use the Transcript tab → drag-select words or hit
+        Auto captions to create some.
+      </div>
+    );
+  }
 
   const sorted = [...captions].sort(
     (a, b) => (a.words[0]?.start_ms ?? 0) - (b.words[0]?.start_ms ?? 0),
   );
 
-  const uniformSize = captions.every((c) => (c.size ?? 1) === (captions[0].size ?? 1))
-    ? captions[0].size ?? 1
-    : null;
-  const uniformPreset = captions.every((c) => c.preset === captions[0].preset)
-    ? captions[0].preset
-    : null;
-
   return (
-    <div className="p-3 border-t border-neutral-800 space-y-3">
-      <div className="text-xs uppercase tracking-wider text-neutral-500">
+    <div className="p-3 space-y-3 overflow-y-auto h-full">
+      {/* Apply-to-all toggle. When on, any per-block edit (size/style/
+          position/drag) propagates to every other block — matches CapCut's
+          'Apply to all' checkbox behavior. */}
+      <label className="flex items-center gap-2 bg-neutral-900/60 rounded p-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={applyToAll}
+          onChange={(e) => props.onSetApplyToAll(e.target.checked)}
+          className="accent-blue-500"
+        />
+        <span className="text-[11px] text-neutral-200">
+          Apply changes to all captions
+        </span>
+        {applyToAll && (
+          <span className="ml-auto text-[9px] text-blue-400 uppercase">linked</span>
+        )}
+      </label>
+
+      <div className="text-[10px] uppercase tracking-wider text-neutral-500">
         Captions ({captions.length})
       </div>
 
-      <div className="bg-neutral-900/60 rounded p-2 space-y-1.5">
-        <div className="text-[9px] uppercase tracking-wider text-neutral-500">All blocks</div>
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] text-neutral-500 w-8">Size</span>
-          <SizeSlider value={uniformSize ?? 1} onChange={props.onChangeAllSizes} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] text-neutral-500 w-8">Style</span>
-          <select
-            value={uniformPreset ?? ""}
-            onChange={(e) => e.target.value && props.onChangeAllPresets(e.target.value as CaptionPreset)}
-            className="flex-1 bg-neutral-800 text-neutral-200 text-[10px] rounded px-1 py-0.5 border border-neutral-700"
-          >
-            {uniformPreset === null && <option value="">Mixed…</option>}
-            {(Object.keys(CAPTION_PRESETS) as CaptionPreset[]).map((p) => (
-              <option key={p} value={p}>{CAPTION_PRESETS[p].label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-1.5 max-h-72 overflow-y-auto">
+      <div className="space-y-1.5 max-h-[calc(100vh-260px)] overflow-y-auto">
         {sorted.map((c, idx) => (
           <CaptionBlockRow
             key={c.id}
@@ -113,6 +111,7 @@ function CaptionBlockRow({
   caption: c,
   isFirst,
   isLast,
+  applyToAll,
   onChangePreset,
   onChangeSize,
   onDelete,
@@ -140,7 +139,7 @@ function CaptionBlockRow({
   };
 
   return (
-    <div className="bg-neutral-900 rounded p-2 text-[11px] space-y-1.5">
+    <div className={`bg-neutral-900 rounded p-2 text-[11px] space-y-1.5 ${applyToAll ? "ring-1 ring-blue-700/40" : ""}`}>
       <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 leading-relaxed">
         {c.words.map((w, i) =>
           editingIdx === i ? (
