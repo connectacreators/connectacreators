@@ -67,16 +67,17 @@ describe("buildAssFile", () => {
     expect(ass).not.toContain("GONE");
   });
 
-  it("uppercases words when the preset requires it (matches browser preview)", () => {
+  it("preserves transcript casing by default (matches browser preview)", () => {
+    // Default presets keep Whisper's sentence case so what the user sees in
+    // the editor preview matches the burned-in render.
     const cap: Caption = {
       ...baseCaption,
       preset: "tiktok_word_pop",
       words: [{ text: "okay so", start_ms: 100, end_ms: 600 }],
     };
     const ass = buildAssFile([cap], [{ source_start_ms: 0, source_end_ms: 5000 }], 5000);
-    // Whisper's lowercase text should be uppercased before reaching ASS.
-    expect(ass).toContain("OKAY");
-    expect(ass).not.toContain("okay so}");
+    expect(ass).toContain("okay so");
+    expect(ass).not.toContain("OKAY SO");
   });
 
   it("emits no Dialogue line when every word is in a removed range", () => {
