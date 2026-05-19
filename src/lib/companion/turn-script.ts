@@ -68,7 +68,8 @@ export type EmbedType =
   | "metric-strip"
   | "framework-deck"
   | "channel-grid"
-  | "script-card";
+  | "script-card"
+  | "profile-analysis";
 
 export interface VideoCardEmbedData {
   id: string;
@@ -113,13 +114,52 @@ export interface ChannelGridEmbedData {
 
 export interface ScriptCardEmbedData extends DraftingPayload {}
 
+export interface HookPatternRef {
+  pattern: string;
+  frequency: number;
+  example?: string;
+}
+
+export interface TopPostRef {
+  id: string;
+  thumbnail: string | null;
+  views: number;
+  outlier_ratio: number;
+  hook: string;
+}
+
+export interface ComparisonRef {
+  cadence_delta_pct: number;
+  format_mix_delta: Record<string, number>;
+  common_winning_hooks: string[];
+  where_youre_winning: string;
+  where_theyre_winning: string;
+}
+
+export interface ProfileAnalysisEmbedData {
+  handle: string;
+  platform: "instagram";
+  profilePicUrl?: string | null;
+  followers?: number | null;
+  audience_score: number;
+  uniqueness_score: number;
+  summary: string;
+  hook_patterns: HookPatternRef[];
+  format_mix: Record<string, number>;
+  cadence: { posts_per_week: number; last_post_at: string | null };
+  outlier_band: { median: number; top: number; top_post_id?: string | null };
+  top_posts: TopPostRef[];
+  comparison?: ComparisonRef;
+}
+
 export type EmbedRef =
   | { type: "video-card"; data: VideoCardEmbedData }
   | { type: "video-player"; data: VideoPlayerEmbedData }
   | { type: "metric-strip"; data: MetricStripEmbedData }
   | { type: "framework-deck"; data: FrameworkDeckEmbedData }
   | { type: "channel-grid"; data: ChannelGridEmbedData }
-  | { type: "script-card"; data: ScriptCardEmbedData };
+  | { type: "script-card"; data: ScriptCardEmbedData }
+  | { type: "profile-analysis"; data: ProfileAnalysisEmbedData };
 
 // ── Full turn ───────────────────────────────────────────────────────────────
 export interface BroadcastTurn {
