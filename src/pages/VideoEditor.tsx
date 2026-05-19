@@ -114,7 +114,7 @@ export default function VideoEditor() {
     initialSource: initialSource ?? { storage_path: "", duration_ms: 0 },
   });
 
-  const { state: jobState, submit: submitJob } = useRenderJob();
+  const { state: jobState, submit: submitJob, reset: resetJob } = useRenderJob();
 
   const { state: transcriptState, start: startTranscribe } = useTranscript(id);
 
@@ -238,7 +238,13 @@ export default function VideoEditor() {
       <EditorTopBar
         title={source.title}
         saveStatus={projState.saving ? "saving" : "saved"}
-        onExportClick={() => setExportOpen(true)}
+        onExportClick={() => {
+          // Reset any previous render result before re-opening — otherwise
+          // the dialog keeps showing the old download link and the user
+          // can't kick off a fresh render with the latest EDL.
+          if (jobState.phase === "done" || jobState.phase === "error") resetJob();
+          setExportOpen(true);
+        }}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -291,8 +297,15 @@ export default function VideoEditor() {
 
       <ExportDialog
         open={exportOpen}
-        onOpenChange={(o) => setExportOpen(o)}
+        onOpenChange={(o) => {
+          // Closing after a finished render returns the dialog to its
+          // pristine state so the next Export click shows the aspect picker
+          // again instead of the stale result URL.
+          if (!o && (jobState.phase === "done" || jobState.phase === "error")) resetJob();
+          setExportOpen(o);
+        }}
         onSubmit={handleExport}
+        onResetJob={resetJob}
         submitting={jobState.phase === "submitting"}
         pollingProgress={exportPolling}
         resultUrl={exportResultUrl}

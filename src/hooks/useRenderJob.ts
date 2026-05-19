@@ -60,5 +60,10 @@ export function useRenderJob() {
     [stopPolling],
   );
 
-  return { state, submit };
+  const reset = useCallback(() => {
+    stopPolling();
+    setState({ phase: "idle" });
+  }, [stopPolling]);
+
+  return { state, submit, reset };
 }

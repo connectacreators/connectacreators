@@ -14,6 +14,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (aspect: AspectRatio) => void;
+  onResetJob: () => void;
   submitting: boolean;
   pollingProgress: number | null;
   resultUrl: string | null;
@@ -91,7 +92,12 @@ export function ExportDialog(props: Props) {
 
         <DialogFooter>
           {props.resultUrl || props.errorMessage ? (
-            <Button variant="outline" onClick={() => props.onOpenChange(false)}>Close</Button>
+            <>
+              <Button variant="outline" onClick={() => props.onOpenChange(false)}>Close</Button>
+              <Button onClick={() => { props.onResetJob(); props.onSubmit(aspect); }}>
+                Render again
+              </Button>
+            </>
           ) : props.pollingProgress !== null ? (
             <Button variant="outline" disabled>Cancel (not yet)</Button>
           ) : (
