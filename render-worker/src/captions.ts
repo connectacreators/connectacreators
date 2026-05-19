@@ -64,11 +64,10 @@ const PRESET_STYLES: Record<CaptionPreset, {
   marginV: number;
 }> = {
   tiktok_word_pop: {
-    // Helvetica Neue ships with macOS + most Linux distros' fontconfig
-    // packages, and the frontend preview defaults to it too. Inter would
-    // require shipping a .ttf and pointing ffmpeg at a fonts dir; not worth
-    // it for a system that's mostly Helvetica-family-equivalent.
-    fontName: "Inter",
+    // Montserrat Black ships with the worker (assets/fonts/Montserrat-Black.ttf)
+    // and matches the browser preview's Montserrat 900. libass loads it
+    // through ffmpeg's fontsdir.
+    fontName: "Montserrat",
     // Base sizes correspond to fontSizePctHeight in the frontend preset
     // module (e.g. 4.5% of 1080 = 48.6 → 48). Per-caption `size` multiplies
     // this via a `\fs` override on each Dialogue line.
@@ -109,10 +108,9 @@ const PRESET_STYLES: Record<CaptionPreset, {
     marginV: 0,
   },
   shorts_bold: {
-    // Impact isn't on most Linux servers, so we use Inter at its heaviest
-    // weight (the variable font goes up to 900). The \b override in the
-    // dialogue text picks the Black weight when this preset is active.
-    fontName: "Inter",
+    // Anton ships with the worker (assets/fonts/Anton-Regular.ttf); it's the
+    // iconic YouTube Shorts caption font — narrow tall heavy sans.
+    fontName: "Anton",
     fontSize: 56,
     bold: 1,
     uppercase: false,

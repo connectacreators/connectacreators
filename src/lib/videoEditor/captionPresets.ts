@@ -31,14 +31,12 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
   tiktok_word_pop: {
     id: "tiktok_word_pop",
     label: "TikTok Word Pop",
-    description: "Bold sans, current word pops on black",
-    // Helvetica Neue is what the worker actually uses; keep them aligned.
-    // Weight 700 matches ASS bold=1 — Helvetica Neue has no real 900 weight,
-    // so requesting 900 in the browser makes Chrome synthetically bolden
-    // and the preview ends up thicker than the export.
-    font: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
+    description: "Montserrat Black, current word pops on black outline",
+    // TikTok's real caption font is proprietary; Montserrat Black is the
+    // closest free Google-Fonts equivalent visually.
+    font: '"Montserrat", "Inter", "Helvetica Neue", Arial, sans-serif',
     fontSizePctHeight: 4.5,
-    weight: 700,
+    weight: 900,
     uppercase: false,
     fillColor: "#ffffff",
     highlightFillColor: "#ffffff",
@@ -50,7 +48,7 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
   ig_reels_classic: {
     id: "ig_reels_classic",
     label: "IG Reels Classic",
-    description: "All-caps white on translucent black pill",
+    description: "Inter Bold, white on translucent black pill",
     font: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
     fontSizePctHeight: 3.7,
     weight: 700,
@@ -65,10 +63,11 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
   shorts_bold: {
     id: "shorts_bold",
     label: "Shorts Bold",
-    description: "Impact, white fill, black outline",
-    font: '"Inter", "Impact", "Helvetica Neue", sans-serif',
+    description: "Anton condensed, white fill, black outline",
+    // Anton is the iconic YouTube Shorts caption look — narrow tall heavy.
+    font: '"Anton", "Impact", "Helvetica Neue", sans-serif',
     fontSizePctHeight: 5.2,
-    weight: 700,
+    weight: 400, // Anton is intrinsically heavy; weight stays 400
     uppercase: false,
     fillColor: "#ffffff",
     highlightFillColor: "#ffffff",
