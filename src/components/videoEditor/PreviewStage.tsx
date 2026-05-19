@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EDL } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
-import { CaptionOverlay, useVideoPictureBox } from "./CaptionOverlay";
+import { CaptionOverlay } from "./CaptionOverlay";
+import { useVideoPictureBox } from "./useVideoPictureBox";
 import { BRollPreview } from "./BRollPreview";
 
 type Props = {

@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BRollClip } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
-import type { VideoBox } from "./CaptionOverlay";
+import type { VideoBox } from "./useVideoPictureBox";
 
 type Props = {
   brolls: BRollClip[];

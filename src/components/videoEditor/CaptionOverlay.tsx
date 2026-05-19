@@ -4,12 +4,11 @@
 // the worker burns in via ASS so what you see is roughly what you export.
 // Drag the caption to reposition it on the video — emits the new x_pct/y_pct
 // (clamped to [0, 100]) via onMoveCaption.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Caption, TextOverlay } from "@/lib/videoEditor/edl";
 import { CAPTION_PRESETS, toPreviewStyle } from "@/lib/videoEditor/captionPresets";
 import { TEXT_OVERLAY_PRESETS, toOverlayPreviewStyle } from "@/lib/videoEditor/textOverlayPresets";
-
-export type VideoBox = { left: number; top: number; width: number; height: number };
+import type { VideoBox } from "./useVideoPictureBox";
 
 type Props = {
   captions: Caption[];
@@ -285,59 +284,6 @@ export function CaptionOverlay({ captions, overlays, sourceMs, videoBox, onMoveC
   );
 }
 
-// Tracks the <video>'s rendered rectangle relative to its parent container.
-// The parent must be position:relative so the absolute-positioned overlay
-// aligns correctly.
-export function useVideoPictureBox(videoRef: React.RefObject<HTMLVideoElement>): VideoBox | null {
-  const [box, setBox] = useState<VideoBox | null>(null);
-
-  useLayoutEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const parent = v.parentElement;
-    if (!parent) return;
-
-    const measure = () => {
-      const vr = v.getBoundingClientRect();
-      const pr = parent.getBoundingClientRect();
-      // Drop measurements before metadata arrives (zero dims).
-      if (vr.width === 0 || vr.height === 0) return;
-      setBox({
-        left: vr.left - pr.left,
-        top: vr.top - pr.top,
-        width: vr.width,
-        height: vr.height,
-      });
-    };
-    measure();
-    const obs = new ResizeObserver(measure);
-    obs.observe(parent);
-    obs.observe(v);
-    v.addEventListener("loadedmetadata", measure);
-    return () => {
-      obs.disconnect();
-      v.removeEventListener("loadedmetadata", measure);
-    };
-  }, [videoRef]);
-
-  useEffect(() => {
-    const onResize = () => {
-      const v = videoRef.current;
-      const parent = v?.parentElement;
-      if (!v || !parent) return;
-      const vr = v.getBoundingClientRect();
-      const pr = parent.getBoundingClientRect();
-      if (vr.width === 0 || vr.height === 0) return;
-      setBox({
-        left: vr.left - pr.left,
-        top: vr.top - pr.top,
-        width: vr.width,
-        height: vr.height,
-      });
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [videoRef]);
-
-  return box;
-}
+// useVideoPictureBox lives in ./useVideoPictureBox so React Fast Refresh
+// can hot-reload this component without invalidating the module — exports
+// here are component-only.
