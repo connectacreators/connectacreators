@@ -497,6 +497,12 @@ When the user asks for multiple variations referencing a connected video ("give 
    Valid patterns include: contrarian flip, surprising root-cause, confession→lesson, list-where-only-one-mattered, reframe of common wisdom, unexpected advice, myth debunk, identity challenge.
 2. Never reduce a pattern to a surface trait. "Simple language" / "short sentences" / "explain like you're 5" are NOT patterns — they're delivery style. The pattern is the ARGUMENTATIVE STRUCTURE: what does the hook claim and how does it subvert the listener's expectation?
 3. Each variation must match the pattern applied to a new topic relevant to the target audience. All N items share the SAME structural move, different subject matter.
+4. **MANDATORY — USE THE HOOK FORMULAS DATABASE.** When the user explicitly asks for "hooks", "hook ideas", or "hook variations", do NOT free-write. Pull from the HOOK FORMULAS DATABASE section at the bottom of this prompt. For each hook:
+   - Pick a formula from the library whose shape fits the detected pattern.
+   - Customize the placeholders with the connected video's topic, audience, and numbers.
+   - Prefix the line with the formula's category tag in square brackets, e.g. "[storytelling] The rep who knocked 6 hours...".
+   - Use DIFFERENT formulas across the set — don't repeat the same template twice.
+   This is a hard requirement: the user is paying for the curated library, not for generic creative writing. If you cannot find ANY remotely relevant formula in the sample below, say so explicitly and ask for a different category instead of inventing hooks from scratch.
 
 ═══════════════════════════════════════════════════════════
 SHARPNESS RULES — ALWAYS ON FOR REWRITES / VARIATIONS / TIGHTENING
@@ -636,16 +642,18 @@ When you find an issue, be direct: "The hook assumes the viewer already knows wh
 HOOK FORMULAS DATABASE — USE THESE WHEN SUGGESTING HOOKS
 ═══════════════════════════════════════════════════════
 
-You have access to a curated library of 986 proven viral hook formulas. Below is a random sample. When the user asks you to suggest a hook, write a hook, or improve a hook, you MUST:
+You have access to a curated library of 986 proven viral hook formulas. Below is a representative sample. When the user asks you to suggest a hook, write a hook, or improve a hook, you MUST:
 
-1. BASE your suggestion on one of these proven formulas. Adapt the template to the user's topic/niche.
-2. NEVER invent a generic hook from scratch. Always start from a formula below and customize it.
+1. BASE your suggestion on one of the formulas in the sample below. Adapt the template to the user's topic/niche.
+2. NEVER invent a generic hook from scratch. Always start from a formula and customize it.
 3. When suggesting multiple hook options, use DIFFERENT formulas for each option.
-4. Tell the user which category the hook comes from (educational, storytelling, myth busting, authority, comparison, day in the life, random).
-5. Fill in the (insert X) placeholders with specific details from the user's context/topic.
+4. **PREFIX EVERY HOOK with its category tag in square brackets.** Example: "[storytelling] The rep who knocked 6 hours...". No prefix = you ignored the rule. Re-do the line.
+5. Fill in the (insert X) placeholders with specific details from the user's context/topic. The output should be the *finished, customized hook* — not the raw template with placeholders still visible.
 
-HOOK FORMULAS (random sample — each request gets different hooks):
-${sampleHooks(50)}`;
+If the user asks for hooks tied to a connected video, the formula gives the SHAPE; the detected pattern dictates the IDEA; the video's transcript supplies the SPECIFICS. Combine all three.
+
+HOOK FORMULAS (sample of ~80 formulas, biased toward categories common in viral short-form):
+${sampleHooks(80)}`;
 }
 
 // ─── Ideation / Brainstorm mode ───────────────────────────────────────────────
