@@ -24,6 +24,12 @@ import { PLAN_TOOLS, handlePlanTool } from "./tools/plans.ts";
 // assistant_memories table remain in place for future reactivation.
 // import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
 import { resolveClient, getAccessibleClientIds } from "./tools/types.ts";
+import {
+  runAnalyzeMyProfile,
+  PROFILE_ANALYSIS_COST,
+  PROFILE_ANALYSIS_COST_PER_COMPETITOR,
+} from "./tools/profile-analysis.ts";
+import { deductCredits } from "../_shared/credits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,6 +101,20 @@ const TOOLS = [
         limit: { type: "number", description: "Number of results (default 8, max 25)." },
       },
       required: [],
+    },
+  },
+  {
+    name: "analyze_my_profile",
+    description: "Pull the client's top 10 IG posts and run a deep analysis: audience fit, uniqueness, hook patterns, format mix, posting cadence, outlier band. Use when the user asks to analyze their profile, audit their account, or get IG strategy recommendations. If include_competitors=true, also pulls the emulation_profiles from onboarding and adds a comparison section. ALWAYS verify the handle matches onboarding_data.instagram first — if the user passes a different @handle, do NOT call this; ask them whether it's a new account, typo, or competitor.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to the locked client for this thread." },
+        handle: { type: "string", description: "Optional. IG @handle to analyze. Defaults to onboarding_data.instagram." },
+        platform: { type: "string", enum: ["instagram"], description: "v1 = instagram only" },
+        include_competitors: { type: "boolean", description: "When true, also pulls the client's emulation_profiles and produces a `comparison` section. Default false. ONLY set true after the user has approved a propose_plan card for the comparison." },
+      },
+      required: ["platform"],
     },
   },
   {
@@ -1513,6 +1533,75 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 };
               }),
             });
+          }
+        }
+
+        if (block.name === "analyze_my_profile") {
+          const input = block.input as {
+            client_name?: string;
+            handle?: string;
+            platform: "instagram";
+            include_competitors?: boolean;
+          };
+
+          const targetClient = input.client_name
+            ? await lookupClient(input.client_name)
+            : lockedClient;
+
+          if (!targetClient) {
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: "No client locked to this thread and no client_name given. Ask the user which client to analyze.",
+            });
+          } else {
+            // Hydrate full onboarding_data for the resolved client
+            const { data: fullClient } = await adminClient
+              .from("clients")
+              .select("id, name, onboarding_data")
+              .eq("id", targetClient.id)
+              .maybeSingle();
+
+            const result = await runAnalyzeMyProfile({
+              admin: adminClient,
+              authHeader: req.headers.get("Authorization") || "",
+              supabaseUrl: Deno.env.get("SUPABASE_URL") || "",
+              input: {
+                client_id: targetClient.id,
+                client_name: targetClient.name || "this client",
+                handle: input.handle,
+                platform: input.platform,
+                include_competitors: input.include_competitors === true,
+              },
+              onboarding: (fullClient?.onboarding_data as Record<string, unknown>) || {},
+            });
+
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: result.tool_result_text,
+            });
+
+            // Charge credits only when an analysis actually ran (embed_payload
+            // present). Mismatch and missing-handle paths are free.
+            if (result.embed_payload && user?.id) {
+              const onboardingData = (fullClient?.onboarding_data as Record<string, unknown>) || {};
+              const compCount = Array.isArray(onboardingData.top3Profiles)
+                ? (onboardingData.top3Profiles as unknown[]).length
+                : 0;
+              const cost = input.include_competitors === true
+                ? PROFILE_ANALYSIS_COST + (PROFILE_ANALYSIS_COST_PER_COMPETITOR * compCount)
+                : PROFILE_ANALYSIS_COST;
+              await deductCredits(adminClient, user.id, "analyze_my_profile", cost);
+
+              emit({
+                type: "embeds",
+                embeds: [{
+                  type: "profile-analysis" as const,
+                  data: result.embed_payload,
+                }],
+              });
+            }
           }
         }
 
