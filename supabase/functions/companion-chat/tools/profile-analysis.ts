@@ -195,7 +195,11 @@ export async function runAnalyzeMyProfile(args: {
   const isFirstPass = input.include_competitors !== true;
   let nextActions: string;
   if (asCompetitor) {
-    nextActions = ` NEXT: write a 2-3 sentence prose reply summarizing what stands out about @${targetHandle}'s strategy (what they're doing that's working). Then OFFER to add @${targetHandle} to ${input.client_name}'s onboarding emulation_profiles for future side-by-side comparisons — but do NOT add it automatically; wait for explicit user confirmation.`;
+    const existingList = onboardingCompetitors.length > 0
+      ? onboardingCompetitors.map((h) => `@${h.replace(/^@/, "")}`).join(", ")
+      : "(none yet)";
+    const updatedList = [...onboardingCompetitors.map((h) => `@${h.replace(/^@/, "")}`), `@${targetHandle}`].join(", ");
+    nextActions = ` NEXT: write a 2-3 sentence prose reply summarizing what stands out about @${targetHandle}'s strategy (what they're doing that's working). CLARIFY the scores: "audience" measures how well their content speaks to ${input.client_name}'s target audience (low = different niche, not a 1:1 model), and "uniqueness" measures how distinctive their hook style is in their own space. Then ASK exactly: "Want me to add @${targetHandle} to ${input.client_name}'s onboarding for future side-by-side comparisons?" — DO NOT re-call analyze_my_profile after this. If the user answers yes (or "sure" / "ok" / "add it" / any affirmative), call fill_onboarding_fields with fields.top3Profiles = "${updatedList}". Existing top3Profiles in onboarding: ${existingList}. If the user declines, just acknowledge and stop. NEVER interpret a "yes" as "re-run the analysis" — they're confirming the onboarding update.`;
   } else if (isFirstPass && onboardingCompetitors.length > 0) {
     nextActions = ` NEXT, YOU MUST DO BOTH OF THESE IN THIS TURN: (1) write a 2-3 sentence prose reply summarizing what stands out (the card already shows the data, so don't list it again — give your interpretation). (2) AFTER your prose, CALL propose_plan with summary "Compare against ${onboardingCompetitors.length} competitor${onboardingCompetitors.length === 1 ? "" : "s"} from onboarding (~2 min)" and one step per competitor: ${onboardingCompetitors.map((h) => `"Pull @${h.replace(/^@/, "")}"`).join(", ")}. Do not skip step 2.`;
   } else if (isFirstPass) {

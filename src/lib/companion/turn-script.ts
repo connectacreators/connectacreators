@@ -126,6 +126,9 @@ export interface TopPostRef {
   views: number;
   outlier_ratio: number;
   hook: string;
+  /** Reel/post URL on the source platform — played inline via the
+   *  stream-reel proxy when the user taps the thumbnail. */
+  video_url?: string | null;
 }
 
 export interface ComparisonRef {

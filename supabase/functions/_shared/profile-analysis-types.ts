@@ -27,6 +27,9 @@ export interface TopPostRef {
   views: number;
   outlier_ratio: number;
   hook: string;
+  /** Reel/post URL on the source platform — used by the FE embed to play
+   *  the video inline via the stream-reel proxy. */
+  video_url: string | null;
 }
 
 export interface ComparisonSection {

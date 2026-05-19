@@ -173,8 +173,8 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
                 {playingTopIdx === i ? (
                   <ViralVideoPlayer
                     src={null}
-                    fallbackProxyUrl={p.thumbnail
-                      ? `https://connectacreators.com/api/stream-reel?url=${encodeURIComponent(p.thumbnail)}&nocache=1`
+                    fallbackProxyUrl={p.video_url
+                      ? `https://connectacreators.com/api/stream-reel?url=${encodeURIComponent(p.video_url)}&nocache=1`
                       : null}
                     aspectRatio="9:16"
                     compact

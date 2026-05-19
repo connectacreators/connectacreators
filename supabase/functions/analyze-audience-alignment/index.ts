@@ -50,6 +50,9 @@ interface ScrapedPost {
   views: number;
   likes: number;
   thumbnail: string | null;
+  /** The reel/post URL on the source platform — used as the playback source
+   *  via the stream-reel proxy so the FE can play the video inline. */
+  video_url: string | null;
 }
 interface ScrapeResult {
   posts: ScrapedPost[];
@@ -87,6 +90,7 @@ async function scrapeProfile(handle: string, limit: number): Promise<ScrapeResul
       views: Number(p.views) || 0,
       likes: Number(p.likes) || 0,
       thumbnail: p.thumbnail || null,
+      video_url: (typeof p.url === "string" && p.url.length > 0) ? p.url : null,
     })),
     profilePicUrl: data.profilePicUrl || null,
     followers: data.followers ? Number(data.followers) : null,
@@ -331,6 +335,7 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
         views: p.views,
         outlier_ratio: median > 0 ? Number((p.views / median).toFixed(1)) : 0,
         hook: p.caption.slice(0, 100),
+        video_url: p.video_url,
       }));
       extended.outlier_band = {
         median,
@@ -408,6 +413,7 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
             channel_id: channelId,
             channel_username: instagramHandle.toLowerCase(),
             platform: "instagram",
+            video_url: p.video_url,
             thumbnail_url: p.thumbnail,
             caption: p.caption,
             views_count: p.views,
