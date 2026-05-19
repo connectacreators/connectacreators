@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { parseExtendedAnalysis } from "../_shared/profile-analysis-parser.ts";
+import type { ExtendedAnalysisPayload } from "../_shared/profile-analysis-types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,7 +94,17 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { client_id, language } = await req.json() as { client_id: string; language?: string };
+    const {
+      client_id,
+      language,
+      extended_dimensions = false,
+      include_competitors = true,
+    } = await req.json() as {
+      client_id: string;
+      language?: string;
+      extended_dimensions?: boolean;
+      include_competitors?: boolean;
+    };
     if (!client_id) {
       return new Response(JSON.stringify({ error: "client_id required" }), { status: 400, headers: corsHeaders });
     }
@@ -130,9 +142,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No Instagram handle in onboarding data" }), { status: 400, headers: corsHeaders });
     }
 
+    const competitorsRequested = include_competitors && emulationProfiles.length > 0;
     const [clientResult, ...emulationResults] = await Promise.all([
       scrapeProfile(instagramHandle, 10),
-      ...emulationProfiles.map((handle) => scrapeProfile(handle, 10)),
+      ...(competitorsRequested
+        ? emulationProfiles.map((handle) => scrapeProfile(handle, 10))
+        : []),
     ]);
 
     const clientPosts = clientResult.posts;
@@ -195,7 +210,23 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
   "uniqueness_score": <integer 0-10>,
   "summary": "<2-3 sentences on what these recent posts show about audience alignment and uniqueness. Be specific — name the patterns you see. No jargon.>${noEmulationProfiles ? " End with exactly this sentence: 'Add competitor or reference accounts in your onboarding profile to get a more precise benchmark for these scores.'" : ""}",
   "audience_detail": "<1 sentence on audience alignment — what specifically is or isn't connecting with ${targetAudience}>",
-  "uniqueness_detail": "<1 sentence on what makes the content blend in or stand out>"
+  "uniqueness_detail": "<1 sentence on what makes the content blend in or stand out>"${extended_dimensions ? `,
+  "hook_patterns": [
+    { "pattern": "<short slug like 'question-led', 'story-led', 'number-led', 'controversy'>", "frequency": <0..1>, "example": "<<=80 char caption fragment>" }
+  ],
+  "format_mix": { "reel": <0..1>, "carousel": <0..1>, "static": <0..1>, "video": <0..1> },
+  "cadence": { "posts_per_week": <number>, "last_post_at": "<ISO date of most recent post in this sample>" },
+  "outlier_band": { "median": <median views across the sample>, "top": <max views in sample>, "top_post_id": "<id of top post>" },
+  "top_posts": [
+    { "id": "<post id>", "thumbnail": "<thumbnail url if available else null>", "views": <number>, "outlier_ratio": <views / median>, "hook": "<<=100 char caption opening line>" }
+  ]${competitorsRequested ? `,
+  "comparison": {
+    "cadence_delta_pct": <signed percent: client's posts/wk minus avg competitor posts/wk, expressed as percent of competitor avg. Negative = client posts less.>,
+    "format_mix_delta": { "reel": <signed delta vs competitor avg>, "carousel": <signed delta>, ... },
+    "common_winning_hooks": ["<hook patterns that appear in top competitor posts>"],
+    "where_youre_winning": "<1 short sentence>",
+    "where_theyre_winning": "<1 short sentence>"
+  }` : ""}` : ""}
 }`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -207,7 +238,7 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 512,
+        max_tokens: extended_dimensions ? 2048 : 512,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -226,6 +257,13 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       summary: string;
       audience_detail: string;
       uniqueness_detail: string;
+      // Extended fields — optional; parsed defensively by parseExtendedAnalysis.
+      hook_patterns?: unknown;
+      format_mix?: unknown;
+      cadence?: unknown;
+      outlier_band?: unknown;
+      top_posts?: unknown;
+      comparison?: unknown;
     };
 
     try {
@@ -241,6 +279,10 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
     const audienceScore = Math.max(0, Math.min(10, Math.round(analysis.audience_score)));
     const uniquenessScore = Math.max(0, Math.min(10, Math.round(analysis.uniqueness_score)));
 
+    const extended: ExtendedAnalysisPayload | null = extended_dimensions
+      ? parseExtendedAnalysis(analysis as unknown)
+      : null;
+
     const analysisPayload = {
       audience_score: audienceScore,
       uniqueness_score: uniquenessScore,
@@ -254,6 +296,9 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       language: lang,
       profilePicUrl: profilePicUrl || null,
       followers: followers || null,
+      ...(extended ? extended : {}),
+      handle: instagramHandle,
+      platform: "instagram" as const,
     };
 
     await adminClient.from("client_strategies").upsert(
