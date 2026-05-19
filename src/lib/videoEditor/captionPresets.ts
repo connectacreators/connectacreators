@@ -36,7 +36,7 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     // Weight 700 matches ASS bold=1 — Helvetica Neue has no real 900 weight,
     // so requesting 900 in the browser makes Chrome synthetically bolden
     // and the preview ends up thicker than the export.
-    font: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    font: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
     fontSizePctHeight: 4.5,
     weight: 700,
     uppercase: false,
@@ -51,7 +51,7 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     id: "ig_reels_classic",
     label: "IG Reels Classic",
     description: "All-caps white on translucent black pill",
-    font: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    font: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
     fontSizePctHeight: 3.7,
     weight: 700,
     uppercase: false,
@@ -66,7 +66,7 @@ export const CAPTION_PRESETS: Record<CaptionPreset, CaptionPresetSpec> = {
     id: "shorts_bold",
     label: "Shorts Bold",
     description: "Impact, white fill, black outline",
-    font: '"Impact", "Helvetica Neue", sans-serif',
+    font: '"Inter", "Impact", "Helvetica Neue", sans-serif',
     fontSizePctHeight: 5.2,
     weight: 700,
     uppercase: false,

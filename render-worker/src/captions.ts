@@ -68,7 +68,7 @@ const PRESET_STYLES: Record<CaptionPreset, {
     // packages, and the frontend preview defaults to it too. Inter would
     // require shipping a .ttf and pointing ffmpeg at a fonts dir; not worth
     // it for a system that's mostly Helvetica-family-equivalent.
-    fontName: "Helvetica Neue",
+    fontName: "Inter",
     // Base sizes correspond to fontSizePctHeight in the frontend preset
     // module (e.g. 4.5% of 1080 = 48.6 → 48). Per-caption `size` multiplies
     // this via a `\fs` override on each Dialogue line.
@@ -90,7 +90,7 @@ const PRESET_STYLES: Record<CaptionPreset, {
     marginV: 0,
   },
   ig_reels_classic: {
-    fontName: "Helvetica Neue",
+    fontName: "Inter",
     fontSize: 40,
     bold: 1,
     uppercase: false,
@@ -109,7 +109,10 @@ const PRESET_STYLES: Record<CaptionPreset, {
     marginV: 0,
   },
   shorts_bold: {
-    fontName: "Impact",
+    // Impact isn't on most Linux servers, so we use Inter at its heaviest
+    // weight (the variable font goes up to 900). The \b override in the
+    // dialogue text picks the Black weight when this preset is active.
+    fontName: "Inter",
     fontSize: 56,
     bold: 1,
     uppercase: false,

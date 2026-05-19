@@ -3,8 +3,21 @@ import ffmpegPath from "ffmpeg-static";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 if (!ffmpegPath) throw new Error("ffmpeg-static did not resolve a binary path");
+
+// Bundled fonts directory: Inter.ttf (variable) lives at
+// render-worker/assets/fonts/. Passing it to libass via `fontsdir=` makes
+// the subtitles filter use the exact same font file the browser preview
+// loads (served as /fonts/Inter.ttf from public/), eliminating font fallback
+// differences between Chrome and libass.
+const FONTS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "assets",
+  "fonts",
+);
 
 export type Clip = { source_start_ms: number; source_end_ms: number };
 
@@ -50,10 +63,12 @@ export function buildTrimConcatArgs(
     // ffmpeg's subtitles filter needs forward slashes and escaped colons —
     // ':' is an argument separator in the filtergraph syntax. Plain POSIX
     // paths rarely contain colons, but we escape defensively.
-    const escapedPath = (options.subtitlesAssPath as string)
-      .replace(/\\/g, "/")
-      .replace(/:/g, "\\:");
-    captionFilter = `;[vraw]subtitles='${escapedPath}'[vout]`;
+    const escapeForFilter = (p: string) =>
+      p.replace(/\\/g, "/").replace(/:/g, "\\:");
+    const escapedAss = escapeForFilter(options.subtitlesAssPath as string);
+    const escapedFontsDir = escapeForFilter(FONTS_DIR);
+    captionFilter =
+      `;[vraw]subtitles='${escapedAss}':fontsdir='${escapedFontsDir}'[vout]`;
   }
 
   return [
