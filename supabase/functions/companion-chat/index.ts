@@ -1229,8 +1229,19 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       /\b(mark|set|change|update|move|delete|remove|restore|rename|publish|schedule|reschedule|assign|approve|reject)\s+all\b/,
     ];
     const isMechanical = mechanicalPatterns.some((re) => re.test(userText));
-    const chosenModel = isMechanical ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
-    console.log(`[companion-chat] model=${chosenModel} mechanical=${isMechanical} text="${userText.slice(0, 80)}"`);
+    // Mode-aware model tiering: read-only modes always use Haiku (cheap +
+    // fast), creative modes always use Sonnet, the rest fall back to the
+    // mechanical/creative heuristic on the message text.
+    const readOnlyModes = new Set(["intelligence", "analytics", "discovery", "finance", "profile-analysis"]);
+    const creativeModes = new Set(["scripts", "canvas"]);
+    const chosenModel = readOnlyModes.has(detectedMode)
+      ? "claude-haiku-4-5-20251001"
+      : creativeModes.has(detectedMode)
+        ? "claude-sonnet-4-6"
+        : isMechanical
+          ? "claude-haiku-4-5-20251001"
+          : "claude-sonnet-4-6";
+    console.log(`[companion-chat] model=${chosenModel} mode=${detectedMode} mechanical=${isMechanical} text="${userText.slice(0, 80)}"`);
 
     // Dead-end detection: when the model writes "Let me…" / "I'll…" / "Now
     // I'll…" / "I will…" as a text-only reply with no tool call, the
