@@ -1163,6 +1163,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     const actions: any[] = [];
     let reply = "";
     let turn1Reply = "";
+    // Track tools that emitted user-visible embeds so the fallback at the
+    // bottom can synthesize a sensible reply when the model called a tool
+    // but produced no follow-up text (Haiku does this frequently).
+    let firedViralVideos = 0;
+    let firedProfileAnalysis = false;
     // 5 rounds is enough for the longest legitimate chains we see (e.g. resolve
     // client → look up data → maybe one more lookup → respond). build-mode.ts
     // uses 6 because the script-build flow has more discrete steps. If you
@@ -1510,6 +1515,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               if (days < 365) return `${Math.floor(days / 30)}mo ago`;
               return `${Math.floor(days / 365)}y ago`;
             };
+            firedViralVideos += videos.length;
             emit({
               type: "embeds",
               embeds: videos.slice(0, 6).map((v: any) => {
@@ -1603,6 +1609,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                 : PROFILE_ANALYSIS_COST;
               await deductCredits(adminClient, user.id, "analyze_my_profile", cost);
 
+              firedProfileAnalysis = true;
               emit({
                 type: "embeds",
                 embeds: [{
@@ -2458,7 +2465,15 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         : looksMultiTarget
         ? "I want to make sure I get the right items — can you list them by exact title, one per line?"
         : "Let me try again — could you rephrase that?";
-      reply = turn1Reply || fallback;
+      // If a tool fired user-visible embeds but the model produced no
+      // follow-up text, synthesize a sensible default instead of asking
+      // them to rephrase — the cards above are the answer.
+      const embedReply = firedProfileAnalysis
+        ? "Here's the breakdown. The card above shows the audience/uniqueness scores, hook patterns, and top posts — tell me what you want to dig into."
+        : firedViralVideos > 0
+          ? `Pulled ${firedViralVideos} viral reference${firedViralVideos === 1 ? "" : "s"} that match. Tell me which one you want to model the script after, or ask me to draft one off the top performer.`
+          : null;
+      reply = turn1Reply || embedReply || fallback;
     }
 
     // Save assistant reply
