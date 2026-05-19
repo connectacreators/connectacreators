@@ -522,23 +522,15 @@ export default function VideoEditor() {
     setResultSignedUrl(null);
   }, [jobState, source]);
 
-  if (!id) return <Navigate to="/editing-queue" replace />;
-  if (authLoading) {
-    return <div className="p-8 text-neutral-400">Loading editor…</div>;
-  }
-  if (!user) return <Navigate to="/" replace />;
-  if (sourceErr) {
-    return <div className="p-8 text-red-400">Source error: {sourceErr}</div>;
-  }
-  if (!source || projState.phase === "loading") {
-    return <div className="p-8 text-neutral-400">Loading editor…</div>;
-  }
-  if (projState.phase === "error") {
-    return <div className="p-8 text-red-400">Project error: {projState.message}</div>;
-  }
+  // ===== HOOKS ABOVE EARLY-RETURN GUARDS =====
+  // React's Rules of Hooks: every hook call must happen on every render in
+  // the same order. The early-return guards below produce different hook
+  // counts depending on auth/source state, so anything that calls a hook
+  // (useMemo, useEffect, useCallback) MUST live above the guards.
 
   // EDL-output-time playhead → source-time playhead. Used by paste/split
-  // actions that operate in source space.
+  // actions that operate in source space. Returns 0 until the project is
+  // ready so the hook still runs on every render.
   const playheadSourceMs = useMemo(() => {
     if (projState.phase !== "ready") return 0;
     let acc = 0;
@@ -552,6 +544,8 @@ export default function VideoEditor() {
 
   // Returns a deep-cloned snapshot of the currently-selected item for
   // copy/cut/duplicate, or null if nothing is selected / target is missing.
+  // Not a hook — fine to live anywhere, but keeping it next to the run*
+  // functions that use it for readability.
   const selectedPayload = (): ClipboardItem => {
     if (projState.phase !== "ready" || !timelineSelection) return null;
     if (timelineSelection.kind === "caption") {
@@ -671,6 +665,22 @@ export default function VideoEditor() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [timelineSelection, projState, playheadMs]);
+
+  // ===== EARLY-RETURN GUARDS (must come AFTER every hook above) =====
+  if (!id) return <Navigate to="/editing-queue" replace />;
+  if (authLoading) {
+    return <div className="p-8 text-neutral-400">Loading editor…</div>;
+  }
+  if (!user) return <Navigate to="/" replace />;
+  if (sourceErr) {
+    return <div className="p-8 text-red-400">Source error: {sourceErr}</div>;
+  }
+  if (!source || projState.phase === "loading") {
+    return <div className="p-8 text-neutral-400">Loading editor…</div>;
+  }
+  if (projState.phase === "error") {
+    return <div className="p-8 text-red-400">Project error: {projState.message}</div>;
+  }
 
   const handleExport = async (aspect: AspectRatio) => {
     await submitJob({
