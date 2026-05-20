@@ -1,6 +1,8 @@
 # Video Editor — Status
 
-_Last updated 2026-05-19. Branch: `feat/video-editor-phase-1`. Latest commit: `00a1171`._
+_Last updated 2026-05-19. Branch: `feat/video-editor-phase-1`. Latest commit: `7dfd7da`._
+
+_Branch is 55 local vs 48 remote commits ahead of `origin/feat/video-editor-phase-1` — reconcile before pushing._
 
 In-browser video editor for the connectacreators app. Open a video edit
 from `/editor` or any editing-queue row → trim, transcribe, cut silences,
@@ -168,26 +170,47 @@ VPS at `http://72.62.200.145:3099` (yt-dlp service) handles audio-from-URL impor
 
 ---
 
-## Open issues / next-session work
+## Recently shipped (since the original Phase 1-6 cut)
 
-These are the things the user reported in the session that ended around
-commit `00a1171` but didn't get fixed before compact:
+The fixes below addressed all open issues from the original status snapshot:
 
-1. **B-roll fullscreen clip not editable in timeline.** The user says they can't make a fullscreen b-roll "longer or shorter or cut or trim or duplicate." Tracker:
-   - Trim handles exist (left + right edges in `BRollBlock`, shipped commit `10591c4`) and only appear when selected.
-   - Possible cause: clip body might be too narrow, OR the trim handles drag math uses `totalSourceMs` (main video) instead of b-roll source — visually changing trim by 1px shifts trim_end_ms by `totalSourceMs/trackWidth` ms, which is huge for short b-rolls.
-   - Suggested fix: tighten the trim drag scale for b-roll specifically (use a finer scale, or expose a separate trim-in-source-of-broll knob).
-   - Also: split (`S` key) on a fullscreen b-roll works via `handleSplitBRoll` — verify Cmd-D duplicate inserts the clone with offset output_start so it doesn't overlap.
+- `74930a6` b-roll preview rendering + reliable drag on narrow blocks
+- `b8a53f2` clamp video-clip drag/trim against neighbours (no overlaps)
+- `aa3aef1` robust no-overlap clamp + space-to-play
+- `0539b54` drag + corner-resize for text overlays in the preview
+- `3e951fb` derive silences from Whisper word gaps when ffmpeg detects none
+- `ef272e1` pre-schedule clip-end seeks so Remove-all-silences plays seamlessly
+- `9b298f3` preview text/caption backgrounds match worker render (sharp corners, tight padding)
+- `979d1b3` dual-layer video preview + drop timeline minWidth overlap
+- `409514a` extract `useVideoPictureBox` to own file for clean HMR
+- `05f2276` move hooks above early-return guards (Rules of Hooks)
 
-2. **"Remove all silences" doesn't actually trim dead air.** The user expects clicking it to compress the timeline by skipping silent ranges. Today it:
-   - Reads `transcriptState.silences` (must be transcribed first).
-   - Calls `clipsFromSilences(duration_ms, silences)` → returns an array of non-silent clip ranges.
-   - Sets `edl.clips = those ranges`.
-   - With the multi-clip Video track now shipped, each non-silent range shows as its own block.
-   - Possible cause: transcription wasn't complete when the user clicked, OR `silence_segments` table is empty, OR clips were generated but the preview shows them as one wide block instead of multiple gapped blocks.
-   - Suggested debug: query `silence_segments` for this `video_edit_id`, inspect the resulting `edl.clips`, verify the timeline shows multi-clip after the click.
+## In-flight (uncommitted on this branch)
 
-3. **Caption / b-roll trim handles only appear when selected** — that's deliberate (Phase D fix for narrow blocks), but it may not be obvious. UX hint: when no item is selected, show a "Click any block to edit" hint somewhere.
+[MultiTrackTimeline.tsx](../../src/components/videoEditor/MultiTrackTimeline.tsx) is mid-refactor: timeline X-axis is being switched from **source-time** to **output-time**. This unblocks the last user-reported friction (b-roll trim feeling broken on short blocks, multi-clip layout after Remove-all-silences looking misaligned). Changes:
+
+- `VideoClipBlock` renders against cumulative `output_start/end_ms` (clips lay out contiguously).
+- `CaptionBlock` / `OverlayBlock` map source positions through the EDL to output positions for display while body/trim still mutate source-time.
+- `BRollBlock` drops the `outputToSource` mapping entirely — b-roll positions are already stored in output time, so drag math is now 1:1.
+- Sibling-overlap clamping removed for video clips (output-time layout makes overlap visually impossible).
+- Ruler ticks + playhead converted to output time; ruler click maps back to source via `edlOutputTimeToSourceTime` before `onSeek`.
+
+Status: needs a manual run-through (selection / drag / trim / split on each track type) before committing.
+
+Other uncommitted edits on this branch are **not** video-editor:
+- [VideoNode.tsx](../../src/components/canvas/VideoNode.tsx) — Super Canvas auto-resolve fix for half-hydrated nodes + Vault button color tweak.
+- [index.css](../../src/index.css) — editorial-rebrand token work.
+
+## Remaining work
+
+1. **Finish + commit the output-time timeline refactor** (see "In-flight" above). After that, the only known UX gap is the trim-handles-only-when-selected hint — possibly add a "Click any block to edit" affordance when nothing is selected.
+
+2. **Phase 7 — AI wiring on `/ai`** (the only remaining feature; see next section).
+
+3. **Deferred timeline polish** from `docs/superpowers/specs/2026-05-19-capcut-style-timeline-plan.md`:
+   - Snap-to-edges on drag/trim
+   - Multi-select (shift-click, marquee)
+   - Audio waveform on the Music track
 
 ---
 
@@ -224,8 +247,8 @@ Existing infrastructure to lean on:
 4. Refer to `docs/superpowers/VIDEO-EDITOR-EDL-SCHEMA.md` for the full EDL spec.
 5. Refer to `docs/superpowers/specs/2026-05-19-capcut-style-timeline-plan.md` for the timeline design and deferred items (snap-to-edges, multi-select, audio waveform).
 6. **Top of the queue for next session**:
-   - Reproduce the b-roll trim issue with the user; tighten `BRollBlock` trim drag math.
-   - Reproduce "Remove all silences" no-op; check `transcripts` + `silence_segments` rows, then verify `handleRemoveSilences` populates multiple clips and the timeline renders them.
+   - Review + commit the in-flight output-time timeline refactor (`MultiTrackTimeline.tsx`). Smoke-test each track: video drag/trim/split, captions, text overlays, b-roll drag/trim, ruler scrub, playhead alignment after Remove-all-silences.
+   - Reconcile the branch divergence with `origin/feat/video-editor-phase-1` (55 local vs 48 remote) before pushing.
    - Then Phase 7 — wire Robby on `/ai` to build EDLs from scripts.
 
 The user has been moving fast through requirements. Default to shipping
