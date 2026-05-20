@@ -775,13 +775,17 @@ export default function Scripts() {
     }
   }, [urlClientId, clientsLoading, clients]);
 
-  // Handle view=canvas when navigating back with selectedClient already set
+  // Handle view=canvas when navigating back with selectedClient already set.
+  // Also handle the inverse: if the URL drops view=canvas (e.g. user clicks
+  // "Content Ideas" while on the canvas), drop back to the script vault.
   useEffect(() => {
     const viewParam = searchParams.get("view");
     if (viewParam === "canvas" && selectedClient) {
       setView("super-planning");
+    } else if (!viewParam && selectedClient && view === "super-planning") {
+      setView("client-detail");
     }
-  }, [searchParams, selectedClient]);
+  }, [searchParams, selectedClient, view]);
 
   // Refresh when AI writes to scripts
   useEffect(() => {
