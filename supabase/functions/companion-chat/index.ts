@@ -410,6 +410,69 @@ const TOOLS = [
       required: ["client_name", "title", "hook", "body", "cta"],
     },
   },
+  // ── Follow-up workflow editing (Phase 4) ──────────────────────────────
+  {
+    name: "get_followup_workflow",
+    description: "Read the AI follow-up automation workflow for a client (nodes + edges). Returns a compact summary of the existing steps so you can answer 'what's my current sequence?' or decide where to insert a new step.",
+    input_schema: {
+      type: "object",
+      properties: { client_name: { type: "string", description: "Optional. Defaults to locked client." } },
+      required: [],
+    },
+  },
+  {
+    name: "add_followup_step",
+    description: "Append a step (actionNode) to the END of the client's follow-up automation workflow. Wire up an edge from the current tail node to the new one. Use when the user says 'add a wait 2 days then send an email' / 'tack on another reminder SMS'. For multi-step adds, call this tool multiple times in sequence. Available action_type values: send_email, send_sms, wait, update_lead_status, send_confirmation_email, send_confirmation_sms, send_reminder_email, send_reminder_sms. For 'wait', also pass wait_unit (minutes|hours|days) and wait_amount (number). For 'update_lead_status', pass new_status.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        action_type: { type: "string", enum: ["send_email", "send_sms", "wait", "update_lead_status", "send_confirmation_email", "send_confirmation_sms", "send_reminder_email", "send_reminder_sms"] },
+        label: { type: "string", description: "Short human-readable label, e.g. 'Wait 2 days' / 'Reminder SMS'." },
+        use_ai: { type: "boolean", description: "For send_email/send_sms: true if the message body should be AI-generated. Default true." },
+        wait_unit: { type: "string", enum: ["minutes", "hours", "days"], description: "Required when action_type is 'wait'." },
+        wait_amount: { type: "number", description: "Required when action_type is 'wait'." },
+        new_status: { type: "string", description: "Required when action_type is 'update_lead_status'. e.g. 'contacted', 'qualified', 'closed_won', 'closed_lost'." },
+      },
+      required: ["action_type", "label"],
+    },
+  },
+  // ── Status reads (Phase 4) ────────────────────────────────────────────
+  {
+    name: "get_social_account_status",
+    description: "Check which social platforms (Instagram, TikTok, Facebook, YouTube) are connected for a client and whether any need re-auth. Robby cannot complete OAuth himself — use this to detect disconnected state, then propose open_social_accounts_page to direct the user to the connect button.",
+    input_schema: {
+      type: "object",
+      properties: { client_name: { type: "string", description: "Optional. Defaults to locked client." } },
+      required: [],
+    },
+  },
+  {
+    name: "get_subscription_info",
+    description: "Get the user's current subscription plan, status, and trial info. Use when the user asks 'what plan am I on?' / 'do I have access to X?' / 'when does my trial end?'.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "list_trainings",
+    description: "List trainings / SOPs available, filterable by assigned user or category. Use when the user asks 'show me the trainings' or 'what SOPs do we have for editors?'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        assigned_to_me: { type: "boolean", description: "When true, return only trainings assigned to the current user." },
+        category: { type: "string", description: "Optional category filter." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "list_contracts",
+    description: "List contracts for a client with status (draft, sent, signed, voided). Read-only — drafting new contracts from chat requires file generation outside this surface; for that, open_contracts_page so the user can use the contract builder.",
+    input_schema: {
+      type: "object",
+      properties: { client_name: { type: "string", description: "Optional. Defaults to locked client." } },
+      required: [],
+    },
+  },
   // ── Lead messaging (Phase 2) ──────────────────────────────────────────
   {
     name: "send_lead_followup_now",
@@ -2178,6 +2241,162 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         const resolveCanvasClient = async (clientName: string | undefined) =>
           clientName ? await lookupClient(clientName)
             : lockedClient ?? { id: client.id, name: client.name };
+
+        // ── Follow-up workflow editing + status reads (Phase 4) ──────────
+
+        if (block.name === "get_followup_workflow") {
+          const { client_name } = block.input as { client_name?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to read the workflow for." });
+          } else {
+            const { data: wf } = await adminClient
+              .from("followup_workflows")
+              .select("id, name, is_active, nodes, edges, updated_at")
+              .eq("client_id", targetClient.id)
+              .maybeSingle();
+            if (!wf) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${targetClient.name} has no follow-up workflow yet. Open the builder with open_followup_builder so they can create one.` });
+            } else {
+              const nodes = Array.isArray(wf.nodes) ? (wf.nodes as any[]) : [];
+              const edges = Array.isArray(wf.edges) ? (wf.edges as any[]) : [];
+              const lines = nodes
+                .filter((n) => n?.type === "actionNode")
+                .map((n) => {
+                  const d = n.data ?? {};
+                  const extra = d.action_type === "wait" ? ` (${d.wait_amount} ${d.wait_unit})`
+                    : d.action_type === "update_lead_status" ? ` → ${d.new_status}` : "";
+                  return `${n.id}: ${d.label ?? d.action_type}${extra}`;
+                });
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Workflow "${wf.name}" for ${targetClient.name} (${wf.is_active ? "ACTIVE" : "paused"}, ${nodes.length} nodes, ${edges.length} edges):\n${lines.join("\n") || "(empty)"}` });
+            }
+          }
+        }
+
+        if (block.name === "add_followup_step") {
+          const { client_name, action_type, label, use_ai, wait_unit, wait_amount, new_status } = block.input as {
+            client_name?: string; action_type: string; label: string; use_ai?: boolean; wait_unit?: string; wait_amount?: number; new_status?: string;
+          };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to add a step for." });
+          } else {
+            // Validate wait + status args inline
+            if (action_type === "wait" && (!wait_unit || typeof wait_amount !== "number")) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "action_type=wait requires wait_unit (minutes|hours|days) and wait_amount (number). Ask the user how long." });
+            } else if (action_type === "update_lead_status" && !new_status) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "action_type=update_lead_status requires new_status. Ask the user which status." });
+            } else {
+              const { data: wf } = await adminClient
+                .from("followup_workflows")
+                .select("id, nodes, edges")
+                .eq("client_id", targetClient.id)
+                .maybeSingle();
+              if (!wf) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${targetClient.name} has no workflow yet — create one by opening the builder first (open_followup_builder).` });
+              } else {
+                const nodes = Array.isArray(wf.nodes) ? (wf.nodes as any[]) : [];
+                const edges = Array.isArray(wf.edges) ? (wf.edges as any[]) : [];
+                // Find tail nodes: action nodes that don't appear as a `source` in any edge.
+                const sourceIds = new Set(edges.map((e) => e?.source).filter(Boolean));
+                const actionNodes = nodes.filter((n) => n?.type === "actionNode");
+                const tails = actionNodes.filter((n) => !sourceIds.has(n.id));
+                const tail = tails[tails.length - 1] ?? actionNodes[actionNodes.length - 1] ?? null;
+                // Position the new node to the right of the tail (or at a sensible default)
+                const tailPos = tail?.position ?? { x: 200, y: 300 };
+                const newId = `action_${action_type}_${Date.now()}`;
+                const newData: Record<string, any> = { label, action_type };
+                if (action_type === "send_email" || action_type === "send_sms") newData.use_ai = use_ai !== false;
+                if (action_type === "wait") { newData.wait_unit = wait_unit; newData.wait_amount = wait_amount; }
+                if (action_type === "update_lead_status") newData.new_status = new_status;
+                const newNode = { id: newId, type: "actionNode", position: { x: (tailPos.x ?? 0) + 240, y: tailPos.y ?? 300 }, data: newData };
+                const updatedNodes = [...nodes, newNode];
+                const updatedEdges = tail ? [...edges, { id: `e_${tail.id}_${newId}`, source: tail.id, target: newId }] : edges;
+                const { error } = await adminClient.from("followup_workflows").update({ nodes: updatedNodes, edges: updatedEdges, updated_at: new Date().toISOString() }).eq("id", wf.id);
+                if (error) {
+                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Failed to add step: ${error.message}` });
+                } else {
+                  toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Appended "${label}" (${action_type}, id=${newId}) to ${targetClient.name}'s workflow. Wired from previous step ${tail?.id ?? "(none — orphan node, no previous tail)"}.` });
+                }
+              }
+            }
+          }
+        }
+
+        if (block.name === "get_social_account_status") {
+          const { client_name } = block.input as { client_name?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to check social accounts for." });
+          } else {
+            const { data: rows } = await adminClient
+              .from("social_connections")
+              .select("platform, account_label, status, last_error, last_used_at")
+              .eq("client_id", targetClient.id);
+            const platforms = ["instagram", "tiktok", "facebook", "youtube"];
+            const byPlatform = new Map<string, any[]>();
+            for (const r of (rows ?? [])) {
+              const arr = byPlatform.get(r.platform) ?? [];
+              arr.push(r); byPlatform.set(r.platform, arr);
+            }
+            const lines = platforms.map((p) => {
+              const accounts = byPlatform.get(p) ?? [];
+              if (accounts.length === 0) return `${p}: NOT CONNECTED`;
+              const status = accounts.map((a) => `${a.account_label} [${a.status}]${a.last_error ? ` (err: ${a.last_error.slice(0, 50)})` : ""}`).join(", ");
+              return `${p}: ${status}`;
+            });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Social accounts for ${targetClient.name}:\n${lines.join("\n")}\n\nIf any are not connected or need re-auth, suggest open_social_accounts_page to direct the user to the connect button.` });
+          }
+        }
+
+        if (block.name === "get_subscription_info") {
+          const { data: sub } = await adminClient
+            .from("subscriptions")
+            .select("plan_type, status, trial_ends_at, subscribed_at, is_manually_assigned")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (!sub) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No subscription record found for this user — likely on the free tier or admin-comped." });
+          } else {
+            const trial = sub.trial_ends_at ? ` (trial ends ${new Date(sub.trial_ends_at).toISOString().slice(0, 10)})` : "";
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Subscription: plan=${sub.plan_type}, status=${sub.status}${trial}${sub.is_manually_assigned ? ", manually-assigned" : ""}.` });
+          }
+        }
+
+        if (block.name === "list_trainings") {
+          const { assigned_to_me, category } = block.input as { assigned_to_me?: boolean; category?: string };
+          let q = adminClient.from("trainings").select("id, title, category, is_published, assigned_to_user_id, created_at").eq("is_published", true).order("created_at", { ascending: false }).limit(30);
+          if (assigned_to_me) q = q.eq("assigned_to_user_id", user.id);
+          if (category) q = q.eq("category", category);
+          const { data: rows } = await q;
+          if (!rows || rows.length === 0) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No matching trainings." });
+          } else {
+            const lines = rows.map((r) => `${r.id}: ${r.title}${r.category ? ` [${r.category}]` : ""}`);
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${rows.length} training(s):\n${lines.join("\n")}` });
+          }
+        }
+
+        if (block.name === "list_contracts") {
+          const { client_name } = block.input as { client_name?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to list contracts for." });
+          } else {
+            const { data: rows } = await adminClient
+              .from("contracts")
+              .select("id, title, status, created_at")
+              .eq("client_id", targetClient.id)
+              .order("created_at", { ascending: false })
+              .limit(20);
+            if (!rows || rows.length === 0) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `No contracts for ${targetClient.name}.` });
+            } else {
+              const lines = rows.map((r) => `${r.id}: ${r.title} [${r.status}]`);
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `${rows.length} contract(s) for ${targetClient.name}:\n${lines.join("\n")}\n\nTo draft a new one, open the contracts page (the builder is not exposed via chat — needs file generation).` });
+            }
+          }
+        }
 
         // ── Lead messaging + smart navigation (Phase 2/3) ────────────────
 

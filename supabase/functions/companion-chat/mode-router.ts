@@ -82,6 +82,8 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "draft_lead_outreach",
     "send_lead_followup_now",
     "open_followup_builder",
+    "get_followup_workflow",
+    "add_followup_step",
   ],
   discovery: [
     "find_viral_videos",
@@ -139,6 +141,10 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "send_contract",
     "get_open_alerts",
     "dismiss_alert",
+    "get_social_account_status",
+    "get_subscription_info",
+    "list_trainings",
+    "list_contracts",
   ],
   // General fallback — broader cross-section so the model has options
   // when classification is ambiguous. Intentionally includes a handful
