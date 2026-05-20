@@ -82,8 +82,11 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "draft_lead_outreach",
     "send_lead_followup_now",
     "open_followup_builder",
-    "get_followup_workflow",
-    "add_followup_step",
+    // Disabled until the follow-up automation builder ships — schema is
+    // still in flux and these tools would break silently. Re-add when
+    // followup_workflows nodes/edges/action_type set is stable.
+    // "get_followup_workflow",
+    // "add_followup_step",
   ],
   discovery: [
     "find_viral_videos",
