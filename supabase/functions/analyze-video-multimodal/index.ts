@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -192,6 +193,10 @@ When unsure, lean toward omitting. A clean visual breakdown is more useful than 
   }
 
   const data = await response.json();
+  if (data?.usage) logAnthropicUsage(null, {
+    functionName: "analyze-video-multimodal", model: "claude-haiku-4-5-20251001",
+    usage: data.usage, userId: null,
+  });
   const text = data.content?.[0]?.text?.trim() || "";
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);

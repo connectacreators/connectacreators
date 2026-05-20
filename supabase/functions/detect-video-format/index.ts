@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -102,6 +103,10 @@ Return ONLY valid JSON, nothing else:
   }
 
   const data = await response.json();
+  if (data?.usage) logAnthropicUsage(null, {
+    functionName: "detect-video-format", model: "claude-haiku-4-5-20251001",
+    usage: data.usage, userId: null,
+  });
   const text = data.content?.[0]?.text?.trim() || "";
 
   // Extract JSON — handle cases where model wraps it in ```json

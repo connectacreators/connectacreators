@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -350,6 +351,10 @@ Rules:
   }
 
   const data = await response.json();
+  if (data?.usage) logAnthropicUsage(null, {
+    functionName: "transcribe-canvas-media", model: "claude-haiku-4-5-20251001",
+    usage: data.usage, userId: null, metadata: { phase: "scene-detect" },
+  });
   const text = data.content?.[0]?.text?.trim() || "";
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -460,6 +465,10 @@ async function extractPdfText(
   }
 
   const data = await response.json();
+  if (data?.usage) logAnthropicUsage(null, {
+    functionName: "transcribe-canvas-media", model: "claude-haiku-4-5-20251001",
+    usage: data.usage, userId: null, metadata: { phase: "pdf-extract" },
+  });
   const text = data.content?.[0]?.text?.trim() || "";
   console.log("PDF extraction complete, length:", text.length, "chars");
   return text;

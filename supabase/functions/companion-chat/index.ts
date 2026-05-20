@@ -21,6 +21,7 @@ import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
 import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
 import { PLAN_TOOLS, handlePlanTool } from "./tools/plans.ts";
 import { classifyMode } from "./mode-router.ts";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 // Memory subsystem disabled for now — tools/memories.ts and the
 // assistant_memories table remain in place for future reactivation.
 // import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
@@ -1526,6 +1527,13 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       const usage = result?.usage as { cache_creation_input_tokens?: number; cache_read_input_tokens?: number; input_tokens?: number; output_tokens?: number } | undefined;
       if (usage) {
         console.log(`[companion-chat][cache] round=${round} create=${usage.cache_creation_input_tokens ?? 0} read=${usage.cache_read_input_tokens ?? 0} input=${usage.input_tokens ?? 0} output=${usage.output_tokens ?? 0}`);
+        logAnthropicUsage(adminClient, {
+          functionName: "companion-chat",
+          model: chosenModel,
+          usage,
+          userId: user.id,
+          metadata: { round, mode: detectedMode, autonomy_mode },
+        });
       }
       if (!apiRes.ok) {
         console.error("[companion-chat] Claude API error:", result?.error || result);
@@ -2942,6 +2950,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         });
         if (finalRes.ok) {
           const finalResult = await finalRes.json();
+          if (finalResult?.usage) logAnthropicUsage(adminClient, {
+            functionName: "companion-chat", model: "claude-sonnet-4-6",
+            usage: finalResult.usage, userId: user.id,
+            metadata: { phase: "forced-text-final" },
+          });
           const finalText = (finalResult.content || []).find(
             (b: any) => b.type === "text",
           );
@@ -2981,6 +2994,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           });
           if (forcedRes.ok) {
             const forcedResult = await forcedRes.json();
+            if (forcedResult?.usage) logAnthropicUsage(adminClient, {
+              functionName: "companion-chat", model: "claude-sonnet-4-6",
+              usage: forcedResult.usage, userId: user.id,
+              metadata: { phase: "forced-propose-plan" },
+            });
             for (const block of forcedResult.content || []) {
               if (block.type === "tool_use" && block.name === "propose_plan") {
                 const moduleCtx = {
@@ -3047,6 +3065,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           });
           if (forcedRes.ok) {
             const forcedResult = await forcedRes.json();
+            if (forcedResult?.usage) logAnthropicUsage(adminClient, {
+              functionName: "companion-chat", model: "claude-sonnet-4-6",
+              usage: forcedResult.usage, userId: user.id,
+              metadata: { phase: "forced-confirm-plan" },
+            });
             const moduleCtx = {
               adminClient,
               userId: user.id,
@@ -3098,6 +3121,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         });
         if (forcedRes.ok) {
           const forcedResult = await forcedRes.json();
+          if (forcedResult?.usage) logAnthropicUsage(adminClient, {
+            functionName: "companion-chat", model: "claude-sonnet-4-6",
+            usage: forcedResult.usage, userId: user.id,
+            metadata: { phase: "forced-viral" },
+          });
           // Let the next round summarize the find_viral_videos result. We push
           // the assistant turn + the tool_result back into messages, then ask
           // the model to write a final text reply without further tool calls.
@@ -3171,6 +3199,11 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               });
               if (finalRes2.ok) {
                 const finalResult2 = await finalRes2.json();
+                if (finalResult2?.usage) logAnthropicUsage(adminClient, {
+                  functionName: "companion-chat", model: "claude-sonnet-4-6",
+                  usage: finalResult2.usage, userId: user.id,
+                  metadata: { phase: "forced-viral-followup" },
+                });
                 const finalText2 = (finalResult2.content || []).find((b: any) => b.type === "text");
                 if (finalText2?.text) reply = finalText2.text;
               }

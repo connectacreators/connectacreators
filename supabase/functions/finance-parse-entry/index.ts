@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +148,12 @@ Rules:
   }
 
   const data = await response.json();
+  if (data?.usage) logAnthropicUsage(admin, {
+    functionName: "finance-parse-entry",
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+    userId: user.id,
+  });
   const toolUse = (data.content ?? []).find((b: any) => b.type === "tool_use");
   if (!toolUse?.input) {
     console.error("No tool_use in response", JSON.stringify(data).slice(0, 500));

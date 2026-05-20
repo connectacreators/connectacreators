@@ -8,8 +8,9 @@
  * Returns: { success: boolean, attempt: number, error?: string }
  */
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6';
+import { logAnthropicUsage } from '../_shared/log-anthropic-usage.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,7 +58,10 @@ async function generateEmailBody(
   lead: { name: string; email: string; source?: string },
   clientName: string,
   attempt: number,
-  anthropicKey: string
+  anthropicKey: string,
+  supabase?: SupabaseClient,
+  ownerUserId?: string | null,
+  leadId?: string,
 ): Promise<string> {
   const attemptDescriptions = [
     'first outreach email — warm, friendly, brief introduction',
@@ -101,6 +105,13 @@ Rules:
     }
 
     const data = await response.json();
+    if (supabase && data?.usage) logAnthropicUsage(supabase, {
+      functionName: "send-followup",
+      model: "claude-haiku-4-5-20251001",
+      usage: data.usage,
+      userId: ownerUserId ?? null,
+      metadata: { attempt, lead_id: leadId },
+    });
     return data.content?.[0]?.text || getFallbackBody(lead.name, clientName, attempt);
   } catch (err) {
     console.error('[send-followup] AI generation failed, using fallback:', err);
@@ -188,7 +199,7 @@ Deno.serve(async (req: Request) => {
     // 4. Fetch client name for AI context
     const { data: client } = await supabase
       .from('clients')
-      .select('name')
+      .select('name, user_id')
       .eq('id', clientId)
       .maybeSingle();
 
@@ -196,7 +207,7 @@ Deno.serve(async (req: Request) => {
 
     // 5. Generate AI email body
     const subject = SUBJECTS[step] || `Following up`;
-    const body = await generateEmailBody(lead, clientName, step, anthropicKey);
+    const body = await generateEmailBody(lead, clientName, step, anthropicKey, supabase, client?.user_id ?? null, lead.id);
 
     // 6. Send via SMTP (nodemailer)
     const smtpConfig = getSmtpConfig(emailSettings.smtp_email);

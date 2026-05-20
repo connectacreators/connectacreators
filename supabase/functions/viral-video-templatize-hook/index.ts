@@ -1,6 +1,7 @@
 // Free (0-credit) lazy backfill: generates and caches framework_meta.hook_template
 // for already-analyzed rows that don't have one yet.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,6 +86,10 @@ Output ONLY the templatized hook as a plain string, no JSON, no quotes, no pream
     return json({ error: "haiku_failed", message: errText.slice(0, 500) }, 500);
   }
   const aiBody = await aiRes.json();
+  if (aiBody?.usage) logAnthropicUsage(admin, {
+    functionName: "viral-video-templatize-hook", model: "claude-haiku-4-5-20251001",
+    usage: aiBody.usage, userId: null,
+  });
   let template = (aiBody.content?.[0]?.text as string ?? "").trim();
   template = template.replace(/^["']|["']$/g, "").trim().slice(0, 400);
 

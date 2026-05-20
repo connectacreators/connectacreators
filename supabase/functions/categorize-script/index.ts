@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -165,6 +166,10 @@ Rules:
     }
 
     const data = await response.json();
+    if (data?.usage) logAnthropicUsage(supabase, {
+      functionName: "categorize-script", model: "claude-haiku-4-5-20251001",
+      usage: data.usage, userId: null,
+    });
     const messageContent = data.content || [];
     let parsed;
 

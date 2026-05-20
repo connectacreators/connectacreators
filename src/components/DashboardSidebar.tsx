@@ -270,6 +270,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: 'Growth' },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Finances", icon: DollarSign, path: "/finances" },
+        { label: "API Usage", icon: BarChart3, path: "/api-usage" },
         { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { type: 'group', label: 'Agency' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
