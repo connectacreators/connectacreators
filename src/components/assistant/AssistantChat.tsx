@@ -381,6 +381,31 @@ export function AssistantChat({
     [messages, visibleCount],
   );
 
+  // ── Pull trailing in-flight progress messages out so they render UNDER
+  // the thinking animation instead of above it. Only reorders while we're
+  // actively waiting for the next response token. Non-loading state keeps
+  // chronological order so historical builds still read top-to-bottom.
+  const trailingProgressCount = useMemo(() => {
+    let count = 0;
+    for (let i = visibleMessages.length - 1; i >= 0; i--) {
+      if (visibleMessages[i].is_progress) count++;
+      else break;
+    }
+    return count;
+  }, [visibleMessages]);
+  const waitingForResponse =
+    (loading || generating) &&
+    !generatingImage &&
+    streamingContent === null &&
+    remoteStreamingContent === null;
+  const reorderProgress = waitingForResponse && trailingProgressCount > 0;
+  const mainMessages = reorderProgress
+    ? visibleMessages.slice(0, -trailingProgressCount)
+    : visibleMessages;
+  const tailProgress = reorderProgress
+    ? visibleMessages.slice(-trailingProgressCount)
+    : [];
+
   // ── Auto-scroll to bottom on new message (when user is at bottom) ───────
   const prevLastMsgRef = useRef<string>("");
   useEffect(() => {
@@ -547,7 +572,7 @@ export function AssistantChat({
           </div>
         )}
 
-        {visibleMessages.map((msg, i) => (
+        {mainMessages.map((msg, i) => (
           <div key={i}>
             {msg.role === "assistant" ? (
               (msg.broadcast && msg.broadcast.scenes.length > 0) ? (
@@ -808,7 +833,7 @@ export function AssistantChat({
           </div>
         ))}
 
-        {(loading || generating) && !generatingImage && streamingContent === null && remoteStreamingContent === null && (
+        {waitingForResponse && (
           <div className="flex items-center">
             <ThinkingAnimation
               tone={avatarTone === "dark" ? "dark" : "light"}
@@ -817,6 +842,35 @@ export function AssistantChat({
             />
           </div>
         )}
+
+        {/* Trailing progress messages, rendered AS A LOG below the thinking
+            header. They flash and get deleted by clearBuildProgress once the
+            backend tool completes. */}
+        {tailProgress.map((msg, i) => (
+          <div key={`tail-progress-${i}`} className="flex items-baseline gap-2 my-1.5 pl-1">
+            <span
+              className="inline-block rounded-full flex-shrink-0"
+              style={{
+                width: 4,
+                height: 4,
+                background: "#8FD0D5",
+                animation: "broadcast-pulse 1.2s ease-in-out infinite",
+                transform: "translateY(-2px)",
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "'EB Garamond', Georgia, serif",
+                fontStyle: "italic",
+                fontSize: 13,
+                lineHeight: 1.45,
+                color: "rgba(234,230,220,0.62)",
+              }}
+            >
+              {msg.content}
+            </span>
+          </div>
+        ))}
 
         {generatingImage && (
           <div className="flex gap-2 items-start">
