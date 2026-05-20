@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import type { BuildSession } from "../_shared/build-session/types.ts";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 import { updateBuildSession } from "../_shared/build-session/service.ts";
 import { canonicalizeVideoUrl } from "../_shared/canonicalize-video-url.ts";
 
@@ -175,6 +176,10 @@ async function callClaudeHaiku(prompt: string, system?: string): Promise<string>
   });
   const json = await res.json();
   if (!res.ok) throw new Error(`Claude Haiku error: ${json.error?.message ?? res.statusText}`);
+  if (json?.usage) logAnthropicUsage(null, {
+    functionName: "companion-chat/build-tool-handlers", model: "claude-haiku-4-5-20251001",
+    usage: json.usage, userId: null, metadata: { helper: "haiku" },
+  });
   return (json.content?.[0]?.text as string ?? "").trim();
 }
 
@@ -195,6 +200,10 @@ async function callClaudeSonnet(prompt: string, system?: string): Promise<string
   });
   const json = await res.json();
   if (!res.ok) throw new Error(`Claude Sonnet error: ${json.error?.message ?? res.statusText}`);
+  if (json?.usage) logAnthropicUsage(null, {
+    functionName: "companion-chat/build-tool-handlers", model: "claude-sonnet-4-6",
+    usage: json.usage, userId: null, metadata: { helper: "sonnet" },
+  });
   return (json.content?.[0]?.text as string ?? "").trim();
 }
 

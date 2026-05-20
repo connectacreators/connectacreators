@@ -7,6 +7,7 @@
 // All three are pure-read and respect URL-locked client identity via resolveClient.
 
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
+import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 import { resolveClient } from "./types.ts";
 
 export const ANALYTICS_TOOLS: ToolDef[] = [
@@ -334,6 +335,10 @@ Output ${numPosts} lines, nothing else.`;
       return { type: "tool_result", tool_use_id: block.id, content: `Plan generation failed: ${err.error?.message ?? res.statusText}` };
     }
     const json = await res.json();
+    if (json?.usage) logAnthropicUsage(adminClient, {
+      functionName: "companion-chat/tools/analytics", model: "claude-haiku-4-5-20251001",
+      usage: json.usage, userId, metadata: { tool: "draft_plan" },
+    });
     const planText = (json.content?.[0]?.text as string ?? "").trim();
     if (!planText) return { type: "tool_result", tool_use_id: block.id, content: "Plan generator returned empty output. Try again." };
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -278,10 +279,17 @@ serve(async (req) => {
         ANTHROPIC_API_KEY,
       );
 
-      // Pipe Claude SSE → our SSE
+      // Pipe Claude SSE → our SSE, capture token usage along the way.
+      // Anthropic streams emit usage across two events: message_start gives
+      // input + cache tokens, message_delta gives output_tokens. We collect
+      // both and log a single row when the stream ends.
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      let streamInputTokens = 0;
+      let streamCacheCreate = 0;
+      let streamCacheRead = 0;
+      let streamOutputTokens = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -296,11 +304,30 @@ serve(async (req) => {
             const ev = JSON.parse(raw);
             if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
               await send({ delta: ev.delta.text });
+            } else if (ev.type === "message_start" && ev.message?.usage) {
+              streamInputTokens = ev.message.usage.input_tokens ?? 0;
+              streamCacheCreate = ev.message.usage.cache_creation_input_tokens ?? 0;
+              streamCacheRead = ev.message.usage.cache_read_input_tokens ?? 0;
+            } else if (ev.type === "message_delta" && ev.usage) {
+              streamOutputTokens = ev.usage.output_tokens ?? 0;
             }
           } catch { /* skip */ }
         }
       }
       reader.releaseLock();
+
+      logAnthropicUsage(adminClient, {
+        functionName: "deep-research",
+        model: "claude-sonnet-4-6",
+        usage: {
+          input_tokens: streamInputTokens,
+          cache_creation_input_tokens: streamCacheCreate,
+          cache_read_input_tokens: streamCacheRead,
+          output_tokens: streamOutputTokens,
+        },
+        userId: user.id,
+        metadata: { source_count: sourceCount },
+      });
 
       // Done event with metadata
       await send({ done: true, source_count: sourceCount });

@@ -1,5 +1,7 @@
 // supabase/functions/companion-chat/tools/finances.ts
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
+import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 export const FINANCE_TOOLS: ToolDef[] = [
   {
@@ -40,7 +42,7 @@ export const FINANCE_TOOLS: ToolDef[] = [
 const INCOME_CATEGORIES = ["SMMA", "Bi-Weekly Fee", "One-Time Project", "Other Income"];
 const EXPENSE_CATEGORIES = ["Subscriptions", "Ad Spend", "Travel", "Food & Meals", "Contractors", "Software", "Payroll", "Other"];
 
-async function callHaikuForParsing(raw: string, today: string): Promise<{ amount: number; type: "income" | "expense"; category: string; description: string } | null> {
+async function callHaikuForParsing(raw: string, today: string, adminClient?: SupabaseClient, userId?: string): Promise<{ amount: number; type: "income" | "expense"; category: string; description: string } | null> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -62,6 +64,10 @@ Output only JSON, nothing else.`,
     }),
   });
   const json = await res.json();
+  if (json?.usage) logAnthropicUsage(adminClient ?? null, {
+    functionName: "companion-chat/tools/finances", model: "claude-haiku-4-5-20251001",
+    usage: json.usage, userId: userId ?? null, metadata: { tool: "log_transaction" },
+  });
   const text = (json.content?.[0]?.text as string ?? "").trim().replace(/^```json\s*/i, "").replace(/\s*```$/, "");
   try { return JSON.parse(text); } catch { return null; }
 }
@@ -127,7 +133,7 @@ export async function handleFinanceTool(
     const { raw, date } = block.input;
     const today = date ?? new Date().toISOString().slice(0, 10);
 
-    const parsed = await callHaikuForParsing(raw, today);
+    const parsed = await callHaikuForParsing(raw, today, adminClient, userId);
     if (!parsed || !parsed.amount || !parsed.type || !parsed.category) {
       return { type: "tool_result", tool_use_id: block.id, content: `Could not parse transaction from: "${raw}". Please be more specific about the amount and type.` };
     }

@@ -2,6 +2,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
+import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 
 export const LEAD_TOOLS: ToolDef[] = [
   {
@@ -347,6 +348,10 @@ Output the message only, no preamble.`;
           continue;
         }
         const json = await res.json();
+        if (json?.usage) logAnthropicUsage(adminClient, {
+          functionName: "companion-chat/tools/leads", model: "claude-haiku-4-5-20251001",
+          usage: json.usage, userId, metadata: { tool: "draft_outreach", channel },
+        });
         const text = (json.content?.[0]?.text as string ?? "").trim();
         drafts.push(`--- ${lead.name} (${channel}) ---\n${text || "(empty draft)"}`);
       } catch (e) {
