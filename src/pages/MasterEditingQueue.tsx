@@ -918,7 +918,7 @@ export default function MasterEditingQueue() {
   return (
 
     <>
-      <PageTransition className="flex-1 flex flex-col min-h-screen">
+      <PageTransition className="flex-1 flex flex-col min-h-0 overflow-y-auto">
 
         <div className="flex-1 px-4 sm:px-8 py-8 max-w-6xl mx-auto w-full">
           <motion.div
