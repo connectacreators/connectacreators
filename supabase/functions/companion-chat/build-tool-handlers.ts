@@ -11,6 +11,70 @@ import type { BuildSession } from "../_shared/build-session/types.ts";
 import { updateBuildSession } from "../_shared/build-session/service.ts";
 import { canonicalizeVideoUrl } from "../_shared/canonicalize-video-url.ts";
 
+// VPS scraper for live metadata enrichment — mirrors viral-video-resolve.
+// Kept inline so the /ai tool flow is self-contained.
+const VPS_SERVER = "http://72.62.200.145:3099";
+const VPS_API_KEY = "ytdlp_connecta_2026_secret";
+
+interface ScrapedMeta {
+  caption: string | null;
+  thumbnail_url: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  outlier: number;
+  posted_at: string | null;
+  channel_username: string | null;
+}
+
+async function scrapeMetadata(url: string): Promise<ScrapedMeta | null> {
+  try {
+    const res = await fetch(`${VPS_SERVER}/scrape-single-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return null;
+    const vps = await res.json();
+    if (!vps) return null;
+    let postedAt: string | null = null;
+    if (vps.posted_at) {
+      const num = typeof vps.posted_at === "number" ? vps.posted_at : Number(vps.posted_at);
+      if (!isNaN(num) && num > 0) {
+        postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
+      }
+    }
+    let thumb: string | null = (vps.thumbnail as string | undefined) ?? null;
+    if (thumb && /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent/.test(thumb)) {
+      try {
+        const cacheRes = await fetch(`${VPS_SERVER}/cache-thumbnail`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": VPS_API_KEY },
+          body: JSON.stringify({ url: thumb, key: `submit_${Date.now()}` }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (cacheRes.ok) {
+          const { cached_url } = await cacheRes.json();
+          if (cached_url) thumb = cached_url;
+        }
+      } catch { /* non-blocking */ }
+    }
+    return {
+      caption: String(vps.title ?? vps.caption ?? "").slice(0, 600) || null,
+      thumbnail_url: thumb,
+      views: Number(vps.views) || 0,
+      likes: Number(vps.likes) || 0,
+      comments: Number(vps.comments) || 0,
+      outlier: Number(vps.outlier_score) || 0,
+      posted_at: postedAt,
+      channel_username: ((vps.owner_username as string | undefined) ?? "").replace(/^@/, "") || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── Context passed to every handler ──────────────────────────────────────────
 
 export interface BuildToolContext {
@@ -544,21 +608,37 @@ export async function handleAddUrlToViralDatabase(
     .maybeSingle();
 
   let rowId: string;
+  let finalChannelUsername = channelUsername;
   if (existing) {
     rowId = (existing as { id: string }).id;
+    finalChannelUsername = (existing as { channel_username?: string }).channel_username || channelUsername;
   } else {
+    // Best-effort: scrape live metadata BEFORE insert so the row is born with
+    // real channel_username / caption / views / thumb. Mirrors viral-video-resolve.
+    // If VPS times out or errors we still create the stub (downstream Analyze
+    // step will re-attempt enrichment).
+    const meta = await scrapeMetadata(canonical.normalizedUrl);
+    const engagementRate =
+      meta && meta.views > 0
+        ? Math.round(((meta.likes + meta.comments) / meta.views) * 100 * 100) / 100
+        : 0;
+    finalChannelUsername = meta?.channel_username || channelUsername;
+
     const { data: inserted, error } = await ctx.adminClient
       .from("viral_videos")
       .insert({
         platform: canonical.platform,
         apify_video_id: canonical.postId,
         video_url: canonical.normalizedUrl,
-        channel_username: channelUsername,
-        caption: "(user-submitted — pending enrichment)",
-        views_count: 0,
-        likes_count: 0,
-        comments_count: 0,
-        outlier_score: 0,
+        channel_username: finalChannelUsername,
+        caption: meta?.caption ?? "(user-submitted — pending enrichment)",
+        thumbnail_url: meta?.thumbnail_url ?? null,
+        views_count: meta?.views ?? 0,
+        likes_count: meta?.likes ?? 0,
+        comments_count: meta?.comments ?? 0,
+        engagement_rate: engagementRate,
+        outlier_score: meta?.outlier ?? 0,
+        posted_at: meta?.posted_at ?? null,
         user_submitted: true,
         submitted_by: ctx.userId || null,
         analysis_status: "pending",
@@ -598,7 +678,7 @@ export async function handleAddUrlToViralDatabase(
     });
   }
 
-  return `Added ${canonical.normalizedUrl} to viral database. Video ID: ${rowId}. @${channelUsername}. Use this ID as the framework reference.`;
+  return `Added ${canonical.normalizedUrl} to viral database. Video ID: ${rowId}. @${finalChannelUsername}. Use this ID as the framework reference.`;
 }
 
 // ── Tool 6: add_video_to_canvas ───────────────────────────────────────────────
