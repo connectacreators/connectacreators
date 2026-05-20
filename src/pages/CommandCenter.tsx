@@ -577,10 +577,16 @@ export default function CommandCenter() {
   // Approve button) can send a synthetic message without going through the
   // input field.
   const handleSend = useCallback(async (override?: string) => {
-    const raw = override ?? input;
+    // Guard against onClick handlers passing a MouseEvent as the first arg —
+    // the send button in AssistantTextInput wires onClick={onSend} directly,
+    // so the MouseEvent lands here as "override" and any subsequent .trim()
+    // call throws. Only treat override as a real value when it's actually a
+    // string; otherwise fall back to the input state.
+    const overrideText = typeof override === "string" ? override : undefined;
+    const raw = overrideText ?? input;
     if (!raw.trim() || sending || !user) return;
     const text = raw.trim();
-    if (!override) setInput("");
+    if (!overrideText) setInput("");
     setSending(true);
 
     const optimistic: MsgRow = {
@@ -615,6 +621,20 @@ export default function CommandCenter() {
       // function expects.
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
       const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      // Read the sidebar's active-client selection so companion-chat scopes
+      // tool calls to the RIGHT client. The sidebar stores its viewMode in
+      // localStorage; on /ai there's no URL-locked client, so without this
+      // the function falls back to the user's primary client (= wrong
+      // canvas, wrong context). Values: "master" | "me" | <client_uuid>.
+      // Only forward when the value is a UUID — "master" means cross-client
+      // mode and "me" means the user's own client (companion-chat already
+      // resolves that via subscriber_clients).
+      const sidebarViewMode = typeof window !== "undefined"
+        ? window.localStorage.getItem("dashboard_viewMode")
+        : null;
+      const isUuid = (s: string | null): s is string =>
+        !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+      const activeClientId = isUuid(sidebarViewMode) ? sidebarViewMode : null;
       const streamResult = await streamCompanionChat({
         supabaseUrl: SUPABASE_URL,
         anonKey: ANON,
@@ -625,6 +645,7 @@ export default function CommandCenter() {
           current_path: path,
           autonomy_mode: autonomyMode,
           thread_id: activeThreadId ?? null,
+          active_client_id: activeClientId,
           // Tier-2 controls — passed through to companion-chat which already
           // honors these fields when sent (same payload Canvas uses).
           model: selectedModel,

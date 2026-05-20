@@ -735,12 +735,16 @@ serve(async (req) => {
       return closeStream();
     }
 
-    const { message, companion_name, current_path, autonomy_mode, thread_id: incomingThreadId } = await req.json() as {
+    const { message, companion_name, current_path, autonomy_mode, thread_id: incomingThreadId, active_client_id } = await req.json() as {
       message: string;
       companion_name: string;
       current_path?: string;
       autonomy_mode?: "auto" | "ask" | "plan";
       thread_id?: string | null;
+      /** Sidebar-selected client (from localStorage.dashboard_viewMode on the
+       *  /ai page). Treated like a URL-locked client when present — overrides
+       *  the subscriber's primary-client fallback. */
+      active_client_id?: string | null;
     };
 
     if (!message?.trim()) {
@@ -865,9 +869,18 @@ serve(async (req) => {
       console.warn("[companion-chat] @-mention resolution failed:", err);
     }
 
-    // If user is on /clients/:clientId/... use THAT client (URL trumps name-matching)
+    // Client resolution priority (highest first):
+    // 1. URL path /clients/:clientId/... (the dedicated client surfaces)
+    // 2. active_client_id from the request body (the sidebar selector on
+    //    /ai — without this, the function would fall back to the user's
+    //    primary client and route work to the WRONG client when the user
+    //    has switched the sidebar to a different one)
+    // 3. subscriber's primary client (user's own brand)
+    // 4. directly-owned client (legacy)
     const urlClientMatch = current_path?.match(/\/clients\/([0-9a-f-]{36})/i);
-    const urlClientId = urlClientMatch?.[1] ?? null;
+    const isUuid = (s: string | null | undefined): s is string =>
+      !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    const urlClientId: string | null = urlClientMatch?.[1] ?? (isUuid(active_client_id) ? active_client_id : null);
     // When the user is on the dedicated AI chat surface (/ai), suppress
     // auto-navigation actions emitted by data tools (create_script,
     // schedule_content, etc.). Auto-navigation unmounts CommandCenter and
