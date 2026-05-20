@@ -20,7 +20,7 @@ import { CLIENT_TOOLS, handleClientTool } from "./tools/client.ts";
 import { RESEARCH_TOOLS, handleResearchTool } from "./tools/research.ts";
 import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
 import { PLAN_TOOLS, handlePlanTool } from "./tools/plans.ts";
-import { classifyMode, toolNamesForMode } from "./mode-router.ts";
+import { classifyMode } from "./mode-router.ts";
 // Memory subsystem disabled for now — tools/memories.ts and the
 // assistant_memories table remain in place for future reactivation.
 // import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
@@ -1392,16 +1392,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
   : "ASK MODE: Before taking any action that changes data or navigates pages, briefly say what you are about to do in one sentence and wait for the user to confirm. Then execute once they say yes."
 }`;
 
-    // Build mode is handled separately above (build-mode.ts). Here we just use
-    // the regular system prompt and a MODE-FILTERED subset of TOOLS — see
-    // mode-router.ts. Classifies the message to ~10 modes via keyword regex
-    // and ships only that mode's tools (+ COMMON_TOOLS). Net: ~70% fewer
-    // tool definitions per call, which compounds with prompt caching for a
-    // large input-token reduction.
+    // Build mode is handled separately above (build-mode.ts). Mode is still
+    // classified for refinement detection below (tool_choice forcing skip),
+    // but the full TOOLS array now ships on every call — per-mode filtering
+    // was destroying the prompt cache by changing the tools prefix between
+    // requests, which invalidates the entire tools+system cache prefix.
+    // Cache reads of $0.02 vs cache writes of $10.16 over 19d confirmed it.
     const detectedMode = classifyMode(message);
-    const allowedToolNames = toolNamesForMode(detectedMode);
-    const effectiveTools = TOOLS.filter((t) => allowedToolNames.has((t as { name: string }).name));
-    console.log(`[companion-chat][mode] detected=${detectedMode} tools=${effectiveTools.length}/${TOOLS.length}`);
+    console.log(`[companion-chat][mode] detected=${detectedMode} tools=${TOOLS.length}`);
 
     // Save user message
     await adminClient.from("companion_messages").insert({
@@ -1506,7 +1504,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           model: chosenModel,
           max_tokens: 4096,
           system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
-          tools: buildCachedTools(effectiveTools),
+          tools: buildCachedTools(TOOLS),
           // Force a tool call when:
           // (a) round 0 + Auto mode or mechanical prompt — prevents the
           //     initial "Let me pull up…" stall on bulk requests.
@@ -2937,7 +2935,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             model: "claude-sonnet-4-6",
             max_tokens: 1024,
             system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
-            tools: buildCachedTools(effectiveTools),
+            tools: buildCachedTools(TOOLS),
             tool_choice: { type: "none" },
             messages,
           }),
@@ -2976,7 +2974,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               model: "claude-sonnet-4-6",
               max_tokens: 1024,
               system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
-              tools: buildCachedTools(effectiveTools),
+              tools: buildCachedTools(TOOLS),
               tool_choice: { type: "tool", name: "propose_plan" },
               messages,
             }),
@@ -3036,7 +3034,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               model: "claude-sonnet-4-6",
               max_tokens: 1024,
               system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
-              tools: buildCachedTools(effectiveTools),
+              tools: buildCachedTools(TOOLS),
               tool_choice: { type: "tool", name: "confirm_plan" },
               messages: [
                 ...messages,
@@ -3093,7 +3091,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             model: "claude-sonnet-4-6",
             max_tokens: 1024,
             system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
-            tools: buildCachedTools(effectiveTools),
+            tools: buildCachedTools(TOOLS),
             tool_choice: { type: "tool", name: "find_viral_videos" },
             messages,
           }),
@@ -3166,7 +3164,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                   model: "claude-sonnet-4-6",
                   max_tokens: 1024,
                   system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
-                  tools: buildCachedTools(effectiveTools),
+                  tools: buildCachedTools(TOOLS),
                   tool_choice: { type: "none" },
                   messages: followupMessages,
                 }),
