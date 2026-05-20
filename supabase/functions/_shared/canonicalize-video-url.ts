@@ -102,6 +102,12 @@ function matchFacebook(u: URL): CanonicalVideo | null {
     const v = u.searchParams.get("v");
     if (v) return { platform: "facebook", postId: v, normalizedUrl: `https://www.facebook.com/watch?v=${v}` };
   }
+  // Modern Facebook short-share URLs: /share/v/{token}, /share/r/{token},
+  // /share/p/{token}. Token is alphanumeric, not numeric. Treat as opaque
+  // postId and let the downstream scraper (yt-dlp on VPS) follow Facebook's
+  // own redirect to the canonical video URL.
+  m = u.pathname.match(/^\/share\/(?:v|r|p)\/([A-Za-z0-9]+)/);
+  if (m) return { platform: "facebook", postId: m[1], normalizedUrl: `https://www.facebook.com${u.pathname}` };
   return null;
 }
 
