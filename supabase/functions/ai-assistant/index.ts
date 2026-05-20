@@ -4,6 +4,7 @@ import { VIRAL_HOOKS } from "./hookData.ts";
 import {
   appendMessage as assistantAppendMessage,
 } from "../_shared/assistant/threads.ts";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 /**
  * Phase A dual-write for canvas chats. The existing canvas_ai_chats row's UUID
@@ -892,6 +893,13 @@ serve(async (req) => {
         }),
       });
       const titleData = await titleRes.json();
+      if (titleData?.usage) logAnthropicUsage(adminClient, {
+        functionName: "ai-assistant",
+        model: "claude-haiku-4-5-20251001",
+        usage: titleData.usage,
+        userId,
+        metadata: { phase: "title-gen" },
+      });
       const titleText = titleData.content?.[0]?.text?.trim() ?? "";
       return new Response(JSON.stringify({ content: titleText }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -1228,6 +1236,8 @@ serve(async (req) => {
         const encoder = new TextEncoder();
         let streamInputTokens = 0;
         let streamOutputTokens = 0;
+        let streamCacheCreate = 0;
+        let streamCacheRead = 0;
         let finalContent = "";
         const readable = new ReadableStream({
           async start(controller) {
@@ -1252,10 +1262,10 @@ serve(async (req) => {
                       // Extended thinking block — skip (don't send to client)
                     } else if (ev.type === "message_start" && ev.message?.usage) {
                       streamInputTokens = ev.message.usage.input_tokens ?? 0;
-                      const cacheCreate = ev.message.usage.cache_creation_input_tokens ?? 0;
-                      const cacheRead = ev.message.usage.cache_read_input_tokens ?? 0;
-                      if (cacheCreate > 0 || cacheRead > 0) {
-                        console.log(`[ai-assistant] cache: create=${cacheCreate} read=${cacheRead} uncached_input=${streamInputTokens}`);
+                      streamCacheCreate = ev.message.usage.cache_creation_input_tokens ?? 0;
+                      streamCacheRead = ev.message.usage.cache_read_input_tokens ?? 0;
+                      if (streamCacheCreate > 0 || streamCacheRead > 0) {
+                        console.log(`[ai-assistant] cache: create=${streamCacheCreate} read=${streamCacheRead} uncached_input=${streamInputTokens}`);
                       }
                     } else if (ev.type === "message_delta" && ev.usage) {
                       streamOutputTokens = ev.usage.output_tokens ?? 0;
@@ -1267,6 +1277,18 @@ serve(async (req) => {
               reader.releaseLock();
             }
             const creditCost = calculateTokenCredits(streamInputTokens, streamOutputTokens, multiplier);
+            logAnthropicUsage(adminClient, {
+              functionName: "ai-assistant",
+              model: routedModelKey,
+              usage: {
+                input_tokens: streamInputTokens,
+                cache_creation_input_tokens: streamCacheCreate,
+                cache_read_input_tokens: streamCacheRead,
+                output_tokens: streamOutputTokens,
+              },
+              userId,
+              metadata: { phase: "canvas-stream", thinking: !!thinkingRequested, requested_model: requestedModel, downgraded: wasDowngraded },
+            });
             await deductCredits(adminClient, userId, "ai_chat", creditCost);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, credits_used: creditCost, actual_model: routedModelKey, requested_model: requestedModel, downgraded: wasDowngraded })}\n\n`));
             controller.close();
@@ -1360,6 +1382,13 @@ serve(async (req) => {
       }
 
       const claudeData = await claudeRes.json();
+      if (claudeData?.usage) logAnthropicUsage(adminClient, {
+        functionName: "ai-assistant",
+        model: routedModelKey,
+        usage: claudeData.usage,
+        userId,
+        metadata: { phase: "chat", canvas_mode: isCanvas, thinking: !!thinkingRequested, requested_model: requestedModel, downgraded: wasDowngraded },
+      });
 
       // Extract tool use block (the action) and text block (the message)
       const toolUseBlock = claudeData.content?.find((b: any) => b.type === "tool_use");

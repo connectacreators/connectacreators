@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { VIRAL_HOOKS, type HookFormula } from "./hookData.ts";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,6 +119,10 @@ Pick the 3 categories that best match this topic. Return ONLY a JSON array of ca
 
       if (categoryRes.ok) {
         const catData = await categoryRes.json();
+        if (catData?.usage) logAnthropicUsage(adminClient, {
+          functionName: "suggest-hooks", model: "claude-haiku-4-5-20251001",
+          usage: catData.usage, userId: null, metadata: { phase: "categorize" },
+        });
         const catText = catData.content?.[0]?.text || "[]";
         const match = catText.match(/\[.*\]/s);
         if (match) {
@@ -166,6 +171,10 @@ Pick the 5 hooks that best match this topic. Consider relevance, engagement pote
 
       if (rankRes.ok) {
         const rankData = await rankRes.json();
+        if (rankData?.usage) logAnthropicUsage(adminClient, {
+          functionName: "suggest-hooks", model: "claude-haiku-4-5-20251001",
+          usage: rankData.usage, userId: null, metadata: { phase: "rank" },
+        });
         const rankText = rankData.content?.[0]?.text || "[]";
         const match = rankText.match(/\[.*\]/s);
         if (match) {

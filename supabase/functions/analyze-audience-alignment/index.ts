@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { parseExtendedAnalysis } from "../_shared/profile-analysis-parser.ts";
 import type { ExtendedAnalysisPayload } from "../_shared/profile-analysis-types.ts";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -285,6 +286,11 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
     }
 
     const claudeData = await claudeRes.json();
+    if (claudeData?.usage) logAnthropicUsage(adminClient, {
+      functionName: "analyze-audience-alignment", model: "claude-haiku-4-5-20251001",
+      usage: claudeData.usage, userId: user?.id ?? null,
+      metadata: { extended_dimensions: !!extended_dimensions },
+    });
     const rawText = claudeData.content?.[0]?.text || "{}";
 
     let analysis: {

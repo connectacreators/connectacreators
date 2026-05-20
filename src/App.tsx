@@ -39,6 +39,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
 const PublicFolderShare = lazy(() => import("./pages/PublicFolderShare"));
 const Finances = lazy(() => import("./pages/Finances"));
+const ApiUsage = lazy(() => import("./pages/ApiUsage"));
 const PublicBooking = lazy(() => import("./pages/PublicBooking"));
 const BookingSettings = lazy(() => import("./pages/BookingSettings"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -174,6 +175,7 @@ const App = () => (
               <Route path="/master-database" element={<MasterDatabase />} />
               <Route path="/trainings" element={<Trainings />} />
               <Route path="/finances" element={<Finances />} />
+              <Route path="/api-usage" element={<ApiUsage />} />
               <Route path="/viral-today" element={<ViralToday />} />
               {/* Reels feed removed — redirect any stale URL (bookmarks, mobile
                   bottom-nav cache, shared links) to the dashboard. */}

@@ -5,6 +5,7 @@ import {
   normalizeNicheSlug,
   type ContentFormat,
 } from "../_shared/video-taxonomy.ts";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,6 +142,10 @@ Output ONLY a JSON object: {"content_format": "<slug>", "primary_niche": "<slug>
     return json({ error: "haiku_failed", message: errText.slice(0, 500) }, 500);
   }
   const aiBody = await aiRes.json();
+  if (aiBody?.usage) logAnthropicUsage(admin, {
+    functionName: "viral-video-categorize", model: "claude-haiku-4-5-20251001",
+    usage: aiBody.usage, userId: null,
+  });
   let raw = (aiBody.content?.[0]?.text as string ?? "").trim();
   raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
 

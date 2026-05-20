@@ -1,6 +1,7 @@
 // supabase/functions/_shared/viral-video-analyzer.ts
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
 import { isValidContentFormat, normalizeNicheSlug, type ContentFormat } from "./video-taxonomy.ts";
+import { logAnthropicUsage } from "./log-anthropic-usage.ts";
 
 const VPS_BASE = "http://72.62.200.145:3099";
 const VPS_KEY = "ytdlp_connecta_2026_secret";
@@ -296,6 +297,10 @@ The content_format MUST be one of the 11 allowed slugs.`;
       }),
     });
     const body: any = await res.json();
+    if (body?.usage) logAnthropicUsage(null, {
+      functionName: "_shared/viral-video-analyzer", model: "claude-haiku-4-5-20251001",
+      usage: body.usage, userId: null,
+    });
     if (!res.ok) return { niche_tags: [], audience: "", key_topics: [], body_structure: "", hook_template: "", content_format: null, primary_niche: null };
     let raw = (body.content?.[0]?.text as string ?? "").trim();
     raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
