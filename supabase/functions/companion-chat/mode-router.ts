@@ -20,6 +20,7 @@ export type Mode =
   | "analytics"
   | "finance"
   | "intelligence"
+  | "refinement"
   | "general";
 
 /** Tools available in EVERY mode — navigation, client lookup, plan
@@ -149,6 +150,11 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "list_trainings",
     "list_contracts",
   ],
+  // Refinement intent — user is editing the model's PREVIOUS reply
+  // (shorter, longer, rephrase, in Spanish, less salesy, etc.). No tools
+  // available so the model can't be tempted to call one — pure text
+  // refinement of the conversation history is the only allowed move.
+  refinement: [],
   // General fallback — broader cross-section so the model has options
   // when classification is ambiguous. Intentionally includes a handful
   // from several modes to handle "what should I do?" / "how are things?"
@@ -171,7 +177,26 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
 /** Classify a user message into a mode. Order matters: more specific
  *  patterns first so they win over generic ones. */
 export function classifyMode(message: string): Mode {
-  const m = message.toLowerCase();
+  const m = message.toLowerCase().trim();
+  const wordCount = m.split(/\s+/).filter(Boolean).length;
+
+  // REFINEMENT INTENT — wins over everything else. Short messages
+  // (≤ 8 words) that look like edits to the model's previous reply
+  // rather than fresh requests. Examples: "make it shorter", "rephrase
+  // that", "in Spanish", "less formal", "no, try again", "simplify".
+  // Routes to refinement mode which has ZERO tools so the model can't
+  // be tempted to call one — pure text revision of the conversation
+  // history is the only allowed move.
+  const refinementPatterns = [
+    /\b(shorter|longer|short(en)?(ed)?|trim|condense|expand)\b/,
+    /\b(rephrase|rewrite|reword|redo|try again|do (it )?again|otra vez|de nuevo|repite)\b/,
+    /\b(simplify|simpler|plainer|less formal|more formal|less salesy|less corporate|more casual)\b/,
+    /\b(in spanish|en espa(ñ|n)ol|in english|en ingl(é|e)s)\b/,
+    /\b(change the tone|fix the tone|different tone|new tone|tone it down|tone down)\b/,
+    /^(no|nope|nah|actually|wait|hmm)\b/,
+  ];
+  if (wordCount <= 8 && refinementPatterns.some((re) => re.test(m))) return "refinement";
+
   // Most specific intents first
   if (/\b(viral|trending|outlier|inspirations?|references?|find videos?|reels? to model|reference reels?|vault|saved videos?|bookmark)\b/.test(m)) return "discovery";
   if (/\b(analyz\w*|audit|hook patterns?|format mix|outlier band|competitor.*profile|my profile|profile.*strategy|@\w+'s? profile)\b/.test(m)) return "profile-analysis";

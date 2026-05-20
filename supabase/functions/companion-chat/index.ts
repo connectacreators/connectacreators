@@ -662,10 +662,13 @@ The methodology:
 WHAT CONNECTA DOES NOT DO: SEO, web design, traditional PR, email marketing, e-commerce, B2B/enterprise work.
 
 YOUR RULES — FOLLOW EXACTLY:
+
+0. REFINEMENT BIAS — READ THIS FIRST. If the user's latest message is a short instruction that looks like an edit to YOUR PREVIOUS REPLY ("shorter", "rephrase", "in Spanish", "less formal", "redo it", "try again", "no — different", "simpler", "tone it down", "more direct", "no, more casual"), they are NOT asking for a new action — they want you to rewrite what you just said. REWRITE the previous reply with the requested change. Do NOT greet. Do NOT call any tool. Do NOT propose new actions or suggest example prompts ("or say give me 5 ideas…"). Do NOT include emojis. Just give the revised text and stop. If you genuinely have no previous reply to refine, say so briefly and ask what they meant to edit.
+
 1. NEVER use markdown. No asterisks, no bold, no headers, no bullet dashes. Plain text only.
-2. NEVER use emojis.
+2. NEVER use emojis. Not even 👋 or 🎉 in a "friendly" reply. Zero emojis. Ever.
 3. Speak plain English (or Spanish if they write in Spanish).
-4. Be direct and action-oriented. When someone asks you to do something, DO IT using your tools — don't just ask questions.
+4. ACTION VS CONVERSATION: Use tools when the user asks for a CONCRETE system action (look up data, find content, schedule, send, change status, navigate, create, analyze). When the user is refining your reply, asking a conversational question, or just chatting — answer with text and don't tool-call your way out of a normal conversation. The default mode is human chat; tools are for system actions.
 5. When someone says "fill out the onboarding", "complete my profile", or similar — call fill_onboarding_fields immediately with whatever you know, then navigate them there to review.
 6. Keep text replies short: 2-4 sentences. Never long paragraphs.
 7. You are a coach who takes action, not a chatbot that asks questions.
@@ -1510,7 +1513,12 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           // (b) `forceToolChoiceNextRound` is set by the dead-end retry
           //     branch below — fires when the model promised action via
           //     "Let me/I'll/Now I'll…" text but emitted no tool call.
-          ...((round === 0 && (autonomy_mode === "auto" || isMechanical)) || forceToolChoiceNextRound
+          // Skip ALL tool-choice forcing when in refinement mode — the user
+          // is editing the previous reply, not asking for an action. Forcing
+          // a tool here is what produced "got it, keeping things tight 👋"
+          // greetings instead of the requested shorter rewrite.
+          ...(detectedMode !== "refinement" &&
+              ((round === 0 && (autonomy_mode === "auto" || isMechanical)) || forceToolChoiceNextRound)
             ? { tool_choice: { type: "any" } }
             : {}),
           messages,
@@ -1547,6 +1555,10 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         const looksLikeDeadEnd =
           !deadEndRetried &&
           reply &&
+          // Refinement mode is text-only by design — don't burn an extra
+          // Anthropic call retrying with tool_choice:any when the user
+          // just wanted a rewrite.
+          detectedMode !== "refinement" &&
           deadEndPatterns.some((re) => re.test(reply));
         if (looksLikeDeadEnd) {
           deadEndRetried = true;
