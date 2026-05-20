@@ -257,7 +257,7 @@ const TOOLS = [
   },
   {
     name: "update_client_strategy",
-    description: "Update a client's content strategy settings — posts per month, scripts per month, videos per month, stories per week, content mix percentages, ManyChat settings, ads status, or revenue goals. Call this when the user wants to change any of these targets.",
+    description: "Update a client's content strategy — tactical targets (posts/scripts/videos per month, content mix %), platform settings, persona (content pillars, primary platform), ManyChat, ads, and revenue goals. Call this whenever the user wants to set or change any strategy field. Pass only the fields being changed.",
     input_schema: {
       type: "object",
       properties: {
@@ -269,11 +269,14 @@ const TOOLS = [
         mix_reach: { type: "number", description: "Reach content % (0-100)" },
         mix_trust: { type: "number", description: "Trust content % (0-100)" },
         mix_convert: { type: "number", description: "Convert content % (0-100)" },
+        primary_platform: { type: "string", description: "Primary distribution platform: instagram | tiktok | youtube | linkedin" },
+        content_pillars: { type: "array", items: { type: "string" }, description: "3-5 content pillars describing what the client posts about. e.g. ['client transformation stories', 'tactical how-tos', 'behind-the-scenes']" },
         manychat_active: { type: "boolean", description: "Whether ManyChat is active" },
         manychat_keyword: { type: "string", description: "ManyChat trigger keyword" },
-        cta_goal: { type: "string", description: "Primary CTA goal" },
+        cta_goal: { type: "string", description: "Primary CTA goal — what action the audience should take" },
         ads_active: { type: "boolean", description: "Whether ads are running" },
         ads_budget: { type: "number", description: "Monthly ads budget in USD" },
+        ads_goal: { type: "string", description: "Ads goal — what the spend is meant to drive (leads, awareness, sales, etc.)" },
         monthly_revenue_goal: { type: "number", description: "Monthly revenue goal in USD" },
         monthly_revenue_actual: { type: "number", description: "Actual revenue this month in USD" },
       },
@@ -406,6 +409,64 @@ const TOOLS = [
       },
       required: ["client_name", "title", "hook", "body", "cta"],
     },
+  },
+  // ── Lead messaging (Phase 2) ──────────────────────────────────────────
+  {
+    name: "send_lead_followup_now",
+    description: "Trigger the AI-generated follow-up message for a specific lead RIGHT NOW (skip the cron). Invokes the send-followup edge function which composes an on-brand email using the client's SMTP settings + the lead's notes. Use when the user says 'send the follow-up to X now', 'message that lead', or after confirming a propose_plan card for outreach. NEVER call without explicit user intent — this sends a real email.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Optional. Defaults to locked client." },
+        lead_id: { type: "string", description: "UUID of the lead in the leads table (from get_leads)." },
+      },
+      required: ["lead_id"],
+    },
+  },
+  // ── Smart navigation (Phase 2/3) ──────────────────────────────────────
+  // These wrap navigate_to_page with auto-resolved client_id, so the
+  // model can say "open the followup builder for Boby" without first
+  // having to look up Boby's id.
+  {
+    name: "open_followup_builder",
+    description: "Open the AI follow-up automation builder for a client. Use when the user wants to set up, view, or edit their automated lead follow-up workflow.",
+    input_schema: {
+      type: "object",
+      properties: { client_name: { type: "string", description: "Optional. Defaults to locked client." } },
+      required: [],
+    },
+  },
+  {
+    name: "open_social_accounts_page",
+    description: "Open the social accounts page for a client. Use when the user wants to connect IG/TikTok/FB/YouTube or check connection status. OAuth handshake happens in the browser — Robby cannot complete it directly, but this gets the user one click from the action.",
+    input_schema: {
+      type: "object",
+      properties: { client_name: { type: "string", description: "Optional. Defaults to locked client." } },
+      required: [],
+    },
+  },
+  {
+    name: "open_video_editor",
+    description: "Open the in-app video editor for a specific editing-queue item. Use when the user says 'edit that video' / 'open it in the editor' / 'caption this'. The editing_queue_item_id comes from get_editing_queue or open_editing_item.",
+    input_schema: {
+      type: "object",
+      properties: { editing_queue_item_id: { type: "string", description: "UUID of the editing_queue row to open." } },
+      required: ["editing_queue_item_id"],
+    },
+  },
+  {
+    name: "open_booking_settings",
+    description: "Open the booking settings page for a client (where they configure their public booking calendar slots).",
+    input_schema: {
+      type: "object",
+      properties: { client_name: { type: "string", description: "Optional. Defaults to locked client." } },
+      required: [],
+    },
+  },
+  {
+    name: "open_master_editing_queue",
+    description: "Open the master editing queue (admin view across all clients and editors). Use when the user wants to see workload across editors, reassign across editors, or audit throughput.",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   // ── Vault (Phase 2) ───────────────────────────────────────────────────
   {
@@ -2118,6 +2179,77 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           clientName ? await lookupClient(clientName)
             : lockedClient ?? { id: client.id, name: client.name };
 
+        // ── Lead messaging + smart navigation (Phase 2/3) ────────────────
+
+        if (block.name === "send_lead_followup_now") {
+          const { client_name, lead_id } = block.input as { client_name?: string; lead_id: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client context for the follow-up send." });
+          } else {
+            const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-followup`;
+            try {
+              const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: req.headers.get("Authorization") || "" },
+                body: JSON.stringify({ lead_id, client_id: targetClient.id }),
+              });
+              const body = await res.json().catch(() => ({}));
+              if (!res.ok || body?.success === false) {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Send failed: ${body?.error ?? `HTTP ${res.status}`}. Surface as transient error.` });
+              } else {
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Sent follow-up to lead ${lead_id} (attempt ${body?.attempt ?? "?"}). Tell the user it's out and let them know the next step in the sequence will fire automatically based on the lead's status.` });
+              }
+            } catch (err) {
+              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Send error: ${String(err).slice(0, 200)}` });
+            }
+          }
+        }
+
+        if (block.name === "open_followup_builder") {
+          const { client_name } = block.input as { client_name?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to open the follow-up builder for." });
+          } else {
+            actions.push({ type: "navigate", path: `/clients/${targetClient.id}/followup-builder` });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Opening ${targetClient.name}'s follow-up automation builder.` });
+          }
+        }
+
+        if (block.name === "open_social_accounts_page") {
+          const { client_name } = block.input as { client_name?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to open social accounts for." });
+          } else {
+            actions.push({ type: "navigate", path: `/clients/${targetClient.id}/social-accounts` });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Opening ${targetClient.name}'s social accounts page. The actual connect/refresh OAuth flow happens in the browser there.` });
+          }
+        }
+
+        if (block.name === "open_video_editor") {
+          const { editing_queue_item_id } = block.input as { editing_queue_item_id: string };
+          actions.push({ type: "navigate", path: `/editing/${editing_queue_item_id}/edit` });
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Opening the video editor for item ${editing_queue_item_id}. The user can caption, trim, and submit for review from there.` });
+        }
+
+        if (block.name === "open_booking_settings") {
+          const { client_name } = block.input as { client_name?: string };
+          const targetClient = await resolveCanvasClient(client_name);
+          if (!targetClient) {
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "No client to open booking settings for." });
+          } else {
+            actions.push({ type: "navigate", path: `/clients/${targetClient.id}/booking-settings` });
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Opening ${targetClient.name}'s booking settings.` });
+          }
+        }
+
+        if (block.name === "open_master_editing_queue") {
+          actions.push({ type: "navigate", path: "/editing-queue" });
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Opening the master editing queue (cross-client view).` });
+        }
+
         if (block.name === "add_canvas_node") {
           const { client_name, node_type, data, position } = block.input as {
             client_name?: string; node_type: string; data: Record<string, unknown>; position?: { x: number; y: number };
@@ -2404,8 +2536,19 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             for (const f of ["manychat_active","ads_active"]) {
               if (updates[f] !== undefined) patch[f] = !!updates[f];
             }
-            for (const f of ["manychat_keyword","cta_goal"]) {
+            for (const f of ["manychat_keyword","cta_goal","primary_platform","ads_goal"]) {
               if (updates[f] !== undefined) patch[f] = updates[f];
+            }
+            // content_pillars is a TEXT[] array — accept array of strings, drop
+            // non-strings defensively. Empty array clears the field.
+            if (updates.content_pillars !== undefined) {
+              if (Array.isArray(updates.content_pillars)) {
+                patch.content_pillars = updates.content_pillars
+                  .filter((s: unknown): s is string => typeof s === "string" && s.length > 0)
+                  .slice(0, 8);
+              } else {
+                validationNotes.push(`content_pillars must be an array of strings, ignored`);
+              }
             }
 
             const { error } = await adminClient

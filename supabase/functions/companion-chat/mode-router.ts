@@ -27,6 +27,8 @@ export type Mode =
 export const COMMON_TOOLS: string[] = [
   "navigate_to_page",
   "open_client",
+  "open_social_accounts_page",
+  "open_booking_settings",
   "list_all_clients",
   "get_client_info",
   "get_client_strategy",
@@ -43,6 +45,8 @@ export const COMMON_TOOLS: string[] = [
 /** Tools added on top of COMMON_TOOLS per mode. */
 export const MODE_TOOLS: Record<Mode, string[]> = {
   editing: [
+    "open_video_editor",
+    "open_master_editing_queue",
     "open_editing_item",
     "set_editing_queue_view",
     "set_lifecycle_status",
@@ -76,6 +80,8 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "create_lead",
     "bulk_update_lead_status",
     "draft_lead_outreach",
+    "send_lead_followup_now",
+    "open_followup_builder",
   ],
   discovery: [
     "find_viral_videos",
