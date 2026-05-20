@@ -694,11 +694,11 @@ async function ensureFrameworkTranscript(
 ): Promise<{ transcript: string | null; error: string | null; cached: boolean }> {
   const { data: video } = await ctx.adminClient
     .from("viral_videos")
-    .select("id, video_url, transcript, transcript_status, channel_username")
+    .select("id, video_url, transcript, transcript_status, transcript_error, channel_username")
     .eq("id", videoId)
     .maybeSingle();
 
-  if (!video) return { transcript: null, error: "video not found", cached: false };
+  if (!video) return { transcript: null, error: "video not found in viral_videos", cached: false };
   if (video.transcript && video.transcript.trim().length > 0) {
     return { transcript: video.transcript, error: null, cached: true };
   }
@@ -716,8 +716,8 @@ async function ensureFrameworkTranscript(
     }
     // Still not ready — fall through and let this call transcribe it
   }
-  if (!video.video_url) return { transcript: null, error: "no url", cached: false };
-  if (!ctx.userAuthHeader) return { transcript: null, error: "no user auth available", cached: false };
+  if (!video.video_url) return { transcript: null, error: "no video_url on viral_videos row", cached: false };
+  if (!ctx.userAuthHeader) return { transcript: null, error: "no user auth header (likely an admin-impersonated session)", cached: false };
 
   // Mark processing so concurrent calls don't double-bill
   await ctx.adminClient
@@ -731,48 +731,70 @@ async function ensureFrameworkTranscript(
     "Transcribing framework...",
   );
 
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: ctx.userAuthHeader,
-      },
-      body: JSON.stringify({
-        url: video.video_url,
-        viral_video_id: videoId,
-        source: "build_mode",
-      }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json.transcription) {
-      const err = json.error ?? `HTTP ${res.status}`;
-      await ctx.adminClient
-        .from("viral_videos")
-        .update({ transcript_status: "failed", transcript_error: String(err).slice(0, 500) })
-        .eq("id", videoId);
-      return { transcript: null, error: String(err), cached: false };
+  // Try transcribe-video, retry once on transient errors (network / 5xx / timeouts).
+  // Persistent failures (4xx with body, parse errors) skip the retry.
+  const attemptTranscribe = async (): Promise<{ ok: boolean; transcription?: string; error?: string; transient: boolean }> => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: ctx.userAuthHeader!,
+        },
+        body: JSON.stringify({
+          url: video.video_url,
+          viral_video_id: videoId,
+          source: "build_mode",
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.transcription) {
+        const errText = json.error ?? `HTTP ${res.status}`;
+        // 5xx and 0/timeout are transient; 4xx with explicit error body is not.
+        const transient = res.status === 0 || res.status >= 500;
+        return { ok: false, error: String(errText), transient };
+      }
+      return { ok: true, transcription: json.transcription as string, transient: false };
+    } catch (e) {
+      // Network/abort: treat as transient
+      return { ok: false, error: (e as Error).message, transient: true };
     }
-    // transcribe-video persists when viral_video_id is provided, but write here
-    // too so we don't depend on that.
-    await ctx.adminClient
-      .from("viral_videos")
-      .update({
-        transcript: json.transcription,
-        transcript_status: "done",
-        transcribed_at: new Date().toISOString(),
-        transcript_error: null,
-      })
-      .eq("id", videoId);
-    return { transcript: json.transcription as string, error: null, cached: false };
-  } catch (e) {
-    const msg = (e as Error).message;
-    await ctx.adminClient
-      .from("viral_videos")
-      .update({ transcript_status: "failed", transcript_error: msg.slice(0, 500) })
-      .eq("id", videoId);
-    return { transcript: null, error: msg, cached: false };
+  };
+
+  let result = await attemptTranscribe();
+  if (!result.ok && result.transient) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const retry = await attemptTranscribe();
+    if (retry.ok) result = retry;
+    else result = { ...retry, error: `${result.error} (retry: ${retry.error})` };
   }
+
+  if (!result.ok) {
+    const err = result.error ?? "unknown transcribe failure";
+    await ctx.adminClient
+      .from("viral_videos")
+      .update({ transcript_status: "failed", transcript_error: err.slice(0, 500) })
+      .eq("id", videoId);
+    // Include prior persisted error if this row has a history of failing — helps
+    // distinguish "first failure" from "consistently broken video URL".
+    const priorErr = video.transcript_status === "failed" && video.transcript_error
+      ? ` (prior attempt also failed: ${String(video.transcript_error).slice(0, 120)})`
+      : "";
+    return { transcript: null, error: `${err}${priorErr}`, cached: false };
+  }
+
+  // transcribe-video persists when viral_video_id is provided, but write here
+  // too so we don't depend on that.
+  await ctx.adminClient
+    .from("viral_videos")
+    .update({
+      transcript: result.transcription,
+      transcript_status: "done",
+      transcribed_at: new Date().toISOString(),
+      transcript_error: null,
+    })
+    .eq("id", videoId);
+  return { transcript: result.transcription as string, error: null, cached: false };
 }
 
 export async function handleDraftScript(
@@ -886,7 +908,10 @@ Mirror its hook style and tone where you can.`;
     frameworkBlock = `NO REFERENCE FRAMEWORK CONTENT AVAILABLE.
 
 Generate a generic short-form structure for the idea. Do NOT name or imply a specific framework or creator — you don't have one.`;
-    groundingNote = `(no framework content — generating ungrounded; tell the user)`;
+    const reason = transcriptResult.error
+      ? `transcription failed: ${transcriptResult.error.slice(0, 160)}`
+      : "no transcript and no caption stored";
+    groundingNote = `(no framework content — generating ungrounded; ${reason}; tell the user the specific reason)`;
   }
 
   const prompt = `Write a short-form video script. ${transcript ? "Use the SAME structural beats as the reference framework but adapt every line to match the new idea and creator." : "Adapt the reference (if any) to the new idea and creator."}
