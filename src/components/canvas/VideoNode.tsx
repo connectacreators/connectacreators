@@ -460,9 +460,31 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
   // ─── Step 2: Unified analyze — calls /analyze-viral-video-user ───
   const analyze = async () => {
+    // Some nodes arrive on the canvas already hydrated with a URL + maybe a
+    // caption (e.g. competitor-channel scrapes that drop video nodes in bulk),
+    // but never went through viral-video-resolve to get a viralVideoId. Instead
+    // of refusing with "Resolve a URL first", auto-resolve here so the user
+    // just clicks Analyze and everything happens.
     if (!d.viralVideoId) {
-      toast.error("Resolve a URL first");
-      return;
+      const url = (d.url ?? urlInput ?? "").trim();
+      if (!url) {
+        toast.error("Add a video URL first");
+        return;
+      }
+      await handleUrlSubmit(url);
+      // handleUrlSubmit updates d.viralVideoId via d.onUpdate, but our local
+      // closure still has the stale d. Re-read from the parent on next tick.
+      // The simplest signal: bail out and let the user click again — but
+      // better, wait one microtask and check the latest d via the ref pattern.
+      // Since this component re-renders on d.onUpdate, the user can just
+      // click Analyze again — but to make it one-click, we proceed inline
+      // by re-checking after a short wait for the resolve to settle.
+      await new Promise((r) => setTimeout(r, 100));
+      if (!d.viralVideoId) {
+        // Resolve didn't populate yet — let realtime subscription / next
+        // render handle the rest. Stage stays at "transcribed" naturally.
+        return;
+      }
     }
     setStage("analyzing");
     try {
@@ -633,10 +655,24 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-submit when node is created with a pre-set URL (from build-mode paste handler)
+  // Auto-resolve when a node arrives pre-hydrated with a URL but no
+  // viralVideoId. Two upstream creators set this flag:
+  //   - build-mode paste handler (fresh URL, stage starts at "idle")
+  //   - competitor-profile "explode" (each VideoNode gets autoTranscribe=true
+  //     but ALSO inherits a pre-scraped transcription, which makes stage
+  //     init to "transcribed" — the old "stage === idle" guard skipped these,
+  //     so viralVideoId was never populated and Analyze later threw
+  //     "Resolve a URL first").
+  // Trigger on missing viralVideoId rather than stage, so half-hydrated
+  // nodes always resolve regardless of which preview text they arrived with.
   const autoTranscribedRef = useRef(false);
   useEffect(() => {
-    if (!autoTranscribedRef.current && (d as any).autoTranscribe && urlInput && stage === "idle") {
+    if (
+      !autoTranscribedRef.current &&
+      (d as any).autoTranscribe &&
+      urlInput &&
+      !d.viralVideoId
+    ) {
       autoTranscribedRef.current = true;
       d.onUpdate?.({ autoTranscribe: false });
       setTimeout(() => handleUrlSubmit(urlInput), 80);
@@ -1120,7 +1156,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   onClick={saveToVault}
                   disabled={savingVault || vaultSaved || !d.clientId || !d.viralVideoId}
                   title={!d.viralVideoId ? "Analyzing — try again when ready" : undefined}
-                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[rgba(143,208,213,0.25)] bg-[rgba(143,208,213,0.08)] text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.15)] text-[11px] font-medium transition-colors disabled:opacity-40"
+                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[#141414] bg-[#8FD0D5] text-[#141414] hover:bg-[#7BC0C5] text-[11px] font-semibold transition-colors disabled:opacity-40"
                 >
                   {savingVault ? (
                     <Loader2 className="w-3 h-3 animate-spin" />

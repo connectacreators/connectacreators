@@ -658,24 +658,15 @@ All colors MUST be HSL for consistency and theming.
   50%       { opacity: 0; }
 }
 
-/* Streaming bubble cursor — inline at the end of the last block of markdown.
-   Targets the most common terminal markdown blocks so the cursor "follows"
-   the typewriter as text grows, instead of rendering on a new line below. */
-.streaming-bubble > :last-child p:last-child::after,
-.streaming-bubble > :last-child li:last-child::after,
-.streaming-bubble > :last-child h1:last-child::after,
-.streaming-bubble > :last-child h2:last-child::after,
-.streaming-bubble > :last-child h3:last-child::after,
-.streaming-bubble > :last-child h4:last-child::after,
-.streaming-bubble > :last-child blockquote:last-child::after,
-.streaming-bubble > :last-child > p:last-child::after,
-.streaming-bubble > p:last-child::after,
-.streaming-bubble > ul:last-child > li:last-child::after,
-.streaming-bubble > ol:last-child > li:last-child::after,
-.streaming-bubble > h1:last-child::after,
-.streaming-bubble > h2:last-child::after,
-.streaming-bubble > h3:last-child::after,
-.streaming-bubble > blockquote:last-child::after {
+/* Streaming bubble cursor — inline at the end of the last leaf of the
+   markdown tree. The old version listed every possible terminal block as
+   a separate selector (p:last-child, li:last-child, h1:last-child, …) and
+   when the rendered structure nested those (e.g. <p> inside <li> inside
+   <ul:last-child>) multiple ::after pseudos fired and showed two or three
+   blinking blocks at once. Replace with a single :has()-gated rule that
+   only matches the deepest last-child — any last-child that contains NO
+   further last-child descendants. Modern browsers all support :has(). */
+.streaming-bubble :last-child:not(:has(:last-child))::after {
   content: "▋";
   display: inline-block;
   margin-left: 2px;
@@ -689,10 +680,12 @@ All colors MUST be HSL for consistency and theming.
   to   { stroke-dashoffset: 0;   }
 }
 
+/* Universal chip hover: subtle filter shift that works on both the dark
+   /ai surface (translucent white chips) and the bone canvas (solid aqua
+   chips). The old rule forced white-tinted colors with !important, which
+   made aqua chips on bone disappear into the background on hover. */
 .assistant-chip:not(:disabled):hover {
-  background: rgba(255,255,255,0.07) !important;
-  border-color: rgba(255,255,255,0.14) !important;
-  color: rgba(255,255,255,0.85) !important;
+  filter: brightness(0.92) saturate(1.1);
 }
 
 /* Row pulse for AI plan previews — gently fades the row 1 → 0.55 → 1
