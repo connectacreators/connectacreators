@@ -108,39 +108,34 @@ export const RESEARCH_KEYWORDS = [
 
 // ── Inline markdown rendering ──────────────────────────────────────────────
 
-/** Render a single line with inline markdown: **bold**, *italic*, `code`, URLs */
+/** Render a single line with inline markdown: ![img](url), [link](url),
+ *  **bold**, *italic*, `code`, bare URLs. Image and link patterns must come
+ *  before the bare-URL pattern so they win against `(url)` inside parens. */
 export function renderInline(line: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match **bold**, *italic*, `code`, https:// URLs in order
-  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|(https?:\/\/[^\s<>"']+))/g;
+  const regex =
+    /(!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|(https?:\/\/[^\s<>"']+))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let key = 0;
   while ((match = regex.exec(line)) !== null) {
     if (match.index > last)
       parts.push(<Fragment key={key++}>{line.slice(last, match.index)}</Fragment>);
-    if (match[2] !== undefined)
+    if (match[3] !== undefined)
       parts.push(
-        <strong key={key++} className="font-semibold">
-          {match[2]}
-        </strong>,
-      );
-    else if (match[3] !== undefined)
-      parts.push(<span key={key++}>{match[3]}</span>);
-    else if (match[4] !== undefined)
-      parts.push(
-        <code
+        <img
           key={key++}
+          src={match[3]}
+          alt={match[2] || ""}
+          loading="lazy"
           style={{
-            borderLeft: "1px solid rgba(201,169,110,0.4)",
-            paddingLeft: 5,
-            fontFamily: "monospace",
-            fontSize: "0.9em",
-            color: "rgba(20,20,20,0.58)",
+            maxWidth: "100%",
+            maxHeight: 220,
+            borderRadius: 6,
+            display: "block",
+            margin: "4px 0",
           }}
-        >
-          {match[4]}
-        </code>,
+        />,
       );
     else if (match[5] !== undefined)
       parts.push(
@@ -152,7 +147,43 @@ export function renderInline(line: string): React.ReactNode[] {
           style={{ color: "rgba(201,169,110,0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
           onClick={(e) => e.stopPropagation()}
         >
-          {match[5]}
+          {match[4]}
+        </a>,
+      );
+    else if (match[6] !== undefined)
+      parts.push(
+        <strong key={key++} className="font-semibold">
+          {match[6]}
+        </strong>,
+      );
+    else if (match[7] !== undefined)
+      parts.push(<span key={key++}>{match[7]}</span>);
+    else if (match[8] !== undefined)
+      parts.push(
+        <code
+          key={key++}
+          style={{
+            borderLeft: "1px solid rgba(201,169,110,0.4)",
+            paddingLeft: 5,
+            fontFamily: "monospace",
+            fontSize: "0.9em",
+            color: "rgba(20,20,20,0.58)",
+          }}
+        >
+          {match[8]}
+        </code>,
+      );
+    else if (match[9] !== undefined)
+      parts.push(
+        <a
+          key={key++}
+          href={match[9]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "rgba(201,169,110,0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {match[9]}
         </a>,
       );
     last = match.index + match[0].length;
