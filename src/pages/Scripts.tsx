@@ -41,6 +41,7 @@ import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
+import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -2768,49 +2769,7 @@ export default function Scripts() {
                         <DialogTitle className="text-sm">{tr({ en: "Inspiration Video", es: "Video de Inspiración" }, language)}</DialogTitle>
                       </DialogHeader>
                       <div className="p-4 pt-2">
-                        {(() => {
-                          const url = viewingInspirationUrl;
-                          const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/);
-                          if (ytMatch) {
-                            return (
-                              <div className="relative rounded-xl overflow-hidden" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
-                                <iframe src={`https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} title="Inspiration video" />
-                              </div>
-                            );
-                          }
-                          const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-                          if (vimeoMatch) {
-                            return (
-                              <div className="relative rounded-xl overflow-hidden" style={{ padding: '56.25% 0 0 0', position: 'relative' }}>
-                                <iframe src={`https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} title="Inspiration video" />
-                              </div>
-                            );
-                          }
-                          const tiktokMatch = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
-                          if (tiktokMatch) {
-                            return (
-                              <div className="flex justify-center">
-                                <iframe src={`https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`} allow="encrypted-media" allowFullScreen style={{ width: '325px', height: '578px', border: 'none' }} title="Inspiration video" />
-                              </div>
-                            );
-                          }
-                          const igMatch = url.match(/instagram\.com\/(?:reel|p)\/([\w-]+)/);
-                          if (igMatch) {
-                            return (
-                              <div className="flex justify-center">
-                                <iframe src={`https://www.instagram.com/p/${igMatch[1]}/embed`} allowFullScreen style={{ width: '400px', height: '500px', border: 'none' }} title="Inspiration video" />
-                              </div>
-                            );
-                          }
-                          return (
-                            <div className="text-center py-8">
-                              <p className="text-muted-foreground text-sm mb-3">{tr({ en: "This video can't be embedded. Open it externally:", es: "Este video no se puede embeber. Ábrelo externamente:" }, language)}</p>
-                              <Button variant="outline" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="gap-2">
-                                <ExternalLink className="w-4 h-4" /> {tr({ en: "Open video", es: "Abrir video" }, language)}
-                              </Button>
-                            </div>
-                          );
-                        })()}
+                        <InspirationVideoEmbed url={viewingInspirationUrl} />
                       </div>
                     </DialogContent>
                   </Dialog>
