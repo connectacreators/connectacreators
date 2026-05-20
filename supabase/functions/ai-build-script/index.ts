@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
+
+/** Per-request log context — set by the serve handler so callClaude() can
+ *  enrich its usage log rows with userId + step without us threading those
+ *  through 14 call sites. Module-scoped but only read inside callClaude
+ *  which is itself called sequentially from the per-request handler — no
+ *  cross-request races, because Deno serve isolates handler invocations.
+ *  If concurrent inflight calls ever appear here, switch to AsyncLocalStorage. */
+let _currentRequestLog: { userId?: string | null; step?: string | null } | null = null;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +57,17 @@ async function callClaude(apiKey: string, systemPrompt: string, userPrompt: stri
       body: JSON.stringify(body),
     });
 
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.usage) logAnthropicUsage(null, {
+        functionName: "ai-build-script",
+        model: body.model,
+        usage: json.usage,
+        userId: _currentRequestLog?.userId ?? null,
+        metadata: { step: _currentRequestLog?.step ?? null },
+      });
+      return json;
+    }
 
     const status = res.status;
     const text = await res.text();
@@ -210,6 +229,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { step } = body;
+    _currentRequestLog = { userId: user.id, step };
 
     // Deduct credits for this step (before doing AI work)
     const cost = CREDIT_COSTS[step] ?? 0;
@@ -1680,16 +1700,19 @@ Apply ONLY the requested changes. Preserve everything else exactly as-is: same s
 Do NOT rewrite the whole script. Do NOT add new sections unless explicitly asked.
 Do NOT change the style, tone, or structure unless the edit instruction specifically asks for it.
 
+IMPORTANT — basis selection:
+The <existing_script> block is the LAST structured script the system captured. The creator may have iterated past it inside <recent_conversation> — e.g. an assistant reply with a full revised script in prose, or the creator pasting an approved version. If the recent conversation contains a clearly newer/approved version of this script, USE THAT as your starting point instead of <existing_script>. Carry over the new prose's hook, body, and CTA verbatim, then apply the edit instruction. Only fall back to <existing_script> when the conversation has no newer version.
+
 Rules:
 - line_type must be one of: "filming", "actor", "editor", "text_on_screen"
 - section must be one of: "hook", "body", "cta"
 - Any on-screen text must use line_type "text_on_screen", never "editor"
-- Keep idea_ganadora, target, formato, and virality_score from the original unless the edit changes them
+- Keep idea_ganadora, target, formato, and virality_score from the original unless the edit changes them or the newer version sets them
 
 Write in ${langLabel}.`;
 
       const editConversationContext = Array.isArray(editConvMsgs) && editConvMsgs.length > 0
-        ? `\n\nRecent conversation for context:\n${(editConvMsgs as any[]).slice(-6).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n")}`
+        ? `\n\n<recent_conversation>\n${(editConvMsgs as any[]).slice(-10).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n\n")}\n</recent_conversation>`
         : "";
 
       const editUserPrompt = `<existing_script>

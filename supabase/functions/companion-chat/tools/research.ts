@@ -1,6 +1,7 @@
 // supabase/functions/companion-chat/tools/research.ts
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
+import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -431,6 +432,10 @@ Output ONLY a JSON array of ${n} objects, no markdown, no commentary:
       return { type: "tool_result", tool_use_id: block.id, content: `Idea generation failed: ${err.error?.message ?? res.statusText}` };
     }
     const json = await res.json();
+    if (json?.usage) logAnthropicUsage(adminClient, {
+      functionName: "companion-chat/tools/research", model: "claude-sonnet-4-6",
+      usage: json.usage, userId, metadata: { tool: "generate_ideas" },
+    });
     let raw = (json.content?.[0]?.text as string ?? "").trim();
     raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
 

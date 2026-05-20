@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,6 +87,18 @@ serve(async (req) => {
             const words = script.idea_ganadora.split(/\s+/);
             if (words.length > 5) script.idea_ganadora = words.slice(0, 5).join(" ");
           }
+
+          // Log token usage at the 50% Batches API discount. Each batched
+          // request has its own usage block tucked under result.result.message.
+          const msg = result.result.message;
+          if (msg?.usage) logAnthropicUsage(null, {
+            functionName: "batch-generate-scripts",
+            model: msg.model ?? "claude-haiku-4-5",
+            usage: msg.usage,
+            userId: null,
+            batch: true,
+            metadata: { batch_id: batchId, custom_id: result.custom_id, client_id: clientId },
+          });
 
           results.push({ customId: result.custom_id, topic, script, error: null });
         } else {

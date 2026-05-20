@@ -12,6 +12,7 @@
 // a build session exists OR a build trigger was detected, and if so routes here.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 import type { BuildSession } from "../_shared/build-session/types.ts";
 import {
   createBuildSession,
@@ -439,6 +440,9 @@ interface CallClaudeArgs {
   system: string;
   tools: typeof BUILD_TOOLS;
   messages: Array<{ role: "user" | "assistant"; content: any }>;
+  adminClient?: SupabaseClient;
+  userId?: string;
+  round?: number;
 }
 
 async function callClaude(args: CallClaudeArgs): Promise<any> {
@@ -461,6 +465,13 @@ async function callClaude(args: CallClaudeArgs): Promise<any> {
   if (!res.ok) {
     throw new Error(`Claude API error: ${json.error?.message ?? res.statusText}`);
   }
+  if (json?.usage) logAnthropicUsage(args.adminClient ?? null, {
+    functionName: "companion-chat/build-mode",
+    model: ANTHROPIC_MODEL,
+    usage: json.usage,
+    userId: args.userId ?? null,
+    metadata: { round: args.round ?? null },
+  });
   return json;
 }
 
@@ -592,6 +603,9 @@ export async function handleBuildTurn(
         system: systemPrompt,
         tools: BUILD_TOOLS,
         messages,
+        adminClient,
+        userId: user.id,
+        round,
       });
     } catch (e) {
       console.error("[build-mode] Claude call failed:", (e as Error).message);

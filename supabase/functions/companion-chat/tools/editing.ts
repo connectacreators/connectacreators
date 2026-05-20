@@ -3,6 +3,7 @@ import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
 import { resolveEditingItem, ambiguousMessage } from "../_shared/editing-resolver.ts";
 import { lifecycleUpdate, deriveFromLegacy, LIFECYCLE_VALUES, type LifecycleStatus } from "../../_shared/lifecycleStatus.ts";
+import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 
 export const EDITING_TOOLS: ToolDef[] = [
   {
@@ -660,6 +661,10 @@ Caption only, no other text.`,
       }),
     });
     const json = await res.json();
+    if (json?.usage) logAnthropicUsage(adminClient, {
+      functionName: "companion-chat/tools/editing", model: "claude-haiku-4-5-20251001",
+      usage: json.usage, userId, metadata: { tool: "generate_caption" },
+    });
     const caption = (json.content?.[0]?.text as string ?? "").trim();
 
     // Optional: auto-apply the generated caption to a specific video_edits row.
