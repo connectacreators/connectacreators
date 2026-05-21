@@ -19,19 +19,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Auto-create table on first run (uses the query RPC already deployed)
-    await supabase.rpc("query", { sql: `
-      create table if not exists connecta_leads (
-        id uuid primary key default gen_random_uuid(),
-        niche text, business_type text, city text, state text,
-        revenue_range text, investment_ready text,
-        name text not null, phone text not null, email text not null,
-        status text not null default 'calificado',
-        created_at timestamptz not null default now()
-      );
-      alter table if exists connecta_leads enable row level security;
-    ` }).catch(() => null);
-
     // Save lead to database
     const { error: dbError } = await supabase.from("connecta_leads").insert({
       niche, business_type, city, state, revenue_range, investment_ready,
@@ -59,7 +46,7 @@ Deno.serve(async (req) => {
       ].filter(Boolean).join("\n");
 
       const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
-      const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "587");
+      const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
       const smtpUser = Deno.env.get("SMTP_USER") || "";
       const smtpPass = Deno.env.get("SMTP_PASS") || "";
       const smtpTo = Deno.env.get("SMTP_TO") || "creatorsconnecta@gmail.com";
@@ -71,7 +58,7 @@ Deno.serve(async (req) => {
             connection: {
               hostname: smtpHost,
               port: smtpPort,
-              tls: false,
+              tls: smtpPort === 465,
               auth: { username: smtpUser, password: smtpPass },
             },
           });
