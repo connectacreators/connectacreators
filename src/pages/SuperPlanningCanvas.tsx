@@ -2835,6 +2835,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           selectedClient={selectedClient}
           activeSessionId={activeSessionId}
           nodes={nodes}
+          edges={edges}
           authToken={authToken}
           format={format}
           language={language}

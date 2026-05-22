@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
-import { Node } from "@xyflow/react";
+import { Node, Edge } from "@xyflow/react";
 import { ChevronLeft } from "lucide-react";
 import CanvasAIPanel from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
@@ -38,6 +38,7 @@ interface ChatSession {
 
 export interface FullscreenAIViewProps {
   nodes: Node[];
+  edges: Edge[];
   selectedClient: { id: string; name?: string; target?: string };
   activeSessionId?: string | null;
   authToken: string | null;
@@ -106,6 +107,7 @@ function stripImagesForPersistence(messages: ChatMessage[]): ChatMessage[] {
 
 const FullscreenAIView = memo(function FullscreenAIView({
   nodes,
+  edges,
   selectedClient,
   activeSessionId,
   authToken,
@@ -506,14 +508,30 @@ const FullscreenAIView = memo(function FullscreenAIView({
     setGeneratedScript(script);
   }, []);
 
-  // Filtered nodes for context panel
+  // Filtered nodes for context panel — must mirror CanvasAIPanel's edge-aware
+  // filter so the panel reflects what's actually sent to the AI at send time.
   const contextNodes = useMemo(() => {
+    const connectedIds = new Set<string>([FULLSCREEN_AI_NODE_ID]);
+    const queue: string[] = [FULLSCREEN_AI_NODE_ID];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      for (const e of edges) {
+        const other = e.source === id ? e.target : e.target === id ? e.source : null;
+        if (other && !connectedIds.has(other)) {
+          connectedIds.add(other);
+          queue.push(other);
+        }
+      }
+    }
+    for (const n of nodes) {
+      if (n.parentId && connectedIds.has(n.parentId)) connectedIds.add(n.id);
+    }
     return nodes.filter((n) => {
       if (EXCLUDED_NODE_TYPES.has(n.type as string)) return false;
-      if (n.id === "ai-assistant") return false;
-      return true;
+      if (n.id === FULLSCREEN_AI_NODE_ID) return false;
+      return connectedIds.has(n.id);
     });
-  }, [nodes]);
+  }, [nodes, edges]);
 
   // Thread list items for AssistantThreadList
   const threadItems = useMemo(

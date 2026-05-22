@@ -370,24 +370,33 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
 
     try {
 
-    // Build context from EDGE-CONNECTED nodes only — user controls what AI sees by drawing edges
-    const allNonAI = rawNodes.filter((n: any) => n.id !== AI_NODE_ID);
-    const connectedIds = new Set(
-      rawEdges
-        .filter((e: any) => e.source === AI_NODE_ID || e.target === AI_NODE_ID)
-        .map((e: any) => e.source === AI_NODE_ID ? e.target : e.source)
-    );
-    // Fall back to all nodes only if no edges are drawn (empty canvas / new session)
-    const contextNodes = connectedIds.size > 0
-      ? allNonAI.filter((n: any) => connectedIds.has(n.id))
-      : allNonAI;
+    // Edge-aware context: only nodes connected (transitively, via undirected
+    // BFS) to the AI node feed context. Disconnecting a node hides it.
+    // Group expansion: children of a connected groupNode count as connected.
+    // No fallback — if nothing is connected, the AI sees nothing on the canvas.
+    const connectedIds = new Set<string>([AI_NODE_ID]);
+    const queue: string[] = [AI_NODE_ID];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      for (const e of rawEdges) {
+        const other = e.source === id ? e.target : e.target === id ? e.source : null;
+        if (other && !connectedIds.has(other)) {
+          connectedIds.add(other);
+          queue.push(other);
+        }
+      }
+    }
+    for (const n of rawNodes) {
+      if (n.parentId && connectedIds.has(n.parentId)) connectedIds.add(n.id);
+    }
+    const contextNodes = rawNodes.filter((n: any) => n.id !== AI_NODE_ID && connectedIds.has(n.id));
 
     const videoNodes = contextNodes.filter((n: any) => n.type === "videoNode");
     const textNoteNodes = contextNodes.filter((n: any) => n.type === "textNoteNode");
     const researchNodes = contextNodes.filter((n: any) => n.type === "researchNoteNode");
-    const hookNodes = allNonAI.filter((n: any) => n.type === "hookGeneratorNode");
-    const brandNodes = allNonAI.filter((n: any) => n.type === "brandGuideNode");
-    const ctaNodes = allNonAI.filter((n: any) => n.type === "ctaBuilderNode");
+    const hookNodes = contextNodes.filter((n: any) => n.type === "hookGeneratorNode");
+    const brandNodes = contextNodes.filter((n: any) => n.type === "brandGuideNode");
+    const ctaNodes = contextNodes.filter((n: any) => n.type === "ctaBuilderNode");
     const instagramProfileNodes = contextNodes.filter(
       (n: any) => (n.type === "instagramProfileNode" || n.type === "competitorProfileNode") &&
       n.data?.status === "done" && (n.data?.posts?.length ?? 0) > 0
