@@ -658,15 +658,23 @@ All colors MUST be HSL for consistency and theming.
   50%       { opacity: 0; }
 }
 
-/* Streaming bubble cursor — inline at the end of the last leaf of the
-   markdown tree. The old version listed every possible terminal block as
-   a separate selector (p:last-child, li:last-child, h1:last-child, …) and
-   when the rendered structure nested those (e.g. <p> inside <li> inside
-   <ul:last-child>) multiple ::after pseudos fired and showed two or three
-   blinking blocks at once. Replace with a single :has()-gated rule that
-   only matches the deepest last-child — any last-child that contains NO
-   further last-child descendants. Modern browsers all support :has(). */
-.streaming-bubble :last-child:not(:has(:last-child))::after {
+/* Streaming bubble cursor — inline at the end of the VERY last leaf of the
+   markdown tree. Earlier versions hit one of two failure modes:
+     1. Listing every terminal tag (p:last-child, li:last-child, …) which
+        double-fired on nested structures.
+     2. A broad `:last-child:not(:has(:last-child))` selector which matched
+        every leaf that happened to be the last child of its own parent —
+        so a list of "TEXT ON SCREEN: <strong>…</strong>" lines lit a
+        cursor on each <strong>, not just the final one.
+   Correct rule: walk the last-child chain from the bubble down and match
+   only the deepest leaf reached by that walk. Chain up to 6 levels which
+   comfortably covers any markdown we render. */
+.streaming-bubble > :last-child:not(:has(*))::after,
+.streaming-bubble > :last-child > :last-child:not(:has(*))::after,
+.streaming-bubble > :last-child > :last-child > :last-child:not(:has(*))::after,
+.streaming-bubble > :last-child > :last-child > :last-child > :last-child:not(:has(*))::after,
+.streaming-bubble > :last-child > :last-child > :last-child > :last-child > :last-child:not(:has(*))::after,
+.streaming-bubble > :last-child > :last-child > :last-child > :last-child > :last-child > :last-child:not(:has(*))::after {
   content: "▋";
   display: inline-block;
   margin-left: 2px;
