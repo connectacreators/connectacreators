@@ -760,31 +760,65 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
   // adjustTextareaHeight all moved into AssistantTextInput (Phase B.1, Task 4).
 
   // ── Voice input ──
+  // Continuous listening with interim results so the textarea updates live as
+  // you speak (matches the Claude / ChatGPT mic UX). Pauses no longer end the
+  // session — only the user clicking the mic button does. Browsers still emit
+  // `end` after long silence; we auto-restart unless the user pressed stop.
+  const voiceBaseRef = useRef<string>("");
+  const voiceFinalsRef = useRef<string>("");
+  const voiceUserStoppedRef = useRef<boolean>(false);
+
   const toggleVoice = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast.error("Voice input not supported in this browser"); return; }
     if (recognizing) {
+      voiceUserStoppedRef.current = true;
       recognitionRef.current?.stop();
       setRecognizing(false);
       return;
     }
+
+    voiceBaseRef.current = input;
+    voiceFinalsRef.current = "";
+    voiceUserStoppedRef.current = false;
+
     const rec = new SR();
     rec.lang = scriptLang === "es" ? "es-ES" : "en-US";
-    rec.continuous = false;
-    rec.interimResults = false;
+    rec.continuous = true;
+    rec.interimResults = true;
+
     rec.onresult = (e: any) => {
-      const transcript = e.results[0]?.[0]?.transcript || "";
-      if (transcript) {
-        // AssistantTextInput re-measures its textarea height on value change.
-        setInput(prev => (prev ? prev + " " + transcript : transcript));
+      let interim = "";
+      let finalDelta = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        const transcript = result[0]?.transcript || "";
+        if (result.isFinal) finalDelta += transcript + " ";
+        else interim += transcript;
       }
+      if (finalDelta) voiceFinalsRef.current += finalDelta;
+      const parts = [voiceBaseRef.current, voiceFinalsRef.current.trim(), interim.trim()].filter(Boolean);
+      setInput(parts.join(" "));
     };
-    rec.onerror = () => setRecognizing(false);
-    rec.onend = () => setRecognizing(false);
+
+    rec.onerror = () => {
+      voiceUserStoppedRef.current = true;
+      setRecognizing(false);
+    };
+    rec.onend = () => {
+      // Browser auto-ends after silence — restart unless user pressed stop.
+      if (!voiceUserStoppedRef.current) {
+        try { rec.start(); return; } catch { /* recognition already restarted/destroyed */ }
+      }
+      const parts = [voiceBaseRef.current, voiceFinalsRef.current.trim()].filter(Boolean);
+      setInput(parts.join(" "));
+      setRecognizing(false);
+    };
+
     recognitionRef.current = rec;
     rec.start();
     setRecognizing(true);
-  }, [recognizing, scriptLang]);
+  }, [recognizing, scriptLang, input]);
 
   // ── Paste image handler ──
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
