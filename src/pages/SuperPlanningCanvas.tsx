@@ -1510,11 +1510,29 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Edge-aware context: only nodes connected (via edges) to AI node feed context (either direction)
+  // Edge-aware context: only nodes connected (transitively, via edges) to the
+  // AI node feed context. Disconnecting a node hides it from the AI.
+  // Group expansion: if a groupNode/folder is connected, its children count
+  // as connected too — so plugging in a folder includes everything inside.
   const canvasContext = useMemo(() => {
-    // AI sees ALL canvas nodes — no edge-based filtering
-    const contextNodes = nodes.filter(n => n.id !== AI_NODE_ID);
-    console.log("[CanvasContext] contextNodes:", contextNodes.length, "types:", contextNodes.map(n => n.type));
+    const connectedIds = new Set<string>([AI_NODE_ID]);
+    const queue: string[] = [AI_NODE_ID];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      for (const e of edges) {
+        const other = e.source === id ? e.target : e.target === id ? e.source : null;
+        if (other && !connectedIds.has(other)) {
+          connectedIds.add(other);
+          queue.push(other);
+        }
+      }
+    }
+    for (const n of nodes) {
+      if (n.parentId && connectedIds.has(n.parentId)) connectedIds.add(n.id);
+    }
+
+    const contextNodes = nodes.filter(n => n.id !== AI_NODE_ID && connectedIds.has(n.id));
+    console.log("[CanvasContext] contextNodes:", contextNodes.length, "of", nodes.length - 1, "(edge-filtered) types:", contextNodes.map(n => n.type));
 
     const videoNodes = contextNodes.filter(n => n.type === "videoNode");
     const textNoteNodes = contextNodes.filter(n => n.type === "textNoteNode");
