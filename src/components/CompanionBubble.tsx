@@ -19,7 +19,7 @@ import CompanionDrawer from "./CompanionDrawer";
  * the user's attention (pending plan approval, agentic in-flight, etc).
  */
 export default function CompanionBubble() {
-  const { companionName, tasks, isOpen, setIsOpen, bubbleHidden } = useCompanion();
+  const { companionName, isOpen, setIsOpen, bubbleHidden, setBubbleHidden } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
   const location = useLocation();
@@ -37,10 +37,6 @@ export default function CompanionBubble() {
     return () => clearTimeout(t);
   }, [isOpen]);
 
-  const badgeCount = tasks.filter(
-    (t) => t.priority === "red" || t.priority === "amber",
-  ).length;
-
   if (!user) return null;
   // Hide on /ai — the page IS the full assistant view, the bubble is redundant.
   if (location.pathname === "/ai") return null;
@@ -50,55 +46,55 @@ export default function CompanionBubble() {
   return (
     <>
       {/* Floating bubble — editorial sticker: bone fill, ink stroke + offset shadow */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full"
-        style={{
-          width: 52,
-          height: 52,
-          background: "#EAE6DC",
-          border: "1px solid #141414",
-          boxShadow: "3px 3px 0 #141414",
-          transition: "box-shadow 120ms, transform 120ms",
-        }}
-        onMouseEnter={(e) => {
-          const el = e.currentTarget;
-          el.style.boxShadow = "4px 4px 0 #141414";
-          el.style.transform = "translate(-1px,-1px)";
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget;
-          el.style.boxShadow = "3px 3px 0 #141414";
-          el.style.transform = "none";
-        }}
-        aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
-      >
-        {badgeCount > 0 && !isOpen && (
-          <span
-            className="absolute inset-[-5px] rounded-full border border-[#141414] animate-ping"
-            style={{ animationDuration: "2.2s", opacity: 0.35 }}
-          />
-        )}
-        {isOpen ? (
-          <X className="w-5 h-5" style={{ color: "#141414" }} />
-        ) : (
-          <img
-            src="/favicon-transparent.png"
-            alt="Connecta"
-            className="w-6 h-6 object-contain"
-            style={{ filter: "brightness(0)" }}
-            /* ink-tinted: matches the bone sticker treatment of the bubble */
-          />
-        )}
-        {badgeCount > 0 && !isOpen && (
-          <span
-            className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center"
-            style={{ background: "#C7682A", color: "#EAE6DC", border: "1px solid #141414" }}
+      <div className="fixed bottom-5 right-5 z-50">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="relative flex items-center justify-center rounded-full"
+          style={{
+            width: 52,
+            height: 52,
+            background: "#EAE6DC",
+            border: "1px solid #141414",
+            boxShadow: "3px 3px 0 #141414",
+            transition: "box-shadow 120ms, transform 120ms",
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget;
+            el.style.boxShadow = "4px 4px 0 #141414";
+            el.style.transform = "translate(-1px,-1px)";
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget;
+            el.style.boxShadow = "3px 3px 0 #141414";
+            el.style.transform = "none";
+          }}
+          aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
+        >
+          {isOpen ? (
+            <X className="w-5 h-5" style={{ color: "#141414" }} />
+          ) : (
+            <img
+              src="/favicon-transparent.png"
+              alt="Connecta"
+              className="w-6 h-6 object-contain"
+              style={{ filter: "brightness(0)" }}
+              /* ink-tinted: matches the bone sticker treatment of the bubble */
+            />
+          )}
+        </button>
+        {/* Dismiss button — hides the bubble site-wide. Restore from Settings → AI Assistant. */}
+        {!isOpen && (
+          <button
+            onClick={() => setBubbleHidden(true)}
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{ background: "#141414", color: "#EAE6DC", border: "1px solid #141414" }}
+            aria-label={en ? "Hide assistant bubble" : "Ocultar burbuja del asistente"}
+            title={en ? "Hide (re-enable in Settings)" : "Ocultar (reactivar en Ajustes)"}
           >
-            {badgeCount}
-          </span>
+            <X className="w-3 h-3" />
+          </button>
         )}
-      </button>
+      </div>
 
       {/* Right-side drawer (replaces the old compact panel) */}
       {drawerMounted && <CompanionDrawer closing={!isOpen} />}
