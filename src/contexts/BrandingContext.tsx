@@ -23,7 +23,7 @@ interface BrandingContextValue {
 const BrandingContext = createContext<BrandingContextValue | null>(null);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const { user, isConnectaPlus } = useAuth();
+  const { user } = useAuth();
   // Seed from localStorage so the custom logo + brand on the sidebar appear
   // on the first paint after a refresh — otherwise React would render with
   // EDITORIAL_DEFAULT (logoUrl=null → "Connecta" fallback text) for the
@@ -45,14 +45,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!isConnectaPlus) {
-      setBranding(EDITORIAL_DEFAULT);
-      applyBranding(EDITORIAL_DEFAULT);
-      clearCachedBranding();
-      setIsLoading(false);
-      return;
-    }
-
+    // Branding is available to every logged-in user — no plan/role gate.
     setIsLoading(true);
     supabase
       .from('user_branding')
@@ -83,7 +76,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       });
 
     return () => { cancelled = true; };
-  }, [user?.id, isConnectaPlus]);
+  }, [user?.id]);
 
   useEffect(() => {
     function onStorage(e: StorageEvent) {
@@ -104,7 +97,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback(async (next: UserBranding) => {
-    if (!user || !isConnectaPlus) return;
+    if (!user) return;
     setBranding(next);
     applyBranding(next);
     writeCachedBranding(next);
@@ -121,7 +114,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       console.error('[branding] persist failed', error);
       throw error;
     }
-  }, [user, isConnectaPlus]);
+  }, [user]);
 
   const setPalette = useCallback(
     (id: PaletteId) => persist({ ...branding, palette: id }),
@@ -145,7 +138,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     <BrandingContext.Provider
       value={{
         branding,
-        isAvailable: isConnectaPlus,
+        isAvailable: !!user,
         isLoading,
         setPalette,
         setFontPairing,
