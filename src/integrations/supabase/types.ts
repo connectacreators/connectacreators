@@ -2506,6 +2506,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_branding: {
+        Row: {
+          user_id: string
+          palette: string
+          font_pairing: string
+          logo_url: string | null
+          logo_alt: string | null
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          palette?: string
+          font_pairing?: string
+          logo_url?: string | null
+          logo_alt?: string | null
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          palette?: string
+          font_pairing?: string
+          logo_url?: string | null
+          logo_alt?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
