@@ -1,0 +1,33 @@
+export type PaletteId = 'editorial' | 'slate' | 'forest' | 'plum' | 'crimson' | 'mono';
+export type FontPairingId = 'editorial' | 'modern' | 'classic' | 'bold';
+
+export interface Palette {
+  ink: string;
+  graphite: string;
+  bone: string;
+  aqua: string;
+  honey: string;
+  honeyDeep: string;
+}
+
+export interface FontPairing {
+  display: string;
+  body: string;
+  ui: string;
+}
+
+export interface UserBranding {
+  palette: PaletteId;
+  fontPairing: FontPairingId;
+  logoUrl: string | null;
+  logoAlt: string | null;
+}
+
+export const EDITORIAL_DEFAULT: UserBranding = {
+  palette: 'editorial',
+  fontPairing: 'editorial',
+  logoUrl: null,
+  logoAlt: null,
+};
+
+export const LOCAL_STORAGE_KEY = 'connecta_branding';
