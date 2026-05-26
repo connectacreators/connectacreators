@@ -197,6 +197,8 @@ export default function CommandCenter() {
     refreshTasks,
     autonomyMode,
     setAutonomyMode,
+    setIsOpen,
+    setBubbleHidden,
   } = useCompanion();
   const { mode, clientId: urlClientId } = useAssistantMode();
   const path = useCurrentPath();
@@ -711,6 +713,12 @@ export default function CommandCenter() {
               // Refresh the active-chat timestamp so the destination drawer
               // recognizes this as a fresh nav and auto-opens.
               if (activeThreadId) setActiveChat(activeThreadId, null);
+              // AI-driven nav from /ai: force the floating drawer to be
+              // visible + open on the destination so the conversation
+              // continues seamlessly even if the user had dismissed the
+              // bubble via Settings or the X button.
+              setBubbleHidden(false);
+              setIsOpen(true);
               navigate(action.path);
             } else {
               console.warn("[ai] refused non-relative navigation:", action.path);
