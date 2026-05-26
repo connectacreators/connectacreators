@@ -3,8 +3,11 @@
 // Dashboard — adapts to the user's role:
 //
 //   1) ADMIN / agency operator (manages multiple clients)
-//      - Agency view: roster + 6 prompts + tool folders
+//      - Agency triage view: per-client blocks listing the rows that need
+//        attention (scripts to review, videos in revision, posts scheduled,
+//        pipeline gaps). Empty roster collapses gracefully.
 //      - Client-scoped (?client=X): breadcrumb + Robby's read + tool folders
+//        (preserved from the previous design).
 //
 //   2) CONNECTA PLUS / SUBSCRIBER (single-brand end user, e.g. Dr Calvin)
 //      - No multi-client roster.
@@ -14,7 +17,7 @@
 // Spec: docs/superpowers/specs/2026-05-15-agency-dashboard-redesign-design.md
 
 import { useMemo, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,14 +26,16 @@ import ScriptsLogin from "@/components/ScriptsLogin";
 import { Loader2 } from "lucide-react";
 
 import { useDashboardPendingItems } from "@/hooks/useDashboardPendingItems";
-import { ClientCard } from "@/components/dashboard/ClientCard";
-import { PromptCard } from "@/components/dashboard/PromptCard";
 import { ActiveClientBreadcrumb } from "@/components/dashboard/ActiveClientBreadcrumb";
 import { RobbyInsightRow } from "@/components/dashboard/RobbyInsightRow";
-import { DASHBOARD_PROMPTS, renderPrompt } from "@/components/dashboard/PROMPTS";
 import { getRobbyInsights } from "@/components/dashboard/getRobbyInsights";
 import { ToolFolders } from "@/components/dashboard/ToolFolders";
 import { SingleBrandDashboard } from "@/components/dashboard/SingleBrandDashboard";
+
+// Triage view
+import { useTriageClients } from "@/hooks/useTriageClients";
+import { useTriageRows } from "@/hooks/useTriageRows";
+import { TriageClientBlock } from "@/components/dashboard/TriageClientBlock";
 
 interface Client {
   id: string;
@@ -39,7 +44,6 @@ interface Client {
 
 export default function Dashboard() {
   const { user, loading: authLoading, isAdmin, isConnectaPlus, isUser } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { setIsOpen: setDrawerOpen } = useCompanion();
 
@@ -49,7 +53,7 @@ export default function Dashboard() {
   const isSingleBrand = isConnectaPlus || (isUser && !isAdmin);
 
   const [clients, setClients] = useState<Client[]>([]);
-  const [clientsLoading, setClientsLoading] = useState(true);
+  const [, setClientsLoading] = useState(true);
   const [ownClient, setOwnClient] = useState<Client | null>(null);
 
   useEffect(() => {
@@ -90,7 +94,8 @@ export default function Dashboard() {
       return () => { cancelled = true; };
     }
 
-    // Admin/agency: fetch all clients
+    // Admin/agency: fetch all clients (still needed for the drilldown branch
+    // so we can resolve ?client=<id> → client name).
     supabase
       .from("clients")
       .select("id, name")
@@ -109,34 +114,12 @@ export default function Dashboard() {
   }, [user, isSingleBrand]);
 
   const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
-  const { data: pendingByClient, loading: pendingLoading } = useDashboardPendingItems(clientIds);
-
-  const rosterClients = useMemo(
-    () => clients.filter((c) => (pendingByClient[c.id]?.length ?? 0) > 0),
-    [clients, pendingByClient],
-  );
+  const { data: pendingByClient } = useDashboardPendingItems(clientIds);
 
   const activeClient = useMemo(
     () => clients.find((c) => c.id === activeClientId) ?? null,
     [clients, activeClientId],
   );
-  const activeClientName = activeClient?.name ?? null;
-
-  const onClientClick = (clientId: string) => {
-    navigate(`/dashboard?client=${clientId}`);
-  };
-
-  // For single-brand users, the active client is always their own brand
-  const effectiveClientName = isSingleBrand ? (ownClient?.name ?? null) : activeClientName;
-  const effectiveClientId = isSingleBrand ? (ownClient?.id ?? null) : (activeClient?.id ?? null);
-
-  const onPromptClick = (promptId: string) => {
-    const def = DASHBOARD_PROMPTS.find((p) => p.id === promptId);
-    if (!def) return;
-    const rendered = renderPrompt(def.prompt, effectiveClientName);
-    (window as any).__companionPendingPrompt = rendered;
-    setDrawerOpen(true);
-  };
 
   const onInsightClick = (insightPrompt: string) => {
     (window as any).__companionPendingPrompt = insightPrompt;
@@ -156,12 +139,9 @@ export default function Dashboard() {
     ((user.user_metadata?.first_name as string | undefined) ??
       user.email?.split("@")[0] ??
       "there");
-  const pendingCount = rosterClients.length;
 
   // ───────────────────────────────────────────────────────────────
-  // SINGLE-BRAND VIEW (Connecta Plus subscribers, regular users)
-  // The classic 3-folder drilldown — Hi {brand}. What do you want to
-  // do today? → click a folder card → sub-cards page opens.
+  // SINGLE-BRAND VIEW (unchanged)
   // ───────────────────────────────────────────────────────────────
   if (isSingleBrand) {
     return (
@@ -174,199 +154,166 @@ export default function Dashboard() {
   }
 
   // ───────────────────────────────────────────────────────────────
-  // ADMIN / AGENCY VIEW
+  // ADMIN / AGENCY DRILLDOWN — preserved
   // ───────────────────────────────────────────────────────────────
+  if (activeClient) {
+    return (
+      <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
+        <ActiveClientBreadcrumb clientName={activeClient.name} />
+        <h1
+          style={{
+            fontSize: 26,
+            fontWeight: 500,
+            color: "#141414",
+            letterSpacing: "-0.01em",
+            marginBottom: 14,
+            fontFamily: "'EB Garamond', Georgia, serif",
+          }}
+        >
+          Robby's read on {activeClient.name}
+        </h1>
+        {getRobbyInsights(activeClient.name, pendingByClient[activeClient.id] ?? []).map((ins) => (
+          <RobbyInsightRow
+            key={ins.id}
+            icon={ins.icon}
+            text={ins.text}
+            actionLabel={ins.actionLabel}
+            onClick={() => onInsightClick(ins.prompt)}
+          />
+        ))}
+        <ToolFolders activeClientId={activeClient.id} />
+      </div>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // ADMIN / AGENCY TRIAGE VIEW
+  // ───────────────────────────────────────────────────────────────
+  return <AdminTriageView firstName={firstName} />;
+}
+
+// ----------------------------------------------------------------
+// AdminTriageView
+// ----------------------------------------------------------------
+
+function AdminTriageView({ firstName }: { firstName: string }) {
+  const { clients: triageClients, loading: clientsLoading } = useTriageClients();
+  const clientIds = useMemo(() => triageClients.map((c) => c.id), [triageClients]);
+  const { data: rowsByClient, loading: rowsLoading } = useTriageRows(clientIds);
+
+  const blocks = useMemo(() => {
+    const list = triageClients
+      .map((c) => ({ client: c, rows: rowsByClient[c.id] ?? [] }))
+      .filter((b) => b.rows.length > 0);
+
+    // Sort: any pipeline row today OR a post scheduled today first; then by total rows desc; then alpha.
+    const startOfTomorrow = new Date();
+    startOfTomorrow.setHours(24, 0, 0, 0);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    function hasToday(rows: typeof list[number]['rows']): boolean {
+      for (const r of rows) {
+        if (r.type === 'pipeline') {
+          const t = new Date(r.at).getTime();
+          if (t >= startOfToday.getTime() && t < startOfTomorrow.getTime()) return true;
+        } else if (r.type === 'posts_scheduled') {
+          const t = new Date(r.nextAt).getTime();
+          if (t >= startOfToday.getTime() && t < startOfTomorrow.getTime()) return true;
+        }
+      }
+      return false;
+    }
+
+    return list.sort((a, b) => {
+      const aToday = hasToday(a.rows);
+      const bToday = hasToday(b.rows);
+      if (aToday !== bToday) return aToday ? -1 : 1;
+      if (b.rows.length !== a.rows.length) return b.rows.length - a.rows.length;
+      return a.client.name.localeCompare(b.client.name);
+    });
+  }, [triageClients, rowsByClient]);
+
+  const totalClients = triageClients.length;
+  const pendingCount = blocks.length;
+  const loading = clientsLoading || rowsLoading;
+
   return (
     <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
+      <div style={{ textAlign: "center", marginBottom: 22 }}>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", marginBottom: 6, fontFamily: "Figtree, sans-serif", letterSpacing: "0.02em" }}
+        >
+          Hey {firstName}!
+        </motion.p>
+        <motion.h1
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
+          style={{ fontSize: 38, fontWeight: 500, color: "#141414", letterSpacing: "-0.015em", marginBottom: 6, fontFamily: "'EB Garamond', Georgia, serif" }}
+        >
+          What do you want to do today?
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
+          style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}
+        >
+          {loading
+            ? "Loading…"
+            : totalClients === 0
+              ? "No Connecta Plus clients yet."
+              : pendingCount === 0
+                ? `All caught up across ${totalClients} Connecta Plus client${totalClients === 1 ? "" : "s"}.`
+                : `${pendingCount} client${pendingCount === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
+        </motion.p>
+      </div>
 
-      {!activeClient && (
-        <>
-          {/* Centered header: small Figtree subtitle on top, big EB Garamond H1 below. */}
-          <div style={{ textAlign: "center", marginBottom: 22 }}>
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.40)" }} />
+        </div>
+      ) : (
+        <div>
+          {blocks.map((b, idx) => (
+            <motion.div
+              key={b.client.id}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
-              style={{
-                fontSize: 13,
-                color: "rgba(20,20,20,0.55)",
-                marginBottom: 6,
-                fontFamily: "Figtree, sans-serif",
-                letterSpacing: "0.02em",
-              }}
+              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.18 + idx * 0.05 }}
             >
-              Hey {firstName}{" "}
-              <motion.span
-                style={{ display: "inline-block", transformOrigin: "70% 70%" }}
-                animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-              >
-                👋
-              </motion.span>
-            </motion.p>
-            <motion.h1
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
-              style={{
-                fontSize: 38,
-                fontWeight: 500,
-                color: "#141414",
-                letterSpacing: "-0.015em",
-                marginBottom: 6,
-                fontFamily: "'EB Garamond', Georgia, serif",
-              }}
-            >
-              What are we doing today?
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
-              style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}
-            >
-              {clientsLoading || pendingLoading
-                ? "Loading…"
-                : pendingCount === 0
-                  ? clients.length === 0
-                    ? "Add your first client to get started."
-                    : `All caught up across your ${clients.length} client${clients.length === 1 ? "" : "s"}.`
-                  : `${pendingCount} client${pendingCount === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
-            </motion.p>
-          </div>
-
-          {rosterClients.length > 0 && (
-            <motion.section
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.12 }}
-              style={{ marginBottom: 28 }}
-            >
-              <div
-                style={{
-                  fontSize: 9.5,
-                  letterSpacing: "0.20em",
-                  textTransform: "uppercase",
-                  color: "rgba(20,20,20,0.45)",
-                  marginBottom: 10,
-                  fontFamily: "Figtree, sans-serif",
-                  fontWeight: 600,
-                }}
-              >
-                Clients
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {rosterClients.map((c, idx) => (
-                  <motion.div
-                    key={c.id}
-                    initial={{ opacity: 0, y: 14, scale: 0.985 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.45, ease: [0.34, 1.36, 0.64, 1], delay: 0.18 + idx * 0.05 }}
-                  >
-                    <ClientCard
-                      clientId={c.id}
-                      name={c.name}
-                      pendingItems={pendingByClient[c.id] ?? []}
-                      onClick={onClientClick}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            </motion.section>
-          )}
-
-          {!clientsLoading && clients.length === 0 && (
-            <section style={{ marginBottom: 28 }}>
-              <button
-                type="button"
-                onClick={() => navigate("/onboarding")}
-                style={{
-                  background: "#ffffff",
-                  border: "1px dashed rgba(20,20,20,0.30)",
-                  borderRadius: 12,
-                  padding: 24,
-                  width: "100%",
-                  fontFamily: "Georgia, serif",
-                  fontSize: 14,
-                  color: "rgba(20,20,20,0.55)",
-                  cursor: "pointer",
-                }}
-              >
-                + Add your first client
-              </button>
-            </section>
-          )}
-
-          <motion.section
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.2 }}
-          >
-            <div
-              style={{
-                fontSize: 9.5,
-                letterSpacing: "0.20em",
-                textTransform: "uppercase",
-                color: "rgba(20,20,20,0.45)",
-                marginBottom: 10,
-                fontFamily: "Figtree, sans-serif",
-                fontWeight: 600,
-              }}
-            >
-              Start with Robby
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {DASHBOARD_PROMPTS.map((p, idx) => (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, y: 14, scale: 0.985 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.45, ease: [0.34, 1.36, 0.64, 1], delay: 0.26 + idx * 0.05 }}
-                >
-                  <PromptCard
-                    icon={p.icon}
-                    title={p.title}
-                    description={p.description}
-                    onClick={() => onPromptClick(p.id)}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-
-          <ToolFolders activeClientId={null} />
-        </>
-      )}
-
-      {activeClient && (
-        <>
-          <ActiveClientBreadcrumb clientName={activeClient.name} />
-          <h1
-            style={{
-              fontSize: 26,
-              fontWeight: 500,
-              color: "#141414",
-              letterSpacing: "-0.01em",
-              marginBottom: 14,
-              fontFamily: "'EB Garamond', Georgia, serif",
-            }}
-          >
-            Robby's read on {activeClient.name}
-          </h1>
-          {getRobbyInsights(activeClient.name, pendingByClient[activeClient.id] ?? []).map((ins) => (
-            <RobbyInsightRow
-              key={ins.id}
-              icon={ins.icon}
-              text={ins.text}
-              actionLabel={ins.actionLabel}
-              onClick={() => onInsightClick(ins.prompt)}
-            />
+              <TriageClientBlock client={b.client} rows={b.rows} />
+            </motion.div>
           ))}
 
-          <ToolFolders activeClientId={activeClient.id} />
-        </>
-      )}
+          {totalClients === 0 && (
+            <p
+              style={{
+                textAlign: "center",
+                marginTop: 16,
+                fontSize: 13,
+                color: "rgba(20,20,20,0.55)",
+                fontFamily: "Figtree, sans-serif",
+              }}
+            >
+              <a href="/clients" style={{ color: "#141414", textDecoration: "underline" }}>Add a Connecta Plus client →</a>
+            </p>
+          )}
 
+          <div style={{ textAlign: "center", marginTop: 32 }}>
+            <a
+              href="/clients"
+              style={{ fontSize: 12, color: "rgba(20,20,20,0.45)", fontFamily: "Figtree, sans-serif" }}
+            >
+              View all clients
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
