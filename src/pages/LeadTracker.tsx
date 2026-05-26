@@ -78,9 +78,9 @@ type Lead = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-[rgba(8,145,178,0.30)]",
-  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[#E0A560] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[#8FD0D5] border-[rgba(8,145,178,0.30)]",
+  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[hsl(var(--honey))] border-[rgba(132,204,22,0.30)]",
+  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border-[rgba(8,145,178,0.30)]",
   "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
   "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
@@ -759,7 +759,7 @@ export default function LeadTracker() {
           <h1 className="editorial-h text-[28px] md:text-[32px] mb-1">
             {language === "en" ? "Lead Tracker" : "Seguimiento de leads"}
           </h1>
-          <p className="text-sm" style={{ color: "rgba(20,20,20,0.55)" }}>
+          <p className="text-sm" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }}>
             {language === "en"
               ? "Track every inbound lead and the status of their booking."
               : "Sigue cada lead entrante y el estado de su reserva."}
@@ -805,7 +805,7 @@ export default function LeadTracker() {
                 key={i}
                 className="editorial-card relative p-5 flex flex-col gap-3 transition-shadow duration-200"
                 style={{
-                  boxShadow: "0 1px 0 rgba(20,20,20,0.04)",
+                  boxShadow: "0 1px 0 hsl(var(--ink-on-cream) / 0.04)",
                 }}
               >
                 {/* Top row: label + icon */}
@@ -815,9 +815,9 @@ export default function LeadTracker() {
                   </p>
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(20,20,20,0.05)", border: "1px solid rgba(20,20,20,0.08)" }}
+                    style={{ background: "hsl(var(--ink-on-cream) / 0.05)", border: "1px solid hsl(var(--ink-on-cream) / 0.08)" }}
                   >
-                    <Icon className="w-3.5 h-3.5" style={{ color: "rgba(20,20,20,0.55)" }} />
+                    <Icon className="w-3.5 h-3.5" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }} />
                   </div>
                 </div>
 
@@ -829,7 +829,7 @@ export default function LeadTracker() {
                     fontWeight: 500,
                     fontSize: "clamp(30px, 4.5vw, 44px)",
                     letterSpacing: "-0.015em",
-                    color: "#141414",
+                    color: "hsl(var(--ink-on-cream))",
                   }}
                 >
                   {card.value}
@@ -843,12 +843,12 @@ export default function LeadTracker() {
                       <span className="text-[11px] font-semibold" style={{ color: isPositive ? "#1f7a5a" : "#A85B1F" }}>
                         {isPositive ? "+" : ""}{card.delta}%
                       </span>
-                      <span className="text-[11px]" style={{ color: "rgba(20,20,20,0.45)" }}>
+                      <span className="text-[11px]" style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}>
                         {card.deltaLabel}
                       </span>
                     </>
                   ) : (
-                    <span className="text-[11px]" style={{ color: "rgba(20,20,20,0.45)" }}>
+                    <span className="text-[11px]" style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}>
                       {card.deltaLabel}
                     </span>
                   )}
@@ -859,7 +859,7 @@ export default function LeadTracker() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white border border-[#141414] rounded-xl p-3 mb-8">
+        <div className="bg-white border border-[hsl(var(--ink-on-cream))] rounded-xl p-3 mb-8">
           <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:overflow-x-auto">
             {isStaff && (
               <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -1133,12 +1133,12 @@ export default function LeadTracker() {
                 className="rounded-xl p-5 transition-all duration-200 cursor-pointer"
                 style={{
                   background: "#ffffff",
-                  border: "1px solid #141414",
-                  boxShadow: "2px 2px 0 #141414",
-                  color: "#141414",
+                  border: "1px solid hsl(var(--ink-on-cream))",
+                  boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))",
+                  color: "hsl(var(--ink-on-cream))",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "3px 3px 0 #141414"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "2px 2px 0 #141414"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "2px 2px 0 hsl(var(--ink-on-cream))"; }}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   {/* Name & badges */}
@@ -1248,7 +1248,7 @@ export default function LeadTracker() {
               return acc;
             }, {} as Record<string, number>);
             const pieData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
-            const PIE_COLORS = ["#8FD0D5", "#10b981", "#f59e0b", "#a78bfa", "#f87171", "#fb923c"];
+            const PIE_COLORS = ["hsl(var(--aqua))", "#10b981", "#f59e0b", "#a78bfa", "#f87171", "#fb923c"];
 
             // Daily leads last 30 days
             const days = Array.from({ length: 30 }, (_, i) => {
@@ -1278,7 +1278,7 @@ export default function LeadTracker() {
                   <>
                     {/* Row 1: Status pie + Source pie */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="rounded-xl border border-[#141414] bg-white p-5">
+                      <div className="rounded-xl border border-[hsl(var(--ink-on-cream))] bg-white p-5">
                         <h3 className="text-sm font-semibold mb-4 text-foreground">Status Breakdown</h3>
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
@@ -1289,7 +1289,7 @@ export default function LeadTracker() {
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="rounded-xl border border-[#141414] bg-white p-5">
+                      <div className="rounded-xl border border-[hsl(var(--ink-on-cream))] bg-white p-5">
                         <h3 className="text-sm font-semibold mb-4 text-foreground">Source Breakdown</h3>
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
@@ -1303,7 +1303,7 @@ export default function LeadTracker() {
                     </div>
 
                     {/* Row 2: Leads over time line chart */}
-                    <div className="rounded-xl border border-[#141414] bg-white p-5">
+                    <div className="rounded-xl border border-[hsl(var(--ink-on-cream))] bg-white p-5">
                       <h3 className="text-sm font-semibold mb-4 text-foreground">Leads — Last 30 Days</h3>
                       <ResponsiveContainer width="100%" height={220}>
                         <LineChart data={lineData} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
@@ -1312,7 +1312,7 @@ export default function LeadTracker() {
                           <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} tickLine={false} allowDecimals={false} />
                           <Tooltip contentStyle={{ background: "rgba(15,15,15,0.9)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Line type="monotone" dataKey="leads" stroke="#8FD0D5" strokeWidth={2} dot={false} name="New Leads" />
+                          <Line type="monotone" dataKey="leads" stroke="hsl(var(--aqua))" strokeWidth={2} dot={false} name="New Leads" />
                           <Line type="monotone" dataKey="booked" stroke="#10b981" strokeWidth={2} dot={false} name="Booked" />
                         </LineChart>
                       </ResponsiveContainer>
