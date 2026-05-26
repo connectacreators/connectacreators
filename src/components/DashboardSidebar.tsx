@@ -34,7 +34,7 @@ type NavItem = {
 type NavGroup = { type: 'group'; label: string };
 type NavEntry = NavItem | NavGroup;
 
-import connectaTextLogo from "@/assets/connecta-logo-new.png";
+import BrandLogo from "@/components/branding/BrandLogo";
 
 interface Props {
   sidebarOpen: boolean;
@@ -456,13 +456,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       className={`${asideWidth} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-3 py-3 border-b border-[rgba(255,255,255,0.06)] relative z-10">
-        <button onClick={() => navigate("/")} className="focus:outline-none">
-          <span
-            className="font-wordmark text-xl text-foreground hover:opacity-80 transition-opacity"
-            style={{ letterSpacing: "-0.022em", fontWeight: 700 }}
-          >
-            Connecta
-          </span>
+        <button onClick={() => navigate("/")} className="focus:outline-none hover:opacity-80 transition-opacity">
+          <BrandLogo />
         </button>
         <button
           onClick={() => (isOnAi ? setAiRailMode(true) : setSidebarOpen(false))}
