@@ -28,6 +28,14 @@ interface ClientStrategy {
   monthly_revenue_goal: number;
   monthly_revenue_actual: number;
   content_pillars: string[];
+  // Production pipeline (Task 1 migration)
+  onboarding_call_at: string | null;
+  script_due_at:      string | null;
+  editing_due_at:     string | null;
+  next_filming_at:    string | null;
+  boosting_at:        string | null;
+  posting_at:         string | null;
+  pipeline_notes:     string | null;
   audience_analysis?: {
     summary: string;
     audience_detail: string;
@@ -67,6 +75,13 @@ const DEFAULTS: Omit<ClientStrategy, "client_id"> = {
   monthly_revenue_goal: 0,
   monthly_revenue_actual: 0,
   content_pillars: [],
+  onboarding_call_at: null,
+  script_due_at:      null,
+  editing_due_at:     null,
+  next_filming_at:    null,
+  boosting_at:        null,
+  posting_at:         null,
+  pipeline_notes:     null,
   audience_analysis: null,
   audience_analyzed_at: null,
 };
