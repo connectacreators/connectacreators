@@ -61,6 +61,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     autonomyMode,
     setAutonomyMode,
     setIsOpen,
+    setBubbleHidden,
   } = useCompanion();
   const { user } = useAuth();
   const { mode, clientId: urlClientId } = useAssistantMode();
@@ -323,6 +324,8 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
             // continues while the user sees the destination. They can close
             // it manually if they want the page full-width.
             if (activeThreadId) setActiveChat(activeThreadId, null);
+            setBubbleHidden(false);
+            setIsOpen(true);
             navigate(action.path);
           } else if (
             action?.type !== "fill_onboarding" &&
