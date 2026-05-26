@@ -12,6 +12,7 @@ import { toast } from "sonner";
 // AssistantMemoryEditor disabled until memory subsystem is re-enabled.
 // import { AssistantMemoryEditor } from "@/components/assistant";
 import { useCompanion } from "@/contexts/CompanionContext";
+import BrandingSection from "@/components/settings/BrandingSection";
 
 export default function Settings() {
   const { language } = useLanguage();
@@ -312,6 +313,9 @@ export default function Settings() {
         {/* Assistant memories — disabled for now; component + table preserved
             for future reactivation. Uncomment to bring back. */}
         {/* <AssistantMemoryEditor /> */}
+
+        {/* Branding — only renders for connecta_plus users */}
+        <BrandingSection />
 
         {/* Delete Account — only for non-admin users */}
         {role !== "admin" && (
