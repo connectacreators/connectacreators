@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { applyBranding } from '@/lib/branding/apply';
-import { writeCachedBranding, clearCachedBranding } from '@/lib/branding/storage';
+import { readCachedBranding, writeCachedBranding, clearCachedBranding } from '@/lib/branding/storage';
 import {
   EDITORIAL_DEFAULT,
   type UserBranding,
@@ -24,7 +24,14 @@ const BrandingContext = createContext<BrandingContextValue | null>(null);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
   const { user, isConnectaPlus } = useAuth();
-  const [branding, setBranding] = useState<UserBranding>(EDITORIAL_DEFAULT);
+  // Seed from localStorage so the custom logo + brand on the sidebar appear
+  // on the first paint after a refresh — otherwise React would render with
+  // EDITORIAL_DEFAULT (logoUrl=null → "Connecta" fallback text) for the
+  // ~1s it takes the Supabase fetch to complete. hydrate.ts already does
+  // this for CSS vars; this mirrors it for the React state.
+  const [branding, setBranding] = useState<UserBranding>(
+    () => readCachedBranding() ?? EDITORIAL_DEFAULT,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
