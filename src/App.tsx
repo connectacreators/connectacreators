@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { BrandingProvider } from "@/contexts/BrandingContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
 import { OutOfCreditsProvider } from "@/contexts/OutOfCreditsContext";
 import OutOfCreditsModal from "@/components/OutOfCreditsModal";
@@ -100,6 +101,7 @@ function RootRoute() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <BrandingProvider>
       <LeadNotificationProvider>
       <CompanionProvider>
       <OutOfCreditsProvider>
@@ -200,6 +202,7 @@ const App = () => (
       </OutOfCreditsProvider>
       </CompanionProvider>
       </LeadNotificationProvider>
+      </BrandingProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
