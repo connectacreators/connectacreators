@@ -101,7 +101,7 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
           textTransform: "uppercase",
           color: "rgba(20,20,20,0.45)",
           marginBottom: 10,
-          fontFamily: "Figtree, sans-serif",
+          fontFamily: "var(--font-body, Figtree), sans-serif",
           fontWeight: 600,
         }}
       >
@@ -130,7 +130,7 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
                 color: "#141414",
                 letterSpacing: "-0.005em",
                 marginBottom: 8,
-                fontFamily: "'EB Garamond', Georgia, serif",
+                fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               }}
             >
               {folder.label}

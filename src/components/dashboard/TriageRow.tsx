@@ -103,7 +103,7 @@ export function TriageRow({ row, clientId }: Props) {
         onMouseLeave={rowHoverOut}
       >
         <Tile Icon={Icon} bg={tint.bg} fg={tint.iconFg} />
-        <div className="flex-1 min-w-0 truncate" style={{ fontFamily: 'Figtree, sans-serif', fontSize: 14, color: '#141414' }}>
+        <div className="flex-1 min-w-0 truncate" style={{ fontFamily: 'var(--font-body, Figtree), sans-serif', fontSize: 14, color: '#141414' }}>
           <span style={{ fontWeight: 500 }}>{baseLabel}</span>
           <span
             className="ml-2 px-2 py-0.5 rounded-full text-[11.5px] align-middle"
@@ -166,7 +166,7 @@ export function TriageRow({ row, clientId }: Props) {
       <div className="flex-1 min-w-0 flex items-baseline gap-2">
         <span
           style={{
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontSize: 22,
             fontWeight: 500,
             color: '#141414',
@@ -177,7 +177,7 @@ export function TriageRow({ row, clientId }: Props) {
         >
           {count}
         </span>
-        <span className="truncate flex-1 min-w-0" style={{ fontFamily: 'Figtree, sans-serif', fontSize: 14, color: '#141414' }}>
+        <span className="truncate flex-1 min-w-0" style={{ fontFamily: 'var(--font-body, Figtree), sans-serif', fontSize: 14, color: '#141414' }}>
           <span>{label}</span>
           {detail && (
             <>

@@ -151,7 +151,7 @@ export function ViralVideoPlayer({
           alignItems: "center",
           justifyContent: "center",
           color: "rgba(10,14,18,0.5)",
-          fontFamily: "'EB Garamond', serif",
+          fontFamily: "var(--font-display, 'EB Garamond'), serif",
           fontStyle: "italic",
           fontSize: 15,
         }}

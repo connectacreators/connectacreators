@@ -15,7 +15,7 @@ export default function ThinkingScene({ scene }: Props) {
       <div className="flex items-center gap-2 py-1">
         <span
           style={{
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontStyle: "italic",
             fontSize: 14,
             color: "rgba(234,230,220,0.65)",

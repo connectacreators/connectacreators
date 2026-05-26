@@ -25,7 +25,7 @@ export default function MetricStripEmbed({ data }: Props) {
       <div className="flex items-baseline gap-2.5">
         <span
           className="text-[34px] font-medium leading-none"
-          style={{ color: "#1a1410", fontFamily: "'EB Garamond', Georgia, serif" }}
+          style={{ color: "#1a1410", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
         >
           {data.big_value}
         </span>

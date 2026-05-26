@@ -146,13 +146,13 @@ All colors MUST be HSL for consistency and theming.
      edits. PR 2 will optionally migrate those className references to
      `font-serif` for consistency. */
   .font-caslon {
-    font-family: 'EB Garamond', Georgia, serif;
+    font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     letter-spacing: -0.015em;
     font-weight: 500;
   }
 
   .font-caslon-text {
-    font-family: 'EB Garamond', Georgia, serif;
+    font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     letter-spacing: -0.005em;
   }
 
@@ -205,12 +205,12 @@ All colors MUST be HSL for consistency and theming.
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: var(--font-body, Figtree), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     font-feature-settings: "ss01", "ss02";
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'EB Garamond', Georgia, serif;
+    font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     font-weight: 600;
     letter-spacing: -0.015em;
   }
@@ -257,7 +257,7 @@ All colors MUST be HSL for consistency and theming.
     background: hsl(var(--ink));
     border-right: 1px solid hsl(var(--bone) / 0.06);
     position: relative;
-    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: var(--font-body, Figtree), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   }
 
   /* Light popover panel — used by portal-rendered dropdowns (model picker,
@@ -303,13 +303,13 @@ All colors MUST be HSL for consistency and theming.
 
     background: #EAE6DC;
     color: #141414;
-    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: var(--font-body, Figtree), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   }
   .editorial-page h1,
   .editorial-page h2,
   .editorial-page h3,
   .editorial-page .editorial-h {
-    font-family: 'EB Garamond', Georgia, serif;
+    font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     font-weight: 500;
     letter-spacing: -0.01em;
     color: #141414;
@@ -321,7 +321,7 @@ All colors MUST be HSL for consistency and theming.
     letter-spacing: 0.20em;
     text-transform: uppercase;
     color: rgba(20, 20, 20, 0.45);
-    font-family: 'Figtree', sans-serif;
+    font-family: var(--font-body, Figtree), sans-serif;
     font-weight: 600;
   }
   /* White card surface */
@@ -418,13 +418,13 @@ All colors MUST be HSL for consistency and theming.
 
     background: #141414;
     color: #EAE6DC;
-    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: var(--font-body, Figtree), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   }
   .editorial-page-dark h1,
   .editorial-page-dark h2,
   .editorial-page-dark h3,
   .editorial-page-dark .editorial-h {
-    font-family: 'EB Garamond', Georgia, serif;
+    font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     font-weight: 500;
     letter-spacing: -0.01em;
     color: #EAE6DC;
@@ -434,7 +434,7 @@ All colors MUST be HSL for consistency and theming.
     letter-spacing: 0.20em;
     text-transform: uppercase;
     color: rgba(234, 230, 220, 0.45);
-    font-family: 'Figtree', sans-serif;
+    font-family: var(--font-body, Figtree), sans-serif;
     font-weight: 600;
   }
   .editorial-page-dark .editorial-card {
@@ -1082,7 +1082,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .bg-card h2,
 .react-flow .bg-card h3 {
   color: #141414;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
 }
 .react-flow .bg-card .text-muted-foreground,
 .react-flow .bg-card [class*="text-muted"] {
@@ -1127,7 +1127,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card h2,
 .react-flow .glass-card h3 {
   color: #141414;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
   letter-spacing: -0.015em;
   font-weight: 500;
 }

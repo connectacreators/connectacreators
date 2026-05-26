@@ -1409,7 +1409,7 @@ export default function Scripts() {
               <h1
                 className="mb-2"
                 style={{
-                  fontFamily: "'EB Garamond', Georgia, serif",
+                  fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                   fontWeight: 500,
                   fontSize: "clamp(28px, 4vw, 36px)",
                   letterSpacing: "-0.01em",
@@ -1991,7 +1991,7 @@ export default function Scripts() {
                                 <p
                                   className="leading-snug"
                                   style={{
-                                    fontFamily: "'EB Garamond', Georgia, serif",
+                                    fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                                     fontWeight: 500,
                                     fontSize: 15,
                                     letterSpacing: "-0.005em",
@@ -2203,7 +2203,7 @@ export default function Scripts() {
                                   <p
                                     className="truncate"
                                     style={{
-                                      fontFamily: "'EB Garamond', Georgia, serif",
+                                      fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                                       fontWeight: 500,
                                       fontSize: 16,
                                       letterSpacing: "-0.005em",
@@ -2665,7 +2665,7 @@ export default function Scripts() {
                       letterSpacing: "0.20em",
                       color: "rgba(234,230,220,0.45)",
                       fontWeight: 600,
-                      fontFamily: "'Figtree', sans-serif",
+                      fontFamily: "var(--font-body, Figtree), sans-serif",
                     }}
                   >
                     <SelectValue placeholder={tr(t.scripts.selectPlaceholder, language)}>
@@ -2687,7 +2687,7 @@ export default function Scripts() {
                   <input
                     className="w-full bg-transparent leading-snug focus:outline-none pb-1"
                     style={{
-                      fontFamily: "'EB Garamond', Georgia, serif",
+                      fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                       fontWeight: 500,
                       fontSize: 22,
                       letterSpacing: "-0.01em",
@@ -2726,7 +2726,7 @@ export default function Scripts() {
                   <h2
                     className="leading-snug cursor-pointer transition-colors m-0"
                     style={{
-                      fontFamily: "'EB Garamond', Georgia, serif",
+                      fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                       fontWeight: 500,
                       fontSize: 22,
                       letterSpacing: "-0.01em",

@@ -38,7 +38,7 @@ export default function FrameworkDeckEmbed({ data }: Props) {
         </div>
         <div
           className="font-medium text-[13.5px] leading-snug"
-          style={{ color: "#1a1410", fontFamily: "'EB Garamond', Georgia, serif" }}
+          style={{ color: "#1a1410", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
           dangerouslySetInnerHTML={{
             __html: front.headline.replace(
               /<scribble>(.*?)<\/scribble>/g,

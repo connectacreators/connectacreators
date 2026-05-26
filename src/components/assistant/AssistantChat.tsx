@@ -597,7 +597,7 @@ export function AssistantChat({
                   />
                   <span
                     style={{
-                      fontFamily: "'EB Garamond', Georgia, serif",
+                      fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                       fontStyle: "italic",
                       fontSize: 15,
                       lineHeight: 1.45,
@@ -860,7 +860,7 @@ export function AssistantChat({
             />
             <span
               style={{
-                fontFamily: "'EB Garamond', Georgia, serif",
+                fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                 fontStyle: "italic",
                 fontSize: 13,
                 lineHeight: 1.45,

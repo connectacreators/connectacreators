@@ -825,7 +825,7 @@ export default function LeadTracker() {
                 <p
                   className="leading-none"
                   style={{
-                    fontFamily: "'EB Garamond', Georgia, serif",
+                    fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                     fontWeight: 500,
                     fontSize: "clamp(30px, 4.5vw, 44px)",
                     letterSpacing: "-0.015em",

@@ -25,7 +25,7 @@ export default function FloatingCredits() {
     border: "1px solid #141414",
     boxShadow: "2px 2px 0 #141414",
     color: "#141414",
-    fontFamily: "'Figtree', sans-serif",
+    fontFamily: "var(--font-body, Figtree), sans-serif",
     transition: "box-shadow 120ms, transform 120ms",
   };
 

@@ -167,7 +167,7 @@ export default function Dashboard() {
             color: "#141414",
             letterSpacing: "-0.01em",
             marginBottom: 14,
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
           }}
         >
           Robby's read on {activeClient.name}
@@ -260,7 +260,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               fontSize: 11,
               color: "rgba(20,20,20,0.45)",
               marginBottom: 12,
-              fontFamily: "Figtree, sans-serif",
+              fontFamily: "var(--font-body, Figtree), sans-serif",
               letterSpacing: "0.22em",
               textTransform: "uppercase",
               fontWeight: 600,
@@ -276,7 +276,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               fontSize: 14,
               color: "rgba(20,20,20,0.6)",
               marginBottom: 4,
-              fontFamily: "Figtree, sans-serif",
+              fontFamily: "var(--font-body, Figtree), sans-serif",
             }}
           >
             Hey {firstName}
@@ -291,7 +291,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               color: "#141414",
               letterSpacing: "-0.02em",
               marginBottom: 10,
-              fontFamily: "'EB Garamond', Georgia, serif",
+              fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               lineHeight: 1.1,
             }}
           >
@@ -301,7 +301,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
-            style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}
+            style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}
           >
             {loading
               ? "Loading…"
@@ -342,7 +342,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 22,
-                fontFamily: "'EB Garamond', Georgia, serif",
+                fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                 marginBottom: 12,
               }}
             >
@@ -351,7 +351,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             <p
               style={{
                 fontSize: 22,
-                fontFamily: "'EB Garamond', Georgia, serif",
+                fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                 color: "#141414",
                 marginBottom: 4,
                 letterSpacing: "-0.01em",
@@ -359,7 +359,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             >
               Nothing on fire.
             </p>
-            <p style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}>
+            <p style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}>
               Take a breath, or get ahead on next week's content.
             </p>
           </motion.div>
@@ -389,7 +389,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                   borderRadius: 20,
                 }}
               >
-                <p style={{ fontSize: 14, color: "rgba(20,20,20,0.6)", fontFamily: "Figtree, sans-serif", marginBottom: 8 }}>
+                <p style={{ fontSize: 14, color: "rgba(20,20,20,0.6)", fontFamily: "var(--font-body, Figtree), sans-serif", marginBottom: 8 }}>
                   No Connecta Plus clients yet.
                 </p>
                 <a
@@ -398,7 +398,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                     fontSize: 13,
                     color: "#141414",
                     textDecoration: "underline",
-                    fontFamily: "Figtree, sans-serif",
+                    fontFamily: "var(--font-body, Figtree), sans-serif",
                   }}
                 >
                   Add your first client →
@@ -414,7 +414,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             style={{
               fontSize: 11.5,
               color: "rgba(20,20,20,0.45)",
-              fontFamily: "Figtree, sans-serif",
+              fontFamily: "var(--font-body, Figtree), sans-serif",
               letterSpacing: "0.06em",
               textDecoration: "none",
               borderBottom: "1px solid rgba(20,20,20,0.15)",

@@ -85,7 +85,7 @@ export default function DraftingScene({ scene }: Props) {
           color: "#1a1410",
           border: "1px solid rgba(26,20,16,0.85)",
           borderRadius: 6,
-          fontFamily: "'EB Garamond', Georgia, serif",
+          fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
         }}
       >
         {payload.sections.map((s, i) => {

@@ -94,7 +94,7 @@ export function TriageClientBlock({ client, rows }: Props) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontFamily: "'EB Garamond', Georgia, serif",
+              fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               fontSize: 16,
               fontWeight: 500,
               letterSpacing: '-0.02em',
@@ -111,7 +111,7 @@ export function TriageClientBlock({ client, rows }: Props) {
               fontWeight: 500,
               color: '#141414',
               letterSpacing: '-0.01em',
-              fontFamily: "'EB Garamond', Georgia, serif",
+              fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               lineHeight: 1.1,
             }}
           >

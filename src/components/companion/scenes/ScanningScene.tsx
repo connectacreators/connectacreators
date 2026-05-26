@@ -49,7 +49,7 @@ export default function ScanningScene({ scene }: Props) {
                 className="font-medium text-[13px] flex-shrink-0"
                 style={{
                   color: tone === "#1a1410" ? "#EAE6DC" : tone,
-                  fontFamily: "'EB Garamond', Georgia, serif",
+                  fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                   fontStyle: isHit ? "italic" : "normal",
                 }}
               >
@@ -84,7 +84,7 @@ export default function ScanningScene({ scene }: Props) {
         <div
           className="mt-3 text-[13px]"
           style={{
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontStyle: "italic",
             color: "rgba(234,230,220,0.78)",
           }}

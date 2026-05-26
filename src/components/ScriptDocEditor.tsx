@@ -407,7 +407,7 @@ export default function ScriptDocEditor({
       {/* Document page */}
       <div className="editorial-page-dark px-4 py-6 bg-[#141414]">
         <div className="editorial-card doc-print-area max-w-[660px] mx-auto px-10 py-10">
-          <div className="mb-1" style={{ fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 500, fontSize: 22, letterSpacing: "-0.005em", color: "#EAE6DC" }}>
+          <div className="mb-1" style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 22, letterSpacing: "-0.005em", color: "#EAE6DC" }}>
             {scriptTitle || "Untitled Script"}
           </div>
           <div className="text-[11px] text-[rgba(234,230,220,0.55)] mb-7">{scriptMeta}</div>

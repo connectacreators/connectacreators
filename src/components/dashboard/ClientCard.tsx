@@ -64,7 +64,7 @@ export function ClientCard({ clientId, name, avatarColor = "#8FD0D5", pendingIte
           {monogramOf(name)}
         </div>
         <span
-          style={{ fontSize: 14, fontWeight: 500, color: "#141414", letterSpacing: "-0.005em", fontFamily: "'EB Garamond', Georgia, serif" }}
+          style={{ fontSize: 14, fontWeight: 500, color: "#141414", letterSpacing: "-0.005em", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
         >
           {name}
         </span>
@@ -79,7 +79,7 @@ export function ClientCard({ clientId, name, avatarColor = "#8FD0D5", pendingIte
               padding: "2px 8px",
               borderRadius: 999,
               fontWeight: 500,
-              fontFamily: "Figtree, sans-serif",
+              fontFamily: "var(--font-body, Figtree), sans-serif",
             }}
           >
             {item.label}

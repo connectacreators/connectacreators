@@ -74,7 +74,7 @@ export default function VideoAnalysisScene({ scene }: Props) {
           <div
             className="flex-1"
             style={{
-              fontFamily: "'EB Garamond', Georgia, serif",
+              fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               fontSize: 14,
               lineHeight: 1.65,
               color: "rgba(234,230,220,0.85)",

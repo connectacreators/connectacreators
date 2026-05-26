@@ -161,7 +161,7 @@ export default function CommandCenterPreview() {
       <div className="max-w-3xl mx-auto px-5 py-10">
         <h1
           className="text-3xl font-medium mb-1"
-          style={{ color: "#EAE6DC", fontFamily: "'EB Garamond', Georgia, serif" }}
+          style={{ color: "#EAE6DC", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
         >
           /ai live broadcast — preview
         </h1>

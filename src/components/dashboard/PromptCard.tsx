@@ -42,7 +42,7 @@ export function PromptCard({ icon: Icon, title, description, onClick }: PromptCa
         <Icon size={22} strokeWidth={1.5} color="#141414" />
       </div>
       <div
-        style={{ fontSize: 15, fontWeight: 500, color: "#141414", letterSpacing: "-0.005em", marginBottom: 3, fontFamily: "'EB Garamond', Georgia, serif" }}
+        style={{ fontSize: 15, fontWeight: 500, color: "#141414", letterSpacing: "-0.005em", marginBottom: 3, fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
       >
         {title}
       </div>
@@ -51,7 +51,7 @@ export function PromptCard({ icon: Icon, title, description, onClick }: PromptCa
           fontSize: 11,
           color: "rgba(20,20,20,0.55)",
           lineHeight: 1.4,
-          fontFamily: "Figtree, sans-serif",
+          fontFamily: "var(--font-body, Figtree), sans-serif",
         }}
       >
         {description}

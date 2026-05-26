@@ -30,7 +30,7 @@ export default function SceneFrame({ verb, meta, children, hideDot }: Props) {
           )}
           <span
             style={{
-              fontFamily: "'EB Garamond', Georgia, serif",
+              fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               fontStyle: "italic",
               fontSize: 15,
               color: "rgba(234,230,220,0.78)",

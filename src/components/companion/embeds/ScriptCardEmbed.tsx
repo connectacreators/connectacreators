@@ -39,7 +39,7 @@ export default function ScriptCardEmbed({ data, onRegen, onShip }: Props) {
           </div>
           <div
             className="text-[16px] leading-snug"
-            style={{ color: "#1a1410", fontFamily: "'EB Garamond', Georgia, serif", whiteSpace: "pre-wrap" }}
+            style={{ color: "#1a1410", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", whiteSpace: "pre-wrap" }}
             dangerouslySetInnerHTML={{
               __html: s.body.replace(/<scribble>(.*?)<\/scribble>/g, '<span class="scribble-wavy">$1</span>'),
             }}

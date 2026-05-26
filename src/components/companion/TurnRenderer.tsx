@@ -61,7 +61,7 @@ export default function TurnRenderer({ turn, onEmbedClick }: Props) {
         <div
           className="px-1"
           style={{
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontSize: 16,
             lineHeight: 1.5,
             color: "#EAE6DC",

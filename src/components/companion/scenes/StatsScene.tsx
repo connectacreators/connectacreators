@@ -23,7 +23,7 @@ export default function StatsScene({ scene }: Props) {
           color: "#1a1410",
           border: "1px solid rgba(26,20,16,0.85)",
           borderRadius: 6,
-          fontFamily: "'EB Garamond', Georgia, serif",
+          fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
         }}
       >
         <div className="flex justify-between items-baseline mb-3 gap-3">

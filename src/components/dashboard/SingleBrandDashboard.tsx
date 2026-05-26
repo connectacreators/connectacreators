@@ -132,7 +132,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
             color: TEXT_MUTED,
             marginBottom: 8,
             textAlign: "center",
-            fontFamily: "Figtree, sans-serif",
+            fontFamily: "var(--font-body, Figtree), sans-serif",
             letterSpacing: "0.02em",
           }}
         >
@@ -157,7 +157,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
             color: TEXT,
             letterSpacing: "-0.015em",
             marginBottom: 40,
-            fontFamily: "'EB Garamond', Georgia, serif",
+            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             textAlign: "center",
           }}
         >
@@ -230,7 +230,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                         fontWeight: 500,
                         color: TEXT,
                         letterSpacing: "-0.01em",
-                        fontFamily: "'EB Garamond', Georgia, serif",
+                        fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                       }}
                     >
                       {f.label}
@@ -240,7 +240,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                         fontSize: 12,
                         color: TEXT_MUTED,
                         lineHeight: 1.5,
-                        fontFamily: "Figtree, sans-serif",
+                        fontFamily: "var(--font-body, Figtree), sans-serif",
                         maxWidth: 220,
                       }}
                     >
@@ -272,7 +272,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                   fontSize: 12,
                   color: TEXT,
                   cursor: "pointer",
-                  fontFamily: "Figtree, sans-serif",
+                  fontFamily: "var(--font-body, Figtree), sans-serif",
                 }}
               >
                 <ChevronLeft size={13} strokeWidth={2} />
@@ -286,7 +286,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                   textTransform: "uppercase",
                   color: TEXT_SUBTLE,
                   marginBottom: 12,
-                  fontFamily: "Figtree, sans-serif",
+                  fontFamily: "var(--font-body, Figtree), sans-serif",
                   fontWeight: 600,
                 }}
               >
@@ -335,7 +335,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                           color: TEXT,
                           letterSpacing: "-0.005em",
                           marginBottom: 3,
-                          fontFamily: "'EB Garamond', Georgia, serif",
+                          fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                         }}
                       >
                         {sub.label}
@@ -345,7 +345,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                           fontSize: 11,
                           color: TEXT_MUTED,
                           lineHeight: 1.4,
-                          fontFamily: "Figtree, sans-serif",
+                          fontFamily: "var(--font-body, Figtree), sans-serif",
                         }}
                       >
                         {sub.description}
