@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { getCachedSupabaseUser, readCache, writeCache } from "@/lib/sessionCache";
+import { clearCachedBranding } from "@/lib/branding/storage";
 
 type UserRole = "admin" | "user" | "client" | "videographer" | "editor" | "connecta_plus";
 
@@ -125,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, roleLoading, loading]);
   const signOut = useCallback(async () => {
+    clearCachedBranding();
     await supabase.auth.signOut();
     setUser(null);
     setRole("client");
