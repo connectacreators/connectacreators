@@ -19,8 +19,8 @@ export default {
 		},
     extend: {
       fontFamily: {
-        sans:  ['Figtree', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'sans-serif'],
-        serif: ['"EB Garamond"', 'Georgia', 'serif'],
+        sans:  ['var(--font-body, Figtree)', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'sans-serif'],
+        serif: ['var(--font-display, "EB Garamond")', 'Georgia', 'serif'],
         mono:  ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
 			colors: {

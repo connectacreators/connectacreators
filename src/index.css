@@ -157,7 +157,7 @@ All colors MUST be HSL for consistency and theming.
   }
 
   .font-wordmark {
-    font-family: 'EB Garamond', Georgia, serif;
+    font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     font-weight: 700;
     letter-spacing: 0.04em;
   }
