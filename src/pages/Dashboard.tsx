@@ -238,82 +238,193 @@ function AdminTriageView({ firstName }: { firstName: string }) {
   const pendingCount = blocks.length;
   const loading = clientsLoading || rowsLoading;
 
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+
   return (
-    <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
-      <div style={{ textAlign: "center", marginBottom: 22 }}>
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
-          style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", marginBottom: 6, fontFamily: "Figtree, sans-serif", letterSpacing: "0.02em" }}
-        >
-          Hey {firstName}!
-        </motion.p>
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
-          style={{ fontSize: 38, fontWeight: 500, color: "#141414", letterSpacing: "-0.015em", marginBottom: 6, fontFamily: "'EB Garamond', Georgia, serif" }}
-        >
-          What do you want to do today?
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
-          style={{ fontSize: 12, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}
-        >
-          {loading
-            ? "Loading…"
-            : totalClients === 0
-              ? "No Connecta Plus clients yet."
-              : pendingCount === 0
-                ? `All caught up across ${totalClients} Connecta Plus client${totalClients === 1 ? "" : "s"}.`
-                : `${pendingCount} client${pendingCount === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
-        </motion.p>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.40)" }} />
+    <div
+      className="min-h-screen relative"
+      style={{
+        background:
+          "radial-gradient(1100px 600px at 50% -200px, rgba(197,136,47,0.12), rgba(234,230,220,0) 60%), #EAE6DC",
+        padding: "40px 28px 64px",
+      }}
+    >
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+            style={{
+              fontSize: 11,
+              color: "rgba(20,20,20,0.45)",
+              marginBottom: 12,
+              fontFamily: "Figtree, sans-serif",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            {today}
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.04 }}
+            style={{
+              fontSize: 14,
+              color: "rgba(20,20,20,0.6)",
+              marginBottom: 4,
+              fontFamily: "Figtree, sans-serif",
+            }}
+          >
+            Hey {firstName}
+          </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.08 }}
+            style={{
+              fontSize: 42,
+              fontWeight: 500,
+              color: "#141414",
+              letterSpacing: "-0.02em",
+              marginBottom: 10,
+              fontFamily: "'EB Garamond', Georgia, serif",
+              lineHeight: 1.1,
+            }}
+          >
+            What do you want to do today?
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
+            style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}
+          >
+            {loading
+              ? "Loading…"
+              : totalClients === 0
+                ? "No Connecta Plus clients yet."
+                : pendingCount === 0
+                  ? `All caught up across ${totalClients} Connecta Plus client${totalClients === 1 ? "" : "s"}.`
+                  : `${pendingCount} of ${totalClients} client${totalClients === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
+          </motion.p>
         </div>
-      ) : (
-        <div>
-          {blocks.map((b, idx) => (
-            <motion.div
-              key={b.client.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.18 + idx * 0.05 }}
-            >
-              <TriageClientBlock client={b.client} rows={b.rows} />
-            </motion.div>
-          ))}
 
-          {totalClients === 0 && (
-            <p
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.40)" }} />
+          </div>
+        ) : pendingCount === 0 && totalClients > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.18 }}
+            style={{
+              textAlign: "center",
+              padding: "48px 32px",
+              background: "rgba(255,255,255,0.45)",
+              border: "1px solid rgba(20,20,20,0.07)",
+              borderRadius: 20,
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <div
               style={{
-                textAlign: "center",
-                marginTop: 16,
-                fontSize: 13,
-                color: "rgba(20,20,20,0.55)",
-                fontFamily: "Figtree, sans-serif",
+                width: 48,
+                height: 48,
+                borderRadius: 999,
+                background: "rgba(74,149,136,0.18)",
+                color: "#2F6B62",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 22,
+                fontFamily: "'EB Garamond', Georgia, serif",
+                marginBottom: 12,
               }}
             >
-              <a href="/clients" style={{ color: "#141414", textDecoration: "underline" }}>Add a Connecta Plus client →</a>
-            </p>
-          )}
-
-          <div style={{ textAlign: "center", marginTop: 32 }}>
-            <a
-              href="/clients"
-              style={{ fontSize: 12, color: "rgba(20,20,20,0.45)", fontFamily: "Figtree, sans-serif" }}
+              ✓
+            </div>
+            <p
+              style={{
+                fontSize: 22,
+                fontFamily: "'EB Garamond', Georgia, serif",
+                color: "#141414",
+                marginBottom: 4,
+                letterSpacing: "-0.01em",
+              }}
             >
-              View all clients
-            </a>
+              Nothing on fire.
+            </p>
+            <p style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "Figtree, sans-serif" }}>
+              Take a breath, or get ahead on next week's content.
+            </p>
+          </motion.div>
+        ) : (
+          <div>
+            {blocks.map((b, idx) => (
+              <motion.div
+                key={b.client.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.18 + idx * 0.06 }}
+              >
+                <TriageClientBlock client={b.client} rows={b.rows} />
+              </motion.div>
+            ))}
+
+            {totalClients === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, delay: 0.18 }}
+                style={{
+                  textAlign: "center",
+                  padding: "36px 32px",
+                  background: "rgba(255,255,255,0.45)",
+                  border: "1px dashed rgba(20,20,20,0.18)",
+                  borderRadius: 20,
+                }}
+              >
+                <p style={{ fontSize: 14, color: "rgba(20,20,20,0.6)", fontFamily: "Figtree, sans-serif", marginBottom: 8 }}>
+                  No Connecta Plus clients yet.
+                </p>
+                <a
+                  href="/clients"
+                  style={{
+                    fontSize: 13,
+                    color: "#141414",
+                    textDecoration: "underline",
+                    fontFamily: "Figtree, sans-serif",
+                  }}
+                >
+                  Add your first client →
+                </a>
+              </motion.div>
+            )}
           </div>
+        )}
+
+        <div style={{ textAlign: "center", marginTop: 36 }}>
+          <a
+            href="/clients"
+            style={{
+              fontSize: 11.5,
+              color: "rgba(20,20,20,0.45)",
+              fontFamily: "Figtree, sans-serif",
+              letterSpacing: "0.06em",
+              textDecoration: "none",
+              borderBottom: "1px solid rgba(20,20,20,0.15)",
+              paddingBottom: 1,
+            }}
+          >
+            View all clients
+          </a>
         </div>
-      )}
+      </div>
     </div>
   );
 }

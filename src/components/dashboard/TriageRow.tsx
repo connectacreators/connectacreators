@@ -1,11 +1,17 @@
 // src/components/dashboard/TriageRow.tsx
 //
-// Renders one triage row inside a client block. Discriminates on row.type
-// and builds the href for the matching destination page.
+// Renders one triage row inside a client block. Each row is a clickable Link
+// composed of: a colored icon tile, a serif numeral (for count rows) or
+// milestone label (for pipeline rows), the descriptive text, and an
+// optional aging marker.
 
 import { Link } from "react-router-dom";
-import { relativeDate } from "@/lib/triage/relativeDate";
-import { PIPELINE_MILESTONE_LABEL, type TriageRow as TriageRowData } from "@/lib/triage/types";
+import {
+  FileText, Film, Send, PhoneCall, PenLine, Scissors, Camera, TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+import { relativeDate, type RelativeBucket } from "@/lib/triage/relativeDate";
+import { PIPELINE_MILESTONE_LABEL, type TriageRow as TriageRowData, type PipelineMilestone } from "@/lib/triage/types";
 
 interface Props {
   row: TriageRowData;
@@ -13,6 +19,33 @@ interface Props {
 }
 
 const AGING_THRESHOLD_MS = 48 * 60 * 60 * 1000;
+
+const PIPELINE_ICON: Record<PipelineMilestone, LucideIcon> = {
+  onboarding_call: PhoneCall,
+  script_due:      PenLine,
+  editing_due:     Scissors,
+  filming:         Camera,
+  boosting:        TrendingUp,
+  posting:         Send,
+};
+
+// Tile color + accent for each bucket of urgency on pipeline rows.
+const BUCKET_TINT: Record<RelativeBucket, { bg: string; iconFg: string; labelFg: string }> = {
+  overdue:   { bg: 'rgba(178,58,42,0.10)',  iconFg: '#B23A2A', labelFg: '#B23A2A' },
+  soon:      { bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F', labelFg: '#A85B1F' },
+  today:     { bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F', labelFg: '#A85B1F' },
+  tomorrow:  { bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F', labelFg: '#A85B1F' },
+  thisweek:  { bg: 'rgba(20,20,20,0.06)',   iconFg: '#141414', labelFg: '#141414' },
+  twoweeks:  { bg: 'rgba(20,20,20,0.06)',   iconFg: '#141414', labelFg: 'rgba(20,20,20,0.65)' },
+  farfuture: { bg: 'rgba(20,20,20,0.05)',   iconFg: 'rgba(20,20,20,0.55)', labelFg: 'rgba(20,20,20,0.55)' },
+};
+
+// Color theme per count row type.
+const TYPE_THEME: Record<'scripts_review' | 'videos_revision' | 'posts_scheduled', { icon: LucideIcon; bg: string; iconFg: string }> = {
+  scripts_review:  { icon: FileText, bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F' },
+  videos_revision: { icon: Film,     bg: 'rgba(74,149,136,0.14)', iconFg: '#2F6B62' },
+  posts_scheduled: { icon: Send,     bg: 'rgba(45,95,138,0.12)',  iconFg: '#1F4D72' },
+};
 
 function buildHref(row: TriageRowData, clientId: string): string {
   switch (row.type) {
@@ -33,72 +66,140 @@ function truncateList(names: string[], joiner = ', ', max = 56): string {
   return joined.slice(0, max - 1).trimEnd() + '…';
 }
 
-function renderContent(row: TriageRowData): { lead: string; detail: string; aging: boolean } {
-  switch (row.type) {
-    case 'pipeline': {
-      const rel = relativeDate(row.at);
-      const baseLabel = PIPELINE_MILESTONE_LABEL[row.milestone];
-      const lead = `${baseLabel} ${rel.label.toLowerCase().startsWith('in ') || rel.label === 'Tomorrow' || rel.label === 'Today' ? rel.label : `· ${rel.label}`}`;
-      const detail = row.label ?? '';
-      return { lead, detail, aging: rel.bucket === 'overdue' || rel.bucket === 'today' };
-    }
-    case 'scripts_review': {
-      const lead = `${row.count} ${pluralize(row.count, 'script')} ${pluralize(row.count, 'needs', 'need')} review`;
-      const detail = truncateList(row.sampleNames);
-      const aging = (Date.now() - new Date(row.oldestPendingAt).getTime()) > AGING_THRESHOLD_MS;
-      return { lead, detail, aging };
-    }
-    case 'videos_revision': {
-      const lead = `${row.count} ${pluralize(row.count, 'video')} ${pluralize(row.count, 'needs', 'need')} revisions`;
-      const detail = truncateList(row.sampleNames);
-      const aging = (Date.now() - new Date(row.oldestPendingAt).getTime()) > AGING_THRESHOLD_MS;
-      return { lead, detail, aging };
-    }
-    case 'posts_scheduled': {
-      const rel = relativeDate(row.nextAt);
-      const lead = `${row.count} ${pluralize(row.count, 'post')} scheduled · ${rel.label}`;
-      const detail = truncateList(row.sampleNames);
-      return { lead, detail, aging: rel.bucket === 'today' };
-    }
-  }
+function Tile({ Icon, bg, fg }: { Icon: LucideIcon; bg: string; fg: string }) {
+  return (
+    <div
+      className="flex items-center justify-center shrink-0"
+      style={{ width: 30, height: 30, borderRadius: 9, background: bg }}
+    >
+      <Icon size={15} color={fg} strokeWidth={1.75} />
+    </div>
+  );
+}
+
+function rowHoverIn(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.currentTarget.style.background = 'rgba(20,20,20,0.045)';
+}
+function rowHoverOut(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.currentTarget.style.background = 'transparent';
 }
 
 export function TriageRow({ row, clientId }: Props) {
-  const { lead, detail, aging } = renderContent(row);
   const href = buildHref(row, clientId);
+
+  // PIPELINE ROW — icon tile + milestone label + relative date chip + optional context
+  if (row.type === 'pipeline') {
+    const rel = relativeDate(row.at);
+    const tint = BUCKET_TINT[rel.bucket];
+    const Icon = PIPELINE_ICON[row.milestone];
+    const baseLabel = PIPELINE_MILESTONE_LABEL[row.milestone];
+
+    return (
+      <Link
+        to={href}
+        className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg transition-colors"
+        style={{ textDecoration: 'none' }}
+        onMouseEnter={rowHoverIn}
+        onMouseLeave={rowHoverOut}
+      >
+        <Tile Icon={Icon} bg={tint.bg} fg={tint.iconFg} />
+        <div className="flex-1 min-w-0 truncate" style={{ fontFamily: 'Figtree, sans-serif', fontSize: 14, color: '#141414' }}>
+          <span style={{ fontWeight: 500 }}>{baseLabel}</span>
+          <span
+            className="ml-2 px-2 py-0.5 rounded-full text-[11.5px] align-middle"
+            style={{
+              background: tint.bg,
+              color: tint.labelFg,
+              fontWeight: 500,
+              letterSpacing: '0.01em',
+            }}
+          >
+            {rel.label}
+          </span>
+          {row.label && (
+            <>
+              <span style={{ color: 'rgba(20,20,20,0.4)' }}>{'  ·  '}</span>
+              <span style={{ color: 'rgba(20,20,20,0.6)' }}>{row.label}</span>
+            </>
+          )}
+        </div>
+      </Link>
+    );
+  }
+
+  // COUNT ROW — icon tile + big serif numeral + descriptive text + optional aging dot
+  const theme = TYPE_THEME[row.type];
+  const Icon = theme.icon;
+
+  let count = 0;
+  let label = '';
+  let detail = '';
+  let aging = false;
+
+  if (row.type === 'scripts_review') {
+    count = row.count;
+    label = `${pluralize(count, 'script')} ${pluralize(count, 'needs', 'need')} review`;
+    detail = truncateList(row.sampleNames);
+    aging = (Date.now() - new Date(row.oldestPendingAt).getTime()) > AGING_THRESHOLD_MS;
+  } else if (row.type === 'videos_revision') {
+    count = row.count;
+    label = `${pluralize(count, 'video')} ${pluralize(count, 'needs', 'need')} revisions`;
+    detail = truncateList(row.sampleNames);
+    aging = (Date.now() - new Date(row.oldestPendingAt).getTime()) > AGING_THRESHOLD_MS;
+  } else {
+    count = row.count;
+    const rel = relativeDate(row.nextAt);
+    label = `${pluralize(count, 'post')} scheduled · ${rel.label}`;
+    detail = truncateList(row.sampleNames);
+    aging = rel.bucket === 'today';
+  }
 
   return (
     <Link
       to={href}
-      className="group flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors"
+      className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg transition-colors"
       style={{ textDecoration: 'none' }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.04)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={rowHoverIn}
+      onMouseLeave={rowHoverOut}
     >
-      {aging ? (
+      <Tile Icon={Icon} bg={theme.bg} fg={theme.iconFg} />
+      <div className="flex-1 min-w-0 flex items-baseline gap-2">
+        <span
+          style={{
+            fontFamily: "'EB Garamond', Georgia, serif",
+            fontSize: 22,
+            fontWeight: 500,
+            color: '#141414',
+            lineHeight: 1,
+            letterSpacing: '-0.02em',
+            minWidth: 14,
+          }}
+        >
+          {count}
+        </span>
+        <span className="truncate flex-1 min-w-0" style={{ fontFamily: 'Figtree, sans-serif', fontSize: 14, color: '#141414' }}>
+          <span>{label}</span>
+          {detail && (
+            <>
+              <span style={{ color: 'rgba(20,20,20,0.4)' }}>{'  ·  '}</span>
+              <span style={{ color: 'rgba(20,20,20,0.6)' }}>{detail}</span>
+            </>
+          )}
+        </span>
+      </div>
+      {aging && (
         <span
           aria-hidden
+          className="shrink-0"
+          title="Aging — pending more than 48 hours"
           style={{
-            width: 6,
-            height: 6,
+            width: 7,
+            height: 7,
             borderRadius: 999,
-            background: '#141414',
-            marginRight: 4,
-            flexShrink: 0,
+            background: '#C5882F',
           }}
         />
-      ) : (
-        <span style={{ width: 6, marginRight: 4, flexShrink: 0 }} />
       )}
-      <span className="truncate" style={{ fontFamily: 'Figtree, sans-serif', fontSize: 14.5, color: '#141414' }}>
-        <span>{lead}</span>
-        {detail && (
-          <>
-            <span style={{ color: 'rgba(20,20,20,0.55)' }}> · </span>
-            <span style={{ color: 'rgba(20,20,20,0.6)' }}>{detail}</span>
-          </>
-        )}
-      </span>
     </Link>
   );
 }
