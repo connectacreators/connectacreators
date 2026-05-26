@@ -147,6 +147,7 @@ export default function EditingQueue() {
   const [fetching, setFetching] = useState(cachedItems.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleStatus | null>(null);
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [updatingLifecycle, setUpdatingLifecycle] = useState<string | null>(null);
@@ -249,16 +250,22 @@ export default function EditingQueue() {
       : <ChevronDown className="inline ml-1 w-3 h-3 text-primary" />;
   }
 
-  // Filtered items based on search
+  // Filtered items based on search + lifecycle filter (from ?status= URL param)
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items;
-    const query = searchQuery.toLowerCase();
-    return items.filter((item) =>
-      (item.title ?? "").toLowerCase().includes(query) ||
-      item.assignee?.toLowerCase().includes(query) ||
-      (item.status ?? "").toLowerCase().includes(query)
-    );
-  }, [items, searchQuery]);
+    let result = items;
+    if (lifecycleFilter) {
+      result = result.filter((item) => item.lifecycleStatus === lifecycleFilter);
+    }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((item) =>
+        (item.title ?? "").toLowerCase().includes(query) ||
+        item.assignee?.toLowerCase().includes(query) ||
+        (item.status ?? "").toLowerCase().includes(query)
+      );
+    }
+    return result;
+  }, [items, searchQuery, lifecycleFilter]);
 
   // Sorted items
   const sortedItems = useMemo(() => {
@@ -429,13 +436,14 @@ export default function EditingQueue() {
       }
     }
 
-    // Filter params — note these don't have setters in the current
-    // EditingQueue; status/post_status/assignee filtering happens via
-    // searchQuery + the user typing. For now, treat status/assignee as
-    // search hints so the row is at least findable. Real filter dropdowns
-    // can come later.
-    if (status || postStatus || assignee) {
-      const hint = [status, postStatus, assignee].filter(Boolean).join(" ");
+    // Filter params — ?status= is a real lifecycle filter; post_status/assignee
+    // fall back to search-hint behavior so rows are at least findable.
+    if (status && isLifecycleStatus(status)) {
+      setLifecycleFilter(status);
+      consumedAny = true;
+    }
+    if ((postStatus || assignee) && !status) {
+      const hint = [postStatus, assignee].filter(Boolean).join(" ");
       if (hint) {
         setSearchQuery((prev) => prev || hint);
         consumedAny = true;
