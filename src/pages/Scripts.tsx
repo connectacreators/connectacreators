@@ -415,6 +415,9 @@ export default function Scripts() {
   const [isDirty, setIsDirty] = useState(false);
 
   const [grabadoFilter, setGrabadoFilter] = useState<"all" | "grabado" | "no-grabado">("all");
+  // Review-status filter for query-param entry from /dashboard triage rows.
+  // "needs_review" means review_status IS NULL OR review_status = 'needs_revision'.
+  const [reviewFilter, setReviewFilter] = useState<"all" | "needs_review">("all");
 
   // Right-click context menu for "+ New Script"
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
@@ -676,6 +679,17 @@ export default function Scripts() {
   // Auto-select client from URL param (admin/videographer deep link)
   const [searchParams, setSearchParams] = useSearchParams();
   const [autoOpenScriptTitle, setAutoOpenScriptTitle] = useState<string | null>(null);
+
+  // Consume ?filter=needs_review once on mount (sent by /dashboard triage rows),
+  // then strip it so back/reload don't re-apply.
+  useEffect(() => {
+    if (searchParams.get("filter") !== "needs_review") return;
+    setReviewFilter("needs_review");
+    const next = new URLSearchParams(searchParams);
+    next.delete("filter");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (clientsLoading || selectedClient) return;
@@ -1876,8 +1890,12 @@ export default function Scripts() {
                 } else {
                   if (s.folder_id !== null && s.folder_id !== undefined) return false;
                 }
-                if (grabadoFilter === "grabado") return s.grabado;
-                if (grabadoFilter === "no-grabado") return !s.grabado;
+                if (grabadoFilter === "grabado" && !s.grabado) return false;
+                if (grabadoFilter === "no-grabado" && s.grabado) return false;
+                // Triage entry from /dashboard: show unreviewed + needs_revision.
+                if (reviewFilter === "needs_review") {
+                  if (s.review_status === 'approved') return false;
+                }
                 return true;
               });
 
