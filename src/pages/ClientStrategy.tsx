@@ -4,6 +4,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PageTransition from "@/components/PageTransition";
+import { ProductionPipelineSection } from "@/components/strategy/ProductionPipelineSection";
 import { Loader2, Save } from "lucide-react";
 
 interface ClientStrategy {
@@ -458,6 +459,24 @@ export default function ClientStrategy() {
           </div>
           {editing && <p className="text-[10px] text-white/25">{en ? "Percentages must add up to 100" : "Los porcentajes deben sumar 100"}</p>}
         </StatusCard>
+
+        {/* Production Pipeline */}
+        <ProductionPipelineSection
+          s={{
+            onboarding_call_at: s.onboarding_call_at,
+            script_due_at:      s.script_due_at,
+            editing_due_at:     s.editing_due_at,
+            next_filming_at:    s.next_filming_at,
+            boosting_at:        s.boosting_at,
+            posting_at:         s.posting_at,
+            pipeline_notes:     s.pipeline_notes,
+            ads_active:         s.ads_active,
+            ads_budget:         s.ads_budget,
+          }}
+          editing={editing}
+          set={set as any}
+          en={en}
+        />
 
         {/* Audience Alignment */}
         <StatusCard
