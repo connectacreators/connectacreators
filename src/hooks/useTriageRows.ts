@@ -68,11 +68,11 @@ export function useTriageRows(clientIds: string[]): Result {
         .order("updated_at", { ascending: true }),
       supabase
         .from("scheduled_posts")
-        .select("id, client_id, caption, scheduled_time, status")
+        .select("id, client_id, caption, scheduled_at, status")
         .in("client_id", clientIds)
-        .gte("scheduled_time", nowIso)
-        .lte("scheduled_time", windowIso)
-        .order("scheduled_time", { ascending: true }),
+        .gte("scheduled_at", nowIso)
+        .lte("scheduled_at", windowIso)
+        .order("scheduled_at", { ascending: true }),
       supabase
         .from("client_strategies")
         .select("client_id, onboarding_call_at, script_due_at, editing_due_at, next_filming_at, boosting_at, posting_at, ads_budget")
@@ -115,13 +115,13 @@ export function useTriageRows(clientIds: string[]): Result {
         for (const row of postsRes.data ?? []) {
           const id = row.client_id as string;
           if (POST_TERMINAL_STATUSES.has((row.status as string) ?? '')) continue;
-          const b = postsByClient.get(id) ?? { count: 0, nextAt: row.scheduled_time as string, captions: [] };
+          const b = postsByClient.get(id) ?? { count: 0, nextAt: row.scheduled_at as string, captions: [] };
           b.count += 1;
           if (b.captions.length < 3 && row.caption) {
             const c = (row.caption as string).slice(0, 40).trim();
             b.captions.push(c);
           }
-          if ((row.scheduled_time as string) < b.nextAt) b.nextAt = row.scheduled_time as string;
+          if ((row.scheduled_at as string) < b.nextAt) b.nextAt = row.scheduled_at as string;
           postsByClient.set(id, b);
         }
 
