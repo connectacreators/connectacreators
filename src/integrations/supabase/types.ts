@@ -2014,7 +2014,7 @@ export type Database = {
           id: string
           platforms: string[]
           published_at: string | null
-          scheduled_time: string | null
+          scheduled_at: string | null
           status: string
           thumbnail_url: string | null
           user_id: string
@@ -2028,7 +2028,7 @@ export type Database = {
           id?: string
           platforms?: string[]
           published_at?: string | null
-          scheduled_time?: string | null
+          scheduled_at?: string | null
           status?: string
           thumbnail_url?: string | null
           user_id: string
@@ -2042,7 +2042,7 @@ export type Database = {
           id?: string
           platforms?: string[]
           published_at?: string | null
-          scheduled_time?: string | null
+          scheduled_at?: string | null
           status?: string
           thumbnail_url?: string | null
           user_id?: string
