@@ -578,10 +578,12 @@ export type Database = {
           audience_analysis: Json | null
           audience_analyzed_at: string | null
           audience_score: number
+          boosting_at: string | null
           client_id: string
           content_pillars: Json
           created_at: string
           cta_goal: string
+          editing_due_at: string | null
           id: string
           manychat_active: boolean
           manychat_keyword: string | null
@@ -590,8 +592,13 @@ export type Database = {
           mix_trust: number
           monthly_revenue_actual: number
           monthly_revenue_goal: number
+          next_filming_at: string | null
+          onboarding_call_at: string | null
+          pipeline_notes: string | null
+          posting_at: string | null
           posts_per_month: number
           primary_platform: string
+          script_due_at: string | null
           scripts_per_month: number
           stories_per_week: number
           uniqueness_score: number
@@ -605,10 +612,12 @@ export type Database = {
           audience_analysis?: Json | null
           audience_analyzed_at?: string | null
           audience_score?: number
+          boosting_at?: string | null
           client_id: string
           content_pillars?: Json
           created_at?: string
           cta_goal?: string
+          editing_due_at?: string | null
           id?: string
           manychat_active?: boolean
           manychat_keyword?: string | null
@@ -617,8 +626,13 @@ export type Database = {
           mix_trust?: number
           monthly_revenue_actual?: number
           monthly_revenue_goal?: number
+          next_filming_at?: string | null
+          onboarding_call_at?: string | null
+          pipeline_notes?: string | null
+          posting_at?: string | null
           posts_per_month?: number
           primary_platform?: string
+          script_due_at?: string | null
           scripts_per_month?: number
           stories_per_week?: number
           uniqueness_score?: number
@@ -632,10 +646,12 @@ export type Database = {
           audience_analysis?: Json | null
           audience_analyzed_at?: string | null
           audience_score?: number
+          boosting_at?: string | null
           client_id?: string
           content_pillars?: Json
           created_at?: string
           cta_goal?: string
+          editing_due_at?: string | null
           id?: string
           manychat_active?: boolean
           manychat_keyword?: string | null
@@ -644,8 +660,13 @@ export type Database = {
           mix_trust?: number
           monthly_revenue_actual?: number
           monthly_revenue_goal?: number
+          next_filming_at?: string | null
+          onboarding_call_at?: string | null
+          pipeline_notes?: string | null
+          posting_at?: string | null
           posts_per_month?: number
           primary_platform?: string
+          script_due_at?: string | null
           scripts_per_month?: number
           stories_per_week?: number
           uniqueness_score?: number
