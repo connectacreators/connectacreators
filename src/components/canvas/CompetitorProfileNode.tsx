@@ -74,12 +74,12 @@ const HOOK_TYPE_LABELS: Record<string, string> = {
 };
 
 const HOOK_TYPE_COLORS: Record<string, string> = {
-  educational: "#8FD0D5",
+  educational: "hsl(var(--aqua))",
   authority: "#f59e0b",
   story: "#a78bfa",
   comparison: "#F0BC7D",
-  shock: "rgba(20,20,20,0.55)",
-  random: "rgba(20,20,20,0.45)",
+  shock: "hsl(var(--ink-on-cream) / 0.55)",
+  random: "hsl(var(--ink-on-cream) / 0.45)",
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -95,9 +95,9 @@ function formatViews(n: number): string {
 }
 
 function outlierColor(score: number): string {
-  if (score >= 5) return "#8FD0D5";
+  if (score >= 5) return "hsl(var(--aqua))";
   if (score >= 2.5) return "#F0BC7D";
-  return "rgba(20,20,20,0.45)";
+  return "hsl(var(--ink-on-cream) / 0.45)";
 }
 
 export default function CompetitorProfileNode({ data, selected }: { data: NodeData; selected?: boolean }) {
@@ -307,18 +307,18 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
   const externalLinkLabel = savedPlatform === "youtube" ? "View on YouTube" : savedPlatform === "tiktok" ? "View on TikTok" : "View on Instagram";
 
   return (
-    <div className="bg-card rounded-2xl relative flex flex-col" style={{ width: "100%", height: "100%", minWidth: 360, minHeight: 200, border: "1px solid #141414", boxShadow: "3px 3px 0 #141414" }}>
+    <div className="bg-card rounded-2xl relative flex flex-col" style={{ width: "100%", height: "100%", minWidth: 360, minHeight: 200, border: "1px solid hsl(var(--ink-on-cream))", boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))" }}>
       <NodeResizer minWidth={360} minHeight={200} handleStyle={{ opacity: 0, width: 12, height: 12 }} lineStyle={{ opacity: 0 }} />
       <div className="overflow-hidden rounded-2xl flex flex-col flex-1" style={{ width: "100%", height: "100%" }}>
 
         {/* Header */}
-        <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: "rgba(20,20,20,0.04)", borderBottom: "1px solid rgba(20,20,20,0.10)" }}>
+        <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: "hsl(var(--ink-on-cream) / 0.04)", borderBottom: "1px solid hsl(var(--ink-on-cream) / 0.10)" }}>
           {(profilePicB64 || profilePicUrl) ? (
             <img
               src={profilePicB64 || profilePicUrl!}
               alt={username || "Profile"}
               className="w-8 h-8 rounded-full object-cover flex-shrink-0 border"
-              style={{ borderColor: "rgba(20,20,20,0.20)" }}
+              style={{ borderColor: "hsl(var(--ink-on-cream) / 0.20)" }}
               onError={(e) => {
                 const img = e.target as HTMLImageElement;
                 if (profilePicUrl && !img.src.includes("/api/proxy-image") && !img.src.startsWith("data:")) {
@@ -389,7 +389,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
         {/* Loading */}
         {status === "loading" && (
           <div className="p-8 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.55)" }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }} />
             <p className="text-xs text-muted-foreground">Fetching top posts from {platformLabel}...</p>
             <p className="text-[10px] text-muted-foreground/60">This may take up to 30 seconds</p>
           </div>
@@ -427,7 +427,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                   const isExpanded = expandedIndex === i;
                   const isAnalyzing = analyzingIndices.has(i);
                   const isTranscribing = transcribingIndices.has(i);
-                  const hookColor = post.hookType ? (HOOK_TYPE_COLORS[post.hookType] || "rgba(20,20,20,0.45)") : null;
+                  const hookColor = post.hookType ? (HOOK_TYPE_COLORS[post.hookType] || "hsl(var(--ink-on-cream) / 0.45)") : null;
 
                   return (
                     <div key={i} className="border-b border-border/50 last:border-b-0">
@@ -467,7 +467,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                               </span>
                             )}
                             {post.transcription && (
-                              <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(20,20,20,0.08)", color: "rgba(20,20,20,0.65)" }}>
+                              <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded" style={{ background: "hsl(var(--ink-on-cream) / 0.08)", color: "hsl(var(--ink-on-cream) / 0.65)" }}>
                                 Transcribed
                               </span>
                             )}
@@ -488,7 +488,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
 
                       {/* Expanded detail panel */}
                       {isExpanded && (
-                        <div className="px-3 pb-3 pt-0 space-y-2.5 select-text" style={{ background: "rgba(20,20,20,0.03)", borderTop: "1px solid rgba(20,20,20,0.08)" }}>
+                        <div className="px-3 pb-3 pt-0 space-y-2.5 select-text" style={{ background: "hsl(var(--ink-on-cream) / 0.03)", borderTop: "1px solid hsl(var(--ink-on-cream) / 0.08)" }}>
                           {isAnalyzing ? (
                             <div className="flex items-center gap-2 py-3">
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -516,8 +516,8 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
 
                               {/* Apply to client */}
                               {post.applyToClient && (
-                                <div className="rounded-lg p-2.5" style={{ background: "rgba(143,208,213,0.06)", border: "1px solid rgba(143,208,213,0.15)" }}>
-                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "#8FD0D5" }}>
+                                <div className="rounded-lg p-2.5" style={{ background: "hsl(var(--aqua) / 0.06)", border: "1px solid hsl(var(--aqua) / 0.15)" }}>
+                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "hsl(var(--aqua))" }}>
                                     Apply to {clientName || "Client"}
                                   </p>
                                   <p className="text-[10px] leading-relaxed cursor-text" style={{ color: "#5ab0b7" }}>{post.applyToClient}</p>
@@ -526,8 +526,8 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
 
                               {/* Transcription */}
                               {post.transcription && (
-                                <div className="rounded-lg p-2.5" style={{ background: "rgba(20,20,20,0.04)", border: "1px solid rgba(20,20,20,0.10)" }}>
-                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(20,20,20,0.55)" }}>Transcription</p>
+                                <div className="rounded-lg p-2.5" style={{ background: "hsl(var(--ink-on-cream) / 0.04)", border: "1px solid hsl(var(--ink-on-cream) / 0.10)" }}>
+                                  <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }}>Transcription</p>
                                   <p className="text-[10px] leading-relaxed text-foreground/70 max-h-24 overflow-y-auto cursor-text">{post.transcription}</p>
                                 </div>
                               )}
@@ -538,7 +538,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                                   <button
                                     onClick={(e) => { e.stopPropagation(); onAddVideoNode(post.url); }}
                                     className="nodrag flex items-center gap-1 text-[9px] font-semibold px-2 py-1 rounded-md transition-colors"
-                                    style={{ background: "rgba(143,208,213,0.12)", color: "#8FD0D5", border: "1px solid rgba(143,208,213,0.25)" }}
+                                    style={{ background: "hsl(var(--aqua) / 0.12)", color: "hsl(var(--aqua))", border: "1px solid hsl(var(--aqua) / 0.25)" }}
                                   >
                                     + Add to Canvas
                                   </button>
@@ -587,18 +587,18 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                         Cancel
                       </button>
                     </div>
-                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(20,20,20,0.08)" }}>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(var(--ink-on-cream) / 0.08)" }}>
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${deepProgress.total > 0 ? (deepProgress.done / deepProgress.total) * 100 : 0}%`,
-                          background: "#141414",
+                          background: "hsl(var(--ink-on-cream))",
                         }}
                       />
                     </div>
                   </div>
                 ) : posts.every(p => p.transcription) ? (
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium" style={{ color: "#8FD0D5" }}>
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium" style={{ color: "hsl(var(--aqua))" }}>
                     <Sparkles className="w-3.5 h-3.5" />
                     All {posts.length} posts transcribed — exploding into folder...
                   </div>

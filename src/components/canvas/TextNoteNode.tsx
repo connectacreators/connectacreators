@@ -24,7 +24,7 @@ function TBtn({ active, onClick, children, title }: { active?: boolean; onClick:
     <button
       onClick={onClick}
       title={title}
-      className={`nodrag p-1 rounded transition-colors ${active ? "bg-[rgba(20,20,20,0.08)] text-[#8FD0D5]" : "text-[rgba(20,20,20,0.45)] hover:text-[#141414] hover:bg-[rgba(20,20,20,0.07)]"}`}
+      className={`nodrag p-1 rounded transition-colors ${active ? "bg-[hsl(var(--ink-on-cream) / 0.08)] text-[hsl(var(--aqua))]" : "text-[hsl(var(--ink-on-cream) / 0.45)] hover:text-[hsl(var(--ink-on-cream))] hover:bg-[hsl(var(--ink-on-cream) / 0.07)]"}`}
     >
       {children}
     </button>
@@ -56,7 +56,7 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
     content: d.noteHtml || d.noteText || "",
     editorProps: {
       attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm leading-relaxed min-h-[120px] [&_*]:text-[#141414] [&_h1,h2,h3,h4]:text-[#141414]",
+        class: "prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm leading-relaxed min-h-[120px] [&_*]:text-[hsl(var(--ink-on-cream))] [&_h1,h2,h3,h4]:text-[hsl(var(--ink-on-cream))]",
       },
     },
     onUpdate: ({ editor: e }) => {
@@ -167,13 +167,13 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Content wrapper — clips to rounded corners without clipping Handles */}
       <div className="overflow-hidden rounded-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[rgba(20,20,20,0.05)] border-b border-[rgba(20,20,20,0.12)]">
+      <div className="flex items-center justify-between px-3 py-2 bg-[hsl(var(--ink-on-cream) / 0.05)] border-b border-[hsl(var(--ink-on-cream) / 0.12)]">
         <div className="flex items-center gap-2">
           <StickyNote className="w-3.5 h-3.5 text-primary" />
           <span className="text-xs font-semibold text-primary/80">Text Info</span>
         </div>
         {d.onDelete && (
-          <button onClick={d.onDelete} className="nodrag p-0.5 rounded hover:bg-red-500/20 text-[rgba(20,20,20,0.40)] hover:text-red-400 transition-colors">
+          <button onClick={d.onDelete} className="nodrag p-0.5 rounded hover:bg-red-500/20 text-[hsl(var(--ink-on-cream) / 0.40)] hover:text-red-400 transition-colors">
             <X className="w-3 h-3" />
           </button>
         )}
@@ -181,7 +181,7 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Formatting Toolbar */}
       {editor && (
-        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[rgba(20,20,20,0.08)] bg-[rgba(20,20,20,0.03)] flex-wrap nodrag">
+        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[hsl(var(--ink-on-cream) / 0.08)] bg-[hsl(var(--ink-on-cream) / 0.03)] flex-wrap nodrag">
           {/* Format dropdown */}
           <select
             value={
@@ -195,7 +195,7 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
               if (v === "p") editor.chain().focus().setParagraph().run();
               else editor.chain().focus().toggleHeading({ level: parseInt(v[1]) as 1 | 2 | 3 }).run();
             }}
-            className="nodrag h-6 px-1.5 text-[10px] bg-[rgba(20,20,20,0.05)] border border-[rgba(20,20,20,0.12)] rounded text-[#141414] focus:outline-none mr-1"
+            className="nodrag h-6 px-1.5 text-[10px] bg-[hsl(var(--ink-on-cream) / 0.05)] border border-[hsl(var(--ink-on-cream) / 0.12)] rounded text-[hsl(var(--ink-on-cream))] focus:outline-none mr-1"
           >
             <option value="p">Normal</option>
             <option value="h1">Heading 1</option>
@@ -263,7 +263,7 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
       >
         <div style={{
           position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-          width: 3, height: 24, borderRadius: 2, background: "rgba(20,20,20,0.35)", opacity: 0.6,
+          width: 3, height: 24, borderRadius: 2, background: "hsl(var(--ink-on-cream) / 0.35)", opacity: 0.6,
         }} />
       </div>
 
@@ -279,7 +279,7 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
       >
         <div style={{
           position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)",
-          height: 3, width: 24, borderRadius: 2, background: "rgba(20,20,20,0.35)", opacity: 0.6,
+          height: 3, width: 24, borderRadius: 2, background: "hsl(var(--ink-on-cream) / 0.35)", opacity: 0.6,
         }} />
       </div>
 
@@ -294,7 +294,7 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
         }}
       >
         <div style={{
-          width: 8, height: 8, borderRight: "2px solid rgba(20,20,20,0.35)", borderBottom: "2px solid rgba(20,20,20,0.35)",
+          width: 8, height: 8, borderRight: "2px solid hsl(var(--ink-on-cream) / 0.35)", borderBottom: "2px solid hsl(var(--ink-on-cream) / 0.35)",
           opacity: 0.6, position: "absolute", bottom: 2, right: 2, borderRadius: "0 0 2px 0",
         }} />
       </div>

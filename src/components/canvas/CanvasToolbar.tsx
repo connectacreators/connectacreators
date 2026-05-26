@@ -79,7 +79,7 @@ function IconBtn({
         data-tutorial-target={tutorialTarget}
         className={`p-2 rounded-xl transition-colors ${
           accent
-            ? "text-[#8FD0D5] hover:text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.15)]"
+            ? "text-[hsl(var(--aqua))] hover:text-[hsl(var(--aqua))] hover:bg-[hsl(var(--aqua) / 0.15)]"
             : "hover:text-foreground hover:bg-muted/40"
         }`}
       >
@@ -93,7 +93,7 @@ function IconBtn({
   );
 }
 
-const DRAW_COLORS = ["#8FD0D5", "#f43f5e", "#F0BC7D", "#f59e0b", "#a78bfa", "#ffffff"];
+const DRAW_COLORS = ["hsl(var(--aqua))", "#f43f5e", "#F0BC7D", "#f59e0b", "#a78bfa", "#ffffff"];
 
 function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession }: {
   sessions: SessionItem[];
@@ -136,7 +136,7 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
       {/* Session name pill */}
       <button
         onClick={() => { setOpen(o => !o); setRenamingId(null); setConfirmDeleteId(null); }}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#ffffff] border border-[#141414] text-xs text-[rgba(20,20,20,0.55)] hover:text-[rgba(20,20,20,0.90)] transition-colors max-w-[140px]"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] text-xs text-[hsl(var(--ink-on-cream) / 0.55)] hover:text-[hsl(var(--ink-on-cream) / 0.90)] transition-colors max-w-[140px]"
       >
         <span className="truncate">{activeName}</span>
         <ChevronDown className="w-3 h-3 flex-shrink-0" />
@@ -146,14 +146,14 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
       <button
         onClick={() => { onNewSession?.(); setOpen(false); }}
         title="New session"
-        className="p-1.5 rounded-xl bg-[#ffffff] border border-[#141414] text-[rgba(20,20,20,0.55)] hover:text-primary hover:border-primary/40 transition-colors"
+        className="p-1.5 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.55)] hover:text-primary hover:border-primary/40 transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-56 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 overflow-hidden py-1">
+        <div className="absolute top-full left-0 mt-2 w-56 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1">
           {sessions.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No sessions</div>
           )}
@@ -167,20 +167,20 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
                 key={session.id}
                 className="group flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer"
                 style={{
-                  background: isActive ? "rgba(143,208,213,0.18)" : "transparent",
-                  color: isActive ? "#141414" : "rgba(20,20,20,0.72)",
+                  background: isActive ? "hsl(var(--aqua) / 0.18)" : "transparent",
+                  color: isActive ? "hsl(var(--ink-on-cream))" : "hsl(var(--ink-on-cream) / 0.72)",
                   fontWeight: isActive ? 600 : 400,
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.background = "rgba(20,20,20,0.05)";
-                    e.currentTarget.style.color = "#141414";
+                    e.currentTarget.style.background = "hsl(var(--ink-on-cream) / 0.05)";
+                    e.currentTarget.style.color = "hsl(var(--ink-on-cream))";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "rgba(20,20,20,0.72)";
+                    e.currentTarget.style.color = "hsl(var(--ink-on-cream) / 0.72)";
                   }
                 }}
                 onClick={() => {
@@ -227,7 +227,7 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
                 ) : (
                   <>
                     <span className="flex-1 truncate">{session.name}</span>
-                    <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(20,20,20,0.45)" }}>{relativeTime(session.updated_at)}</span>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}>{relativeTime(session.updated_at)}</span>
                     <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
                       <button
                         className="p-0.5 rounded hover:bg-muted/60"
@@ -274,17 +274,17 @@ const TOOLS_ITEMS = [
 function ToolsDropdown({ onAddNode }: { onAddNode: (type: "hookGeneratorNode" | "ctaBuilderNode" | "brandGuideNode" | "onboardingFormNode") => void }) {
   return (
     <div className="relative group">
-      <button className="p-2 rounded-xl transition-colors group-hover:text-[#8FD0D5] group-hover:bg-[rgba(143,208,213,0.1)]">
+      <button className="p-2 rounded-xl transition-colors group-hover:text-[hsl(var(--aqua))] group-hover:bg-[hsl(var(--aqua) / 0.1)]">
         <Wrench className="w-4 h-4" />
       </button>
       {/* Invisible bridge prevents gap from closing the dropdown */}
       <div className="absolute h-2 w-full left-0 top-full" />
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
         {TOOLS_ITEMS.map(({ type, icon: Icon, label }) => (
           <button
             key={type}
             onClick={() => onAddNode(type)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.08)] transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[hsl(var(--aqua))] hover:bg-[hsl(var(--aqua) / 0.08)] transition-colors text-left"
           >
             <Icon className="w-3.5 h-3.5 flex-shrink-0" />
             {label}
@@ -307,17 +307,17 @@ function ResearchDropdown({ onAddNode, onOpenViralPicker }: {
 
   return (
     <div className="relative group">
-      <button className="p-2 rounded-xl transition-colors group-hover:text-[#8FD0D5] group-hover:bg-[rgba(143,208,213,0.1)]">
+      <button className="p-2 rounded-xl transition-colors group-hover:text-[hsl(var(--aqua))] group-hover:bg-[hsl(var(--aqua) / 0.1)]">
         <Compass className="w-4 h-4" />
       </button>
       {/* Invisible bridge prevents gap from closing the dropdown */}
       <div className="absolute h-2 w-full left-0 top-full" />
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
         {items.map(({ icon: Icon, label, onClick }) => (
           <button
             key={label}
             onClick={onClick}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.08)] transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-[hsl(var(--aqua))] hover:bg-[hsl(var(--aqua) / 0.08)] transition-colors text-left"
           >
             <Icon className="w-3.5 h-3.5 flex-shrink-0" />
             {label}
@@ -349,12 +349,12 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {saveStatus && saveStatus !== "idle" && (
           <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium backdrop-blur-sm border shadow-sm transition-opacity ${
-            saveStatus === "saving" ? "bg-[#ffffff] border-[#141414] text-[rgba(20,20,20,0.55)]" :
-            saveStatus === "saved" ? "bg-[#ffffff] border-[#141414] text-[#8FD0D5]" :
-            "bg-[#ffffff] border-[#141414] text-red-500"
+            saveStatus === "saving" ? "bg-[#ffffff] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.55)]" :
+            saveStatus === "saved" ? "bg-[#ffffff] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--aqua))]" :
+            "bg-[#ffffff] border-[hsl(var(--ink-on-cream))] text-red-500"
           }`}>
             {saveStatus === "saving" && <><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Saving...</>}
-            {saveStatus === "saved" && <><span className="w-1.5 h-1.5 rounded-full bg-[#8FD0D5]" /> Saved</>}
+            {saveStatus === "saved" && <><span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--aqua))]" /> Saved</>}
             {saveStatus === "error" && <><span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Save failed</>}
           </span>
         )}
@@ -363,14 +363,14 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
       {/* Presence avatars — absolute right */}
       {presenceOthers && myAnimalName && myColor && (
         <div className="absolute right-3 pointer-events-auto">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#ffffff] border border-[#141414]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))]">
             <PresenceAvatars
               others={presenceOthers}
               myAnimalName={myAnimalName}
               myColor={myColor}
             />
             {presenceOthers.length > 0 && (
-              <span className="text-[10px] ml-1" style={{ color: "rgba(20,20,20,0.55)" }}>
+              <span className="text-[10px] ml-1" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }}>
                 {presenceOthers.length + 1} online
               </span>
             )}
@@ -381,7 +381,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
       {/* Center — main toolbar + optional drawing sub-bar */}
       <div className="pointer-events-auto flex flex-col items-center gap-1.5">
         {/* ── Main toolbar pill ── */}
-        <div className="canvas-toolbar-pill flex items-center gap-0.5 px-2 py-1.5 rounded-2xl" style={{ background: "#ffffff", border: "1px solid #141414", boxShadow: "2px 2px 0 #141414", color: "rgba(20,20,20,0.65)" }}>
+        <div className="canvas-toolbar-pill flex items-center gap-0.5 px-2 py-1.5 rounded-2xl" style={{ background: "#ffffff", border: "1px solid hsl(var(--ink-on-cream))", boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))", color: "hsl(var(--ink-on-cream) / 0.65)" }}>
           <IconBtn onClick={() => onAddNode("videoNode")}        icon={Instagram}  label="Add Video"    accent tutorialTarget="video-btn" />
           <IconBtn onClick={() => onAddNode("textNoteNode")}     icon={StickyNote} label="Add Note"     accent tutorialTarget="note-btn" />
           <IconBtn onClick={() => onAddNode("mediaNode")}        icon={Paperclip} label="Upload Media" accent />
@@ -407,7 +407,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
               onClick={onToggleDrawing}
               className={`p-2 rounded-xl transition-colors ${
                 drawingMode
-                  ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.2)] ring-1 ring-[#8FD0D5]/40"
+                  ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.2)] ring-1 ring-[hsl(var(--aqua))]/40"
                   : "hover:text-foreground hover:bg-muted/40"
               }`}
             >
@@ -438,7 +438,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {/* ── Drawing sub-bar — only when drawing mode is on ── */}
         {drawingMode && (
-          <div className="flex items-center gap-0.5 px-2 py-1 rounded-2xl bg-[#ffffff] border border-[#141414]">
+          <div className="flex items-center gap-0.5 px-2 py-1 rounded-2xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))]">
             {!eraserMode && (
               <>
                 {/* Shape tool — shows active icon, hover opens picker */}
@@ -455,15 +455,15 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                   const ActiveIcon = SHAPE_TOOLS.find(s => s.tool === drawTool)?.icon || PenLine;
                   return (
                     <div className="relative group">
-                      <button className="p-1.5 rounded-lg text-[#8FD0D5] bg-[rgba(143,208,213,0.2)] transition-colors">
+                      <button className="p-1.5 rounded-lg text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.2)] transition-colors">
                         <ActiveIcon className="w-3.5 h-3.5" />
                       </button>
                       <div className="absolute h-2 w-full left-0 top-full" />
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                         {SHAPE_TOOLS.map(({ tool, icon: Icon, label }) => (
                           <button key={tool} onClick={() => onDrawToolChange?.(tool)}
                             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors text-left whitespace-nowrap ${
-                              drawTool === tool ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.1)]" : "text-muted-foreground hover:text-[#8FD0D5] hover:bg-[rgba(143,208,213,0.08)]"
+                              drawTool === tool ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.1)]" : "text-muted-foreground hover:text-[hsl(var(--aqua))] hover:bg-[hsl(var(--aqua) / 0.08)]"
                             }`}
                           >
                             <Icon className="w-3.5 h-3.5 flex-shrink-0" /> {label}
@@ -478,7 +478,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                 {drawTool !== "freeform" && drawTool !== "line" && drawTool !== "arrow" && drawTool !== "dottedLine" && (
                   <div className="relative group">
                     <button onClick={onDrawFillToggle}
-                      className={`p-1.5 rounded-lg transition-colors ${drawFill ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.2)]" : "hover:text-foreground hover:bg-muted/30"}`}
+                      className={`p-1.5 rounded-lg transition-colors ${drawFill ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.2)]" : "hover:text-foreground hover:bg-muted/30"}`}
                     >
                       <div className="w-3.5 h-3.5 rounded-sm border border-current" style={{ background: drawFill ? "currentColor" : "transparent", opacity: drawFill ? 0.4 : 1 }} />
                     </button>
@@ -496,7 +496,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                     <div className="w-4 h-4 rounded-full border border-white/20" style={{ background: drawColor }} />
                   </button>
                   <div className="absolute h-2 w-full left-0 top-full" />
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                     <div className="flex gap-1.5">
                       {DRAW_COLORS.map(c => (
                         <button key={c} onClick={() => onDrawColorChange?.(c)}
@@ -511,16 +511,16 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                 {/* Stroke width — single dot, hover opens picker */}
                 <div className="relative group">
                   <button className="p-1.5 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-center">
-                    <div className="rounded-full" style={{ width: Math.max(4, drawWidth * 1.5), height: Math.max(4, drawWidth * 1.5), background: "rgba(20,20,20,0.45)" }} />
+                    <div className="rounded-full" style={{ width: Math.max(4, drawWidth * 1.5), height: Math.max(4, drawWidth * 1.5), background: "hsl(var(--ink-on-cream) / 0.45)" }} />
                   </button>
                   <div className="absolute h-2 w-full left-0 top-full" />
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[#141414] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                     <div className="flex items-center gap-1.5">
                       {([1, 2, 4, 6, 10] as const).map(w => (
                         <button key={w} onClick={() => onDrawWidthChange?.(w)}
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawWidth === w ? "bg-[rgba(143,208,213,0.2)]" : "hover:bg-muted/30"}`}
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawWidth === w ? "bg-[hsl(var(--aqua) / 0.2)]" : "hover:bg-muted/30"}`}
                         >
-                          <div className="rounded-full" style={{ width: Math.max(3, w * 1.5), height: Math.max(3, w * 1.5), background: drawWidth === w ? "#8FD0D5" : "rgba(20,20,20,0.45)" }} />
+                          <div className="rounded-full" style={{ width: Math.max(3, w * 1.5), height: Math.max(3, w * 1.5), background: drawWidth === w ? "hsl(var(--aqua))" : "hsl(var(--ink-on-cream) / 0.45)" }} />
                         </button>
                       ))}
                     </div>

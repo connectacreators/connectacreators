@@ -119,9 +119,9 @@ function UserBubble({
     <div
       className={`px-4 py-2.5 rounded-2xl ${fullscreen ? "text-sm" : "text-xs"}`}
       style={{
-        background: fullscreen ? "rgba(234,230,220,0.10)" : "rgba(20,20,20,0.08)",
-        border: fullscreen ? "1px solid rgba(234,230,220,0.12)" : "1px solid rgba(20,20,20,0.10)",
-        color: fullscreen ? "#EAE6DC" : "#141414",
+        background: fullscreen ? "hsl(var(--bone) / 0.10)" : "hsl(var(--ink-on-cream) / 0.08)",
+        border: fullscreen ? "1px solid hsl(var(--bone) / 0.12)" : "1px solid hsl(var(--ink-on-cream) / 0.10)",
+        color: fullscreen ? "hsl(var(--cream))" : "hsl(var(--ink-on-cream))",
       }}
     >
       {text}
@@ -590,7 +590,7 @@ export function AssistantChat({
                     style={{
                       width: 4,
                       height: 4,
-                      background: "#8FD0D5",
+                      background: "hsl(var(--aqua))",
                       animation: "broadcast-pulse 1.2s ease-in-out infinite",
                       transform: "translateY(-2px)",
                     }}
@@ -601,7 +601,7 @@ export function AssistantChat({
                       fontStyle: "italic",
                       fontSize: 15,
                       lineHeight: 1.45,
-                      color: "rgba(234,230,220,0.78)",
+                      color: "hsl(var(--bone) / 0.78)",
                     }}
                   >
                     {msg.content}
@@ -646,12 +646,12 @@ export function AssistantChat({
                 </div>
               ) : msg.type === "image" && (msg._blobUrl || msg.image_b64) ? (
                 <div className="flex gap-2 items-start">
-                  <ImageIcon className="w-3.5 h-3.5 text-[#8FD0D5] mt-0.5 flex-shrink-0" />
+                  <ImageIcon className="w-3.5 h-3.5 text-[hsl(var(--aqua))] mt-0.5 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <img
                       src={resolveImageUrl(msg)}
                       alt={msg.revised_prompt || "Generated image"}
-                      className="rounded-lg max-w-full border border-[rgba(143,208,213,0.35)]"
+                      className="rounded-lg max-w-full border border-[hsl(var(--aqua) / 0.35)]"
                     />
                     {msg.revised_prompt && (
                       <p className="text-[10px] text-muted-foreground mt-1.5 italic">
@@ -659,7 +659,7 @@ export function AssistantChat({
                       </p>
                     )}
                     {msg.credits_used && (
-                      <p className="text-[10px] text-[#8FD0D5]/70 mt-0.5">
+                      <p className="text-[10px] text-[hsl(var(--aqua))]/70 mt-0.5">
                         {msg.credits_used} credits
                       </p>
                     )}
@@ -669,7 +669,7 @@ export function AssistantChat({
                 <div className="flex gap-2 items-start">
                   <svg
                     className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                    style={{ color: "#8FD0D5" }}
+                    style={{ color: "hsl(var(--aqua))" }}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -681,7 +681,7 @@ export function AssistantChat({
                   </svg>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "rgba(143,208,213,0.90)" }}>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "hsl(var(--aqua) / 0.90)" }}>
                         Deep Research
                       </span>
                       {msg.source_count != null && msg.source_count > 0 && (
@@ -697,7 +697,7 @@ export function AssistantChat({
                     <button
                       onClick={() => handleSaveResearch(msg)}
                       className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
-                      style={{ color: "rgba(143,208,213,0.90)", borderColor: "rgba(143,208,213,0.35)", background: "rgba(143,208,213,0.10)" }}
+                      style={{ color: "hsl(var(--aqua) / 0.90)", borderColor: "hsl(var(--aqua) / 0.35)", background: "hsl(var(--aqua) / 0.10)" }}
                     >
                       <svg
                         className="w-3 h-3"
@@ -853,7 +853,7 @@ export function AssistantChat({
               style={{
                 width: 4,
                 height: 4,
-                background: "#8FD0D5",
+                background: "hsl(var(--aqua))",
                 animation: "broadcast-pulse 1.2s ease-in-out infinite",
                 transform: "translateY(-2px)",
               }}
@@ -864,7 +864,7 @@ export function AssistantChat({
                 fontStyle: "italic",
                 fontSize: 13,
                 lineHeight: 1.45,
-                color: "rgba(234,230,220,0.62)",
+                color: "hsl(var(--bone) / 0.62)",
               }}
             >
               {msg.content}
@@ -874,11 +874,11 @@ export function AssistantChat({
 
         {generatingImage && (
           <div className="flex gap-2 items-start">
-            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(143,208,213,0.75)" }} />
+            <ImageIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "hsl(var(--aqua) / 0.75)" }} />
             <div className="min-w-0 flex-1">
               <div
                 className="rounded-lg overflow-hidden relative"
-                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid rgba(143,208,213,0.18)", background: "rgba(143,208,213,0.05)" }}
+                style={{ width: "100%", maxWidth: 256, aspectRatio: "1 / 1", border: "1px solid hsl(var(--aqua) / 0.18)", background: "hsl(var(--aqua) / 0.05)" }}
               >
                 {/* Subtle shimmer — editorial neutral, no aqua glow */}
                 <div
@@ -891,11 +891,11 @@ export function AssistantChat({
                   }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(143,208,213,0.75)" }} />
-                  <span className="text-[11px] font-medium" style={{ color: "rgba(143,208,213,0.70)" }}>
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "hsl(var(--aqua) / 0.75)" }} />
+                  <span className="text-[11px] font-medium" style={{ color: "hsl(var(--aqua) / 0.70)" }}>
                     Creating image…
                   </span>
-                  <span className="text-[10px]" style={{ color: "rgba(143,208,213,0.50)" }}>
+                  <span className="text-[10px]" style={{ color: "hsl(var(--aqua) / 0.50)" }}>
                     1024 × 1024
                   </span>
                 </div>
@@ -941,7 +941,7 @@ export function AssistantChat({
               {looksLikeResearch ? (
                 <svg
                   className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                  style={{ color: "#8FD0D5" }}
+                  style={{ color: "hsl(var(--aqua))" }}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"

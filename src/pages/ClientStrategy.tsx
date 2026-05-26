@@ -335,7 +335,7 @@ export default function ClientStrategy() {
             />
           ) : clientOnboarding.instagram ? (
             <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[13px] font-bold"
-              style={{ background: "rgba(34,211,238,0.1)", border: "2px solid rgba(34,211,238,0.2)", color: "#8FD0D5" }}>
+              style={{ background: "rgba(34,211,238,0.1)", border: "2px solid rgba(34,211,238,0.2)", color: "hsl(var(--aqua))" }}>
               {String(clientOnboarding.instagram).replace(/^@/, "").slice(0, 2).toUpperCase()}
             </div>
           ) : null}
@@ -359,7 +359,7 @@ export default function ClientStrategy() {
                 onClick={saveStrategy}
                 disabled={saving}
                 className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg,#8FD0D5,#E0A560)" }}
+                style={{ background: "linear-gradient(135deg,hsl(var(--aqua)),hsl(var(--honey)))" }}
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {en ? "Save" : "Guardar"}
@@ -437,13 +437,13 @@ export default function ClientStrategy() {
         {/* Content Mix */}
         <StatusCard status="green" title={en ? "Content Mix" : "Mezcla de Contenido"} badge={en ? "Configured" : "Configurado"}>
           <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-2">
-            <div style={{ width: `${s.mix_reach}%`, background: "#8FD0D5", borderRadius: "999px" }} />
+            <div style={{ width: `${s.mix_reach}%`, background: "hsl(var(--aqua))", borderRadius: "999px" }} />
             <div style={{ width: `${s.mix_trust}%`, background: "#F0BC7D", borderRadius: "999px" }} />
             <div style={{ width: `${s.mix_convert}%`, background: "#f59e0b", borderRadius: "999px" }} />
           </div>
           <div className="flex gap-4 flex-wrap mb-2">
             {[
-              { label: en ? "Reach" : "Alcance", value: s.mix_reach, color: "#8FD0D5", field: "mix_reach" as keyof ClientStrategy },
+              { label: en ? "Reach" : "Alcance", value: s.mix_reach, color: "hsl(var(--aqua))", field: "mix_reach" as keyof ClientStrategy },
               { label: en ? "Trust" : "Confianza", value: s.mix_trust, color: "#F0BC7D", field: "mix_trust" as keyof ClientStrategy },
               { label: en ? "Convert" : "Conversión", value: s.mix_convert, color: "#f59e0b", field: "mix_convert" as keyof ClientStrategy },
             ].map(item => (
@@ -545,7 +545,7 @@ export default function ClientStrategy() {
             <button
               onClick={runAnalysis}
               className="w-full text-[11px] text-left px-2.5 py-2 rounded-lg mb-3 transition-opacity hover:opacity-80"
-              style={{ background: "rgba(34,211,238,0.07)", color: "#8FD0D5", border: "1px solid rgba(34,211,238,0.15)" }}
+              style={{ background: "rgba(34,211,238,0.07)", color: "hsl(var(--aqua))", border: "1px solid rgba(34,211,238,0.15)" }}
             >
               {en ? "Analysis is in another language — click to re-analyze in English" : "El análisis está en otro idioma — toca para re-analizar en español"}
             </button>
@@ -570,7 +570,7 @@ export default function ClientStrategy() {
               className="text-[10px] font-semibold px-2.5 py-1 rounded-md transition-opacity disabled:opacity-40"
               style={{
                 background: "rgba(34,211,238,0.1)",
-                color: "#8FD0D5",
+                color: "hsl(var(--aqua))",
                 border: "1px solid rgba(34,211,238,0.2)",
               }}
             >

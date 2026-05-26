@@ -64,8 +64,8 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       style={{
         width: 260,
         background: "#ffffff",
-        border: selected ? "1px solid #8FD0D5" : "1px solid rgba(20,20,20,0.12)",
-        borderLeft: "4px solid #8FD0D5",
+        border: selected ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream) / 0.12)",
+        borderLeft: "4px solid hsl(var(--aqua))",
       }}
     >
       <NodeResizer
@@ -77,15 +77,15 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       {/* Drag handle + delete */}
       <div
         className="drag-handle flex items-center justify-between px-3 py-2"
-        style={{ cursor: "grab", borderBottom: "1px solid rgba(20,20,20,0.08)" }}
+        style={{ cursor: "grab", borderBottom: "1px solid hsl(var(--ink-on-cream) / 0.08)" }}
       >
         <div className="flex items-center gap-1.5">
           <div
             className="w-2 h-2 rounded-full"
-            style={{ background: "#8FD0D5" }}
+            style={{ background: "hsl(var(--aqua))" }}
           />
           <span
-            style={{ fontSize: 10, color: "#8FD0D5", fontWeight: 600 }}
+            style={{ fontSize: 10, color: "hsl(var(--aqua))", fontWeight: 600 }}
           >
             BATCH SCRIPT
           </span>
@@ -94,7 +94,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <button
             onClick={d.onDelete}
             className="hover:text-red-400 transition-colors"
-            style={{ color: "rgba(20,20,20,0.45)" }}
+            style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}
             style={{ fontSize: 11 }}
           >
             ✕
@@ -124,36 +124,36 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           className="flex items-center justify-center"
           style={{ width: "100%", height: 60, background: "#ffffff" }}
         >
-          <PlatformIcon className="w-5 h-5" style={{ color: "rgba(20,20,20,0.35)" }} />
+          <PlatformIcon className="w-5 h-5" style={{ color: "hsl(var(--ink-on-cream) / 0.35)" }} />
         </div>
       )}
 
       {/* Content */}
       <div className="px-3 py-2">
         {/* Title */}
-        <p style={{ fontSize: 13, fontWeight: 600, color: "#141414", marginBottom: 4 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "hsl(var(--ink-on-cream))", marginBottom: 4 }}>
           {title}
         </p>
 
         {/* Source metadata */}
         <div className="flex items-center gap-1.5" style={{ marginBottom: 6 }}>
           {d.ownerUsername && (
-            <span style={{ fontSize: 10, color: "rgba(20,20,20,0.45)" }}>
+            <span style={{ fontSize: 10, color: "hsl(var(--ink-on-cream) / 0.45)" }}>
               @{d.ownerUsername}
             </span>
           )}
           {d.outlierScore != null && (
             <>
-              <span style={{ fontSize: 10, color: "rgba(20,20,20,0.25)" }}>·</span>
-              <span style={{ fontSize: 10, color: "rgba(20,20,20,0.45)" }}>
+              <span style={{ fontSize: 10, color: "hsl(var(--ink-on-cream) / 0.25)" }}>·</span>
+              <span style={{ fontSize: 10, color: "hsl(var(--ink-on-cream) / 0.45)" }}>
                 {d.outlierScore >= 10 ? Math.round(d.outlierScore) : d.outlierScore.toFixed(1)}x
               </span>
             </>
           )}
           {d.script?.virality_score != null && (
             <>
-              <span style={{ fontSize: 10, color: "rgba(20,20,20,0.25)" }}>·</span>
-              <span style={{ fontSize: 10, color: "#8FD0D5" }}>
+              <span style={{ fontSize: 10, color: "hsl(var(--ink-on-cream) / 0.25)" }}>·</span>
+              <span style={{ fontSize: 10, color: "hsl(var(--aqua))" }}>
                 {d.script.virality_score.toFixed(1)} virality
               </span>
             </>
@@ -165,7 +165,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <pre
             style={{
               fontSize: 11,
-              color: "rgba(20,20,20,0.55)",
+              color: "hsl(var(--ink-on-cream) / 0.55)",
               lineHeight: 1.5,
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
@@ -181,7 +181,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <p
             style={{
               fontSize: 11,
-              color: "rgba(20,20,20,0.55)",
+              color: "hsl(var(--ink-on-cream) / 0.55)",
               lineHeight: 1.4,
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -199,7 +199,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <button
             onClick={() => setExpanded(!expanded)}
             className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-            style={{ fontSize: 11, color: "#8FD0D5", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            style={{ fontSize: 11, color: "hsl(var(--aqua))", background: "none", border: "none", cursor: "pointer", padding: 0 }}
           >
             {expanded ? (
               <>
@@ -217,7 +217,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
               href={d.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 11, color: "rgba(20,20,20,0.45)" }}
+              style={{ fontSize: 11, color: "hsl(var(--ink-on-cream) / 0.45)" }}
               className="hover:opacity-100 transition-colors"
             >
               <ExternalLink className="w-3 h-3" />

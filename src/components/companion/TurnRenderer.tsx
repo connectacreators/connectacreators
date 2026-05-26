@@ -64,7 +64,7 @@ export default function TurnRenderer({ turn, onEmbedClick }: Props) {
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontSize: 16,
             lineHeight: 1.5,
-            color: "#EAE6DC",
+            color: "hsl(var(--cream))",
             letterSpacing: "-0.005em",
             fontStyle: turn.scenes.length > 0 ? "normal" : "italic",
           }}

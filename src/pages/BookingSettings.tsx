@@ -134,7 +134,7 @@ export default function BookingSettings() {
         booking_title: "Agenda tu cita",
         booking_description: null,
         primary_color: "#C4922A",
-        secondary_color: "#1A1A1A",
+        secondary_color: "hsl(var(--graphite))",
         break_times: [],
         zapier_webhook_url: null,
         logo_url: null,

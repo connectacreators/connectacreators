@@ -123,9 +123,9 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
     <div className="glass-card rounded-2xl min-w-[300px] max-w-[360px] relative">
       <div className="overflow-hidden rounded-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(20,20,20,0.05)] border-b border-[rgba(20,20,20,0.12)]">
+      <div className="flex items-center justify-between px-3 py-2.5 bg-[hsl(var(--ink-on-cream) / 0.05)] border-b border-[hsl(var(--ink-on-cream) / 0.12)]">
         <div className="flex items-center gap-2">
-          <Anchor className="w-3.5 h-3.5 text-[#8FD0D5]" />
+          <Anchor className="w-3.5 h-3.5 text-[hsl(var(--aqua))]" />
           <span className="text-xs font-semibold text-foreground">Hook Generator</span>
         </div>
         <button onClick={() => (d as HookGeneratorData).onDelete?.()} className="text-muted-foreground hover:text-foreground">
@@ -148,7 +148,7 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
           onClick={() => setShowFormulas(!showFormulas)}
           className={`px-2 py-1.5 text-xs rounded-lg border transition-colors flex items-center ${
             showFormulas
-              ? "bg-[rgba(20,20,20,0.08)] border-[rgba(20,20,20,0.12)] text-[#8FD0D5]"
+              ? "bg-[hsl(var(--ink-on-cream) / 0.08)] border-[hsl(var(--ink-on-cream) / 0.12)] text-[hsl(var(--aqua))]"
               : "bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/50"
           }`}
           title="Browse hook formulas"
@@ -158,7 +158,7 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
         <button
           onClick={generate}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#ffffff] text-[#8FD0D5] border border-[rgba(20,20,20,0.12)] hover:bg-[rgba(20,20,20,0.05)] disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#ffffff] text-[hsl(var(--aqua))] border border-[hsl(var(--ink-on-cream) / 0.12)] hover:bg-[hsl(var(--ink-on-cream) / 0.05)] disabled:opacity-50 transition-colors flex items-center gap-1"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Generate"}
         </button>
@@ -175,7 +175,7 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
                   onClick={() => setFormulaCategory(formulaCategory === cat ? null : cat)}
                   className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
                     formulaCategory === cat
-                      ? "bg-[rgba(20,20,20,0.08)] border-[rgba(20,20,20,0.12)] text-[#8FD0D5]"
+                      ? "bg-[hsl(var(--ink-on-cream) / 0.08)] border-[hsl(var(--ink-on-cream) / 0.12)] text-[hsl(var(--aqua))]"
                       : "bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -200,7 +200,7 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
                   onClick={() => handleFormulaClick(formula.template, formula.category)}
                   className="w-full text-left rounded-md border border-border/30 bg-muted/20 hover:bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <span className="text-[9px] uppercase tracking-wide text-[#8FD0D5]/70 font-medium">
+                  <span className="text-[9px] uppercase tracking-wide text-[hsl(var(--aqua))]/70 font-medium">
                     {HOOK_CATEGORY_LABELS[formula.category as HookCategory]}
                   </span>
                   <p className="leading-relaxed mt-0.5">{formula.template}</p>
@@ -227,14 +227,14 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
               onClick={() => selectHook(hook)}
               className={`w-full text-left rounded-lg border px-2.5 py-2 text-xs transition-colors cursor-pointer nodrag ${
                 selectedHook === hook.text
-                  ? "bg-[rgba(20,20,20,0.08)] border-[rgba(20,20,20,0.12)] text-foreground"
+                  ? "bg-[hsl(var(--ink-on-cream) / 0.08)] border-[hsl(var(--ink-on-cream) / 0.12)] text-foreground"
                   : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               <div className="flex items-start gap-1.5">
-                {selectedHook === hook.text && <Check className="w-3 h-3 text-[#8FD0D5] mt-0.5 flex-shrink-0" />}
+                {selectedHook === hook.text && <Check className="w-3 h-3 text-[hsl(var(--aqua))] mt-0.5 flex-shrink-0" />}
                 <div>
-                  <span className="text-[10px] uppercase tracking-wide text-[#8FD0D5]/80 font-medium select-text">
+                  <span className="text-[10px] uppercase tracking-wide text-[hsl(var(--aqua))]/80 font-medium select-text">
                     {CATEGORY_LABELS[normalizeCategory(hook.category)] ?? hook.category}
                   </span>
                   <p className="leading-relaxed mt-0.5 select-text">{hook.text}</p>

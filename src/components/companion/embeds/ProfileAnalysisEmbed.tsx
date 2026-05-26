@@ -45,7 +45,7 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
       className="rounded-xl overflow-hidden"
       style={{
         background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(234,230,220,0.10)",
+        border: "1px solid hsl(var(--bone) / 0.10)",
         padding: 14,
       }}
     >
@@ -56,22 +56,22 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
             src={data.profilePicUrl}
             alt=""
             className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-            style={{ border: "1px solid rgba(234,230,220,0.15)" }}
+            style={{ border: "1px solid hsl(var(--bone) / 0.15)" }}
           />
         ) : (
           <div
             className="w-10 h-10 rounded-full flex-shrink-0"
             style={{
               background: "linear-gradient(135deg, #4a3a30 0%, #2a1808 100%)",
-              border: "1px solid rgba(234,230,220,0.15)",
+              border: "1px solid hsl(var(--bone) / 0.15)",
             }}
           />
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-semibold" style={{ color: "rgba(234,230,220,0.95)" }}>
+          <div className="text-[13px] font-semibold" style={{ color: "hsl(var(--bone) / 0.95)" }}>
             @{data.handle}
           </div>
-          <div className="text-[10px]" style={{ color: "rgba(234,230,220,0.55)" }}>
+          <div className="text-[10px]" style={{ color: "hsl(var(--bone) / 0.55)" }}>
             {fmtCount(data.followers)} followers · {data.platform}
           </div>
         </div>
@@ -79,9 +79,9 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
           <span
             className="text-[10px] px-2 py-1 rounded font-jetbrains"
             style={{
-              background: "rgba(143,208,213,0.12)",
-              color: "rgba(143,208,213,0.95)",
-              border: "1px solid rgba(143,208,213,0.20)",
+              background: "hsl(var(--aqua) / 0.12)",
+              color: "hsl(var(--aqua) / 0.95)",
+              border: "1px solid hsl(var(--aqua) / 0.20)",
             }}
           >
             audience {data.audience_score}/10
@@ -89,9 +89,9 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
           <span
             className="text-[10px] px-2 py-1 rounded font-jetbrains"
             style={{
-              background: "rgba(224,165,96,0.12)",
-              color: "rgba(224,165,96,0.95)",
-              border: "1px solid rgba(224,165,96,0.20)",
+              background: "hsl(var(--honey) / 0.12)",
+              color: "hsl(var(--honey) / 0.95)",
+              border: "1px solid hsl(var(--honey) / 0.20)",
             }}
           >
             unique {data.uniqueness_score}/10
@@ -103,11 +103,11 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
       <div
         className="flex gap-3 text-[11px] mb-3 pb-3 font-jetbrains"
         style={{
-          color: "rgba(234,230,220,0.70)",
-          borderBottom: "1px solid rgba(234,230,220,0.08)",
+          color: "hsl(var(--bone) / 0.70)",
+          borderBottom: "1px solid hsl(var(--bone) / 0.08)",
         }}
       >
-        <span><span style={{ color: "#E0A560" }}>{cadenceFmt}</span> posts/wk</span>
+        <span><span style={{ color: "hsl(var(--honey))" }}>{cadenceFmt}</span> posts/wk</span>
         <span>·</span>
         <span>
           {Object.entries(data.format_mix)
@@ -117,7 +117,7 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
             .join(" / ")}
         </span>
         <span>·</span>
-        <span><span style={{ color: "#E0A560" }}>{outlierTop}×</span> outlier top</span>
+        <span><span style={{ color: "hsl(var(--honey))" }}>{outlierTop}×</span> outlier top</span>
       </div>
 
       {/* Hook patterns */}
@@ -125,20 +125,20 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
         <div className="mb-3">
           <div
             className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-            style={{ color: "rgba(143,208,213,0.90)" }}
+            style={{ color: "hsl(var(--aqua) / 0.90)" }}
           >
             Hook patterns
           </div>
           <div className="space-y-1">
             {data.hook_patterns.slice(0, 4).map((hp, i) => (
               <div key={i} className="flex items-start gap-2 text-[11px] leading-snug">
-                <span style={{ color: "rgba(224,165,96,0.95)", minWidth: 32, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ color: "hsl(var(--honey) / 0.95)", minWidth: 32, fontVariantNumeric: "tabular-nums" }}>
                   {fmtPct(hp.frequency)}
                 </span>
-                <span style={{ color: "rgba(234,230,220,0.85)" }}>
+                <span style={{ color: "hsl(var(--bone) / 0.85)" }}>
                   <span style={{ fontWeight: 600 }}>{hp.pattern}</span>
                   {hp.example && (
-                    <span style={{ color: "rgba(234,230,220,0.55)" }}> — "{hp.example}"</span>
+                    <span style={{ color: "hsl(var(--bone) / 0.55)" }}> — "{hp.example}"</span>
                   )}
                 </span>
               </div>
@@ -152,7 +152,7 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
         <div className="mb-3">
           <div
             className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-            style={{ color: "rgba(143,208,213,0.90)" }}
+            style={{ color: "hsl(var(--aqua) / 0.90)" }}
           >
             Top {Math.min(3, data.top_posts.length)} posts
           </div>
@@ -195,13 +195,13 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
                     )}
                     <div
                       className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
-                      style={{ background: "rgba(0,0,0,0.75)", color: "#E0A560" }}
+                      style={{ background: "rgba(0,0,0,0.75)", color: "hsl(var(--honey))" }}
                     >
                       {p.outlier_ratio.toFixed(1)}×
                     </div>
                     <div
                       className="absolute bottom-1 left-1 right-1 text-[8px] truncate font-jetbrains"
-                      style={{ color: "rgba(234,230,220,0.90)" }}
+                      style={{ color: "hsl(var(--bone) / 0.90)" }}
                     >
                       {fmtCount(p.views)} views
                     </div>
@@ -217,26 +217,26 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
       {data.comparison && (
         <div
           className="mt-3 pt-3"
-          style={{ borderTop: "1px solid rgba(234,230,220,0.10)" }}
+          style={{ borderTop: "1px solid hsl(var(--bone) / 0.10)" }}
         >
           <div
             className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-            style={{ color: "rgba(143,208,213,0.90)" }}
+            style={{ color: "hsl(var(--aqua) / 0.90)" }}
           >
             vs competitors
           </div>
           <div className="space-y-1.5 text-[11px] leading-snug">
-            <div style={{ color: "rgba(234,230,220,0.85)" }}>
+            <div style={{ color: "hsl(var(--bone) / 0.85)" }}>
               <span style={{ fontWeight: 600 }}>Cadence:</span>{" "}
-              <span style={{ color: data.comparison.cadence_delta_pct < 0 ? "#E0A560" : "#8FD0D5", fontWeight: 600 }}>
+              <span style={{ color: data.comparison.cadence_delta_pct < 0 ? "hsl(var(--honey))" : "hsl(var(--aqua))", fontWeight: 600 }}>
                 {fmtSignedPct(data.comparison.cadence_delta_pct)}
               </span>
-              <span style={{ color: "rgba(234,230,220,0.55)" }}> vs competitor avg</span>
+              <span style={{ color: "hsl(var(--bone) / 0.55)" }}> vs competitor avg</span>
             </div>
             {Object.keys(data.comparison.format_mix_delta).length > 0 && (
-              <div style={{ color: "rgba(234,230,220,0.85)" }}>
+              <div style={{ color: "hsl(var(--bone) / 0.85)" }}>
                 <span style={{ fontWeight: 600 }}>Format gap:</span>{" "}
-                <span style={{ color: "rgba(234,230,220,0.70)" }}>
+                <span style={{ color: "hsl(var(--bone) / 0.70)" }}>
                   {Object.entries(data.comparison.format_mix_delta)
                     .filter(([, v]) => Math.abs(v) >= 0.05)
                     .map(([k, v]) => `${k} ${fmtSignedRatio(v)}`)
@@ -245,22 +245,22 @@ export default function ProfileAnalysisEmbed({ data }: Props) {
               </div>
             )}
             {data.comparison.common_winning_hooks.length > 0 && (
-              <div style={{ color: "rgba(234,230,220,0.85)" }}>
+              <div style={{ color: "hsl(var(--bone) / 0.85)" }}>
                 <span style={{ fontWeight: 600 }}>Their winning hooks:</span>{" "}
-                <span style={{ color: "rgba(234,230,220,0.70)" }}>
+                <span style={{ color: "hsl(var(--bone) / 0.70)" }}>
                   {data.comparison.common_winning_hooks.slice(0, 3).join(", ")}
                 </span>
               </div>
             )}
             {data.comparison.where_youre_winning && (
-              <div style={{ color: "rgba(234,230,220,0.70)" }}>
-                <span style={{ color: "#8FD0D5", fontWeight: 600 }}>You win:</span>{" "}
+              <div style={{ color: "hsl(var(--bone) / 0.70)" }}>
+                <span style={{ color: "hsl(var(--aqua))", fontWeight: 600 }}>You win:</span>{" "}
                 {data.comparison.where_youre_winning}
               </div>
             )}
             {data.comparison.where_theyre_winning && (
-              <div style={{ color: "rgba(234,230,220,0.70)" }}>
-                <span style={{ color: "#E0A560", fontWeight: 600 }}>They win:</span>{" "}
+              <div style={{ color: "hsl(var(--bone) / 0.70)" }}>
+                <span style={{ color: "hsl(var(--honey))", fontWeight: 600 }}>They win:</span>{" "}
                 {data.comparison.where_theyre_winning}
               </div>
             )}

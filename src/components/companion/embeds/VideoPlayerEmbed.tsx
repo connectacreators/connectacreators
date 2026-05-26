@@ -21,7 +21,7 @@ export default function VideoPlayerEmbed({ data }: Props) {
       style={{
         aspectRatio: "9 / 16",
         maxWidth: 240,
-        border: "1.5px solid rgba(234,230,220,0.18)",
+        border: "1.5px solid hsl(var(--bone) / 0.18)",
         background: "#0a0d12",
         boxShadow: "4px 4px 0 rgba(0,0,0,0.4)",
       }}
@@ -48,7 +48,7 @@ export default function VideoPlayerEmbed({ data }: Props) {
           className="absolute top-1/2 left-1/2 w-11 h-11 rounded-full flex items-center justify-center"
           style={{
             transform: "translate(-50%, -50%)",
-            background: "#E0A560",
+            background: "hsl(var(--honey))",
             border: "2px solid #1a1410",
             color: "#1a1410",
             fontSize: 16,
@@ -65,7 +65,7 @@ export default function VideoPlayerEmbed({ data }: Props) {
         <span>@{data.username}</span>
         <span
           className="px-1.5 py-0.5 rounded font-bold"
-          style={{ background: "rgba(0,0,0,0.7)", color: "#E0A560" }}
+          style={{ background: "rgba(0,0,0,0.7)", color: "hsl(var(--honey))" }}
         >
           {data.outlier.toFixed(1)}x
         </span>

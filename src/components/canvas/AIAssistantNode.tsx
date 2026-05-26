@@ -502,7 +502,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       {isDragOverAI && (
         <div className="absolute inset-0 z-50 rounded-2xl pointer-events-none flex items-center justify-center"
           style={{ background: "rgba(201,169,110,0.06)", border: "2px dashed rgba(201,169,110,0.4)" }}>
-          <div className="bg-[#ffffff] border border-[#141414] rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
+          <div className="bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
             <Bot className="w-6 h-6 text-primary" />
             <p className="text-xs font-semibold text-foreground">Drop image for AI</p>
             <p className="text-[10px] text-muted-foreground">Claude will analyze it</p>
@@ -601,7 +601,7 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid rgba(20,20,20,0.08)' }}>
+        <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0 cursor-default" style={{ background: 'transparent', borderBottom: '1px solid hsl(var(--ink-on-cream) / 0.08)' }}>
           <div className="flex items-center gap-2">
             <img
               src={connectaLogoHandInk}
@@ -609,8 +609,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
               aria-hidden="true"
               style={{ width: 18, height: 18, objectFit: 'contain', filter: 'brightness(0)', flexShrink: 0 }}
             />
-            <span className="font-serif text-xs font-light" style={{ color: '#141414', letterSpacing: '0.04em' }}>{companionName}</span>
-            <span className="text-[9px]" style={{ color: 'rgba(20,20,20,0.40)' }}>Connect nodes to give me context, or just ask.</span>
+            <span className="font-serif text-xs font-light" style={{ color: 'hsl(var(--ink-on-cream))', letterSpacing: '0.04em' }}>{companionName}</span>
+            <span className="text-[9px]" style={{ color: 'hsl(var(--ink-on-cream) / 0.40)' }}>Connect nodes to give me context, or just ask.</span>
           </div>
           {d.onDelete && (
             <button

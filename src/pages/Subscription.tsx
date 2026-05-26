@@ -458,7 +458,7 @@ export default function Subscription() {
       {/* ── Section 2: CREDITS ───────────────────────────────────── */}
       <section>
         <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 rounded-full" style={{ background: "#8FD0D5" }} />
+          <div className="w-2 h-2 rounded-full" style={{ background: "hsl(var(--aqua))" }} />
           <span className="text-[10px] font-bold tracking-[2px] uppercase text-muted-foreground">{en ? "CREDITS" : "CRÉDITOS"}</span>
         </motion.div>
         <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp}

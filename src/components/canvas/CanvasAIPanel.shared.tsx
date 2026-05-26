@@ -75,11 +75,11 @@ export interface AssistantMessage {
 // ── Model labels ───────────────────────────────────────────────────────────
 
 export const AI_MODELS = [
-  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "rgba(20,20,20,0.32)", cost: "~3-8 cr" },
-  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "rgba(20,20,20,0.32)", cost: "~15-25 cr" },
-  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "rgba(20,20,20,0.32)", cost: "~60-100 cr" },
-  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "rgba(20,20,20,0.32)", cost: "~3-8 cr" },
-  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "rgba(20,20,20,0.32)", cost: "~10-20 cr" },
+  { key: "claude-haiku-4-5", label: "Haiku 4.5", provider: "Anthropic", tier: "fast", color: "hsl(var(--ink-on-cream) / 0.32)", cost: "~3-8 cr" },
+  { key: "claude-sonnet-4-5", label: "Sonnet 4.5", provider: "Anthropic", tier: "balanced", color: "hsl(var(--ink-on-cream) / 0.32)", cost: "~15-25 cr" },
+  { key: "claude-opus-4", label: "Opus 4.7", provider: "Anthropic", tier: "power", color: "hsl(var(--ink-on-cream) / 0.32)", cost: "~60-100 cr" },
+  { key: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", tier: "fast", color: "hsl(var(--ink-on-cream) / 0.32)", cost: "~3-8 cr" },
+  { key: "gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "balanced", color: "hsl(var(--ink-on-cream) / 0.32)", cost: "~10-20 cr" },
 ] as const;
 
 export const MODEL_LABEL: Record<string, string> = Object.fromEntries(
@@ -167,7 +167,7 @@ export function renderInline(line: string): React.ReactNode[] {
             paddingLeft: 5,
             fontFamily: "monospace",
             fontSize: "0.9em",
-            color: "rgba(20,20,20,0.58)",
+            color: "hsl(var(--ink-on-cream) / 0.58)",
           }}
         >
           {match[8]}
@@ -198,9 +198,9 @@ export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "l
   // tone = "light" → white text for DARK surfaces (drawer, /ai page)
   // tone = "dark" → ink text for LIGHT surfaces (editorial canvas)
   const isDarkSurface = tone === "light";
-  const scriptLineBg = isDarkSurface ? "rgba(234,230,220,0.05)" : "rgba(20,20,20,0.05)";
-  const scriptLineBorder = isDarkSurface ? "rgba(234,230,220,0.20)" : "rgba(20,20,20,0.20)";
-  const scriptLineText = isDarkSurface ? "rgba(234,230,220,0.85)" : "rgba(20,20,20,0.85)";
+  const scriptLineBg = isDarkSurface ? "hsl(var(--bone) / 0.05)" : "hsl(var(--ink-on-cream) / 0.05)";
+  const scriptLineBorder = isDarkSurface ? "hsl(var(--bone) / 0.20)" : "hsl(var(--ink-on-cream) / 0.20)";
+  const scriptLineText = isDarkSurface ? "hsl(var(--bone) / 0.85)" : "hsl(var(--ink-on-cream) / 0.85)";
   // Strip leading whitespace so the first rendered element is real content,
   // not an empty-line spacer. This is what makes [&:first-child]:mt-0 fire on
   // a leading heading or bullet list, which keeps the fingerprint icon aligned
@@ -294,7 +294,7 @@ export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "l
               style={{
                 fontSize: 9,
                 fontWeight: 700,
-                color: "#8FD0D5",
+                color: "hsl(var(--aqua))",
                 opacity: 0.7,
                 whiteSpace: "nowrap",
                 marginTop: 2,
@@ -326,7 +326,7 @@ export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "l
               background: "none",
               border: "none",
               padding: 2,
-              color: "#8FD0D5",
+              color: "hsl(var(--aqua))",
             }}
             title="Copy line"
           >
@@ -365,14 +365,14 @@ export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "l
 const LINE_COLORS: Record<string, { color: string; label: string }> = {
   filming: { color: "#f97316", label: "Filming" },
   actor: { color: "#d4d4d4", label: "Actor" },
-  editor: { color: "#8FD0D5", label: "Editor" },
+  editor: { color: "hsl(var(--aqua))", label: "Editor" },
   text_on_screen: { color: "#60a5fa", label: "Text" },
 };
 const SECTION_ORDER = ["hook", "body", "cta"] as const;
 const SECTION_COLORS: Record<string, string> = {
-  hook: "rgba(20,20,20,0.35)",
-  body: "rgba(20,20,20,0.35)",
-  cta: "rgba(20,20,20,0.35)",
+  hook: "hsl(var(--ink-on-cream) / 0.35)",
+  body: "hsl(var(--ink-on-cream) / 0.35)",
+  cta: "hsl(var(--ink-on-cream) / 0.35)",
 };
 const MAX_PREVIEW_LINES = 5;
 
@@ -486,7 +486,7 @@ export function InlineScriptPreview({
             const remaining = limit - used;
             const visible = lines.slice(0, remaining);
             used += visible.length;
-            const sectionColor = SECTION_COLORS[section] || "#8FD0D5";
+            const sectionColor = SECTION_COLORS[section] || "hsl(var(--aqua))";
             return (
               <div key={section} style={{ marginBottom: 6 }}>
                 <div
@@ -604,8 +604,8 @@ export function InlineScriptPreview({
             fontSize: 11,
             fontWeight: 600,
             cursor: saving || saved ? "default" : "pointer",
-            background: "#8FD0D5",
-            color: "#141414",
+            background: "hsl(var(--aqua))",
+            color: "hsl(var(--ink-on-cream))",
             transition: "all 0.2s",
           }}
         >
@@ -719,8 +719,8 @@ export function ThinkingAnimation({
   }, [explicitVerb]);
 
   const verbText = explicitVerb ?? THINKING_VERBS[index];
-  const verbColor = tone === "dark" ? "rgba(20,20,20,0.55)" : "rgba(234,230,220,0.65)";
-  const metaColor = tone === "dark" ? "rgba(20,20,20,0.35)" : "rgba(234,230,220,0.40)";
+  const verbColor = tone === "dark" ? "hsl(var(--ink-on-cream) / 0.55)" : "hsl(var(--bone) / 0.65)";
+  const metaColor = tone === "dark" ? "hsl(var(--ink-on-cream) / 0.35)" : "hsl(var(--bone) / 0.40)";
 
   return (
     <div className="flex items-center gap-2">

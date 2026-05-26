@@ -25,7 +25,7 @@ export default function SceneFrame({ verb, meta, children, hideDot }: Props) {
           {!hideDot && (
             <span
               className="inline-block rounded-full flex-shrink-0"
-              style={{ width: 4, height: 4, background: "rgba(234,230,220,0.45)" }}
+              style={{ width: 4, height: 4, background: "hsl(var(--bone) / 0.45)" }}
             />
           )}
           <span
@@ -33,7 +33,7 @@ export default function SceneFrame({ verb, meta, children, hideDot }: Props) {
               fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               fontStyle: "italic",
               fontSize: 15,
-              color: "rgba(234,230,220,0.78)",
+              color: "hsl(var(--bone) / 0.78)",
               lineHeight: 1.45,
             }}
           >
@@ -46,7 +46,7 @@ export default function SceneFrame({ verb, meta, children, hideDot }: Props) {
           className="font-jetbrains mb-2.5"
           style={{
             fontSize: 10,
-            color: "rgba(234,230,220,0.40)",
+            color: "hsl(var(--bone) / 0.40)",
             letterSpacing: "0.04em",
             paddingLeft: hideDot ? 0 : 12,
           }}

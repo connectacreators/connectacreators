@@ -27,7 +27,7 @@ export default function VideoAnalysisScene({ scene }: Props) {
             background: payload.video_url
               ? "#0a0d12"
               : "linear-gradient(135deg, #2a4838 0%, #0a1810 100%)",
-            border: "1px solid rgba(234,230,220,0.18)",
+            border: "1px solid hsl(var(--bone) / 0.18)",
             borderRadius: 4,
           }}
         >
@@ -45,7 +45,7 @@ export default function VideoAnalysisScene({ scene }: Props) {
         <div className="flex flex-col gap-3">
           <div
             className="relative h-[32px] flex"
-            style={{ borderBottom: "1px solid rgba(234,230,220,0.10)" }}
+            style={{ borderBottom: "1px solid hsl(var(--bone) / 0.10)" }}
           >
             {payload.markers.map((m, i) => {
               const left = (m.start / duration) * 100;
@@ -77,7 +77,7 @@ export default function VideoAnalysisScene({ scene }: Props) {
               fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               fontSize: 14,
               lineHeight: 1.65,
-              color: "rgba(234,230,220,0.85)",
+              color: "hsl(var(--bone) / 0.85)",
             }}
           >
             {payload.transcript.map((t, i) => (

@@ -42,8 +42,8 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
         minWidth: 200,
         minHeight: 150,
         background: "#ffffff",
-        border: d.isDropTarget ? "1px solid #8FD0D5" : "1px solid #141414",
-        boxShadow: "3px 3px 0 #141414",
+        border: d.isDropTarget ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream))",
+        boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
       }}
     >
       <NodeResizer
@@ -56,13 +56,13 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md max-w-[80%]" style={{ background: "rgba(20,20,20,0.05)" }}>
-          <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#141414" }} />
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md max-w-[80%]" style={{ background: "hsl(var(--ink-on-cream) / 0.05)" }}>
+          <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "hsl(var(--ink-on-cream))" }} />
           {editing ? (
             <input
               ref={inputRef}
               className="nodrag bg-transparent text-xs font-medium outline-none min-w-[60px] max-w-full"
-              style={{ color: "#141414", borderBottom: "1px solid #141414" }}
+              style={{ color: "hsl(var(--ink-on-cream))", borderBottom: "1px solid hsl(var(--ink-on-cream))" }}
               value={editValue}
               onChange={e => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -71,14 +71,14 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
           ) : (
             <span
               className="text-xs font-medium truncate cursor-text"
-              style={{ color: "#141414" }}
+              style={{ color: "hsl(var(--ink-on-cream))" }}
               onDoubleClick={() => { setEditValue(d.label || "New Group"); setEditing(true); }}
             >
               {d.label || "New Group"}
             </span>
           )}
           {(d.childCount ?? 0) > 0 && (
-            <span className="text-[10px] ml-1 flex-shrink-0" style={{ color: "rgba(20,20,20,0.50)" }}>
+            <span className="text-[10px] ml-1 flex-shrink-0" style={{ color: "hsl(var(--ink-on-cream) / 0.50)" }}>
               {d.childCount} node{(d.childCount ?? 0) !== 1 ? "s" : ""}
             </span>
           )}
@@ -87,7 +87,7 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
         {/* Delete button */}
         <button
           className="nodrag ml-auto p-1 rounded-md hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-          style={{ color: "rgba(20,20,20,0.40)" }}
+          style={{ color: "hsl(var(--ink-on-cream) / 0.40)" }}
           onClick={() => d.onDelete?.()}
           title="Delete group"
         >

@@ -2431,12 +2431,12 @@ export default function ViralToday() {
             }}
           >
             <span style={{ fontSize: 13, color: "#a1a1aa" }}>
-              <span style={{ color: "#8FD0D5", fontWeight: 700 }}>{selectedVideos.size}</span> videos selected
+              <span style={{ color: "hsl(var(--aqua))", fontWeight: 700 }}>{selectedVideos.size}</span> videos selected
             </span>
             <button
               onClick={() => setShowBatchModal(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-              style={{ background: "#8FD0D5", color: "#000" }}
+              style={{ background: "hsl(var(--aqua))", color: "#000" }}
             >
               Generate Scripts <ArrowRight className="w-4 h-4" />
             </button>

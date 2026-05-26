@@ -18,7 +18,7 @@ export default function ScriptCardEmbed({ data, onRegen, onShip }: Props) {
       <div
         className="absolute -top-3 right-5 px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
         style={{
-          background: "#E0A560",
+          background: "hsl(var(--honey))",
           color: "#1a1410",
           border: "2px solid #1a1410",
           borderRadius: 4,

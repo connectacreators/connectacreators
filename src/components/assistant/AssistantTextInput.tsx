@@ -148,8 +148,8 @@ export function AssistantTextInput({
 
   // Derived color tokens — flip to bone when rendering on dark (fullscreen) bg
   const ink = fullscreen
-    ? { h: "rgba(234,230,220,0.55)", m: "rgba(234,230,220,0.40)", s: "rgba(234,230,220,0.28)", b: "rgba(234,230,220,0.12)", bg4: "rgba(234,230,220,0.04)", bg6: "rgba(234,230,220,0.06)" }
-    : { h: "rgba(20,20,20,0.55)",    m: "rgba(20,20,20,0.40)",    s: "rgba(20,20,20,0.28)",    b: "rgba(20,20,20,0.10)",    bg4: "#ffffff",                  bg6: "#ffffff" };
+    ? { h: "hsl(var(--bone) / 0.55)", m: "hsl(var(--bone) / 0.40)", s: "hsl(var(--bone) / 0.28)", b: "hsl(var(--bone) / 0.12)", bg4: "hsl(var(--bone) / 0.04)", bg6: "hsl(var(--bone) / 0.06)" }
+    : { h: "hsl(var(--ink-on-cream) / 0.55)",    m: "hsl(var(--ink-on-cream) / 0.40)",    s: "hsl(var(--ink-on-cream) / 0.28)",    b: "hsl(var(--ink-on-cream) / 0.10)",    bg4: "#ffffff",                  bg6: "#ffffff" };
 
   // ── Internal state owned by this component ────────────────────────────
   const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
@@ -247,19 +247,19 @@ export function AssistantTextInput({
         <div
           className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg"
           style={{
-            background: "rgba(143,208,213,0.08)",
-            border: "1px solid rgba(143,208,213,0.2)",
+            background: "hsl(var(--aqua) / 0.08)",
+            border: "1px solid hsl(var(--aqua) / 0.2)",
           }}
         >
           <span
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{
-              background: "#8FD0D5",
-              boxShadow: "0 0 5px rgba(143,208,213,0.5)",
+              background: "hsl(var(--aqua))",
+              boxShadow: "0 0 5px hsl(var(--aqua) / 0.5)",
               animation: "pulse 1.5s infinite",
             }}
           />
-          <span className="text-[10px] font-medium" style={{ color: "rgba(143,208,213,0.85)" }}>
+          <span className="text-[10px] font-medium" style={{ color: "hsl(var(--aqua) / 0.85)" }}>
             Deep Research mode · 100 credits per query
           </span>
         </div>
@@ -277,7 +277,7 @@ export function AssistantTextInput({
             <button
               type="button"
               onClick={onClearPastedImage}
-              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ffffff] border border-[#141414] flex items-center justify-center text-[rgba(20,20,20,0.50)] hover:text-foreground"
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] flex items-center justify-center text-[hsl(var(--ink-on-cream) / 0.50)] hover:text-foreground"
             >
               <X className="w-2.5 h-2.5" />
             </button>
@@ -294,10 +294,10 @@ export function AssistantTextInput({
         className="relative rounded-xl border"
         style={{
           background: imageMode
-            ? "rgba(143,208,213,0.05)"
+            ? "hsl(var(--aqua) / 0.05)"
             : ink.bg4,
           borderColor: imageMode
-            ? "rgba(143,208,213,0.3)"
+            ? "hsl(var(--aqua) / 0.3)"
             : ink.b,
         }}
       >
@@ -319,8 +319,8 @@ export function AssistantTextInput({
                   maxHeight: 200,
                   overflowY: "auto",
                   background: "#ffffff",
-                  borderColor: "rgba(20,20,20,0.12)",
-                  color: "#141414",
+                  borderColor: "hsl(var(--ink-on-cream) / 0.12)",
+                  color: "hsl(var(--ink-on-cream))",
                   ...(textareaRef.current
                     ? {
                         left: textareaRef.current.getBoundingClientRect().left,
@@ -337,7 +337,7 @@ export function AssistantTextInput({
                     key={node.id}
                     type="button"
                     className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-black/[0.04] transition-colors"
-                    style={{ color: "#141414" }}
+                    style={{ color: "hsl(var(--ink-on-cream))" }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const atIdx = value.lastIndexOf("@");
@@ -360,7 +360,7 @@ export function AssistantTextInput({
                         {node.typeLabel}
                       </span>
                       {node.detail && (
-                        <span className="text-xs ml-1" style={{ color: "rgba(20,20,20,0.55)" }}>
+                        <span className="text-xs ml-1" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }}>
                           — {node.detail}
                         </span>
                       )}
@@ -391,8 +391,8 @@ export function AssistantTextInput({
                   <span
                     key={i}
                     style={{
-                      background: "rgba(143,208,213,0.18)",
-                      color: "#8FD0D5",
+                      background: "hsl(var(--aqua) / 0.18)",
+                      color: "hsl(var(--aqua))",
                       borderRadius: 3,
                       padding: "0 1px",
                     }}
@@ -438,8 +438,8 @@ export function AssistantTextInput({
               fullscreen ? "text-sm" : "text-xs"
             } w-full px-3 pt-3 pb-2 outline-none focus:ring-0 focus:outline-none bg-transparent border-0`}
             style={{
-              color: /@\S+/.test(value) ? "transparent" : (fullscreen ? "#EAE6DC" : "#141414"),
-              caretColor: fullscreen ? "#EAE6DC" : "#141414",
+              color: /@\S+/.test(value) ? "transparent" : (fullscreen ? "hsl(var(--cream))" : "hsl(var(--ink-on-cream))"),
+              caretColor: fullscreen ? "hsl(var(--cream))" : "hsl(var(--ink-on-cream))",
               minHeight: fullscreen ? 64 : 44,
               maxHeight: fullscreen ? 200 : 160,
               overflowY: "auto",
@@ -499,8 +499,8 @@ export function AssistantTextInput({
                 style={{
                   zIndex: 99999,
                   background: "#ffffff",
-                  borderColor: "rgba(20,20,20,0.12)",
-                  color: "#141414",
+                  borderColor: "hsl(var(--ink-on-cream) / 0.12)",
+                  color: "hsl(var(--ink-on-cream))",
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
@@ -509,7 +509,7 @@ export function AssistantTextInput({
                     type="button"
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
                       imageMode
-                        ? "text-[#8FD0D5] bg-[rgba(143,208,213,0.1)]"
+                        ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.1)]"
                         : "text-muted-foreground hover:bg-muted/60"
                     }`}
                     onClick={() => {
@@ -529,7 +529,7 @@ export function AssistantTextInput({
                     className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
                       isResearchMode ? "" : "text-muted-foreground hover:bg-muted/60"
                     }`}
-                    style={isResearchMode ? { color: "#8FD0D5", background: "rgba(143,208,213,0.08)" } : undefined}
+                    style={isResearchMode ? { color: "hsl(var(--aqua))", background: "hsl(var(--aqua) / 0.08)" } : undefined}
                     onClick={() => {
                       onToggleResearchMode();
                       setPlusMenuOpen(false);
@@ -610,8 +610,8 @@ export function AssistantTextInput({
                 gap: 4,
                 color:
                   generating || generateScriptDisabled
-                    ? "rgba(143,208,213,0.4)"
-                    : "#8FD0D5",
+                    ? "hsl(var(--aqua) / 0.4)"
+                    : "hsl(var(--aqua))",
                 fontSize: 11,
                 fontWeight: 600,
                 background: "none",
@@ -690,8 +690,8 @@ export function AssistantTextInput({
                         position: "fixed",
                         zIndex: 99999,
                         background: "#ffffff",
-                        borderColor: "rgba(20,20,20,0.12)",
-                        color: "#141414",
+                        borderColor: "hsl(var(--ink-on-cream) / 0.12)",
+                        color: "hsl(var(--ink-on-cream))",
                         ...(modelBtnRef.current
                           ? {
                               left: modelBtnRef.current.getBoundingClientRect()
@@ -714,7 +714,7 @@ export function AssistantTextInput({
                         return (
                           <div key={provider}>
                             <div className="px-3 py-1.5">
-                              <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "rgba(20,20,20,0.50)" }}>
+                              <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "hsl(var(--ink-on-cream) / 0.50)" }}>
                                 {provider}
                               </p>
                             </div>
@@ -728,9 +728,9 @@ export function AssistantTextInput({
                                     : "hover:bg-black/[0.04]"
                                 }`}
                                 style={{
-                                  color: selectedModel === m.key ? "#141414" : "rgba(20,20,20,0.70)",
+                                  color: selectedModel === m.key ? "hsl(var(--ink-on-cream))" : "hsl(var(--ink-on-cream) / 0.70)",
                                   ...(selectedModel === m.key
-                                    ? { borderLeftColor: "#8FD0D5", background: "rgba(143,208,213,0.07)" }
+                                    ? { borderLeftColor: "hsl(var(--aqua))", background: "hsl(var(--aqua) / 0.07)" }
                                     : {}),
                                 }}
                                 onClick={() => {
@@ -746,7 +746,7 @@ export function AssistantTextInput({
                                   {m.label}
                                 </span>
                                 {selectedModel === m.key && (
-                                  <Check className="w-3 h-3 ml-auto" style={{ color: "#8FD0D5" }} />
+                                  <Check className="w-3 h-3 ml-auto" style={{ color: "hsl(var(--aqua))" }} />
                                 )}
                                 <span
                                   className={`text-[10px] ${
@@ -779,8 +779,8 @@ export function AssistantTextInput({
                               color:
                                 selectedModel.includes("sonnet") ||
                                 selectedModel.includes("opus")
-                                  ? "rgba(20,20,20,0.70)"
-                                  : "rgba(20,20,20,0.30)",
+                                  ? "hsl(var(--ink-on-cream) / 0.70)"
+                                  : "hsl(var(--ink-on-cream) / 0.30)",
                             }}
                             onClick={() => {
                               if (
@@ -809,7 +809,7 @@ export function AssistantTextInput({
                                 height: 16,
                                 borderRadius: 8,
                                 background: thinkingEnabled
-                                  ? "#8FD0D5"
+                                  ? "hsl(var(--aqua))"
                                   : ink.s,
                                 transition: "background 0.2s",
                               }}
@@ -890,10 +890,10 @@ export function AssistantTextInput({
                 inset: 0,
                 width: 28,
                 height: 28,
-                background: "#8FD0D5",
-                border: "1px solid #141414",
+                background: "hsl(var(--aqua))",
+                border: "1px solid hsl(var(--ink-on-cream))",
                 borderRadius: "50%",
-                color: "#141414",
+                color: "hsl(var(--ink-on-cream))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -944,9 +944,9 @@ export function AssistantTextInput({
 
       {/* Image mode indicator */}
       {imageMode && (
-        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-[rgba(143,208,213,0.05)] rounded-lg w-fit">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#8FD0D5]" />
-          <span className="text-[10px] text-[#8FD0D5]">
+        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-[hsl(var(--aqua) / 0.05)] rounded-lg w-fit">
+          <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--aqua))]" />
+          <span className="text-[10px] text-[hsl(var(--aqua))]">
             Image mode · DALL-E 3 · ~150 cr
           </span>
         </div>

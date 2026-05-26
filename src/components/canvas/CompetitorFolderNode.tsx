@@ -49,9 +49,9 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 function outlierColor(score: number): string {
-  if (score >= 5) return "#8FD0D5";
+  if (score >= 5) return "hsl(var(--aqua))";
   if (score >= 2.5) return "#F0BC7D";
-  return "rgba(20,20,20,0.45)";
+  return "hsl(var(--ink-on-cream) / 0.45)";
 }
 
 const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
@@ -78,12 +78,12 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   const topHooks = Object.entries(hookCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
   const HOOK_COLORS: Record<string, string> = {
-    educational: "#8FD0D5",
+    educational: "hsl(var(--aqua))",
     authority: "#f59e0b",
     story: "#a78bfa",
     comparison: "#F0BC7D",
     shock: "#f43f5e",
-    random: "rgba(20,20,20,0.45)",
+    random: "hsl(var(--ink-on-cream) / 0.45)",
   };
 
   // Profile picture with proxy fallback
@@ -134,7 +134,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
             <span
               key={hook}
               className="text-[8px] font-semibold px-1.5 py-0.5 rounded"
-              style={{ background: `${HOOK_COLORS[hook] || "rgba(20,20,20,0.45)"}20`, color: HOOK_COLORS[hook] || "rgba(20,20,20,0.45)" }}
+              style={{ background: `${HOOK_COLORS[hook] || "hsl(var(--ink-on-cream) / 0.45)"}20`, color: HOOK_COLORS[hook] || "hsl(var(--ink-on-cream) / 0.45)" }}
             >
               {hook} ×{count}
             </span>
@@ -183,7 +183,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   if (collapsed) {
     return (
       <div
-        className="bg-[#ffffff] border border-[#141414] rounded-xl shadow-xl relative"
+        className="bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] rounded-xl shadow-xl relative"
         style={{ minWidth: 320 }}
       >
         {ProfileHeader}

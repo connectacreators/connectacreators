@@ -35,34 +35,34 @@ const LINE_CONFIG: Record<string, { color: string; bg: string; border: string; d
   },
   actor: {
     color: "text-foreground",
-    bg: "bg-gradient-to-br from-[rgba(20,20,20,0.04)] to-transparent",
-    border: "border-[rgba(20,20,20,0.08)]",
-    dot: "bg-[rgba(20,20,20,0.35)]",
+    bg: "bg-gradient-to-br from-[hsl(var(--ink-on-cream) / 0.04)] to-transparent",
+    border: "border-[hsl(var(--ink-on-cream) / 0.08)]",
+    dot: "bg-[hsl(var(--ink-on-cream) / 0.35)]",
     icon: Mic,
     label: "ACTOR",
   },
   editor: {
     color: "text-[#F0BC7D]",
-    bg: "bg-gradient-to-br from-[rgba(224,165,96,0.08)] to-[rgba(224,165,96,0.02)]",
-    border: "border-[rgba(224,165,96,0.2)]",
-    dot: "bg-[#E0A560]",
+    bg: "bg-gradient-to-br from-[hsl(var(--honey) / 0.08)] to-[hsl(var(--honey) / 0.02)]",
+    border: "border-[hsl(var(--honey) / 0.2)]",
+    dot: "bg-[hsl(var(--honey))]",
     icon: Scissors,
     label: "EDITOR",
   },
   text_on_screen: {
-    color: "text-[rgba(20,20,20,0.45)]",
-    bg: "bg-gradient-to-br from-[rgba(20,20,20,0.04)] to-[rgba(20,20,20,0.01)]",
-    border: "border-[rgba(20,20,20,0.08)]",
-    dot: "bg-[rgba(20,20,20,0.25)]",
+    color: "text-[hsl(var(--ink-on-cream) / 0.45)]",
+    bg: "bg-gradient-to-br from-[hsl(var(--ink-on-cream) / 0.04)] to-[hsl(var(--ink-on-cream) / 0.01)]",
+    border: "border-[hsl(var(--ink-on-cream) / 0.08)]",
+    dot: "bg-[hsl(var(--ink-on-cream) / 0.25)]",
     icon: Type,
     label: "TEXT",
   },
 };
 
 const SECTION_HEADERS: Record<string, { label: string; color: string; bar: string }> = {
-  hook: { label: "HOOK", color: "text-foreground", bar: "bg-[rgba(20,20,20,0.10)]" },
-  body: { label: "BODY", color: "text-[rgba(20,20,20,0.45)]", bar: "bg-[rgba(20,20,20,0.08)]" },
-  cta:  { label: "CTA",  color: "text-[#F0BC7D]", bar: "bg-[rgba(224,165,96,0.35)]" },
+  hook: { label: "HOOK", color: "text-foreground", bar: "bg-[hsl(var(--ink-on-cream) / 0.10)]" },
+  body: { label: "BODY", color: "text-[hsl(var(--ink-on-cream) / 0.45)]", bar: "bg-[hsl(var(--ink-on-cream) / 0.08)]" },
+  cta:  { label: "CTA",  color: "text-[#F0BC7D]", bar: "bg-[hsl(var(--honey) / 0.35)]" },
 };
 
 export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }: Props) {
@@ -104,7 +104,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
   // Group lines by section in order: hook → body → cta
   const sections: Array<"hook" | "body" | "cta"> = ["hook", "body", "cta"];
 
-  const scoreColor = script.virality_score >= 8 ? "text-[#F0BC7D]" : script.virality_score >= 6 ? "text-[#8FD0D5]" : "text-orange-400";
+  const scoreColor = script.virality_score >= 8 ? "text-[#F0BC7D]" : script.virality_score >= 6 ? "text-[hsl(var(--aqua))]" : "text-orange-400";
 
   return (
     <div className="flex flex-col h-full">
@@ -153,7 +153,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
                       {isEditing ? (
                         <textarea
                           autoFocus
-                          className="w-full mt-1 bg-transparent text-sm text-foreground resize-none focus:outline-none border-b border-[rgba(20,20,20,0.15)] pb-1"
+                          className="w-full mt-1 bg-transparent text-sm text-foreground resize-none focus:outline-none border-b border-[hsl(var(--ink-on-cream) / 0.15)] pb-1"
                           value={text}
                           rows={3}
                           onChange={(e) => handleLineChange(idx, e.target.value)}
@@ -176,7 +176,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
         <p className="text-[10px] text-muted-foreground text-center">Click any line to edit it inline</p>
         {saved ? (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-center gap-2 text-[#8FD0D5] text-sm">
+            <div className="flex items-center justify-center gap-2 text-[hsl(var(--aqua))] text-sm">
               <CheckCircle2 className="w-4 h-4" /> Script saved!
             </div>
             <button
@@ -184,7 +184,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
               onClick={(e) => { e.stopPropagation(); onClear(); }}
               type="button"
               className="w-full flex items-center justify-center gap-1 text-xs py-2 px-3 rounded-lg cursor-pointer select-none"
-              style={{ background: "rgba(20,20,20,0.04)", border: "1px solid rgba(20,20,20,0.08)", color: "rgba(20,20,20,0.45)", position: "relative", zIndex: 100 }}
+              style={{ background: "hsl(var(--ink-on-cream) / 0.04)", border: "1px solid hsl(var(--ink-on-cream) / 0.08)", color: "hsl(var(--ink-on-cream) / 0.45)", position: "relative", zIndex: 100 }}
             >
               <ArrowLeft className="w-3 h-3" /> Back to Chat
             </button>
@@ -200,7 +200,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
               disabled={saving}
               type="button"
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold cursor-pointer select-none"
-              style={{ background: "#ffffff", border: "1px solid rgba(20,20,20,0.12)", color: "#8FD0D5", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
+              style={{ background: "#ffffff", border: "1px solid hsl(var(--ink-on-cream) / 0.12)", color: "hsl(var(--aqua))", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {saving ? "Saving..." : "Save Script"}
@@ -211,7 +211,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
                 onClick={(e) => { e.stopPropagation(); onClear(); }}
                 type="button"
                 className="flex-1 flex items-center justify-center gap-1 text-xs py-2 px-3 rounded-lg cursor-pointer select-none"
-                style={{ background: "rgba(20,20,20,0.04)", border: "1px solid rgba(20,20,20,0.08)", color: "rgba(20,20,20,0.45)", position: "relative", zIndex: 100 }}
+                style={{ background: "hsl(var(--ink-on-cream) / 0.04)", border: "1px solid hsl(var(--ink-on-cream) / 0.08)", color: "hsl(var(--ink-on-cream) / 0.45)", position: "relative", zIndex: 100 }}
               >
                 <ArrowLeft className="w-3 h-3" /> Back to Chat
               </button>
@@ -220,7 +220,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
                 onClick={(e) => { e.stopPropagation(); handleRefine(); }}
                 type="button"
                 className="flex-1 flex items-center justify-center gap-1 text-xs py-2 px-3 rounded-lg cursor-pointer select-none"
-                style={{ background: "rgba(20,20,20,0.04)", border: "1px solid rgba(20,20,20,0.08)", color: "rgba(20,20,20,0.45)", position: "relative", zIndex: 100 }}
+                style={{ background: "hsl(var(--ink-on-cream) / 0.04)", border: "1px solid hsl(var(--ink-on-cream) / 0.08)", color: "hsl(var(--ink-on-cream) / 0.45)", position: "relative", zIndex: 100 }}
               >
                 <Wand2 className="w-3 h-3" /> Refine
               </button>

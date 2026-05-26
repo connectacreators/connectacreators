@@ -75,7 +75,7 @@ export default function SessionSidebar({
 
       {/* Toggle button — sibling of collapsible panel, never clipped */}
       <button
-        className="absolute -right-3 top-12 z-20 w-6 h-6 rounded-full bg-[#ffffff] border border-[#141414] flex items-center justify-center text-[rgba(20,20,20,0.50)] hover:text-[#141414]"
+        className="absolute -right-3 top-12 z-20 w-6 h-6 rounded-full bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] flex items-center justify-center text-[hsl(var(--ink-on-cream) / 0.50)] hover:text-[hsl(var(--ink-on-cream))]"
         onClick={onToggleCollapsed}
         title={collapsed ? "Open sessions" : "Close sessions"}
       >

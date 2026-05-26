@@ -146,39 +146,39 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
 
 // Editorial-dark line type config — graphite surfaces softly tinted with the
 // type's accent color, thin bone hairlines + a tinted 3px left edge per type.
-// Tints are ~10-12% accent over #1A1A1A so the card reads as the type at a glance.
+// Tints are ~10-12% accent over hsl(var(--graphite)) so the card reads as the type at a glance.
 const getTypeConfig = (lang: "en" | "es") => ({
   filming: {
     label: tr(t.scripts.filmingInstructions, lang),
     icon: Film,
-    color: "text-[rgba(234,230,220,0.78)]",
+    color: "text-[hsl(var(--bone) / 0.78)]",
     bg: "bg-[#2B221B]",
-    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#A85B1F]",
+    border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[#A85B1F]",
     dot: "bg-[#A85B1F]",
   },
   actor: {
     label: tr(t.scripts.voiceoverDialogue, lang),
     icon: Mic,
-    color: "text-[rgba(234,230,220,0.78)]",
+    color: "text-[hsl(var(--bone) / 0.78)]",
     bg: "bg-[#222829]",
-    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#8FD0D5]",
-    dot: "bg-[#8FD0D5]",
+    border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[hsl(var(--aqua))]",
+    dot: "bg-[hsl(var(--aqua))]",
   },
   editor: {
     label: tr(t.scripts.editingInstructions, lang),
     icon: Scissors,
-    color: "text-[rgba(234,230,220,0.78)]",
+    color: "text-[hsl(var(--bone) / 0.78)]",
     bg: "bg-[#1F2A22]",
-    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[#7FB58A]",
+    border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[#7FB58A]",
     dot: "bg-[#7FB58A]",
   },
   text_on_screen: {
     label: tr(t.scripts.textOnScreen, lang),
     icon: MonitorPlay,
-    color: "text-[rgba(234,230,220,0.78)]",
+    color: "text-[hsl(var(--bone) / 0.78)]",
     bg: "bg-[#242423]",
-    border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[rgba(234,230,220,0.40)]",
-    dot: "bg-[rgba(234,230,220,0.55)]",
+    border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[hsl(var(--bone) / 0.40)]",
+    dot: "bg-[hsl(var(--bone) / 0.55)]",
   },
 });
 
@@ -228,7 +228,7 @@ function SortableLineItem({
   const { language } = useLanguage();
   const typeConfig = getTypeConfig(language);
   const cfg = isPlaceholder
-    ? { label: "Selecciona tipo", icon: Plus, color: "text-[rgba(234,230,220,0.55)]", bg: "bg-[#1A1A1A]", border: "border-[rgba(234,230,220,0.14)] border-l-[3px] border-l-[rgba(234,230,220,0.20)]", dot: "bg-[rgba(234,230,220,0.40)]" }
+    ? { label: "Selecciona tipo", icon: Plus, color: "text-[hsl(var(--bone) / 0.55)]", bg: "bg-[hsl(var(--graphite))]", border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[hsl(var(--bone) / 0.20)]", dot: "bg-[hsl(var(--bone) / 0.40)]" }
     : typeConfig[line.line_type];
   const Icon = cfg.icon;
 
@@ -239,14 +239,14 @@ function SortableLineItem({
         {...attributes}
         {...listeners}
         className="mt-1 p-1 rounded-lg cursor-grab active:cursor-grabbing touch-none transition-colors"
-        style={{ color: "rgba(234,230,220,0.35)" }}
+        style={{ color: "hsl(var(--bone) / 0.35)" }}
         title="Arrastra para reordenar"
       >
         <GripVertical className="w-4 h-4" />
       </button>
       <button
         className="mt-0.5 p-1.5 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-        style={{ background: "rgba(234,230,220,0.05)" }}
+        style={{ background: "hsl(var(--bone) / 0.05)" }}
         title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
         onClick={async () => {
           if (!viewingScriptId) return;
@@ -348,19 +348,19 @@ function SectionDropZone({ section, onClick }: { section: string; onClick: () =>
       ref={setNodeRef}
       className={`flex items-start gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border transition-colors cursor-pointer group ${
         isOver
-          ? "bg-[rgba(234,230,220,0.05)] border-[rgba(234,230,220,0.32)]"
-          : "bg-[#1A1A1A] border-[rgba(234,230,220,0.14)] hover:border-[rgba(234,230,220,0.28)]"
+          ? "bg-[hsl(var(--bone) / 0.05)] border-[hsl(var(--bone) / 0.32)]"
+          : "bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)] hover:border-[hsl(var(--bone) / 0.28)]"
       }`}
       onClick={onClick}
     >
-      <div className="mt-0.5 p-1.5 rounded-xl bg-[rgba(234,230,220,0.05)]">
-        <Plus className="w-4 h-4 text-[rgba(234,230,220,0.55)]" />
+      <div className="mt-0.5 p-1.5 rounded-xl bg-[hsl(var(--bone) / 0.05)]">
+        <Plus className="w-4 h-4 text-[hsl(var(--bone) / 0.55)]" />
       </div>
       <div className="flex-1 min-w-0">
         <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
           {isOver ? "Drop here" : "Nueva línea"}
         </span>
-        <p className="text-[rgba(234,230,220,0.55)] mt-1 text-sm italic">
+        <p className="text-[hsl(var(--bone) / 0.55)] mt-1 text-sm italic">
           {isOver ? `Move to ${section}` : "Haz clic para agregar una línea..."}
         </p>
       </div>
@@ -1382,7 +1382,7 @@ export default function Scripts() {
         >
           <button
             onClick={handleCtxNewScript}
-            className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[#EAE6DC] transition-colors hover:border-[rgba(234,230,220,0.32)]"
+            className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
           >
             <FilePlus2 className="w-4 h-4" />
             New Script
@@ -1413,12 +1413,12 @@ export default function Scripts() {
                   fontWeight: 500,
                   fontSize: "clamp(28px, 4vw, 36px)",
                   letterSpacing: "-0.01em",
-                  color: "#EAE6DC",
+                  color: "hsl(var(--cream))",
                 }}
               >
                 Content Ideas
               </h1>
-              <p className="max-w-xl mx-auto" style={{ color: "rgba(234,230,220,0.55)", fontSize: 14 }}>
+              <p className="max-w-xl mx-auto" style={{ color: "hsl(var(--bone) / 0.55)", fontSize: 14 }}>
                 {isAdmin ? tr(t.scripts.manageAll, language) : isVideographer ? tr(t.scripts.assignedClients, language) : tr(t.scripts.manageYour, language)}
               </p>
             </div>
@@ -1598,7 +1598,7 @@ export default function Scripts() {
                   <div key={c.id} className="relative">
                     <button
                       onClick={() => handleSelectClient(c)}
-                      className="editorial-card flex items-center gap-4 p-4 rounded-2xl text-left w-full transition-colors hover:border-[rgba(234,230,220,0.32)]"
+                      className="editorial-card flex items-center gap-4 p-4 rounded-2xl text-left w-full transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
                     >
                       <div className="p-2 rounded-full bg-primary/10">
                         <User className="w-5 h-5 text-primary" />
@@ -1909,9 +1909,9 @@ export default function Scripts() {
                       (s as any).status === 'draft' ? '#A85B1F'
                         : s.review_status === 'approved' ? '#1f7a5a'
                         : s.review_status === 'needs_revision' ? '#A85B1F'
-                        : 'rgba(234,230,220,0.20)'
+                        : 'hsl(var(--bone) / 0.20)'
                     }`,
-                    boxShadow: selectedScriptIds.has(s.id) ? 'inset 0 0 0 1px rgba(143,208,213,0.40)' : undefined,
+                    boxShadow: selectedScriptIds.has(s.id) ? 'inset 0 0 0 1px hsl(var(--aqua) / 0.40)' : undefined,
                   }}
                 >
                   <button onClick={(e) => { e.stopPropagation(); handleScriptSelect(s.id, e, visibleIds); }} className="flex-shrink-0" title="Select (Shift+click for range)">
@@ -1995,14 +1995,14 @@ export default function Scripts() {
                                     fontWeight: 500,
                                     fontSize: 15,
                                     letterSpacing: "-0.005em",
-                                    color: s.grabado ? "rgba(234,230,220,0.45)" : "#EAE6DC",
+                                    color: s.grabado ? "hsl(var(--bone) / 0.45)" : "hsl(var(--cream))",
                                     textDecoration: s.grabado ? "line-through" : "none",
                                   }}
                                 >
                                   {ideaOrTitle}
                                 </p>
                                 {hasIdea && s.title && s.title !== s.idea_ganadora && (
-                                  <p className="text-[10px] truncate" style={{ color: "rgba(234,230,220,0.40)" }}>{s.title}</p>
+                                  <p className="text-[10px] truncate" style={{ color: "hsl(var(--bone) / 0.40)" }}>{s.title}</p>
                                 )}
                               </div>
                             );
@@ -2017,7 +2017,7 @@ export default function Scripts() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs mt-1" style={{ color: "rgba(234,230,220,0.40)" }}>{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
+                      <p className="text-xs mt-1" style={{ color: "hsl(var(--bone) / 0.40)" }}>{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
                     </div>
                   </button>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -2198,7 +2198,7 @@ export default function Scripts() {
                                 onClick={() => setViewingFolderId(f.id)}
                                 className="editorial-card w-full flex flex-col items-start gap-3 p-4 transition-colors text-left overflow-hidden"
                               >
-                                <Folder className="w-5 h-5" style={{ color: "rgba(234,230,220,0.55)" }} />
+                                <Folder className="w-5 h-5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                                 <div className="w-full min-w-0 pr-7">
                                   <p
                                     className="truncate"
@@ -2207,7 +2207,7 @@ export default function Scripts() {
                                       fontWeight: 500,
                                       fontSize: 16,
                                       letterSpacing: "-0.005em",
-                                      color: "#EAE6DC",
+                                      color: "hsl(var(--cream))",
                                     }}
                                   >
                                     {f.name}
@@ -2221,7 +2221,7 @@ export default function Scripts() {
                               <button
                                 onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
                                 className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                                style={{ background: "rgba(20,20,20,0.7)", border: "1px solid rgba(234,230,220,0.12)", color: "rgba(234,230,220,0.65)" }}
+                                style={{ background: "hsl(var(--ink-on-cream) / 0.7)", border: "1px solid hsl(var(--bone) / 0.12)", color: "hsl(var(--bone) / 0.65)" }}
                                 title="Share folder"
                               >
                                 <Share2 className="w-3 h-3" />
@@ -2239,7 +2239,7 @@ export default function Scripts() {
                             onChange={(e) => setNewFolderName(e.target.value)}
                             placeholder={viewingFolderId ? "Subfolder name" : "Folder name"}
                             className="h-8 text-sm"
-                            style={{ background: "rgba(234,230,220,0.04)", borderColor: "rgba(234,230,220,0.14)", color: "#EAE6DC" }}
+                            style={{ background: "hsl(var(--bone) / 0.04)", borderColor: "hsl(var(--bone) / 0.14)", color: "hsl(var(--cream))" }}
                             onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
                           />
                           <div className="flex gap-2 mt-1">
@@ -2262,7 +2262,7 @@ export default function Scripts() {
                         <button
                           onClick={() => setCreatingFolder(true)}
                           className="editorial-card-dashed flex flex-col items-center justify-center gap-2 p-4 transition-colors"
-                          style={{ color: "rgba(234,230,220,0.55)", minHeight: 110 }}
+                          style={{ color: "hsl(var(--bone) / 0.55)", minHeight: 110 }}
                         >
                           <FolderPlus className="w-5 h-5" />
                           <span className="text-xs font-medium">New folder</span>
@@ -2285,7 +2285,7 @@ export default function Scripts() {
                   {/* Drag overlay ghost */}
                   <DragOverlay>
                     {draggingScriptId && (
-                      <div className="editorial-card flex items-center gap-2 px-4 py-3 rounded-xl" style={{ width: 280, background: "#1A1A1A", borderColor: "rgba(234,230,220,0.32)" }}>
+                      <div className="editorial-card flex items-center gap-2 px-4 py-3 rounded-xl" style={{ width: 280, background: "hsl(var(--graphite))", borderColor: "hsl(var(--bone) / 0.32)" }}>
                         <Folder className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-primary">
                           Moving {selectedScriptIds.size} script{selectedScriptIds.size !== 1 ? "s" : ""}
@@ -2304,8 +2304,8 @@ export default function Scripts() {
               <div
                 className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-2"
                 style={{
-                  background: '#1F1F1F',
-                  border: '1px solid rgba(234,230,220,0.10)',
+                  background: 'hsl(var(--graphite))',
+                  border: '1px solid hsl(var(--bone) / 0.10)',
                   borderRadius: 12,
                   boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
                 }}
@@ -2502,7 +2502,7 @@ export default function Scripts() {
                      }}
                    />
                    <div className="flex items-center gap-2">
-                     <Archive className="w-4 h-4 text-[#8FD0D5]" />
+                     <Archive className="w-4 h-4 text-[hsl(var(--aqua))]" />
                      <span className="text-sm font-medium text-foreground">
                        {tr({ en: "Use a script from the Vault", es: "Usar un guion del Vault" }, language)}
                      </span>
@@ -2535,7 +2535,7 @@ export default function Scripts() {
                            }
                          }}
                        >
-                         <SelectTrigger className="bg-transparent border-[rgba(234,230,220,0.14)]">
+                         <SelectTrigger className="bg-transparent border-[hsl(var(--bone) / 0.14)]">
                            <SelectValue placeholder={tr({ en: "Select a Vault template", es: "Selecciona una plantilla del Vault" }, language)} />
                          </SelectTrigger>
                          <SelectContent>
@@ -2551,10 +2551,10 @@ export default function Scripts() {
                 <div className="mb-3">
                    <label className="text-sm text-muted-foreground mb-1 block">{tr(t.scripts.format, language)}</label>
                    <Select value={formato} onValueChange={setFormato}>
-                     <SelectTrigger className="bg-[#1A1A1A] border-[rgba(234,230,220,0.14)]">
+                     <SelectTrigger className="bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)]">
                        <SelectValue placeholder={tr(t.scripts.selectFormat, language)} />
                      </SelectTrigger>
-                     <SelectContent className="bg-[#1A1A1A] border-[rgba(234,230,220,0.14)] z-50">
+                     <SelectContent className="bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)] z-50">
                        <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
                        <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
                        <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
@@ -2570,7 +2570,7 @@ export default function Scripts() {
                     value={scriptInput}
                     onChange={(e) => setScriptInput(e.target.value)}
                     placeholder={tr(t.scripts.pasteDictate, language)}
-                    className="min-h-[200px] bg-[#1A1A1A] border-[rgba(234,230,220,0.14)] font-mono text-sm resize-y pr-12"
+                    className="min-h-[200px] bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)] font-mono text-sm resize-y pr-12"
                   />
                   <MicButton onTranscript={(text) => setScriptInput((prev) => prev ? prev + " " + text : text)} />
                 </div>
@@ -2614,12 +2614,12 @@ export default function Scripts() {
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-4 animate-fade-in">
             {/* Tab switcher: Card View | Doc Editor — editorial underline */}
-            <div className="flex items-center" style={{ borderBottom: "1px solid rgba(234,230,220,0.08)" }}>
+            <div className="flex items-center" style={{ borderBottom: "1px solid hsl(var(--bone) / 0.08)" }}>
               <button
                 className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
                 style={{
-                  color: scriptEditorTab === "cards" ? "#EAE6DC" : "rgba(234,230,220,0.45)",
-                  borderBottom: `2px solid ${scriptEditorTab === "cards" ? "#EAE6DC" : "transparent"}`,
+                  color: scriptEditorTab === "cards" ? "hsl(var(--cream))" : "hsl(var(--bone) / 0.45)",
+                  borderBottom: `2px solid ${scriptEditorTab === "cards" ? "hsl(var(--cream))" : "transparent"}`,
                   marginBottom: -1,
                 }}
                 onClick={() => setScriptEditorTab("cards")}
@@ -2630,8 +2630,8 @@ export default function Scripts() {
               <button
                 className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
                 style={{
-                  color: scriptEditorTab === "doc" ? "#EAE6DC" : "rgba(234,230,220,0.45)",
-                  borderBottom: `2px solid ${scriptEditorTab === "doc" ? "#EAE6DC" : "transparent"}`,
+                  color: scriptEditorTab === "doc" ? "hsl(var(--cream))" : "hsl(var(--bone) / 0.45)",
+                  borderBottom: `2px solid ${scriptEditorTab === "doc" ? "hsl(var(--cream))" : "transparent"}`,
                   marginBottom: -1,
                 }}
                 onClick={() => setScriptEditorTab("doc")}
@@ -2663,7 +2663,7 @@ export default function Scripts() {
                       fontSize: 9.5,
                       textTransform: "uppercase",
                       letterSpacing: "0.20em",
-                      color: "rgba(234,230,220,0.45)",
+                      color: "hsl(var(--bone) / 0.45)",
                       fontWeight: 600,
                       fontFamily: "var(--font-body, Figtree), sans-serif",
                     }}
@@ -2691,8 +2691,8 @@ export default function Scripts() {
                       fontWeight: 500,
                       fontSize: 22,
                       letterSpacing: "-0.01em",
-                      color: "#EAE6DC",
-                      borderBottom: "1px solid rgba(234,230,220,0.30)",
+                      color: "hsl(var(--cream))",
+                      borderBottom: "1px solid hsl(var(--bone) / 0.30)",
                     }}
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
@@ -2731,7 +2731,7 @@ export default function Scripts() {
                       fontSize: 22,
                       letterSpacing: "-0.01em",
                       lineHeight: 1.3,
-                      color: "#EAE6DC",
+                      color: "hsl(var(--cream))",
                     }}
                     onClick={() => {
                       if (viewingScriptId) {
@@ -2762,7 +2762,7 @@ export default function Scripts() {
 
             <div className="editorial-card p-5 mb-2">
               <div className="flex items-center gap-2 mb-3">
-                <Eye className="w-3.5 h-3.5" style={{ color: "rgba(234,230,220,0.55)" }} />
+                <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr(t.scripts.inspiration, language)}</span>
               </div>
               {viewingInspirationUrl && !editingInspirationUrl ? (
@@ -2827,7 +2827,7 @@ export default function Scripts() {
             {/* Caption */}
             <div className="editorial-card p-5 mb-2">
               <div className="flex items-center gap-2 mb-3">
-                <MessageSquare className="w-3.5 h-3.5" style={{ color: "rgba(234,230,220,0.55)" }} />
+                <MessageSquare className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
                   {tr({ en: "Caption", es: "Caption" }, language)}
                 </span>
@@ -2838,7 +2838,7 @@ export default function Scripts() {
                 placeholder={tr({ en: "Write the social media caption for this video...", es: "Escribe el caption para las redes sociales..." }, language)}
                 rows={4}
                 className="text-sm resize-none"
-                style={{ background: "rgba(234,230,220,0.03)", borderColor: "rgba(234,230,220,0.10)", color: "#EAE6DC" }}
+                style={{ background: "hsl(var(--bone) / 0.03)", borderColor: "hsl(var(--bone) / 0.10)", color: "hsl(var(--cream))" }}
                 onBlur={async () => {
                   if (viewingScriptId) {
                     const { error } = await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", viewingScriptId);
@@ -3005,21 +3005,21 @@ export default function Scripts() {
                         <div className="flex items-center gap-3 mt-5 mb-3">
                           <span
                             className="editorial-eyebrow"
-                            style={{ fontSize: 10, letterSpacing: "0.22em", color: "rgba(234,230,220,0.75)" }}
+                            style={{ fontSize: 10, letterSpacing: "0.22em", color: "hsl(var(--bone) / 0.75)" }}
                           >
                             {sectionLabels[section].toUpperCase()}
                           </span>
                           <button
                             onClick={handleAddPlaceholder}
                             className="w-5 h-5 rounded-full flex items-center justify-center transition-colors"
-                            style={{ border: "1px dashed rgba(234,230,220,0.30)", color: "rgba(234,230,220,0.55)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(234,230,220,0.60)"; e.currentTarget.style.color = "#EAE6DC"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(234,230,220,0.30)"; e.currentTarget.style.color = "rgba(234,230,220,0.55)"; }}
+                            style={{ border: "1px dashed hsl(var(--bone) / 0.30)", color: "hsl(var(--bone) / 0.55)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.60)"; e.currentTarget.style.color = "hsl(var(--cream))"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.30)"; e.currentTarget.style.color = "hsl(var(--bone) / 0.55)"; }}
                             title={`Agregar línea a ${sectionLabels[section]}`}
                           >
                             <Plus className="w-3 h-3" />
                           </button>
-                          <div className="flex-1 h-px" style={{ background: "rgba(234,230,220,0.08)" }} />
+                          <div className="flex-1 h-px" style={{ background: "hsl(var(--bone) / 0.08)" }} />
                         </div>
                         {sectionLines.length === 0 ? (
                           <SectionDropZone section={section} onClick={handleAddPlaceholder} />
@@ -3153,7 +3153,7 @@ export default function Scripts() {
               );
 
               return (<>
-              <div className="mt-6 pt-4 border-t border-[rgba(234,230,220,0.14)] p-4 rounded-2xl bg-[#1A1A1A]">
+              <div className="mt-6 pt-4 border-t border-[hsl(var(--bone) / 0.14)] p-4 rounded-2xl bg-[hsl(var(--graphite))]">
                 <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-semibold text-green-400">Footage:</span>
@@ -3216,10 +3216,10 @@ export default function Scripts() {
               </div>
 
               {/* File Submission */}
-              <div className="mt-4 pt-4 border-t border-[rgba(234,230,220,0.14)] p-4 rounded-2xl bg-[#1A1A1A]">
+              <div className="mt-4 pt-4 border-t border-[hsl(var(--bone) / 0.14)] p-4 rounded-2xl bg-[hsl(var(--graphite))]">
                 <div className="flex items-center gap-2 mb-3">
-                  <Link2 className="w-4 h-4 text-[#8FD0D5]" />
-                  <span className="text-sm font-semibold text-[#8FD0D5]">File Submission:</span>
+                  <Link2 className="w-4 h-4 text-[hsl(var(--aqua))]" />
+                  <span className="text-sm font-semibold text-[hsl(var(--aqua))]">File Submission:</span>
                 </div>
                 {/* Supabase submission files — one card each */}
                 {submissionStorageFiles.length > 0 && (
@@ -3369,8 +3369,8 @@ export default function Scripts() {
                 onExportPDF={() => {
                   const typeColors: Record<string, string> = {
                     filming: '#f97316',
-                    actor: '#8FD0D5',
-                    editor: '#E0A560',
+                    actor: 'hsl(var(--aqua))',
+                    editor: 'hsl(var(--honey))',
                     text_on_screen: '#475569',
                   };
                   const sectionOrder = ['hook', 'body', 'cta'] as const;
@@ -3434,7 +3434,7 @@ export default function Scripts() {
       )}
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
-        <DialogContent className="sm:max-w-sm bg-[#1A1A1A] border border-[rgba(234,230,220,0.14)] rounded-2xl">
+        <DialogContent className="sm:max-w-sm bg-[hsl(var(--graphite))] border border-[hsl(var(--bone) / 0.14)] rounded-2xl">
           <DialogHeader>
             <DialogTitle>{tr(t.scripts.setNewPassword, language)}</DialogTitle>
           </DialogHeader>
@@ -3455,7 +3455,7 @@ export default function Scripts() {
       </Dialog>
 
       <Dialog open={showNamePrompt} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-sm bg-[#1A1A1A] border border-[rgba(234,230,220,0.14)] rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-sm bg-[hsl(var(--graphite))] border border-[hsl(var(--bone) / 0.14)] rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{tr(t.scripts.whatsYourName, language)}</DialogTitle>
           </DialogHeader>
@@ -3587,7 +3587,7 @@ export default function Scripts() {
       </Dialog>
 
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="sm:max-w-md bg-[#1A1A1A] border border-[rgba(234,230,220,0.14)] rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-[hsl(var(--graphite))] border border-[hsl(var(--bone) / 0.14)] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Clock className="w-4 h-4" />

@@ -59,21 +59,21 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMob
             width: 30,
             height: 30,
             borderRadius: 8,
-            background: "#EAE6DC",
-            border: "1px solid #141414",
-            boxShadow: "2px 2px 0 #141414",
-            color: "#141414",
+            background: "hsl(var(--cream))",
+            border: "1px solid hsl(var(--ink-on-cream))",
+            boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))",
+            color: "hsl(var(--ink-on-cream))",
             zIndex: 60,
             transition: "box-shadow 120ms, transform 120ms",
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget;
-            el.style.boxShadow = "3px 3px 0 #141414";
+            el.style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))";
             el.style.transform = "translate(-1px,-1px)";
           }}
           onMouseLeave={(e) => {
             const el = e.currentTarget;
-            el.style.boxShadow = "2px 2px 0 #141414";
+            el.style.boxShadow = "2px 2px 0 hsl(var(--ink-on-cream))";
             el.style.transform = "none";
           }}
         >

@@ -249,7 +249,7 @@ export function ViralVideoPlayer({
           onClick={handleSeek}
           style={{
             height: compact ? 2 : 4,
-            background: "rgba(234,230,220,0.18)",
+            background: "hsl(var(--bone) / 0.18)",
             borderRadius: 4,
             marginBottom: compact ? 4 : 12,
             cursor: "pointer",
@@ -335,7 +335,7 @@ export function ViralVideoPlayer({
               style={{
                 fontFamily: "'Figtree', monospace",
                 fontSize: 12,
-                color: "rgba(234,230,220,0.62)",
+                color: "hsl(var(--bone) / 0.62)",
                 fontVariantNumeric: "tabular-nums",
                 letterSpacing: "0.02em",
               }}

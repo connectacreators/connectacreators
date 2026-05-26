@@ -157,22 +157,22 @@ const MOCK_TURNS: { title: string; turn: BroadcastTurn }[] = [
 
 export default function CommandCenterPreview() {
   return (
-    <div className="min-h-screen" style={{ background: "#141414" }}>
+    <div className="min-h-screen" style={{ background: "hsl(var(--ink-on-cream))" }}>
       <div className="max-w-3xl mx-auto px-5 py-10">
         <h1
           className="text-3xl font-medium mb-1"
-          style={{ color: "#EAE6DC", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
+          style={{ color: "hsl(var(--cream))", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
         >
           /ai live broadcast — preview
         </h1>
-        <p className="text-sm mb-8" style={{ color: "rgba(234,230,220,0.55)" }}>
+        <p className="text-sm mb-8" style={{ color: "hsl(var(--bone) / 0.55)" }}>
           Every scene and embed with mock data. Reload to replay the animations.
         </p>
         {MOCK_TURNS.map((m, i) => (
           <div key={i} className="mb-10">
             <div
               className="text-[10px] tracking-widest uppercase font-bold mb-3"
-              style={{ color: "#8FD0D5", fontFamily: "Inter, sans-serif" }}
+              style={{ color: "hsl(var(--aqua))", fontFamily: "Inter, sans-serif" }}
             >
               {String(i + 1).padStart(2, "0")} · {m.title}
             </div>

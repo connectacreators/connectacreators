@@ -176,9 +176,9 @@ function CompactModeSelect({
       title={tips[mode]}
       className="flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-md transition-all"
       style={{
-        background: "rgba(143,208,213,0.10)",
-        color: "rgba(143,208,213,0.95)",
-        border: "1px solid rgba(143,208,213,0.25)",
+        background: "hsl(var(--aqua) / 0.10)",
+        color: "hsl(var(--aqua) / 0.95)",
+        border: "1px solid hsl(var(--aqua) / 0.25)",
       }}
     >
       <span className="text-white/40 font-normal">Mode</span>
@@ -985,12 +985,12 @@ export default function CommandCenter() {
   const dotColor: Record<string, string> = {
     red: "#ef4444",
     amber: "#f59e0b",
-    blue: "#8FD0D5",
+    blue: "hsl(var(--aqua))",
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex-1 flex flex-col min-h-0 text-white" style={{ background: "#141414" }}>
+    <div className="flex-1 flex flex-col min-h-0 text-white" style={{ background: "hsl(var(--ink-on-cream))" }}>
       {/* Top-right tasks toggle — no name, no back button, just the action. */}
       <header className="flex justify-end items-center px-4 py-2.5">
         <button
@@ -1031,7 +1031,7 @@ export default function CommandCenter() {
                     <FingerprintAvatar size="md" tone="light" animated />
                     <h1
                       className="mt-4 text-center font-serif"
-                      style={{ fontSize: 28, lineHeight: 1.2, color: "rgba(234,230,220,0.85)", letterSpacing: "-0.01em" }}
+                      style={{ fontSize: 28, lineHeight: 1.2, color: "hsl(var(--bone) / 0.85)", letterSpacing: "-0.01em" }}
                     >
                       {displayName
                         ? en
@@ -1043,7 +1043,7 @@ export default function CommandCenter() {
                     </h1>
                     <p
                       className="mt-2 text-center"
-                      style={{ fontSize: 13, color: "rgba(234,230,220,0.45)" }}
+                      style={{ fontSize: 13, color: "hsl(var(--bone) / 0.45)" }}
                     >
                       {en
                         ? "Ask anything about your pipeline, scripts, or clients."

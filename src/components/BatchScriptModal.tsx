@@ -216,9 +216,9 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
             disabled={!selectedClientId || videoCount < 2}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
-              background: "#8FD0D5",
+              background: "hsl(var(--aqua))",
               color: "#000",
-              border: "1px solid #8FD0D5",
+              border: "1px solid hsl(var(--aqua))",
             }}
           >
             Add to Canvas <ArrowRight className="w-3.5 h-3.5" />

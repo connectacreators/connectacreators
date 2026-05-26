@@ -105,8 +105,8 @@ export function AddCreditsModal({ open, onOpenChange, onSuccess }: AddCreditsMod
                     className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
                     style={{
                       background: pack.popular
-                        ? "linear-gradient(135deg, #8FD0D5, #a855f7)"
-                        : "linear-gradient(135deg, #F0BC7D, #8FD0D5)",
+                        ? "linear-gradient(135deg, hsl(var(--aqua)), #a855f7)"
+                        : "linear-gradient(135deg, #F0BC7D, hsl(var(--aqua)))",
                       color: "white",
                     }}
                   >

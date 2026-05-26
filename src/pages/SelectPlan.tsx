@@ -363,7 +363,7 @@ export default function SelectPlan() {
                         borderRadius={10}
                         backgroundColor="#141416"
                         glowColor="187 80 70"
-                        colors={['#8FD0D5', '#8FD0D5', '#E0A560']}
+                        colors={['hsl(var(--aqua))', 'hsl(var(--aqua))', 'hsl(var(--honey))']}
                         edgeSensitivity={25}
                         glowRadius={50}
                         coneSpread={10}

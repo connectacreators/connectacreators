@@ -62,7 +62,7 @@ export default function PresenceAvatars({ others, myAnimalName, myColor }: Props
 
       {/* Expanded panel for overflow */}
       {expanded && others.length > 5 && (
-        <div className="absolute top-full mt-2 right-0 bg-[#ffffff] border border-[#141414] rounded-xl shadow-xl p-2 z-50 min-w-[200px]">
+        <div className="absolute top-full mt-2 right-0 bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] rounded-xl shadow-xl p-2 z-50 min-w-[200px]">
           {others.slice(5).map((user) => (
             <div key={user.tabId} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/40">
               <PixelAvatar creature={user.animalName} color={user.color} size={20} showOnline={false} />

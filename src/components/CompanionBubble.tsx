@@ -53,25 +53,25 @@ export default function CompanionBubble() {
           style={{
             width: 52,
             height: 52,
-            background: "#EAE6DC",
-            border: "1px solid #141414",
-            boxShadow: "3px 3px 0 #141414",
+            background: "hsl(var(--cream))",
+            border: "1px solid hsl(var(--ink-on-cream))",
+            boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
             transition: "box-shadow 120ms, transform 120ms",
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget;
-            el.style.boxShadow = "4px 4px 0 #141414";
+            el.style.boxShadow = "4px 4px 0 hsl(var(--ink-on-cream))";
             el.style.transform = "translate(-1px,-1px)";
           }}
           onMouseLeave={(e) => {
             const el = e.currentTarget;
-            el.style.boxShadow = "3px 3px 0 #141414";
+            el.style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))";
             el.style.transform = "none";
           }}
           aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
         >
           {isOpen ? (
-            <X className="w-5 h-5" style={{ color: "#141414" }} />
+            <X className="w-5 h-5" style={{ color: "hsl(var(--ink-on-cream))" }} />
           ) : (
             <img
               src="/favicon-transparent.png"
@@ -87,7 +87,7 @@ export default function CompanionBubble() {
           <button
             onClick={() => setBubbleHidden(true)}
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ background: "#141414", color: "#EAE6DC", border: "1px solid #141414" }}
+            style={{ background: "hsl(var(--ink-on-cream))", color: "hsl(var(--cream))", border: "1px solid hsl(var(--ink-on-cream))" }}
             aria-label={en ? "Hide assistant bubble" : "Ocultar burbuja del asistente"}
             title={en ? "Hide (re-enable in Settings)" : "Ocultar (reactivar en Ajustes)"}
           >

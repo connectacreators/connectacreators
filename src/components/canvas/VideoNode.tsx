@@ -100,14 +100,14 @@ const PLATFORM_THEME: Record<Platform, {
   },
   default: {
     label: "Video Reference",
-    headerBg: "rgba(143,208,213,0.10)",
-    headerBorder: "rgba(143,208,213,0.20)",
-    cardBorder: "rgba(143,208,213,0.25)",
-    chevronColor: "rgba(143,208,213,0.5)",
-    transcriptBorder: "rgba(143,208,213,0.12)",
-    btnPrimaryBg: "rgba(143,208,213,0.12)",
-    btnPrimaryBorder: "rgba(143,208,213,0.30)",
-    btnPrimaryText: "#8FD0D5",
+    headerBg: "hsl(var(--aqua) / 0.10)",
+    headerBorder: "hsl(var(--aqua) / 0.20)",
+    cardBorder: "hsl(var(--aqua) / 0.25)",
+    chevronColor: "hsl(var(--aqua) / 0.5)",
+    transcriptBorder: "hsl(var(--aqua) / 0.12)",
+    btnPrimaryBg: "hsl(var(--aqua) / 0.12)",
+    btnPrimaryBorder: "hsl(var(--aqua) / 0.30)",
+    btnPrimaryText: "hsl(var(--aqua))",
   },
 };
 
@@ -228,9 +228,9 @@ const viralBadgeClass = (score: number): string => {
 };
 
 const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string; border: string }> = {
-  hook: { label: "Hook", accent: "text-[#8FD0D5]", bg: "bg-[rgba(143,208,213,0.08)]", border: "border-[rgba(143,208,213,0.2)]" },
-  body: { label: "Body", accent: "text-[rgba(20,20,20,0.55)]", bg: "bg-[rgba(20,20,20,0.04)]", border: "border-[rgba(20,20,20,0.08)]" },
-  cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[rgba(224,165,96,0.08)]", border: "border-[rgba(224,165,96,0.20)]" },
+  hook: { label: "Hook", accent: "text-[hsl(var(--aqua))]", bg: "bg-[hsl(var(--aqua) / 0.08)]", border: "border-[hsl(var(--aqua) / 0.2)]" },
+  body: { label: "Body", accent: "text-[hsl(var(--ink-on-cream) / 0.55)]", bg: "bg-[hsl(var(--ink-on-cream) / 0.04)]", border: "border-[hsl(var(--ink-on-cream) / 0.08)]" },
+  cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[hsl(var(--honey) / 0.08)]", border: "border-[hsl(var(--honey) / 0.20)]" },
 };
 
 
@@ -963,7 +963,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
           {/* Status banner */}
           {stage === "transcribing" && (
-            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "rgba(20,20,20,0.04)", borderColor: "rgba(20,20,20,0.10)", color: "#ffffff" }}>
+            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "hsl(var(--ink-on-cream) / 0.04)", borderColor: "hsl(var(--ink-on-cream) / 0.10)", color: "#ffffff" }}>
               Resolving video... {thumbStatus === "loading" ? "| Fetching thumbnail..." : thumbStatus === "done" ? "| Thumbnail ready" : thumbStatus === "error" ? `| Thumb error: ${thumbError}` : ""}
             </div>
           )}
@@ -1112,7 +1112,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                             {seg.text_on_screen && seg.text_on_screen.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {seg.text_on_screen.map((txt, j) => (
-                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[rgba(143,208,213,0.08)] border border-[rgba(143,208,213,0.2)] text-[#8FD0D5]/80">
+                                  <span key={j} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded bg-[hsl(var(--aqua) / 0.08)] border border-[hsl(var(--aqua) / 0.2)] text-[hsl(var(--aqua))]/80">
                                     <Type className="w-2.5 h-2.5 flex-shrink-0" />
                                     {txt}
                                   </span>
@@ -1156,7 +1156,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   onClick={saveToVault}
                   disabled={savingVault || vaultSaved || !d.clientId || !d.viralVideoId}
                   title={!d.viralVideoId ? "Analyzing — try again when ready" : undefined}
-                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[#141414] bg-[#8FD0D5] text-[#141414] hover:bg-[#7BC0C5] text-[11px] font-semibold transition-colors disabled:opacity-40"
+                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[hsl(var(--ink-on-cream))] bg-[hsl(var(--aqua))] text-[hsl(var(--ink-on-cream))] hover:bg-[#7BC0C5] text-[11px] font-semibold transition-colors disabled:opacity-40"
                 >
                   {savingVault ? (
                     <Loader2 className="w-3 h-3 animate-spin" />

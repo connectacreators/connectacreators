@@ -26,8 +26,8 @@ interface AnnotationData {
 }
 
 const COLORS = [
-  "#ffffff", "#8FD0D5", "#F0BC7D", "#f59e0b", "#f43f5e",
-  "#a78bfa", "#60a5fa", "#8FD0D5", "#fb923c", "rgba(20,20,20,0.45)",
+  "#ffffff", "hsl(var(--aqua))", "#F0BC7D", "#f59e0b", "#f43f5e",
+  "#a78bfa", "#60a5fa", "hsl(var(--aqua))", "#fb923c", "hsl(var(--ink-on-cream) / 0.45)",
 ];
 
 const RADIUS_MAP = { sharp: 2, rounded: 8, pill: 999 } as const;
@@ -54,7 +54,7 @@ function ColorRow({ value, onChange }: { value: string; onChange: (c: string) =>
       {COLORS.map(c => (
         <button key={c} onClick={() => onChange(c)}
           className="w-3 h-3 rounded-full border flex-shrink-0"
-          style={{ background: c, borderColor: value === c ? "#141414" : "rgba(20,20,20,0.12)", transform: value === c ? "scale(1.2)" : "scale(1)", transition: "transform 0.1s" }}
+          style={{ background: c, borderColor: value === c ? "hsl(var(--ink-on-cream))" : "hsl(var(--ink-on-cream) / 0.12)", transform: value === c ? "scale(1.2)" : "scale(1)", transition: "transform 0.1s" }}
         />
       ))}
     </div>
@@ -70,7 +70,7 @@ function Pills<T extends string>({ options, value, onChange, labels }: {
       {options.map(o => (
         <button key={o} onClick={() => onChange(o)}
           className="px-2 py-0.5 rounded text-[9px] font-semibold transition-colors"
-          style={{ background: value === o ? "rgba(143,208,213,0.18)" : "rgba(20,20,20,0.04)", border: `1px solid ${value === o ? "rgba(143,208,213,0.35)" : "rgba(20,20,20,0.06)"}`, color: value === o ? "#8FD0D5" : "rgba(20,20,20,0.45)" }}
+          style={{ background: value === o ? "hsl(var(--aqua) / 0.18)" : "hsl(var(--ink-on-cream) / 0.04)", border: `1px solid ${value === o ? "hsl(var(--aqua) / 0.35)" : "hsl(var(--ink-on-cream) / 0.06)"}`, color: value === o ? "hsl(var(--aqua))" : "hsl(var(--ink-on-cream) / 0.45)" }}
         >{labels?.[o] ?? o}</button>
       ))}
     </div>
@@ -81,13 +81,13 @@ function Pills<T extends string>({ options, value, onChange, labels }: {
 function OpacitySlider({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
   return (
     <div className="mt-1.5">
-      <div className="flex justify-between text-[8px] mb-0.5" style={{ color: "rgba(20,20,20,0.30)" }}>
+      <div className="flex justify-between text-[8px] mb-0.5" style={{ color: "hsl(var(--ink-on-cream) / 0.30)" }}>
         <span>{label}</span><span>{Math.round(value * 100)}%</span>
       </div>
       <input type="range" min={10} max={100} value={Math.round(value * 100)}
         onChange={e => onChange(parseInt(e.target.value) / 100)}
         className="w-full h-1 rounded appearance-none cursor-pointer"
-        style={{ background: "rgba(20,20,20,0.08)", accentColor: "#8FD0D5" }}
+        style={{ background: "hsl(var(--ink-on-cream) / 0.08)", accentColor: "hsl(var(--aqua))" }}
       />
     </div>
   );
@@ -110,10 +110,10 @@ function Popover({ open, onClose, children, title }: {
   if (!open) return null;
   return (
     <div ref={ref} className="nodrag nowheel absolute z-20"
-      style={{ bottom: "calc(100% + 6px)", left: 0, minWidth: 140, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(14px)", border: "1px solid rgba(20,20,20,0.10)", borderRadius: 10, padding: "8px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.12)" }}
+      style={{ bottom: "calc(100% + 6px)", left: 0, minWidth: 140, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(14px)", border: "1px solid hsl(var(--ink-on-cream) / 0.10)", borderRadius: 10, padding: "8px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.12)" }}
       onClick={e => e.stopPropagation()}
     >
-      <div className="text-[8px] uppercase tracking-widest mb-1.5" style={{ color: "rgba(20,20,20,0.35)", fontWeight: 600 }}>{title}</div>
+      <div className="text-[8px] uppercase tracking-widest mb-1.5" style={{ color: "hsl(var(--ink-on-cream) / 0.35)", fontWeight: 600 }}>{title}</div>
       {children}
     </div>
   );
@@ -179,7 +179,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
     initializedRef.current = true;
   }, [d.html, d.text, d.bold, d.italic, d.underline, focused]);
 
-  const color = d.color || "#141414";
+  const color = d.color || "hsl(var(--ink-on-cream))";
   const align = d.align || "left";
 
   // V2 styling
@@ -313,10 +313,10 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
       {/* ── Toolbar ── */}
       {showToolbar && (() => {
         const s = Math.max(1, Math.min(3, liveFont / 32));
-        const btnCls = (on?: boolean) => `p-0.5 rounded transition-colors ${on ? "bg-[rgba(143,208,213,0.25)] text-[#8FD0D5]" : "text-muted-foreground hover:text-foreground"}`;
+        const btnCls = (on?: boolean) => `p-0.5 rounded transition-colors ${on ? "bg-[hsl(var(--aqua) / 0.25)] text-[hsl(var(--aqua))]" : "text-muted-foreground hover:text-foreground"}`;
 
         return (
-        <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-[#ffffff] border border-[#141414] z-10"
+        <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] z-10"
           style={{ whiteSpace: "nowrap", bottom: "100%", marginBottom: 6 * s, transform: `scale(${s})`, transformOrigin: "bottom left" }}
         >
           {/* Color picker — single dot opens popover */}
@@ -329,7 +329,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
                 {COLORS.map(c => (
                   <button key={c} onClick={() => { update({ color: c }); setOpenPopover(null); }}
                     className="w-4 h-4 rounded-full border transition-transform hover:scale-125"
-                    style={{ background: c, borderColor: color === c ? "#141414" : "rgba(20,20,20,0.15)", transform: color === c ? "scale(1.2)" : "scale(1)" }}
+                    style={{ background: c, borderColor: color === c ? "hsl(var(--ink-on-cream))" : "hsl(var(--ink-on-cream) / 0.15)", transform: color === c ? "scale(1.2)" : "scale(1)" }}
                   />
                 ))}
               </div>
@@ -348,7 +348,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
           {/* Alignment */}
           {(["left", "center", "right"] as const).map(a => (
             <button key={a} onClick={() => update({ align: a })}
-              className={`p-0.5 rounded text-[9px] font-bold transition-colors ${align === a ? "text-[#8FD0D5]" : "text-muted-foreground hover:text-foreground"}`}
+              className={`p-0.5 rounded text-[9px] font-bold transition-colors ${align === a ? "text-[hsl(var(--aqua))]" : "text-muted-foreground hover:text-foreground"}`}
             >{a === "left" ? "L" : a === "center" ? "C" : "R"}</button>
           ))}
 
@@ -368,8 +368,8 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
           {/* Style popover (BG, Border, Shadow, Opacity, Radius) */}
           <div className="relative">
             <button onClick={() => togglePopover("style")}
-              className={`p-0.5 rounded transition-colors ${hasStyle ? "text-[#E0A560]" : "text-muted-foreground hover:text-foreground"}`}
-              style={hasStyle ? { background: "rgba(20,20,20,0.05)", boxShadow: "inset 0 0 0 1px rgba(20,20,20,0.12)" } : {}}
+              className={`p-0.5 rounded transition-colors ${hasStyle ? "text-[hsl(var(--honey))]" : "text-muted-foreground hover:text-foreground"}`}
+              style={hasStyle ? { background: "hsl(var(--ink-on-cream) / 0.05)", boxShadow: "inset 0 0 0 1px hsl(var(--ink-on-cream) / 0.12)" } : {}}
               title="Style"
             >
               <Palette className="w-3 h-3" />
@@ -378,10 +378,10 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
               {/* Background */}
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[8px] uppercase tracking-widest" style={{ color: "rgba(20,20,20,0.35)" }}>Background</span>
+                  <span className="text-[8px] uppercase tracking-widest" style={{ color: "hsl(var(--ink-on-cream) / 0.35)" }}>Background</span>
                   <button onClick={() => update({ bgColor: bgColor ? null : color })}
                     className="text-[8px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ background: bgColor ? "rgba(20,20,20,0.08)" : "rgba(20,20,20,0.04)", color: bgColor ? "#E0A560" : "rgba(20,20,20,0.40)" }}
+                    style={{ background: bgColor ? "hsl(var(--ink-on-cream) / 0.08)" : "hsl(var(--ink-on-cream) / 0.04)", color: bgColor ? "hsl(var(--honey))" : "hsl(var(--ink-on-cream) / 0.40)" }}
                   >{bgColor ? "ON" : "OFF"}</button>
                 </div>
                 {bgColor && (
@@ -393,7 +393,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
               {/* Border */}
               <div className="mb-3">
-                <div className="text-[8px] uppercase tracking-widest mb-1" style={{ color: "rgba(20,20,20,0.35)" }}>Border</div>
+                <div className="text-[8px] uppercase tracking-widest mb-1" style={{ color: "hsl(var(--ink-on-cream) / 0.35)" }}>Border</div>
                 <Pills options={["none", "solid", "dashed", "dotted"] as const} value={brdStyle} onChange={v => update({ borderStyle: v })} />
                 {hasBorder && (
                   <>
@@ -404,12 +404,12 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
               {/* Shadow */}
               <div className="mb-3">
-                <div className="text-[8px] uppercase tracking-widest mb-1" style={{ color: "rgba(20,20,20,0.35)" }}>Shadow</div>
+                <div className="text-[8px] uppercase tracking-widest mb-1" style={{ color: "hsl(var(--ink-on-cream) / 0.35)" }}>Shadow</div>
                 <Pills options={["none", "subtle", "glow"] as const} value={shadow} onChange={v => update({ shadow: v })} />
               </div>
               {/* Radius */}
               <div className="mb-3">
-                <div className="text-[8px] uppercase tracking-widest mb-1" style={{ color: "rgba(20,20,20,0.35)" }}>Corners</div>
+                <div className="text-[8px] uppercase tracking-widest mb-1" style={{ color: "hsl(var(--ink-on-cream) / 0.35)" }}>Corners</div>
                 <Pills options={["sharp", "rounded", "pill"] as const} value={brdRadius} onChange={v => update({ borderRadius: v })} labels={{ sharp: "Sharp", rounded: "Round", pill: "Pill" }} />
               </div>
               {/* Node Opacity */}
@@ -472,7 +472,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
       <style>{`
         [data-placeholder]:empty::before {
           content: attr(data-placeholder);
-          color: "rgba(20,20,20,0.20)",
+          color: "hsl(var(--ink-on-cream) / 0.20)",
           pointer-events: none;
         }
       `}</style>

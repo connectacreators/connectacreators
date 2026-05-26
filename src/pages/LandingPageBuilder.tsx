@@ -150,7 +150,7 @@ export default function LandingPageBuilder() {
         slug: slugify(name || clientId.substring(0, 8)),
         is_published: false,
         primary_color: "#C4922A",
-        secondary_color: "#1A1A1A",
+        secondary_color: "hsl(var(--graphite))",
         cta_button_text: "Book Now",
         show_booking: true,
         services: [],
@@ -725,7 +725,7 @@ export default function LandingPageBuilder() {
                   <div className="rounded-xl overflow-hidden border border-border">
                     <div style={{ background: page.secondary_color, padding: "16px 18px" }}>
                       <p style={{ fontFamily: "Arial, sans-serif", fontWeight: 700, fontSize: 15, margin: "0 0 6px",
-                        color: (() => { try { const h = page.secondary_color.replace("#",""); const r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255; const L=0.2126*(r<=0.03928?r/12.92:((r+0.055)/1.055)**2.4)+0.7152*(g<=0.03928?g/12.92:((g+0.055)/1.055)**2.4)+0.0722*(b<=0.03928?b/12.92:((b+0.055)/1.055)**2.4); return L>0.35?"#1a1a1a":"#f0f0f0"; } catch{return "#1a1a1a";} })() }}>
+                        color: (() => { try { const h = page.secondary_color.replace("#",""); const r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255; const L=0.2126*(r<=0.03928?r/12.92:((r+0.055)/1.055)**2.4)+0.7152*(g<=0.03928?g/12.92:((g+0.055)/1.055)**2.4)+0.0722*(b<=0.03928?b/12.92:((b+0.055)/1.055)**2.4); return L>0.35?"hsl(var(--graphite))":"#f0f0f0"; } catch{return "hsl(var(--graphite))";} })() }}>
                         Sample Heading
                       </p>
                       <p style={{ fontFamily: "Arial, sans-serif", fontSize: 12, margin: "0 0 10px",

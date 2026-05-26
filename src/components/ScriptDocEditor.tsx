@@ -15,23 +15,23 @@ type LineType = ScriptLine["line_type"];
 // Editorial-dark line types — colors match Scripts.tsx card-view config.
 const TYPE_OPTIONS: { type: LineType; color: string; label: string }[] = [
   { type: "filming",        color: "#A85B1F",                  label: "Filming"        },
-  { type: "actor",          color: "#8FD0D5",                  label: "Actor"          },
+  { type: "actor",          color: "hsl(var(--aqua))",                  label: "Actor"          },
   { type: "editor",         color: "#7FB58A",                  label: "Editor"         },
-  { type: "text_on_screen", color: "rgba(234,230,220,0.55)",   label: "Text on Screen" },
+  { type: "text_on_screen", color: "hsl(var(--bone) / 0.55)",   label: "Text on Screen" },
 ];
 
 const TYPE_TEXT_CLASS: Record<LineType, string> = {
-  filming:        "text-[rgba(234,230,220,0.82)]",
-  actor:          "text-[rgba(234,230,220,0.82)]",
-  editor:         "text-[rgba(234,230,220,0.82)]",
-  text_on_screen: "text-[rgba(234,230,220,0.62)]",
+  filming:        "text-[hsl(var(--bone) / 0.82)]",
+  actor:          "text-[hsl(var(--bone) / 0.82)]",
+  editor:         "text-[hsl(var(--bone) / 0.82)]",
+  text_on_screen: "text-[hsl(var(--bone) / 0.62)]",
 };
 
 const TYPE_BAR_CLASS: Record<LineType, string> = {
   filming:        "bg-[#A85B1F]",
-  actor:          "bg-[#8FD0D5]",
+  actor:          "bg-[hsl(var(--aqua))]",
   editor:         "bg-[#7FB58A]",
-  text_on_screen: "bg-[rgba(234,230,220,0.40)]",
+  text_on_screen: "bg-[hsl(var(--bone) / 0.40)]",
 };
 
 export interface ScriptDocEditorProps {
@@ -139,7 +139,7 @@ function ScriptLineEditor({
     <div
       className={[
         "relative flex items-stretch mb-0.5 rounded-md group transition-colors",
-        isActive ? "bg-[rgba(234,230,220,0.04)]" : "hover:bg-[rgba(234,230,220,0.025)]",
+        isActive ? "bg-[hsl(var(--bone) / 0.04)]" : "hover:bg-[hsl(var(--bone) / 0.025)]",
       ].join(" ")}
     >
       {/* Left color bar */}
@@ -162,17 +162,17 @@ function ScriptLineEditor({
       {/* Floating type picker */}
       {isActive && pickerOpen && (
         <div
-          className="absolute left-1.5 bottom-[calc(100%+7px)] z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-[rgba(234,230,220,0.18)] bg-[#1A1A1A] shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap"
+          className="absolute left-1.5 bottom-[calc(100%+7px)] z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-[hsl(var(--bone) / 0.18)] bg-[hsl(var(--graphite))] shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap"
           onMouseDown={(e) => e.preventDefault()}
         >
-          <span className="text-[9px] text-[rgba(234,230,220,0.45)] mr-0.5">type</span>
+          <span className="text-[9px] text-[hsl(var(--bone) / 0.45)] mr-0.5">type</span>
           {TYPE_OPTIONS.map((opt) => (
             <div
               key={opt.type}
               className={[
                 "w-3.5 h-3.5 rounded-full cursor-pointer transition-transform hover:scale-125",
                 line.line_type === opt.type
-                  ? "ring-2 ring-[#EAE6DC] ring-offset-[2px] ring-offset-[#1A1A1A]"
+                  ? "ring-2 ring-[hsl(var(--cream))] ring-offset-[2px] ring-offset-[hsl(var(--graphite))]"
                   : "",
               ].join(" ")}
               style={{ background: opt.color }}
@@ -180,7 +180,7 @@ function ScriptLineEditor({
               onClick={() => onTypeChange(idx, opt.type)}
             />
           ))}
-          <div className="w-px h-3 bg-[rgba(234,230,220,0.18)] mx-0.5" />
+          <div className="w-px h-3 bg-[hsl(var(--bone) / 0.18)] mx-0.5" />
           <span className="editorial-eyebrow" style={{ letterSpacing: "0.18em", fontSize: 9 }}>
             {currentType?.label}
           </span>
@@ -329,10 +329,10 @@ export default function ScriptDocEditor({
       `}</style>
 
       {/* Formatting toolbar */}
-      <div className="editorial-page-dark doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[#141414] border-b border-[rgba(234,230,220,0.10)] flex-wrap">
+      <div className="editorial-page-dark doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[hsl(var(--ink-on-cream))] border-b border-[hsl(var(--bone) / 0.10)] flex-wrap">
         {/* Bold */}
         <button
-          className="px-2 py-1 rounded text-[12px] font-bold text-[rgba(234,230,220,0.55)] hover:bg-[rgba(234,230,220,0.06)] hover:text-[#EAE6DC] transition-colors"
+          className="px-2 py-1 rounded text-[12px] font-bold text-[hsl(var(--bone) / 0.55)] hover:bg-[hsl(var(--bone) / 0.06)] hover:text-[hsl(var(--cream))] transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             activeEditor()?.chain().focus().toggleBold().run();
@@ -344,7 +344,7 @@ export default function ScriptDocEditor({
 
         {/* Italic */}
         <button
-          className="px-2 py-1 rounded text-[12px] italic text-[rgba(234,230,220,0.55)] hover:bg-[rgba(234,230,220,0.06)] hover:text-[#EAE6DC] transition-colors"
+          className="px-2 py-1 rounded text-[12px] italic text-[hsl(var(--bone) / 0.55)] hover:bg-[hsl(var(--bone) / 0.06)] hover:text-[hsl(var(--cream))] transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             activeEditor()?.chain().focus().toggleItalic().run();
@@ -356,7 +356,7 @@ export default function ScriptDocEditor({
 
         {/* Underline */}
         <button
-          className="px-2 py-1 rounded text-[12px] underline text-[rgba(234,230,220,0.55)] hover:bg-[rgba(234,230,220,0.06)] hover:text-[#EAE6DC] transition-colors"
+          className="px-2 py-1 rounded text-[12px] underline text-[hsl(var(--bone) / 0.55)] hover:bg-[hsl(var(--bone) / 0.06)] hover:text-[hsl(var(--cream))] transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             activeEditor()?.chain().focus().toggleUnderline().run();
@@ -366,18 +366,18 @@ export default function ScriptDocEditor({
           U
         </button>
 
-        <div className="w-px h-4 bg-[rgba(234,230,220,0.12)] mx-1" />
+        <div className="w-px h-4 bg-[hsl(var(--bone) / 0.12)] mx-1" />
 
         {/* Type legend */}
         <div className="flex items-center gap-3 ml-1">
-          <span className="text-[9px] text-[rgba(234,230,220,0.45)]">Line type:</span>
+          <span className="text-[9px] text-[hsl(var(--bone) / 0.45)]">Line type:</span>
           {TYPE_OPTIONS.map((opt) => (
             <span key={opt.type} className="flex items-center gap-1">
               <span
                 className="w-2 h-2 rounded-full inline-block flex-shrink-0"
                 style={{ background: opt.color }}
               />
-              <span className="text-[9px] text-[rgba(234,230,220,0.65)]">{opt.label}</span>
+              <span className="text-[9px] text-[hsl(var(--bone) / 0.65)]">{opt.label}</span>
             </span>
           ))}
         </div>
@@ -405,22 +405,22 @@ export default function ScriptDocEditor({
       </div>
 
       {/* Document page */}
-      <div className="editorial-page-dark px-4 py-6 bg-[#141414]">
+      <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink-on-cream))]">
         <div className="editorial-card doc-print-area max-w-[660px] mx-auto px-10 py-10">
-          <div className="mb-1" style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 22, letterSpacing: "-0.005em", color: "#EAE6DC" }}>
+          <div className="mb-1" style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 22, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}>
             {scriptTitle || "Untitled Script"}
           </div>
-          <div className="text-[11px] text-[rgba(234,230,220,0.55)] mb-7">{scriptMeta}</div>
+          <div className="text-[11px] text-[hsl(var(--bone) / 0.55)] mb-7">{scriptMeta}</div>
 
           {sectionGroups.map(({ section, items }) => (
             <div key={section}>
               {/* Section divider */}
               <div className="flex items-center gap-2.5 my-5">
-                <div className="flex-1 h-px bg-[rgba(234,230,220,0.14)]" />
+                <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.30em", fontSize: 9 }}>
                   {SECTION_LABEL[section] ?? section}
                 </span>
-                <div className="flex-1 h-px bg-[rgba(234,230,220,0.14)]" />
+                <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
               </div>
 
               {items.map(({ line, idx }) => (
@@ -444,7 +444,7 @@ export default function ScriptDocEditor({
           ))}
 
           {/* Tooltip: section assignment is Card View only */}
-          <p className="mt-8 text-[10px] text-[rgba(234,230,220,0.40)] italic">
+          <p className="mt-8 text-[10px] text-[hsl(var(--bone) / 0.40)] italic">
             To move a line between Hook / Body / CTA sections, use Card View.
           </p>
         </div>

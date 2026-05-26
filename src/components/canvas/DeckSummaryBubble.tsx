@@ -14,10 +14,10 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
     <div
       style={{
         background: "#ffffff",
-        border: "1px solid rgba(20,20,20,0.12)",
+        border: "1px solid hsl(var(--ink-on-cream) / 0.12)",
         borderRadius: 10,
         padding: "10px 12px",
-        color: "rgba(20,20,20,0.7)",
+        color: "hsl(var(--ink-on-cream) / 0.7)",
         fontSize: 11,
         lineHeight: 1.5,
       }}
@@ -31,7 +31,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
             <div key={q.id} className="flex gap-1.5 py-0.5">
               <dt
                 style={{
-                  color: "rgba(20,20,20,0.4)",
+                  color: "hsl(var(--ink-on-cream) / 0.4)",
                   flexShrink: 0,
                   width: 32,
                   fontVariantNumeric: "tabular-nums",
@@ -43,7 +43,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
               <dd
                 className="m-0 flex-1"
                 style={{
-                  color: "#141414",
+                  color: "hsl(var(--ink-on-cream))",
                   fontStyle: isTyped ? "italic" : "normal",
                 }}
               >
@@ -55,9 +55,9 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
       </dl>
       <div
         className="flex justify-between items-center mt-2 pt-1.5"
-        style={{ borderTop: "1px solid rgba(20,20,20,0.08)" }}
+        style={{ borderTop: "1px solid hsl(var(--ink-on-cream) / 0.08)" }}
       >
-        <span style={{ color: "rgba(20,20,20,0.4)", fontSize: 9 }}>
+        <span style={{ color: "hsl(var(--ink-on-cream) / 0.4)", fontSize: 9 }}>
           {answeredCount} / {questions.length} answered
         </span>
         {onEdit && (
@@ -66,7 +66,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
             onClick={onEdit}
             className="flex items-center gap-1"
             style={{
-              color: "#8FD0D5",
+              color: "hsl(var(--aqua))",
               fontSize: 9,
               fontWeight: 600,
               background: "transparent",

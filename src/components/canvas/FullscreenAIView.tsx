@@ -57,16 +57,16 @@ export interface FullscreenAIViewProps {
 // ── Node type config ───────────────────────────────────────────────────────
 
 const NODE_TYPE_COLOR: Record<string, string> = {
-  videoNode: "#E0A560",
-  textNoteNode: "#E0A560",
-  researchNoteNode: "#8FD0D5",
-  hookGeneratorNode: "#E0A560",
-  brandGuideNode: "#8FD0D5",
-  ctaBuilderNode: "#E0A560",
-  instagramProfileNode: "rgba(234,230,220,0.45)",
-  competitorProfileNode: "rgba(234,230,220,0.45)",
-  mediaNode: "#8FD0D5",
-  onboardingFormNode: "#8FD0D5",
+  videoNode: "hsl(var(--honey))",
+  textNoteNode: "hsl(var(--honey))",
+  researchNoteNode: "hsl(var(--aqua))",
+  hookGeneratorNode: "hsl(var(--honey))",
+  brandGuideNode: "hsl(var(--aqua))",
+  ctaBuilderNode: "hsl(var(--honey))",
+  instagramProfileNode: "hsl(var(--bone) / 0.45)",
+  competitorProfileNode: "hsl(var(--bone) / 0.45)",
+  mediaNode: "hsl(var(--aqua))",
+  onboardingFormNode: "hsl(var(--aqua))",
 };
 
 const NODE_TYPE_LABEL: Record<string, string> = {
@@ -564,7 +564,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
         zIndex: 200,
         display: "flex",
         flexDirection: "column",
-        background: "#141414",
+        background: "hsl(var(--ink-on-cream))",
         fontFamily: "inherit",
       }}
     >
@@ -573,8 +573,8 @@ const FullscreenAIView = memo(function FullscreenAIView({
         style={{
           height: 44,
           flexShrink: 0,
-          background: "#1F1F1F",
-          borderBottom: "1px solid rgba(234,230,220,0.08)",
+          background: "hsl(var(--graphite))",
+          borderBottom: "1px solid hsl(var(--bone) / 0.08)",
           display: "flex",
           alignItems: "center",
           padding: "0 16px",
@@ -588,7 +588,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
             background: "none",
             border: "none",
             cursor: "pointer",
-            color: "rgba(234,230,220,0.45)",
+            color: "hsl(var(--bone) / 0.45)",
             fontSize: 12,
             display: "flex",
             alignItems: "center",
@@ -598,11 +598,11 @@ const FullscreenAIView = memo(function FullscreenAIView({
             transition: "color 0.15s, background 0.15s",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = "rgba(234,230,220,0.75)";
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(234,230,220,0.06)";
+            (e.currentTarget as HTMLButtonElement).style.color = "hsl(var(--bone) / 0.75)";
+            (e.currentTarget as HTMLButtonElement).style.background = "hsl(var(--bone) / 0.06)";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = "rgba(234,230,220,0.45)";
+            (e.currentTarget as HTMLButtonElement).style.color = "hsl(var(--bone) / 0.45)";
             (e.currentTarget as HTMLButtonElement).style.background = "none";
           }}
         >
@@ -618,7 +618,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
               fontWeight: 300,
               fontSize: 14,
               letterSpacing: "0.04em",
-              color: "rgba(234,230,220,0.80)",
+              color: "hsl(var(--bone) / 0.80)",
             }}
           >
             {selectedClient.name || "Client"}
@@ -637,7 +637,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
           style={{
             width: 200,
             flexShrink: 0,
-            borderRight: "1px solid rgba(234,230,220,0.08)",
+            borderRight: "1px solid hsl(var(--bone) / 0.08)",
             overflow: "hidden",
           }}
         >
@@ -670,7 +670,7 @@ const FullscreenAIView = memo(function FullscreenAIView({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "rgba(234,230,220,0.30)",
+                color: "hsl(var(--bone) / 0.30)",
                 fontSize: 13,
               }}
             >
@@ -739,8 +739,8 @@ const FullscreenAIView = memo(function FullscreenAIView({
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(234,230,220,0.10); border-radius: 2px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(234,230,220,0.18); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--bone) / 0.10); border-radius: 2px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--bone) / 0.18); }
       `}</style>
     </div>
   );

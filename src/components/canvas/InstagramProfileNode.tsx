@@ -48,12 +48,12 @@ const HOOK_TYPE_LABELS: Record<string, string> = {
 };
 
 const HOOK_TYPE_COLORS: Record<string, string> = {
-  educational: "#8FD0D5",
+  educational: "hsl(var(--aqua))",
   authority: "#f59e0b",
   story: "#a78bfa",
   comparison: "#F0BC7D",
   shock: "#f43f5e",
-  random: "rgba(20,20,20,0.45)",
+  random: "hsl(var(--ink-on-cream) / 0.45)",
 };
 
 function formatViews(n: number): string {
@@ -63,9 +63,9 @@ function formatViews(n: number): string {
 }
 
 function outlierColor(score: number): string {
-  if (score >= 5) return "#8FD0D5";
+  if (score >= 5) return "hsl(var(--aqua))";
   if (score >= 2.5) return "#F0BC7D";
-  return "rgba(20,20,20,0.45)";
+  return "hsl(var(--ink-on-cream) / 0.45)";
 }
 
 export default function InstagramProfileNode({ data }: { data: NodeData }) {
@@ -280,8 +280,8 @@ export default function InstagramProfileNode({ data }: { data: NodeData }) {
                     <span
                       className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold"
                       style={{
-                        background: `${HOOK_TYPE_COLORS[selectedPost.hookType] || "rgba(20,20,20,0.45)"}20`,
-                        color: HOOK_TYPE_COLORS[selectedPost.hookType] || "rgba(20,20,20,0.45)",
+                        background: `${HOOK_TYPE_COLORS[selectedPost.hookType] || "hsl(var(--ink-on-cream) / 0.45)"}20`,
+                        color: HOOK_TYPE_COLORS[selectedPost.hookType] || "hsl(var(--ink-on-cream) / 0.45)",
                       }}
                     >
                       {HOOK_TYPE_LABELS[selectedPost.hookType] || selectedPost.hookType}

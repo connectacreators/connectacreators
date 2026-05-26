@@ -2619,11 +2619,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   }
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: "#EAE6DC" }}>
+    <div className="flex h-full overflow-hidden" style={{ background: "hsl(var(--cream))" }}>
       {/* Canvas area — full width, sessions in toolbar */}
       <div
         className="flex-1 relative min-w-0"
-        style={{ background: "#EAE6DC" }}
+        style={{ background: "hsl(var(--cream))" }}
         onDragOver={(e) => {
           const hasFile = Array.from(e.dataTransfer.items).some(
             i => i.kind === "file" && (CANVAS_ACCEPTED_MIME.has(i.type) || !i.type)
@@ -2738,7 +2738,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           connectOnClick
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
-          style={{ background: "#EAE6DC", position: "absolute", inset: 0 }}
+          style={{ background: "hsl(var(--cream))", position: "absolute", inset: 0 }}
           onMouseMove={(e) => {
             // Broadcast cursor position in flow coordinates (throttled inside hook)
             const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
@@ -2747,8 +2747,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         >
           <Background
             variant={BackgroundVariant.Dots}
-            bgColor="#EAE6DC"
-            color="rgba(20,20,20,0.28)"
+            bgColor="hsl(var(--cream))"
+            color="hsl(var(--ink-on-cream) / 0.28)"
             gap={24}
             size={1.5}
           />

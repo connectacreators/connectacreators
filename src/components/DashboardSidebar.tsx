@@ -633,7 +633,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = viewMode === "master" ? 'rgba(255,255,255,0.06)' : 'transparent'; }}
           >
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)', color: '#8FD0D5', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)', color: 'hsl(var(--aqua))', border: '1px solid rgba(255,255,255,0.12)' }}>
               M
             </div>
             <span className="text-sm font-medium text-foreground flex-1">Master</span>
@@ -688,7 +688,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             <button
               onClick={(e) => { e.stopPropagation(); setAddingClient(true); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-b-xl"
-              style={{ color: '#8FD0D5' }}
+              style={{ color: 'hsl(var(--aqua))' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
             >
@@ -770,7 +770,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                     }
                   }}
                   className="flex-1 py-1 text-xs font-semibold rounded-md disabled:opacity-50"
-                  style={{ background: '#8FD0D5', color: 'black' }}
+                  style={{ background: 'hsl(var(--aqua))', color: 'black' }}
                 >
                   {creatingClient ? "..." : (language === "en" ? "Create" : "Crear")}
                 </button>
@@ -788,7 +788,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           {isUser && clients.length >= clientLimit && (
             <div className="px-3 py-2 text-xs text-center rounded-b-xl" style={{ color: '#888' }}>
               {language === "en" ? "Client limit reached — " : "Límite alcanzado — "}
-              <a href="/subscription" style={{ color: '#8FD0D5' }}>
+              <a href="/subscription" style={{ color: 'hsl(var(--aqua))' }}>
                 {language === "en" ? "upgrade" : "mejorar plan"}
               </a>
             </div>

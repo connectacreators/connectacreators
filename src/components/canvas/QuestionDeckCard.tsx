@@ -82,18 +82,18 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
             fontSize: 9,
             fontWeight: 700,
             letterSpacing: 1.4,
-            color: "#8FD0D5",
+            color: "hsl(var(--aqua))",
             textTransform: "uppercase",
           }}
         >
           Q{index + 1} / {total}{current.label ? ` · ${current.label}` : ""}
         </span>
       </div>
-      <h3 className="m-0 mb-1" style={{ fontSize: 13, fontWeight: 700, color: "#141414", lineHeight: 1.3 }}>
+      <h3 className="m-0 mb-1" style={{ fontSize: 13, fontWeight: 700, color: "hsl(var(--ink-on-cream))", lineHeight: 1.3 }}>
         {current.question}
       </h3>
       {current.body && (
-        <p className="mb-2" style={{ fontSize: 11, color: "rgba(20,20,20,0.55)", lineHeight: 1.5 }}>
+        <p className="mb-2" style={{ fontSize: 11, color: "hsl(var(--ink-on-cream) / 0.55)", lineHeight: 1.5 }}>
           {current.body}
         </p>
       )}
@@ -111,9 +111,9 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
                 style={{
                   padding: "10px 12px",
                   borderRadius: 10,
-                  border: selected ? "1px solid rgba(143,208,213,0.6)" : "1px solid rgba(20,20,20,0.12)",
-                  background: selected ? "rgba(143,208,213,0.12)" : "rgba(20,20,20,0.03)",
-                  color: "#141414",
+                  border: selected ? "1px solid hsl(var(--aqua) / 0.6)" : "1px solid hsl(var(--ink-on-cream) / 0.12)",
+                  background: selected ? "hsl(var(--aqua) / 0.12)" : "hsl(var(--ink-on-cream) / 0.03)",
+                  color: "hsl(var(--ink-on-cream))",
                   cursor: "pointer",
                 }}
               >
@@ -123,8 +123,8 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
                     width: 20,
                     height: 20,
                     borderRadius: 6,
-                    background: selected ? "rgba(143,208,213,0.25)" : "rgba(20,20,20,0.08)",
-                    color: selected ? "#8FD0D5" : "rgba(20,20,20,0.45)",
+                    background: selected ? "hsl(var(--aqua) / 0.25)" : "hsl(var(--ink-on-cream) / 0.08)",
+                    color: selected ? "hsl(var(--aqua))" : "hsl(var(--ink-on-cream) / 0.45)",
                     fontSize: 10,
                     fontWeight: 700,
                   }}
@@ -143,8 +143,8 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
         className="flex items-center gap-1.5"
         style={{
           padding: "5px 6px 5px 9px",
-          background: "rgba(20,20,20,0.03)",
-          border: `1px solid ${typed ? "rgba(143,208,213,0.45)" : "rgba(20,20,20,0.12)"}`,
+          background: "hsl(var(--ink-on-cream) / 0.03)",
+          border: `1px solid ${typed ? "hsl(var(--aqua) / 0.45)" : "hsl(var(--ink-on-cream) / 0.12)"}`,
           borderRadius: 7,
         }}
       >
@@ -159,7 +159,7 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
           }}
           placeholder={currentAnswer?.source === "chip" ? currentAnswer.answer : "Or type your own…"}
           className="flex-1 bg-transparent border-0 outline-none"
-          style={{ color: "#141414", fontSize: 11 }}
+          style={{ color: "hsl(var(--ink-on-cream))", fontSize: 11 }}
         />
         <div className="flex gap-1">
           <button
@@ -173,9 +173,9 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
               minWidth: 24,
               padding: "0 6px",
               borderRadius: 6,
-              border: "1px solid rgba(20,20,20,0.12)",
-              background: "rgba(20,20,20,0.03)",
-              color: index === 0 ? "rgba(20,20,20,0.25)" : "#141414",
+              border: "1px solid hsl(var(--ink-on-cream) / 0.12)",
+              background: "hsl(var(--ink-on-cream) / 0.03)",
+              color: index === 0 ? "hsl(var(--ink-on-cream) / 0.25)" : "hsl(var(--ink-on-cream))",
               cursor: index === 0 ? "not-allowed" : "pointer",
             }}
           >
@@ -190,9 +190,9 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
               height: 24,
               padding: "0 10px",
               borderRadius: 6,
-              border: "1px solid rgba(143,208,213,0.5)",
-              background: "rgba(143,208,213,0.18)",
-              color: "#8FD0D5",
+              border: "1px solid hsl(var(--aqua) / 0.5)",
+              background: "hsl(var(--aqua) / 0.18)",
+              color: "hsl(var(--aqua))",
               fontSize: 10,
               fontWeight: 600,
               cursor: "pointer",
@@ -224,17 +224,17 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
                 height: 2,
                 borderRadius: 1,
                 background: hasAnswer
-                  ? "rgba(143,208,213,0.75)"
+                  ? "hsl(var(--aqua) / 0.75)"
                   : isActive
-                  ? "rgba(143,208,213,0.45)"
-                  : "rgba(20,20,20,0.12)",
+                  ? "hsl(var(--aqua) / 0.45)"
+                  : "hsl(var(--ink-on-cream) / 0.12)",
               }}
             />
           );
         })}
       </div>
       <div className="flex justify-between items-center mt-1.5">
-        <span style={{ fontSize: 9, color: "rgba(20,20,20,0.45)" }}>
+        <span style={{ fontSize: 9, color: "hsl(var(--ink-on-cream) / 0.45)" }}>
           {answeredCount} / {total} answered
         </span>
         {!isLast && (
@@ -242,7 +242,7 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
             type="button"
             onClick={() => setIndex(index + 1)}
             className="flex items-center gap-1"
-            style={{ fontSize: 9, color: "rgba(20,20,20,0.45)", background: "transparent", border: 0, cursor: "pointer" }}
+            style={{ fontSize: 9, color: "hsl(var(--ink-on-cream) / 0.45)", background: "transparent", border: 0, cursor: "pointer" }}
           >
             <span>Skip</span>
             <SkipForward className="w-3 h-3" />

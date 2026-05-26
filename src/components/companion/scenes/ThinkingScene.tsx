@@ -18,7 +18,7 @@ export default function ThinkingScene({ scene }: Props) {
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontStyle: "italic",
             fontSize: 14,
-            color: "rgba(234,230,220,0.65)",
+            color: "hsl(var(--bone) / 0.65)",
           }}
         >
           {scene.payload.hint}
@@ -31,7 +31,7 @@ export default function ThinkingScene({ scene }: Props) {
               style={{
                 width: 4,
                 height: 4,
-                background: "rgba(234,230,220,0.45)",
+                background: "hsl(var(--bone) / 0.45)",
                 animation: `broadcast-pulse 1.4s ease-in-out ${i * 0.18}s infinite`,
               }}
             />

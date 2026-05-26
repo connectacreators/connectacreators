@@ -60,7 +60,7 @@ export default function ViralVideoPickerModal({ onSelect, onClose }: Props) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative bg-[#ffffff] border border-[#141414] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4"
+        className="relative bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

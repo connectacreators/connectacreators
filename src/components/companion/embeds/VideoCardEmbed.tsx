@@ -63,15 +63,15 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
       className="flex gap-3 rounded-xl overflow-hidden cursor-pointer transition-all"
       style={{
         background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(234,230,220,0.10)",
+        border: "1px solid hsl(var(--bone) / 0.10)",
       }}
       onClick={goToDetail}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "rgba(224,165,96,0.40)";
+        e.currentTarget.style.borderColor = "hsl(var(--honey) / 0.40)";
         e.currentTarget.style.background = "rgba(255,255,255,0.06)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "rgba(234,230,220,0.10)";
+        e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.10)";
         e.currentTarget.style.background = "rgba(255,255,255,0.04)";
       }}
     >
@@ -122,7 +122,7 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
             </button>
             <div
               className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
-              style={{ background: "rgba(0,0,0,0.75)", color: "#E0A560" }}
+              style={{ background: "rgba(0,0,0,0.75)", color: "hsl(var(--honey))" }}
             >
               {data.outlier.toFixed(1)}x
             </div>
@@ -136,12 +136,12 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           <span
             className="text-[11px] font-semibold truncate"
-            style={{ color: "rgba(234,230,220,0.95)" }}
+            style={{ color: "hsl(var(--bone) / 0.95)" }}
           >
             @{data.username}
           </span>
           {platformLabel && (
-            <span className="text-[9px]" style={{ color: "rgba(234,230,220,0.40)" }}>
+            <span className="text-[9px]" style={{ color: "hsl(var(--bone) / 0.40)" }}>
               · {platformLabel}
             </span>
           )}
@@ -149,9 +149,9 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
             <span
               className="text-[9px] px-1.5 py-0.5 rounded"
               style={{
-                background: "rgba(143,208,213,0.12)",
-                color: "rgba(143,208,213,0.90)",
-                border: "1px solid rgba(143,208,213,0.20)",
+                background: "hsl(var(--aqua) / 0.12)",
+                color: "hsl(var(--aqua) / 0.90)",
+                border: "1px solid hsl(var(--aqua) / 0.20)",
               }}
             >
               {formatLabel}
@@ -161,9 +161,9 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
             <span
               className="text-[9px] px-1.5 py-0.5 rounded"
               style={{
-                background: "rgba(224,165,96,0.12)",
-                color: "rgba(224,165,96,0.90)",
-                border: "1px solid rgba(224,165,96,0.20)",
+                background: "hsl(var(--honey) / 0.12)",
+                color: "hsl(var(--honey) / 0.90)",
+                border: "1px solid hsl(var(--honey) / 0.20)",
               }}
             >
               {nicheLabel}
@@ -175,7 +175,7 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
             rel="noopener noreferrer"
             onClick={stop}
             className="ml-auto text-[9px] flex items-center gap-0.5 hover:opacity-100 opacity-60 transition-opacity"
-            style={{ color: "rgba(234,230,220,0.75)" }}
+            style={{ color: "hsl(var(--bone) / 0.75)" }}
             title="Open original"
           >
             <ExternalLink size={9} />
@@ -183,8 +183,8 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
         </div>
 
         {/* Stats row */}
-        <div className="flex gap-2 text-[10px] font-jetbrains" style={{ color: "rgba(234,230,220,0.65)" }}>
-          <span style={{ color: "#E0A560" }}>{fmtViews(data.views)}</span>
+        <div className="flex gap-2 text-[10px] font-jetbrains" style={{ color: "hsl(var(--bone) / 0.65)" }}>
+          <span style={{ color: "hsl(var(--honey))" }}>{fmtViews(data.views)}</span>
           <span>·</span>
           <span>{data.engagement.toFixed(1)}%</span>
           <span>·</span>
@@ -195,24 +195,24 @@ export default function VideoCardEmbed({ data, onClick }: Props) {
         <div className="space-y-0.5 mt-0.5">
           {data.hook_text && (
             <div className="text-[10.5px] leading-snug min-w-0">
-              <span style={{ color: "rgba(143,208,213,0.85)", fontWeight: 600 }}>Hook: </span>
-              <span style={{ color: "rgba(234,230,220,0.85)" }} className="line-clamp-2">
+              <span style={{ color: "hsl(var(--aqua) / 0.85)", fontWeight: 600 }}>Hook: </span>
+              <span style={{ color: "hsl(var(--bone) / 0.85)" }} className="line-clamp-2">
                 {data.hook_text}
               </span>
             </div>
           )}
           {data.body_structure && (
             <div className="text-[10.5px] leading-snug min-w-0">
-              <span style={{ color: "rgba(143,208,213,0.85)", fontWeight: 600 }}>Body: </span>
-              <span style={{ color: "rgba(234,230,220,0.70)" }} className="line-clamp-1">
+              <span style={{ color: "hsl(var(--aqua) / 0.85)", fontWeight: 600 }}>Body: </span>
+              <span style={{ color: "hsl(var(--bone) / 0.70)" }} className="line-clamp-1">
                 {data.body_structure}
               </span>
             </div>
           )}
           {data.cta_text && (
             <div className="text-[10.5px] leading-snug min-w-0">
-              <span style={{ color: "rgba(143,208,213,0.85)", fontWeight: 600 }}>CTA: </span>
-              <span style={{ color: "rgba(234,230,220,0.70)" }} className="line-clamp-1">
+              <span style={{ color: "hsl(var(--aqua) / 0.85)", fontWeight: 600 }}>CTA: </span>
+              <span style={{ color: "hsl(var(--bone) / 0.70)" }} className="line-clamp-1">
                 {data.cta_text}
               </span>
             </div>

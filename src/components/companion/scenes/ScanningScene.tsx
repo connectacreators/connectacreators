@@ -27,28 +27,28 @@ export default function ScanningScene({ scene }: Props) {
           const tone = isHit
             ? "#1a1410"
             : isQueued
-              ? "rgba(234,230,220,0.35)"
-              : "rgba(234,230,220,0.78)";
+              ? "hsl(var(--bone) / 0.35)"
+              : "hsl(var(--bone) / 0.78)";
           return (
             <div
               key={c.id}
               className="flex items-baseline gap-3 py-1.5"
               style={{
                 borderBottom: i < payload.channels.length - 1
-                  ? "1px solid rgba(234,230,220,0.08)"
+                  ? "1px solid hsl(var(--bone) / 0.08)"
                   : "none",
               }}
             >
               <span
                 className="flex-shrink-0 font-jetbrains text-[10px]"
-                style={{ color: "rgba(234,230,220,0.35)", width: 18 }}
+                style={{ color: "hsl(var(--bone) / 0.35)", width: 18 }}
               >
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span
                 className="font-medium text-[13px] flex-shrink-0"
                 style={{
-                  color: tone === "#1a1410" ? "#EAE6DC" : tone,
+                  color: tone === "#1a1410" ? "hsl(var(--cream))" : tone,
                   fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                   fontStyle: isHit ? "italic" : "normal",
                 }}
@@ -59,7 +59,7 @@ export default function ScanningScene({ scene }: Props) {
                 aria-hidden
                 className="flex-1"
                 style={{
-                  borderBottom: "1px dotted rgba(234,230,220,0.18)",
+                  borderBottom: "1px dotted hsl(var(--bone) / 0.18)",
                   transform: "translateY(-3px)",
                 }}
               />
@@ -67,10 +67,10 @@ export default function ScanningScene({ scene }: Props) {
                 className="font-jetbrains text-[10px] flex-shrink-0"
                 style={{
                   color: isHit
-                    ? "#E0A560"
+                    ? "hsl(var(--honey))"
                     : c.status === "done"
                       ? "rgba(127,180,138,0.65)"
-                      : "rgba(234,230,220,0.45)",
+                      : "hsl(var(--bone) / 0.45)",
                   letterSpacing: "0.04em",
                 }}
               >
@@ -86,7 +86,7 @@ export default function ScanningScene({ scene }: Props) {
           style={{
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontStyle: "italic",
-            color: "rgba(234,230,220,0.78)",
+            color: "hsl(var(--bone) / 0.78)",
           }}
         >
           {payload.summary}

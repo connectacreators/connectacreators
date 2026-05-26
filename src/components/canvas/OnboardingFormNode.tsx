@@ -109,9 +109,9 @@ export default function OnboardingFormNode({ data }: NodeProps) {
     <div className="glass-card rounded-2xl min-w-[280px] max-w-[340px] relative">
       <div className="overflow-hidden rounded-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(20,20,20,0.05)] border-b border-[rgba(20,20,20,0.12)]">
+        <div className="flex items-center justify-between px-3 py-2.5 bg-[hsl(var(--ink-on-cream) / 0.05)] border-b border-[hsl(var(--ink-on-cream) / 0.12)]">
           <div className="flex items-center gap-2">
-            <ClipboardList className="w-3.5 h-3.5 text-[#8FD0D5]" />
+            <ClipboardList className="w-3.5 h-3.5 text-[hsl(var(--aqua))]" />
             <span className="text-xs font-semibold text-foreground">Onboarding Form</span>
           </div>
           <div className="flex items-center gap-1">

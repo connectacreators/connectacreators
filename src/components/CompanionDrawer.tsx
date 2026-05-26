@@ -444,7 +444,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
     <aside
       className={`fixed top-0 right-0 z-50 h-screen w-[380px] flex border-l border-l-white/10 rounded-none will-change-transform ${closing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
       style={{
-        background: "#141414",
+        background: "hsl(var(--ink-on-cream))",
         boxShadow: "-10px 0 40px rgba(0,0,0,0.5)",
       }}
     >
@@ -553,9 +553,9 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
                       onClick={() => setAutonomyMode(m)}
                       className="text-[9px] font-medium px-2 py-0.5 rounded-md transition-all"
                       style={{
-                        background: autonomyMode === m ? "rgba(143,208,213,0.15)" : "transparent",
-                        color: autonomyMode === m ? "rgba(143,208,213,0.95)" : "rgba(234,230,220,0.40)",
-                        border: `1px solid ${autonomyMode === m ? "rgba(143,208,213,0.35)" : "rgba(234,230,220,0.10)"}`,
+                        background: autonomyMode === m ? "hsl(var(--aqua) / 0.15)" : "transparent",
+                        color: autonomyMode === m ? "hsl(var(--aqua) / 0.95)" : "hsl(var(--bone) / 0.40)",
+                        border: `1px solid ${autonomyMode === m ? "hsl(var(--aqua) / 0.35)" : "hsl(var(--bone) / 0.10)"}`,
                       }}
                       title={
                         m === "auto"
@@ -621,7 +621,7 @@ function TabBtn({
           transform: `translateY(-50%) scaleY(${active ? 1 : 0})`,
           width: 1.5,
           height: "55%",
-          background: "#8FD0D5",
+          background: "hsl(var(--aqua))",
           borderRadius: 2,
           opacity: active ? 0.9 : 0,
           transition: "transform 0.18s ease, opacity 0.18s ease",
