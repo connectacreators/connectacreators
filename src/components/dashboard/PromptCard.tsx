@@ -20,8 +20,8 @@ export function PromptCard({ icon: Icon, title, description, onClick }: PromptCa
       className="text-left transition-transform duration-150"
       style={{
         background: "#ffffff",
-        border: "1px solid #141414",
-        boxShadow: "3px 3px 0 #141414",
+        border: "1px solid hsl(var(--ink-on-cream))",
+        boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
         borderRadius: 12,
         padding: 14,
         width: "100%",
@@ -29,27 +29,27 @@ export function PromptCard({ icon: Icon, title, description, onClick }: PromptCa
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.boxShadow = "4px 4px 0 #141414";
+        el.style.boxShadow = "4px 4px 0 hsl(var(--ink-on-cream))";
         el.style.transform = "translate(-1px, -1px)";
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.boxShadow = "3px 3px 0 #141414";
+        el.style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))";
         el.style.transform = "translate(0, 0)";
       }}
     >
       <div style={{ height: 28, marginBottom: 8, display: "flex", alignItems: "center" }}>
-        <Icon size={22} strokeWidth={1.5} color="#141414" />
+        <Icon size={22} strokeWidth={1.5} color="hsl(var(--ink-on-cream))" />
       </div>
       <div
-        style={{ fontSize: 15, fontWeight: 500, color: "#141414", letterSpacing: "-0.005em", marginBottom: 3, fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
+        style={{ fontSize: 15, fontWeight: 500, color: "hsl(var(--ink-on-cream))", letterSpacing: "-0.005em", marginBottom: 3, fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
       >
         {title}
       </div>
       <div
         style={{
           fontSize: 11,
-          color: "rgba(20,20,20,0.55)",
+          color: "hsl(var(--ink-on-cream) / 0.55)",
           lineHeight: 1.4,
           fontFamily: "var(--font-body, Figtree), sans-serif",
         }}

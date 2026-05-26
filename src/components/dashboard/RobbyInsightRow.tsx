@@ -21,8 +21,8 @@ export function RobbyInsightRow({ icon: Icon, text, actionLabel, onClick }: Robb
       className="w-full text-left transition-transform duration-150"
       style={{
         background: "#ffffff",
-        border: "1px solid #141414",
-        boxShadow: "2px 2px 0 #141414",
+        border: "1px solid hsl(var(--ink-on-cream))",
+        boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))",
         borderRadius: 10,
         padding: "11px 12px",
         marginBottom: 7,
@@ -33,12 +33,12 @@ export function RobbyInsightRow({ icon: Icon, text, actionLabel, onClick }: Robb
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.boxShadow = "3px 3px 0 #141414";
+        el.style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))";
         el.style.transform = "translate(-1px, -1px)";
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.boxShadow = "2px 2px 0 #141414";
+        el.style.boxShadow = "2px 2px 0 hsl(var(--ink-on-cream))";
         el.style.transform = "translate(0, 0)";
       }}
     >
@@ -46,14 +46,14 @@ export function RobbyInsightRow({ icon: Icon, text, actionLabel, onClick }: Robb
         className="flex items-center justify-center flex-shrink-0"
         style={{
           width: 22, height: 22, borderRadius: "50%",
-          background: "rgba(143,208,213,0.20)",
-          border: "1px solid #141414",
+          background: "hsl(var(--aqua) / 0.20)",
+          border: "1px solid hsl(var(--ink-on-cream))",
         }}
       >
-        <Icon size={12} strokeWidth={1.5} color="#141414" />
+        <Icon size={12} strokeWidth={1.5} color="hsl(var(--ink-on-cream))" />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 12, color: "#141414", lineHeight: 1.45 }}>{text}</div>
+        <div style={{ fontSize: 12, color: "hsl(var(--ink-on-cream))", lineHeight: 1.45 }}>{text}</div>
         <div style={{ fontSize: 10, color: "#2E5E61", marginTop: 3, fontWeight: 500 }}>
           {actionLabel}
         </div>

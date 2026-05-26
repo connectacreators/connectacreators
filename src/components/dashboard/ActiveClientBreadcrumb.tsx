@@ -18,13 +18,13 @@ function monogramOf(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-export function ActiveClientBreadcrumb({ clientName, avatarColor = "#8FD0D5" }: ActiveClientBreadcrumbProps) {
+export function ActiveClientBreadcrumb({ clientName, avatarColor = "hsl(var(--aqua))" }: ActiveClientBreadcrumbProps) {
   const navigate = useNavigate();
   const unscope = () => navigate("/dashboard");
 
   return (
-    <div className="flex items-center gap-2 mb-3" style={{ fontSize: 11, color: "rgba(20,20,20,0.55)" }}>
-      <Link to="/dashboard" style={{ color: "rgba(20,20,20,0.55)" }} className="hover:underline">
+    <div className="flex items-center gap-2 mb-3" style={{ fontSize: 11, color: "hsl(var(--ink-on-cream) / 0.55)" }}>
+      <Link to="/dashboard" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }} className="hover:underline">
         Agency
       </Link>
       <span>/</span>
@@ -34,12 +34,12 @@ export function ActiveClientBreadcrumb({ clientName, avatarColor = "#8FD0D5" }: 
         className="inline-flex items-center gap-1.5"
         style={{
           background: "#ffffff",
-          border: "1px solid #141414",
-          boxShadow: "1px 1px 0 #141414",
+          border: "1px solid hsl(var(--ink-on-cream))",
+          boxShadow: "1px 1px 0 hsl(var(--ink-on-cream))",
           padding: "3px 10px",
           borderRadius: 999,
           fontSize: 11,
-          color: "#141414",
+          color: "hsl(var(--ink-on-cream))",
           cursor: "pointer",
         }}
         title="Back to agency view"
@@ -48,14 +48,14 @@ export function ActiveClientBreadcrumb({ clientName, avatarColor = "#8FD0D5" }: 
           className="flex items-center justify-center"
           style={{
             width: 16, height: 16, borderRadius: "50%",
-            background: avatarColor, color: "#141414",
+            background: avatarColor, color: "hsl(var(--ink-on-cream))",
             fontSize: 8, fontWeight: 600,
           }}
         >
           {monogramOf(clientName)}
         </span>
         <span>{clientName}</span>
-        <X size={11} style={{ color: "rgba(20,20,20,0.45)" }} />
+        <X size={11} style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }} />
       </button>
     </div>
   );

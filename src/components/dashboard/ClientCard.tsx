@@ -21,12 +21,12 @@ function monogramOf(name: string): string {
 }
 
 const PILL_STYLES: Record<PendingItem["variant"], React.CSSProperties> = {
-  honey: { background: "rgba(224,165,96,0.18)", color: "#6B4D26", border: "1px solid rgba(224,165,96,0.50)" },
-  aqua:  { background: "rgba(143,208,213,0.18)", color: "#2E5E61", border: "1px solid rgba(143,208,213,0.50)" },
-  ink:   { background: "rgba(20,20,20,0.06)",    color: "rgba(20,20,20,0.65)", border: "1px solid rgba(20,20,20,0.18)" },
+  honey: { background: "hsl(var(--honey) / 0.18)", color: "#6B4D26", border: "1px solid hsl(var(--honey) / 0.50)" },
+  aqua:  { background: "hsl(var(--aqua) / 0.18)", color: "#2E5E61", border: "1px solid hsl(var(--aqua) / 0.50)" },
+  ink:   { background: "hsl(var(--ink-on-cream) / 0.06)",    color: "hsl(var(--ink-on-cream) / 0.65)", border: "1px solid hsl(var(--ink-on-cream) / 0.18)" },
 };
 
-export function ClientCard({ clientId, name, avatarColor = "#8FD0D5", pendingItems, onClick }: ClientCardProps) {
+export function ClientCard({ clientId, name, avatarColor = "hsl(var(--aqua))", pendingItems, onClick }: ClientCardProps) {
   return (
     <button
       type="button"
@@ -34,8 +34,8 @@ export function ClientCard({ clientId, name, avatarColor = "#8FD0D5", pendingIte
       className="text-left transition-transform duration-150"
       style={{
         background: "#ffffff",
-        border: "1px solid #141414",
-        boxShadow: "2px 2px 0 #141414",
+        border: "1px solid hsl(var(--ink-on-cream))",
+        boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))",
         borderRadius: 12,
         padding: "12px 14px",
         width: "100%",
@@ -43,12 +43,12 @@ export function ClientCard({ clientId, name, avatarColor = "#8FD0D5", pendingIte
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.boxShadow = "3px 3px 0 #141414";
+        el.style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))";
         el.style.transform = "translate(-1px, -1px)";
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.boxShadow = "2px 2px 0 #141414";
+        el.style.boxShadow = "2px 2px 0 hsl(var(--ink-on-cream))";
         el.style.transform = "translate(0, 0)";
       }}
     >
@@ -57,14 +57,14 @@ export function ClientCard({ clientId, name, avatarColor = "#8FD0D5", pendingIte
           className="flex items-center justify-center font-semibold"
           style={{
             width: 32, height: 32, borderRadius: "50%",
-            background: avatarColor, color: "#141414",
+            background: avatarColor, color: "hsl(var(--ink-on-cream))",
             fontSize: 12, flexShrink: 0,
           }}
         >
           {monogramOf(name)}
         </div>
         <span
-          style={{ fontSize: 14, fontWeight: 500, color: "#141414", letterSpacing: "-0.005em", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
+          style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--ink-on-cream))", letterSpacing: "-0.005em", fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif" }}
         >
           {name}
         </span>

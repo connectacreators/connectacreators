@@ -92,15 +92,15 @@ function buildFolders(clientId: string | null): Folder[] {
 }
 
 // ─── Dark theme tokens ───
-const BG = "#141414";              // Ink (page)
-const CARD_BG = "#1F1F1F";         // Graphite (cards)
-const BORDER = "rgba(234,230,220,0.14)";
-const BORDER_STRONG = "rgba(234,230,220,0.22)";
-const SHADOW = "rgba(234,230,220,0.18)";
-const SHADOW_HOVER = "rgba(234,230,220,0.28)";
-const TEXT = "#EAE6DC";            // Bone
-const TEXT_MUTED = "rgba(234,230,220,0.60)";
-const TEXT_SUBTLE = "rgba(234,230,220,0.45)";
+const BG = "hsl(var(--ink-on-cream))";              // Ink (page)
+const CARD_BG = "hsl(var(--graphite))";         // Graphite (cards)
+const BORDER = "hsl(var(--bone) / 0.14)";
+const BORDER_STRONG = "hsl(var(--bone) / 0.22)";
+const SHADOW = "hsl(var(--bone) / 0.18)";
+const SHADOW_HOVER = "hsl(var(--bone) / 0.28)";
+const TEXT = "hsl(var(--cream))";            // Bone
+const TEXT_MUTED = "hsl(var(--bone) / 0.60)";
+const TEXT_SUBTLE = "hsl(var(--bone) / 0.45)";
 
 interface SingleBrandDashboardProps {
   firstName: string;

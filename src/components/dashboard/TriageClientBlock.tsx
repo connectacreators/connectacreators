@@ -22,7 +22,7 @@ const MONOGRAM_PALETTE: Array<{ bg: string; fg: string }> = [
   { bg: '#B23A2A', fg: '#FFFFFF' },  // brick
   { bg: '#1F4D72', fg: '#FFFFFF' },  // navy
   { bg: '#3D7846', fg: '#FFFFFF' },  // forest
-  { bg: '#141414', fg: '#EAE6DC' },  // ink
+  { bg: 'hsl(var(--ink-on-cream))', fg: 'hsl(var(--cream))' },  // ink
 ];
 
 function colorFor(name: string): { bg: string; fg: string } {
@@ -46,21 +46,21 @@ export function TriageClientBlock({ client, rows }: Props) {
       className="group relative rounded-2xl transition-all"
       style={{
         background: 'rgba(255,255,255,0.55)',
-        border: '1px solid rgba(20,20,20,0.07)',
-        boxShadow: '0 1px 0 rgba(20,20,20,0.03)',
+        border: '1px solid hsl(var(--ink-on-cream) / 0.07)',
+        boxShadow: '0 1px 0 hsl(var(--ink-on-cream) / 0.03)',
         padding: '20px 24px 22px',
         marginBottom: 14,
         backdropFilter: 'blur(6px)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = '0 12px 32px rgba(20,20,20,0.07), 0 2px 0 rgba(20,20,20,0.04)';
+        e.currentTarget.style.boxShadow = '0 12px 32px hsl(var(--ink-on-cream) / 0.07), 0 2px 0 hsl(var(--ink-on-cream) / 0.04)';
         e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.borderColor = 'rgba(20,20,20,0.10)';
+        e.currentTarget.style.borderColor = 'hsl(var(--ink-on-cream) / 0.10)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = '0 1px 0 rgba(20,20,20,0.03)';
+        e.currentTarget.style.boxShadow = '0 1px 0 hsl(var(--ink-on-cream) / 0.03)';
         e.currentTarget.style.transform = 'none';
-        e.currentTarget.style.borderColor = 'rgba(20,20,20,0.07)';
+        e.currentTarget.style.borderColor = 'hsl(var(--ink-on-cream) / 0.07)';
       }}
     >
       {/* Soft colored accent bar on the left edge */}
@@ -109,7 +109,7 @@ export function TriageClientBlock({ client, rows }: Props) {
             style={{
               fontSize: 25,
               fontWeight: 500,
-              color: '#141414',
+              color: 'hsl(var(--ink-on-cream))',
               letterSpacing: '-0.01em',
               fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
               lineHeight: 1.1,
@@ -120,7 +120,7 @@ export function TriageClientBlock({ client, rows }: Props) {
         </div>
         <ChevronRight
           size={20}
-          color="rgba(20,20,20,0.30)"
+          color="hsl(var(--ink-on-cream) / 0.30)"
           className="transition-transform group-hover:translate-x-0.5 shrink-0"
         />
       </Link>

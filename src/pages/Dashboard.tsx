@@ -129,7 +129,7 @@ export default function Dashboard() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.40)" }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "hsl(var(--ink-on-cream) / 0.40)" }} />
       </div>
     );
   }
@@ -158,13 +158,13 @@ export default function Dashboard() {
   // ───────────────────────────────────────────────────────────────
   if (activeClient) {
     return (
-      <div className="min-h-screen" style={{ background: "#EAE6DC", padding: "22px 28px" }}>
+      <div className="min-h-screen" style={{ background: "hsl(var(--cream))", padding: "22px 28px" }}>
         <ActiveClientBreadcrumb clientName={activeClient.name} />
         <h1
           style={{
             fontSize: 26,
             fontWeight: 500,
-            color: "#141414",
+            color: "hsl(var(--ink-on-cream))",
             letterSpacing: "-0.01em",
             marginBottom: 14,
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
@@ -245,7 +245,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
       className="min-h-screen relative"
       style={{
         background:
-          "radial-gradient(1100px 600px at 50% -200px, rgba(197,136,47,0.12), rgba(234,230,220,0) 60%), #EAE6DC",
+          "radial-gradient(1100px 600px at 50% -200px, rgba(197,136,47,0.12), hsl(var(--bone) / 0) 60%), hsl(var(--cream))",
         padding: "40px 28px 64px",
       }}
     >
@@ -258,7 +258,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
             style={{
               fontSize: 11,
-              color: "rgba(20,20,20,0.45)",
+              color: "hsl(var(--ink-on-cream) / 0.45)",
               marginBottom: 12,
               fontFamily: "var(--font-body, Figtree), sans-serif",
               letterSpacing: "0.22em",
@@ -274,7 +274,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.04 }}
             style={{
               fontSize: 14,
-              color: "rgba(20,20,20,0.6)",
+              color: "hsl(var(--ink-on-cream) / 0.6)",
               marginBottom: 4,
               fontFamily: "var(--font-body, Figtree), sans-serif",
             }}
@@ -288,7 +288,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             style={{
               fontSize: 42,
               fontWeight: 500,
-              color: "#141414",
+              color: "hsl(var(--ink-on-cream))",
               letterSpacing: "-0.02em",
               marginBottom: 10,
               fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
@@ -301,7 +301,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.14 }}
-            style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}
+            style={{ fontSize: 13, color: "hsl(var(--ink-on-cream) / 0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}
           >
             {loading
               ? "Loading…"
@@ -315,7 +315,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "rgba(20,20,20,0.40)" }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "hsl(var(--ink-on-cream) / 0.40)" }} />
           </div>
         ) : pendingCount === 0 && totalClients > 0 ? (
           <motion.div
@@ -326,7 +326,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               textAlign: "center",
               padding: "48px 32px",
               background: "rgba(255,255,255,0.45)",
-              border: "1px solid rgba(20,20,20,0.07)",
+              border: "1px solid hsl(var(--ink-on-cream) / 0.07)",
               borderRadius: 20,
               backdropFilter: "blur(6px)",
             }}
@@ -352,14 +352,14 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               style={{
                 fontSize: 22,
                 fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-                color: "#141414",
+                color: "hsl(var(--ink-on-cream))",
                 marginBottom: 4,
                 letterSpacing: "-0.01em",
               }}
             >
               Nothing on fire.
             </p>
-            <p style={{ fontSize: 13, color: "rgba(20,20,20,0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}>
+            <p style={{ fontSize: 13, color: "hsl(var(--ink-on-cream) / 0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}>
               Take a breath, or get ahead on next week's content.
             </p>
           </motion.div>
@@ -385,18 +385,18 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                   textAlign: "center",
                   padding: "36px 32px",
                   background: "rgba(255,255,255,0.45)",
-                  border: "1px dashed rgba(20,20,20,0.18)",
+                  border: "1px dashed hsl(var(--ink-on-cream) / 0.18)",
                   borderRadius: 20,
                 }}
               >
-                <p style={{ fontSize: 14, color: "rgba(20,20,20,0.6)", fontFamily: "var(--font-body, Figtree), sans-serif", marginBottom: 8 }}>
+                <p style={{ fontSize: 14, color: "hsl(var(--ink-on-cream) / 0.6)", fontFamily: "var(--font-body, Figtree), sans-serif", marginBottom: 8 }}>
                   No Connecta Plus clients yet.
                 </p>
                 <a
                   href="/clients"
                   style={{
                     fontSize: 13,
-                    color: "#141414",
+                    color: "hsl(var(--ink-on-cream))",
                     textDecoration: "underline",
                     fontFamily: "var(--font-body, Figtree), sans-serif",
                   }}
@@ -413,11 +413,11 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             href="/clients"
             style={{
               fontSize: 11.5,
-              color: "rgba(20,20,20,0.45)",
+              color: "hsl(var(--ink-on-cream) / 0.45)",
               fontFamily: "var(--font-body, Figtree), sans-serif",
               letterSpacing: "0.06em",
               textDecoration: "none",
-              borderBottom: "1px solid rgba(20,20,20,0.15)",
+              borderBottom: "1px solid hsl(var(--ink-on-cream) / 0.15)",
               paddingBottom: 1,
             }}
           >

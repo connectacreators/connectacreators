@@ -85,7 +85,7 @@ export function RecentChatsPanel() {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 pt-2 mt-1" style={{ borderTop: "1px solid rgba(234,230,220,0.06)" }}>
+    <div className="flex flex-col flex-1 min-h-0 pt-2 mt-1" style={{ borderTop: "1px solid hsl(var(--bone) / 0.06)" }}>
       {/* New chat — subtle row, Claude-style. Same color treatment as the
           nav items above so it reads as part of the same list. */}
       <button
@@ -99,13 +99,13 @@ export function RecentChatsPanel() {
 
       <div
         className="flex-1 min-h-0 overflow-y-auto pt-1"
-        style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(234,230,220,0.20) transparent" }}
+        style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--bone) / 0.20) transparent" }}
       >
         {groups.map((g) => (
           <div key={g.label} className="mb-1">
             <div
               className="px-3 pt-2 pb-0.5"
-              style={{ fontSize: 10, color: "rgba(234,230,220,0.32)" }}
+              style={{ fontSize: 10, color: "hsl(var(--bone) / 0.32)" }}
             >
               {g.label}
             </div>
@@ -121,12 +121,12 @@ export function RecentChatsPanel() {
                     padding: "4px 12px",
                     fontSize: 12,
                     lineHeight: 1.35,
-                    color: isActive ? "#EAE6DC" : "rgba(234,230,220,0.55)",
-                    background: isActive ? "rgba(234,230,220,0.05)" : "transparent",
+                    color: isActive ? "hsl(var(--cream))" : "hsl(var(--bone) / 0.55)",
+                    background: isActive ? "hsl(var(--bone) / 0.05)" : "transparent",
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(234,230,220,0.03)";
+                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "hsl(var(--bone) / 0.03)";
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent";

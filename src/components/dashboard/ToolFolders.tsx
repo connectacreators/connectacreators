@@ -99,7 +99,7 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
           fontSize: 9.5,
           letterSpacing: "0.20em",
           textTransform: "uppercase",
-          color: "rgba(20,20,20,0.45)",
+          color: "hsl(var(--ink-on-cream) / 0.45)",
           marginBottom: 10,
           fontFamily: "var(--font-body, Figtree), sans-serif",
           fontWeight: 600,
@@ -117,8 +117,8 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
             whileHover={{ y: -2, x: -1 }}
             style={{
               background: "#ffffff",
-              border: "1px solid #141414",
-              boxShadow: "3px 3px 0 #141414",
+              border: "1px solid hsl(var(--ink-on-cream))",
+              boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
               borderRadius: 12,
               padding: 14,
             }}
@@ -127,7 +127,7 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
               style={{
                 fontSize: 15,
                 fontWeight: 500,
-                color: "#141414",
+                color: "hsl(var(--ink-on-cream))",
                 letterSpacing: "-0.005em",
                 marginBottom: 8,
                 fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
@@ -145,12 +145,12 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
                     className="flex items-center gap-2 py-1.5"
                     style={{
                       fontSize: 12,
-                      color: "rgba(20,20,20,0.75)",
-                      borderTop: "1px solid rgba(20,20,20,0.06)",
+                      color: "hsl(var(--ink-on-cream) / 0.75)",
+                      borderTop: "1px solid hsl(var(--ink-on-cream) / 0.06)",
                       transition: "color 120ms",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "#141414"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "rgba(20,20,20,0.75)"; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "hsl(var(--ink-on-cream))"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "hsl(var(--ink-on-cream) / 0.75)"; }}
                   >
                     <Icon size={13} strokeWidth={1.5} style={{ flexShrink: 0 }} />
                     <span>{tool.label}</span>

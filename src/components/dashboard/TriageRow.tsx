@@ -35,9 +35,9 @@ const BUCKET_TINT: Record<RelativeBucket, { bg: string; iconFg: string; labelFg:
   soon:      { bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F', labelFg: '#A85B1F' },
   today:     { bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F', labelFg: '#A85B1F' },
   tomorrow:  { bg: 'rgba(197,136,47,0.14)', iconFg: '#A85B1F', labelFg: '#A85B1F' },
-  thisweek:  { bg: 'rgba(20,20,20,0.06)',   iconFg: '#141414', labelFg: '#141414' },
-  twoweeks:  { bg: 'rgba(20,20,20,0.06)',   iconFg: '#141414', labelFg: 'rgba(20,20,20,0.65)' },
-  farfuture: { bg: 'rgba(20,20,20,0.05)',   iconFg: 'rgba(20,20,20,0.55)', labelFg: 'rgba(20,20,20,0.55)' },
+  thisweek:  { bg: 'hsl(var(--ink-on-cream) / 0.06)',   iconFg: 'hsl(var(--ink-on-cream))', labelFg: 'hsl(var(--ink-on-cream))' },
+  twoweeks:  { bg: 'hsl(var(--ink-on-cream) / 0.06)',   iconFg: 'hsl(var(--ink-on-cream))', labelFg: 'hsl(var(--ink-on-cream) / 0.65)' },
+  farfuture: { bg: 'hsl(var(--ink-on-cream) / 0.05)',   iconFg: 'hsl(var(--ink-on-cream) / 0.55)', labelFg: 'hsl(var(--ink-on-cream) / 0.55)' },
 };
 
 // Color theme per count row type.
@@ -78,7 +78,7 @@ function Tile({ Icon, bg, fg }: { Icon: LucideIcon; bg: string; fg: string }) {
 }
 
 function rowHoverIn(e: React.MouseEvent<HTMLAnchorElement>) {
-  e.currentTarget.style.background = 'rgba(20,20,20,0.045)';
+  e.currentTarget.style.background = 'hsl(var(--ink-on-cream) / 0.045)';
 }
 function rowHoverOut(e: React.MouseEvent<HTMLAnchorElement>) {
   e.currentTarget.style.background = 'transparent';
@@ -103,7 +103,7 @@ export function TriageRow({ row, clientId }: Props) {
         onMouseLeave={rowHoverOut}
       >
         <Tile Icon={Icon} bg={tint.bg} fg={tint.iconFg} />
-        <div className="flex-1 min-w-0 truncate" style={{ fontFamily: 'var(--font-body, Figtree), sans-serif', fontSize: 14, color: '#141414' }}>
+        <div className="flex-1 min-w-0 truncate" style={{ fontFamily: 'var(--font-body, Figtree), sans-serif', fontSize: 14, color: 'hsl(var(--ink-on-cream))' }}>
           <span style={{ fontWeight: 500 }}>{baseLabel}</span>
           <span
             className="ml-2 px-2 py-0.5 rounded-full text-[11.5px] align-middle"
@@ -118,8 +118,8 @@ export function TriageRow({ row, clientId }: Props) {
           </span>
           {row.label && (
             <>
-              <span style={{ color: 'rgba(20,20,20,0.4)' }}>{'  ·  '}</span>
-              <span style={{ color: 'rgba(20,20,20,0.6)' }}>{row.label}</span>
+              <span style={{ color: 'hsl(var(--ink-on-cream) / 0.4)' }}>{'  ·  '}</span>
+              <span style={{ color: 'hsl(var(--ink-on-cream) / 0.6)' }}>{row.label}</span>
             </>
           )}
         </div>
@@ -169,7 +169,7 @@ export function TriageRow({ row, clientId }: Props) {
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
             fontSize: 22,
             fontWeight: 500,
-            color: '#141414',
+            color: 'hsl(var(--ink-on-cream))',
             lineHeight: 1,
             letterSpacing: '-0.02em',
             minWidth: 14,
@@ -177,12 +177,12 @@ export function TriageRow({ row, clientId }: Props) {
         >
           {count}
         </span>
-        <span className="truncate flex-1 min-w-0" style={{ fontFamily: 'var(--font-body, Figtree), sans-serif', fontSize: 14, color: '#141414' }}>
+        <span className="truncate flex-1 min-w-0" style={{ fontFamily: 'var(--font-body, Figtree), sans-serif', fontSize: 14, color: 'hsl(var(--ink-on-cream))' }}>
           <span>{label}</span>
           {detail && (
             <>
-              <span style={{ color: 'rgba(20,20,20,0.4)' }}>{'  ·  '}</span>
-              <span style={{ color: 'rgba(20,20,20,0.6)' }}>{detail}</span>
+              <span style={{ color: 'hsl(var(--ink-on-cream) / 0.4)' }}>{'  ·  '}</span>
+              <span style={{ color: 'hsl(var(--ink-on-cream) / 0.6)' }}>{detail}</span>
             </>
           )}
         </span>
