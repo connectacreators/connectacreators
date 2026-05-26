@@ -19,7 +19,7 @@ import CompanionDrawer from "./CompanionDrawer";
  * the user's attention (pending plan approval, agentic in-flight, etc).
  */
 export default function CompanionBubble() {
-  const { companionName, tasks, isOpen, setIsOpen } = useCompanion();
+  const { companionName, tasks, isOpen, setIsOpen, bubbleHidden } = useCompanion();
   const { user } = useAuth();
   const { language } = useLanguage();
   const location = useLocation();
@@ -44,6 +44,8 @@ export default function CompanionBubble() {
   if (!user) return null;
   // Hide on /ai — the page IS the full assistant view, the bubble is redundant.
   if (location.pathname === "/ai") return null;
+  // User opted to hide the floating bubble via Settings. Re-enable from /settings.
+  if (bubbleHidden) return null;
 
   return (
     <>
