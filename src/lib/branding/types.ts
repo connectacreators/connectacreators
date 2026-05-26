@@ -8,6 +8,10 @@ export interface Palette {
   aqua: string;
   honey: string;
   honeyDeep: string;
+  /** Light surface used for editorial-style cards / cream backgrounds. */
+  cream: string;
+  /** Dark text color readable on the cream surface. */
+  inkOnCream: string;
 }
 
 export interface FontPairing {
