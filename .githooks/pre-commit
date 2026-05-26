@@ -1,0 +1,54 @@
+#!/bin/bash
+# Block commits that introduce palette hex values in app-surface files.
+# Per docs/superpowers/BRANDING-TOKENS.md.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Bypass (rare):          git commit --no-verify
+set -e
+
+# Files that ARE allowed to use palette hex (landing/marketing/public surfaces).
+EXCLUDE_REGEX='(^src/landing\.css|^src/landing-main\.tsx|^src/components/landing/|^src/pages/LandingPageNew|^src/pages/PublicLandingPage|^src/pages/Index\.tsx|^src/pages/About\.tsx|^src/pages/PublicBooking|^src/pages/PublicScript|^src/pages/PublicFolderShare|^src/pages/PrivacyPolicy|^src/pages/TermsAndConditions|^src/components/LeadForm|^src/components/CanvasHeroMockup|^src/lib/branding/|^src/integrations/supabase/types\.ts|^src/index\.css|^tailwind\.config\.ts|^docs/|^supabase/|^render-worker/|^public/|^scripts/|^\.githooks/)'
+
+# Palette hex values that should be tokenized.
+# Case-insensitive; no word boundary because BSD grep doesn't support \b.
+# A trailing non-hex-char lookahead isn't trivial in BSD grep either, so we
+# accept that "#1414140" (unlikely 7-char extension) might false-positive —
+# in practice the palette hexes are unique enough.
+PALETTE_HEX_REGEX='#(EAE6DC|141414|1A1A1A|1F1F1F|8FD0D5|E0A560|C7682A)'
+
+# Get list of staged files (added or modified) restricted to source code.
+staged=$(git diff --cached --name-only --diff-filter=AM | grep -E '\.(tsx?|css)$' || true)
+
+violations=""
+for f in $staged; do
+  # Skip excluded paths.
+  if echo "$f" | grep -qE "$EXCLUDE_REGEX"; then
+    continue
+  fi
+  # Look only at the lines being ADDED in this commit (lines starting with +).
+  # Use literal '+' patterns — BSD grep handles '+' as literal in BRE mode.
+  added=$(git diff --cached -- "$f" | grep '^+' | grep -v '^+++' || true)
+  if [ -z "$added" ]; then
+    continue
+  fi
+  # Find palette hex in added lines, but ignore lines that explicitly opt out
+  # via a "STATUS:" comment marker.
+  hits=$(echo "$added" | grep -iE "$PALETTE_HEX_REGEX" | grep -v "STATUS:" || true)
+  if [ -n "$hits" ]; then
+    violations="$violations\n--- $f ---\n$hits"
+  fi
+done
+
+if [ -n "$violations" ]; then
+  echo ""
+  echo "ERROR: Palette hex found in staged changes."
+  echo "Use CSS variables instead — see docs/superpowers/BRANDING-TOKENS.md"
+  echo ""
+  printf "%b\n" "$violations"
+  echo ""
+  echo "Fix the hex, OR add a '// STATUS: <reason>' comment if intentional,"
+  echo "OR bypass with: git commit --no-verify"
+  exit 1
+fi
+
+exit 0
