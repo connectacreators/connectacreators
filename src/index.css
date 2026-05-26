@@ -50,12 +50,14 @@ All colors MUST be HSL for consistency and theming.
        Light mode is VOIDED for now — .light selector aliases to the same
        dark values so the ThemeToggle is a no-op until light is revisited.
        Ink and Graphite are HSL `0 0%` (pure neutral) — no blue hue. */
-    --ink:        0 0% 8%;        /* #141414  page background (was bluish #0A0E12) */
-    --graphite:   0 0% 12%;       /* #1F1F1F  card / surface (was bluish #1A1F26) */
-    --bone:       42 23% 89%;     /* #EAE6DC  foreground text */
-    --aqua:       184 41% 70%;    /* #8FD0D5  primary         */
-    --honey:      30 67% 63%;     /* #E0A560  warm accent     */
-    --honey-deep: 22 65% 47%;     /* ~#C7682A destructive     */
+    --ink:          0 0% 8%;        /* #141414  page background (was bluish #0A0E12) */
+    --graphite:     0 0% 12%;       /* #1F1F1F  card / surface (was bluish #1A1F26) */
+    --bone:         42 23% 89%;     /* #EAE6DC  foreground text */
+    --aqua:         184 41% 70%;    /* #8FD0D5  primary         */
+    --honey:        30 67% 63%;     /* #E0A560  warm accent     */
+    --honey-deep:   22 65% 47%;     /* ~#C7682A destructive     */
+    --cream:        42 23% 89%;     /* #EAE6DC  light surface (editorial-page cream) */
+    --ink-on-cream: 0 0% 8%;        /* #141414  dark text on cream surface */
 
     /* Derived neutrals (HSL triplets — opacity applied at the call site) */
     --bone-muted: 42 23% 89%;
@@ -283,26 +285,26 @@ All colors MUST be HSL for consistency and theming.
      so any page wrapped in .editorial-page reads against the bone surface
      without touching every Tailwind utility individually. */
   .editorial-page {
-    --background: 42 23% 89%;         /* bone #EAE6DC */
-    --foreground: 0 0% 8%;            /* ink #141414 */
-    --card: 0 0% 100%;                /* white */
-    --card-foreground: 0 0% 8%;       /* ink */
+    --background: var(--cream);
+    --foreground: var(--ink-on-cream);
+    --card: 0 0% 100%;                /* white sticker cards stay white universally */
+    --card-foreground: var(--ink-on-cream);
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
-    --primary: 184 41% 55%;
+    --popover-foreground: var(--ink-on-cream);
+    --primary: var(--aqua);
     --primary-foreground: 0 0% 100%;
-    --secondary: 42 23% 89%;
-    --secondary-foreground: 0 0% 8%;
-    --muted: 42 23% 85%;
-    --muted-foreground: 0 0% 30%;
-    --accent: 42 23% 85%;
-    --accent-foreground: 0 0% 8%;
-    --border: 0 0% 8% / 0.10;
-    --input: 0 0% 8% / 0.10;
-    --ring: 0 0% 8% / 0.20;
+    --secondary: var(--cream);
+    --secondary-foreground: var(--ink-on-cream);
+    --muted: var(--cream);
+    --muted-foreground: var(--ink-on-cream);
+    --accent: var(--cream);
+    --accent-foreground: var(--ink-on-cream);
+    --border: var(--ink-on-cream) / 0.10;
+    --input: var(--ink-on-cream) / 0.10;
+    --ring: var(--ink-on-cream) / 0.20;
 
-    background: #EAE6DC;
-    color: #141414;
+    background: hsl(var(--cream));
+    color: hsl(var(--ink-on-cream));
     font-family: var(--font-body, Figtree), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   }
   .editorial-page h1,
@@ -312,7 +314,7 @@ All colors MUST be HSL for consistency and theming.
     font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     font-weight: 500;
     letter-spacing: -0.01em;
-    color: #141414;
+    color: hsl(var(--ink-on-cream));
   }
   /* Section eyebrow label — uppercase tracked Figtree, the small label
      style used above grids in Dashboard ("Clients", "Start with Robby"). */
@@ -320,27 +322,27 @@ All colors MUST be HSL for consistency and theming.
     font-size: 9.5px;
     letter-spacing: 0.20em;
     text-transform: uppercase;
-    color: rgba(20, 20, 20, 0.45);
+    color: hsl(var(--ink-on-cream) / 0.45);
     font-family: var(--font-body, Figtree), sans-serif;
     font-weight: 600;
   }
   /* White card surface */
   .editorial-page .editorial-card {
     background: #ffffff;
-    border: 1px solid rgba(20, 20, 20, 0.10);
+    border: 1px solid hsl(var(--ink-on-cream) / 0.10);
     border-radius: 12px;
   }
   /* Override common dark-theme utilities scoped inside editorial-page so
      existing class-driven components (filters, modals, list rows) read
      correctly on the cream bg without hand-editing every spot. */
-  .editorial-page .bg-background { background-color: #EAE6DC !important; }
+  .editorial-page .bg-background { background-color: hsl(var(--cream)) !important; }
   .editorial-page .bg-card,
   .editorial-page [class*="bg-card/"] { background-color: #ffffff !important; }
   .editorial-page [class*="bg-background/"] { background-color: rgba(255, 255, 255, 0.6) !important; }
   .editorial-page .border-border,
-  .editorial-page [class*="border-border/"] { border-color: rgba(20, 20, 20, 0.10) !important; }
-  .editorial-page .text-foreground { color: #141414 !important; }
-  .editorial-page .text-muted-foreground { color: rgba(20, 20, 20, 0.55) !important; }
+  .editorial-page [class*="border-border/"] { border-color: hsl(var(--ink-on-cream) / 0.10) !important; }
+  .editorial-page .text-foreground { color: hsl(var(--ink-on-cream)) !important; }
+  .editorial-page .text-muted-foreground { color: hsl(var(--ink-on-cream) / 0.55) !important; }
 
   /* shadcn Button variants come pre-themed for the dark surface
      (btn-17-secondary uses graphite bg, btn-17-primary uses aqua).
@@ -348,23 +350,23 @@ All colors MUST be HSL for consistency and theming.
      fill, ink hairline, ink offset shadow, ink text. */
   .editorial-page .btn-17-secondary {
     background: #ffffff !important;
-    color: #141414 !important;
-    border: 1px solid rgba(20, 20, 20, 0.20) !important;
-    box-shadow: 2px 2px 0 rgba(20, 20, 20, 0.10);
+    color: hsl(var(--ink-on-cream)) !important;
+    border: 1px solid hsl(var(--ink-on-cream) / 0.20) !important;
+    box-shadow: 2px 2px 0 hsl(var(--ink-on-cream) / 0.10);
     transition: box-shadow 120ms, transform 120ms;
   }
   .editorial-page .btn-17-secondary:hover {
-    box-shadow: 3px 3px 0 rgba(20, 20, 20, 0.18);
+    box-shadow: 3px 3px 0 hsl(var(--ink-on-cream) / 0.18);
     transform: translate(-1px, -1px);
   }
   .editorial-page .btn-17-primary {
-    background: #141414 !important;
-    color: #EAE6DC !important;
-    border: 1px solid #141414 !important;
-    box-shadow: 2px 2px 0 rgba(20, 20, 20, 0.20);
+    background: hsl(var(--ink-on-cream)) !important;
+    color: hsl(var(--cream)) !important;
+    border: 1px solid hsl(var(--ink-on-cream)) !important;
+    box-shadow: 2px 2px 0 hsl(var(--ink-on-cream) / 0.20);
   }
   .editorial-page .btn-17-primary:hover {
-    box-shadow: 3px 3px 0 rgba(20, 20, 20, 0.28);
+    box-shadow: 3px 3px 0 hsl(var(--ink-on-cream) / 0.28);
     transform: translate(-1px, -1px);
   }
 
@@ -376,8 +378,8 @@ All colors MUST be HSL for consistency and theming.
   /* Tier-2 dark card class — repaint as a sticker on editorial pages */
   .editorial-page .glass-card {
     background: #ffffff !important;
-    border: 1px solid rgba(20, 20, 20, 0.10) !important;
-    box-shadow: 3px 3px 0 rgba(20, 20, 20, 0.10);
+    border: 1px solid hsl(var(--ink-on-cream) / 0.10) !important;
+    box-shadow: 3px 3px 0 hsl(var(--ink-on-cream) / 0.10);
     backdrop-filter: none !important;
   }
   .editorial-page .glass-card::before { display: none; }
@@ -401,23 +403,23 @@ All colors MUST be HSL for consistency and theming.
      to an ink + bone palette. Used by /scripts and other content pages that
      should feel night-mode editorial. */
   .editorial-page-dark {
-    --background: 0 0% 8%;
-    --foreground: 42 23% 89%;
-    --card: 0 0% 12%;
-    --card-foreground: 42 23% 89%;
-    --popover: 0 0% 12%;
-    --popover-foreground: 42 23% 89%;
-    --primary: 184 41% 65%;
-    --primary-foreground: 0 0% 8%;
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 42 23% 89%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 42 23% 70%;
-    --accent: 0 0% 12%;
-    --accent-foreground: 42 23% 89%;
+    --background: var(--ink);
+    --foreground: var(--bone);
+    --card: var(--graphite);
+    --card-foreground: var(--bone);
+    --popover: var(--graphite);
+    --popover-foreground: var(--bone);
+    --primary: var(--aqua);
+    --primary-foreground: var(--ink);
+    --secondary: var(--graphite);
+    --secondary-foreground: var(--bone);
+    --muted: var(--graphite);
+    --muted-foreground: var(--bone);
+    --accent: var(--graphite);
+    --accent-foreground: var(--bone);
 
-    background: #141414;
-    color: #EAE6DC;
+    background: hsl(var(--ink));
+    color: hsl(var(--bone));
     font-family: var(--font-body, Figtree), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   }
   .editorial-page-dark h1,
@@ -427,60 +429,60 @@ All colors MUST be HSL for consistency and theming.
     font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
     font-weight: 500;
     letter-spacing: -0.01em;
-    color: #EAE6DC;
+    color: hsl(var(--bone));
   }
   .editorial-page-dark .editorial-eyebrow {
     font-size: 9.5px;
     letter-spacing: 0.20em;
     text-transform: uppercase;
-    color: rgba(234, 230, 220, 0.45);
+    color: hsl(var(--bone) / 0.45);
     font-family: var(--font-body, Figtree), sans-serif;
     font-weight: 600;
   }
   .editorial-page-dark .editorial-card {
-    background: #1A1A1A;
-    border: 1px solid rgba(234, 230, 220, 0.14);
+    background: hsl(var(--graphite));
+    border: 1px solid hsl(var(--bone) / 0.14);
     border-radius: 12px;
     transition: border-color 160ms ease;
   }
   .editorial-page-dark .editorial-card:hover {
-    border-color: rgba(234, 230, 220, 0.28);
+    border-color: hsl(var(--bone) / 0.28);
   }
   .editorial-page-dark .editorial-card-dashed {
     background: transparent;
-    border: 1px dashed rgba(234, 230, 220, 0.18);
+    border: 1px dashed hsl(var(--bone) / 0.18);
     border-radius: 12px;
     transition: border-color 160ms ease, color 160ms ease;
   }
   .editorial-page-dark .editorial-card-dashed:hover {
-    border-color: rgba(234, 230, 220, 0.32);
-    color: #EAE6DC;
+    border-color: hsl(var(--bone) / 0.32);
+    color: hsl(var(--bone));
   }
   .editorial-page-dark .editorial-pill {
     background: transparent;
-    border: 1px solid rgba(234, 230, 220, 0.14);
-    color: rgba(234, 230, 220, 0.78);
+    border: 1px solid hsl(var(--bone) / 0.14);
+    color: hsl(var(--bone) / 0.78);
     border-radius: 999px;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
   }
   .editorial-page-dark .editorial-pill:hover {
-    border-color: rgba(234, 230, 220, 0.32);
-    color: #EAE6DC;
+    border-color: hsl(var(--bone) / 0.32);
+    color: hsl(var(--bone));
   }
   .editorial-page-dark .editorial-pill[data-active="true"],
   .editorial-page-dark .editorial-pill[aria-pressed="true"] {
-    background: #EAE6DC;
-    border-color: #EAE6DC;
-    color: #141414;
+    background: hsl(var(--bone));
+    border-color: hsl(var(--bone));
+    color: hsl(var(--ink));
   }
-  .editorial-page-dark .bg-background { background-color: #141414 !important; }
+  .editorial-page-dark .bg-background { background-color: hsl(var(--ink)) !important; }
   .editorial-page-dark .bg-card,
-  .editorial-page-dark [class*="bg-card/"] { background-color: #1F1F1F !important; }
-  .editorial-page-dark [class*="bg-background/"] { background-color: rgba(20, 20, 20, 0.6) !important; }
+  .editorial-page-dark [class*="bg-card/"] { background-color: hsl(var(--graphite)) !important; }
+  .editorial-page-dark [class*="bg-background/"] { background-color: hsl(var(--ink) / 0.6) !important; }
   .editorial-page-dark .border-border,
-  .editorial-page-dark [class*="border-border/"] { border-color: rgba(234, 230, 220, 0.08) !important; }
-  .editorial-page-dark .text-foreground { color: #EAE6DC !important; }
-  .editorial-page-dark .text-muted-foreground { color: rgba(234, 230, 220, 0.55) !important; }
+  .editorial-page-dark [class*="border-border/"] { border-color: hsl(var(--bone) / 0.08) !important; }
+  .editorial-page-dark .text-foreground { color: hsl(var(--bone)) !important; }
+  .editorial-page-dark .text-muted-foreground { color: hsl(var(--bone) / 0.55) !important; }
 
   .glass-sidebar::before,
   .glass-sidebar::after {
