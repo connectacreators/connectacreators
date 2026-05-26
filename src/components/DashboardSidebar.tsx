@@ -254,12 +254,24 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
 
   // tier: 'essential' = surfaced above the More expander on /ai.
   // Off /ai, the group headers below render normally and tier is ignored.
+  // Resolve the currently selected client ID from the dropdown. Null when
+  // viewMode is "master" (no specific client). Used to scope the Strategy
+  // shortcut for admin/videographer to the active client.
+  const activeSelectedClientId =
+    viewMode === "master" ? null
+    : viewMode === "me" ? ownClientId
+    : viewMode;
+  const strategyItem: NavItem | null = activeSelectedClientId
+    ? { label: language === "en" ? "Strategy" : "Estrategia", icon: BarChart3, path: `/clients/${activeSelectedClientId}/strategy`, tier: 'essential' }
+    : null;
+
   const getNavItems = (): NavEntry[] => {
     if (isAdmin) {
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
         { label: language === "en" ? "Content Ideas" : "Ideas de Contenido", icon: FileText, path: contentIdeasPath, tier: 'essential' },
+        ...(strategyItem ? [strategyItem] : []),
         { type: 'group', label: 'Create' },
         { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { label: "Vault", icon: Archive, path: "/vault" },
@@ -284,6 +296,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
+        ...(strategyItem ? [strategyItem] : []),
         { type: 'group', label: 'Create' },
         { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { type: 'group', label: 'Editing' },
