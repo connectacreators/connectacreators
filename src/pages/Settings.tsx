@@ -18,7 +18,7 @@ export default function Settings() {
   const { language } = useLanguage();
   const { user, role, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  const { companionName, setCompanionName, clientId } = useCompanion();
+  const { companionName, setCompanionName, clientId, bubbleHidden, setBubbleHidden } = useCompanion();
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -307,6 +307,38 @@ export default function Settings() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground">Takes effect next time you open the Viral Reels page.</p>
+          </div>
+        </div>
+
+        {/* AI assistant bubble visibility */}
+        <div className="glass-card rounded-xl p-6 space-y-4 mt-8">
+          <h2 className="font-serif text-lg font-light text-foreground" style={{ letterSpacing: "0.02em" }}>
+            {language === "es" ? "Asistente IA" : "AI Assistant"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {language === "es"
+              ? `Mostrar el botón flotante de ${companionName || "tu asistente"} en la esquina inferior derecha. Cuando esté oculto, aún puedes abrirlo desde la página /ai.`
+              : `Show the floating ${companionName || "assistant"} button in the bottom-right corner. When hidden, you can still open it from the /ai page.`}
+          </p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-foreground">
+              {language === "es" ? "Mostrar burbuja flotante" : "Show floating bubble"}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!bubbleHidden}
+              onClick={() => setBubbleHidden(!bubbleHidden)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                !bubbleHidden ? "bg-primary" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  !bubbleHidden ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
           </div>
         </div>
 

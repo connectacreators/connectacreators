@@ -28,6 +28,8 @@ interface CompanionContextType {
   clientId: string | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  bubbleHidden: boolean;
+  setBubbleHidden: (hidden: boolean) => void;
   loadingTasks: boolean;
   autonomyMode: AutonomyMode;
   setAutonomyMode: (mode: AutonomyMode) => void;
@@ -36,6 +38,7 @@ interface CompanionContextType {
 const CompanionContext = createContext<CompanionContextType | null>(null);
 
 const COMPANION_NAME_CACHE_KEY = "connecta_companion_name";
+const COMPANION_BUBBLE_HIDDEN_KEY = "connecta_companion_bubble_hidden";
 
 export function CompanionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -56,6 +59,18 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<CompanionTask[]>([]);
   const [clientId, setClientId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [bubbleHidden, _setBubbleHidden] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(COMPANION_BUBBLE_HIDDEN_KEY) === "1";
+  });
+  const setBubbleHidden = useCallback((hidden: boolean) => {
+    _setBubbleHidden(hidden);
+    if (typeof window !== "undefined") {
+      if (hidden) localStorage.setItem(COMPANION_BUBBLE_HIDDEN_KEY, "1");
+      else localStorage.removeItem(COMPANION_BUBBLE_HIDDEN_KEY);
+    }
+    if (hidden) setIsOpen(false);
+  }, []);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [autonomyMode, setAutonomyModeState] = useState<AutonomyMode>("ask");
 
@@ -123,6 +138,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
       tasks, refreshTasks,
       clientId,
       isOpen, setIsOpen,
+      bubbleHidden, setBubbleHidden,
       loadingTasks,
       autonomyMode, setAutonomyMode,
     }}>
