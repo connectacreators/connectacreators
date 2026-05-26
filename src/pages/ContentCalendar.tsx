@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import PageTransition from "@/components/PageTransition";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
@@ -148,6 +148,7 @@ export default function ContentCalendar() {
   const { clientId } = useParams<{ clientId: string }>();
   const { user, loading, isAdmin, isEditor } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { language } = useLanguage();
 
   const [clientName, setClientName] = useState("");
@@ -190,6 +191,20 @@ export default function ContentCalendar() {
   const [editorSelectedClientId, setEditorSelectedClientId] = useState<string | null>(null);
 
   const agendaRef = useRef<HTMLDivElement>(null);
+
+  // Honor ?window=upcoming (e.g. from the admin dashboard "posts scheduled" row):
+  // snap the calendar to today's month and highlight today in the agenda, then
+  // strip the param so future navigation isn't sticky.
+  useEffect(() => {
+    if (searchParams.get("window") !== "upcoming") return;
+    const today = new Date();
+    setCurrentDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedDate(toDateKey(today));
+    const next = new URLSearchParams(searchParams);
+    next.delete("window");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Derived year/month — stable references for memoization
   const year = currentDate.getFullYear();
