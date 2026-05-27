@@ -547,12 +547,12 @@ export default function Index() {
 
           <div className="agency-stats">
             <div className="agency-stat">
-              <div className="agency-stat-num">100M+</div>
-              <div className="agency-stat-label">VISTAS ORGÁNICAS GENERADAS PARA NUESTROS CLIENTES</div>
+              <div className="agency-stat-num">100K+</div>
+              <div className="agency-stat-label">SEGUIDORES GENERADOS</div>
             </div>
             <div className="agency-stat">
-              <div className="agency-stat-num">120K+</div>
-              <div className="agency-stat-label">SEGUIDORES GENERADOS PARA NUESTROS CLIENTES</div>
+              <div className="agency-stat-num">$50K+</div>
+              <div className="agency-stat-label">DÓLARES FACTURADOS</div>
             </div>
           </div>
         </div>
