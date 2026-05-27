@@ -6,11 +6,9 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const NICHES = [
   "Salud y Bienestar",
   "Fitness y Nutricion",
-  "Dental y Estetica",
   "Bienes Raices",
   "Servicios Legales",
-  "Belleza y Cuidado Personal",
-  "Restaurantes y Food",
+  "Coaches",
   "Otro",
 ];
 
