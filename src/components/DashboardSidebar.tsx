@@ -299,6 +299,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         ...(strategyItem ? [strategyItem] : []),
         { type: 'group', label: 'Create' },
         { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
+        { label: tr(t.dashboard.scripts, language), icon: FileText, path: activeSelectedClientId ? `/clients/${activeSelectedClientId}/scripts` : "/scripts", tier: 'essential' },
         { type: 'group', label: 'Editing' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
