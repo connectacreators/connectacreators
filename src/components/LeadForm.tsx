@@ -42,12 +42,12 @@ interface FormData {
   email: string;
 }
 
-const BRAND = "#8FD0D5";
-const BG = "#111";
-const CARD = "#1a1a1a";
-const BORDER = "#2a2a2a";
-const TEXT = "#f0f0f0";
-const MUTED = "#888";
+const BRAND = "#4FB5BC";
+const BG = "#8FD0D5";
+const CARD = "#ffffff";
+const BORDER = "#e5e7eb";
+const TEXT = "#0a0a0a";
+const MUTED = "#6b7280";
 
 export default function LeadForm() {
   const [step, setStep] = useState(1);
@@ -161,7 +161,7 @@ export default function LeadForm() {
             padding: "14px 12px",
             borderRadius: 8,
             border: `2px solid ${value === opt ? BRAND : BORDER}`,
-            background: value === opt ? `${BRAND}22` : CARD,
+            background: value === opt ? `${BRAND}1a` : "#f9fafb",
             color: value === opt ? BRAND : TEXT,
             fontFamily: "'Montserrat', sans-serif",
             fontWeight: value === opt ? 700 : 500,
@@ -211,15 +211,23 @@ export default function LeadForm() {
   // ── CONFIRMED screens ──────────────────────────────────────
   if (submitted === "qualified") {
     return (
-      <div ref={formRef} style={{ background: BG, padding: "60px 24px", textAlign: "center" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-          <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 22, color: TEXT, marginBottom: 12 }}>
-            ¡Solicitud recibida, {data.name.split(" ")[0]}!
-          </p>
-          <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 16, color: MUTED, lineHeight: 1.6 }}>
-            Un estratega de Connecta Creators se pondrá en contacto contigo en las próximas 24 horas via WhatsApp.
-          </p>
+      <div ref={formRef} style={{ background: BG, padding: "72px 24px" }}>
+        <div style={{ maxWidth: 520, margin: "0 auto" }}>
+          <div style={{
+            background: CARD,
+            borderRadius: 16,
+            padding: "48px 32px",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 22, color: TEXT, marginBottom: 12 }}>
+              ¡Solicitud recibida, {data.name.split(" ")[0]}!
+            </p>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 16, color: MUTED, lineHeight: 1.6 }}>
+              Un estratega de Connecta Creators se pondrá en contacto contigo en las próximas 24 horas via WhatsApp.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -227,14 +235,22 @@ export default function LeadForm() {
 
   if (submitted === "disqualified") {
     return (
-      <div ref={formRef} style={{ background: BG, padding: "60px 24px", textAlign: "center" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto" }}>
-          <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 20, color: TEXT, marginBottom: 12 }}>
-            Gracias por tu interés.
-          </p>
-          <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 15, color: MUTED, lineHeight: 1.6 }}>
-            Cuando estés listo para dar el siguiente paso, estaremos aquí. Te guardamos en nuestra lista.
-          </p>
+      <div ref={formRef} style={{ background: BG, padding: "72px 24px" }}>
+        <div style={{ maxWidth: 520, margin: "0 auto" }}>
+          <div style={{
+            background: CARD,
+            borderRadius: 16,
+            padding: "48px 32px",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+            textAlign: "center",
+          }}>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 20, color: TEXT, marginBottom: 12 }}>
+              Gracias por tu interés.
+            </p>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 15, color: MUTED, lineHeight: 1.6 }}>
+              Cuando estés listo para dar el siguiente paso, estaremos aquí. Te guardamos en nuestra lista.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -271,7 +287,7 @@ export default function LeadForm() {
                 padding: "24px 16px",
                 borderRadius: 10,
                 border: `2px solid ${data.business_type === opt.value ? BRAND : BORDER}`,
-                background: data.business_type === opt.value ? `${BRAND}22` : CARD,
+                background: data.business_type === opt.value ? `${BRAND}1a` : "#f9fafb",
                 color: TEXT,
                 fontFamily: "'Montserrat', sans-serif",
                 fontWeight: 700,
@@ -315,7 +331,7 @@ export default function LeadForm() {
                 padding: "14px 16px",
                 borderRadius: 8,
                 border: `1px solid ${BORDER}`,
-                background: CARD,
+                background: "#f9fafb",
                 color: TEXT,
                 fontFamily: "'Montserrat', sans-serif",
                 fontSize: 15,
@@ -405,7 +421,7 @@ export default function LeadForm() {
                 padding: "14px 16px",
                 borderRadius: 8,
                 border: `1px solid ${BORDER}`,
-                background: CARD,
+                background: "#f9fafb",
                 color: TEXT,
                 fontFamily: "'Montserrat', sans-serif",
                 fontSize: 15,
@@ -444,21 +460,27 @@ export default function LeadForm() {
   return (
     <div ref={formRef} id="aplicar" style={{ background: BG, padding: "72px 24px" }}>
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
-        <p style={{
-          fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: "clamp(22px, 5vw, 32px)",
-          textTransform: "uppercase", color: "#fff", textAlign: "center", marginBottom: 8,
-        }}>
-          APLICA PARA TRABAJAR CON NOSOTROS
-        </p>
-        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 14, color: MUTED, textAlign: "center", marginBottom: 36 }}>
-          Aceptamos un máximo de 5 nuevos clientes al mes.
-        </p>
-
-        <StepDots />
-
         <div style={{
-          background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: "32px 28px",
+          background: CARD,
+          borderRadius: 16,
+          padding: "40px 32px",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
         }}>
+          <p style={{
+            fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: "clamp(20px, 4.2vw, 28px)",
+            textTransform: "uppercase", color: TEXT, textAlign: "center", marginBottom: 8, letterSpacing: "-0.01em",
+          }}>
+            APLICA PARA TRABAJAR CON NOSOTROS
+          </p>
+          <p style={{
+            fontFamily: "'Montserrat', sans-serif", fontSize: 14, color: MUTED,
+            textAlign: "center", marginBottom: 28,
+          }}>
+            Aceptamos un máximo de 5 nuevos clientes al mes.
+          </p>
+
+          <StepDots />
+
           {renderStep()}
         </div>
       </div>
