@@ -404,12 +404,6 @@ export default function Index() {
             Contenido viral para negocios hispanos. Sin resultados, no pagas.
           </div>
           <ApplyBtn inverted />
-
-          <div className="hero-stat-row">
-            <HeroStat number="78K" label="SEGUIDORES" sub="DR. CALVIN" />
-            <HeroStat number="42" label="LEADS / MES" sub="PACIENTES HISPANOS" />
-            <HeroStat number="17.6K" label="SEGUIDORES" sub="ZIGUFIT" />
-          </div>
         </div>
       </div>
 
