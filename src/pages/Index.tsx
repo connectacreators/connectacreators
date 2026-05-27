@@ -404,12 +404,6 @@ export default function Index() {
             Contenido viral para negocios hispanos. Sin resultados, no pagas.
           </div>
           <ApplyBtn inverted />
-
-          <div className="hero-stat-row">
-            <HeroStat number="78K" label="SEGUIDORES" sub="DR. CALVIN" />
-            <HeroStat number="42" label="LEADS / MES" sub="PACIENTES HISPANOS" />
-            <HeroStat number="17.6K" label="SEGUIDORES" sub="ZIGUFIT" />
-          </div>
         </div>
       </div>
 
@@ -547,12 +541,12 @@ export default function Index() {
 
           <div className="agency-stats">
             <div className="agency-stat">
-              <div className="agency-stat-num">100M+</div>
-              <div className="agency-stat-label">VISTAS ORGÁNICAS GENERADAS PARA NUESTROS CLIENTES</div>
+              <div className="agency-stat-num">100K+</div>
+              <div className="agency-stat-label">SEGUIDORES GENERADOS</div>
             </div>
             <div className="agency-stat">
-              <div className="agency-stat-num">120K+</div>
-              <div className="agency-stat-label">SEGUIDORES GENERADOS PARA NUESTROS CLIENTES</div>
+              <div className="agency-stat-num">$50K+</div>
+              <div className="agency-stat-label">DÓLARES FACTURADOS</div>
             </div>
           </div>
         </div>
