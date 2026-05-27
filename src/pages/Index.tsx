@@ -167,9 +167,10 @@ export default function Index() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { background: #fff; font-family: 'Montserrat', sans-serif; }
 
-        .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .ba-card { background: #f5f5f5; overflow: hidden; border-radius: 4px; }
-        .ba-img-portrait { width: 100%; height: 420px; object-fit: cover; object-position: top center; display: block; }
+        .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .ba-card { background: #fff; overflow: hidden; border-radius: 8px; border: 1px solid #ececec; }
+        .ba-img-portrait { width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; background: #fff; }
+        .ba-img-landscape { width: 100%; height: auto; display: block; background: #fff; }
         .ba-caption { padding: 14px 16px; }
 
         .hero-stat-row {
@@ -263,7 +264,7 @@ export default function Index() {
           .sec-inner { padding: 48px 16px !important; }
           .hero-inner { padding: 56px 16px !important; }
           .ba-grid { grid-template-columns: 1fr !important; gap: 12px; }
-          .ba-grid img { height: auto !important; max-height: 260px; object-fit: cover !important; object-position: top center !important; }
+          .ba-grid img { height: auto !important; max-height: 520px; object-fit: contain !important; }
           .grid-4 { grid-template-columns: 1fr; gap: 10px; }
           .grid-3 { grid-template-columns: 1fr 1fr; gap: 10px; }
           .grid-2 { grid-template-columns: 1fr; gap: 10px; }
@@ -274,7 +275,7 @@ export default function Index() {
           .sys-card { padding: 22px 16px !important; text-align: center !important; }
           .step-card { padding: 22px 16px !important; text-align: center !important; }
           .industry-card { padding: 20px 12px !important; }
-          .ba-img-portrait { height: auto !important; max-height: 480px; }
+          .ba-img-portrait { max-height: 520px !important; }
           .ba-caption { text-align: center !important; }
           .not-for-list { text-align: center !important; }
           .not-for-item { justify-content: center !important; text-align: left; }
@@ -502,7 +503,7 @@ export default function Index() {
               <img
                 src={drCalvinAfter}
                 alt="Dr. Calvin Facebook"
-                style={{ width: "100%", height: 220, objectFit: "cover", objectPosition: "top left", display: "block" }}
+                className="ba-img-landscape"
               />
               <BeforeAfterCaption platform="FACEBOOK" before="7K" after="78K" />
             </div>
@@ -510,7 +511,7 @@ export default function Index() {
               <img
                 src={drCalvinTiktok}
                 alt="Dr. Calvin TikTok"
-                style={{ width: "100%", height: 220, objectFit: "cover", objectPosition: "top left", display: "block" }}
+                className="ba-img-landscape"
               />
               <BeforeAfterCaption platform="TIKTOK" before="400" after="8,900" />
             </div>
