@@ -15,12 +15,29 @@ import {
   HeartPulse,
   Scale,
   Dumbbell,
+  CheckCircle2,
+  ShieldCheck,
+  Sparkle,
+  Camera,
+  Scissors,
+  Send,
+  ArrowRight,
+  Star,
+  TrendingUp,
 } from "lucide-react";
 
 const CALVIN_FB = "https://www.facebook.com/drcalvinsclinics";
 const ZIGUFIT_TIKTOK = "https://www.tiktok.com/@zigufit";
 
-function ApplyBtn({ small, inverted }: { small?: boolean; inverted?: boolean }) {
+const TEAL = "#8FD0D5";
+const TEAL_DARK = "#1A4A4F";
+const TEAL_DEEP = "#0E2F33";
+const GOLD = "#F5C265";
+const GOLD_DEEP = "#B88829";
+const INK = "#0A1419";
+const PAPER = "#F7F4EE";
+
+function ApplyBtn({ label = "APPLY NOW", inverted, glow }: { label?: string; inverted?: boolean; glow?: boolean }) {
   return (
     <a
       href="#apply"
@@ -28,101 +45,65 @@ function ApplyBtn({ small, inverted }: { small?: boolean; inverted?: boolean }) 
         e.preventDefault();
         document.getElementById("apply")?.scrollIntoView({ behavior: "smooth" });
       }}
+      className="apply-btn"
       style={{
-        display: "inline-block",
-        background: inverted ? "#fff" : "#8FD0D5",
-        color: inverted ? "#8FD0D5" : "#fff",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 10,
+        background: inverted ? "#fff" : INK,
+        color: inverted ? INK : "#fff",
         fontFamily: "'Montserrat', sans-serif",
-        fontWeight: 700,
-        fontSize: small ? 11 : 13,
-        letterSpacing: "0.1em",
+        fontWeight: 800,
+        fontSize: 13,
+        letterSpacing: "0.14em",
         textTransform: "uppercase",
         textDecoration: "none",
-        padding: small ? "11px 22px" : "17px 40px",
+        padding: "18px 32px",
         cursor: "pointer",
         whiteSpace: "nowrap",
-        borderRadius: 2,
+        borderRadius: 999,
+        border: inverted ? `2px solid ${INK}` : "2px solid #fff",
+        boxShadow: glow ? `0 0 0 4px rgba(245,194,101,0.25), 0 16px 40px rgba(0,0,0,0.25)` : `0 8px 24px rgba(0,0,0,0.18)`,
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
       }}
     >
-      APPLY TO WORK WITH US
+      {label}
+      <ArrowRight size={16} strokeWidth={2.4} />
     </a>
   );
 }
 
-function Sec({
-  children,
-  bg = "#fff",
-  style,
-}: {
-  children: React.ReactNode;
-  bg?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div style={{ background: bg, ...style }}>
-      <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 24px", textAlign: "center" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function SectionTitle({ text }: { text: string }) {
-  return (
-    <div
-      className="section-title"
-      style={{
-        fontFamily: "'Montserrat', sans-serif",
-        fontWeight: 900,
-        fontSize: "clamp(22px, 4vw, 38px)",
-        textTransform: "uppercase",
-        letterSpacing: "-0.01em",
-        lineHeight: 1.1,
-        color: "#0a0a0a",
-        marginBottom: 8,
-      }}
-    >
-      {text}
-    </div>
-  );
-}
-
-function SectionSub({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        fontFamily: "'Montserrat', sans-serif",
-        fontWeight: 500,
-        fontSize: 15,
-        color: "#666",
-        marginBottom: 40,
-      }}
-    >
-      {text}
-    </div>
-  );
-}
+const PILLARS = [
+  { icon: Sparkle, label: "SCRIPT" },
+  { icon: Camera, label: "FILM" },
+  { icon: Scissors, label: "EDIT" },
+  { icon: Send, label: "POST" },
+];
 
 const SYSTEM_COMPONENTS = [
   {
     icon: Video,
-    title: "PERSONAL BRAND",
-    body: "20 scripts/month, professional shoot day, editing and posting on Instagram and TikTok.",
+    no: "01",
+    title: "Personal Brand Engine",
+    body: "20 custom scripts a month, one professional shoot day, daily posting on Instagram & TikTok in English and Spanish.",
   },
   {
     icon: Target,
-    title: "TARGETED ADS",
-    body: "Meta Ads in English and Spanish, bilingual audience targeting, weekly optimization.",
+    no: "02",
+    title: "Bilingual Paid Amplification",
+    body: "Meta Ads targeting Utah's English + Spanish-speaking audiences. Optimized weekly until views compound.",
   },
   {
     icon: MessageCircle,
-    title: "CONVERSION",
-    body: "ManyChat replies in under 5 min, qualifies leads and books appointments by DM.",
+    no: "03",
+    title: "Lead Capture Automation",
+    body: "ManyChat replies in under 5 minutes, qualifies the lead, and books the appointment straight in your calendar.",
   },
   {
     icon: BarChart3,
-    title: "REPORTS",
-    body: "Monthly dashboard: leads, cost per lead, conversion to appointment and growth.",
+    no: "04",
+    title: "Monthly Performance Report",
+    body: "Views, follower growth, cost-per-lead, and booked appointments — sent to you every 30 days, plainly.",
   },
 ];
 
@@ -130,722 +111,1217 @@ const INDUSTRIES = [
   { icon: HeartPulse, name: "Chiropractors" },
   { icon: Smile, name: "Dentists" },
   { icon: Sparkles, name: "Med Spas" },
-  { icon: Stethoscope, name: "Doctors / Clinics" },
+  { icon: Stethoscope, name: "Clinics & Doctors" },
   { icon: Scale, name: "Immigration Attorneys" },
-  { icon: Dumbbell, name: "Fitness / Wellness" },
-];
-
-const NOT_FOR = [
-  "Businesses with no available local Hispanic market",
-  "Owners who don't want to appear on camera",
-  "People looking only for editing or ads without the full system",
-  "Anyone expecting results without filming content",
-  "Businesses outside the niches listed above",
+  { icon: Dumbbell, name: "Fitness & Wellness" },
 ];
 
 const PROCESS = [
-  { n: "01", title: "APPLY", body: "Fill out the application with your business info. We review your profile." },
-  { n: "02", title: "QUALIFY", body: "30-min call. We explain exactly what the system would look like in your business." },
-  { n: "03", title: "INSTALL", body: "2 to 3 weeks: research, scripts, first shoot day, ads and ManyChat setup." },
-  { n: "04", title: "OPERATE", body: "Every month: 20 scripts, filming, editing, posting, ads and results report." },
+  {
+    n: "01",
+    title: "Apply",
+    body: "Tell us about your business and your market. Takes ~2 minutes.",
+  },
+  {
+    n: "02",
+    title: "Strategy Call",
+    body: "30-minute call. We show exactly what the system looks like in your business.",
+  },
+  {
+    n: "03",
+    title: "Install",
+    body: "Within 2–3 weeks: research, scripts, first shoot day, ads, and ManyChat live.",
+  },
+  {
+    n: "04",
+    title: "Scale",
+    body: "We run the engine monthly. You show up on camera. Views and leads compound.",
+  },
+];
+
+const NOT_FOR = [
+  "Businesses with no Utah local market to serve",
+  "Owners who refuse to appear on camera",
+  "People shopping for just editing or just ads — we run the whole system",
+  "Anyone expecting results without committing to a shoot day",
+];
+
+const FAQS = [
+  {
+    q: "What does the 1 million view guarantee actually mean?",
+    a: "If your content (organic + boosted) doesn't accumulate at least 1,000,000 views across Instagram, TikTok, and Facebook within 90 days of your first post going live, we keep working for free until you do. No refunds-fine-print games — just continued service.",
+  },
+  {
+    q: "Do I need to speak Spanish too?",
+    a: "Helpful but not required. Many of our clients shoot in English and we localize captions, B-roll text, and ad copy so the same content reaches both audiences in Utah.",
+  },
+  {
+    q: "How fast until I see results?",
+    a: "First posts go live within 2–3 weeks of signing. View velocity typically picks up in week 3–4 once the algorithm has enough signal. Booked appointments usually start in month 2.",
+  },
+  {
+    q: "How much time do I have to put in?",
+    a: "One shoot day per month (4–6 hours). We script everything, set up lighting, direct on set, then handle editing and posting. Your time investment is essentially the shoot day plus a 15-minute monthly review call.",
+  },
 ];
 
 export default function OneMillionGuarantee() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { background: #fff; font-family: 'Montserrat', sans-serif; }
+        html { scroll-behavior: smooth; }
+        html, body { background: ${PAPER}; font-family: 'Inter', 'Montserrat', sans-serif; color: ${INK}; }
 
-        .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-        .ba-card { background: #fff; overflow: hidden; border-radius: 8px; border: 1px solid #ececec; transition: transform 0.2s, box-shadow 0.2s; }
-        a.ba-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-        .ba-img-portrait { width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; background: #fff; }
-        .ba-img-landscape { width: 100%; height: auto; display: block; background: #fff; }
-        .ba-caption { padding: 14px 16px; }
+        .apply-btn:hover { transform: translateY(-2px); box-shadow: 0 0 0 5px rgba(245,194,101,0.3), 0 20px 48px rgba(0,0,0,0.28) !important; }
 
-        .ba-grid-square { align-items: stretch; }
-        .ba-card-square { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; padding: 12px; }
-        .ba-card-square img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-
-        .agency-stats {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-          max-width: 560px;
+        /* ── HERO ── */
+        .hero {
+          position: relative;
+          background:
+            radial-gradient(1200px 600px at 80% -10%, rgba(245,194,101,0.18), transparent 60%),
+            radial-gradient(900px 500px at 0% 100%, rgba(143,208,213,0.45), transparent 60%),
+            linear-gradient(180deg, ${TEAL_DEEP} 0%, ${TEAL_DARK} 100%);
+          color: #fff;
+          overflow: hidden;
+        }
+        .hero-noise {
+          position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.85'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+        }
+        .hero-inner {
+          position: relative;
+          max-width: 1180px;
           margin: 0 auto;
+          padding: 96px 32px 80px;
+          display: grid;
+          grid-template-columns: 1.15fr 1fr;
+          gap: 64px;
+          align-items: center;
         }
-        .agency-stat {
-          background: #8FD0D5;
-          border-radius: 6px;
-          padding: 28px 22px;
-          text-align: center;
+        .hero-chip {
+          display: inline-flex; align-items: center; gap: 8px;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.25);
+          color: #fff;
+          font-family: 'Montserrat', sans-serif; font-weight: 700;
+          font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+          padding: 8px 14px; border-radius: 999px;
+          backdrop-filter: blur(6px);
         }
-        .agency-stat-num {
+        .hero-chip-dot {
+          width: 6px; height: 6px; border-radius: 50%; background: ${GOLD};
+          box-shadow: 0 0 12px ${GOLD};
+        }
+        .hero h1 {
           font-family: 'Montserrat', sans-serif;
           font-weight: 900;
-          font-size: clamp(38px, 6vw, 56px);
+          font-size: clamp(40px, 6.4vw, 84px);
+          line-height: 0.95;
+          letter-spacing: -0.035em;
+          margin: 24px 0 20px;
           color: #fff;
-          line-height: 1;
-          letter-spacing: -0.02em;
-          margin-bottom: 10px;
         }
-        .agency-stat-label {
+        .hero h1 .gold {
+          color: ${GOLD};
+          font-style: italic;
+          font-weight: 800;
+        }
+        .hero h1 .underline {
+          position: relative;
+          display: inline-block;
+        }
+        .hero h1 .underline::after {
+          content: '';
+          position: absolute; left: 0; right: 0; bottom: -4px; height: 6px;
+          background: ${GOLD}; opacity: 0.7;
+          border-radius: 2px;
+        }
+        .hero-sub {
+          font-family: 'Inter', sans-serif;
+          font-size: 18px;
+          line-height: 1.55;
+          color: rgba(255,255,255,0.85);
+          max-width: 540px;
+          margin-bottom: 32px;
+        }
+        .pillar-row {
+          display: flex; flex-wrap: wrap; gap: 10px;
+          margin: 0 0 36px;
+        }
+        .pillar {
+          display: inline-flex; align-items: center; gap: 8px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.2);
+          padding: 10px 16px; border-radius: 8px;
+          font-family: 'Montserrat', sans-serif; font-weight: 700;
+          font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+          color: #fff;
+        }
+        .hero-cta-row {
+          display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .hero-cta-meta {
+          font-family: 'Inter', sans-serif; font-size: 13px;
+          color: rgba(255,255,255,0.7);
+          display: flex; align-items: center; gap: 8px;
+        }
+
+        /* Hero portrait */
+        .hero-portrait-wrap {
+          position: relative;
+          justify-self: end;
+        }
+        .hero-portrait {
+          position: relative;
+          width: 100%; max-width: 420px;
+          aspect-ratio: 4 / 5;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+          transform: rotate(-1.5deg);
+        }
+        .hero-portrait img {
+          width: 100%; height: 100%; object-fit: cover; object-position: center top;
+          display: block;
+        }
+        .hero-portrait-frame {
+          position: absolute; inset: -14px;
+          border: 1px solid rgba(245,194,101,0.4);
+          border-radius: 16px;
+          transform: rotate(1.5deg);
+          pointer-events: none;
+        }
+        .guarantee-badge {
+          position: absolute;
+          bottom: -24px; left: -32px;
+          background: ${GOLD};
+          color: ${TEAL_DEEP};
+          border-radius: 12px;
+          padding: 14px 18px;
           font-family: 'Montserrat', sans-serif;
-          font-weight: 700;
+          font-weight: 900;
+          font-size: 14px;
+          letter-spacing: 0.04em;
+          text-align: center;
+          box-shadow: 0 16px 40px rgba(245,194,101,0.4), 0 0 0 1px rgba(0,0,0,0.05);
+          transform: rotate(-3deg);
+          line-height: 1.15;
+        }
+        .guarantee-badge .big {
+          display: block; font-size: 28px; line-height: 1; margin-bottom: 4px;
+          letter-spacing: -0.02em;
+        }
+        .guarantee-badge .small {
+          font-size: 9px; letter-spacing: 0.18em; opacity: 0.75; font-weight: 700;
+        }
+        .roberto-tag {
+          position: absolute;
+          top: -16px; right: -16px;
+          background: #fff;
+          color: ${INK};
+          border-radius: 10px;
+          padding: 10px 14px;
+          font-family: 'Inter', sans-serif;
           font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: rgba(255,255,255,0.95);
+          line-height: 1.3;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+          max-width: 200px;
+        }
+        .roberto-tag strong {
+          display: block; font-weight: 800; font-family: 'Montserrat', sans-serif;
+          font-size: 12px; letter-spacing: 0.04em;
+        }
+        .roberto-tag span {
+          color: ${TEAL_DARK}; font-weight: 600;
+        }
+
+        /* ── PROOF BAR ── */
+        .proof-bar {
+          background: ${INK};
+          color: #fff;
+          padding: 28px 24px;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .proof-grid {
+          max-width: 1180px; margin: 0 auto;
+          display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+          align-items: center;
+        }
+        .proof-stat .num {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: clamp(28px, 4vw, 40px);
+          letter-spacing: -0.03em;
+          color: ${GOLD};
+          line-height: 1;
+        }
+        .proof-stat .label {
+          font-family: 'Inter', sans-serif;
+          font-size: 12px;
+          color: rgba(255,255,255,0.7);
+          margin-top: 6px;
           line-height: 1.4;
         }
 
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-
-        .sys-card {
-          background: #f5f5f5;
-          padding: 32px 22px;
-          border-radius: 4px;
-          text-align: left;
-        }
-
-        .industry-card {
-          background: #f5f5f5;
-          padding: 28px 18px;
-          border-radius: 4px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .step-card {
-          background: #f5f5f5;
-          padding: 28px 22px;
-          border-radius: 4px;
-          text-align: left;
-        }
-
-        .not-for-list {
-          max-width: 640px;
+        /* ── SECTIONS ── */
+        .section {
+          padding: 96px 32px;
+          max-width: 1180px;
           margin: 0 auto;
-          text-align: left;
         }
-        .not-for-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 14px 0;
-          border-bottom: 1px solid #eee;
-        }
-        .not-for-item:last-child { border-bottom: none; }
-
-        .roberto-row {
-          display: grid;
-          grid-template-columns: 280px 1fr;
-          gap: 40px;
-          align-items: center;
-          max-width: 880px;
-          margin: 0 auto;
-          text-align: left;
-        }
-        .roberto-photo-wrap {
-          width: 280px;
-          height: 340px;
-          border-radius: 4px;
-          overflow: hidden;
-          flex-shrink: 0;
-        }
-        .roberto-photo {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center top;
-          display: block;
-        }
-
-        .work-link-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          margin-top: 12px;
+        .section-eyebrow {
           font-family: 'Montserrat', sans-serif;
           font-weight: 700;
           font-size: 11px;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.22em;
           text-transform: uppercase;
-          color: #8FD0D5;
-          text-decoration: none;
-          border-bottom: 2px solid #8FD0D5;
-          padding-bottom: 2px;
+          color: ${TEAL_DARK};
+          margin-bottom: 16px;
+          display: inline-flex; align-items: center; gap: 8px;
+        }
+        .section-eyebrow::before {
+          content: ''; width: 24px; height: 1px; background: ${TEAL_DARK};
+        }
+        .section-title {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: clamp(28px, 4.4vw, 52px);
+          letter-spacing: -0.025em;
+          line-height: 1.05;
+          color: ${INK};
+          margin-bottom: 20px;
+          max-width: 760px;
+        }
+        .section-sub {
+          font-family: 'Inter', sans-serif;
+          font-size: 17px;
+          line-height: 1.55;
+          color: #4A5658;
+          max-width: 640px;
+          margin-bottom: 56px;
+        }
+        .section-center { text-align: center; }
+        .section-center .section-eyebrow { justify-content: center; }
+        .section-center .section-eyebrow::before { display: none; }
+        .section-center .section-title,
+        .section-center .section-sub { margin-left: auto; margin-right: auto; }
+
+        /* ── GUARANTEE SECTION ── */
+        .guarantee-card {
+          background: linear-gradient(180deg, #fff 0%, #FCF8EE 100%);
+          border: 1px solid #EADFC6;
+          border-radius: 20px;
+          padding: 56px 48px;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 24px 64px rgba(20,30,35,0.08);
+        }
+        .guarantee-card::before {
+          content: ''; position: absolute; top: 0; right: 0; width: 280px; height: 280px;
+          background: radial-gradient(circle, rgba(245,194,101,0.25), transparent 70%);
+          pointer-events: none;
+        }
+        .guarantee-stamp {
+          display: inline-flex; align-items: center; gap: 10px;
+          background: ${GOLD};
+          color: ${TEAL_DEEP};
+          padding: 8px 16px; border-radius: 999px;
+          font-family: 'Montserrat', sans-serif; font-weight: 900;
+          font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+          margin-bottom: 24px;
+        }
+        .guarantee-headline {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: clamp(28px, 4vw, 44px);
+          line-height: 1.1;
+          letter-spacing: -0.02em;
+          color: ${INK};
+          margin-bottom: 20px;
+          max-width: 720px;
+        }
+        .guarantee-body {
+          font-family: 'Inter', sans-serif; font-size: 17px;
+          color: #3A464A; line-height: 1.65; max-width: 640px;
+          margin-bottom: 32px;
+        }
+        .guarantee-pillars {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+          margin-top: 32px; position: relative; z-index: 1;
+        }
+        .guarantee-pillar {
+          display: flex; gap: 14px; align-items: flex-start;
+        }
+        .guarantee-pillar-icon {
+          width: 36px; height: 36px; border-radius: 8px;
+          background: ${TEAL_DARK}; color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .guarantee-pillar-text strong {
+          display: block; font-family: 'Montserrat', sans-serif;
+          font-weight: 800; font-size: 13px; letter-spacing: 0.04em;
+          color: ${INK}; margin-bottom: 4px;
+        }
+        .guarantee-pillar-text span {
+          font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5;
+          color: #4A5658;
         }
 
-        @media (max-width: 780px) {
-          .grid-4 { grid-template-columns: 1fr 1fr; gap: 12px; }
-          .grid-3 { grid-template-columns: 1fr 1fr; gap: 12px; }
-          .roberto-row { grid-template-columns: 1fr; gap: 20px; text-align: center; }
-          .roberto-photo-wrap { width: 200px; height: 240px; margin: 0 auto; }
+        /* ── SYSTEM CARDS ── */
+        .system-grid {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;
         }
-        @media (max-width: 480px) {
-          .sec-inner { padding: 48px 16px !important; }
-          .hero-inner { padding: 56px 16px !important; }
-          .ba-grid { grid-template-columns: 1fr !important; gap: 12px; }
-          .ba-grid img { height: auto !important; max-height: 520px; object-fit: contain !important; }
-          .ba-card-square { aspect-ratio: auto !important; padding: 8px !important; }
-          .agency-stats { grid-template-columns: 1fr !important; gap: 12px; }
-          .grid-4 { grid-template-columns: 1fr; gap: 10px; }
-          .grid-3 { grid-template-columns: 1fr 1fr; gap: 10px; }
-          .grid-2 { grid-template-columns: 1fr; gap: 10px; }
-          .hero-headline { font-size: 26px !important; letter-spacing: -0.01em !important; }
-          .hero-sub { font-size: 14px !important; margin-bottom: 28px !important; }
-          .section-title { font-size: 20px !important; }
-          .sys-card { padding: 22px 16px !important; text-align: center !important; }
-          .step-card { padding: 22px 16px !important; text-align: center !important; }
-          .industry-card { padding: 20px 12px !important; }
-          .ba-img-portrait { max-height: 520px !important; }
-          .ba-caption { text-align: center !important; }
-          .not-for-list { text-align: center !important; }
-          .not-for-item { justify-content: center !important; text-align: left; }
-          .roberto-row, .roberto-row p, .roberto-row div { text-align: center !important; }
+        .system-card {
+          background: #fff;
+          border: 1px solid #E8E2D6;
+          border-radius: 16px;
+          padding: 36px 32px;
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          position: relative;
+          overflow: hidden;
+        }
+        .system-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 24px 48px rgba(20,30,35,0.08);
+          border-color: ${TEAL};
+        }
+        .system-card-no {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: 13px;
+          letter-spacing: 0.14em;
+          color: ${TEAL_DARK};
+          opacity: 0.5;
+          margin-bottom: 24px;
+        }
+        .system-card-icon {
+          width: 56px; height: 56px; border-radius: 12px;
+          background: linear-gradient(135deg, ${TEAL} 0%, ${TEAL_DARK} 100%);
+          color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 24px;
+          box-shadow: 0 12px 24px rgba(26,74,79,0.3);
+        }
+        .system-card h3 {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 800;
+          font-size: 20px;
+          letter-spacing: -0.01em;
+          color: ${INK};
+          margin-bottom: 12px;
+        }
+        .system-card p {
+          font-family: 'Inter', sans-serif;
+          font-size: 15px;
+          line-height: 1.6;
+          color: #4A5658;
+        }
+
+        /* ── CASE STUDIES ── */
+        .case-section {
+          background: ${INK};
+          color: #fff;
+          padding: 96px 32px;
+        }
+        .case-section .section-eyebrow { color: ${GOLD}; }
+        .case-section .section-eyebrow::before { background: ${GOLD}; }
+        .case-section .section-title { color: #fff; }
+        .case-section .section-sub { color: rgba(255,255,255,0.7); }
+        .case-inner { max-width: 1180px; margin: 0 auto; }
+        .case-card {
+          background: linear-gradient(180deg, #15252A 0%, #0E1D21 100%);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 20px;
+          padding: 0;
+          overflow: hidden;
+          margin-bottom: 32px;
+          transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .case-card:hover {
+          transform: translateY(-4px);
+          border-color: ${GOLD};
+        }
+        .case-grid {
+          display: grid;
+          grid-template-columns: 1fr 1.2fr;
+          gap: 0;
+        }
+        .case-imgs {
+          background: linear-gradient(135deg, ${TEAL_DARK}, ${TEAL_DEEP});
+          padding: 32px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          align-items: center;
+        }
+        .case-imgs img {
+          width: 100%; height: 100%;
+          object-fit: contain;
+          border-radius: 8px;
+          background: #fff;
+          padding: 8px;
+          aspect-ratio: 1 / 1;
+        }
+        .case-content {
+          padding: 48px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        .case-label {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; font-size: 11px;
+          letter-spacing: 0.18em; text-transform: uppercase;
+          color: ${GOLD};
+          margin-bottom: 12px;
+        }
+        .case-name {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: clamp(24px, 3vw, 32px);
+          letter-spacing: -0.02em;
+          color: #fff;
+          margin-bottom: 24px;
+        }
+        .case-stats {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+          margin-bottom: 24px;
+        }
+        .case-stat {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px;
+          padding: 16px 18px;
+        }
+        .case-stat .n {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: 28px;
+          letter-spacing: -0.02em;
+          color: ${GOLD};
+          line-height: 1;
+        }
+        .case-stat .l {
+          font-family: 'Inter', sans-serif;
+          font-size: 11px;
+          color: rgba(255,255,255,0.6);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin-top: 8px;
+        }
+        .case-link {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 800;
+          font-size: 12px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: ${GOLD};
+          text-decoration: none;
+          padding-bottom: 4px;
+          border-bottom: 2px solid ${GOLD};
+          align-self: flex-start;
+          transition: gap 0.15s ease;
+        }
+        .case-link:hover { gap: 14px; }
+        .case-card-zigufit .case-imgs img {
+          aspect-ratio: 9 / 16;
+          padding: 0;
+          object-fit: cover;
+        }
+
+        /* ── INDUSTRIES ── */
+        .industry-section {
+          background: ${PAPER};
+        }
+        .industries {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+        .industry {
+          background: #fff;
+          border: 1px solid #E8E2D6;
+          border-radius: 14px;
+          padding: 28px 16px;
+          text-align: center;
+          transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+        .industry:hover {
+          transform: translateY(-3px);
+          border-color: ${TEAL};
+          background: linear-gradient(180deg, #fff 0%, #F0FAFB 100%);
+        }
+        .industry-icon {
+          width: 44px; height: 44px; border-radius: 10px;
+          background: linear-gradient(135deg, ${TEAL}33, ${TEAL_DARK}22);
+          color: ${TEAL_DARK};
+          display: inline-flex; align-items: center; justify-content: center;
+          margin-bottom: 14px;
+        }
+        .industry-name {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 0.04em;
+          color: ${INK};
+          line-height: 1.3;
+        }
+
+        /* ── PROCESS TIMELINE ── */
+        .process-section { background: #fff; }
+        .timeline {
+          position: relative;
+          max-width: 880px;
+          margin: 0 auto;
+        }
+        .timeline::before {
+          content: ''; position: absolute; left: 31px; top: 16px; bottom: 16px;
+          width: 2px; background: linear-gradient(180deg, ${TEAL}, ${TEAL_DARK});
+        }
+        .timeline-step {
+          display: grid;
+          grid-template-columns: 64px 1fr;
+          gap: 28px;
+          padding: 20px 0;
+          align-items: flex-start;
+        }
+        .timeline-no {
+          width: 64px; height: 64px;
+          border-radius: 50%;
+          background: #fff;
+          border: 2px solid ${TEAL_DARK};
+          color: ${TEAL_DARK};
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: 18px;
+          letter-spacing: -0.01em;
+          position: relative;
+          z-index: 1;
+          box-shadow: 0 8px 20px rgba(26,74,79,0.15);
+        }
+        .timeline-content {
+          padding: 14px 0;
+        }
+        .timeline-content h3 {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 800;
+          font-size: 22px;
+          color: ${INK};
+          margin-bottom: 8px;
+          letter-spacing: -0.01em;
+        }
+        .timeline-content p {
+          font-family: 'Inter', sans-serif;
+          font-size: 15px;
+          line-height: 1.6;
+          color: #4A5658;
+          max-width: 540px;
+        }
+
+        /* ── FOUNDER ── */
+        .founder-section {
+          background:
+            radial-gradient(800px 400px at 90% 30%, rgba(245,194,101,0.18), transparent 60%),
+            ${TEAL_DEEP};
+          color: #fff;
+          padding: 112px 32px;
+        }
+        .founder-section .section-eyebrow { color: ${GOLD}; }
+        .founder-section .section-eyebrow::before { background: ${GOLD}; }
+        .founder-inner {
+          max-width: 1180px; margin: 0 auto;
+          display: grid;
+          grid-template-columns: 360px 1fr;
+          gap: 64px;
+          align-items: center;
+        }
+        .founder-photo-wrap {
+          position: relative;
+        }
+        .founder-photo {
+          width: 100%;
+          aspect-ratio: 4 / 5;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 40px 80px rgba(0,0,0,0.4);
+        }
+        .founder-photo img {
+          width: 100%; height: 100%; object-fit: cover; object-position: center top;
+          display: block;
+        }
+        .founder-photo-tag {
+          position: absolute; bottom: -16px; left: -16px;
+          background: ${GOLD};
+          color: ${TEAL_DEEP};
+          padding: 12px 18px;
+          border-radius: 10px;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          box-shadow: 0 16px 32px rgba(0,0,0,0.3);
+        }
+        .founder-quote {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700;
+          font-size: clamp(22px, 2.6vw, 32px);
+          line-height: 1.3;
+          letter-spacing: -0.015em;
+          color: #fff;
+          margin: 20px 0 28px;
+          max-width: 640px;
+        }
+        .founder-quote .accent { color: ${GOLD}; }
+        .founder-bio {
+          font-family: 'Inter', sans-serif;
+          font-size: 16px;
+          line-height: 1.7;
+          color: rgba(255,255,255,0.78);
+          max-width: 600px;
+          margin-bottom: 24px;
+        }
+        .founder-name {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 800;
+          font-size: 16px;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #fff;
+          margin-bottom: 4px;
+        }
+        .founder-title {
+          font-family: 'Inter', sans-serif;
+          font-size: 14px;
+          color: rgba(255,255,255,0.6);
+          letter-spacing: 0.06em;
+        }
+
+        /* ── NOT FOR ── */
+        .notfor-section {
+          background: ${PAPER};
+        }
+        .notfor-list {
+          max-width: 720px;
+          margin: 0 auto;
+        }
+        .notfor-item {
+          display: flex; gap: 14px; align-items: flex-start;
+          padding: 18px 0;
+          border-bottom: 1px solid rgba(20,30,35,0.08);
+        }
+        .notfor-item:last-child { border-bottom: none; }
+        .notfor-x {
+          flex-shrink: 0; width: 26px; height: 26px;
+          border-radius: 50%;
+          background: rgba(255,87,87,0.1);
+          color: #C44545;
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 14px;
+          margin-top: 2px;
+        }
+        .notfor-text {
+          font-family: 'Inter', sans-serif;
+          font-size: 16px;
+          color: #2C383C;
+          line-height: 1.55;
+        }
+
+        /* ── FAQ ── */
+        .faq-section { background: #fff; }
+        .faq-list {
+          max-width: 820px; margin: 0 auto;
+        }
+        .faq-item {
+          border-top: 1px solid #E8E2D6;
+          padding: 28px 0;
+        }
+        .faq-item:last-child { border-bottom: 1px solid #E8E2D6; }
+        .faq-q {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 800;
+          font-size: 19px;
+          letter-spacing: -0.01em;
+          color: ${INK};
+          margin-bottom: 12px;
+          display: flex; gap: 16px; align-items: flex-start;
+        }
+        .faq-q::before {
+          content: 'Q';
+          color: ${TEAL_DARK};
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: 14px;
+          letter-spacing: 0.06em;
+          margin-top: 4px;
+          opacity: 0.5;
+        }
+        .faq-a {
+          font-family: 'Inter', sans-serif;
+          font-size: 15px;
+          line-height: 1.65;
+          color: #4A5658;
+          padding-left: 32px;
+        }
+
+        /* ── FINAL CTA ── */
+        .final-cta {
+          background: linear-gradient(135deg, ${TEAL_DARK} 0%, ${TEAL_DEEP} 100%);
+          padding: 112px 32px;
+          text-align: center;
+          color: #fff;
+          position: relative;
+          overflow: hidden;
+        }
+        .final-cta::before {
+          content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+          width: 800px; height: 800px;
+          background: radial-gradient(circle, rgba(245,194,101,0.18), transparent 60%);
+          pointer-events: none;
+        }
+        .final-cta h2 {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: clamp(32px, 5vw, 60px);
+          letter-spacing: -0.025em;
+          line-height: 1.05;
+          margin-bottom: 20px;
+          max-width: 820px;
+          margin-left: auto; margin-right: auto;
+          position: relative;
+        }
+        .final-cta h2 .gold { color: ${GOLD}; font-style: italic; }
+        .final-cta p {
+          font-family: 'Inter', sans-serif;
+          font-size: 17px;
+          color: rgba(255,255,255,0.8);
+          max-width: 580px;
+          margin: 0 auto 40px;
+          position: relative;
+        }
+        .final-cta .scarcity {
+          margin-top: 24px;
+          font-family: 'Inter', sans-serif;
+          font-size: 13px;
+          color: ${GOLD};
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-weight: 600;
+          position: relative;
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+          background: ${INK};
+          color: rgba(255,255,255,0.6);
+          padding: 48px 32px 32px;
+          text-align: center;
+        }
+        .footer-brand {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: 16px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #fff;
+          margin-bottom: 16px;
+        }
+        .footer a { color: ${TEAL}; font-weight: 600; text-decoration: none; }
+        .footer-disclaimer {
+          font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 24px;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 900px) {
+          .hero-inner { grid-template-columns: 1fr; gap: 56px; padding: 72px 24px 64px; }
+          .hero-portrait-wrap { justify-self: center; }
+          .proof-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+          .system-grid { grid-template-columns: 1fr; }
+          .industries { grid-template-columns: repeat(3, 1fr); }
+          .case-grid { grid-template-columns: 1fr; }
+          .case-content { padding: 32px; }
+          .founder-inner { grid-template-columns: 1fr; gap: 40px; }
+          .founder-photo-wrap { max-width: 320px; margin: 0 auto; }
+          .guarantee-card { padding: 40px 28px; }
+          .guarantee-pillars { grid-template-columns: 1fr; gap: 18px; }
+          .section { padding: 72px 24px; }
+        }
+        @media (max-width: 560px) {
+          .proof-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+          .industries { grid-template-columns: 1fr 1fr; }
+          .hero-cta-row { flex-direction: column; align-items: flex-start; gap: 16px; }
+          .roberto-tag { right: -8px; top: -10px; max-width: 160px; padding: 8px 12px; font-size: 10px; }
+          .guarantee-badge { left: -16px; bottom: -18px; padding: 10px 14px; }
+          .guarantee-badge .big { font-size: 22px; }
+          .case-stats { grid-template-columns: 1fr 1fr; }
+          .case-content { padding: 28px 24px; }
+          .timeline::before { left: 23px; }
+          .timeline-no { width: 48px; height: 48px; font-size: 15px; }
+          .timeline-step { grid-template-columns: 48px 1fr; gap: 20px; }
+          .founder-section { padding: 80px 24px; }
+          .final-cta { padding: 80px 24px; }
         }
       `}</style>
 
       {/* ① HERO */}
-      <div style={{ background: "#8FD0D5" }}>
-        <div
-          className="hero-inner"
-          style={{
-            maxWidth: 1080,
-            margin: "0 auto",
-            padding: "96px 24px",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              display: "inline-block",
-              background: "rgba(255,255,255,0.18)",
-              border: "1px solid rgba(255,255,255,0.35)",
-              color: "#fff",
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 700,
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              padding: "8px 14px",
-              borderRadius: 999,
-              marginBottom: 24,
-            }}
-          >
-            For Utah Bilingual Business Owners
+      <section className="hero">
+        <div className="hero-noise" />
+        <div className="hero-inner">
+          <div>
+            <span className="hero-chip">
+              <span className="hero-chip-dot" />
+              For Utah Bilingual Business Owners
+            </span>
+            <h1>
+              <span className="underline">1 Million Views</span>
+              <br />
+              <span className="gold">or you don't pay.</span>
+            </h1>
+            <p className="hero-sub">
+              We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or your next month is free.
+            </p>
+            <div className="pillar-row">
+              {PILLARS.map(({ icon: Icon, label }) => (
+                <span className="pillar" key={label}>
+                  <Icon size={14} strokeWidth={2.4} />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="hero-cta-row">
+              <ApplyBtn label="APPLY NOW" inverted glow />
+              <span className="hero-cta-meta">
+                <CheckCircle2 size={16} color={GOLD} />
+                Only 5 client slots a month
+              </span>
+            </div>
           </div>
 
-          <div
-            className="hero-headline"
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(30px, 6vw, 58px)",
-              textTransform: "uppercase",
-              color: "#fff",
-              lineHeight: 1.05,
-              letterSpacing: "-0.02em",
-              maxWidth: 880,
-              margin: "0 auto 20px",
-            }}
-          >
-            1 MILLION VIEWS — OR YOU DON'T PAY.
+          <div className="hero-portrait-wrap">
+            <div className="hero-portrait-frame" />
+            <div className="hero-portrait">
+              <img src={robertoFounder} alt="Roberto Gauna, Founder" />
+            </div>
+            <div className="roberto-tag">
+              <strong>ROBERTO GAUNA</strong>
+              <span>Founder · Built 650K+ followers</span>
+            </div>
+            <div className="guarantee-badge">
+              <span className="big">1M+</span>
+              <span className="small">VIEWS GUARANTEED</span>
+            </div>
           </div>
+        </div>
+      </section>
 
-          <div
-            className="hero-sub"
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 500,
-              fontSize: 17,
-              color: "rgba(255,255,255,0.92)",
-              lineHeight: 1.55,
-              maxWidth: 680,
-              margin: "0 auto 36px",
-            }}
-          >
-            We script, film, edit, and post your social media in English <strong>and</strong> Spanish — and guarantee at least 1M views, or you don't pay.
+      {/* ② PROOF BAR */}
+      <div className="proof-bar">
+        <div className="proof-grid">
+          <div className="proof-stat">
+            <div className="num">650K+</div>
+            <div className="label">Followers managed across client accounts</div>
           </div>
-          <ApplyBtn inverted />
+          <div className="proof-stat">
+            <div className="num">100K+</div>
+            <div className="label">Dr. Calvin — followers in under 12 months</div>
+          </div>
+          <div className="proof-stat">
+            <div className="num">$50K+</div>
+            <div className="label">Revenue generated for client clinic</div>
+          </div>
+          <div className="proof-stat">
+            <div className="num">17.6K</div>
+            <div className="label">Zigufit — from 500 to 17.6K followers</div>
+          </div>
         </div>
       </div>
 
-      {/* ② LEAD FORM */}
+      {/* ③ LEAD FORM */}
       <LeadFormEN />
 
-      {/* ③ THE PROBLEM */}
-      <Sec>
-        <SectionTitle text="UTAH IS BILINGUAL. YOUR COMPETITION ONLY SPEAKS ONE LANGUAGE." />
-
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontWeight: 900,
-            fontSize: "clamp(72px, 14vw, 160px)",
-            color: "#8FD0D5",
-            lineHeight: 1,
-            letterSpacing: "-0.04em",
-            margin: "32px 0 12px",
-          }}
-        >
-          1 in 5
+      {/* ④ THE GUARANTEE */}
+      <section className="section">
+        <div className="guarantee-card">
+          <span className="guarantee-stamp">
+            <ShieldCheck size={14} strokeWidth={2.5} />
+            The Guarantee
+          </span>
+          <h2 className="guarantee-headline">
+            1,000,000 views in 90 days — or we work for free until you get them.
+          </h2>
+          <p className="guarantee-body">
+            No fine print. If your content (organic + boosted) doesn't accumulate at least one million views across Instagram, TikTok, and Facebook within 90 days of your first post going live, we keep producing, posting, and running ads at no additional cost until you do.
+          </p>
+          <div className="guarantee-pillars">
+            <div className="guarantee-pillar">
+              <div className="guarantee-pillar-icon">
+                <Sparkle size={18} strokeWidth={2.2} />
+              </div>
+              <div className="guarantee-pillar-text">
+                <strong>Custom-written hooks</strong>
+                <span>20 scripts/month engineered for retention in both languages.</span>
+              </div>
+            </div>
+            <div className="guarantee-pillar">
+              <div className="guarantee-pillar-icon">
+                <TrendingUp size={18} strokeWidth={2.2} />
+              </div>
+              <div className="guarantee-pillar-text">
+                <strong>Daily posting</strong>
+                <span>Volume + consistency is how the algorithm decides you're worth boosting.</span>
+              </div>
+            </div>
+            <div className="guarantee-pillar">
+              <div className="guarantee-pillar-icon">
+                <Target size={18} strokeWidth={2.2} />
+              </div>
+              <div className="guarantee-pillar-text">
+                <strong>Paid amplification</strong>
+                <span>Top-performing posts get boosted to bilingual Utah audiences.</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontWeight: 700,
-            fontSize: 13,
-            textTransform: "uppercase",
-            letterSpacing: "0.12em",
-            color: "#666",
-            marginBottom: 36,
-          }}
-        >
-          UTAHNS SPEAK SPANISH AT HOME
-        </div>
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontSize: 17,
-            color: "#222",
-            lineHeight: 1.6,
-            maxWidth: 640,
-            margin: "0 auto",
-          }}
-        >
-          Your competition only reaches half the market. You can reach all of it — in both languages — through your personal brand.
-        </div>
-      </Sec>
+      </section>
 
-      {/* ④ THE SOLUTION, THE SYSTEM */}
-      <Sec bg="#f5f5f5">
-        <SectionTitle text="A COMPLETE DONE-FOR-YOU SYSTEM" />
-        <SectionSub text="4 components. You show up on camera, we run everything else." />
-
-        <div className="grid-4" style={{ marginBottom: 52 }}>
+      {/* ⑤ THE SYSTEM */}
+      <section className="section">
+        <div className="section-eyebrow">What you actually get</div>
+        <h2 className="section-title">A complete done-for-you growth engine.</h2>
+        <p className="section-sub">
+          Four systems running in parallel every month. You show up on camera for a single shoot day. We do everything else.
+        </p>
+        <div className="system-grid">
           {SYSTEM_COMPONENTS.map((c) => {
             const Icon = c.icon;
             return (
-              <div className="sys-card" key={c.title}>
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 4,
-                    background: "#8FD0D5",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 18,
-                  }}
-                >
-                  <Icon size={24} color="#fff" strokeWidth={2.2} />
+              <div className="system-card" key={c.title}>
+                <div className="system-card-no">{c.no} / 04</div>
+                <div className="system-card-icon">
+                  <Icon size={24} strokeWidth={2.2} />
                 </div>
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontWeight: 900,
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#0a0a0a",
-                    marginBottom: 10,
-                  }}
-                >
-                  {c.title}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontSize: 13,
-                    color: "#555",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {c.body}
-                </div>
+                <h3>{c.title}</h3>
+                <p>{c.body}</p>
               </div>
             );
           })}
         </div>
+      </section>
 
-        <ApplyBtn />
-      </Sec>
+      {/* ⑥ CASE STUDIES */}
+      <section className="case-section">
+        <div className="case-inner">
+          <div className="section-eyebrow">Real Utah results</div>
+          <h2 className="section-title">See the system on live accounts.</h2>
+          <p className="section-sub">
+            Two of our current clients. Tap a case to view their live profile.
+          </p>
 
-      {/* ⑤ CASE STUDIES */}
-      <Sec>
-        <SectionTitle text="REAL RESULTS FROM REAL CLIENTS" />
-        <SectionSub text="See our work — tap a case to view their live account" />
-
-        {/* Calvin */}
-        <div style={{ marginBottom: 56 }}>
-          <div
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              color: "#0a0a0a",
-              marginBottom: 16,
-            }}
-          >
-            DR. CALVIN — CHIROPRACTOR
-          </div>
-
-          <div className="ba-grid ba-grid-square" style={{ marginBottom: 20, maxWidth: 560, margin: "0 auto 20px" }}>
-            <a
-              href={CALVIN_FB}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ba-card ba-card-square"
-              style={{ cursor: "pointer", textDecoration: "none" }}
-              aria-label="View Dr. Calvin's Facebook"
-            >
-              <img src={drCalvinAfter} alt="Dr. Calvin Facebook" />
-            </a>
-            <a
-              href={CALVIN_FB}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ba-card ba-card-square"
-              style={{ cursor: "pointer", textDecoration: "none" }}
-              aria-label="View Dr. Calvin's TikTok"
-            >
-              <img src={drCalvinTiktok} alt="Dr. Calvin TikTok" />
-            </a>
-          </div>
-
-          <div className="agency-stats">
-            <div className="agency-stat">
-              <div className="agency-stat-num">100K+</div>
-              <div className="agency-stat-label">FOLLOWERS GENERATED</div>
+          {/* Calvin */}
+          <a href={CALVIN_FB} target="_blank" rel="noopener noreferrer" className="case-card" style={{ textDecoration: "none", display: "block" }}>
+            <div className="case-grid">
+              <div className="case-imgs">
+                <img src={drCalvinAfter} alt="Dr. Calvin Facebook" />
+                <img src={drCalvinTiktok} alt="Dr. Calvin TikTok" />
+              </div>
+              <div className="case-content">
+                <div className="case-label">
+                  <Star size={12} strokeWidth={2.5} fill={GOLD} />
+                  Case Study · Chiropractor
+                </div>
+                <div className="case-name">Dr. Calvin's Clinic</div>
+                <div className="case-stats">
+                  <div className="case-stat">
+                    <div className="n">100K+</div>
+                    <div className="l">Followers Generated</div>
+                  </div>
+                  <div className="case-stat">
+                    <div className="n">$50K+</div>
+                    <div className="l">Revenue Generated</div>
+                  </div>
+                </div>
+                <span className="case-link">
+                  View Dr. Calvin on Facebook <ArrowRight size={14} strokeWidth={2.5} />
+                </span>
+              </div>
             </div>
-            <div className="agency-stat">
-              <div className="agency-stat-num">$50K+</div>
-              <div className="agency-stat-label">REVENUE GENERATED</div>
-            </div>
-          </div>
+          </a>
 
-          <a
-            href={CALVIN_FB}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="work-link-label"
-          >
-            See Dr. Calvin on Facebook →
+          {/* Zigufit */}
+          <a href={ZIGUFIT_TIKTOK} target="_blank" rel="noopener noreferrer" className="case-card case-card-zigufit" style={{ textDecoration: "none", display: "block" }}>
+            <div className="case-grid">
+              <div className="case-imgs">
+                <img src={zigufitBefore} alt="Zigufit before" />
+                <img src={zigufitAfter} alt="Zigufit after" />
+              </div>
+              <div className="case-content">
+                <div className="case-label">
+                  <Star size={12} strokeWidth={2.5} fill={GOLD} />
+                  Case Study · Fitness
+                </div>
+                <div className="case-name">Zigufit</div>
+                <div className="case-stats">
+                  <div className="case-stat">
+                    <div className="n">500</div>
+                    <div className="l">Followers Before</div>
+                  </div>
+                  <div className="case-stat">
+                    <div className="n">17.6K</div>
+                    <div className="l">Followers After</div>
+                  </div>
+                </div>
+                <span className="case-link">
+                  View Zigufit on TikTok <ArrowRight size={14} strokeWidth={2.5} />
+                </span>
+              </div>
+            </div>
           </a>
         </div>
+      </section>
 
-        {/* Zigufit */}
-        <div style={{ marginBottom: 44 }}>
-          <div
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              color: "#0a0a0a",
-              marginBottom: 16,
-            }}
-          >
-            ZIGUFIT — FITNESS
+      {/* ⑦ WHO IT'S FOR */}
+      <section className="industry-section">
+        <div className="section section-center" style={{ paddingTop: 96, paddingBottom: 96 }}>
+          <div className="section-eyebrow">Who it's built for</div>
+          <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
+            Utah service businesses with a bilingual market.
+          </h2>
+          <p className="section-sub">
+            If your customers could come from either an English speaker or a Spanish speaker in Utah, the system applies.
+          </p>
+          <div className="industries">
+            {INDUSTRIES.map((i) => {
+              const Icon = i.icon;
+              return (
+                <div className="industry" key={i.name}>
+                  <div className="industry-icon">
+                    <Icon size={20} strokeWidth={2} />
+                  </div>
+                  <div className="industry-name">{i.name}</div>
+                </div>
+              );
+            })}
           </div>
+        </div>
+      </section>
 
-          <div className="ba-grid" style={{ marginBottom: 0, maxWidth: 560, margin: "0 auto" }}>
-            <a
-              href={ZIGUFIT_TIKTOK}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ba-card"
-              style={{ textDecoration: "none" }}
-              aria-label="View Zigufit's TikTok (Before)"
-            >
-              <img src={zigufitBefore} alt="Zigufit before" className="ba-img-portrait" />
-              <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#999", marginBottom: 4 }}>
-                  BEFORE
-                </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#0a0a0a" }}>
-                  500 followers
-                </div>
-              </div>
-            </a>
-            <a
-              href={ZIGUFIT_TIKTOK}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ba-card"
-              style={{ textDecoration: "none" }}
-              aria-label="View Zigufit's TikTok (After)"
-            >
-              <img src={zigufitAfter} alt="Zigufit after" className="ba-img-portrait" />
-              <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8FD0D5", marginBottom: 4 }}>
-                  AFTER
-                </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#8FD0D5" }}>
-                  17.6K followers
+      {/* ⑧ PROCESS */}
+      <section className="process-section">
+        <div className="section section-center">
+          <div className="section-eyebrow">How it works</div>
+          <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
+            From application to live system in under 3 weeks.
+          </h2>
+          <p className="section-sub">
+            Four steps. We move fast — we accept five new clients per month.
+          </p>
+          <div className="timeline">
+            {PROCESS.map((s) => (
+              <div className="timeline-step" key={s.n}>
+                <div className="timeline-no">{s.n}</div>
+                <div className="timeline-content">
+                  <h3>{s.title}</h3>
+                  <p>{s.body}</p>
                 </div>
               </div>
-            </a>
+            ))}
           </div>
-
-          <a
-            href={ZIGUFIT_TIKTOK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="work-link-label"
-          >
-            See Zigufit on TikTok →
-          </a>
+          <div style={{ marginTop: 56 }}>
+            <ApplyBtn label="START WITH STEP 1" />
+          </div>
         </div>
+      </section>
 
-        <ApplyBtn />
-      </Sec>
-
-      {/* ⑥ WHO IT'S FOR */}
-      <Sec bg="#f5f5f5">
-        <SectionTitle text="WHO IT'S BUILT FOR" />
-        <SectionSub text="Service businesses with a Utah Hispanic + English market to reach" />
-
-        <div className="grid-3" style={{ marginBottom: 36, maxWidth: 880, margin: "0 auto 36px" }}>
-          {INDUSTRIES.map((i) => {
-            const Icon = i.icon;
-            return (
-              <div className="industry-card" key={i.name}>
-                <Icon size={32} color="#8FD0D5" strokeWidth={2} />
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#0a0a0a",
-                    textAlign: "center",
-                  }}
-                >
-                  {i.name}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontSize: 15,
-            color: "#444",
-            lineHeight: 1.65,
-            maxWidth: 580,
-            margin: "0 auto",
-          }}
-        >
-          You're the owner. You speak both languages (or have someone who does). You're ready to show up on camera.
-        </div>
-      </Sec>
-
-      {/* ⑦ WHO IT'S NOT FOR */}
-      <Sec>
-        <SectionTitle text="WHO IT'S NOT FOR" />
-        <SectionSub text="If you see yourself in this list, this isn't for you" />
-
-        <div className="not-for-list">
-          {NOT_FOR.map((item, i) => (
-            <div className="not-for-item" key={i}>
-              <div
-                style={{
-                  flexShrink: 0,
-                  width: 22,
-                  height: 22,
-                  borderRadius: "50%",
-                  background: "#fee",
-                  color: "#c33",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
-                  fontSize: 14,
-                  marginTop: 2,
-                }}
-              >
-                ×
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: 14,
-                  color: "#333",
-                  lineHeight: 1.55,
-                }}
-              >
-                {item}
-              </div>
+      {/* ⑨ FOUNDER */}
+      <section className="founder-section">
+        <div className="founder-inner">
+          <div className="founder-photo-wrap">
+            <div className="founder-photo">
+              <img src={robertoFounder} alt="Roberto Gauna" />
             </div>
-          ))}
-        </div>
-      </Sec>
-
-      {/* ⑧ HOW WE WORK */}
-      <Sec bg="#f5f5f5">
-        <SectionTitle text="HOW WE WORK" />
-        <SectionSub text="A 4-step process to launch the system in your business" />
-
-        <div className="grid-4" style={{ marginBottom: 52 }}>
-          {PROCESS.map((s) => (
-            <div className="step-card" key={s.n}>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
-                  fontSize: 36,
-                  color: "#8FD0D5",
-                  marginBottom: 12,
-                  lineHeight: 1,
-                }}
-              >
-                {s.n}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: "#0a0a0a",
-                  marginBottom: 10,
-                }}
-              >
-                {s.title}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: 13,
-                  color: "#555",
-                  lineHeight: 1.6,
-                }}
-              >
-                {s.body}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <ApplyBtn />
-      </Sec>
-
-      {/* ⑨ ABOUT ROBERTO */}
-      <Sec>
-        <SectionTitle text="ABOUT ROBERTO" />
-
-        <div className="roberto-row">
-          <div className="roberto-photo-wrap">
-            <img src={robertoFounder} alt="Roberto Gauna" className="roberto-photo" />
+            <div className="founder-photo-tag">Built 650K+ Followers</div>
           </div>
           <div>
-            <div
-              style={{
-                fontFamily: "'Montserrat', sans-serif",
-                fontWeight: 900,
-                fontSize: 18,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                color: "#0a0a0a",
-                marginBottom: 12,
-              }}
-            >
-              ROBERTO GAUNA, FOUNDER
-            </div>
-            <div
-              style={{
-                fontFamily: "'Montserrat', sans-serif",
-                fontSize: 15,
-                color: "#333",
-                lineHeight: 1.7,
-                marginBottom: 20,
-              }}
-            >
-              Roberto led content strategy for Intermountain Immigration — attorney Jonathan Shaw's firm — scaling the account past 650K followers across Instagram and TikTok. Today he applies that same system at Connecta Creators for clients like Dr. Calvin and Zigufit, helping Utah's bilingual business owners build personal brands that bring in real revenue.
-            </div>
-            <a
-              href="/about"
-              style={{
-                fontFamily: "'Montserrat', sans-serif",
-                fontWeight: 700,
-                fontSize: 12,
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                color: "#8FD0D5",
-                textDecoration: "none",
-                borderBottom: "2px solid #8FD0D5",
-                paddingBottom: 2,
-              }}
-            >
-              MORE ABOUT ROBERTO →
-            </a>
+            <div className="section-eyebrow">About the founder</div>
+            <p className="founder-quote">
+              I built the same system that took an immigration firm to <span className="accent">650K+ followers</span>. Now I'm running it for Utah business owners — and putting a 1M-view guarantee on every word of it.
+            </p>
+            <p className="founder-bio">
+              Roberto Gauna led content strategy for Intermountain Immigration — attorney Jonathan Shaw's firm — scaling the account past 650K followers across Instagram and TikTok. Today he runs Connecta Creators, applying that same engine for clients like Dr. Calvin's Clinic and Zigufit. The mission: turn Utah's bilingual business owners into the most-watched personal brands in their industry.
+            </p>
+            <div className="founder-name">Roberto Gauna</div>
+            <div className="founder-title">Founder · Connecta Creators</div>
           </div>
         </div>
-      </Sec>
+      </section>
+
+      {/* ⑩ WHO IT'S NOT FOR */}
+      <section className="notfor-section">
+        <div className="section section-center">
+          <div className="section-eyebrow">Honest disclaimer</div>
+          <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
+            Don't apply if any of these are true.
+          </h2>
+          <p className="section-sub">
+            Saves us both a call.
+          </p>
+          <div className="notfor-list">
+            {NOT_FOR.map((item, i) => (
+              <div className="notfor-item" key={i}>
+                <div className="notfor-x">×</div>
+                <div className="notfor-text">{item}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ⑪ FAQ */}
+      <section className="faq-section">
+        <div className="section section-center">
+          <div className="section-eyebrow">Common questions</div>
+          <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
+            The stuff people ask on every call.
+          </h2>
+          <div className="faq-list" style={{ marginTop: 32, textAlign: "left" }}>
+            {FAQS.map((f) => (
+              <div className="faq-item" key={f.q}>
+                <div className="faq-q">{f.q}</div>
+                <div className="faq-a">{f.a}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ⑫ FINAL CTA */}
+      <section className="final-cta">
+        <h2>
+          Your Utah audience is waiting in <span className="gold">two languages</span>.
+        </h2>
+        <p>
+          We've got space for 5 new businesses this month. Application takes ~2 minutes — strategy call is free.
+        </p>
+        <ApplyBtn label="APPLY TO WORK WITH US" inverted glow />
+        <div className="scarcity">★ Only 5 client slots per month</div>
+      </section>
 
       {/* FOOTER */}
-      <div
-        style={{
-          background: "#f0f0f0",
-          padding: "32px 24px",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontWeight: 700,
-            fontSize: 12,
-            color: "#0a0a0a",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            marginBottom: 6,
-          }}
-        >
-          CONTACT US
+      <div className="footer">
+        <div className="footer-brand">CONNECTA CREATORS</div>
+        <div>
+          Questions? Email{" "}
+          <a href="mailto:admin@connectacreators.com">admin@connectacreators.com</a>
         </div>
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontSize: 13,
-            color: "#555",
-            marginBottom: 12,
-          }}
-        >
-          Questions? Email us at:{" "}
-          <a
-            href="mailto:admin@connectacreators.com"
-            style={{ color: "#8FD0D5", fontWeight: 700 }}
-          >
-            admin@connectacreators.com
-          </a>
-        </div>
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontSize: 11,
-            color: "#888",
-          }}
-        >
-          *results may vary*
+        <div className="footer-disclaimer">
+          *results may vary · © {new Date().getFullYear()} Connecta Creators
         </div>
       </div>
     </>
