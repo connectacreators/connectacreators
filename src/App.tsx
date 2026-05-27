@@ -16,6 +16,8 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
 import VideoEditor from "@/pages/VideoEditor";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
+import { useAuth } from "@/hooks/useAuth";
+import ScriptsLogin from "@/components/ScriptsLogin";
 
 // Lazy-loaded pages — each becomes its own chunk, loaded on demand
 const Home = lazy(() => import("./pages/Home"));
@@ -97,6 +99,13 @@ function RootRoute() {
   return <LandingPageNew />;
 }
 
+function LoginRoute() {
+  const { user, loading, signInWithEmail } = useAuth();
+  if (loading) return <PageLoader />;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <ScriptsLogin onSignIn={() => {}} signInWithEmail={signInWithEmail} />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -139,6 +148,7 @@ const App = () => (
             <Route path="/facebook-callback" element={<FacebookCallback />} />
             <Route path="/es" element={<LandingPageNewES />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<LoginRoute />} />
             <Route path="/contract/:token" element={<PublicContract />} />
 
             {/* Authenticated routes — all share the DashboardLayout */}
