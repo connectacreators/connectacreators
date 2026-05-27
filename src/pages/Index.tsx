@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import drCalvinAfter from "@/assets/dr-calvin-after.png";
+import drCalvinAfter from "@/assets/dr-calvin-78k.png";
 import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
-import zigufitAfter from "@/assets/zigufit-after.png";
+import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
 import LeadForm from "@/components/LeadForm";
 import {
@@ -370,7 +370,7 @@ export default function Index() {
           <div className="hero-stat-row">
             <HeroStat number="78K" label="SEGUIDORES" sub="DR. CALVIN" />
             <HeroStat number="42" label="LEADS / MES" sub="PACIENTES HISPANOS" />
-            <HeroStat number="17.4K" label="SEGUIDORES" sub="ZIGUFIT" />
+            <HeroStat number="17.6K" label="SEGUIDORES" sub="ZIGUFIT" />
           </div>
         </div>
       </div>
@@ -589,7 +589,7 @@ export default function Index() {
                   DESPUÉS
                 </div>
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#8FD0D5" }}>
-                  17.4K seguidores
+                  17.6K seguidores
                 </div>
               </div>
             </div>
