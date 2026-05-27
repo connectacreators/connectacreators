@@ -25,6 +25,7 @@ const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
 const LandingPageNewES = lazy(() => import("./pages/LandingPageNewES"));
 const Index = lazy(() => import("./pages/Index"));
 const IndexEN = lazy(() => import("./pages/IndexEN"));
+const OneMillionGuarantee = lazy(() => import("./pages/OneMillionGuarantee"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Scripts = lazy(() => import("./pages/Scripts"));
 const Clients = lazy(() => import("./pages/Clients"));
@@ -128,6 +129,7 @@ const App = () => (
             <Route path="/home" element={<Home />} />
             <Route path="/reto" element={<Index />} />
             <Route path="/reto/en" element={<IndexEN />} />
+            <Route path="/1mguarantee" element={<OneMillionGuarantee />} />
             <Route path="/about" element={<About />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/onboarding/:clientId" element={<Onboarding />} />
