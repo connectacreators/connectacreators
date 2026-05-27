@@ -49,6 +49,7 @@ import {
   Trash2,
   Plus,
   ArrowUpDown,
+  Download,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -58,6 +59,7 @@ import { toast } from "sonner";
 import { leadService } from "@/services/leadService";
 import { checkResourceLimit } from "@/utils/planLimits";
 import { KanbanBoard } from "@/components/leads/LeadKanbanBoard";
+import { exportToCSV } from "@/utils/csvExport";
 
 type Lead = {
   id: string;
@@ -714,6 +716,44 @@ export default function LeadTracker() {
   const statuses = statusOptions.length > 0 ? statusOptions : [...new Set(leads.map((l) => l.leadStatus).filter(Boolean))];
   const sources = sourceOptions.length > 0 ? sourceOptions : [...new Set(leads.map((l) => l.leadSource).filter(Boolean))];
 
+  // CSV export of the currently-visible (post-filter, post-sort) list. Column
+  // labels are human-friendly so the file opens cleanly in Sheets / Excel.
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      toast.error(language === "en" ? "No leads to export" : "No hay leads para exportar");
+      return;
+    }
+    const fmtDate = (s: string | undefined | null) => {
+      if (!s) return "";
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? s : d.toISOString().split("T")[0];
+    };
+    const rows = filtered.map((l) => ({
+      Name:               l.fullName ?? "",
+      Email:              l.email ?? "",
+      Phone:              l.phone ?? "",
+      Status:             l.leadStatus ?? "",
+      Source:             l.leadSource ?? "",
+      Campaign:           l.campaignName ?? "",
+      "Appointment Date": fmtDate(l.appointmentDate),
+      "Appointment Time": l.bookingTime ?? "",
+      Booked:             isBookedLead(l) ? "Yes" : "No",
+      Notes:              l.notes ?? "",
+      "Created Date":     fmtDate(l.createdDate),
+      "Last Contacted":   fmtDate(l.lastContacted),
+    }));
+    const clientLabel = clients.find((c) => c.id === (selectedClient !== "all" ? selectedClient : urlClientId))?.name
+      ?? "all-clients";
+    const slug = clientLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const today = new Date().toISOString().split("T")[0];
+    exportToCSV(rows, { filename: `leads-${slug}-${today}.csv` });
+    toast.success(
+      language === "en"
+        ? `Exported ${filtered.length} leads`
+        : `${filtered.length} leads exportados`
+    );
+  };
+
   // Stats — reflect active filters (date + search + status + source)
   const totalLeads = filtered.length;
   const bookedCount = filtered.filter((l) => isBookedLead(l)).length;
@@ -1064,6 +1104,24 @@ export default function LeadTracker() {
                 <SelectItem value="booked">{language === "en" ? "Booked first" : "Reservados primero"}</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Export the currently-filtered list to CSV. Disabled when empty
+                so users get a clear affordance + tooltip instead of a no-op. */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportCSV}
+              disabled={filtered.length === 0}
+              className="flex-shrink-0 gap-1.5"
+              title={
+                language === "en"
+                  ? `Export ${filtered.length} filtered lead${filtered.length === 1 ? "" : "s"} as CSV`
+                  : `Exportar ${filtered.length} lead${filtered.length === 1 ? "" : "s"} filtrado${filtered.length === 1 ? "" : "s"} a CSV`
+              }
+            >
+              <Download className="w-4 h-4" />
+              {language === "en" ? "Export" : "Exportar"}
+            </Button>
 
             {(isSubscriber || isAdmin) && (
               <Button
