@@ -271,10 +271,14 @@ export default function Index() {
           .hero-headline { font-size: 26px !important; letter-spacing: -0.01em !important; }
           .hero-sub { font-size: 14px !important; margin-bottom: 28px !important; }
           .section-title { font-size: 20px !important; }
-          .sys-card { padding: 22px 16px !important; }
-          .step-card { padding: 22px 16px !important; }
+          .sys-card { padding: 22px 16px !important; text-align: center !important; }
+          .step-card { padding: 22px 16px !important; text-align: center !important; }
           .industry-card { padding: 20px 12px !important; }
           .ba-img-portrait { height: auto !important; max-height: 480px; }
+          .ba-caption { text-align: center !important; }
+          .not-for-list { text-align: center !important; }
+          .not-for-item { justify-content: center !important; text-align: left; }
+          .roberto-row, .roberto-row p, .roberto-row div { text-align: center !important; }
           .body-left { text-align: center !important; }
           .body-left p, .body-left div { text-align: center !important; }
         }
@@ -363,14 +367,17 @@ export default function Index() {
           <ApplyBtn inverted />
 
           <div className="hero-stat-row">
-            <HeroStat number="45K" label="SEGUIDORES" sub="DR. CALVIN" />
+            <HeroStat number="78K" label="SEGUIDORES" sub="DR. CALVIN" />
             <HeroStat number="42" label="LEADS / MES" sub="PACIENTES HISPANOS" />
             <HeroStat number="17.4K" label="SEGUIDORES" sub="ZIGUFIT" />
           </div>
         </div>
       </div>
 
-      {/* ② EL PROBLEMA */}
+      {/* ② LEAD FORM — right after the VSL hero */}
+      <LeadForm />
+
+      {/* ③ EL PROBLEMA */}
       <Sec>
         <SectionTitle text="EL MERCADO HISPANO ESTÁ AHÍ. TU COMPETENCIA NO LO ATIENDE." />
 
@@ -497,7 +504,7 @@ export default function Index() {
                 alt="Dr. Calvin Facebook"
                 style={{ width: "100%", height: 220, objectFit: "cover", objectPosition: "top left", display: "block" }}
               />
-              <BeforeAfterCaption platform="FACEBOOK" before="7K" after="45K" />
+              <BeforeAfterCaption platform="FACEBOOK" before="7K" after="78K" />
             </div>
             <div className="ba-card">
               <img
@@ -778,9 +785,6 @@ export default function Index() {
           </div>
         </div>
       </Sec>
-
-      {/* ⑨ LEAD FORM */}
-      <LeadForm />
 
       {/* FOOTER */}
       <div
