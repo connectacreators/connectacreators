@@ -505,7 +505,7 @@ export default function Index() {
                 alt="Dr. Calvin Facebook"
                 className="ba-img-landscape"
               />
-              <BeforeAfterCaption platform="FACEBOOK" before="7K" after="78K" />
+              <BeforeAfterCaption before="7K" after="78K" />
             </div>
             <div className="ba-card">
               <img
@@ -873,12 +873,14 @@ function HeroStat({ number, label, sub }: { number: string; label: string; sub: 
   );
 }
 
-function BeforeAfterCaption({ platform, before, after }: { platform: string; before: string; after: string }) {
+function BeforeAfterCaption({ platform, before, after }: { platform?: string; before: string; after: string }) {
   return (
     <div className="ba-caption">
-      <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "#999", marginBottom: 6, textAlign: "center" }}>
-        {platform}
-      </div>
+      {platform ? (
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "#999", marginBottom: 6, textAlign: "center" }}>
+          {platform}
+        </div>
+      ) : null}
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>ANTES</div>
