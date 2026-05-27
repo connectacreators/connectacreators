@@ -173,6 +173,42 @@ export default function Index() {
         .ba-img-landscape { width: 100%; height: auto; display: block; background: #fff; }
         .ba-caption { padding: 14px 16px; }
 
+        .ba-grid-square { align-items: stretch; }
+        .ba-card-square { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; padding: 12px; }
+        .ba-card-square img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+
+        .agency-stats {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          max-width: 560px;
+          margin: 0 auto;
+        }
+        .agency-stat {
+          background: #8FD0D5;
+          border-radius: 6px;
+          padding: 28px 22px;
+          text-align: center;
+        }
+        .agency-stat-num {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 900;
+          font-size: clamp(38px, 6vw, 56px);
+          color: #fff;
+          line-height: 1;
+          letter-spacing: -0.02em;
+          margin-bottom: 10px;
+        }
+        .agency-stat-label {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: rgba(255,255,255,0.95);
+          line-height: 1.4;
+        }
+
         .hero-stat-row {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -265,6 +301,8 @@ export default function Index() {
           .hero-inner { padding: 56px 16px !important; }
           .ba-grid { grid-template-columns: 1fr !important; gap: 12px; }
           .ba-grid img { height: auto !important; max-height: 520px; object-fit: contain !important; }
+          .ba-card-square { aspect-ratio: auto !important; padding: 8px !important; }
+          .agency-stats { grid-template-columns: 1fr !important; gap: 12px; }
           .grid-4 { grid-template-columns: 1fr; gap: 10px; }
           .grid-3 { grid-template-columns: 1fr 1fr; gap: 10px; }
           .grid-2 { grid-template-columns: 1fr; gap: 10px; }
@@ -498,58 +536,23 @@ export default function Index() {
             DR. CALVIN, QUIROPRÁCTICO
           </div>
 
-          <div className="ba-grid" style={{ marginBottom: 20, maxWidth: 560, margin: "0 auto 20px" }}>
-            <div className="ba-card">
-              <img
-                src={drCalvinAfter}
-                alt="Dr. Calvin Facebook"
-                className="ba-img-landscape"
-              />
-              <BeforeAfterCaption before="7K" after="78K" />
+          <div className="ba-grid ba-grid-square" style={{ marginBottom: 20, maxWidth: 560, margin: "0 auto 20px" }}>
+            <div className="ba-card ba-card-square">
+              <img src={drCalvinAfter} alt="Dr. Calvin Facebook" />
             </div>
-            <div className="ba-card">
-              <img
-                src={drCalvinTiktok}
-                alt="Dr. Calvin TikTok"
-                className="ba-img-landscape"
-              />
-              <BeforeAfterCaption platform="TIKTOK" before="400" after="8,900" />
+            <div className="ba-card ba-card-square">
+              <img src={drCalvinTiktok} alt="Dr. Calvin TikTok" />
             </div>
           </div>
 
-          <div
-            style={{
-              background: "#8FD0D5",
-              borderRadius: 4,
-              padding: "24px 20px",
-              maxWidth: 560,
-              margin: "0 auto",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "'Montserrat', sans-serif",
-                fontWeight: 900,
-                fontSize: "clamp(36px, 6vw, 56px)",
-                color: "#fff",
-                lineHeight: 1,
-                letterSpacing: "-0.02em",
-                marginBottom: 8,
-              }}
-            >
-              42
+          <div className="agency-stats">
+            <div className="agency-stat">
+              <div className="agency-stat-num">100M+</div>
+              <div className="agency-stat-label">VISTAS ORGÁNICAS GENERADAS PARA NUESTROS CLIENTES</div>
             </div>
-            <div
-              style={{
-                fontFamily: "'Montserrat', sans-serif",
-                fontWeight: 700,
-                fontSize: 12,
-                textTransform: "uppercase",
-                letterSpacing: "0.12em",
-                color: "rgba(255,255,255,0.92)",
-              }}
-            >
-              LEADS DE PACIENTES HISPANOS / MES
+            <div className="agency-stat">
+              <div className="agency-stat-num">120K+</div>
+              <div className="agency-stat-label">SEGUIDORES GENERADOS PARA NUESTROS CLIENTES</div>
             </div>
           </div>
         </div>
