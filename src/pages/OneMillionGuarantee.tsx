@@ -917,7 +917,7 @@ export default function OneMillionGuarantee() {
             <span className="gold">or you don't pay.</span>
           </h1>
           <p className="hero-sub">
-            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or your next month is free.
+            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or we give you 100% of your money back.
           </p>
           <div className="pillar-row">
             {PILLARS.map(({ icon: Icon, label }) => (
