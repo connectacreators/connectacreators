@@ -4,6 +4,7 @@ import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
 import LeadFormEN from "@/components/LeadFormEN";
+import VSLPlayer from "@/components/VSLPlayer";
 import {
   Video,
   Target,
@@ -157,7 +158,7 @@ const FAQS = [
   },
   {
     q: "How fast until I see results?",
-    a: "First posts go live within 2–3 weeks of signing. View velocity typically picks up in week 3–4 once the algorithm has enough signal. Booked appointments usually start in month 2.",
+    a: "Most clients start seeing results about a month after signing. First posts go live within 2–3 weeks, and once the algorithm has enough signal, view velocity and inbound leads typically kick in around the 30-day mark.",
   },
   {
     q: "How much time do I have to put in?",
@@ -242,6 +243,23 @@ export default function OneMillionGuarantee() {
           color: rgba(255,255,255,0.85);
           max-width: 620px;
           margin: 0 auto 32px;
+        }
+        .hero-video {
+          position: relative;
+          max-width: 720px;
+          margin: 28px auto 32px;
+          border-radius: 14px;
+          overflow: hidden;
+          box-shadow: 0 18px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .hero-video video { width: 100%; display: block; }
+        .hero-video-unmute {
+          position: absolute; bottom: 14px; right: 14px;
+          background: rgba(0,0,0,0.75);
+          color: #fff; border: none; border-radius: 6px;
+          padding: 8px 14px; cursor: pointer;
+          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px;
+          display: flex; align-items: center; gap: 6px; z-index: 5;
         }
         .pillar-row {
           display: flex; flex-wrap: wrap; gap: 10px;
@@ -916,8 +934,11 @@ export default function OneMillionGuarantee() {
             <br />
             <span className="gold">or you don't pay.</span>
           </h1>
+          <div className="hero-video">
+            <VSLPlayer src="/VSL_ESPANOL_ROBERTO.mp4" poster="/vsl-poster.jpg" accent={GOLD} />
+          </div>
           <p className="hero-sub">
-            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or your next month is free.
+            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or we give you 100% of your money back.
           </p>
           <div className="pillar-row">
             {PILLARS.map(({ icon: Icon, label }) => (
