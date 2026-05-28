@@ -192,13 +192,10 @@ export default function OneMillionGuarantee() {
         }
         .hero-inner {
           position: relative;
-          max-width: 1180px;
+          max-width: 880px;
           margin: 0 auto;
-          padding: 96px 32px 80px;
-          display: grid;
-          grid-template-columns: 1.15fr 1fr;
-          gap: 64px;
-          align-items: center;
+          padding: 112px 32px 96px;
+          text-align: center;
         }
         .hero-chip {
           display: inline-flex; align-items: center; gap: 8px;
@@ -243,12 +240,13 @@ export default function OneMillionGuarantee() {
           font-size: 18px;
           line-height: 1.55;
           color: rgba(255,255,255,0.85);
-          max-width: 540px;
-          margin-bottom: 32px;
+          max-width: 620px;
+          margin: 0 auto 32px;
         }
         .pillar-row {
           display: flex; flex-wrap: wrap; gap: 10px;
           margin: 0 0 36px;
+          justify-content: center;
         }
         .pillar {
           display: inline-flex; align-items: center; gap: 8px;
@@ -261,80 +259,12 @@ export default function OneMillionGuarantee() {
         }
         .hero-cta-row {
           display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+          justify-content: center;
         }
         .hero-cta-meta {
           font-family: 'Inter', sans-serif; font-size: 13px;
           color: rgba(255,255,255,0.7);
           display: flex; align-items: center; gap: 8px;
-        }
-
-        /* Hero portrait */
-        .hero-portrait-wrap {
-          position: relative;
-          justify-self: end;
-        }
-        .hero-portrait {
-          position: relative;
-          width: 100%; max-width: 420px;
-          aspect-ratio: 4 / 5;
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: 0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
-          transform: rotate(-1.5deg);
-        }
-        .hero-portrait img {
-          width: 100%; height: 100%; object-fit: cover; object-position: center top;
-          display: block;
-        }
-        .hero-portrait-frame {
-          position: absolute; inset: -14px;
-          border: 1px solid rgba(245,194,101,0.4);
-          border-radius: 16px;
-          transform: rotate(1.5deg);
-          pointer-events: none;
-        }
-        .guarantee-badge {
-          position: absolute;
-          bottom: -24px; left: -32px;
-          background: ${GOLD};
-          color: ${TEAL_DEEP};
-          border-radius: 12px;
-          padding: 14px 18px;
-          font-family: 'Montserrat', sans-serif;
-          font-weight: 900;
-          font-size: 14px;
-          letter-spacing: 0.04em;
-          text-align: center;
-          box-shadow: 0 16px 40px rgba(245,194,101,0.4), 0 0 0 1px rgba(0,0,0,0.05);
-          transform: rotate(-3deg);
-          line-height: 1.15;
-        }
-        .guarantee-badge .big {
-          display: block; font-size: 28px; line-height: 1; margin-bottom: 4px;
-          letter-spacing: -0.02em;
-        }
-        .guarantee-badge .small {
-          font-size: 9px; letter-spacing: 0.18em; opacity: 0.75; font-weight: 700;
-        }
-        .roberto-tag {
-          position: absolute;
-          top: -16px; right: -16px;
-          background: #fff;
-          color: ${INK};
-          border-radius: 10px;
-          padding: 10px 14px;
-          font-family: 'Inter', sans-serif;
-          font-size: 11px;
-          line-height: 1.3;
-          box-shadow: 0 12px 32px rgba(0,0,0,0.25);
-          max-width: 200px;
-        }
-        .roberto-tag strong {
-          display: block; font-weight: 800; font-family: 'Montserrat', sans-serif;
-          font-size: 12px; letter-spacing: 0.04em;
-        }
-        .roberto-tag span {
-          color: ${TEAL_DARK}; font-weight: 600;
         }
 
         /* ── PROOF BAR ── */
@@ -940,8 +870,7 @@ export default function OneMillionGuarantee() {
 
         /* ── RESPONSIVE ── */
         @media (max-width: 900px) {
-          .hero-inner { grid-template-columns: 1fr; gap: 56px; padding: 72px 24px 64px; }
-          .hero-portrait-wrap { justify-self: center; }
+          .hero-inner { padding: 80px 24px 72px; }
           .proof-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
           .system-grid { grid-template-columns: 1fr; }
           .industries { grid-template-columns: repeat(3, 1fr); }
@@ -956,10 +885,7 @@ export default function OneMillionGuarantee() {
         @media (max-width: 560px) {
           .proof-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
           .industries { grid-template-columns: 1fr 1fr; }
-          .hero-cta-row { flex-direction: column; align-items: flex-start; gap: 16px; }
-          .roberto-tag { right: -8px; top: -10px; max-width: 160px; padding: 8px 12px; font-size: 10px; }
-          .guarantee-badge { left: -16px; bottom: -18px; padding: 10px 14px; }
-          .guarantee-badge .big { font-size: 22px; }
+          .hero-cta-row { flex-direction: column; gap: 16px; }
           .case-stats { grid-template-columns: 1fr 1fr; }
           .case-content { padding: 28px 24px; }
           .timeline::before { left: 23px; }
@@ -974,49 +900,32 @@ export default function OneMillionGuarantee() {
       <section className="hero">
         <div className="hero-noise" />
         <div className="hero-inner">
-          <div>
-            <span className="hero-chip">
-              <span className="hero-chip-dot" />
-              For Utah Bilingual Business Owners
-            </span>
-            <h1>
-              <span className="underline">1 Million Views</span>
-              <br />
-              <span className="gold">or you don't pay.</span>
-            </h1>
-            <p className="hero-sub">
-              We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or your next month is free.
-            </p>
-            <div className="pillar-row">
-              {PILLARS.map(({ icon: Icon, label }) => (
-                <span className="pillar" key={label}>
-                  <Icon size={14} strokeWidth={2.4} />
-                  {label}
-                </span>
-              ))}
-            </div>
-            <div className="hero-cta-row">
-              <ApplyBtn label="APPLY NOW" inverted glow />
-              <span className="hero-cta-meta">
-                <CheckCircle2 size={16} color={GOLD} />
-                Only 5 client slots a month
+          <span className="hero-chip">
+            <span className="hero-chip-dot" />
+            For Utah Bilingual Business Owners
+          </span>
+          <h1>
+            <span className="underline">1 Million Views</span>
+            <br />
+            <span className="gold">or you don't pay.</span>
+          </h1>
+          <p className="hero-sub">
+            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or your next month is free.
+          </p>
+          <div className="pillar-row">
+            {PILLARS.map(({ icon: Icon, label }) => (
+              <span className="pillar" key={label}>
+                <Icon size={14} strokeWidth={2.4} />
+                {label}
               </span>
-            </div>
+            ))}
           </div>
-
-          <div className="hero-portrait-wrap">
-            <div className="hero-portrait-frame" />
-            <div className="hero-portrait">
-              <img src={robertoFounder} alt="Roberto Gauna, Founder" />
-            </div>
-            <div className="roberto-tag">
-              <strong>ROBERTO GAUNA</strong>
-              <span>Founder · Built 650K+ followers</span>
-            </div>
-            <div className="guarantee-badge">
-              <span className="big">1M+</span>
-              <span className="small">VIEWS GUARANTEED</span>
-            </div>
+          <div className="hero-cta-row">
+            <ApplyBtn label="APPLY NOW" inverted glow />
+            <span className="hero-cta-meta">
+              <CheckCircle2 size={16} color={GOLD} />
+              Only 5 client slots a month
+            </span>
           </div>
         </div>
       </section>
