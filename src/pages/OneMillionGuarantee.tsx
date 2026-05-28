@@ -279,6 +279,7 @@ export default function OneMillionGuarantee() {
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
           align-items: center;
         }
+        .proof-stat { text-align: center; }
         .proof-stat .num {
           font-family: 'Montserrat', sans-serif;
           font-weight: 900;
@@ -293,6 +294,9 @@ export default function OneMillionGuarantee() {
           color: rgba(255,255,255,0.7);
           margin-top: 6px;
           line-height: 1.4;
+          max-width: 220px;
+          margin-left: auto;
+          margin-right: auto;
         }
 
         /* ── SECTIONS ── */
@@ -300,6 +304,7 @@ export default function OneMillionGuarantee() {
           padding: 96px 32px;
           max-width: 1180px;
           margin: 0 auto;
+          text-align: center;
         }
         .section-eyebrow {
           font-family: 'Montserrat', sans-serif;
@@ -310,9 +315,7 @@ export default function OneMillionGuarantee() {
           color: ${TEAL_DARK};
           margin-bottom: 16px;
           display: inline-flex; align-items: center; gap: 8px;
-        }
-        .section-eyebrow::before {
-          content: ''; width: 24px; height: 1px; background: ${TEAL_DARK};
+          justify-content: center;
         }
         .section-title {
           font-family: 'Montserrat', sans-serif;
@@ -321,7 +324,7 @@ export default function OneMillionGuarantee() {
           letter-spacing: -0.025em;
           line-height: 1.05;
           color: ${INK};
-          margin-bottom: 20px;
+          margin: 0 auto 20px;
           max-width: 760px;
         }
         .section-sub {
@@ -330,13 +333,9 @@ export default function OneMillionGuarantee() {
           line-height: 1.55;
           color: #4A5658;
           max-width: 640px;
-          margin-bottom: 56px;
+          margin: 0 auto 56px;
         }
         .section-center { text-align: center; }
-        .section-center .section-eyebrow { justify-content: center; }
-        .section-center .section-eyebrow::before { display: none; }
-        .section-center .section-title,
-        .section-center .section-sub { margin-left: auto; margin-right: auto; }
 
         /* ── GUARANTEE SECTION ── */
         .guarantee-card {
@@ -347,6 +346,7 @@ export default function OneMillionGuarantee() {
           position: relative;
           overflow: hidden;
           box-shadow: 0 24px 64px rgba(20,30,35,0.08);
+          text-align: center;
         }
         .guarantee-card::before {
           content: ''; position: absolute; top: 0; right: 0; width: 280px; height: 280px;
@@ -369,23 +369,24 @@ export default function OneMillionGuarantee() {
           line-height: 1.1;
           letter-spacing: -0.02em;
           color: ${INK};
-          margin-bottom: 20px;
+          margin: 0 auto 20px;
           max-width: 720px;
         }
         .guarantee-body {
           font-family: 'Inter', sans-serif; font-size: 17px;
           color: #3A464A; line-height: 1.65; max-width: 640px;
-          margin-bottom: 32px;
+          margin: 0 auto 32px;
         }
         .guarantee-pillars {
           display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
           margin-top: 32px; position: relative; z-index: 1;
+          text-align: center;
         }
         .guarantee-pillar {
-          display: flex; gap: 14px; align-items: flex-start;
+          display: flex; flex-direction: column; gap: 12px; align-items: center;
         }
         .guarantee-pillar-icon {
-          width: 36px; height: 36px; border-radius: 8px;
+          width: 44px; height: 44px; border-radius: 10px;
           background: ${TEAL_DARK}; color: #fff;
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
@@ -412,6 +413,10 @@ export default function OneMillionGuarantee() {
           transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
           position: relative;
           overflow: hidden;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
         .system-card:hover {
           transform: translateY(-4px);
@@ -455,6 +460,7 @@ export default function OneMillionGuarantee() {
           background: ${INK};
           color: #fff;
           padding: 96px 32px;
+          text-align: center;
         }
         .case-section .section-eyebrow { color: ${GOLD}; }
         .case-section .section-eyebrow::before { background: ${GOLD}; }
@@ -500,6 +506,8 @@ export default function OneMillionGuarantee() {
           display: flex;
           flex-direction: column;
           justify-content: center;
+          align-items: center;
+          text-align: center;
         }
         .case-label {
           display: inline-flex; align-items: center; gap: 8px;
@@ -554,7 +562,6 @@ export default function OneMillionGuarantee() {
           text-decoration: none;
           padding-bottom: 4px;
           border-bottom: 2px solid ${GOLD};
-          align-self: flex-start;
           transition: gap 0.15s ease;
         }
         .case-link:hover { gap: 14px; }
@@ -607,19 +614,27 @@ export default function OneMillionGuarantee() {
         .process-section { background: #fff; }
         .timeline {
           position: relative;
-          max-width: 880px;
+          max-width: 720px;
           margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
         }
         .timeline::before {
-          content: ''; position: absolute; left: 31px; top: 16px; bottom: 16px;
-          width: 2px; background: linear-gradient(180deg, ${TEAL}, ${TEAL_DARK});
+          content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+          width: 2px; transform: translateX(-50%);
+          background: linear-gradient(180deg, ${TEAL}, ${TEAL_DARK});
         }
         .timeline-step {
-          display: grid;
-          grid-template-columns: 64px 1fr;
-          gap: 28px;
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
           padding: 20px 0;
-          align-items: flex-start;
+          text-align: center;
+          max-width: 520px;
         }
         .timeline-no {
           width: 64px; height: 64px;
@@ -632,12 +647,8 @@ export default function OneMillionGuarantee() {
           font-weight: 900;
           font-size: 18px;
           letter-spacing: -0.01em;
-          position: relative;
-          z-index: 1;
+          margin-bottom: 16px;
           box-shadow: 0 8px 20px rgba(26,74,79,0.15);
-        }
-        .timeline-content {
-          padding: 14px 0;
         }
         .timeline-content h3 {
           font-family: 'Montserrat', sans-serif;
@@ -652,7 +663,8 @@ export default function OneMillionGuarantee() {
           font-size: 15px;
           line-height: 1.6;
           color: #4A5658;
-          max-width: 540px;
+          max-width: 480px;
+          margin: 0 auto;
         }
 
         /* ── FOUNDER ── */
@@ -666,14 +678,16 @@ export default function OneMillionGuarantee() {
         .founder-section .section-eyebrow { color: ${GOLD}; }
         .founder-section .section-eyebrow::before { background: ${GOLD}; }
         .founder-inner {
-          max-width: 1180px; margin: 0 auto;
-          display: grid;
-          grid-template-columns: 360px 1fr;
-          gap: 64px;
+          max-width: 720px; margin: 0 auto;
+          display: flex;
+          flex-direction: column;
           align-items: center;
+          gap: 40px;
+          text-align: center;
         }
         .founder-photo-wrap {
           position: relative;
+          width: 280px;
         }
         .founder-photo {
           width: 100%;
@@ -687,7 +701,7 @@ export default function OneMillionGuarantee() {
           display: block;
         }
         .founder-photo-tag {
-          position: absolute; bottom: -16px; left: -16px;
+          position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
           background: ${GOLD};
           color: ${TEAL_DEEP};
           padding: 12px 18px;
@@ -698,6 +712,7 @@ export default function OneMillionGuarantee() {
           letter-spacing: 0.14em;
           text-transform: uppercase;
           box-shadow: 0 16px 32px rgba(0,0,0,0.3);
+          white-space: nowrap;
         }
         .founder-quote {
           font-family: 'Montserrat', sans-serif;
@@ -706,7 +721,7 @@ export default function OneMillionGuarantee() {
           line-height: 1.3;
           letter-spacing: -0.015em;
           color: #fff;
-          margin: 20px 0 28px;
+          margin: 20px auto 28px;
           max-width: 640px;
         }
         .founder-quote .accent { color: ${GOLD}; }
@@ -716,7 +731,7 @@ export default function OneMillionGuarantee() {
           line-height: 1.7;
           color: rgba(255,255,255,0.78);
           max-width: 600px;
-          margin-bottom: 24px;
+          margin: 0 auto 24px;
         }
         .founder-name {
           font-family: 'Montserrat', sans-serif;
@@ -743,9 +758,11 @@ export default function OneMillionGuarantee() {
           margin: 0 auto;
         }
         .notfor-item {
-          display: flex; gap: 14px; align-items: flex-start;
+          display: flex; gap: 14px; align-items: center;
           padding: 18px 0;
           border-bottom: 1px solid rgba(20,30,35,0.08);
+          justify-content: center;
+          text-align: center;
         }
         .notfor-item:last-child { border-bottom: none; }
         .notfor-x {
@@ -781,24 +798,16 @@ export default function OneMillionGuarantee() {
           letter-spacing: -0.01em;
           color: ${INK};
           margin-bottom: 12px;
-          display: flex; gap: 16px; align-items: flex-start;
-        }
-        .faq-q::before {
-          content: 'Q';
-          color: ${TEAL_DARK};
-          font-family: 'Montserrat', sans-serif;
-          font-weight: 900;
-          font-size: 14px;
-          letter-spacing: 0.06em;
-          margin-top: 4px;
-          opacity: 0.5;
+          text-align: center;
         }
         .faq-a {
           font-family: 'Inter', sans-serif;
           font-size: 15px;
           line-height: 1.65;
           color: #4A5658;
-          padding-left: 32px;
+          text-align: center;
+          max-width: 640px;
+          margin: 0 auto;
         }
 
         /* ── FINAL CTA ── */
@@ -876,8 +885,7 @@ export default function OneMillionGuarantee() {
           .industries { grid-template-columns: repeat(3, 1fr); }
           .case-grid { grid-template-columns: 1fr; }
           .case-content { padding: 32px; }
-          .founder-inner { grid-template-columns: 1fr; gap: 40px; }
-          .founder-photo-wrap { max-width: 320px; margin: 0 auto; }
+          .founder-photo-wrap { width: 240px; }
           .guarantee-card { padding: 40px 28px; }
           .guarantee-pillars { grid-template-columns: 1fr; gap: 18px; }
           .section { padding: 72px 24px; }
@@ -888,9 +896,8 @@ export default function OneMillionGuarantee() {
           .hero-cta-row { flex-direction: column; gap: 16px; }
           .case-stats { grid-template-columns: 1fr 1fr; }
           .case-content { padding: 28px 24px; }
-          .timeline::before { left: 23px; }
-          .timeline-no { width: 48px; height: 48px; font-size: 15px; }
-          .timeline-step { grid-template-columns: 48px 1fr; gap: 20px; }
+          .timeline-no { width: 56px; height: 56px; font-size: 16px; }
+          .timeline-step { padding: 16px 0; }
           .founder-section { padding: 80px 24px; }
           .final-cta { padding: 80px 24px; }
         }
@@ -1199,7 +1206,7 @@ export default function OneMillionGuarantee() {
           <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
             The stuff people ask on every call.
           </h2>
-          <div className="faq-list" style={{ marginTop: 32, textAlign: "left" }}>
+          <div className="faq-list" style={{ marginTop: 32 }}>
             {FAQS.map((f) => (
               <div className="faq-item" key={f.q}>
                 <div className="faq-q">{f.q}</div>
