@@ -252,7 +252,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const [format, setFormat] = useState("talking_head");
   const [language, setLanguage] = useState<"en" | "es">("en");
   const [aiModel, setAiModel] = useState(() => {
-    try { return localStorage.getItem("cc_canvas_aiModel") || "claude-haiku-4-5"; } catch { return "claude-haiku-4-5"; }
+    try {
+      const stored = localStorage.getItem("cc_canvas_aiModel");
+      if (stored === "claude-opus-4") return "claude-sonnet-4-5";
+      return stored || "claude-haiku-4-5";
+    } catch { return "claude-haiku-4-5"; }
   });
   const [loaded, setLoaded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
