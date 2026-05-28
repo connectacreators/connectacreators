@@ -311,12 +311,14 @@ export default function Index() {
           .hero-sub { font-size: 14px !important; margin-bottom: 28px !important; }
           .section-title { font-size: 20px !important; }
           .sys-card { padding: 22px 16px !important; text-align: center !important; }
+          .sys-card > div:first-child { margin-left: auto !important; margin-right: auto !important; }
           .step-card { padding: 22px 16px !important; text-align: center !important; }
           .industry-card { padding: 20px 12px !important; }
           .ba-img-portrait { max-height: 520px !important; }
           .ba-caption { text-align: center !important; }
           .not-for-list { text-align: center !important; }
-          .not-for-item { justify-content: center !important; text-align: left; }
+          .not-for-item { justify-content: center !important; text-align: center !important; }
+          .not-for-item > div:last-child { text-align: center !important; }
           .roberto-row, .roberto-row p, .roberto-row div { text-align: center !important; }
           .body-left { text-align: center !important; }
           .body-left p, .body-left div { text-align: center !important; }
@@ -330,7 +332,7 @@ export default function Index() {
           style={{
             maxWidth: 1080,
             margin: "0 auto",
-            padding: "88px 24px",
+            padding: "88px 24px 32px",
             textAlign: "center",
           }}
         >
@@ -398,12 +400,11 @@ export default function Index() {
               fontWeight: 500,
               fontSize: 17,
               color: "rgba(255,255,255,0.88)",
-              marginBottom: 44,
+              marginBottom: 0,
             }}
           >
             Contenido viral para negocios hispanos. Sin resultados, no pagas.
           </div>
-          <ApplyBtn inverted />
         </div>
       </div>
 
