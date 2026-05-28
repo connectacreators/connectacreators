@@ -157,7 +157,7 @@ const FAQS = [
   },
   {
     q: "How fast until I see results?",
-    a: "First posts go live within 2–3 weeks of signing. View velocity typically picks up in week 3–4 once the algorithm has enough signal. Booked appointments usually start in month 2.",
+    a: "Most clients start seeing results about a month after signing. First posts go live within 2–3 weeks, and once the algorithm has enough signal, view velocity and inbound leads typically kick in around the 30-day mark.",
   },
   {
     q: "How much time do I have to put in?",
