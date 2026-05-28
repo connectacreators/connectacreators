@@ -298,7 +298,7 @@ export default function Index() {
         }
         @media (max-width: 480px) {
           .sec-inner { padding: 48px 16px !important; }
-          .hero-inner { padding: 56px 16px !important; }
+          .hero-inner { padding: 56px 16px 24px !important; }
           .ba-grid { grid-template-columns: 1fr !important; gap: 12px; }
           .ba-grid img { height: auto !important; max-height: 520px; object-fit: contain !important; }
           .ba-card-square { aspect-ratio: auto !important; padding: 8px !important; }

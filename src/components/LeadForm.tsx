@@ -456,9 +456,16 @@ export default function LeadForm() {
   };
 
   return (
-    <div ref={formRef} id="aplicar" style={{ background: BG, padding: "32px 24px 72px" }}>
+    <div ref={formRef} id="aplicar" className="lf-wrap" style={{ background: BG, padding: "32px 24px 72px" }}>
+      <style>{`
+        @media (max-width: 480px) {
+          .lf-wrap { padding: 12px 16px 48px !important; }
+          .lf-card { padding: 28px 20px !important; }
+          .lf-sub { font-size: 13px !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
-        <div style={{
+        <div className="lf-card" style={{
           background: CARD,
           borderRadius: 16,
           padding: "40px 32px",
@@ -470,7 +477,7 @@ export default function LeadForm() {
           }}>
             APLICA PARA TRABAJAR CON NOSOTROS
           </p>
-          <p style={{
+          <p className="lf-sub" style={{
             fontFamily: "'Montserrat', sans-serif", fontSize: 14, color: MUTED,
             textAlign: "center", marginBottom: 28,
           }}>
