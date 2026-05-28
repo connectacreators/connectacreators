@@ -637,7 +637,6 @@ interface PlusSheetProps {
 const MODEL_LABELS: Record<string, string> = {
   "claude-haiku-4-5": "Haiku 4.5",
   "claude-sonnet-4-5": "Sonnet 4.5",
-  "claude-opus-4": "Opus 4",
   "gpt-4o": "GPT-4o",
   "gpt-4o-mini": "GPT-4o mini",
 };
