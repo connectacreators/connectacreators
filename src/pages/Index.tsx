@@ -149,7 +149,7 @@ const NOT_FOR = [
 const FAQS = [
   {
     q: "¿Qué significa exactamente la garantía de 1 millón de vistas?",
-    a: "Si tu contenido (orgánico + pagado) no acumula al menos 1.000.000 de vistas en Instagram, TikTok y Facebook dentro de los primeros 90 días desde tu primera publicación, seguimos trabajando gratis hasta lograrlo. Sin letras chicas — solo servicio continuo.",
+    a: "Si tu contenido (orgánico + pagado) no acumula al menos 1.000.000 de vistas en Instagram, TikTok y Facebook dentro de los primeros 90 días desde tu primera publicación, te devolvemos el 100% de tu dinero. Sin letras chicas — devolución completa.",
   },
   {
     q: "¿Tengo que hablar inglés también?",
@@ -194,7 +194,7 @@ export default function Index() {
           position: relative;
           max-width: 880px;
           margin: 0 auto;
-          padding: 112px 32px 96px;
+          padding: 56px 32px 80px;
           text-align: center;
         }
         .hero-chip {
@@ -214,10 +214,10 @@ export default function Index() {
         .hero h1 {
           font-family: 'Montserrat', sans-serif;
           font-weight: 900;
-          font-size: clamp(40px, 6.4vw, 84px);
-          line-height: 0.95;
+          font-size: clamp(34px, 6.4vw, 84px);
+          line-height: 0.98;
           letter-spacing: -0.035em;
-          margin: 24px 0 20px;
+          margin: 0 0 20px;
           color: #fff;
         }
         .hero h1 .gold {
@@ -229,6 +229,7 @@ export default function Index() {
           position: relative;
           display: inline-block;
         }
+        .hero h1 .nowrap { white-space: nowrap; }
         .hero h1 .underline::after {
           content: '';
           position: absolute; left: 0; right: 0; bottom: -4px; height: 6px;
@@ -881,21 +882,28 @@ export default function Index() {
 
         /* ── RESPONSIVE ── */
         @media (max-width: 900px) {
-          .hero-inner { padding: 80px 24px 72px; }
+          .hero-inner { padding: 40px 24px 64px; }
           .proof-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
           .system-grid { grid-template-columns: 1fr; }
           .industries { grid-template-columns: repeat(3, 1fr); }
           .case-grid { grid-template-columns: 1fr; }
           .case-content { padding: 32px; }
+          .case-imgs { padding: 24px; }
           .founder-photo-wrap { width: 240px; }
           .guarantee-card { padding: 40px 28px; }
           .guarantee-pillars { grid-template-columns: 1fr; gap: 18px; }
           .section { padding: 72px 24px; }
         }
         @media (max-width: 560px) {
+          .hero-inner { padding: 32px 20px 56px; }
+          .hero h1 { font-size: clamp(28px, 8vw, 44px); letter-spacing: -0.03em; }
+          .hero h1 .nowrap { font-size: 0.92em; }
           .proof-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
           .industries { grid-template-columns: 1fr 1fr; }
           .hero-cta-row { flex-direction: column; gap: 16px; }
+          .case-imgs { grid-template-columns: 1fr; padding: 20px; gap: 12px; }
+          .case-imgs img { aspect-ratio: auto; height: auto; max-height: 360px; }
+          .case-card-zigufit .case-imgs { grid-template-columns: 1fr 1fr; }
           .case-stats { grid-template-columns: 1fr 1fr; }
           .case-content { padding: 28px 24px; }
           .timeline-no { width: 56px; height: 56px; font-size: 16px; }
@@ -909,17 +917,13 @@ export default function Index() {
       <section className="hero">
         <div className="hero-noise" />
         <div className="hero-inner">
-          <span className="hero-chip">
-            <span className="hero-chip-dot" />
-            Para dueños de negocios hispanos
-          </span>
           <h1>
-            <span className="underline">1 Millón de Vistas</span>
+            <span className="underline nowrap">1 Millón de Vistas</span>
             <br />
-            <span className="gold">o no pagas.</span>
+            <span className="gold">o te devolvemos tu dinero.</span>
           </h1>
           <div className="hero-video-wrap">
-            <VSLPlayer src="/VSL_ESPANOL_ROBERTO.mp4" poster={robertoFounder} accent={GOLD} />
+            <VSLPlayer src="/VSL_ESPANOL_ROBERTO.mp4" poster="/vsl-poster.jpg" accent={GOLD} />
           </div>
           <p className="hero-sub">
             Escribimos, filmamos, editamos y publicamos tu contenido en español — y garantizamos al menos 1.000.000 de vistas en los primeros 90 días. O te devolvemos el 100% de tu dinero.
@@ -975,10 +979,10 @@ export default function Index() {
             La Garantía
           </span>
           <h2 className="guarantee-headline">
-            1.000.000 de vistas en 90 días — o trabajamos gratis hasta lograrlas.
+            1.000.000 de vistas en 90 días — o te devolvemos el 100% de tu dinero.
           </h2>
           <p className="guarantee-body">
-            Sin letras chicas. Si tu contenido (orgánico + pagado) no acumula al menos un millón de vistas entre Instagram, TikTok y Facebook dentro de los 90 días desde tu primera publicación, seguimos produciendo, publicando y corriendo ads sin costo adicional hasta que lo logres.
+            Sin letras chicas. Si tu contenido (orgánico + pagado) no acumula al menos un millón de vistas entre Instagram, TikTok y Facebook dentro de los 90 días desde tu primera publicación, te devolvemos cada dólar que pagaste. Sin excusas.
           </p>
           <div className="guarantee-pillars">
             <div className="guarantee-pillar">

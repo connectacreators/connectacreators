@@ -22,7 +22,7 @@ if [ ! -d dist ]; then
   exit 1
 fi
 cd dist
-tar czf /tmp/connecta-deploy.tar.gz assets/ index.html landing.html
+tar czf /tmp/connecta-deploy.tar.gz assets/ index.html landing.html vsl-poster.jpg
 cd ..
 SIZE=$(du -sh /tmp/connecta-deploy.tar.gz | cut -f1)
 echo "       Package: $SIZE"

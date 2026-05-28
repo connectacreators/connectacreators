@@ -109,27 +109,12 @@ export default function VSLPlayer({ src, poster, accent = "#F5C265" }: VSLPlayer
       }}
       onClick={handlePlay}
     >
-      {/* Instant poster — img loads on paint, no codec wait. */}
-      {!started && (
-        <img
-          src={poster}
-          alt=""
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-            zIndex: 1,
-          }}
-        />
-      )}
-
       <video
         ref={videoRef}
         playsInline
-        preload="metadata"
+        autoPlay
+        muted
+        preload="auto"
         poster={poster}
         style={{
           position: "absolute",
@@ -139,8 +124,6 @@ export default function VSLPlayer({ src, poster, accent = "#F5C265" }: VSLPlayer
           objectFit: "cover",
           display: "block",
           zIndex: 2,
-          opacity: started ? 1 : 0,
-          transition: "opacity 0.25s ease",
         }}
       >
         <source src={src} type="video/mp4" />
