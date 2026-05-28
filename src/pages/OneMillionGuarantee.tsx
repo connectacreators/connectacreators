@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import drCalvinAfter from "@/assets/dr-calvin-78k.png";
 import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
@@ -166,6 +167,15 @@ const FAQS = [
 ];
 
 export default function OneMillionGuarantee() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const handleUnmute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      videoRef.current.volume = 1;
+      setMuted(false);
+    }
+  };
   return (
     <>
       <style>{`
@@ -242,6 +252,23 @@ export default function OneMillionGuarantee() {
           color: rgba(255,255,255,0.85);
           max-width: 620px;
           margin: 0 auto 32px;
+        }
+        .hero-video {
+          position: relative;
+          max-width: 720px;
+          margin: 28px auto 32px;
+          border-radius: 14px;
+          overflow: hidden;
+          box-shadow: 0 18px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .hero-video video { width: 100%; display: block; }
+        .hero-video-unmute {
+          position: absolute; bottom: 14px; right: 14px;
+          background: rgba(0,0,0,0.75);
+          color: #fff; border: none; border-radius: 6px;
+          padding: 8px 14px; cursor: pointer;
+          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px;
+          display: flex; align-items: center; gap: 6px; z-index: 5;
         }
         .pillar-row {
           display: flex; flex-wrap: wrap; gap: 10px;
@@ -916,6 +943,23 @@ export default function OneMillionGuarantee() {
             <br />
             <span className="gold">or you don't pay.</span>
           </h1>
+          <div className="hero-video">
+            <video
+              ref={videoRef}
+              controls
+              autoPlay
+              muted
+              playsInline
+              preload="auto"
+            >
+              <source src="/VSL_ESPANOL_ROBERTO.mp4" type="video/mp4" />
+            </video>
+            {muted && (
+              <button onClick={handleUnmute} className="hero-video-unmute">
+                🔊 Unmute
+              </button>
+            )}
+          </div>
           <p className="hero-sub">
             We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or we give you 100% of your money back.
           </p>
