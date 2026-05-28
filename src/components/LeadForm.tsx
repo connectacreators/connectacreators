@@ -456,7 +456,7 @@ export default function LeadForm() {
   };
 
   return (
-    <div ref={formRef} id="aplicar" style={{ background: BG, padding: "72px 24px" }}>
+    <div ref={formRef} id="aplicar" style={{ background: BG, padding: "32px 24px 72px" }}>
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
         <div style={{
           background: CARD,

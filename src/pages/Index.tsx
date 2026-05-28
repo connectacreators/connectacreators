@@ -332,7 +332,7 @@ export default function Index() {
           style={{
             maxWidth: 1080,
             margin: "0 auto",
-            padding: "88px 24px",
+            padding: "88px 24px 32px",
             textAlign: "center",
           }}
         >
