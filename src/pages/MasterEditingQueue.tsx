@@ -99,12 +99,14 @@ function getStatusDotColor(status: string): string {
   return "bg-muted-foreground";
 }
 
-function getRowStatusBorderColor(status: string): string {
-  const lower = status.toLowerCase();
-  if (lower === "done" || lower === "complete") return "#10b981";
-  if (lower.includes("revision")) return "#ef4444";
-  if (lower.includes("progress")) return "#f59e0b";
-  return "#334155";
+function getRowStatusBorderColor(status: string | undefined | null): string {
+  const v = (status ?? "").toLowerCase();
+  if (v === "published") return "#22c55e";          // green
+  if (v === "scheduled") return "#06b6d4";          // cyan
+  if (v.includes("revision")) return "#ef4444";     // red
+  if (v.includes("progress")) return "#eab308";     // yellow
+  if (v === "done" || v === "complete") return "#22c55e";
+  return "rgba(255,255,255,0.18)";                  // Not started
 }
 
 const ASSIGNEE_COLORS = ['#8FD0D5','#7c3aed','#d97706','#059669','#e11d48','#4f46e5','#0d9488','#c026d3'];
