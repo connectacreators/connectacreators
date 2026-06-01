@@ -24,14 +24,17 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   const totalExpenses = sum(expenses, (t) => t.amount);
   const gross = collected - totalExpenses;
   const netProfit = gross - settings.salary_payout;
+  const isLoss = netProfit < 0;
   // Tax applies only to actual profit — losses don't generate a same-month
   // cash refund (NOLs may carry forward but that's not represented here).
   const tax = Math.max(0, netProfit) * settings.tax_rate;
   // Distribution can't be negative — you can't distribute a loss.
   const ownerDist = Math.max(0, netProfit - tax);
-  // What the owner actually made personally this month: salary + any distribution.
-  const ownerIncome = settings.employee_salary + ownerDist;
-  const isLoss = netProfit < 0;
+  // Owner Income = what the owner actually received as a distribution from the
+  // business this month. Payroll is already an expense in netProfit, so adding
+  // employee_salary back here would double-count it. On a loss month the
+  // business absorbed the shortfall, so the owner took $0 home as a distribution.
+  const ownerIncome = isLoss ? 0 : ownerDist;
   const payrollTax = Math.max(0, settings.salary_payout - settings.employee_salary);
   const foodDeductible = sum(
     expenses.filter((t) => t.category === "Food & Meals" && t.deductible_amount != null),
