@@ -255,12 +255,16 @@ serve(async (req) => {
 
     console.log(`Running in ${mode} mode (limit=${resultsLimit})`);
 
-    // Fetch all channels that have been scraped before
+    // Fetch all channels that have been scraped before, oldest-stale first.
+    // Sorting by last_scraped_at ASC means if we run out of wall-clock time,
+    // the most-stale channels are always refreshed first — so every channel
+    // eventually gets updated across consecutive cron runs.
     const { data: channels, error: channelsError } = await supabase
       .from("viral_channels")
-      .select("id, username, platform")
+      .select("id, username, platform, last_scraped_at")
       .eq("scrape_status", "done")
-      .not("last_scraped_at", "is", null);
+      .not("last_scraped_at", "is", null)
+      .order("last_scraped_at", { ascending: true });
 
     if (channelsError) {
       console.error("Error fetching channels:", channelsError);
@@ -271,26 +275,39 @@ serve(async (req) => {
       return json({ success: true, mode, processed: 0, new_videos: 0, errors: [] });
     }
 
-    // Process IG/TikTok first (higher priority), YouTube last.
-    // If the edge function hits its wall-clock limit, at least the
-    // high-priority channels have already been processed.
-    const sortedChannels = [
-      ...channels.filter((c: any) => c.platform === "instagram"),
-      ...channels.filter((c: any) => c.platform === "tiktok"),
-      ...channels.filter((c: any) => c.platform === "youtube"),
-      ...channels.filter((c: any) => !["instagram", "tiktok", "youtube"].includes(c.platform ?? "")),
-    ];
+    const sortedChannels = channels;
 
     let totalNewVideos = 0;
+    let processedCount = 0;
+    let skippedCount = 0;
     const errors: string[] = [];
 
-    // Process channels ONE AT A TIME (sequential) to be gentle on VPS resources
-    for (const channel of sortedChannels) {
-      console.log(`Processing: ${channel.username} (${channel.platform})`);
+    // Wall-clock budget: stop scheduling new batches after 120s so cleanup +
+    // response have time before Supabase's 150s edge-function timeout.
+    const startMs = Date.now();
+    const BUDGET_MS = 120_000;
 
-      const result = await processChannel(supabase, channel, resultsLimit);
-      totalNewVideos += result.newVideos;
-      if (result.error) errors.push(`${result.channel}: ${result.error}`);
+    // VPS reports maxHeavy=8 concurrent jobs, but in practice 8 parallel
+    // requests trigger occasional connection resets. 6 keeps headroom for
+    // manual scrapes and avoids the reset-by-peer errors.
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < sortedChannels.length; i += BATCH_SIZE) {
+      if (Date.now() - startMs > BUDGET_MS) {
+        skippedCount = sortedChannels.length - i;
+        console.log(`Time budget hit after ${i} channels; ${skippedCount} skipped (will be picked up next run)`);
+        break;
+      }
+      const batch = sortedChannels.slice(i, i + BATCH_SIZE);
+      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.map((c: any) => c.username).join(", ")}`);
+
+      const results = await Promise.all(
+        batch.map((channel: any) => processChannel(supabase, channel, resultsLimit))
+      );
+      for (const result of results) {
+        totalNewVideos += result.newVideos;
+        processedCount += 1;
+        if (result.error) errors.push(`${result.channel}: ${result.error}`);
+      }
     }
 
     // ── Cleanup: delete videos scraped more than 6 months ago ─────────────
@@ -331,10 +348,13 @@ serve(async (req) => {
     return json({
       success: true,
       mode,
-      processed: sortedChannels.length,
+      total: sortedChannels.length,
+      processed: processedCount,
+      skipped: skippedCount,
       new_videos: totalNewVideos,
       errors,
       cleaned_up: cleanedUp,
+      duration_ms: Date.now() - startMs,
     });
   } catch (e: any) {
     console.error("auto-scrape-channels error:", e);
