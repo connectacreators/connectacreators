@@ -1017,7 +1017,6 @@ const getEngagementOpts = (t: any): DropdownOption[] => [
 ];
 
 const getSortOpts = (t: any): DropdownOption[] => [
-  { label: `✦ ${t.forYou}`, value: "foryou" },
   { label: t.mostRecent, value: "recent" },
   { label: t.highestOutlier, value: "outlier" },
   { label: t.mostViews, value: "views" },
@@ -1062,7 +1061,7 @@ export default function ViralToday() {
   const [filterEngagement, setFilterEngagement] = useState("0");
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [filterSource, setFilterSource] = useState("all"); // "all" | "channels" | "discovered"
-  const [filterSort, setFilterSort] = useState("foryou");
+  const [filterSort, setFilterSort] = useState("recent");
   const [showOnlyFeatured, setShowOnlyFeatured] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -1880,7 +1879,7 @@ export default function ViralToday() {
     setFilterViews("0");
     setFilterEngagement("0");
     setFilterSource("all");
-    setFilterSort("foryou");
+    setFilterSort("recent");
     setSelectedChannelIds([]);
     setSearch("");
     setShowSeen(false);
@@ -2087,7 +2086,7 @@ export default function ViralToday() {
                     options={getSortOpts(t)}
                     value={filterSort}
                     onChange={setFilterSort}
-                    isActive={filterSort !== "foryou"}
+                    isActive={filterSort !== "recent"}
                   />
 
                   {/* Filters button — channels + niche + date/views/outlier/etc
