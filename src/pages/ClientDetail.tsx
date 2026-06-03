@@ -4,8 +4,13 @@ import { Loader2 } from "lucide-react";
 
 /**
  * Legacy URL: /clients/:clientId
- * The canonical client hub now lives at /dashboard with viewMode set to the client UUID.
- * This component preserves existing links/bookmarks by setting viewMode and redirecting.
+ * The canonical client hub now lives at /dashboard?client=<id>.
+ * This component preserves existing links/bookmarks by:
+ *   1. Setting `dashboard_viewMode` localStorage so the sidebar (and pages
+ *      like CommandCenter, ViralToday) pick up the active client.
+ *   2. Redirecting to /dashboard with ?client=<id> so the Dashboard drilldown
+ *      (breadcrumb + Robby's read + tool folders) renders instead of the
+ *      empty agency-triage fallback.
  */
 export default function ClientDetail() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -15,8 +20,10 @@ export default function ClientDetail() {
     if (clientId) {
       localStorage.setItem("dashboard_viewMode", clientId);
       window.dispatchEvent(new CustomEvent("viewModeChanged", { detail: clientId }));
+      navigate(`/dashboard?client=${clientId}`, { replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
     }
-    navigate("/dashboard", { replace: true });
   }, [clientId, navigate]);
 
   return (
