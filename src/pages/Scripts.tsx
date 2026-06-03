@@ -679,6 +679,9 @@ export default function Scripts() {
   // Auto-select client from URL param (admin/videographer deep link)
   const [searchParams, setSearchParams] = useSearchParams();
   const [autoOpenScriptTitle, setAutoOpenScriptTitle] = useState<string | null>(null);
+  // Preferred over title — set by MasterEditingQueue's View Script action so we
+  // resolve the script by UUID instead of a fragile title match.
+  const [autoOpenScriptId, setAutoOpenScriptId] = useState<string | null>(null);
 
   // Consume ?filter=needs_review once on mount (sent by /dashboard triage rows),
   // then strip it so back/reload don't re-apply.
@@ -705,6 +708,12 @@ export default function Scripts() {
           setView("super-planning");
         } else {
           setView("client-detail");
+        }
+        const scriptIdParam = searchParams.get("scriptId");
+        if (scriptIdParam) {
+          setAutoOpenScriptId(scriptIdParam);
+          searchParams.delete("scriptId");
+          setSearchParams(searchParams, { replace: true });
         }
         const scriptTitleParam = searchParams.get("scriptTitle");
         if (scriptTitleParam) {
@@ -814,7 +823,18 @@ export default function Scripts() {
     return () => window.removeEventListener("ai:data-changed", handler);
   }, [selectedClient, fetchScriptsByClient]);
 
-  // Auto-open script by title from query param
+  // Auto-open script by ID from query param (preferred — set by deep links
+  // from MasterEditingQueue / triage rows that have the script UUID).
+  useEffect(() => {
+    if (!autoOpenScriptId || scriptsLoading || scripts.length === 0) return;
+    const match = scripts.find((s) => s.id === autoOpenScriptId);
+    if (match) {
+      handleViewScript(match);
+    }
+    setAutoOpenScriptId(null);
+  }, [autoOpenScriptId, scriptsLoading, scripts]);
+
+  // Auto-open script by title from query param (legacy fallback)
   useEffect(() => {
     if (!autoOpenScriptTitle || scriptsLoading || scripts.length === 0) return;
     const match = scripts.find(

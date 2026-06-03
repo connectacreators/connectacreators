@@ -1308,9 +1308,19 @@ export default function MasterEditingQueue() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-popover border border-border z-50 w-44">
-                              {item.scriptUrl ? (
-                                <DropdownMenuItem onClick={() => navigate(`/clients/${item.clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}>
+                              {item.script_id ? (
+                                // Prefer the internal viewer when we have the script UUID — title-
+                                // match was unreliable (reel_title vs script.title divergence,
+                                // truncation, special chars). Falls back to the external Notion
+                                // URL only when there's no linked script row.
+                                <DropdownMenuItem onClick={() => navigate(`/clients/${item.clientId}/scripts?scriptId=${item.script_id}`)}>
                                   <ExternalLink className="w-3.5 h-3.5 mr-2" /> View Script
+                                </DropdownMenuItem>
+                              ) : item.scriptUrl ? (
+                                <DropdownMenuItem asChild>
+                                  <a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs">
+                                    <ExternalLink className="w-3.5 h-3.5" /> View Script
+                                  </a>
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem disabled className="text-xs text-muted-foreground/50">
