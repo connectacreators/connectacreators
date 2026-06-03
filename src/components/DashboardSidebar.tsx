@@ -151,6 +151,30 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             name: d.clients.name,
           })));
         });
+    } else if (user.email === "robertogaunaj@gmail.com") {
+      // Roberto's admin view only lists Connecta Plus clients. Uses the same
+      // pattern as Subscribers.tsx (clients.user_id → user_roles) since that
+      // is the canonical link. Connecta+ subscribers added via the Subscribers
+      // UI set clients.user_id directly and don't populate the legacy
+      // subscriber_clients junction — using the junction filtered them out
+      // (e.g. Spencer Barton was missing here despite holding the role).
+      (async () => {
+        const { data: roleRows } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "connecta_plus");
+        const userIds = (roleRows ?? []).map((r) => r.user_id);
+        if (cancelled) return;
+        if (userIds.length === 0) { setClients([]); return; }
+        const { data } = await supabase
+          .from("clients")
+          .select("id, name")
+          .in("user_id", userIds)
+          .is("parent_subscriber_id", null)
+          .order("name");
+        if (cancelled || !data) return;
+        setClients(data);
+      })();
     } else {
       supabase.from("clients").select("id, name").order("name")
         .then(({ data }) => {

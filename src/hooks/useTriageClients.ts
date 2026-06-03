@@ -1,11 +1,10 @@
 // src/hooks/useTriageClients.ts
 //
-// Returns the list of Connecta Plus clients. Server-side filter via two joins:
-//   clients
-//     ← subscriber_clients (client_id)
-//         ← user_roles (user_id, role='connecta_plus')
-//
-// Deduplicated (a client can have multiple linked subscribers).
+// Returns the list of Connecta Plus clients. Uses the canonical source of
+// truth that Subscribers.tsx uses — clients.user_id linked to a user_roles
+// row with role='connecta_plus'. The older subscriber_clients junction is
+// not consulted; a Connecta+ subscriber added via the Subscribers UI gets
+// their primary clients row's user_id set directly, no junction row.
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,26 +46,14 @@ export function useTriageClients(): Result {
         return;
       }
 
-      // Step 2: find client_ids linked to those subscribers
-      const { data: linkRows, error: linkErr } = await supabase
-        .from("subscriber_clients")
-        .select("client_id")
-        .in("subscriber_user_id", userIds);
-      if (linkErr) {
-        if (!cancelled) { setError(linkErr); setLoading(false); }
-        return;
-      }
-      const clientIds = Array.from(new Set((linkRows ?? []).map((r) => r.client_id)));
-      if (clientIds.length === 0) {
-        if (!cancelled) { setClients([]); setLoading(false); }
-        return;
-      }
-
-      // Step 3: load client names
+      // Step 2: load primary clients owned by those users. parent_subscriber_id
+      // IS NULL gates this to billing/primary clients (not sub-clients of an
+      // agency), matching how Subscribers.tsx reads the table.
       const { data: clientRows, error: clientErr } = await supabase
         .from("clients")
         .select("id, name")
-        .in("id", clientIds)
+        .in("user_id", userIds)
+        .is("parent_subscriber_id", null)
         .order("name");
       if (clientErr) {
         if (!cancelled) { setError(clientErr); setLoading(false); }
