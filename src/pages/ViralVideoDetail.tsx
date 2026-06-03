@@ -428,6 +428,10 @@ export default function ViralVideoDetail() {
           showOutOfCreditsModal();
           return;
         }
+        if (res.status === 409 && err.error === "transcribe_in_progress") {
+          toast.info("Auto-transcribing first — try Analyze again in a moment.");
+          return;
+        }
         throw new Error(err.message || err.error || `HTTP ${res.status}`);
       }
       // Row updates flow via realtime subscription — no manual state update.

@@ -500,7 +500,17 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
         return;
       }
       if (res.status === 409) {
-        // Another analyze is in flight — realtime subscription will update us
+        const errBody = await res.json().catch(() => ({} as any));
+        if (errBody?.error === "transcribe_in_progress") {
+          // Pre-transcribe is still running for this row. There's no analyze
+          // job for realtime to ride on, so unwind back to "transcribed" and
+          // tell the user to retry once the spinner clears.
+          toast.info("Auto-transcribing first — click Analyze again in a moment.");
+          setStage("transcribed");
+          return;
+        }
+        // Another analyze is already running — realtime subscription will
+        // hydrate us when it lands. Leave stage as "analyzing".
         return;
       }
       if (!res.ok) {
@@ -975,7 +985,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
             {!hasTranscript && preTranscribing && (
               <div className="px-3 py-2 flex items-center gap-1.5 text-[11px] text-muted-foreground border-b border-border/30">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Transcribing audio…</span>
+                <span>{isYt ? "Fetching captions…" : "Extracting audio & transcribing…"}</span>
               </div>
             )}
             {!hasTranscript && !preTranscribing && preTranscribeError && d.viralVideoId && (
