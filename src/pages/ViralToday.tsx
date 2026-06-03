@@ -1211,11 +1211,18 @@ export default function ViralToday() {
         page++;
       }
 
-      // Always include the current user's own submissions, regardless of
-      // outlier/views/engagement/date filters — they're inserted with
-      // views_count=0 and outlier_score=null which the default filters
-      // exclude. Users expect to see what they just pasted.
-      if (user) {
+      // User submissions: only bypass filters when the user hasn't applied
+      // any. As soon as they set a views / outlier / engagement / platform /
+      // date filter, those filters win — pasted videos under 1M shouldn't
+      // appear when the user explicitly asked for 1M+.
+      const filtersAreDefault =
+        (opts?.platform ?? filterPlatform) === "all" &&
+        (opts?.date ?? filterDate) === "all" &&
+        parseFloat(opts?.outlier ?? filterOutlier) === 0 &&
+        parseInt(opts?.views ?? filterViews) === 0 &&
+        parseFloat(opts?.engagement ?? filterEngagement) === 0;
+
+      if (user && filtersAreDefault) {
         const { data: mineData } = await supabase
           .from("viral_videos")
           .select("*")
