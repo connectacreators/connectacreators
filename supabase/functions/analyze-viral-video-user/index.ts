@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     .eq("id", body.viral_video_id)
     .single();
   if (rowErr || !rowRaw) return json({ error: "row_not_found" }, 404);
-  const row = rowRaw as ViralVideoRow & { caption: string | null };
+  const row = rowRaw as ViralVideoRow & { caption: string | null; transcript_status: string | null };
 
   // Noop if already fully analyzed and file is still valid.
   if (
@@ -65,6 +65,15 @@ Deno.serve(async (req) => {
   // 409 if another analyze is in flight.
   if (row.analysis_status === "analyzing") {
     return json({ error: "in_progress", row }, 409);
+  }
+
+  // 409 if /transcribe-viral-video is mid-Whisper for this same row. Without
+  // this guard the user can click Analyze before the auto pre-transcribe
+  // finishes and we end up running TWO Whisper jobs racing to write the same
+  // transcript field. Frontend should retry once the pre-transcribe spinner
+  // clears.
+  if (row.transcript_status === "processing") {
+    return json({ error: "transcribe_in_progress", message: "Auto-transcribe is still running for this video — try again in a few seconds." }, 409);
   }
 
   // Claim the row atomically (only from pending/failed/analyzed-but-expired).
