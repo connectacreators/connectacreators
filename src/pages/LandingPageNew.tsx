@@ -24,6 +24,7 @@ import handsLike from "@/assets/hands-like.png";
 import brainDoodle from "@/assets/brain-doodle.png";
 import yuppiesBubble from "@/assets/yuppies-bubble.png";
 import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
+import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import CurvedLoop from "@/components/landing/CurvedLoop";
 import ScrollFloat from "@/components/landing/ScrollFloat";
 import PromptStream, { PromptStreamMobile } from "@/components/landing/PromptStream";
@@ -874,19 +875,8 @@ function PipelineCard({
 export default function LandingPageNew() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(false);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const isMobile = useIsMobile();
-
-  // ESC closes the video modal
-  useEffect(() => {
-    if (!videoOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVideoOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [videoOpen]);
 
   // Global proximity-weight tracker. Locks word/letter widths after fonts
   // load, then updates --prox-wght for spans near the cursor — but ONLY
@@ -1334,6 +1324,16 @@ export default function LandingPageNew() {
           </h1>
 
           <div
+            data-reveal="2"
+            style={{
+              maxWidth: 720,
+              margin: "0 auto 36px",
+            }}
+          >
+            <DemoVideoPlayer />
+          </div>
+
+          <div
             data-reveal="3"
             style={{
               fontSize: "clamp(15px, 1.6vw, 19px)",
@@ -1359,15 +1359,6 @@ export default function LandingPageNew() {
             <Link to="/scripts" className="btn btn-aqua btn-large">
               Get started <ArrowRight size={16} />
             </Link>
-            {!isMobile && (
-              <button
-                type="button"
-                onClick={() => setVideoOpen(true)}
-                className="btn btn-ghost btn-large"
-              >
-                ▶ Watch the 90-sec demo
-              </button>
-            )}
           </div>
 
           <div
@@ -1984,23 +1975,29 @@ export default function LandingPageNew() {
           >
             Thank you guys.
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, position: "relative" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, position: "relative", flexWrap: "wrap", justifyContent: "center" }}>
             <div
               style={{
-                width: 52,
-                height: 52,
+                width: 64,
+                height: 64,
                 borderRadius: "50%",
-                background: "var(--honey)",
-                color: "var(--ink)",
-                display: "grid",
-                placeItems: "center",
-                fontFamily: "'EB Garamond', serif",
-                fontStyle: "italic",
-                fontWeight: 500,
-                fontSize: 22,
+                overflow: "hidden",
+                border: "2px solid var(--honey)",
+                boxShadow: "3px 3px 0 var(--honey)",
+                flexShrink: 0,
               }}
             >
-              C
+              <img
+                src={drCalvinPortrait}
+                alt="Dr. Calvin"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center top",
+                  display: "block",
+                }}
+              />
             </div>
             <div style={{ textAlign: "left" }}>
               <div className="serif" style={{ fontSize: 17, color: "var(--bone)" }}>
@@ -2010,6 +2007,42 @@ export default function LandingPageNew() {
                 <ProxText>Chiropractor · 50M+ views with Connecta</ProxText>
               </div>
             </div>
+            <a
+              href="https://www.facebook.com/drcalvinsclinics/reels/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                borderRadius: 999,
+                background: "var(--bone)",
+                color: "var(--ink)",
+                border: "1px solid var(--ink)",
+                boxShadow: "3px 3px 0 var(--honey)",
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 600,
+                fontSize: 13,
+                letterSpacing: "0.02em",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                transition: "transform 0.15s ease, box-shadow 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translate(-1px, -1px)";
+                e.currentTarget.style.boxShadow = "4px 4px 0 var(--honey)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translate(0, 0)";
+                e.currentTarget.style.boxShadow = "3px 3px 0 var(--honey)";
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99h-2.54V12h2.54V9.8c0-2.51 1.49-3.9 3.78-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
+              </svg>
+              See his Facebook
+            </a>
           </div>
         </div>
       </section>
@@ -2172,62 +2205,6 @@ export default function LandingPageNew() {
           </div>
         </div>
       </footer>
-
-      {/* ===== Video modal — triggered by "Watch the 90-sec demo" ===== */}
-      {videoOpen && (
-        <div
-          onClick={() => setVideoOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            background: "rgba(10,14,18,0.85)",
-            backdropFilter: "blur(12px)",
-            display: "grid",
-            placeItems: "center",
-            padding: "32px",
-            animation: "le-fade-in 220ms ease-out",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: 1000,
-              borderRadius: 22,
-              border: "1px solid var(--ink)",
-              boxShadow: "8px 8px 0 var(--ink), 0 60px 120px -30px rgba(0,0,0,0.7)",
-              overflow: "hidden",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setVideoOpen(false)}
-              aria-label="Close demo"
-              style={{
-                position: "absolute",
-                top: 14,
-                right: 14,
-                zIndex: 2,
-                width: 38,
-                height: 38,
-                borderRadius: "50%",
-                background: "var(--bone)",
-                border: "1px solid var(--ink)",
-                cursor: "pointer",
-                display: "grid",
-                placeItems: "center",
-                color: "var(--ink)",
-                boxShadow: "2px 2px 0 var(--ink)",
-              }}
-            >
-              <X size={16} />
-            </button>
-            <DemoVideoPlayer />
-          </div>
-        </div>
-      )}
 
       <style>{`
         @keyframes le-fade-in {
