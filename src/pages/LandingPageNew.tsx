@@ -1287,7 +1287,7 @@ export default function LandingPageNew() {
               paddingTop: "0.1em",
             }}
           >
-            <LetterRise text="Go " delay={0.25} step={0.04} />
+            <LetterRise text="Stop " delay={0.25} step={0.04} />
             <span
               className="serif-italic scribble-hover"
               style={{
@@ -1296,7 +1296,7 @@ export default function LandingPageNew() {
                 fontWeight: 400,
               }}
             >
-              <LetterRise text="Viral," delay={0.40} step={0.04} />
+              <LetterRise text="Guessing," delay={0.48} step={0.04} />
               {/* sparkles — appear on hover with spring scale */}
               <svg className="spark s1" viewBox="0 0 24 24" aria-hidden>
                 <path
@@ -1320,7 +1320,7 @@ export default function LandingPageNew() {
                 <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
               </svg>
             </span>
-            <LetterRise text=" Get " delay={0.62} step={0.04} />
+            <LetterRise text=" Start " delay={0.86} step={0.04} />
             <span
               className="serif-italic"
               style={{
@@ -1329,7 +1329,7 @@ export default function LandingPageNew() {
                 fontWeight: 400,
               }}
             >
-              <LetterRise text="Clients." delay={0.78} step={0.04} />
+              <LetterRise text="Growing." delay={1.10} step={0.04} />
             </span>
           </h1>
 
