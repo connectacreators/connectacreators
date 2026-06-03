@@ -21,7 +21,11 @@
 
 BEGIN;
 
--- 1. Snapshot every client's current credit state
+-- 1. Snapshot every client's current credit state.
+--    Re-run safety: if the snapshot table already has rows, the migration
+--    has already executed (originally applied via Management API on
+--    2026-06-02). Skip the destructive UPDATE so a later restore can't
+--    be silently undone by a `supabase db push`.
 CREATE TABLE IF NOT EXISTS public.clients_credit_snapshot_20260602 (
   client_id              uuid PRIMARY KEY,
   credits_balance        integer,
@@ -31,20 +35,32 @@ CREATE TABLE IF NOT EXISTS public.clients_credit_snapshot_20260602 (
   captured_at            timestamptz NOT NULL DEFAULT now()
 );
 
-INSERT INTO public.clients_credit_snapshot_20260602
-  (client_id, credits_balance, topup_credits_balance, credits_used, credits_monthly_cap)
-SELECT
-  id,
-  COALESCE(credits_balance, 0),
-  COALESCE(topup_credits_balance, 0),
-  COALESCE(credits_used, 0),
-  COALESCE(credits_monthly_cap, 0)
-FROM public.clients
-ON CONFLICT (client_id) DO NOTHING;
+DO $$
+DECLARE
+  already_run boolean;
+BEGIN
+  SELECT EXISTS (SELECT 1 FROM public.clients_credit_snapshot_20260602)
+    INTO already_run;
 
--- 2. Zero both plan and topup balances for every client
-UPDATE public.clients
-   SET credits_balance       = 0,
-       topup_credits_balance = 0;
+  IF already_run THEN
+    RAISE NOTICE 'Snapshot already populated — skipping zero-out to preserve any restored balances.';
+    RETURN;
+  END IF;
+
+  INSERT INTO public.clients_credit_snapshot_20260602
+    (client_id, credits_balance, topup_credits_balance, credits_used, credits_monthly_cap)
+  SELECT
+    id,
+    COALESCE(credits_balance, 0),
+    COALESCE(topup_credits_balance, 0),
+    COALESCE(credits_used, 0),
+    COALESCE(credits_monthly_cap, 0)
+  FROM public.clients;
+
+  -- 2. Zero both plan and topup balances for every client
+  UPDATE public.clients
+     SET credits_balance       = 0,
+         topup_credits_balance = 0;
+END $$;
 
 COMMIT;
