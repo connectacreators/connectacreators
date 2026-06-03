@@ -419,8 +419,9 @@ export default function Scripts() {
   // "needs_review" means review_status IS NULL OR review_status = 'needs_revision'.
   const [reviewFilter, setReviewFilter] = useState<"all" | "needs_review">("all");
 
-  // Right-click context menu for "+ New Script"
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  // Right-click context menu — generic (New Script) when no folder is targeted,
+  // adds Delete folder when right-click landed on a folder card.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folderId?: string; folderName?: string } | null>(null);
 
   // Videographer assignment state (admin only)
   const [videographers, setVideographers] = useState<{ user_id: string; display_name: string; username: string | null }[]>([]);
@@ -1099,6 +1100,30 @@ export default function Scripts() {
     setView("new-script");
   }, []);
 
+  const handleFolderContextMenu = useCallback((e: React.MouseEvent, folder: { id: string; name: string }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id, folderName: folder.name });
+  }, []);
+
+  const handleCtxDeleteFolder = useCallback(async () => {
+    const target = ctxMenu;
+    setCtxMenu(null);
+    if (!target?.folderId) return;
+    const scriptCount = scripts.filter(s => s.folder_id === target.folderId).length;
+    const subfolderCount = folders.filter(f => f.parent_id === target.folderId).length;
+    if (scriptCount > 0 || subfolderCount > 0) {
+      toast.error(`"${target.folderName}" isn't empty — move its ${scriptCount} script${scriptCount !== 1 ? "s" : ""}${subfolderCount > 0 ? ` and ${subfolderCount} subfolder${subfolderCount !== 1 ? "s" : ""}` : ""} out first.`);
+      return;
+    }
+    if (!window.confirm(`Delete folder "${target.folderName}"?`)) return;
+    const { error } = await supabase.from("script_folders").delete().eq("id", target.folderId);
+    if (error) { toast.error("Failed to delete folder"); return; }
+    setFolders(prev => prev.filter(f => f.id !== target.folderId));
+    if (viewingFolderId === target.folderId) setViewingFolderId(null);
+    toast.success("Folder deleted");
+  }, [ctxMenu, scripts, folders, viewingFolderId]);
+
   useEffect(() => {
     if (!ctxMenu) return;
     const close = () => setCtxMenu(null);
@@ -1400,13 +1425,23 @@ export default function Scripts() {
           className="fixed z-[999] animate-in fade-in zoom-in-95 duration-100"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
-          <button
-            onClick={handleCtxNewScript}
-            className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
-          >
-            <FilePlus2 className="w-4 h-4" />
-            New Script
-          </button>
+          {ctxMenu.folderId ? (
+            <button
+              onClick={handleCtxDeleteFolder}
+              className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete folder
+            </button>
+          ) : (
+            <button
+              onClick={handleCtxNewScript}
+              className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
+            >
+              <FilePlus2 className="w-4 h-4" />
+              New Script
+            </button>
+          )}
         </div>
       )}
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-5xl">
@@ -2213,7 +2248,7 @@ export default function Scripts() {
                         const subCount = folders.filter(sf => sf.parent_id === f.id).length;
                         return (
                           <DroppableFolder key={f.id} id={f.id}>
-                            <div className="relative group">
+                            <div className="relative group" onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}>
                               <button
                                 onClick={() => setViewingFolderId(f.id)}
                                 className="editorial-card w-full flex flex-col items-start gap-3 p-4 transition-colors text-left overflow-hidden"
