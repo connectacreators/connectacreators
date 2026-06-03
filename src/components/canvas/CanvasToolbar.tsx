@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Instagram, StickyNote, Search, ChevronLeft, ChevronDown, Plus, Minus, HelpCircle, Anchor, BookOpen, Target, TrendingUp, Pencil, Eraser, UserSearch, Trash2, Check, Paperclip, FolderPlus, Type, Maximize2, ClipboardList, Wrench, Compass, BotMessageSquare, Square, Circle, Triangle, PenLine, Minus as MinusLine, ArrowRight, MoreHorizontal } from "lucide-react";
+import { Instagram, StickyNote, Search, ChevronLeft, ChevronDown, Plus, Minus, HelpCircle, Anchor, BookOpen, Target, TrendingUp, Pencil, Eraser, UserSearch, Trash2, Check, Paperclip, FolderPlus, Type, Maximize2, ClipboardList, Wrench, Compass, BotMessageSquare, Square, Circle, Triangle, PenLine, Minus as MinusLine, ArrowRight, MoreHorizontal, BarChart3 } from "lucide-react";
 import PresenceAvatars from "./PresenceAvatars";
 import type { PresenceUser } from "@/hooks/useRealtimePresence";
 
@@ -23,7 +23,7 @@ function relativeTime(isoString: string): string {
 
 interface Props {
   clientName?: string;
-  onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode") => void;
+  onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode" | "strategyNode") => void;
   onBack: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -268,10 +268,11 @@ const TOOLS_ITEMS = [
   { type: "hookGeneratorNode"  as const, icon: Anchor,        label: "Hook Generator"  },
   { type: "ctaBuilderNode"     as const, icon: Target,        label: "CTA Builder"     },
   { type: "brandGuideNode"     as const, icon: BookOpen,      label: "Brand Guide"     },
+  { type: "strategyNode"       as const, icon: BarChart3,     label: "Strategy"        },
   { type: "onboardingFormNode" as const, icon: ClipboardList, label: "Onboarding Form" },
 ];
 
-function ToolsDropdown({ onAddNode }: { onAddNode: (type: "hookGeneratorNode" | "ctaBuilderNode" | "brandGuideNode" | "onboardingFormNode") => void }) {
+function ToolsDropdown({ onAddNode }: { onAddNode: (type: "hookGeneratorNode" | "ctaBuilderNode" | "brandGuideNode" | "strategyNode" | "onboardingFormNode") => void }) {
   return (
     <div className="relative group">
       <button className="p-2 rounded-xl transition-colors group-hover:text-[#8FD0D5] group-hover:bg-[rgba(143,208,213,0.1)]">

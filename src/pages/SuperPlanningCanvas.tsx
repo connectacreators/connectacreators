@@ -33,6 +33,7 @@ import MediaNode from "@/components/canvas/MediaNode";
 import GroupNode from "@/components/canvas/GroupNode";
 import AnnotationNode from "@/components/canvas/AnnotationNode";
 import OnboardingFormNode from "@/components/canvas/OnboardingFormNode";
+import StrategyNode from "@/components/canvas/StrategyNode";
 import EditableEdge from "@/components/canvas/EditableEdge";
 import MobileCanvasView from "@/components/canvas/MobileCanvasView";
 import FullscreenAIView from "@/components/canvas/FullscreenAIView";
@@ -141,6 +142,7 @@ const nodeTypes = {
   groupNode: GroupNode,
   annotationNode: AnnotationNode,
   onboardingFormNode: OnboardingFormNode,
+  strategyNode: StrategyNode,
   competitorFolderNode: CompetitorFolderNode,
 };
 
@@ -1556,6 +1558,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     const onboardingNodes = contextNodes.filter(
       n => n.type === "onboardingFormNode" && (n.data as any).status === "done"
     );
+    const strategyNodes = contextNodes.filter(
+      n => n.type === "strategyNode" && (n.data as any).status === "done" && !!(n.data as any).strategy
+    );
     // General-purpose folder/group nodes (manual groupings the user creates)
     const groupNodes = contextNodes.filter(n => n.type === "groupNode");
 
@@ -1599,6 +1604,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         return label + groupSuffix(n.id);
       }),
       ...onboardingNodes.map(n => `OnboardingFormNode(status=loaded)${groupSuffix(n.id)}`),
+      ...strategyNodes.map(n => `StrategyNode(status=loaded)${groupSuffix(n.id)}`),
       ...competitorFolderNodes.map(n => {
         const d = n.data as any;
         const posts: any[] = d.posts || [];
@@ -1677,6 +1683,46 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         forbidden_words: (brandNodes[0].data as any).forbidden_words ?? null,
         tagline: (brandNodes[0].data as any).tagline ?? null,
       } : null,
+      client_strategy: strategyNodes.length > 0
+        ? (() => {
+            const s = (strategyNodes[0].data as any).strategy as Record<string, any>;
+            if (!s) return null;
+            return {
+              cadence: {
+                posts_per_month: s.posts_per_month ?? null,
+                scripts_per_month: s.scripts_per_month ?? null,
+                videos_edited_per_month: s.videos_edited_per_month ?? null,
+                stories_per_week: s.stories_per_week ?? null,
+                primary_platform: s.primary_platform ?? null,
+              },
+              content_mix: {
+                reach_pct: s.mix_reach ?? null,
+                trust_pct: s.mix_trust ?? null,
+                convert_pct: s.mix_convert ?? null,
+                pillars: s.content_pillars ?? null,
+              },
+              conversion: {
+                cta_goal: s.cta_goal ?? null,
+                manychat_active: s.manychat_active ?? null,
+                manychat_keyword: s.manychat_keyword ?? null,
+              },
+              ads: {
+                active: s.ads_active ?? null,
+                budget_monthly: s.ads_budget ?? null,
+                goal: s.ads_goal ?? null,
+              },
+              revenue: {
+                goal_monthly: s.monthly_revenue_goal ?? null,
+                actual_monthly: s.monthly_revenue_actual ?? null,
+              },
+              scores: {
+                audience: s.audience_score ?? null,
+                uniqueness: s.uniqueness_score ?? null,
+              },
+              pipeline_notes: s.pipeline_notes ?? null,
+            };
+          })()
+        : null,
       selected_cta: (ctaNodes[0]?.data as any)?.selectedCTA ?? null,
       competitor_folders: competitorFolderNodes.length > 0
         ? competitorFolderNodes.slice(0, 4).map(n => {
@@ -1786,7 +1832,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode" | "strategyNode") => {
     const nodeId = `${type}_${Date.now()}`;
     const position = getViewportCenter(viewportRef.current);
 
@@ -1801,6 +1847,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       : type === "groupNode" ? 400
       : type === "annotationNode" ? 200
       : type === "onboardingFormNode" ? 280
+      : type === "strategyNode" ? 280
       : 288;
     const isGroup = type === "groupNode";
     const isAnnotation = type === "annotationNode";
