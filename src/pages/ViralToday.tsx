@@ -1783,7 +1783,35 @@ export default function ViralToday() {
       result = result.filter((v) => v.primary_niche != null && selectedNiches.includes(v.primary_niche));
     }
 
-    // Platform, date, outlier, views, engagement are filtered server-side in fetchVideos()
+    // Also apply views / outlier / engagement / date / platform client-side.
+    // fetchVideos pushes these to Postgres, but cached state from previous
+    // sessions or user-submitted backfills can carry rows that no longer
+    // pass — without this guard, switching to "1M+" still showed pasted
+    // videos at 211K because they were in `videos` from a prior fetch.
+    const minViews = parseInt(filterViews) || 0;
+    if (minViews > 0) result = result.filter((v) => (v.views_count ?? 0) >= minViews);
+
+    const minOutlier = parseFloat(filterOutlier) || 0;
+    if (minOutlier > 0) result = result.filter((v) => (v.outlier_score ?? 0) >= minOutlier);
+
+    const minEng = parseFloat(filterEngagement) || 0;
+    if (minEng > 0) result = result.filter((v) => (v.engagement_rate ?? 0) >= minEng);
+
+    if (filterPlatform !== "all") {
+      result = result.filter((v) => v.platform === filterPlatform);
+    }
+
+    if (filterDate !== "all") {
+      const daysMap: Record<string, number> = { "7days": 7, "30days": 30, "3months": 90, "6months": 180, "12months": 365 };
+      const days = daysMap[filterDate];
+      if (days) {
+        const cutoff = Date.now() - days * 86_400_000;
+        result = result.filter((v) => {
+          const t = new Date(v.posted_at ?? v.scraped_at).getTime();
+          return !isNaN(t) && t >= cutoff;
+        });
+      }
+    }
 
     // Smart search: hashtag_source match, strip #/@, partial words, joined words
     if (search.trim()) {
