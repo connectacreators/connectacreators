@@ -209,13 +209,22 @@ async function processChannel(
 
   console.log(`Channel ${channel.username}: Upserted ${videos.length} videos`);
 
+  // Compute true row count from viral_videos — videos.length is only the
+  // number of posts in THIS scrape (e.g. 7 in delta mode), not the total
+  // stored for the channel. Setting video_count = videos.length was making
+  // the UI display 4-7 even when the channel actually had 200+ rows.
+  const { count: totalVideoCount } = await supabase
+    .from("viral_videos")
+    .select("id", { count: "exact", head: true })
+    .eq("channel_id", channel.id);
+
   // Update channel stats
   await supabase
     .from("viral_channels")
     .update({
       last_scraped_at: new Date().toISOString(),
       avg_views: Math.round(avgViews),
-      video_count: videos.length,
+      video_count: totalVideoCount ?? videos.length,
     })
     .eq("id", channel.id);
 
@@ -248,10 +257,12 @@ serve(async (req) => {
     }
 
     // mode: "delta" = fetch last 7 posts (fast daily update, keeps thumbnails fresh)
-    //        "full"  = fetch last 100 posts (weekly full stats + outlier recalculation)
+    //        "full"  = fetch last 50 posts (weekly full stats + outlier recalculation)
+    // Note: 100 posts/channel takes ~50s per VPS call, right at the per-call
+    // timeout boundary. 50 posts finishes in ~25-30s with plenty of headroom.
     const body = await req.json().catch(() => ({}));
     const mode = body.mode === "full" ? "full" : "delta";
-    const resultsLimit = mode === "full" ? 100 : 7;
+    const resultsLimit = mode === "full" ? 50 : 7;
 
     console.log(`Running in ${mode} mode (limit=${resultsLimit})`);
 
@@ -282,10 +293,12 @@ serve(async (req) => {
     let skippedCount = 0;
     const errors: string[] = [];
 
-    // Wall-clock budget: stop scheduling new batches after 120s so cleanup +
-    // response have time before Supabase's 150s edge-function timeout.
+    // Wall-clock budget: stop scheduling new batches once we estimate the
+    // next batch would push us past Supabase's 150s edge-function timeout.
+    // A batch can take up to 50s (per-VPS-call abort), so we stop at 90s
+    // — worst-case total = 90 + 50 + cleanup ≈ 145s.
     const startMs = Date.now();
-    const BUDGET_MS = 120_000;
+    const BUDGET_MS = 90_000;
 
     // VPS reports maxHeavy=8 concurrent jobs, but in practice 8 parallel
     // requests trigger occasional connection resets. 6 keeps headroom for

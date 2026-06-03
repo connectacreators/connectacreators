@@ -541,13 +541,41 @@ export default function ViralVideoDetail() {
 
           {/* ===== LEFT COLUMN: Player + stats + badges + caption ===== */}
           <div className="flex flex-col gap-3 min-w-0">
-            {/* ViralVideoPlayer — plays file_url or falls back to VPS proxy stream */}
-            <ViralVideoPlayer
-              src={video.video_file_url}
-              fallbackProxyUrl={video.video_url ? `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}&nocache=1` : null}
-              aspectRatio="auto"
-              onExpired={handleRefreshFile}
-            />
+            {/* Pre-analyze: thumbnail only — do NOT trigger VPS yt-dlp by
+                rendering a <video> with the stream-reel proxy URL. Once the
+                user hits Analyze, the file gets downloaded and video_file_url
+                populates, at which point we render the real player. */}
+            {video.video_file_url ? (
+              <ViralVideoPlayer
+                src={video.video_file_url}
+                aspectRatio="auto"
+                onExpired={handleRefreshFile}
+              />
+            ) : (
+              <a
+                href={video.video_url ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative block w-full aspect-[9/16] rounded-2xl overflow-hidden border border-border bg-black group"
+                title="Open original on the source platform (click Analyze to enable inline playback)"
+              >
+                {video.thumbnail_url ? (
+                  <img
+                    src={video.thumbnail_url}
+                    alt={video.caption?.slice(0, 60) ?? "thumbnail"}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : null}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                  <ExternalLink className="w-8 h-8 text-white/80" />
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-white/70">
+                    Analyze to enable playback
+                  </span>
+                </div>
+              </a>
+            )}
 
             {/* Single compact metadata line */}
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">

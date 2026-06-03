@@ -329,6 +329,13 @@ async function processPosts(
     }
   }
 
+  // Compute true row count from viral_videos — recentVideos.length is only
+  // the latest scrape (max 100), not the running total for the channel.
+  const { count: totalVideoCount } = await supabase
+    .from("viral_videos")
+    .select("id", { count: "exact", head: true })
+    .eq("channel_id", channelId);
+
   // Update channel stats
   await supabase
     .from("viral_channels")
@@ -336,7 +343,7 @@ async function processPosts(
       scrape_status: "done",
       last_scraped_at: new Date().toISOString(),
       avg_views: Math.round(avgViews),
-      video_count: recentVideos.length,
+      video_count: totalVideoCount ?? recentVideos.length,
     })
     .eq("id", channelId);
 
