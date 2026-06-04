@@ -1204,47 +1204,21 @@ export default function LandingPageNew() {
           .landing-editorial .hidden-mobile { display: none !important; }
           .landing-editorial .hidden-desktop { display: inline-flex !important; }
 
-          /* Hero H1: lift the nowrap so the headline wraps to 2-3 lines
-             instead of getting clipped on the right edge. */
-          .landing-editorial section.bg-ink h1 {
+          /* Hero H1: the inline whiteSpace:nowrap was clipping the headline
+             on the right edge. landing.css already shrinks the font; we just
+             need to allow wrapping. */
+          .landing-editorial section.bg-ink h1.serif {
             white-space: normal !important;
-            font-size: clamp(30px, 9vw, 48px) !important;
-            line-height: 1.1 !important;
-            letter-spacing: -0.03em !important;
           }
 
-          /* Section padding: tighten so cards stop bleeding off the viewport. */
-          .landing-editorial section { padding-left: 0 !important; padding-right: 0 !important; }
-          .landing-editorial section > div[style*="max-width: 1080"],
-          .landing-editorial section > div[style*="maxWidth: 1080"] {
-            padding-left: 18px !important;
-            padding-right: 18px !important;
-          }
-
-          /* Collapse multi-column grids to single column. Inline-style
-             attribute selectors target the React-emitted CSS strings. */
-          .landing-editorial [style*="repeat(3, 1fr)"],
-          .landing-editorial [style*="repeat(2, 1fr)"],
-          .landing-editorial [style*="1.1fr 1fr"],
-          .landing-editorial [style*="2fr 1fr 1fr 1fr"],
-          .landing-editorial [style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-            gap: 16px !important;
-          }
-
-          /* Calendar mini-grid inside the Content Calendar card stays
-             7-wide — protect it from the rule above. */
-          .landing-editorial [style*="repeat(7, 1fr)"] {
+          /* landing.css line ~712 collapses every inline grid to 1fr, which
+             also flattens the 7-column calendar mini-grid inside the
+             Content Calendar pipeline card into 21 stacked full-width
+             boxes. Restore it as a real 7-col calendar. */
+          .landing-editorial section [style*="repeat(7, 1fr)"] {
             grid-template-columns: repeat(7, 1fr) !important;
+            gap: 4px !important;
           }
-
-          /* Card padding: tighter on mobile. */
-          .landing-editorial .card { padding: 24px 20px !important; }
-
-          /* Stickers/decoration absolutely-positioned in hero overflow the
-             viewport on small screens — hide them so the headline can breathe. */
-          .landing-editorial section.bg-ink > img[style*="position: absolute"],
-          .landing-editorial section.bg-ink [class*="InteractiveSticker"] { display: none !important; }
         }
       `}</style>
 
