@@ -30,11 +30,15 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   const tax = Math.max(0, netProfit) * settings.tax_rate;
   // Distribution can't be negative — you can't distribute a loss.
   const ownerDist = Math.max(0, netProfit - tax);
-  // Owner Income = what the owner actually received as a distribution from the
-  // business this month. Payroll is already an expense in netProfit, so adding
-  // employee_salary back here would double-count it. On a loss month the
-  // business absorbed the shortfall, so the owner took $0 home as a distribution.
-  const ownerIncome = isLoss ? 0 : ownerDist;
+  // Owner Income = total cash that hit the owner's personal account this month.
+  // Two independent flows reach the owner:
+  //   1. Take-Home Salary (W-2 paycheck, net of withholdings) — runs through
+  //      payroll and is already an expense above netProfit.
+  //   2. Owner Distribution (what's left of profit after income tax).
+  // Both flows go to the SAME bank account, so the owner's actual monthly
+  // income is the sum. On a loss month they still get the salary check; only
+  // the distribution drops to $0.
+  const ownerIncome = settings.employee_salary + (isLoss ? 0 : ownerDist);
   const payrollTax = Math.max(0, settings.salary_payout - settings.employee_salary);
   const foodDeductible = sum(
     expenses.filter((t) => t.category === "Food & Meals" && t.deductible_amount != null),
