@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
-import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle } from "lucide-react";
+import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle, ArrowUpRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -1164,13 +1164,24 @@ export default function MasterEditingQueue() {
                               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveTitle(); } if (e.key === 'Escape') setEditingTitle(null); }}
                             />
                           ) : (
-                            <button
-                              onClick={() => setEditingTitle({ itemId: item.id, value: item.title })}
-                              className="text-left w-full truncate hover:text-primary transition-colors cursor-text"
-                              title="Click to edit title"
-                            >
-                              {item.title}
-                            </button>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <button
+                                onDoubleClick={() => setEditingTitle({ itemId: item.id, value: item.title })}
+                                className="text-left flex-1 min-w-0 truncate hover:text-primary transition-colors cursor-text select-none"
+                                title="Double-click to edit title"
+                              >
+                                {item.title}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/clients/${item.clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}
+                                className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                title="Open script"
+                                aria-label="Open script"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </TableCell>
 
