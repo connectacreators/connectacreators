@@ -41,7 +41,7 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
       style={{
         minWidth: 200,
         minHeight: 150,
-        background: "#ffffff",
+        background: "hsl(var(--cream))",
         border: d.isDropTarget ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream))",
         boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
       }}

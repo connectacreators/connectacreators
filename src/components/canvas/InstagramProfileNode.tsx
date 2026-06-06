@@ -51,7 +51,7 @@ const HOOK_TYPE_COLORS: Record<string, string> = {
   educational: "hsl(var(--aqua))",
   authority: "#f59e0b",
   story: "#a78bfa",
-  comparison: "#F0BC7D",
+  comparison: "hsl(var(--honey))",
   shock: "#f43f5e",
   random: "hsl(var(--ink-on-cream) / 0.45)",
 };
@@ -64,7 +64,7 @@ function formatViews(n: number): string {
 
 function outlierColor(score: number): string {
   if (score >= 5) return "hsl(var(--aqua))";
-  if (score >= 2.5) return "#F0BC7D";
+  if (score >= 2.5) return "hsl(var(--honey))";
   return "hsl(var(--ink-on-cream) / 0.45)";
 }
 
@@ -155,7 +155,7 @@ export default function InstagramProfileNode({ data }: { data: NodeData }) {
 
   return (
     <div
-      className="bg-[#ffffff] rounded-2xl relative"
+      className="bg-[hsl(var(--cream))] rounded-2xl relative"
       style={{ width: 480, minHeight: 200 }}
     >
       <div className="overflow-hidden rounded-2xl">

@@ -143,7 +143,7 @@ export function renderInline(line: string): React.ReactNode[] {
           href={match[5]}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "rgba(201,169,110,0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
+          style={{ color: "hsl(var(--honey) / 0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
           onClick={(e) => e.stopPropagation()}
         >
           {match[4]}
@@ -162,7 +162,7 @@ export function renderInline(line: string): React.ReactNode[] {
         <code
           key={key++}
           style={{
-            borderLeft: "1px solid rgba(201,169,110,0.4)",
+            borderLeft: "1px solid hsl(var(--honey) / 0.4)",
             paddingLeft: 5,
             fontFamily: "monospace",
             fontSize: "0.9em",
@@ -179,7 +179,7 @@ export function renderInline(line: string): React.ReactNode[] {
           href={match[9]}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "rgba(201,169,110,0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
+          style={{ color: "hsl(var(--honey) / 0.8)", textDecoration: "underline", wordBreak: "break-all" as const }}
           onClick={(e) => e.stopPropagation()}
         >
           {match[9]}
@@ -412,7 +412,7 @@ export function InlineScriptPreview({
   return (
     <div
       style={{
-        background: "#FDF8EC",
+        background: "hsl(var(--cream))",
         border: "1px solid rgba(20,20,24,0.12)",
         borderRadius: 12,
         overflow: "hidden",
@@ -451,7 +451,7 @@ export function InlineScriptPreview({
             fontSize: 11,
             fontWeight: 400,
             fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
-            color: "rgba(176,114,30,0.85)",
+            color: "hsl(var(--honey-deep) / 0.85)",
             letterSpacing: "0.04em",
             whiteSpace: "nowrap",
           }}

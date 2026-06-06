@@ -50,7 +50,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 function outlierColor(score: number): string {
   if (score >= 5) return "hsl(var(--aqua))";
-  if (score >= 2.5) return "#F0BC7D";
+  if (score >= 2.5) return "hsl(var(--honey))";
   return "hsl(var(--ink-on-cream) / 0.45)";
 }
 
@@ -81,7 +81,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
     educational: "hsl(var(--aqua))",
     authority: "#f59e0b",
     story: "#a78bfa",
-    comparison: "#F0BC7D",
+    comparison: "hsl(var(--honey))",
     shock: "#f43f5e",
     random: "hsl(var(--ink-on-cream) / 0.45)",
   };
@@ -183,7 +183,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   if (collapsed) {
     return (
       <div
-        className="bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] rounded-xl shadow-xl relative"
+        className="bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] rounded-xl shadow-xl relative"
         style={{ minWidth: 320 }}
       >
         {ProfileHeader}

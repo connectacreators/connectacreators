@@ -501,8 +501,8 @@ const AIAssistantNode = memo(({ id, data }: NodeProps) => {
       {/* Drop overlay — only image drops on the AI node */}
       {isDragOverAI && (
         <div className="absolute inset-0 z-50 rounded-2xl pointer-events-none flex items-center justify-center"
-          style={{ background: "rgba(201,169,110,0.06)", border: "2px dashed rgba(201,169,110,0.4)" }}>
-          <div className="bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
+          style={{ background: "hsl(var(--honey) / 0.06)", border: "2px dashed hsl(var(--honey) / 0.4)" }}>
+          <div className="bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] rounded-xl px-5 py-3 flex flex-col items-center gap-1.5 shadow-xl">
             <Bot className="w-6 h-6 text-primary" />
             <p className="text-xs font-semibold text-foreground">Drop image for AI</p>
             <p className="text-[10px] text-muted-foreground">Claude will analyze it</p>

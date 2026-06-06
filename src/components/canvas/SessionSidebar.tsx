@@ -56,7 +56,7 @@ export default function SessionSidebar({
     <div className="relative flex-shrink-0 flex">
       {/* Collapsible panel */}
       <div
-        className="flex flex-col border-r border-border/50 bg-[#ffffff] transition-all duration-200 overflow-hidden"
+        className="flex flex-col border-r border-border/50 bg-[hsl(var(--cream))] transition-all duration-200 overflow-hidden"
         style={{ width: collapsed ? 0 : 220 }}
       >
         <div className="flex flex-col h-full" style={{ minWidth: 220 }}>
@@ -75,7 +75,7 @@ export default function SessionSidebar({
 
       {/* Toggle button — sibling of collapsible panel, never clipped */}
       <button
-        className="absolute -right-3 top-12 z-20 w-6 h-6 rounded-full bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] flex items-center justify-center text-[hsl(var(--ink-on-cream) / 0.50)] hover:text-[hsl(var(--ink-on-cream))]"
+        className="absolute -right-3 top-12 z-20 w-6 h-6 rounded-full bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] flex items-center justify-center text-[hsl(var(--ink-on-cream) / 0.50)] hover:text-[hsl(var(--ink-on-cream))]"
         onClick={onToggleCollapsed}
         title={collapsed ? "Open sessions" : "Close sessions"}
       >

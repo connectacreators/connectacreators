@@ -13,7 +13,7 @@ export function DeckSummaryBubble({ questions, answers, onEdit }: Props) {
   return (
     <div
       style={{
-        background: "#ffffff",
+        background: "hsl(var(--cream))",
         border: "1px solid hsl(var(--ink-on-cream) / 0.12)",
         borderRadius: 10,
         padding: "10px 12px",

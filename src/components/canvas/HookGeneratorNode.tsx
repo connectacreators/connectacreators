@@ -158,7 +158,7 @@ export default function HookGeneratorNode({ data: d }: NodeProps) {
         <button
           onClick={generate}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#ffffff] text-[hsl(var(--aqua))] border border-[hsl(var(--ink-on-cream) / 0.12)] hover:bg-[hsl(var(--ink-on-cream) / 0.05)] disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[hsl(var(--cream))] text-[hsl(var(--aqua))] border border-[hsl(var(--ink-on-cream) / 0.12)] hover:bg-[hsl(var(--ink-on-cream) / 0.05)] disabled:opacity-50 transition-colors flex items-center gap-1"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Generate"}
         </button>

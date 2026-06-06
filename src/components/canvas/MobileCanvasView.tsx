@@ -396,7 +396,7 @@ const NodeDetailSheet = memo(
           className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl flex flex-col"
           style={{
             height: "80vh",
-            background: "#1a1b1f",
+            background: "hsl(var(--ink))",
             borderTop: "1px solid hsl(var(--ink-on-cream) / 0.08)",
           }}
         >
@@ -439,7 +439,7 @@ const NodeDetailSheet = memo(
             <button
               onClick={handleSendToAI}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm"
-              style={{ background: "hsl(var(--aqua))", color: "#0a0a0c" }}
+              style={{ background: "hsl(var(--aqua))", color: "hsl(var(--ink))" }}
             >
               <MessageSquare size={16} />
               Send to AI
@@ -512,7 +512,7 @@ const ChatSidebar = memo(({
         style={{
           width: "75vw",
           maxWidth: 280,
-          background: "#12122a",
+          background: "hsl(var(--ink))",
           transform: open ? "translateX(0)" : "translateX(-100%)",
           transition: "transform 0.25s ease-out",
         }}
@@ -535,7 +535,7 @@ const ChatSidebar = memo(({
             className="w-full flex items-center gap-2 rounded-xl"
             style={{
               padding: "10px 12px",
-              background: "#ffffff",
+              background: "hsl(var(--cream))",
               border: "1px solid hsl(var(--ink-on-cream) / 0.12)",
               color: "hsl(var(--aqua))",
               fontSize: 13,
@@ -679,7 +679,7 @@ const PlusSheet = memo((props: PlusSheetProps) => {
     right: 0,
     bottom: 0,
     zIndex: 50,
-    background: "#1a1a2e",
+    background: "hsl(var(--ink))",
     borderRadius: "20px 20px 0 0",
     maxHeight: "75vh",
     overflowY: "auto",
@@ -994,7 +994,7 @@ const NodePickerSheet = memo(({ open, onClose, onAddNode }: { open: boolean; onC
       <div
         className="fixed left-0 right-0 bottom-0 z-50"
         style={{
-          background: "#1a1a2e",
+          background: "hsl(var(--ink))",
           borderRadius: "20px 20px 0 0",
           maxHeight: "75vh",
           overflowY: "auto",
@@ -1246,7 +1246,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
   return (
     <div
       className="fixed inset-0 flex flex-col mobile-canvas-root"
-      style={{ background: "#0f0f1e", zIndex: 100 }}
+      style={{ background: "hsl(var(--ink))", zIndex: 100 }}
     >
       {/* Mobile-specific CSS overrides */}
       <style>{`
@@ -1287,7 +1287,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
         style={{
           height: 48,
           borderBottom: "1px solid hsl(var(--ink-on-cream) / 0.06)",
-          background: "#0f0f1e",
+          background: "hsl(var(--ink))",
         }}
       >
         {/* Hamburger */}
@@ -1375,7 +1375,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
         className="flex-shrink-0"
         style={{
           padding: "10px 16px 16px",
-          background: "#0f0f1e",
+          background: "hsl(var(--ink))",
         }}
       >
         <div

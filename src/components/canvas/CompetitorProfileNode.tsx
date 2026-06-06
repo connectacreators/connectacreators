@@ -77,7 +77,7 @@ const HOOK_TYPE_COLORS: Record<string, string> = {
   educational: "hsl(var(--aqua))",
   authority: "#f59e0b",
   story: "#a78bfa",
-  comparison: "#F0BC7D",
+  comparison: "hsl(var(--honey))",
   shock: "hsl(var(--ink-on-cream) / 0.55)",
   random: "hsl(var(--ink-on-cream) / 0.45)",
 };
@@ -96,7 +96,7 @@ function formatViews(n: number): string {
 
 function outlierColor(score: number): string {
   if (score >= 5) return "hsl(var(--aqua))";
-  if (score >= 2.5) return "#F0BC7D";
+  if (score >= 2.5) return "hsl(var(--honey))";
   return "hsl(var(--ink-on-cream) / 0.45)";
 }
 
@@ -434,7 +434,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                       {/* Card row — div for text selection, chevron is the click target */}
                       <div className={`flex items-start gap-2.5 px-3 py-2.5 transition-colors ${isExpanded ? "bg-muted/20" : ""}`}>
                         {/* Thumbnail */}
-                        <div className="flex-shrink-0 rounded overflow-hidden cursor-pointer" style={{ width: 40, height: 72, background: "#0f172a" }} onClick={() => handleCardClick(i)}>
+                        <div className="flex-shrink-0 rounded overflow-hidden cursor-pointer" style={{ width: 40, height: 72, background: "hsl(var(--ink))" }} onClick={() => handleCardClick(i)}>
                           {post.thumbnail ? (
                             <img
                               src={`https://connectacreators.com/api/proxy-image?url=${encodeURIComponent(post.thumbnail)}`}
@@ -520,7 +520,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                                   <p className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: "hsl(var(--aqua))" }}>
                                     Apply to {clientName || "Client"}
                                   </p>
-                                  <p className="text-[10px] leading-relaxed cursor-text" style={{ color: "#5ab0b7" }}>{post.applyToClient}</p>
+                                  <p className="text-[10px] leading-relaxed cursor-text" style={{ color: "hsl(var(--aqua) / 0.85)" }}>{post.applyToClient}</p>
                                 </div>
                               )}
 

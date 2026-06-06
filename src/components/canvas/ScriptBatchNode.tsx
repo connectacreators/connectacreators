@@ -63,7 +63,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       className="rounded-xl shadow-lg relative overflow-hidden"
       style={{
         width: 260,
-        background: "#ffffff",
+        background: "hsl(var(--cream))",
         border: selected ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream) / 0.12)",
         borderLeft: "4px solid hsl(var(--aqua))",
       }}
@@ -122,7 +122,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
       ) : (
         <div
           className="flex items-center justify-center"
-          style={{ width: "100%", height: 60, background: "#ffffff" }}
+          style={{ width: "100%", height: 60, background: "hsl(var(--cream))" }}
         >
           <PlatformIcon className="w-5 h-5" style={{ color: "hsl(var(--ink-on-cream) / 0.35)" }} />
         </div>

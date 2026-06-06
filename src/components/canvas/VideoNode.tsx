@@ -230,7 +230,7 @@ const viralBadgeClass = (score: number): string => {
 const SECTION_COLORS: Record<string, { label: string; accent: string; bg: string; border: string }> = {
   hook: { label: "Hook", accent: "text-[hsl(var(--aqua))]", bg: "bg-[hsl(var(--aqua) / 0.08)]", border: "border-[hsl(var(--aqua) / 0.2)]" },
   body: { label: "Body", accent: "text-[hsl(var(--ink-on-cream) / 0.55)]", bg: "bg-[hsl(var(--ink-on-cream) / 0.04)]", border: "border-[hsl(var(--ink-on-cream) / 0.08)]" },
-  cta:  { label: "CTA",  accent: "text-[#F0BC7D]", bg: "bg-[hsl(var(--honey) / 0.08)]", border: "border-[hsl(var(--honey) / 0.20)]" },
+  cta:  { label: "CTA",  accent: "text-[hsl(var(--honey))]", bg: "bg-[hsl(var(--honey) / 0.08)]", border: "border-[hsl(var(--honey) / 0.20)]" },
 };
 
 
@@ -973,7 +973,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
 
           {/* Status banner */}
           {stage === "transcribing" && (
-            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "hsl(var(--ink-on-cream) / 0.04)", borderColor: "hsl(var(--ink-on-cream) / 0.10)", color: "#ffffff" }}>
+            <div className="px-3 py-1.5 border-b text-[10px]" style={{ background: "hsl(var(--ink-on-cream) / 0.04)", borderColor: "hsl(var(--ink-on-cream) / 0.10)", color: "hsl(var(--ink-on-cream))" }}>
               Resolving video... {thumbStatus === "loading" ? "| Fetching thumbnail..." : thumbStatus === "done" ? "| Thumbnail ready" : thumbStatus === "error" ? `| Thumb error: ${thumbError}` : ""}
             </div>
           )}
@@ -1166,7 +1166,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   onClick={saveToVault}
                   disabled={savingVault || vaultSaved || !d.clientId || !d.viralVideoId}
                   title={!d.viralVideoId ? "Analyzing — try again when ready" : undefined}
-                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[hsl(var(--ink-on-cream))] bg-[hsl(var(--aqua))] text-[hsl(var(--ink-on-cream))] hover:bg-[#7BC0C5] text-[11px] font-semibold transition-colors disabled:opacity-40"
+                  className="nodrag flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[hsl(var(--ink-on-cream))] bg-[hsl(var(--aqua))] text-[hsl(var(--ink-on-cream))] hover:bg-[hsl(var(--aqua)/0.85)] text-[11px] font-semibold transition-colors disabled:opacity-40"
                 >
                   {savingVault ? (
                     <Loader2 className="w-3 h-3 animate-spin" />

@@ -20,7 +20,7 @@ interface ResearchData {
 
 const impactColor = (score: number) =>
   score >= 9.5 ? "text-[hsl(var(--aqua))] border-[hsl(var(--ink-on-cream) / 0.12)] bg-[hsl(var(--ink-on-cream) / 0.05)]" :
-  score >= 9   ? "text-[#F0BC7D] border-[hsl(var(--ink-on-cream) / 0.12)] bg-[hsl(var(--ink-on-cream) / 0.05)]" :
+  score >= 9   ? "text-[hsl(var(--honey))] border-[hsl(var(--ink-on-cream) / 0.12)] bg-[hsl(var(--ink-on-cream) / 0.05)]" :
                  "text-[hsl(var(--ink-on-cream) / 0.45)] border-[hsl(var(--ink-on-cream) / 0.12)] bg-[hsl(var(--ink-on-cream) / 0.05)]";
 
 const ResearchNoteNode = memo(({ data }: NodeProps) => {

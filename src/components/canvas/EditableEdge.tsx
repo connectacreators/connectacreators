@@ -9,8 +9,9 @@ import {
   type EdgeProps,
 } from "@xyflow/react";
 
+// STATUS: user-selectable edge palette — Tailwind semantic colors + white kept as user choices, not brand surfaces
 const EDGE_COLORS = [
-  "hsl(44 75% 87%)", "hsl(var(--aqua))", "#f43f5e", "#F0BC7D", "#f59e0b",
+  "hsl(44 75% 87%)", "hsl(var(--aqua))", "#f43f5e", "hsl(var(--honey))", "#f59e0b",
   "#a78bfa", "#60a5fa", "hsl(var(--aqua))", "#fb923c", "#ffffff",
 ];
 
@@ -138,7 +139,7 @@ export default function EditableEdge({
               zIndex: 1000,
             }}
           >
-            <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl"
+            <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] shadow-xl"
               style={{ whiteSpace: "nowrap" }}
             >
               {/* Path type */}
@@ -151,7 +152,7 @@ export default function EditableEdge({
                   </svg>
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   {(["bezier", "smoothstep", "straight"] as const).map(t => (
                     <button key={t} onClick={() => updateEdge({ pathType: t })}
                       className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${pathType === t ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
@@ -174,7 +175,7 @@ export default function EditableEdge({
                   </svg>
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   {(["solid", "dashed", "dotted"] as const).map(s => (
                     <button key={s} onClick={() => updateStyle({ strokeStyle: s })}
                       className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left capitalize ${strokeStyle === s ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.1)]" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
@@ -204,7 +205,7 @@ export default function EditableEdge({
                   <div className="w-3.5 h-3.5 rounded-full border border-black/20" style={{ background: edgeColor }} />
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   <div className="flex gap-1.5">
                     {EDGE_COLORS.map(c => (
                       <button key={c} onClick={() => updateStyle({ color: c, stroke: c })}
@@ -222,7 +223,7 @@ export default function EditableEdge({
                   <div className="rounded-full" style={{ width: Math.max(3, edgeWidth * 1.8), height: Math.max(3, edgeWidth * 1.8), background: "hsl(var(--ink-on-cream) / 0.45)" }} />
                 </button>
                 <div className="absolute h-2 w-full left-0 top-full" />
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                   <div className="flex items-center gap-1.5">
                     {EDGE_WIDTHS.map(w => (
                       <button key={w} onClick={() => updateStyle({ width: w, strokeWidth: w })}

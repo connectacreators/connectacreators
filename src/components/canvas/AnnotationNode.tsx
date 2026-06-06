@@ -25,8 +25,9 @@ interface AnnotationData {
   onDelete?: () => void;
 }
 
+// STATUS: user-selectable annotation palette — Tailwind semantic colors + white kept as user choices, not brand surfaces
 const COLORS = [
-  "#ffffff", "hsl(var(--aqua))", "#F0BC7D", "#f59e0b", "#f43f5e",
+  "#ffffff", "hsl(var(--aqua))", "hsl(var(--honey))", "#f59e0b", "#f43f5e",
   "#a78bfa", "#60a5fa", "hsl(var(--aqua))", "#fb923c", "hsl(var(--ink-on-cream) / 0.45)",
 ];
 
@@ -316,7 +317,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
         const btnCls = (on?: boolean) => `p-0.5 rounded transition-colors ${on ? "bg-[hsl(var(--aqua) / 0.25)] text-[hsl(var(--aqua))]" : "text-muted-foreground hover:text-foreground"}`;
 
         return (
-        <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-[#ffffff] border border-[hsl(var(--ink-on-cream))] z-10"
+        <div className="nodrag absolute left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] z-10"
           style={{ whiteSpace: "nowrap", bottom: "100%", marginBottom: 6 * s, transform: `scale(${s})`, transformOrigin: "bottom left" }}
         >
           {/* Color picker — single dot opens popover */}

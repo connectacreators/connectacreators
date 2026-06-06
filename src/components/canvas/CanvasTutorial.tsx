@@ -334,7 +334,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
             <div style={{ fontSize: 10, color: "rgba(240,220,150,0.6)", fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", marginBottom: 1 }}>
               Step {step + 1} of {STEPS.length}
             </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "hsl(var(--bone))" }}>
               {STEPS[step].title}
             </div>
           </div>

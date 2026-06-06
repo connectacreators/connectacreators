@@ -42,7 +42,7 @@ const LINE_CONFIG: Record<string, { color: string; bg: string; border: string; d
     label: "ACTOR",
   },
   editor: {
-    color: "text-[#F0BC7D]",
+    color: "text-[hsl(var(--honey))]",
     bg: "bg-gradient-to-br from-[hsl(var(--honey) / 0.08)] to-[hsl(var(--honey) / 0.02)]",
     border: "border-[hsl(var(--honey) / 0.2)]",
     dot: "bg-[hsl(var(--honey))]",
@@ -62,7 +62,7 @@ const LINE_CONFIG: Record<string, { color: string; bg: string; border: string; d
 const SECTION_HEADERS: Record<string, { label: string; color: string; bar: string }> = {
   hook: { label: "HOOK", color: "text-foreground", bar: "bg-[hsl(var(--ink-on-cream) / 0.10)]" },
   body: { label: "BODY", color: "text-[hsl(var(--ink-on-cream) / 0.45)]", bar: "bg-[hsl(var(--ink-on-cream) / 0.08)]" },
-  cta:  { label: "CTA",  color: "text-[#F0BC7D]", bar: "bg-[hsl(var(--honey) / 0.35)]" },
+  cta:  { label: "CTA",  color: "text-[hsl(var(--honey))]", bar: "bg-[hsl(var(--honey) / 0.35)]" },
 };
 
 export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }: Props) {
@@ -104,7 +104,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
   // Group lines by section in order: hook → body → cta
   const sections: Array<"hook" | "body" | "cta"> = ["hook", "body", "cta"];
 
-  const scoreColor = script.virality_score >= 8 ? "text-[#F0BC7D]" : script.virality_score >= 6 ? "text-[hsl(var(--aqua))]" : "text-orange-400";
+  const scoreColor = script.virality_score >= 8 ? "text-[hsl(var(--honey))]" : script.virality_score >= 6 ? "text-[hsl(var(--aqua))]" : "text-orange-400";
 
   return (
     <div className="flex flex-col h-full">
@@ -200,7 +200,7 @@ export default function ScriptOutputPanel({ script, onSave, onClear, onRefine }:
               disabled={saving}
               type="button"
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold cursor-pointer select-none"
-              style={{ background: "#ffffff", border: "1px solid hsl(var(--ink-on-cream) / 0.12)", color: "hsl(var(--aqua))", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
+              style={{ background: "hsl(var(--cream))", border: "1px solid hsl(var(--ink-on-cream) / 0.12)", color: "hsl(var(--aqua))", opacity: saving ? 0.5 : 1, position: "relative", zIndex: 100 }}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {saving ? "Saving..." : "Save Script"}
