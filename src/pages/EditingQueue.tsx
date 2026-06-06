@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
 import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
-import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal } from "lucide-react";
+import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal, ArrowUpRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import PageTransition from "@/components/PageTransition";
@@ -169,6 +169,9 @@ export default function EditingQueue() {
   // Inline editing for caption
   const [inlineEdit, setInlineEdit] = useState<{ itemId: string; value: string } | null>(null);
   const [savingInline, setSavingInline] = useState(false);
+
+  // Inline editing for title (double-click on title in the row)
+  const [editingTitle, setEditingTitle] = useState<{ itemId: string; value: string } | null>(null);
 
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState<EditingQueueItem | null>(null);
@@ -693,6 +696,19 @@ export default function EditingQueue() {
     }
   };
 
+  const handleSaveTitle = async () => {
+    if (!editingTitle) return;
+    const newTitle = editingTitle.value.trim() || "Untitled";
+    try {
+      const { error } = await supabase.from("video_edits").update({ reel_title: newTitle }).eq("id", editingTitle.itemId);
+      if (error) throw error;
+      setItems((prev) => prev.map((i) => i.id === editingTitle.itemId ? { ...i, title: newTitle } : i));
+      setEditingTitle(null);
+    } catch {
+      toast.error("Failed to save title");
+    }
+  };
+
   const handleSaveCaptionEdit = async () => {
     if (!captionEditItem) return;
     try {
@@ -899,8 +915,40 @@ export default function EditingQueue() {
                             <TableCell
                               className="font-medium text-foreground max-w-xs"
                               style={{ borderLeft: `3px solid ${getRowStatusBorderColor(item.lifecycleStatus)}`, paddingLeft: '13px' }}
+                              onClick={e => e.stopPropagation()}
                             >
-                              <span className="truncate block max-w-[200px]">{item.title}</span>
+                              {editingTitle?.itemId === item.id ? (
+                                <input
+                                  autoFocus
+                                  className="text-xs font-medium border rounded px-1.5 py-0.5 w-full bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                  value={editingTitle.value}
+                                  onChange={(e) => setEditingTitle({ ...editingTitle, value: e.target.value })}
+                                  onBlur={handleSaveTitle}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveTitle(); } if (e.key === 'Escape') setEditingTitle(null); }}
+                                />
+                              ) : (
+                                <div className="flex items-center gap-1.5 min-w-0 max-w-[220px]">
+                                  <button
+                                    type="button"
+                                    onDoubleClick={() => setEditingTitle({ itemId: item.id, value: item.title })}
+                                    className="text-left flex-1 min-w-0 truncate hover:text-primary transition-colors cursor-text select-none"
+                                    title="Double-click to rename"
+                                  >
+                                    {item.title}
+                                  </button>
+                                  {clientId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/clients/${clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}
+                                      className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                      title="Open script"
+                                      aria-label="Open script"
+                                    >
+                                      <ArrowUpRight className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </TableCell>
 
                             {/* Lifecycle Status */}
