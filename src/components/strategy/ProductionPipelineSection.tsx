@@ -4,11 +4,14 @@
 // + ads_active toggle + ads_budget input + free-text notes. Anchored at
 // #pipeline so the dashboard can deep-link here.
 //
-// Read/write contract: receives `s` (the current strategy snapshot) and
-// `set(field, value)` (the existing helper from ClientStrategy.tsx that
-// updates the draft). Does NOT perform saves — parent's Save button writes
-// the whole strategy via upsert.
+// Two edit modes:
+//   1. Global edit (parent.editing=true) — every field renders as an input,
+//      writes go to the parent draft, parent's Save button persists.
+//   2. Inline edit (parent.editing=false) — double-click any field to edit
+//      just that one. Blur or Enter persists immediately via onPersistField;
+//      Escape cancels. ads_active flips on double-click.
 
+import { useEffect, useRef, useState } from "react";
 import { relativeDate, type RelativeBucket } from "@/lib/triage/relativeDate";
 
 export interface PipelineFields {
@@ -27,6 +30,7 @@ interface Props {
   s: PipelineFields;
   editing: boolean;
   set: <K extends keyof PipelineFields>(field: K, value: PipelineFields[K]) => void;
+  onPersistField?: <K extends keyof PipelineFields>(field: K, value: PipelineFields[K]) => Promise<void>;
   en: boolean;
 }
 
@@ -63,13 +67,73 @@ function toInputValue(iso: string | null, withTime: boolean): string {
 /** Convert an input value back to ISO; empty → null. */
 function fromInputValue(v: string, withTime: boolean): string | null {
   if (!v) return null;
-  // Treat as local time; build a Date then return its ISO.
   const d = withTime ? new Date(v) : new Date(`${v}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }
 
-export function ProductionPipelineSection({ s, editing, set, en }: Props) {
+// Hover affordance for double-clickable read-only fields. Subtle dashed
+// underline that brightens on hover so users know the field is editable.
+const editableSpanClass =
+  "cursor-text border-b border-dashed border-white/0 hover:border-white/30 transition-colors select-none";
+
+export function ProductionPipelineSection({ s, editing, set, onPersistField, en }: Props) {
+  // Tracks which row is currently in inline-edit mode (global editing=false).
+  // value holds the in-progress input text so Escape can cancel cleanly.
+  const [inline, setInline] = useState<
+    | { field: keyof PipelineFields; value: string }
+    | null
+  >(null);
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Focus the relevant control as soon as inline mode activates.
+  useEffect(() => {
+    if (!inline) return;
+    if (inline.field === 'pipeline_notes') {
+      textareaRef.current?.focus();
+    } else {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [inline]);
+
+  const canInline = !editing && !!onPersistField;
+  const inlineTitle = en ? 'Double-click to edit' : 'Doble clic para editar';
+
+  // Persist the current inline-mode field, then exit inline mode. Used by
+  // blur and Enter handlers — keeps the commit path single-sourced.
+  const commitInline = async () => {
+    if (!inline || !onPersistField) return;
+    const row = ROWS.find((r) => r.field === inline.field);
+    if (row) {
+      const next = fromInputValue(inline.value, row.withTime);
+      const current = s[inline.field] as string | null;
+      if (next !== current) await onPersistField(inline.field, next as never);
+    } else if (inline.field === 'ads_budget') {
+      const num = Number(inline.value);
+      const next = Number.isFinite(num) ? Math.max(0, num) : 0;
+      if (next !== s.ads_budget) await onPersistField('ads_budget', next as never);
+    } else if (inline.field === 'pipeline_notes') {
+      const next = inline.value.trim() ? inline.value : null;
+      if (next !== s.pipeline_notes) await onPersistField('pipeline_notes', next as never);
+    }
+    setInline(null);
+  };
+
+  const cancelInline = () => setInline(null);
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelInline();
+    } else if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      (e.target as HTMLElement).blur(); // triggers commitInline via onBlur
+    }
+  };
+
   return (
     <section id="pipeline" className="rounded-[14px] p-[18px_20px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <h3 className="text-[11px] font-bold tracking-[1.5px] uppercase mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -81,21 +145,37 @@ export function ProductionPipelineSection({ s, editing, set, en }: Props) {
           const value = s[row.field] as string | null;
           const rel = value ? relativeDate(value) : null;
           const inputType = row.withTime ? 'datetime-local' : 'date';
+          const isInline = inline?.field === row.field;
+          const showInput = editing || isInline;
           return (
             <div key={row.field} className="flex items-center gap-3">
               <label className="text-[12px] w-[110px] shrink-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 {en ? row.labelEn : row.labelEs}
               </label>
-              {editing ? (
+              {showInput ? (
                 <input
+                  ref={isInline ? inputRef : undefined}
                   type={inputType}
-                  value={toInputValue(value, row.withTime)}
-                  onChange={(e) => set(row.field, fromInputValue(e.target.value, row.withTime) as never)}
+                  value={isInline ? inline.value : toInputValue(value, row.withTime)}
+                  onChange={(e) => {
+                    if (isInline) setInline({ field: row.field, value: e.target.value });
+                    else set(row.field, fromInputValue(e.target.value, row.withTime) as never);
+                  }}
+                  onBlur={isInline ? () => { void commitInline(); } : undefined}
+                  onKeyDown={isInline ? handleInlineKeyDown : undefined}
                   className="text-[12px] px-2 py-1 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
                 />
               ) : (
-                <span className="text-[12px]" style={{ color: rel ? BUCKET_COLOR[rel.bucket] : 'rgba(255,255,255,0.35)' }}>
-                  {rel ? rel.label : (en ? '—' : '—')}
+                <span
+                  className={canInline ? editableSpanClass : undefined}
+                  style={{
+                    color: rel ? BUCKET_COLOR[rel.bucket] : 'rgba(255,255,255,0.35)',
+                    fontSize: 12,
+                  }}
+                  title={canInline ? inlineTitle : undefined}
+                  onDoubleClick={canInline ? () => setInline({ field: row.field, value: toInputValue(value, row.withTime) }) : undefined}
+                >
+                  {rel ? rel.label : '—'}
                 </span>
               )}
               {editing && value && (
@@ -107,7 +187,7 @@ export function ProductionPipelineSection({ s, editing, set, en }: Props) {
                   {en ? 'Clear' : 'Borrar'}
                 </button>
               )}
-              {!editing && rel && (
+              {!showInput && rel && (
                 <span className="text-[11px]" style={{ color: BUCKET_COLOR[rel.bucket] }}>
                   ({rel.label})
                 </span>
@@ -134,7 +214,12 @@ export function ProductionPipelineSection({ s, editing, set, en }: Props) {
               {s.ads_active ? (en ? 'Yes' : 'Sí') : 'No'}
             </button>
           ) : (
-            <span className="text-[12px]" style={{ color: s.ads_active ? '#22c55e' : 'rgba(255,255,255,0.45)' }}>
+            <span
+              className={canInline ? editableSpanClass : undefined}
+              style={{ color: s.ads_active ? '#22c55e' : 'rgba(255,255,255,0.45)', fontSize: 12 }}
+              title={canInline ? inlineTitle : undefined}
+              onDoubleClick={canInline ? () => { void onPersistField!('ads_active', !s.ads_active as never); } : undefined}
+            >
               {s.ads_active ? (en ? 'Yes' : 'Sí') : 'No'}
             </span>
           )}
@@ -144,19 +229,37 @@ export function ProductionPipelineSection({ s, editing, set, en }: Props) {
           <label className="text-[12px] w-[110px] shrink-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
             {en ? 'Ads budget' : 'Presupuesto'}
           </label>
-          {editing ? (
-            <input
-              type="number"
-              min={0}
-              value={s.ads_budget ?? 0}
-              onChange={(e) => set('ads_budget', Number(e.target.value) || 0)}
-              className="text-[12px] px-2 py-1 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 w-[100px]"
-            />
-          ) : (
-            <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              {s.ads_budget > 0 ? `$${s.ads_budget}` : '—'}
-            </span>
-          )}
+          {(() => {
+            const isInline = inline?.field === 'ads_budget';
+            const showInput = editing || isInline;
+            if (showInput) {
+              return (
+                <input
+                  ref={isInline ? inputRef : undefined}
+                  type="number"
+                  min={0}
+                  value={isInline ? inline.value : String(s.ads_budget ?? 0)}
+                  onChange={(e) => {
+                    if (isInline) setInline({ field: 'ads_budget', value: e.target.value });
+                    else set('ads_budget', (Number(e.target.value) || 0) as never);
+                  }}
+                  onBlur={isInline ? () => { void commitInline(); } : undefined}
+                  onKeyDown={isInline ? handleInlineKeyDown : undefined}
+                  className="text-[12px] px-2 py-1 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 w-[100px]"
+                />
+              );
+            }
+            return (
+              <span
+                className={canInline ? editableSpanClass : undefined}
+                style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}
+                title={canInline ? inlineTitle : undefined}
+                onDoubleClick={canInline ? () => setInline({ field: 'ads_budget', value: String(s.ads_budget ?? 0) }) : undefined}
+              >
+                {s.ads_budget > 0 ? `$${s.ads_budget}` : '—'}
+              </span>
+            );
+          })()}
         </div>
       </div>
 
@@ -164,19 +267,37 @@ export function ProductionPipelineSection({ s, editing, set, en }: Props) {
         <label className="text-[11px] uppercase tracking-[1px] block mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
           {en ? 'Notes' : 'Notas'}
         </label>
-        {editing ? (
-          <textarea
-            rows={3}
-            value={s.pipeline_notes ?? ''}
-            onChange={(e) => set('pipeline_notes', e.target.value || null)}
-            placeholder={en ? 'Status, blockers, context…' : 'Estado, bloqueadores, contexto…'}
-            className="w-full text-[12px] p-2 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 resize-y"
-          />
-        ) : (
-          <p className="text-[12px] whitespace-pre-wrap" style={{ color: s.pipeline_notes ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)' }}>
-            {s.pipeline_notes || (en ? 'No notes' : 'Sin notas')}
-          </p>
-        )}
+        {(() => {
+          const isInline = inline?.field === 'pipeline_notes';
+          const showInput = editing || isInline;
+          if (showInput) {
+            return (
+              <textarea
+                ref={isInline ? textareaRef : undefined}
+                rows={3}
+                value={isInline ? inline.value : (s.pipeline_notes ?? '')}
+                onChange={(e) => {
+                  if (isInline) setInline({ field: 'pipeline_notes', value: e.target.value });
+                  else set('pipeline_notes', (e.target.value || null) as never);
+                }}
+                onBlur={isInline ? () => { void commitInline(); } : undefined}
+                onKeyDown={isInline ? handleInlineKeyDown : undefined}
+                placeholder={en ? 'Status, blockers, context…' : 'Estado, bloqueadores, contexto…'}
+                className="w-full text-[12px] p-2 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 resize-y"
+              />
+            );
+          }
+          return (
+            <p
+              className={`text-[12px] whitespace-pre-wrap ${canInline ? editableSpanClass : ''}`}
+              style={{ color: s.pipeline_notes ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)' }}
+              title={canInline ? inlineTitle : undefined}
+              onDoubleClick={canInline ? () => setInline({ field: 'pipeline_notes', value: s.pipeline_notes ?? '' }) : undefined}
+            >
+              {s.pipeline_notes || (en ? 'No notes' : 'Sin notas')}
+            </p>
+          );
+        })()}
       </div>
     </section>
   );

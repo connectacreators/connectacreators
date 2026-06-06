@@ -268,6 +268,24 @@ export default function ClientStrategy() {
 
   const set = (field: keyof ClientStrategy, value: unknown) => setDraft(prev => prev ? { ...prev, [field]: value } : prev);
 
+  // Inline edit (production pipeline): persist a single field immediately
+  // without entering global edit mode. Used by double-click-to-edit on the
+  // pipeline rows. Silent on success; toasts only on error.
+  const persistField = useCallback(async <K extends keyof ClientStrategy>(field: K, value: ClientStrategy[K]) => {
+    if (!clientId || !strategy) return;
+    const next: ClientStrategy = { ...strategy, [field]: value };
+    try {
+      const { error } = await supabase
+        .from("client_strategies")
+        .upsert({ ...next, client_id: clientId }, { onConflict: "client_id" });
+      if (error) throw error;
+      setStrategy(next);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (en ? "Error saving" : "Error al guardar");
+      toast.error(msg);
+    }
+  }, [clientId, strategy, en]);
+
   if (loading) {
     return (
       <PageTransition className="flex-1 flex items-center justify-center">
@@ -475,6 +493,7 @@ export default function ClientStrategy() {
           }}
           editing={editing}
           set={set as any}
+          onPersistField={persistField as any}
           en={en}
         />
 
