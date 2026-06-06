@@ -751,40 +751,40 @@ All colors MUST be HSL for consistency and theming.
    to light-mode equivalents so it reads properly on the white background.
    Aqua is kept as the AI interaction accent color ("the blue"). */
 .react-flow .glass-card.canvas-ai-node {
-  background: #ffffff !important;
-  border: 1px solid #141414 !important;
-  box-shadow: 3px 3px 0 #141414 !important;
-  color: #141414 !important;
+  background: hsl(var(--cream)) !important;
+  border: 1px solid hsl(var(--ink-on-cream)) !important;
+  box-shadow: 3px 3px 0 hsl(var(--ink-on-cream)) !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 .react-flow .glass-card.canvas-ai-node:hover {
-  box-shadow: 5px 5px 0 #141414 !important;
+  box-shadow: 5px 5px 0 hsl(var(--ink-on-cream)) !important;
   transform: translate(-1px, -1px);
 }
 /* Inner text tokens → dark ink */
 .react-flow .glass-card.canvas-ai-node .text-foreground,
 .react-flow .glass-card.canvas-ai-node [class*="text-foreground"] {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 .react-flow .glass-card.canvas-ai-node .text-muted-foreground,
 .react-flow .glass-card.canvas-ai-node [class*="text-muted"] {
-  color: rgba(20, 20, 20, 0.50) !important;
+  color: hsl(var(--ink-on-cream) / 0.50) !important;
 }
 /* Inner surfaces → light */
 .react-flow .glass-card.canvas-ai-node [class*="bg-muted"],
 .react-flow .glass-card.canvas-ai-node [class*="bg-card"],
 .react-flow .glass-card.canvas-ai-node [class*="bg-background"] {
-  background: #ffffff !important;
+  background: hsl(var(--cream)) !important;
 }
 /* Inner borders → thin ink hairline */
 .react-flow .glass-card.canvas-ai-node [class*="border-border"] {
-  border-color: rgba(20, 20, 20, 0.10) !important;
+  border-color: hsl(var(--ink-on-cream) / 0.10) !important;
 }
 /* Inputs → light surfaces with dark text */
 .react-flow .glass-card.canvas-ai-node input,
 .react-flow .glass-card.canvas-ai-node textarea {
-  background: #ffffff !important;
-  color: #141414 !important;
-  border-color: rgba(20, 20, 20, 0.14) !important;
+  background: hsl(var(--cream)) !important;
+  color: hsl(var(--ink-on-cream)) !important;
+  border-color: hsl(var(--ink-on-cream) / 0.14) !important;
 }
 /* Aqua as the AI interaction color — keep text-primary = Aqua */
 .react-flow .glass-card.canvas-ai-node [class*="text-primary"] {
@@ -799,21 +799,21 @@ All colors MUST be HSL for consistency and theming.
 /* Handles — Aqua */
 .react-flow .glass-card.canvas-ai-node .react-flow__handle {
   background: hsl(var(--aqua)) !important;
-  border-color: #ffffff !important;
+  border-color: hsl(var(--cream)) !important;
   box-shadow: none !important;
 }
 
 /* ReactFlow edge lines — dark ink on light canvas */
 .react-flow__edge-path {
-  stroke: rgba(20, 20, 20, 0.60) !important;
+  stroke: hsl(var(--ink-on-cream) / 0.60) !important;
   stroke-width: 1.5px !important;
 }
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: #141414 !important;
+  stroke: hsl(var(--ink-on-cream)) !important;
   stroke-width: 2px !important;
 }
 .react-flow__connectionline {
-  stroke: rgba(20, 20, 20, 0.75) !important;
+  stroke: hsl(var(--ink-on-cream) / 0.75) !important;
   stroke-width: 1.5px !important;
 }
 
@@ -822,38 +822,38 @@ All colors MUST be HSL for consistency and theming.
    AI node). Inside the dark fullscreen view, those same borders are invisible.
    This scope restores them to bone-equivalent values. */
 .fullscreen-ai-view .relative.rounded-xl.border {
-  border-color: rgba(234, 230, 220, 0.14) !important;
-  background: rgba(234, 230, 220, 0.04) !important;
+  border-color: hsl(var(--bone) / 0.14) !important;
+  background: hsl(var(--bone) / 0.04) !important;
 }
 .fullscreen-ai-view input,
 .fullscreen-ai-view textarea {
-  color: #EAE6DC !important;
-  caret-color: #EAE6DC !important;
+  color: hsl(var(--bone)) !important;
+  caret-color: hsl(var(--bone)) !important;
 }
 .fullscreen-ai-view input::placeholder,
 .fullscreen-ai-view textarea::placeholder {
-  color: rgba(234, 230, 220, 0.35) !important;
+  color: hsl(var(--bone) / 0.35) !important;
 }
 /* + button, model selector, and all controls inside fullscreen dark view
    — inline styles set rgba(20,20,20,X) which is invisible on dark bg.
    Override via the fullscreen scope. */
-.fullscreen-ai-view button[style*="rgba(20,20,20"] {
-  color: rgba(234, 230, 220, 0.55) !important;
+.fullscreen-ai-view button[style*="hsl(var(--ink-on-cream)"] {
+  color: hsl(var(--bone) / 0.55) !important;
 }
-.fullscreen-ai-view [style*="rgba(20,20,20,0.38)"],
-.fullscreen-ai-view [style*="rgba(20,20,20,0.40)"],
-.fullscreen-ai-view [style*="rgba(20,20,20,0.45)"],
-.fullscreen-ai-view [style*="rgba(20,20,20,0.50)"] {
-  color: rgba(234, 230, 220, 0.50) !important;
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.38)"],
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.40)"],
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.45)"],
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.50)"] {
+  color: hsl(var(--bone) / 0.50) !important;
 }
-.fullscreen-ai-view [style*="rgba(20,20,20,0.10)"][style*="background"],
-.fullscreen-ai-view [style*="rgba(20,20,20,0.06)"][style*="background"] {
-  background: rgba(234, 230, 220, 0.06) !important;
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.10)"][style*="background"],
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.06)"][style*="background"] {
+  background: hsl(var(--bone) / 0.06) !important;
 }
 /* Separator lines */
-.fullscreen-ai-view [style*="rgba(20,20,20,0.10)"][style*="height: 1"],
-.fullscreen-ai-view [style*="rgba(20,20,20,0.10)"][style*="width: 1"] {
-  background: rgba(234, 230, 220, 0.15) !important;
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.10)"][style*="height: 1"],
+.fullscreen-ai-view [style*="hsl(var(--ink-on-cream) / 0.10)"][style*="width: 1"] {
+  background: hsl(var(--bone) / 0.15) !important;
 }
 
 /* CHATS sidebar list — hide the scrollbar entirely (still scrolls).
@@ -1033,25 +1033,25 @@ All colors MUST be HSL for consistency and theming.
    theme. On the white canvas cards that's invisible. Override everything. */
 .react-flow .text-foreground,
 .react-flow [class*="text-foreground"] {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 .react-flow .text-muted-foreground,
 .react-flow [class*="text-muted-foreground"],
 .react-flow [class*="text-muted"] {
-  color: rgba(20, 20, 20, 0.50) !important;
+  color: hsl(var(--ink-on-cream) / 0.50) !important;
 }
 .react-flow .text-card-foreground {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 /* bg-muted everywhere in react-flow → pure white (no tinting inside nodes) */
 .react-flow [class*="bg-muted"] {
-  background: #ffffff !important;
+  background: hsl(var(--cream)) !important;
 }
 /* prose-invert inside canvas nodes: override to dark prose */
 .react-flow .prose-invert,
 .react-flow .prose,
 .react-flow .prose-sm {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 .react-flow .prose p,
 .react-flow .prose li,
@@ -1062,7 +1062,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .prose h4,
 .react-flow .prose strong,
 .react-flow .prose em {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 
 /* === ReactFlow: ALL node wrappers using bg-card → white on light canvas ===
@@ -1072,27 +1072,27 @@ All colors MUST be HSL for consistency and theming.
    editorial card treatment. */
 .react-flow .bg-card,
 .react-flow [class~="bg-card"] {
-  background: #ffffff !important;
+  background: hsl(var(--cream)) !important;
 }
 .react-flow .bg-card p,
 .react-flow .bg-card span,
 .react-flow .bg-card label,
 .react-flow .bg-card strong {
-  color: #141414;
+  color: hsl(var(--ink-on-cream));
 }
 .react-flow .bg-card h1,
 .react-flow .bg-card h2,
 .react-flow .bg-card h3 {
-  color: #141414;
+  color: hsl(var(--ink-on-cream));
   font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
 }
 .react-flow .bg-card .text-muted-foreground,
 .react-flow .bg-card [class*="text-muted"] {
-  color: rgba(20, 20, 20, 0.50) !important;
+  color: hsl(var(--ink-on-cream) / 0.50) !important;
 }
 .react-flow .bg-card [class*="bg-muted"],
 .react-flow .bg-card [class*="bg-card"] {
-  background: #ffffff !important;
+  background: hsl(var(--cream)) !important;
 }
 
 /* === ReactFlow canvas node cards — White on Bone, Ink strokes ===
@@ -1101,17 +1101,17 @@ All colors MUST be HSL for consistency and theming.
    EB Garamond headers. Aqua handles. Same sticker aesthetic as landing. */
 
 .react-flow .glass-card {
-  background: #ffffff !important;
+  background: hsl(var(--cream)) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border: 1px solid #141414 !important;
-  box-shadow: 3px 3px 0 #141414 !important;
-  color: #141414 !important;
+  border: 1px solid hsl(var(--ink-on-cream)) !important;
+  box-shadow: 3px 3px 0 hsl(var(--ink-on-cream)) !important;
+  color: hsl(var(--ink-on-cream)) !important;
   border-radius: 14px !important;
   transition: box-shadow 140ms ease, transform 140ms ease;
 }
 .react-flow .glass-card:hover {
-  box-shadow: 5px 5px 0 #141414 !important;
+  box-shadow: 5px 5px 0 hsl(var(--ink-on-cream)) !important;
   transform: translate(-1px, -1px);
 }
 .react-flow .glass-card::before {
@@ -1123,12 +1123,12 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card strong,
 .react-flow .glass-card label,
 .react-flow .glass-card span {
-  color: #141414;
+  color: hsl(var(--ink-on-cream));
 }
 .react-flow .glass-card h1,
 .react-flow .glass-card h2,
 .react-flow .glass-card h3 {
-  color: #141414;
+  color: hsl(var(--ink-on-cream));
   font-family: var(--font-display, 'EB Garamond'), Georgia, serif;
   letter-spacing: -0.015em;
   font-weight: 500;
@@ -1140,7 +1140,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card .text-muted-foreground\/60,
 .react-flow .glass-card .text-muted-foreground\/70,
 .react-flow .glass-card [class*="text-muted"] {
-  color: rgba(20, 20, 20, 0.50) !important;
+  color: hsl(var(--ink-on-cream) / 0.50) !important;
 }
 
 /* Inner borders — thin ink hairline */
@@ -1148,7 +1148,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card [class*="border-[rgba(8,145,178"],
 .react-flow .glass-card [class*="border-[rgba(14,165,233"],
 .react-flow .glass-card [class*="border-[rgba(34,211,238"] {
-  border-color: rgba(20, 20, 20, 0.10) !important;
+  border-color: hsl(var(--ink-on-cream) / 0.10) !important;
 }
 
 /* Inner surfaces (inputs, muted areas) — warm off-white */
@@ -1160,12 +1160,12 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card [class*="bg-[rgba(8,145,178"],
 .react-flow .glass-card [class*="bg-[rgba(14,165,233"],
 .react-flow .glass-card [class*="bg-[rgba(34,211,238"] {
-  background: #ffffff !important;
+  background: hsl(var(--cream)) !important;
 }
 
 /* Primary bg — Aqua tint */
 .react-flow .glass-card [class*="bg-primary"] {
-  background: rgba(143, 208, 213, 0.25) !important;
+  background: hsl(var(--aqua) / 0.25) !important;
 }
 
 /* Primary / cyan text → Ink on white */
@@ -1173,26 +1173,26 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card [class*="text-[#0891B2"],
 .react-flow .glass-card [class*="text-primary"],
 .react-flow .glass-card [class*="text-cyan"] {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 
 /* Textarea — Ink text on warm off-white */
 .react-flow .glass-card textarea {
-  color: #141414 !important;
-  background: #ffffff !important;
-  border-color: rgba(20, 20, 20, 0.12) !important;
+  color: hsl(var(--ink-on-cream)) !important;
+  background: hsl(var(--cream)) !important;
+  border-color: hsl(var(--ink-on-cream) / 0.12) !important;
 }
 
 /* CTA buttons */
 .react-flow .glass-card .btn-17-primary,
 .react-flow .glass-card .btn-17-primary * {
-  color: #141414 !important;
+  color: hsl(var(--ink-on-cream)) !important;
 }
 
 /* Handles — Aqua dot, white border (pops against bone canvas) */
 .react-flow .glass-card .react-flow__handle {
   background: hsl(var(--aqua)) !important;
-  border-color: #ffffff !important;
+  border-color: hsl(var(--cream)) !important;
   box-shadow: none !important;
 }
 
@@ -1204,46 +1204,46 @@ All colors MUST be HSL for consistency and theming.
 .canvas-toolbar-pill .text-muted-foreground,
 .canvas-toolbar-pill [class*="text-muted"],
 .canvas-toolbar-pill .text-\[\#94a3b8\] {
-  color: rgba(20, 20, 20, 0.50) !important;
+  color: hsl(var(--ink-on-cream) / 0.50) !important;
 }
 .canvas-toolbar-pill .hover\:text-foreground:hover,
 .canvas-toolbar-pill [class*="hover:text-foreground"]:hover {
-  color: rgba(20, 20, 20, 0.85) !important;
+  color: hsl(var(--ink-on-cream) / 0.85) !important;
 }
 .canvas-toolbar-pill [class*="hover:bg-muted"]:hover {
-  background: rgba(20, 20, 20, 0.08) !important;
+  background: hsl(var(--ink-on-cream) / 0.08) !important;
 }
 .canvas-toolbar-pill [class*="bg-card"] {
-  background: rgba(20, 20, 20, 0.06) !important;
+  background: hsl(var(--ink-on-cream) / 0.06) !important;
 }
 .canvas-toolbar-pill [class*="border-border"] {
-  border-color: rgba(20, 20, 20, 0.12) !important;
+  border-color: hsl(var(--ink-on-cream) / 0.12) !important;
 }
 
 /* ReactFlow built-in controls — ink bg to contrast the bone canvas */
 .react-flow__controls {
-  background: #141414 !important;
-  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  background: hsl(var(--ink)) !important;
+  border: 1px solid hsl(var(--bone) / 0.10) !important;
   border-radius: 10px !important;
   overflow: hidden;
   box-shadow: none !important;
 }
 .react-flow__controls-button {
-  background: #141414 !important;
-  border-bottom: 1px solid rgba(234, 230, 220, 0.08) !important;
-  fill: rgba(234, 230, 220, 0.60) !important;
+  background: hsl(var(--ink)) !important;
+  border-bottom: 1px solid hsl(var(--bone) / 0.08) !important;
+  fill: hsl(var(--bone) / 0.60) !important;
 }
 .react-flow__controls-button:hover {
-  background: #1F1F1F !important;
-  fill: #EAE6DC !important;
+  background: hsl(var(--graphite)) !important;
+  fill: hsl(var(--bone)) !important;
 }
 .react-flow__minimap {
-  background: #141414 !important;
-  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  background: hsl(var(--ink)) !important;
+  border: 1px solid hsl(var(--bone) / 0.10) !important;
   border-radius: 10px !important;
 }
 .react-flow__minimap-node {
-  fill: rgba(20, 20, 20, 0.30) !important;
+  fill: hsl(var(--ink-on-cream) / 0.30) !important;
 }
 .react-flow__panel {
   background: transparent !important;
@@ -1266,28 +1266,28 @@ All colors MUST be HSL for consistency and theming.
 
 /* ReactFlow built-in controls / minimap — Ink bg to match dark toolbar */
 .react-flow__controls {
-  background: #141414 !important;
-  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  background: hsl(var(--ink)) !important;
+  border: 1px solid hsl(var(--bone) / 0.10) !important;
   border-radius: 10px !important;
   overflow: hidden;
   box-shadow: none !important;
 }
 .react-flow__controls-button {
-  background: #141414 !important;
-  border-bottom: 1px solid rgba(234, 230, 220, 0.08) !important;
-  fill: rgba(234, 230, 220, 0.60) !important;
+  background: hsl(var(--ink)) !important;
+  border-bottom: 1px solid hsl(var(--bone) / 0.08) !important;
+  fill: hsl(var(--bone) / 0.60) !important;
 }
 .react-flow__controls-button:hover {
-  background: #1F1F1F !important;
-  fill: #EAE6DC !important;
+  background: hsl(var(--graphite)) !important;
+  fill: hsl(var(--bone)) !important;
 }
 .react-flow__minimap {
-  background: #141414 !important;
-  border: 1px solid rgba(234, 230, 220, 0.10) !important;
+  background: hsl(var(--ink)) !important;
+  border: 1px solid hsl(var(--bone) / 0.10) !important;
   border-radius: 10px !important;
 }
 .react-flow__minimap-node {
-  fill: rgba(234, 230, 220, 0.20) !important;
+  fill: hsl(var(--bone) / 0.20) !important;
 }
 .react-flow__panel {
   background: transparent !important;
