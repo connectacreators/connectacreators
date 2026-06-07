@@ -748,6 +748,11 @@ All colors MUST be HSL for consistency and theming.
 .react-flow__handle:hover {
   background: hsl(var(--honey) / 0.65) !important;
 }
+/* Nodes nested inside a folder route context through the folder, so they lose
+   their own connector dots — only the folder connects to the AI assistant. */
+.react-flow__node.node-in-group .react-flow__handle {
+  display: none !important;
+}
 
 /* === AI Assistant node — light card, dark ink text, Aqua accents ===
    Inherits the white card base from .react-flow .glass-card but overrides

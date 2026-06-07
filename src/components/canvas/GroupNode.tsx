@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useRef, useEffect } from "react";
-import { NodeProps, NodeResizer } from "@xyflow/react";
+import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { Folder, X } from "lucide-react";
 
 interface GroupNodeData {
@@ -94,6 +94,10 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Connector dots — wire the whole folder (all nested nodes' context) to the AI assistant */}
+      <Handle type="target" position={Position.Left} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
+      <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 50 }} />
     </div>
   );
 });

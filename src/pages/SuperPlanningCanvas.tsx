@@ -2088,12 +2088,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       });
       return ensureParentOrder(updated);
     });
+    // Inside a folder the node's context flows through the folder, so its own
+    // direct connections (e.g. to the AI assistant) are dropped.
+    setEdges(es => es.filter(e => e.source !== draggedNode.id && e.target !== draggedNode.id));
     // Auto-fit the target group (and old parent if applicable)
     setTimeout(() => {
       autoFitGroup(targetGroup.id);
       if (prevParentId) autoFitGroup(prevParentId);
     }, 50);
-  }, [getInternalNode, getIntersectingNodes, setNodes, autoFitGroup]);
+  }, [getInternalNode, getIntersectingNodes, setNodes, setEdges, autoFitGroup]);
 
   // ─── Context menu handlers for group/ungroup ───
   const handleSelectionContextMenu = useCallback((event: React.MouseEvent) => {
@@ -2181,7 +2184,10 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
       return ensureParentOrder([groupNode, ...updated]);
     });
-  }, [getInternalNode, setNodes]);
+    // Newly nested nodes route context through the folder — drop their own edges.
+    const groupedIds = new Set(selectedNodes.map(n => n.id));
+    setEdges(es => es.filter(e => !groupedIds.has(e.source) && !groupedIds.has(e.target)));
+  }, [getInternalNode, setNodes, setEdges]);
 
   const handleUngroup = useCallback(() => {
     const groupId = contextMenu?.groupId;
@@ -2592,6 +2598,18 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // Nodes inside a folder route their context through the folder, so their own
+  // connector dots are hidden (see `.node-in-group` rule in index.css). The
+  // folder itself carries the dot that wires all nested nodes to the AI assistant.
+  const displayNodes = useMemo(
+    () => nodes.map(n =>
+      n.parentId && n.type !== "groupNode"
+        ? { ...n, className: [n.className, "node-in-group"].filter(Boolean).join(" ") }
+        : n
+    ),
+    [nodes]
+  );
+
   if (isMobile) {
     return (
       <MobileCanvasView
@@ -2716,7 +2734,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         )}
 
         <ReactFlow
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
