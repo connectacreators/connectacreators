@@ -137,7 +137,7 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
       {/* Session name pill */}
       <button
         onClick={() => { setOpen(o => !o); setRenamingId(null); setConfirmDeleteId(null); }}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] text-xs text-[hsl(var(--ink-on-cream))] transition-colors max-w-[140px]"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] text-xs text-[hsl(var(--ink-on-cream))] transition-colors max-w-[140px]"
       >
         <span className="truncate">{activeName}</span>
         <ChevronDown className="w-3 h-3 flex-shrink-0" />
@@ -147,14 +147,14 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
       <button
         onClick={() => { onNewSession?.(); setOpen(false); }}
         title="New session"
-        className="p-1.5 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)] hover:text-[hsl(var(--ink-on-cream))] hover:border-[hsl(var(--ink-on-cream))] transition-colors"
+        className="p-1.5 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)] hover:text-[hsl(var(--ink-on-cream))] hover:border-[hsl(var(--ink-on-cream))] transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-56 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1">
+        <div className="absolute top-full left-0 mt-2 w-56 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1">
           {sessions.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No sessions</div>
           )}
@@ -280,7 +280,7 @@ function ToolsDropdown({ onAddNode }: { onAddNode: (type: "hookGeneratorNode" | 
       </button>
       {/* Invisible bridge prevents gap from closing the dropdown */}
       <div className="absolute h-2 w-full left-0 top-full" />
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
         {TOOLS_ITEMS.map(({ type, icon: Icon, label }) => (
           <button
             key={type}
@@ -313,7 +313,7 @@ function ResearchDropdown({ onAddNode, onOpenViralPicker }: {
       </button>
       {/* Invisible bridge prevents gap from closing the dropdown */}
       <div className="absolute h-2 w-full left-0 top-full" />
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
         {items.map(({ icon: Icon, label, onClick }) => (
           <button
             key={label}
@@ -350,9 +350,9 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {saveStatus && saveStatus !== "idle" && (
           <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium backdrop-blur-sm border shadow-sm transition-opacity ${
-            saveStatus === "saving" ? "bg-[var(--surface-raised)] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
-            saveStatus === "saved" ? "bg-[var(--surface-raised)] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
-            "bg-[var(--surface-raised)] border-[hsl(var(--ink-on-cream))] text-red-500"
+            saveStatus === "saving" ? "bg-white border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
+            saveStatus === "saved" ? "bg-white border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
+            "bg-white border-[hsl(var(--ink-on-cream))] text-red-500"
           }`}>
             {saveStatus === "saving" && <><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Saving...</>}
             {saveStatus === "saved" && <><span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--aqua))]" /> Saved</>}
@@ -364,7 +364,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
       {/* Presence avatars — absolute right */}
       {presenceOthers && myAnimalName && myColor && (
         <div className="absolute right-3 pointer-events-auto">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white border border-[hsl(var(--ink-on-cream))]">
             <PresenceAvatars
               others={presenceOthers}
               myAnimalName={myAnimalName}
@@ -382,7 +382,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
       {/* Center — main toolbar + optional drawing sub-bar */}
       <div className="pointer-events-auto flex flex-col items-center gap-1.5">
         {/* ── Main toolbar pill ── */}
-        <div className="canvas-toolbar-pill flex items-center gap-0.5 px-2 py-1.5 rounded-2xl" style={{ background: "var(--surface-raised)", border: "1px solid hsl(var(--ink-on-cream))", boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))", color: "hsl(var(--ink-on-cream) / 0.65)" }}>
+        <div className="canvas-toolbar-pill flex items-center gap-0.5 px-2 py-1.5 rounded-2xl" style={{ background: "#ffffff", border: "1px solid hsl(var(--ink-on-cream))", boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))", color: "hsl(var(--ink-on-cream) / 0.65)" }}>
           <IconBtn onClick={() => onAddNode("videoNode")}        icon={Instagram}  label="Add Video"    accent tutorialTarget="video-btn" />
           <IconBtn onClick={() => onAddNode("textNoteNode")}     icon={StickyNote} label="Add Note"     accent tutorialTarget="note-btn" />
           <IconBtn onClick={() => onAddNode("mediaNode")}        icon={Paperclip} label="Upload Media" accent />
@@ -439,7 +439,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {/* ── Drawing sub-bar — only when drawing mode is on ── */}
         {drawingMode && (
-          <div className="flex items-center gap-0.5 px-2 py-1 rounded-2xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))]">
+          <div className="flex items-center gap-0.5 px-2 py-1 rounded-2xl bg-white border border-[hsl(var(--ink-on-cream))]">
             {!eraserMode && (
               <>
                 {/* Shape tool — shows active icon, hover opens picker */}
@@ -460,7 +460,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                         <ActiveIcon className="w-3.5 h-3.5" />
                       </button>
                       <div className="absolute h-2 w-full left-0 top-full" />
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 overflow-hidden py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                         {SHAPE_TOOLS.map(({ tool, icon: Icon, label }) => (
                           <button key={tool} onClick={() => onDrawToolChange?.(tool)}
                             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors text-left whitespace-nowrap ${
@@ -497,7 +497,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                     <div className="w-4 h-4 rounded-full border border-white/20" style={{ background: drawColor }} />
                   </button>
                   <div className="absolute h-2 w-full left-0 top-full" />
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                     <div className="flex gap-1.5">
                       {DRAW_COLORS.map(c => (
                         <button key={c} onClick={() => onDrawColorChange?.(c)}
@@ -515,7 +515,7 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
                     <div className="rounded-full" style={{ width: Math.max(4, drawWidth * 1.5), height: Math.max(4, drawWidth * 1.5), background: "hsl(var(--ink-on-cream) / 0.45)" }} />
                   </button>
                   <div className="absolute h-2 w-full left-0 top-full" />
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-[var(--surface-raised)] border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-xl bg-white border border-[hsl(var(--ink-on-cream))] shadow-xl z-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
                     <div className="flex items-center gap-1.5">
                       {([1, 2, 4, 6, 10] as const).map(w => (
                         <button key={w} onClick={() => onDrawWidthChange?.(w)}
