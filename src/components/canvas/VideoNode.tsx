@@ -847,13 +847,13 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   title={`Open source: ${headerTitle || sourceUrl}`}
-                  className={`nodrag truncate hover:underline cursor-pointer ${headerTitle ? "text-[10px] font-medium text-white/75" : "text-[10px] font-semibold"}`}
+                  className={`nodrag truncate hover:underline cursor-pointer ${headerTitle ? "text-[10px] font-semibold text-foreground/90" : "text-[10px] font-semibold"}`}
                   style={headerTitle ? undefined : (theme.labelStyle ?? { color: theme.btnPrimaryText })}
                 >
                   {headerTitle || theme.label}
                 </a>
               ) : headerTitle ? (
-                <span className="text-[10px] font-medium text-white/75 truncate">{headerTitle}</span>
+                <span className="text-[10px] font-semibold text-foreground/90 truncate">{headerTitle}</span>
               ) : (
                 <span className="text-[10px] font-semibold" style={theme.labelStyle ?? { color: theme.btnPrimaryText }}>{theme.label}</span>
               )}
