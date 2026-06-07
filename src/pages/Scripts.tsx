@@ -432,9 +432,10 @@ export default function Scripts() {
   const [view, setView] = useState<View>(urlClientId ? "client-detail" : "clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [parsedLines, setParsedLines] = useState<ScriptLine[]>([]);
-  // Full ordered block list (headings + lines) — single source of truth for the
-  // unified script document.
+  // Full ordered block list (headings + lines) for the Doc Editor tab.
   const [docBlocks, setDocBlocks] = useState<ScriptLine[]>([]);
+  const [scriptEditorTab, setScriptEditorTab] = useState<"cards" | "doc">("cards");
+  const [savingDocEditor, setSavingDocEditor] = useState(false);
 
   // New client form
   const [newName, setNewName] = useState("");
@@ -1342,12 +1343,11 @@ export default function Scripts() {
     setView("view-script");
   };
 
-  // Load the full block list whenever a script is open (unified editor — the block
-  // document is the single source of truth and always renders).
+  // Lazy-load the full block list when the Doc Editor tab is opened for a script.
   // Lazy backfill: if no heading rows exist, synthesize headings in memory from the
   // distinct content-line sections (canonical order). They persist on next save.
   useEffect(() => {
-    if (!viewingScriptId) return;
+    if (scriptEditorTab !== "doc" || !viewingScriptId) return;
     let cancelled = false;
     (async () => {
       const all = await getScriptBlocks(viewingScriptId);
@@ -1358,7 +1358,7 @@ export default function Scripts() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingScriptId]);
+  }, [scriptEditorTab, viewingScriptId]);
 
   const refreshLinkedVideoEdit = async (scriptId: string) => {
     const { data } = await supabase.from("video_edits").select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", scriptId).maybeSingle();
@@ -2715,8 +2715,37 @@ export default function Scripts() {
         {/* ===== VIEW SCRIPT RESULT ===== */}
         {view === "view-script" && parsedLines.length > 0 && (
           <div className="space-y-4 animate-fade-in">
-            {/* Unified editor: chrome (Winning Idea / Inspiration / Caption / actions)
-                always renders, followed by the block document. No tabs. */}
+            {/* Tab switcher: Card View | Doc Editor — editorial underline */}
+            <div className="flex items-center" style={{ borderBottom: "1px solid hsl(var(--bone) / 0.08)" }}>
+              <button
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color: scriptEditorTab === "cards" ? "hsl(var(--cream))" : "hsl(var(--bone) / 0.45)",
+                  borderBottom: `2px solid ${scriptEditorTab === "cards" ? "hsl(var(--cream))" : "transparent"}`,
+                  marginBottom: -1,
+                }}
+                onClick={() => setScriptEditorTab("cards")}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Card View
+              </button>
+              <button
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color: scriptEditorTab === "doc" ? "hsl(var(--cream))" : "hsl(var(--bone) / 0.45)",
+                  borderBottom: `2px solid ${scriptEditorTab === "doc" ? "hsl(var(--cream))" : "transparent"}`,
+                  marginBottom: -1,
+                }}
+                onClick={() => setScriptEditorTab("doc")}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Doc Editor
+              </button>
+            </div>
+
+            {/* Card View content */}
+            {scriptEditorTab === "cards" && (
+            <>
             {/* Winning Idea block — flat editorial card, no glow */}
             {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
               <div className="editorial-card mb-4" style={{ padding: "20px 22px" }}>
@@ -2980,40 +3009,55 @@ export default function Scripts() {
 
             <div className="flex items-center justify-end gap-2 mb-4 flex-wrap">
               <div className="flex gap-1.5 flex-wrap">
-                {/* Unified Save — one click persists the block document (single source
-                    of truth), the caption/metadata, and the gdrive footage auto-link. */}
+                {/* Save button — persists current line order & sections + caption to DB */}
                 <Button
                   onClick={async () => {
-                    const sid = viewingScriptId;
-                    if (!sid || savingScript) return;
+                    if (!viewingScriptId || savingScript) return;
                     setSavingScript(true);
+                    // Merge any in-progress inline edit so Save never overwrites unsaved text
+                    const editingLineNum = editingLineKey ? parseInt(editingLineKey.replace("line-", "")) : null;
+                    const linesToSave = parsedLines.map((l) =>
+                      editingLineNum && l.line_number === editingLineNum && editLineText.trim()
+                        ? { ...l, text: editLineText.trim() }
+                        : l
+                    );
+                    if (editingLineKey) setEditingLineKey(null);
                     try {
-                      // Authoritative block save: preserves heading rows, recomputes each
-                      // line's section from its nearest heading, renumbers all.
-                      const saved = await saveScriptBlocks(sid, docBlocks);
-                      setDocBlocks(withUids(saved));
-                      // Save caption alongside the document
-                      await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", sid);
-                      // Sync caption to linked video_edits record
-                      await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", sid);
-                      // Keep legacy content-only reads (AI/teleprompter/public/canvas) consistent.
-                      const fresh = await getScriptLines(sid);
-                      setParsedLines(fresh);
-                      // Auto-link Google Drive footage if present and not yet linked (preserved
-                      // from the former Doc Editor save).
-                      const gdriveLink = viewingMetadata?.google_drive_link;
-                      if (gdriveLink && selectedClient && (!linkedVideoEdit?.footage || linkedVideoEdit?.upload_source !== 'supabase')) {
-                        const { data: existing } = await supabase.from("video_edits").select("id, deleted_at").eq("script_id", sid).maybeSingle();
-                        let veData: any;
-                        if (existing) {
-                          const { data: updated } = await supabase.from("video_edits").update({ deleted_at: null, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, footage: gdriveLink, upload_source: 'gdrive' }).eq("id", existing.id).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
-                          veData = updated;
-                        } else {
-                          const { data: inserted } = await supabase.from("video_edits").insert({ client_id: selectedClient.id, script_id: sid, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, file_url: gdriveLink, footage: gdriveLink, upload_source: 'gdrive', ...lifecycleUpdate("Not started") }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
-                          veData = inserted;
+                      // HARD INVARIANT: Card View must not wipe heading rows. Rebuild the
+                      // FULL block list — load existing headings (labels/roles) to preserve
+                      // them; if none exist, synthesize canonical defaults — then interleave
+                      // each heading with its grouped content lines, and save via saveScriptBlocks.
+                      const existing = await getScriptBlocks(viewingScriptId);
+                      const headings = existing.filter((b) => b.block_kind === "heading");
+                      let blocks: ScriptLine[];
+                      if (headings.length === 0) {
+                        blocks = synthesizeBlocksFromLines(linesToSave);
+                      } else {
+                        // Map role -> heading; group lines by their section under matching heading.
+                        const usedRoles = new Set<string>();
+                        blocks = [];
+                        for (const h of headings) {
+                          blocks.push({ ...h, block_kind: "heading" });
+                          usedRoles.add(h.section);
+                          for (const l of linesToSave) {
+                            if ((l.section || "body") === h.section) blocks.push({ ...l, block_kind: "line" });
+                          }
                         }
-                        if (veData) setLinkedVideoEdit({ id: veData.id, client_id: veData.client_id, footage: veData.footage, file_submission: veData.file_submission, upload_source: veData.upload_source, storage_path: veData.storage_path, storage_url: veData.storage_url, file_size_bytes: veData.file_size_bytes });
+                        // Lines whose section has no matching heading: append under a synthesized
+                        // tail (fold into the first heading's role) so nothing is dropped.
+                        const orphans = linesToSave.filter((l) => !usedRoles.has(l.section || "body"));
+                        if (orphans.length > 0) {
+                          const fallbackRole = headings[0].section;
+                          for (const l of orphans) blocks.push({ ...l, section: fallbackRole, block_kind: "line" });
+                        }
                       }
+                      await saveScriptBlocks(viewingScriptId, blocks);
+                      // Save caption alongside the script lines
+                      await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", viewingScriptId);
+                      // Sync caption to linked video_edits record
+                      await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", viewingScriptId);
+                      const fresh = await getScriptLines(viewingScriptId);
+                      setParsedLines(fresh);
                       setIsDirty(false);
                       toast.success(tr({ en: "Script saved!", es: "¡Script guardado!" }, language));
                     } catch {
@@ -3062,70 +3106,126 @@ export default function Scripts() {
                 </Button>
               </div>
             </div>
-            {/* Unified block document — single source of truth (docBlocks).
-                Renamable/custom sections, inline editing, slash, '# ', drag,
-                line-type bars, empty sections visible. Saving is owned by the
-                action row above (embedded mode hides the editor's own Save). */}
-            <ScriptDocEditor
-              embedded
-              blocks={docBlocks}
-              onBlocksChange={setDocBlocks}
-              scriptTitle={viewingMetadata?.idea_ganadora ?? ""}
-              scriptMeta={
-                [viewingMetadata?.target, viewingMetadata?.formato]
-                  .filter(Boolean)
-                  .join(" · ")
+            {/* Render ALL lines in a single flat DndContext for cross-section drag & drop */}
+            <DndContext sensors={flatSensors} collisionDetection={closestCenter} onDragEnd={async (event: DragEndEvent) => {
+              const { active, over } = event;
+              if (!over || active.id === over.id || !viewingScriptId) return;
+
+              const overId = over.id as string;
+
+              // Handle drop onto empty section placeholder (e.g. "drop-hook", "drop-body", "drop-cta")
+              if (overId.startsWith("drop-")) {
+                const targetSection = overId.replace("drop-", "") as "hook" | "body" | "cta";
+                const lineIdx = parsedLines.findIndex((l) => `line-${l.line_number}` === active.id);
+                if (lineIdx === -1) return;
+                pushUndo();
+                // Move line to the target section — place at start of that section
+                const line = { ...parsedLines[lineIdx], section: targetSection };
+                const rest = parsedLines.filter((_, i) => i !== lineIdx);
+                // Insert at the position of first line in that section, or at section boundary
+                const sectionOrder = ["hook", "body", "cta"];
+                const targetPos = rest.findIndex((l) => sectionOrder.indexOf(l.section) > sectionOrder.indexOf(targetSection));
+                const insertAt = targetPos === -1 ? rest.length : targetPos;
+                const updated = [...rest.slice(0, insertAt), line, ...rest.slice(insertAt)];
+                setParsedLines(updated);
+                setIsDirty(true);
+                await reorderAllLines(viewingScriptId, updated);
+                const fresh = await getScriptLines(viewingScriptId);
+                if (fresh.length > 0) setParsedLines(fresh);
+                setIsDirty(false);
+                return;
               }
-              onExportPDF={() => {
-                const typeColors: Record<string, string> = {
-                  filming: '#f97316',
-                  actor: 'hsl(var(--aqua))',
-                  editor: 'hsl(var(--honey))',
-                  text_on_screen: '#475569',
-                };
-                const sectionOrder = ['hook', 'body', 'cta'] as const;
-                const sectionLabels: Record<string, string> = { hook: 'HOOK', body: 'BODY', cta: 'CTA' };
-                // Export from the live block list (excludes heading rows, includes unsaved edits).
-                const contentLines = docBlocks.filter((b) => b.block_kind !== "heading");
-                const grouped: Record<string, typeof parsedLines> = { hook: [], body: [], cta: [] };
-                contentLines.forEach(l => { const s = l.section || 'body'; if (grouped[s]) grouped[s].push(l); else grouped['body'].push(l); });
 
-                const linesHtml = (ls: typeof parsedLines) => ls.map(l => {
-                  const content = l.rich_text || l.text || '';
-                  return `<div style="display:flex;align-items:stretch;margin-bottom:3px;page-break-inside:avoid;">
-                    <div style="width:4px;flex-shrink:0;background:${typeColors[l.line_type] || '#475569'};border-radius:2px;margin-right:10px;"></div>
-                    <div style="flex:1;font-size:13px;line-height:1.6;color:#1e293b;">${content}</div>
-                  </div>`;
-                }).join('');
+              const allItemIds = parsedLines.map((l) => `line-${l.line_number}`);
+              const oldIndex = allItemIds.indexOf(active.id as string);
+              const newIndex = allItemIds.indexOf(overId);
+              if (oldIndex === -1 || newIndex === -1) return;
 
-                const sectionsHtml = sectionOrder.filter(s => grouped[s].length > 0).map(s => `
-                  <div style="margin-bottom:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px;">
-                      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
-                      <span style="font-size:9px;font-weight:700;letter-spacing:3px;color:#94a3b8;">${sectionLabels[s]}</span>
-                      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
-                    </div>
-                    ${linesHtml(grouped[s])}
-                  </div>
-                `).join('');
+              pushUndo();
 
-                const title = viewingMetadata?.idea_ganadora || 'Script';
-                const meta = [viewingMetadata?.target, viewingMetadata?.formato].filter(Boolean).join(' · ');
-                const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
-                  <style>body{margin:0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:white;}@media print{body{padding:20px;}@page{margin:15mm;}}</style>
-                </head><body>
-                  <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 4px;">${title}</h1>
-                  <p style="font-size:11px;color:#94a3b8;margin:0 0 28px;">${meta}</p>
-                  ${sectionsHtml}
-                </body></html>`;
+              const reordered = arrayMove([...parsedLines], oldIndex, newIndex);
 
-                const w = window.open('', '_blank', 'width=800,height=700');
-                if (!w) { window.print(); return; }
-                w.document.write(html);
-                w.document.close();
-                w.onload = () => w.print();
-              }}
-            />
+              // For the moved line: take the section of the line above it (or "hook" if first)
+              const withSections = reordered.map((line, idx) => {
+                if (idx !== newIndex) return line;
+                const neighborSection = idx > 0 ? reordered[idx - 1].section : "hook";
+                return { ...line, section: neighborSection };
+              });
+
+              setParsedLines(withSections);
+              setIsDirty(true);
+              await reorderAllLines(viewingScriptId, withSections);
+              const fresh = await getScriptLines(viewingScriptId);
+              if (fresh.length > 0) setParsedLines(fresh);
+              setIsDirty(false);
+            }}>
+              <SortableContext items={parsedLines.map((l) => `line-${l.line_number}`)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {(["hook", "body", "cta"] as const).map((section) => {
+                    const sectionLabels: Record<string, string> = { hook: "Hook", body: "Body", cta: "CTA" };
+                    const sectionLines = parsedLines.filter((l) => l.section === section);
+                    const handleAddPlaceholder = async () => {
+                      if (!viewingScriptId) return;
+                      await addScriptLine(viewingScriptId, section, "filming", "");
+                      const fresh = await getScriptLines(viewingScriptId);
+                      setParsedLines(fresh);
+                    };
+                    return (
+                      <div key={section}>
+                        <div className="flex items-center gap-3 mt-5 mb-3">
+                          <span
+                            className="editorial-eyebrow"
+                            style={{ fontSize: 10, letterSpacing: "0.22em", color: "hsl(var(--bone) / 0.75)" }}
+                          >
+                            {sectionLabels[section].toUpperCase()}
+                          </span>
+                          <button
+                            onClick={handleAddPlaceholder}
+                            className="w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+                            style={{ border: "1px dashed hsl(var(--bone) / 0.30)", color: "hsl(var(--bone) / 0.55)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.60)"; e.currentTarget.style.color = "hsl(var(--cream))"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.30)"; e.currentTarget.style.color = "hsl(var(--bone) / 0.55)"; }}
+                            title={`Agregar línea a ${sectionLabels[section]}`}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                          <div className="flex-1 h-px" style={{ background: "hsl(var(--bone) / 0.08)" }} />
+                        </div>
+                        {sectionLines.length === 0 ? (
+                          <SectionDropZone section={section} onClick={handleAddPlaceholder} />
+                        ) : (
+                          <div className="space-y-3">
+                            {sectionLines.map((line) => {
+                              const lineKey = `line-${line.line_number}`;
+                              const globalIndex = parsedLines.indexOf(line);
+                              return (
+                                <SortableLineItem
+                                  key={lineKey}
+                                  line={line}
+                                  lineKey={lineKey}
+                                  globalIndex={globalIndex}
+                                  isEditingThis={editingLineKey === lineKey}
+                                  editLineText={editLineText}
+                                  setEditLineText={setEditLineText}
+                                  setEditingLineKey={setEditingLineKey}
+                                  viewingScriptId={viewingScriptId}
+                                  updateScriptLineType={updateScriptLineType}
+                                  updateScriptLine={updateScriptLine}
+                                  deleteScriptLine={deleteScriptLine}
+                                  getScriptLines={getScriptLines}
+                                  setParsedLines={setParsedLines}
+                                  pushUndo={pushUndo}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
 
             {/* Footage & File Submission */}
             {viewingMetadata && (() => {
@@ -3384,6 +3484,105 @@ export default function Scripts() {
               )}
               </>);
             })()}
+            </>
+            )}
+
+            {/* Doc Editor */}
+            {scriptEditorTab === "doc" && (
+              <ScriptDocEditor
+                blocks={docBlocks}
+                onBlocksChange={setDocBlocks}
+                scriptTitle={viewingMetadata?.idea_ganadora ?? ""}
+                scriptMeta={
+                  [viewingMetadata?.target, viewingMetadata?.formato]
+                    .filter(Boolean)
+                    .join(" · ")
+                }
+                onSave={async () => {
+                  const sid = viewingScriptId;
+                  if (!sid || savingDocEditor) return;
+                  setSavingDocEditor(true);
+                  try {
+                    // Authoritative block save: preserves heading rows, recomputes each
+                    // line's section from its nearest heading, renumbers all.
+                    const saved = await saveScriptBlocks(sid, docBlocks);
+                    setDocBlocks(withUids(saved));
+                    // Keep Card View consistent (content-only).
+                    const fresh = await getScriptLines(sid);
+                    setParsedLines(fresh);
+                    // Auto-save Google Drive link to footage if present and not yet linked
+                    const gdriveLink = viewingMetadata?.google_drive_link;
+                    if (gdriveLink && selectedClient && (!linkedVideoEdit?.footage || linkedVideoEdit?.upload_source !== 'supabase')) {
+                      const { data: existing } = await supabase.from("video_edits").select("id, deleted_at").eq("script_id", sid).maybeSingle();
+                      let veData: any;
+                      if (existing) {
+                        const { data: updated } = await supabase.from("video_edits").update({ deleted_at: null, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, footage: gdriveLink, upload_source: 'gdrive' }).eq("id", existing.id).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                        veData = updated;
+                      } else {
+                        const { data: inserted } = await supabase.from("video_edits").insert({ client_id: selectedClient.id, script_id: sid, reel_title: viewingMetadata?.idea_ganadora || "Untitled", script_url: `${window.location.origin}/s/${sid}`, file_url: gdriveLink, footage: gdriveLink, upload_source: 'gdrive', ...lifecycleUpdate("Not started") }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
+                        veData = inserted;
+                      }
+                      if (veData) setLinkedVideoEdit({ id: veData.id, client_id: veData.client_id, footage: veData.footage, file_submission: veData.file_submission, upload_source: veData.upload_source, storage_path: veData.storage_path, storage_url: veData.storage_url, file_size_bytes: veData.file_size_bytes });
+                    }
+                    toast.success(tr({ en: "Script saved!", es: "¡Script guardado!" }, language));
+                  } catch {
+                    toast.error(tr({ en: "Error saving script", es: "Error al guardar" }, language));
+                  } finally {
+                    setSavingDocEditor(false);
+                  }
+                }}
+                onExportPDF={() => {
+                  const typeColors: Record<string, string> = {
+                    filming: '#f97316',
+                    actor: 'hsl(var(--aqua))',
+                    editor: 'hsl(var(--honey))',
+                    text_on_screen: '#475569',
+                  };
+                  const sectionOrder = ['hook', 'body', 'cta'] as const;
+                  const sectionLabels: Record<string, string> = { hook: 'HOOK', body: 'BODY', cta: 'CTA' };
+                  // Export from the live Doc block list (excludes heading rows, includes unsaved edits).
+                  const contentLines = docBlocks.filter((b) => b.block_kind !== "heading");
+                  const grouped: Record<string, typeof parsedLines> = { hook: [], body: [], cta: [] };
+                  contentLines.forEach(l => { const s = l.section || 'body'; if (grouped[s]) grouped[s].push(l); else grouped['body'].push(l); });
+
+                  const linesHtml = (ls: typeof parsedLines) => ls.map(l => {
+                    const content = l.rich_text || l.text || '';
+                    return `<div style="display:flex;align-items:stretch;margin-bottom:3px;page-break-inside:avoid;">
+                      <div style="width:4px;flex-shrink:0;background:${typeColors[l.line_type] || '#475569'};border-radius:2px;margin-right:10px;"></div>
+                      <div style="flex:1;font-size:13px;line-height:1.6;color:#1e293b;">${content}</div>
+                    </div>`;
+                  }).join('');
+
+                  const sectionsHtml = sectionOrder.filter(s => grouped[s].length > 0).map(s => `
+                    <div style="margin-bottom:16px;">
+                      <div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px;">
+                        <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                        <span style="font-size:9px;font-weight:700;letter-spacing:3px;color:#94a3b8;">${sectionLabels[s]}</span>
+                        <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                      </div>
+                      ${linesHtml(grouped[s])}
+                    </div>
+                  `).join('');
+
+                  const title = viewingMetadata?.idea_ganadora || 'Script';
+                  const meta = [viewingMetadata?.target, viewingMetadata?.formato].filter(Boolean).join(' · ');
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+                    <style>body{margin:0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:white;}@media print{body{padding:20px;}@page{margin:15mm;}}</style>
+                  </head><body>
+                    <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 4px;">${title}</h1>
+                    <p style="font-size:11px;color:#94a3b8;margin:0 0 28px;">${meta}</p>
+                    ${sectionsHtml}
+                  </body></html>`;
+
+                  const w = window.open('', '_blank', 'width=800,height=700');
+                  if (!w) { window.print(); return; }
+                  w.document.write(html);
+                  w.document.close();
+                  w.onload = () => w.print();
+                }}
+                saving={savingDocEditor}
+              />
+            )}
           </div>
         )}
       </div>

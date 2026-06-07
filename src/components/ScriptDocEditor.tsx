@@ -143,16 +143,11 @@ function SortableRow({ uid, children, className }: SortableRowProps) {
 export interface ScriptDocEditorProps {
   blocks: ScriptLine[];
   onBlocksChange: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
-  scriptTitle?: string;
-  scriptMeta?: string;
-  onSave?: () => Promise<void>;
+  scriptTitle: string;
+  scriptMeta: string;
+  onSave: () => Promise<void>;
   onExportPDF: () => void;
   saving?: boolean;
-  // When true, the editor renders as part of the unified script screen: it hides
-  // its own title/meta header and its own Save button (the surrounding action row
-  // owns saving + title display). The B/I/U toolbar, PDF button, the document and
-  // the "Add section" affordance remain.
-  embedded?: boolean;
 }
 
 interface LineEditorProps {
@@ -470,7 +465,6 @@ export default function ScriptDocEditor({
   onSave,
   onExportPDF,
   saving,
-  embedded = false,
 }: ScriptDocEditorProps) {
   const [activeUid, setActiveUid] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -940,35 +934,27 @@ export default function ScriptDocEditor({
           PDF
         </button>
 
-        {/* Save button — hidden in embedded mode (the unified action row owns saving). */}
-        {!embedded && (
-          <button
-            className="editorial-pill px-3 py-1 text-[11px] font-medium disabled:opacity-50"
-            data-active="true"
-            onClick={onSave}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        )}
+        {/* Save button */}
+        <button
+          className="editorial-pill px-3 py-1 text-[11px] font-medium disabled:opacity-50"
+          data-active="true"
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
       </div>
 
       {/* Document page */}
       <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink))]">
         <div className="editorial-card doc-print-area max-w-[660px] mx-auto px-10 py-10">
-          {/* Title/meta header — hidden in embedded mode (the unified screen's
-              Winning-Idea chrome already shows title + meta above the document). */}
-          {!embedded && (
-            <>
-              <div
-                className="mb-1 font-serif font-medium text-foreground"
-                style={{ fontSize: 22, letterSpacing: "-0.005em" }}
-              >
-                {scriptTitle || "Untitled Script"}
-              </div>
-              <div className="text-[11px] text-[hsl(var(--bone) / 0.55)] mb-7">{scriptMeta}</div>
-            </>
-          )}
+          <div
+            className="mb-1 font-serif font-medium text-foreground"
+            style={{ fontSize: 22, letterSpacing: "-0.005em" }}
+          >
+            {scriptTitle || "Untitled Script"}
+          </div>
+          <div className="text-[11px] text-[hsl(var(--bone) / 0.55)] mb-7">{scriptMeta}</div>
 
           {/* Single DndContext/SortableContext over the whole block stream so a
               line can move between sections and a heading can move with its group.
