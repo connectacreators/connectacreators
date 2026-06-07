@@ -752,6 +752,18 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   const isLongYt = isYt && !isYtShort;
   const platform = detectPlatform(d.url || urlInput);
   const theme = PLATFORM_THEME[platform];
+  // Best available human-readable title for the node header — real video title
+  // first, then a freshly-derived caption/transcript label. Deriving live (rather
+  // than trusting the persisted videoLabel) lets nodes that were seeded with the
+  // generic "Video" fallback before their metadata loaded upgrade to a real title.
+  const derivedTitle = deriveVideoLabel(
+    videoTitle || d.videoTitle,
+    d.caption,
+    d.transcription,
+    d.channel_username,
+  );
+  const headerTitle = derivedTitle === "Video" ? (videoLabel && videoLabel !== "Video" ? videoLabel : null) : derivedTitle;
+  const sourceUrl = d.url || null;
   const urlForDetect = d.url || urlInput;
   const isYouTubeShort = /youtube\.com\/shorts\//.test(urlForDetect);
   const isFbReel = /facebook\.com\/reel/.test(urlForDetect);
@@ -828,8 +840,20 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
           <div className="flex items-center justify-between px-3 py-1.5" style={{ background: theme.headerBg, borderBottom: `1px solid ${theme.headerBorder}`, cursor: "grab" }}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <PlatformIcon platform={platform} />
-              {videoLabel ? (
-                <span className="text-[10px] font-medium text-white/75 truncate">{videoLabel}</span>
+              {sourceUrl ? (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Open source: ${headerTitle || sourceUrl}`}
+                  className={`nodrag truncate hover:underline cursor-pointer ${headerTitle ? "text-[10px] font-medium text-white/75" : "text-[10px] font-semibold"}`}
+                  style={headerTitle ? undefined : (theme.labelStyle ?? { color: theme.btnPrimaryText })}
+                >
+                  {headerTitle || theme.label}
+                </a>
+              ) : headerTitle ? (
+                <span className="text-[10px] font-medium text-white/75 truncate">{headerTitle}</span>
               ) : (
                 <span className="text-[10px] font-semibold" style={theme.labelStyle ?? { color: theme.btnPrimaryText }}>{theme.label}</span>
               )}
