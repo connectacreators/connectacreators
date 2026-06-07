@@ -133,6 +133,24 @@ function ScriptLineEditor({
     return () => registerEditor(idx, null);
   }, [editor, idx, registerEditor]);
 
+  // Keep the uncontrolled TipTap editor synced to the `line` source of truth.
+  // The list is keyed by array index, so when a line is inserted/removed above this
+  // row React reuses this same editor instance for a *different* line. Without this
+  // sync the editor keeps rendering the previous line's text — which surfaces as
+  // duplicated/misplaced lines. We only push content while the editor is NOT focused,
+  // so the cursor of the line the user is actively typing in is never disturbed.
+  useEffect(() => {
+    if (!editor || editor.isFocused) return;
+    const incoming = line.rich_text
+      ? DOMPurify.sanitize(line.rich_text)
+      : (line.text || "");
+    if (incoming !== editor.getHTML()) {
+      editor.commands.setContent(incoming, false);
+    }
+    // Intentionally excludes `editor`-identity churn; runs when the line's data changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, line.rich_text, line.text]);
+
   const currentType = TYPE_OPTIONS.find(o => o.type === line.line_type);
 
   return (
