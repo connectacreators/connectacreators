@@ -35,7 +35,7 @@ export const PALETTES: Record<PaletteId, Palette> = {
     ink:        '265 28% 9%',
     graphite:   '265 26% 14%',
     bone:       '285 26% 92%',
-    aqua:       '265 41% 74%',
+    aqua:       '280 50% 62%',  // clear confident purple (was a washed-out periwinkle that read as cyan)
     honey:      '42 76% 64%',
     honeyDeep:  '342 50% 46%',
     cream:      '285 52% 87%',  // clear soft lavender
