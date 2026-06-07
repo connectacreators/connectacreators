@@ -365,7 +365,7 @@ const LINE_COLORS: Record<string, { color: string; label: string }> = {
   filming: { color: "#f97316", label: "Filming" },
   actor: { color: "#d4d4d4", label: "Actor" },
   editor: { color: "hsl(var(--aqua))", label: "Editor" },
-  text_on_screen: { color: "#60a5fa", label: "Text" },
+  text_on_screen: { color: "hsl(var(--honey))", label: "Text" },
 };
 const SECTION_ORDER = ["hook", "body", "cta"] as const;
 const SECTION_COLORS: Record<string, string> = {

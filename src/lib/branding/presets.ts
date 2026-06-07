@@ -18,7 +18,7 @@ export const PALETTES: Record<PaletteId, Palette> = {
     aqua:       '199 89% 60%',
     honey:      '45 96% 56%',
     honeyDeep:  '0 73% 50%',
-    cream:      '214 46% 86%',  // clearly cool blue-grey, still light
+    cream:      '214 52% 85%',  // clear cool blue-grey
     inkOnCream: '215 28% 9%',
   },
   forest: {
@@ -28,7 +28,7 @@ export const PALETTES: Record<PaletteId, Palette> = {
     aqua:       '131 24% 62%',
     honey:      '30 56% 59%',
     honeyDeep:  '19 64% 44%',
-    cream:      '100 34% 86%',  // clearly sage green, still light
+    cream:      '110 40% 85%',  // clear sage
     inkOnCream: '145 28% 9%',
   },
   plum: {
@@ -38,7 +38,7 @@ export const PALETTES: Record<PaletteId, Palette> = {
     aqua:       '265 41% 74%',
     honey:      '42 76% 64%',
     honeyDeep:  '342 50% 46%',
-    cream:      '285 46% 88%',  // clearly soft lavender, still light
+    cream:      '285 52% 87%',  // clear soft lavender
     inkOnCream: '265 28% 9%',
   },
   crimson: {
@@ -48,7 +48,7 @@ export const PALETTES: Record<PaletteId, Palette> = {
     aqua:       '0 65% 62%',
     honey:      '33 72% 67%',
     honeyDeep:  '0 53% 42%',
-    cream:      '18 56% 88%',   // clearly warm blush, still light
+    cream:      '16 62% 87%',   // clear warm blush
     inkOnCream: '0 19% 8%',
   },
   mono: {

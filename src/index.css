@@ -751,7 +751,7 @@ All colors MUST be HSL for consistency and theming.
    to light-mode equivalents so it reads properly on the white background.
    Aqua is kept as the AI interaction accent color ("the blue"). */
 .react-flow .glass-card.canvas-ai-node {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
   border: 1px solid hsl(var(--ink-on-cream)) !important;
   box-shadow: 3px 3px 0 hsl(var(--ink-on-cream)) !important;
   color: hsl(var(--ink-on-cream)) !important;
@@ -773,7 +773,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card.canvas-ai-node [class*="bg-muted"],
 .react-flow .glass-card.canvas-ai-node [class*="bg-card"],
 .react-flow .glass-card.canvas-ai-node [class*="bg-background"] {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
 }
 /* Inner borders → thin ink hairline */
 .react-flow .glass-card.canvas-ai-node [class*="border-border"] {
@@ -782,7 +782,7 @@ All colors MUST be HSL for consistency and theming.
 /* Inputs → light surfaces with dark text */
 .react-flow .glass-card.canvas-ai-node input,
 .react-flow .glass-card.canvas-ai-node textarea {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
   color: hsl(var(--ink-on-cream)) !important;
   border-color: hsl(var(--ink-on-cream) / 0.14) !important;
 }
@@ -1045,7 +1045,7 @@ All colors MUST be HSL for consistency and theming.
 }
 /* bg-muted everywhere in react-flow → pure white (no tinting inside nodes) */
 .react-flow [class*="bg-muted"] {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
 }
 /* prose-invert inside canvas nodes: override to dark prose */
 .react-flow .prose-invert,
@@ -1072,7 +1072,7 @@ All colors MUST be HSL for consistency and theming.
    editorial card treatment. */
 .react-flow .bg-card,
 .react-flow [class~="bg-card"] {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
 }
 .react-flow .bg-card p,
 .react-flow .bg-card span,
@@ -1092,7 +1092,7 @@ All colors MUST be HSL for consistency and theming.
 }
 .react-flow .bg-card [class*="bg-muted"],
 .react-flow .bg-card [class*="bg-card"] {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
 }
 
 /* === ReactFlow canvas node cards — White on Bone, Ink strokes ===
@@ -1101,7 +1101,7 @@ All colors MUST be HSL for consistency and theming.
    EB Garamond headers. Aqua handles. Same sticker aesthetic as landing. */
 
 .react-flow .glass-card {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border: 1px solid hsl(var(--ink-on-cream)) !important;
@@ -1160,7 +1160,7 @@ All colors MUST be HSL for consistency and theming.
 .react-flow .glass-card [class*="bg-[rgba(8,145,178"],
 .react-flow .glass-card [class*="bg-[rgba(14,165,233"],
 .react-flow .glass-card [class*="bg-[rgba(34,211,238"] {
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
 }
 
 /* Primary bg — Aqua tint */
@@ -1179,7 +1179,7 @@ All colors MUST be HSL for consistency and theming.
 /* Textarea — Ink text on warm off-white */
 .react-flow .glass-card textarea {
   color: hsl(var(--ink-on-cream)) !important;
-  background: hsl(var(--cream)) !important;
+  background: color-mix(in oklab, hsl(var(--cream)) 42%, white) !important; /* STATUS: brightened palette surface — node card pops above tinted canvas */
   border-color: hsl(var(--ink-on-cream) / 0.12) !important;
 }
 
