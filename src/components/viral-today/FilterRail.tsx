@@ -11,7 +11,6 @@
 // component itself is layout-agnostic and just fills its container's height.
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { isCanonicalNiche, nicheLabel, CONTENT_FORMATS, type ContentFormat } from "@/lib/video-taxonomy";
 import type { FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
@@ -100,30 +99,22 @@ export function FilterRail(props: FilterRailProps) {
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
 
         {/* ── Category ── */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 px-1">Category</p>
-          <div className="flex flex-col gap-0.5">
+        <Field label="Category">
+          <select
+            value={props.activeFormat}
+            onChange={(e) => props.onFormatChange(e.target.value as ContentFormat | "all")}
+            className={selectClass}
+          >
             {categories.map(({ slug, label }) => {
               const count = props.formatCounts[slug];
-              const on = props.activeFormat === slug;
               return (
-                <button
-                  key={slug}
-                  onClick={() => props.onFormatChange(slug)}
-                  className={cn(
-                    "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-xs text-left transition-colors",
-                    on ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                  )}
-                >
-                  <span className="truncate">{label}</span>
-                  {typeof count === "number" && count > 0 && (
-                    <span className={cn("text-[10px] tabular-nums", on ? "text-primary/70" : "text-muted-foreground/60")}>{count}</span>
-                  )}
-                </button>
+                <option key={slug} value={slug}>
+                  {label}{typeof count === "number" && count > 0 ? ` (${count})` : ""}
+                </option>
               );
             })}
-          </div>
-        </div>
+          </select>
+        </Field>
 
         <div className="h-px bg-border" />
 

@@ -2079,7 +2079,7 @@ export default function ViralToday() {
                 <div className="flex gap-6 items-start">
 
                   {/* Desktop filter rail */}
-                  <aside className="hidden lg:flex flex-col w-[220px] shrink-0 self-start sticky top-0 max-h-[calc(100vh-7.5rem)] rounded-xl border border-border bg-card/40 overflow-hidden">
+                  <aside className="hidden lg:flex flex-col w-[220px] shrink-0 self-start sticky top-2 h-[calc(100vh-6rem)] rounded-xl border border-border bg-card/40 overflow-hidden">
                     <FilterRail
                       activeFormat={activeFormat}
                       formatCounts={formatCounts}
