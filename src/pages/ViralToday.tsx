@@ -809,21 +809,12 @@ function VideoCard({
         {/* Channel + time */}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
-          {video.user_submitted ? (
-            <span
-              className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold"
-              style={{
-                background: "rgba(34,211,238,0.10)",
-                color: "rgba(34,211,238,0.95)",
-                border: "1px solid rgba(34,211,238,0.3)",
-              }}
-              title="You added this from /ai"
-            >
-              Submitted
-            </span>
-          ) : (
-            <span className="text-[10px] text-muted-foreground">{timeAgo(video.posted_at)}</span>
-          )}
+          <span
+            className="text-[10px] text-muted-foreground"
+            title={video.user_submitted ? "You added this from /ai" : undefined}
+          >
+            {timeAgo(video.posted_at)}
+          </span>
         </div>
 
         {/* Stats row */}
@@ -1855,11 +1846,14 @@ export default function ViralToday() {
         result.sort((a, b) => b.engagement_rate - a.engagement_rate);
         break;
       default: // recent
-        result.sort(
-          (a, b) =>
-            new Date(b.posted_at ?? b.scraped_at).getTime() -
-            new Date(a.posted_at ?? a.scraped_at).getTime()
-        );
+        // Sort by true post date. Videos with no known post date (e.g. a
+        // submission whose scraper couldn't recover the original date) sort to
+        // the bottom instead of being treated as "posted now" and pinned to top.
+        result.sort((a, b) => {
+          const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
+          const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
+          return tb - ta;
+        });
     }
 
     // Tally per-format counts BEFORE applying activeFormat (counts reflect all other filters).

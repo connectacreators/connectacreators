@@ -190,7 +190,9 @@ serve(async (req: Request) => {
       postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
     }
   }
-  if (!postedAt) postedAt = new Date().toISOString();
+  // Leave postedAt null when the scraper couldn't recover the real post date.
+  // Faking "now" here pinned undated submissions to the top of the Recent feed;
+  // the UI now sorts null post dates to the bottom instead.
 
   const nicheTagsFromCaption = extractNicheTags(caption);
   const frameworkScore = computeFrameworkScore(outlier, engagementRate, postedAt);
