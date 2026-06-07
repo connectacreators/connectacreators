@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { toast } from "sonner";
 import {
   Loader2, TrendingUp, Instagram, Search, ChevronDown, X,
@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 import { useCredits } from "@/hooks/useCredits";
 import { getAuthToken } from "@/lib/getAuthToken";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
-import { FormatTabs } from "@/components/viral-today/FormatTabs";
-import { FiltersPanel, type FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
+import { FilterRail } from "@/components/viral-today/FilterRail";
+import { type FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
 import { type ContentFormat } from "@/lib/video-taxonomy";
 import {
   fmtViews,
@@ -40,6 +40,59 @@ import {
 // ── Language support ──────────────────────────────────────────────────────
 
 type Language = "en" | "es";
+
+// ── "Calm" motion (Viral Today redesign) ──
+// Slow ease-out (quint-ish) with a gentle staggered rise-and-fade entrance.
+// Shared by the video grid so the whole page moves as one piece.
+const CALM_EASE = [0.22, 1, 0.36, 1] as const;
+const CALM_GRID_VARIANTS: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+};
+const CALM_CARD_VARIANTS: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: CALM_EASE } },
+};
+
+// Filter option sets — shared by the desktop rail and the mobile drawer.
+const VT_DATE_OPTS = [
+  { value: "all", label: "All time" },
+  { value: "7days", label: "Last 7 days" },
+  { value: "30days", label: "Last 30 days" },
+  { value: "3months", label: "Last 3 months" },
+  { value: "6months", label: "Last 6 months" },
+  { value: "12months", label: "Last 12 months" },
+];
+const VT_PLATFORM_OPTS = [
+  { value: "all", label: "All platforms" },
+  { value: "instagram", label: "Instagram" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "youtube", label: "YouTube" },
+];
+const VT_OUTLIER_OPTS = [
+  { value: "0", label: "Any outlier" },
+  { value: "1.5", label: "1.5x and above" },
+  { value: "2.5", label: "2.5x and above" },
+  { value: "5", label: "5x and above" },
+  { value: "10", label: "10x and above" },
+];
+const VT_VIEWS_OPTS = [
+  { value: "0", label: "Any views" },
+  { value: "10000", label: "10K+" },
+  { value: "100000", label: "100K+" },
+  { value: "1000000", label: "1M+" },
+];
+const VT_ENGAGEMENT_OPTS = [
+  { value: "0", label: "Any engagement" },
+  { value: "1", label: "1%+" },
+  { value: "3", label: "3%+" },
+  { value: "5", label: "5%+" },
+];
+const VT_SOURCE_OPTS = [
+  { value: "all", label: "All sources" },
+  { value: "channels", label: "Channels" },
+  { value: "discovered", label: "Discovered" },
+];
 
 const TRANSLATIONS = {
   en: {
@@ -626,12 +679,12 @@ function VideoCard({
   return (
     <motion.div
       ref={cardRef}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      variants={CALM_CARD_VARIANTS}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      whileHover={{ y: -4 }}
+      transition={{ type: "tween", duration: 0.34, ease: CALM_EASE }}
       className={cn(
-        "group relative flex flex-col rounded-xl overflow-hidden bg-card border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+        "group relative flex flex-col rounded-xl overflow-hidden bg-card border hover:border-border hover:shadow-xl transition-[box-shadow,border-color] duration-300",
         selected ? "border-primary ring-1 ring-primary/30" : "border-border"
       )}
     >
@@ -659,7 +712,7 @@ function VideoCard({
             <img
               src={src}
               alt={video.caption?.slice(0, 60) ?? "video"}
-              className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="relative w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
               onError={() => setImgError(true)}
             />
           ) : (
@@ -802,28 +855,19 @@ function VideoCard({
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5">
         {/* Caption */}
-        <p className="text-[11px] text-foreground leading-snug line-clamp-2 font-medium min-h-[2.5em]">
+        <p className="text-[11px] text-foreground leading-snug line-clamp-1 font-medium">
           {video.caption || <span className="text-muted-foreground italic">No caption</span>}
         </p>
 
         {/* Channel + time */}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
-          {video.user_submitted ? (
-            <span
-              className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold"
-              style={{
-                background: "hsl(var(--aqua) / 0.10)",
-                color: "hsl(var(--aqua) / 0.95)",
-                border: "1px solid hsl(var(--aqua) / 0.3)",
-              }}
-              title="You added this from /ai"
-            >
-              Submitted
-            </span>
-          ) : (
-            <span className="text-[10px] text-muted-foreground">{timeAgo(video.posted_at)}</span>
-          )}
+          <span
+            className="text-[10px] text-muted-foreground"
+            title={video.user_submitted ? "You added this from /ai" : undefined}
+          >
+            {timeAgo(video.posted_at)}
+          </span>
         </div>
 
         {/* Stats row */}
@@ -1073,6 +1117,8 @@ export default function ViralToday() {
 
   // Admin: paste URL to add framework
   const [pasteUrl, setPasteUrl] = useState("");
+  const [addUrlOpen, setAddUrlOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [pastingUrl, setPastingUrl] = useState(false);
 
   // ── Feed algorithm state ──────────────────────────────────────────────────
@@ -1820,11 +1866,14 @@ export default function ViralToday() {
         result.sort((a, b) => b.engagement_rate - a.engagement_rate);
         break;
       default: // recent
-        result.sort(
-          (a, b) =>
-            new Date(b.posted_at ?? b.scraped_at).getTime() -
-            new Date(a.posted_at ?? a.scraped_at).getTime()
-        );
+        // Sort by true post date. Videos with no known post date (e.g. a
+        // submission whose scraper couldn't recover the original date) sort to
+        // the bottom instead of being treated as "posted now" and pinned to top.
+        result.sort((a, b) => {
+          const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
+          const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
+          return tb - ta;
+        });
     }
 
     // Tally per-format counts BEFORE applying activeFormat (counts reflect all other filters).
@@ -1924,6 +1973,21 @@ export default function ViralToday() {
     setSelectedNiches(next.niches);
   };
 
+  // Count of non-default measurement filters (for the mobile Filters badge).
+  const filterActiveCount = (() => {
+    let n = 0;
+    if (filtersValue.date !== FILTER_DEFAULTS.date) n++;
+    if (filtersValue.platform !== FILTER_DEFAULTS.platform) n++;
+    if (filtersValue.outlier !== FILTER_DEFAULTS.outlier) n++;
+    if (filtersValue.views !== FILTER_DEFAULTS.views) n++;
+    if (filtersValue.engagement !== FILTER_DEFAULTS.engagement) n++;
+    if (filtersValue.source !== FILTER_DEFAULTS.source) n++;
+    if (filtersValue.featuredOnly !== FILTER_DEFAULTS.featuredOnly) n++;
+    if (filtersValue.niches.length > 0) n++;
+    if (selectedChannelIds.length > 0) n++;
+    return n;
+  })();
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   if (authLoading) {
@@ -2011,141 +2075,129 @@ export default function ViralToday() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                {/* Admin: Add Framework by URL */}
-                {isAdmin && (
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="relative flex-1 max-w-sm">
-                      <input
-                        type="url"
-                        value={pasteUrl}
-                        onChange={(e) => setPasteUrl(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handlePasteUrl()}
-                        placeholder="Add framework by URL (Instagram or TikTok)"
-                        className="w-full h-8 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm px-3 pr-8 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-yellow-500/60"
-                      />
-                      {pasteUrl && (
-                        <button
-                          onClick={() => setPasteUrl("")}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                {/* Two-column: persistent filter rail + content */}
+                <div className="flex gap-6 items-start">
+
+                  {/* Desktop filter rail */}
+                  <aside className="hidden lg:flex flex-col w-[220px] shrink-0 self-start sticky top-0 max-h-[calc(100vh-7.5rem)] rounded-xl border border-border bg-card/40 overflow-hidden">
+                    <FilterRail
+                      activeFormat={activeFormat}
+                      formatCounts={formatCounts}
+                      onFormatChange={setActiveFormat}
+                      value={filtersValue}
+                      defaults={FILTER_DEFAULTS}
+                      onChange={handleFiltersChange}
+                      availableNiches={availableNiches}
+                      channels={channels}
+                      selectedChannelIds={selectedChannelIds}
+                      onChannelsChange={setSelectedChannelIds}
+                      dateOptions={VT_DATE_OPTS}
+                      platformOptions={VT_PLATFORM_OPTS}
+                      outlierOptions={VT_OUTLIER_OPTS}
+                      viewsOptions={VT_VIEWS_OPTS}
+                      engagementOptions={VT_ENGAGEMENT_OPTS}
+                      sourceOptions={VT_SOURCE_OPTS}
+                    />
+                  </aside>
+
+                  {/* Main column */}
+                  <div className="flex-1 min-w-0">
+
+                    {/* Slim toolbar */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="relative flex-1 max-w-lg">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder={t.search}
+                          className="w-full h-8 pl-9 pr-4 bg-input border border-border rounded-lg text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
+                        />
+                        {search && (
+                          <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                            <X className="w-3 h-3 text-muted-foreground" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Mobile: open filter drawer */}
+                      <button
+                        onClick={() => setFilterDrawerOpen(true)}
+                        className="lg:hidden h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted text-xs text-foreground shrink-0"
+                      >
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                        Filters
+                        {filterActiveCount > 0 && (
+                          <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-foreground text-background text-[10px] tabular-nums">{filterActiveCount}</span>
+                        )}
+                      </button>
+
+                      {/* Search Instagram — admin only */}
+                      {isAdmin && (
+                        <Button
+                          onClick={handleDiscoverSearch}
+                          disabled={isDiscovering || !search.trim()}
+                          className="h-8 px-3 bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0"
                         >
-                          <X className="w-3 h-3" />
-                        </button>
+                          {isDiscovering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Instagram className="w-3 h-3" />}
+                          {isDiscovering ? "Searching…" : "Search Instagram"}
+                        </Button>
+                      )}
+
+                      {/* Sort */}
+                      <FilterChip
+                        label={t.sort}
+                        options={getSortOpts(t)}
+                        value={filterSort}
+                        onChange={setFilterSort}
+                        isActive={filterSort !== "recent"}
+                      />
+
+                      {/* Admin: Add framework toggle */}
+                      {isAdmin && (
+                        <Button
+                          onClick={() => setAddUrlOpen((o) => !o)}
+                          className="h-8 px-3 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 shrink-0"
+                        >
+                          <Star className="w-3 h-3" />
+                          Add framework
+                        </Button>
                       )}
                     </div>
-                    <Button
-                      onClick={handlePasteUrl}
-                      disabled={!pasteUrl.trim() || pastingUrl}
-                      className="h-8 px-3 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5"
-                    >
-                      {pastingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
-                      {pastingUrl ? "Adding…" : "Add Framework"}
-                    </Button>
-                  </div>
-                )}
 
-                {/* Search + sort bar */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="relative flex-1 max-w-lg">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder={t.search}
-                      className="w-full h-8 pl-9 pr-4 bg-input border border-border rounded-lg text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
-                    />
-                    {search && (
-                      <button
-                        onClick={() => setSearch("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2"
-                      >
-                        <X className="w-3 h-3 text-muted-foreground" />
-                      </button>
+                    {/* Admin: Add framework inline field (toggled) */}
+                    {isAdmin && addUrlOpen && (
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="relative flex-1 max-w-sm">
+                          <input
+                            type="url"
+                            value={pasteUrl}
+                            onChange={(e) => setPasteUrl(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handlePasteUrl()}
+                            autoFocus
+                            placeholder="Paste Instagram or TikTok URL…"
+                            className="w-full h-8 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm px-3 pr-8 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-yellow-500/60"
+                          />
+                          {pasteUrl && (
+                            <button
+                              onClick={() => setPasteUrl("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        <Button
+                          onClick={handlePasteUrl}
+                          disabled={!pasteUrl.trim() || pastingUrl}
+                          className="h-8 px-3 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5"
+                        >
+                          {pastingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
+                          {pastingUrl ? "Adding…" : "Add"}
+                        </Button>
+                      </div>
                     )}
-                  </div>
-
-                  {/* Search Instagram — admin only */}
-                  {isAdmin && (
-                    <Button
-                      onClick={handleDiscoverSearch}
-                      disabled={isDiscovering || !search.trim()}
-                      className="h-8 px-3 bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0"
-                    >
-                      {isDiscovering ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Instagram className="w-3 h-3" />
-                      )}
-                      {isDiscovering ? "Searching…" : "Search Instagram"}
-                    </Button>
-                  )}
-
-                  {/* Sort */}
-                  <FilterChip
-                    label={t.sort}
-                    options={getSortOpts(t)}
-                    value={filterSort}
-                    onChange={setFilterSort}
-                    isActive={filterSort !== "recent"}
-                  />
-
-                  {/* Filters button — channels + niche + date/views/outlier/etc
-                      live inside this single popover so this row is the one
-                      and only filter surface above the format tabs. */}
-                  <FiltersPanel
-                    value={filtersValue}
-                    defaults={FILTER_DEFAULTS}
-                    onChange={handleFiltersChange}
-                    availableNiches={availableNiches}
-                    channels={channels}
-                    selectedChannelIds={selectedChannelIds}
-                    onChannelsChange={setSelectedChannelIds}
-                    dateOptions={[
-                      { value: "all", label: "All time" },
-                      { value: "7days", label: "Last 7 days" },
-                      { value: "30days", label: "Last 30 days" },
-                      { value: "3months", label: "Last 3 months" },
-                      { value: "6months", label: "Last 6 months" },
-                      { value: "12months", label: "Last 12 months" },
-                    ]}
-                    platformOptions={[
-                      { value: "all", label: "All platforms" },
-                      { value: "instagram", label: "Instagram" },
-                      { value: "tiktok", label: "TikTok" },
-                      { value: "youtube", label: "YouTube" },
-                    ]}
-                    outlierOptions={[
-                      { value: "0", label: "Any outlier" },
-                      { value: "1.5", label: "1.5x and above" },
-                      { value: "2.5", label: "2.5x and above" },
-                      { value: "5", label: "5x and above" },
-                      { value: "10", label: "10x and above" },
-                    ]}
-                    viewsOptions={[
-                      { value: "0", label: "Any views" },
-                      { value: "10000", label: "10K+" },
-                      { value: "100000", label: "100K+" },
-                      { value: "1000000", label: "1M+" },
-                    ]}
-                    engagementOptions={[
-                      { value: "0", label: "Any engagement" },
-                      { value: "1", label: "1%+" },
-                      { value: "3", label: "3%+" },
-                      { value: "5", label: "5%+" },
-                    ]}
-                    sourceOptions={[
-                      { value: "all", label: "All sources" },
-                      { value: "channels", label: "Channels" },
-                      { value: "discovered", label: "Discovered" },
-                    ]}
-                  />
-                </div>
-
-                <FormatTabs
-                  active={activeFormat}
-                  onChange={setActiveFormat}
-                  counts={formatCounts}
-                />
 
                 {/* Running indicator */}
                 {runningChannels.length > 0 && (
@@ -2191,7 +2243,10 @@ export default function ViralToday() {
                 ) : (
                   <div>
                     <motion.div
-                      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6"
+                      variants={CALM_GRID_VARIANTS}
+                      initial="hidden"
+                      animate="show"
+                      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 mb-6"
                     >
                       <AnimatePresence>
                         {paginatedVideos.map((v) => (
@@ -2262,6 +2317,49 @@ export default function ViralToday() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+                  </div>{/* /main column */}
+                </div>{/* /two-column wrapper */}
+
+                {/* Mobile filter drawer */}
+                {filterDrawerOpen && (
+                  <div className="fixed inset-0 z-40 lg:hidden">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setFilterDrawerOpen(false)} />
+                    <motion.aside
+                      initial={{ x: "-100%" }}
+                      animate={{ x: 0 }}
+                      transition={{ type: "tween", duration: 0.34, ease: CALM_EASE }}
+                      className="absolute left-0 top-0 h-full w-[280px] max-w-[85vw] bg-card border-r border-border flex flex-col"
+                    >
+                      <div className="flex items-center justify-between px-3 py-3 border-b border-border">
+                        <span className="text-sm font-medium text-foreground">Filters</span>
+                        <button onClick={() => setFilterDrawerOpen(false)} className="text-muted-foreground hover:text-foreground">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                        <FilterRail
+                          activeFormat={activeFormat}
+                          formatCounts={formatCounts}
+                          onFormatChange={setActiveFormat}
+                          value={filtersValue}
+                          defaults={FILTER_DEFAULTS}
+                          onChange={handleFiltersChange}
+                          availableNiches={availableNiches}
+                          channels={channels}
+                          selectedChannelIds={selectedChannelIds}
+                          onChannelsChange={setSelectedChannelIds}
+                          dateOptions={VT_DATE_OPTS}
+                          platformOptions={VT_PLATFORM_OPTS}
+                          outlierOptions={VT_OUTLIER_OPTS}
+                          viewsOptions={VT_VIEWS_OPTS}
+                          engagementOptions={VT_ENGAGEMENT_OPTS}
+                          sourceOptions={VT_SOURCE_OPTS}
+                          onApplied={() => setFilterDrawerOpen(false)}
+                        />
+                      </div>
+                    </motion.aside>
                   </div>
                 )}
               </motion.div>
