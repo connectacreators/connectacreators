@@ -1227,7 +1227,7 @@ export default function CanvasAIPanel({ canvasContext: canvasContextProp, canvas
       }
       // Build raw sections (full content, no truncation yet)
       const rawTextNotes = cc.text_notes
-        ? `CREATOR NOTES (treat as core research & instructions — USE this content when generating scripts):\n${cc.text_notes}`
+        ? `CREATOR NOTES (treat as core research & instructions — USE this content when generating scripts). Each note is prefixed with its location: \`[in group: "X"]\` means it lives inside that folder, \`[directly connected — not in any folder]\` means it is a standalone note wired straight to you — do NOT describe standalone notes as being inside a folder:\n${cc.text_notes}`
         : null;
 
       const rawTranscriptions = cc.transcriptions.length > 0

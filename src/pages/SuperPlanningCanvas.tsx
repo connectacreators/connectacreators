@@ -1585,7 +1585,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         if (hasTranscript || hasAnalysis || hasStructure) return `VideoNode(${label}, transcription=${hasTranscript}, visual_analysis=${hasAnalysis}, structure=${hasStructure})${groupSuffix(n.id)}`;
         return `VideoNode(${label}, status=loading_or_empty)${groupSuffix(n.id)}`;
       }),
-      ...textNoteNodes.map(n => `TextNote(${(n.data as any).noteText ? "has_content" : "empty"})${groupSuffix(n.id)}`),
+      ...textNoteNodes.map(n => {
+        const suffix = groupSuffix(n.id);
+        const tag = suffix || " [directly connected — not in any folder]";
+        return `TextNote(${(n.data as any).noteText ? "has_content" : "empty"})${tag}`;
+      }),
       ...researchNodes.map(n => `ResearchNode(topic="${(n.data as any).topic || "none"}", facts=${((n.data as any).facts || []).length})${groupSuffix(n.id)}`),
       ...hookNodes.map(n => `HookGeneratorNode${groupSuffix(n.id)}`),
       ...brandNodes.map(n => `BrandGuideNode${groupSuffix(n.id)}`),
@@ -1666,7 +1670,20 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             audio: va.audio || null,
           };
         }),
-      text_notes: textNoteNodes.map(n => (n.data as any).noteText || "").filter(Boolean).join("\n\n"),
+      // Tag each note's content with its folder membership so the AI never
+      // conflates a standalone note with a folder's contents. The old flat join
+      // dropped this, so notes wired directly to the AI got mislabeled as being
+      // "inside" whatever folder was also connected.
+      text_notes: textNoteNodes
+        .map(n => {
+          const txt = (n.data as any).noteText || "";
+          if (!txt) return "";
+          const suffix = groupSuffix(n.id); // ` [in group: "X"]` for folder children, else ""
+          const tag = suffix ? suffix.trim() : "[directly connected — not in any folder]";
+          return `${tag}\n${txt}`;
+        })
+        .filter(Boolean)
+        .join("\n\n---\n\n"),
       research_facts: researchNodes.flatMap(n => (n.data as any).facts || []),
       primary_topic: (researchNodes[0]?.data as any)?.topic || "",
       selected_hook: (hookNodes[0]?.data as any)?.selectedHook ?? null,
