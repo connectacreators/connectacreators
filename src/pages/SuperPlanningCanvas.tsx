@@ -52,15 +52,25 @@ import { useSearchParams } from "react-router-dom";
 // the brand-palette attribute so we can see what the browser actually
 // resolved. Remove once the palette-swap issue is diagnosed.
 function PaletteDebugBadge() {
-  const [info, setInfo] = useState({ palette: "?", aqua: "?", cream: "?" });
+  const [info, setInfo] = useState({ palette: "?", rootAqua: "?", chipAqua: "?", chipBg: "?", found: "?" });
   useEffect(() => {
     const read = () => {
       const root = document.documentElement;
-      const cs = getComputedStyle(root);
+      const rootCs = getComputedStyle(root);
+      // Inspect an ACTUAL chip element to see what --aqua / background it resolves
+      const chip = document.querySelector(".assistant-chip") as HTMLElement | null;
+      let chipAqua = "(no chip)", chipBg = "(no chip)";
+      if (chip) {
+        const ccs = getComputedStyle(chip);
+        chipAqua = ccs.getPropertyValue("--aqua").trim() || "(empty)";
+        chipBg = ccs.backgroundColor || "(empty)";
+      }
       setInfo({
         palette: root.getAttribute("data-brand-palette") || "(none)",
-        aqua: cs.getPropertyValue("--aqua").trim() || "(empty)",
-        cream: cs.getPropertyValue("--cream").trim() || "(empty)",
+        rootAqua: rootCs.getPropertyValue("--aqua").trim() || "(empty)",
+        chipAqua,
+        chipBg,
+        found: chip ? "yes" : "no",
       });
     };
     read();
@@ -71,15 +81,16 @@ function PaletteDebugBadge() {
     <div
       style={{
         position: "fixed", bottom: 12, right: 12, zIndex: 99999,
-        background: "#000", color: "#fff", font: "12px/1.5 monospace",
+        background: "#000", color: "#fff", font: "11px/1.5 monospace",
         padding: "8px 12px", borderRadius: 8, border: "2px solid #fff",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.4)", pointerEvents: "none",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.4)", pointerEvents: "none", maxWidth: 360,
       }}
     >
       <div>palette: <b>{info.palette}</b></div>
-      <div>--aqua: <b>{info.aqua}</b></div>
-      <div>--cream: <b>{info.cream}</b></div>
-      <div style={{ opacity: 0.6, marginTop: 4 }}>plum: aqua=280 50% 62% cream=285 52% 87%</div>
+      <div>root --aqua: <b>{info.rootAqua}</b></div>
+      <div>chip found: <b>{info.found}</b></div>
+      <div>chip --aqua: <b>{info.chipAqua}</b></div>
+      <div>chip bg: <b>{info.chipBg}</b></div>
     </div>
   );
 }
