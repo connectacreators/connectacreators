@@ -448,10 +448,9 @@ export default function Scripts() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [formato, setFormato] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
-  const [viewingInspirationUrl, setViewingInspirationUrl] = useState<string | null>(null);
-  const [showInspirationVideo, setShowInspirationVideo] = useState(false);
-  const [editingInspirationUrl, setEditingInspirationUrl] = useState(false);
-  const [tempInspirationUrl, setTempInspirationUrl] = useState("");
+  const [viewingInspirationUrls, setViewingInspirationUrls] = useState<string[]>([]);
+  const [inspirationVideoUrl, setInspirationVideoUrl] = useState<string | null>(null);
+  const [newInspirationUrl, setNewInspirationUrl] = useState("");
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
@@ -1258,7 +1257,7 @@ export default function Scripts() {
       const fresh = await getScriptLines(result.scriptId);
       setParsedLines(fresh);
       setScriptEditorTab("cards");
-      setViewingInspirationUrl(inspirationUrl.trim() || null);
+      setViewingInspirationUrls(inspirationUrl.trim() ? [inspirationUrl.trim()] : []);
       setViewingMetadata(result.metadata);
       setViewingScriptId(result.scriptId);
       setView("view-script");
@@ -1280,12 +1279,29 @@ export default function Scripts() {
       const fresh = await getScriptLines(editingScript.id);
       setParsedLines(fresh);
       setScriptEditorTab("cards");
-      setViewingInspirationUrl(inspirationUrl.trim() || null);
+      setViewingInspirationUrls(inspirationUrl.trim() ? [inspirationUrl.trim()] : []);
       setViewingMetadata(result.metadata);
       setViewingScriptId(editingScript.id);
       setEditingScript(null);
       setView("view-script");
     }
+  };
+
+  // Persist the full list of inspiration URLs for the script currently open in the editor.
+  // inspiration_url is kept in sync with the first entry for backward compatibility.
+  const persistInspirations = async (urls: string[]) => {
+    if (!viewingScriptId) return;
+    const clean = urls.map((u) => u.trim()).filter(Boolean);
+    setViewingInspirationUrls(clean);
+    await supabase
+      .from("scripts")
+      .update({ inspiration_urls: clean, inspiration_url: clean[0] ?? null })
+      .eq("id", viewingScriptId);
+    setScripts((prev) =>
+      prev.map((s) =>
+        s.id === viewingScriptId ? { ...s, inspiration_urls: clean, inspiration_url: clean[0] ?? null } : s
+      )
+    );
   };
 
   const handleViewScript = async (script: Script) => {
@@ -1297,7 +1313,11 @@ export default function Scripts() {
     const lines = await getScriptLines(script.id);
     setParsedLines(lines);
     setScriptEditorTab("cards");
-    setViewingInspirationUrl(script.inspiration_url);
+    setViewingInspirationUrls(
+      script.inspiration_urls && script.inspiration_urls.length
+        ? script.inspiration_urls
+        : (script.inspiration_url ? [script.inspiration_url] : [])
+    );
     setViewingCaption(script.caption ?? "");
     setViewingMetadata({
       idea_ganadora: script.idea_ganadora || script.title,
@@ -1377,7 +1397,8 @@ export default function Scripts() {
       setInspirationUrl("");
       setFormato("");
       setGoogleDriveLink("");
-      setViewingInspirationUrl(null);
+      setViewingInspirationUrls([]);
+      setNewInspirationUrl("");
       setViewingMetadata(null);
       setViewingCaption("");
       setViewingScriptId(null);
@@ -2496,7 +2517,7 @@ export default function Scripts() {
                     const fresh = await getScriptLines(saved.scriptId);
                     setParsedLines(fresh);
                     setScriptEditorTab("cards");
-                    setViewingInspirationUrl(inspirationUrl || null);
+                    setViewingInspirationUrls(inspirationUrl ? [inspirationUrl] : []);
                     setViewingMetadata({
                       idea_ganadora: result.idea_ganadora || null,
                       target: result.target || null,
@@ -2820,63 +2841,64 @@ export default function Scripts() {
                 <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr(t.scripts.inspiration, language)}</span>
               </div>
-              {viewingInspirationUrl && !editingInspirationUrl ? (
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => setShowInspirationVideo(true)}>
-                    <Play className="w-3.5 h-3.5" /> {tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
-                  </Button>
-                  <button onClick={() => window.open(viewingInspirationUrl, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => { setEditingInspirationUrl(true); setTempInspirationUrl(viewingInspirationUrl); }}
-                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                    title={tr({ en: "Edit inspiration URL", es: "Editar URL de inspiración" }, language)}
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
-
-                  <Dialog open={showInspirationVideo} onOpenChange={setShowInspirationVideo}>
-                    <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
-                      <DialogHeader className="p-4 pb-0">
-                        <DialogTitle className="text-sm">{tr({ en: "Inspiration Video", es: "Video de Inspiración" }, language)}</DialogTitle>
-                      </DialogHeader>
-                      <div className="p-4 pt-2">
-                        <InspirationVideoEmbed url={viewingInspirationUrl} />
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editingInspirationUrl ? tempInspirationUrl : undefined}
-                    onChange={editingInspirationUrl ? (e) => setTempInspirationUrl(e.target.value) : undefined}
-                    placeholder={tr({ en: "Paste inspiration URL...", es: "Pega URL de inspiración..." }, language)}
-                    className="text-sm h-8"
-                    autoFocus={editingInspirationUrl}
-                    onKeyDown={async (e) => {
-                      if (e.key === "Enter" && viewingScriptId) {
-                        const val = editingInspirationUrl ? tempInspirationUrl.trim() : (e.target as HTMLInputElement).value.trim();
-                        if (val) {
-                          await supabase.from("scripts").update({ inspiration_url: val }).eq("id", viewingScriptId);
-                          setViewingInspirationUrl(val);
-                        }
-                        setEditingInspirationUrl(false);
-                      }
-                      if (e.key === "Escape") setEditingInspirationUrl(false);
-                    }}
-                    onBlur={async (e) => {
-                      const val = editingInspirationUrl ? tempInspirationUrl.trim() : e.target.value.trim();
-                      if (val && viewingScriptId) {
-                        await supabase.from("scripts").update({ inspiration_url: val }).eq("id", viewingScriptId);
-                        setViewingInspirationUrl(val);
-                      }
-                      setEditingInspirationUrl(false);
-                    }}
-                  />
+              {viewingInspirationUrls.length > 0 && (
+                <div className="flex flex-col gap-2 mb-3">
+                  {viewingInspirationUrls.map((url, idx) => (
+                    <div key={`${idx}-${url}`} className="flex items-center gap-2 min-w-0">
+                      <Button variant="outline" size="sm" className="gap-2 text-xs shrink-0" onClick={() => setInspirationVideoUrl(url)}>
+                        <Play className="w-3.5 h-3.5" /> {tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
+                      </Button>
+                      <button onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="inline-flex items-center text-xs text-muted-foreground hover:text-primary transition-colors shrink-0" title={tr({ en: "Open in new tab", es: "Abrir en pestaña nueva" }, language)}>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => persistInspirations(viewingInspirationUrls.filter((_, i) => i !== idx))}
+                        className="inline-flex items-center text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        title={tr({ en: "Remove inspiration", es: "Quitar inspiración" }, language)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                      <span className="text-xs text-muted-foreground truncate">{url}</span>
+                    </div>
+                  ))}
                 </div>
               )}
+
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newInspirationUrl}
+                  onChange={(e) => setNewInspirationUrl(e.target.value)}
+                  placeholder={tr({ en: "Paste inspiration URL and press Enter...", es: "Pega URL de inspiración y presiona Enter..." }, language)}
+                  className="text-sm h-8"
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") {
+                      const val = newInspirationUrl.trim();
+                      if (val) {
+                        await persistInspirations([...viewingInspirationUrls, val]);
+                        setNewInspirationUrl("");
+                      }
+                    }
+                  }}
+                  onBlur={async () => {
+                    const val = newInspirationUrl.trim();
+                    if (val) {
+                      await persistInspirations([...viewingInspirationUrls, val]);
+                      setNewInspirationUrl("");
+                    }
+                  }}
+                />
+              </div>
+
+              <Dialog open={!!inspirationVideoUrl} onOpenChange={(open) => { if (!open) setInspirationVideoUrl(null); }}>
+                <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
+                  <DialogHeader className="p-4 pb-0">
+                    <DialogTitle className="text-sm">{tr({ en: "Inspiration Video", es: "Video de Inspiración" }, language)}</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-4 pt-2">
+                    {inspirationVideoUrl && <InspirationVideoEmbed url={inspirationVideoUrl} />}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Caption */}

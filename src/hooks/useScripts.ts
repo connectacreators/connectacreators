@@ -8,6 +8,12 @@ export type ScriptLine = {
   section: "hook" | "body" | "cta";
   text: string;
   rich_text?: string;
+  // 'line' = content row, 'heading' = renamable section header row.
+  // Absent => treated as 'line' for backward compatibility.
+  block_kind?: "line" | "heading";
+  // In-memory-only stable id used by the editor for stable React keys.
+  // Never persisted / never required from the DB.
+  uid?: string;
 };
 
 export type Script = {
@@ -16,6 +22,7 @@ export type Script = {
   title: string;
   raw_content: string;
   inspiration_url: string | null;
+  inspiration_urls: string[] | null;
   idea_ganadora: string | null;
   target: string | null;
   formato: string | null;
@@ -42,7 +49,7 @@ const _locks = new Map<string, Promise<boolean>>();
 // Helper: delete all lines for a script and re-insert them in order.
 // This avoids 409 Conflict errors from unique constraint on (script_id, line_number).
 // Uses a per-script mutex to prevent concurrent calls from wiping each other.
-const replaceAllLines = async (scriptId: string, lines: { line_type: string; section: string; text: string; rich_text?: string }[]) => {
+const replaceAllLines = async (scriptId: string, lines: { line_type: string; section: string; text: string; rich_text?: string; block_kind?: string }[]) => {
   // Wait for any in-flight operation on this script to finish
   const prev = _locks.get(scriptId);
   const op = (async () => {
@@ -55,6 +62,7 @@ const replaceAllLines = async (scriptId: string, lines: { line_type: string; sec
       line_type: l.line_type,
       section: l.section,
       text: l.text,
+      block_kind: l.block_kind ?? "line",
       ...(l.rich_text !== undefined ? { rich_text: l.rich_text } : {}),
     }));
     const { error } = await supabase.from("script_lines").insert(rows);
@@ -200,11 +208,16 @@ export function useScripts() {
     formato: string;
     viralityScore?: number;
     inspirationUrl?: string;
+    inspirationUrls?: string[];
     googleDriveLink?: string;
     existingScriptId?: string;
   }): Promise<{ scriptId: string; metadata: ScriptMetadata } | null> => {
     setLoading(true);
     try {
+      const inspirations = (params.inspirationUrls && params.inspirationUrls.length
+        ? params.inspirationUrls
+        : (params.inspirationUrl ? [params.inspirationUrl] : [])
+      ).map((u) => u.trim()).filter(Boolean);
       if (!Array.isArray(params.lines) || params.lines.length === 0) {
         throw new Error("Script lines are required");
       }
@@ -226,7 +239,8 @@ export function useScripts() {
           .update({
             title: params.ideaGanadora,
             raw_content: rawContent,
-            inspiration_url: params.inspirationUrl || null,
+            inspiration_url: inspirations[0] || null,
+            inspiration_urls: inspirations,
             idea_ganadora: params.ideaGanadora || null,
             target: params.target || null,
             formato: params.formato || null,
@@ -258,7 +272,8 @@ export function useScripts() {
             client_id: params.clientId,
             title: resolvedTitle,
             raw_content: rawContent,
-            inspiration_url: params.inspirationUrl || null,
+            inspiration_url: inspirations[0] || null,
+            inspiration_urls: inspirations,
             idea_ganadora: resolvedTitle,
             target: params.target || null,
             formato: params.formato || null,
@@ -278,6 +293,7 @@ export function useScripts() {
         line_type: l.line_type,
         section: l.section || "body",
         text: l.text,
+        block_kind: l.block_kind ?? "line",
       }));
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
       if (linesErr) throw linesErr;
@@ -392,6 +408,7 @@ export function useScripts() {
         line_type: l.line_type,
         section: l.section || "body",
         text: l.text,
+        block_kind: l.block_kind ?? "line",
       }));
       const { error: linesErr } = await supabase.from("script_lines").insert(lineRows);
       if (linesErr) throw linesErr;
@@ -418,10 +435,34 @@ export function useScripts() {
     }
   };
 
+  // Legacy read path: returns ONLY content rows (block_kind = 'line').
+  // Heading rows never leak to legacy consumers (AI, teleprompter, PDF, public, canvas).
+  // Signature unchanged so all existing callers are unaffected.
   const getScriptLines = async (scriptId: string): Promise<ScriptLine[]> => {
     const { data, error } = await supabase
       .from("script_lines")
       .select("line_number, line_type, text, section, rich_text")
+      .eq("script_id", scriptId)
+      .eq("block_kind", "line")
+      .order("line_number");
+    if (error) {
+      console.error(error);
+      return [];
+    }
+    return (data || []).map((d: any) => ({
+      line_number: d.line_number,
+      line_type: d.line_type,
+      section: d.section || "body",
+      text: d.text,
+      rich_text: d.rich_text ?? undefined,
+    })) as ScriptLine[];
+  };
+
+  // Editor-only read path: returns ALL rows (headings + lines), ordered.
+  const getScriptBlocks = async (scriptId: string): Promise<ScriptLine[]> => {
+    const { data, error } = await supabase
+      .from("script_lines")
+      .select("line_number, line_type, section, text, rich_text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number");
     if (error) {
@@ -434,6 +475,7 @@ export function useScripts() {
       section: d.section || "body",
       text: d.text,
       rich_text: d.rich_text ?? undefined,
+      block_kind: (d.block_kind as "line" | "heading") ?? "line",
     })) as ScriptLine[];
   };
 
@@ -499,13 +541,15 @@ export function useScripts() {
     googleDriveLink?: string
   ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata } | null> => {
     setLoading(true);
+    const inspirations = (inspirationUrl ? [inspirationUrl] : []).map((u) => u.trim()).filter(Boolean);
     try {
       const { error: scriptErr } = await supabase
         .from("scripts")
         .update({
           title: title || "Sin título",
           raw_content: rawContent,
-          inspiration_url: inspirationUrl || null,
+          inspiration_url: inspirations[0] || null,
+          inspiration_urls: inspirations,
           idea_ganadora: title || null,
           target: null,
           formato: formato || null,
@@ -536,7 +580,7 @@ export function useScripts() {
       setScripts((prev) =>
         prev.map((s) =>
           s.id === scriptId
-            ? { ...s, title: title || "Sin título", raw_content: rawContent, inspiration_url: inspirationUrl || null, idea_ganadora: title || null, target: null, formato: formato || null, google_drive_link: googleDriveLink || null }
+            ? { ...s, title: title || "Sin título", raw_content: rawContent, inspiration_url: inspirations[0] || null, inspiration_urls: inspirations, idea_ganadora: title || null, target: null, formato: formato || null, google_drive_link: googleDriveLink || null }
             : s
         )
       );
@@ -589,7 +633,7 @@ export function useScripts() {
     // Fetch all lines, remove the target, then replace all to avoid 409 conflicts
     const { data: allLines } = await supabase
       .from("script_lines")
-      .select("line_number, line_type, section, text")
+      .select("line_number, line_type, section, text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number", { ascending: true });
     if (!allLines) return false;
@@ -611,7 +655,7 @@ export function useScripts() {
     // Fetch all current lines
     const { data: allLines } = await supabase
       .from("script_lines")
-      .select("line_number, line_type, section, text")
+      .select("line_number, line_type, section, text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number", { ascending: true });
 
@@ -629,9 +673,9 @@ export function useScripts() {
 
     // Build new array with the new line inserted
     const newLines = [
-      ...lines.slice(0, insertIdx).map(l => ({ line_type: l.line_type, section: l.section, text: l.text })),
-      { line_type: lineType, section, text },
-      ...lines.slice(insertIdx).map(l => ({ line_type: l.line_type, section: l.section, text: l.text })),
+      ...lines.slice(0, insertIdx).map(l => ({ line_type: l.line_type, section: l.section, text: l.text, block_kind: (l as any).block_kind ?? "line" })),
+      { line_type: lineType, section, text, block_kind: "line" },
+      ...lines.slice(insertIdx).map(l => ({ line_type: l.line_type, section: l.section, text: l.text, block_kind: (l as any).block_kind ?? "line" })),
     ];
 
     const ok = await replaceAllLines(scriptId, newLines);
@@ -648,6 +692,8 @@ export function useScripts() {
       line_type: l.line_type,
       section: l.section,
       text: l.text,
+      rich_text: l.rich_text,
+      block_kind: l.block_kind ?? "line",
     })));
     if (!ok) { toast.error("Error reordering lines"); return false; }
     return true;
@@ -658,7 +704,7 @@ export function useScripts() {
     // Get ALL lines to rebuild line_numbers
     const { data: allLines } = await supabase
       .from("script_lines")
-      .select("line_number, section, line_type, text, rich_text")
+      .select("line_number, section, line_type, text, rich_text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number", { ascending: true });
     if (!allLines) return false;
@@ -669,18 +715,18 @@ export function useScripts() {
     const targetOrder = sectionOrder[section] ?? 1;
 
     // Find insertion point for the reordered section
-    const rebuilt: { line_type: string; section: string; text: string; rich_text?: string }[] = [];
+    const rebuilt: { line_type: string; section: string; text: string; rich_text?: string; block_kind?: string }[] = [];
     let sectionInserted = false;
     for (const l of otherLines) {
       const lOrder = sectionOrder[l.section] ?? 1;
       if (!sectionInserted && lOrder > targetOrder) {
-        rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text, rich_text: ol.rich_text })));
+        rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text, rich_text: ol.rich_text, block_kind: ol.block_kind ?? "line" })));
         sectionInserted = true;
       }
-      rebuilt.push({ line_type: l.line_type, section: l.section, text: l.text, rich_text: l.rich_text ?? undefined });
+      rebuilt.push({ line_type: l.line_type, section: l.section, text: l.text, rich_text: l.rich_text ?? undefined, block_kind: (l as any).block_kind ?? "line" });
     }
     if (!sectionInserted) {
-      rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text, rich_text: ol.rich_text })));
+      rebuilt.push(...orderedLines.map((ol) => ({ line_type: ol.line_type, section: ol.section, text: ol.text, rich_text: ol.rich_text, block_kind: ol.block_kind ?? "line" })));
     }
 
     return replaceAllLines(scriptId, rebuilt);
@@ -689,7 +735,7 @@ export function useScripts() {
   const moveScriptLine = async (scriptId: string, lineNumber: number, direction: "up" | "down") => {
     const { data: allLines } = await supabase
       .from("script_lines")
-      .select("line_number, section, line_type, text")
+      .select("line_number, section, line_type, text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number", { ascending: true });
     if (!allLines) return false;
@@ -734,6 +780,7 @@ export function useScripts() {
     directSave,
     categorizeAndSave,
     getScriptLines,
+    getScriptBlocks,
     deleteScript,
     restoreScript,
     permanentlyDeleteScript,

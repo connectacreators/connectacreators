@@ -18,6 +18,7 @@ type ScriptData = {
   target: string | null;
   formato: string | null;
   inspiration_url: string | null;
+  inspiration_urls: string[] | null;
 };
 
 const typeConfig = {
@@ -91,6 +92,7 @@ export default function PublicScript() {
             target={script.target}
             format={script.formato}
             inspirationUrl={script.inspiration_url}
+            inspirationUrls={script.inspiration_urls}
             variant="detail"
           />
           {script.idea_ganadora && script.title && script.title !== script.idea_ganadora && (

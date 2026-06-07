@@ -35,7 +35,7 @@ serve(async (req) => {
 
   const { data: script, error: scriptError } = await admin
     .from("scripts")
-    .select("title, idea_ganadora, target, formato, inspiration_url")
+    .select("title, idea_ganadora, target, formato, inspiration_url, inspiration_urls")
     .eq("id", scriptId)
     .is("deleted_at", null)
     .maybeSingle();

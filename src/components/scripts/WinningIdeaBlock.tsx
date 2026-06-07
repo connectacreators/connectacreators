@@ -23,6 +23,7 @@ interface WinningIdeaBlockProps {
   target?: string | null;
   format?: string | null;
   inspirationUrl?: string | null;
+  inspirationUrls?: string[] | null;
   variant?: Variant;
   className?: string;
   children?: ReactNode;              // optional extra row (e.g. inline rename)
@@ -38,6 +39,7 @@ export function WinningIdeaBlock({
   target,
   format,
   inspirationUrl,
+  inspirationUrls,
   variant = "editor",
   className,
   children,
@@ -45,6 +47,9 @@ export function WinningIdeaBlock({
 }: WinningIdeaBlockProps) {
   const label = hasIdea ? (format?.trim().toUpperCase() || "SCRIPT") : "SCRIPT";
   const display = idea || "Untitled";
+  const inspirations = inspirationUrls && inspirationUrls.length
+    ? inspirationUrls
+    : (inspirationUrl ? [inspirationUrl] : []);
 
   const sizes = {
     detail: { padding: "22px 24px", radius: 16, titleSize: 22, labelSize: 10 },
@@ -90,7 +95,7 @@ export function WinningIdeaBlock({
           color: "#ffffff",
           lineHeight: 1.3,
           margin: 0,
-          marginBottom: variant === "node" ? 0 : (target || format || inspirationUrl) ? 12 : 0,
+          marginBottom: variant === "node" ? 0 : (target || format || inspirations.length > 0) ? 12 : 0,
           cursor: onIdeaClick ? "pointer" : "default",
           overflowWrap: "anywhere",
         }}
@@ -98,7 +103,7 @@ export function WinningIdeaBlock({
         {display}
       </h2>
       {children}
-      {(target || format || inspirationUrl) && variant !== "node" && (
+      {(target || format || inspirations.length > 0) && variant !== "node" && (
         <div
           style={{
             display: "flex",
@@ -110,9 +115,10 @@ export function WinningIdeaBlock({
         >
           {target && <TargetChip target={target} />}
           {format && <MetaChip label="Format">{format}</MetaChip>}
-          {inspirationUrl && (
+          {inspirations.map((url, idx) => (
             <a
-              href={inspirationUrl}
+              key={`${idx}-${url}`}
+              href={url}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -128,10 +134,12 @@ export function WinningIdeaBlock({
                 textDecoration: "none",
               }}
             >
-              <span style={{ color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>Inspiration</span>
+              <span style={{ color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
+                {inspirations.length > 1 ? `Inspiration ${idx + 1}` : "Inspiration"}
+              </span>
               &nbsp;Open
             </a>
-          )}
+          ))}
         </div>
       )}
     </div>

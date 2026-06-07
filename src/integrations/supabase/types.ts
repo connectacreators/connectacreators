@@ -2270,6 +2270,7 @@ export type Database = {
           id: string
           idea_ganadora: string | null
           inspiration_url: string | null
+          inspiration_urls: string[] | null
           raw_content: string
           review_status: string | null
           revision_notes: string | null
@@ -2291,6 +2292,7 @@ export type Database = {
           id?: string
           idea_ganadora?: string | null
           inspiration_url?: string | null
+          inspiration_urls?: string[] | null
           raw_content: string
           review_status?: string | null
           revision_notes?: string | null
@@ -2312,6 +2314,7 @@ export type Database = {
           id?: string
           idea_ganadora?: string | null
           inspiration_url?: string | null
+          inspiration_urls?: string[] | null
           raw_content?: string
           review_status?: string | null
           revision_notes?: string | null
