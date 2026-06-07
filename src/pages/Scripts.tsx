@@ -450,7 +450,9 @@ export default function Scripts() {
   const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [viewingInspirationUrls, setViewingInspirationUrls] = useState<string[]>([]);
   const [inspirationVideoUrl, setInspirationVideoUrl] = useState<string | null>(null);
-  const [newInspirationUrl, setNewInspirationUrl] = useState("");
+  const [editingInspirationIdx, setEditingInspirationIdx] = useState<number | null>(null);
+  const [inspirationDraft, setInspirationDraft] = useState("");
+  const [addingInspiration, setAddingInspiration] = useState(false);
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
@@ -1398,7 +1400,9 @@ export default function Scripts() {
       setFormato("");
       setGoogleDriveLink("");
       setViewingInspirationUrls([]);
-      setNewInspirationUrl("");
+      setEditingInspirationIdx(null);
+      setInspirationDraft("");
+      setAddingInspiration(false);
       setViewingMetadata(null);
       setViewingCaption("");
       setViewingScriptId(null);
@@ -2841,52 +2845,102 @@ export default function Scripts() {
                 <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr(t.scripts.inspiration, language)}</span>
               </div>
-              {viewingInspirationUrls.length > 0 && (
-                <div className="flex flex-col gap-2 mb-3">
-                  {viewingInspirationUrls.map((url, idx) => (
-                    <div key={`${idx}-${url}`} className="flex items-center gap-2 min-w-0">
-                      <Button variant="outline" size="sm" className="gap-2 text-xs shrink-0" onClick={() => setInspirationVideoUrl(url)}>
-                        <Play className="w-3.5 h-3.5" /> {tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
-                      </Button>
-                      <button onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="inline-flex items-center text-xs text-muted-foreground hover:text-primary transition-colors shrink-0" title={tr({ en: "Open in new tab", es: "Abrir en pestaña nueva" }, language)}>
-                        <ExternalLink className="w-3 h-3" />
+              <div className="flex flex-col gap-2">
+                {viewingInspirationUrls.map((url, idx) =>
+                  editingInspirationIdx === idx ? (
+                    <Input
+                      key={`edit-${idx}`}
+                      autoFocus
+                      value={inspirationDraft}
+                      onChange={(e) => setInspirationDraft(e.target.value)}
+                      placeholder={tr({ en: "Paste inspiration URL...", es: "Pega URL de inspiración..." }, language)}
+                      className="text-sm h-8"
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter") {
+                          const v = inspirationDraft.trim();
+                          const next = [...viewingInspirationUrls];
+                          if (v) next[idx] = v; else next.splice(idx, 1);
+                          setEditingInspirationIdx(null);
+                          await persistInspirations(next);
+                        }
+                        if (e.key === "Escape") setEditingInspirationIdx(null);
+                      }}
+                      onBlur={async () => {
+                        const v = inspirationDraft.trim();
+                        const next = [...viewingInspirationUrls];
+                        if (v) next[idx] = v; else next.splice(idx, 1);
+                        setEditingInspirationIdx(null);
+                        await persistInspirations(next);
+                      }}
+                    />
+                  ) : (
+                    <div key={`${idx}-${url}`} className="flex items-center gap-1.5 min-w-0">
+                      <button
+                        onClick={() => setInspirationVideoUrl(url)}
+                        className="group flex items-center gap-2 min-w-0 flex-1 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-left transition-colors"
+                        title={tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
+                      >
+                        <Play className="w-3.5 h-3.5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                        <span className="text-xs text-muted-foreground truncate">{url.replace(/^https?:\/\//, "")}</span>
+                      </button>
+                      <button
+                        onClick={() => { setAddingInspiration(false); setEditingInspirationIdx(idx); setInspirationDraft(url); }}
+                        className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors shrink-0 p-1"
+                        title={tr({ en: "Edit URL", es: "Editar URL" }, language)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => persistInspirations(viewingInspirationUrls.filter((_, i) => i !== idx))}
-                        className="inline-flex items-center text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        className="inline-flex items-center text-muted-foreground hover:text-destructive transition-colors shrink-0 p-1"
                         title={tr({ en: "Remove inspiration", es: "Quitar inspiración" }, language)}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-xs text-muted-foreground truncate">{url}</span>
+                      <button
+                        onClick={() => { setEditingInspirationIdx(null); setInspirationDraft(""); setAddingInspiration(true); }}
+                        className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors shrink-0 p-1"
+                        title={tr({ en: "Add inspiration", es: "Añadir inspiración" }, language)}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                )}
 
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newInspirationUrl}
-                  onChange={(e) => setNewInspirationUrl(e.target.value)}
-                  placeholder={tr({ en: "Paste inspiration URL and press Enter...", es: "Pega URL de inspiración y presiona Enter..." }, language)}
-                  className="text-sm h-8"
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter") {
-                      const val = newInspirationUrl.trim();
-                      if (val) {
-                        await persistInspirations([...viewingInspirationUrls, val]);
-                        setNewInspirationUrl("");
+                {addingInspiration && (
+                  <Input
+                    autoFocus
+                    value={inspirationDraft}
+                    onChange={(e) => setInspirationDraft(e.target.value)}
+                    placeholder={tr({ en: "Paste inspiration URL and press Enter...", es: "Pega URL de inspiración y presiona Enter..." }, language)}
+                    className="text-sm h-8"
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        const v = inspirationDraft.trim();
+                        setAddingInspiration(false);
+                        setInspirationDraft("");
+                        if (v) await persistInspirations([...viewingInspirationUrls, v]);
                       }
-                    }
-                  }}
-                  onBlur={async () => {
-                    const val = newInspirationUrl.trim();
-                    if (val) {
-                      await persistInspirations([...viewingInspirationUrls, val]);
-                      setNewInspirationUrl("");
-                    }
-                  }}
-                />
+                      if (e.key === "Escape") { setAddingInspiration(false); setInspirationDraft(""); }
+                    }}
+                    onBlur={async () => {
+                      const v = inspirationDraft.trim();
+                      setAddingInspiration(false);
+                      setInspirationDraft("");
+                      if (v) await persistInspirations([...viewingInspirationUrls, v]);
+                    }}
+                  />
+                )}
+
+                {viewingInspirationUrls.length === 0 && !addingInspiration && (
+                  <button
+                    onClick={() => { setEditingInspirationIdx(null); setInspirationDraft(""); setAddingInspiration(true); }}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors self-start"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> {tr({ en: "Add inspiration", es: "Añadir inspiración" }, language)}
+                  </button>
+                )}
               </div>
 
               <Dialog open={!!inspirationVideoUrl} onOpenChange={(open) => { if (!open) setInspirationVideoUrl(null); }}>
