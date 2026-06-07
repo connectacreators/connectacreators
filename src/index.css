@@ -62,6 +62,10 @@ All colors MUST be HSL for consistency and theming.
     --honey-deep:   22 65% 47%;     /* ~#C7682A destructive     */
     --cream:        42 23% 89%;     /* #EAE6DC  light surface (editorial-page cream) */
     --ink-on-cream: 0 0% 8%;        /* #141414  dark text on cream surface */
+    /* Raised surface — a step brighter than the cream canvas so cards, the
+       canvas toolbar, and floating pills pop above the background. Stays
+       palette-tinted (white-ish on editorial, tinted-white on plum, etc.). */
+    --surface-raised: color-mix(in oklab, hsl(var(--cream)) 42%, white);
 
     /* Derived neutrals (HSL triplets — opacity applied at the call site) */
     --bone-muted: 42 23% 89%;
