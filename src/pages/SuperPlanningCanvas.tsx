@@ -48,6 +48,42 @@ import { useRealtimeCanvasSync } from "@/hooks/useRealtimeCanvasSync";
 import { canvasMediaService } from "@/services/canvasMediaService";
 import { useSearchParams } from "react-router-dom";
 
+// TEMP DEBUG — palette diagnostic badge. Shows the live computed CSS vars +
+// the brand-palette attribute so we can see what the browser actually
+// resolved. Remove once the palette-swap issue is diagnosed.
+function PaletteDebugBadge() {
+  const [info, setInfo] = useState({ palette: "?", aqua: "?", cream: "?" });
+  useEffect(() => {
+    const read = () => {
+      const root = document.documentElement;
+      const cs = getComputedStyle(root);
+      setInfo({
+        palette: root.getAttribute("data-brand-palette") || "(none)",
+        aqua: cs.getPropertyValue("--aqua").trim() || "(empty)",
+        cream: cs.getPropertyValue("--cream").trim() || "(empty)",
+      });
+    };
+    read();
+    const id = window.setInterval(read, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <div
+      style={{
+        position: "fixed", bottom: 12, right: 12, zIndex: 99999,
+        background: "#000", color: "#fff", font: "12px/1.5 monospace",
+        padding: "8px 12px", borderRadius: 8, border: "2px solid #fff",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.4)", pointerEvents: "none",
+      }}
+    >
+      <div>palette: <b>{info.palette}</b></div>
+      <div>--aqua: <b>{info.aqua}</b></div>
+      <div>--cream: <b>{info.cream}</b></div>
+      <div style={{ opacity: 0.6, marginTop: 4 }}>plum: aqua=280 50% 62% cream=285 52% 87%</div>
+    </div>
+  );
+}
+
 const AI_NODE_ID = "ai-assistant";
 
 // Keys to strip from node data before saving (non-serializable callbacks + heavy ephemeral data)
@@ -2624,6 +2660,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "hsl(var(--cream))" }}>
+      <PaletteDebugBadge />
       {/* Canvas area — full width, sessions in toolbar */}
       <div
         className="flex-1 relative min-w-0"
