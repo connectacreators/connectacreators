@@ -137,7 +137,7 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
       {/* Session name pill */}
       <button
         onClick={() => { setOpen(o => !o); setRenamingId(null); setConfirmDeleteId(null); }}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] text-xs text-[hsl(var(--ink-on-cream) / 0.55)] hover:text-[hsl(var(--ink-on-cream) / 0.90)] transition-colors max-w-[140px]"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] text-xs text-[hsl(var(--ink-on-cream) / 0.85)] hover:text-[hsl(var(--ink-on-cream))] transition-colors max-w-[140px]"
       >
         <span className="truncate">{activeName}</span>
         <ChevronDown className="w-3 h-3 flex-shrink-0" />
@@ -147,7 +147,7 @@ function SessionDropdown({ sessions, activeSessionId, onNewSession, onSwitchSess
       <button
         onClick={() => { onNewSession?.(); setOpen(false); }}
         title="New session"
-        className="p-1.5 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.55)] hover:text-primary hover:border-primary/40 transition-colors"
+        className="p-1.5 rounded-xl bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)] hover:text-[hsl(var(--ink-on-cream))] hover:border-[hsl(var(--ink-on-cream))] transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
       </button>
@@ -350,8 +350,8 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {saveStatus && saveStatus !== "idle" && (
           <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium backdrop-blur-sm border shadow-sm transition-opacity ${
-            saveStatus === "saving" ? "bg-[hsl(var(--cream))] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.55)]" :
-            saveStatus === "saved" ? "bg-[hsl(var(--cream))] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--aqua))]" :
+            saveStatus === "saving" ? "bg-[hsl(var(--cream))] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
+            saveStatus === "saved" ? "bg-[hsl(var(--cream))] border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
             "bg-[hsl(var(--cream))] border-[hsl(var(--ink-on-cream))] text-red-500"
           }`}>
             {saveStatus === "saving" && <><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Saving...</>}
