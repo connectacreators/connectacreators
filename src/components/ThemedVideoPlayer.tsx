@@ -18,7 +18,7 @@ interface Props {
   onError?: () => void;
 }
 
-const CYAN = 'rgb(8, 145, 178)';
+const CYAN = 'hsl(var(--aqua))';
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -130,7 +130,7 @@ export default function ThemedVideoPlayer({
         maxHeight: fullscreen ? '100vh' : maxHeight,
         borderRadius: fullscreen ? 0 : 12,
         overflow: 'hidden',
-        border: '1px solid rgba(8,145,178,0.2)',
+        border: '1px solid hsl(var(--aqua) / 0.2)',
         background: '#000',
         cursor: 'pointer',
         display: 'flex',
@@ -169,7 +169,7 @@ export default function ThemedVideoPlayer({
           }}>
             <div style={{
               width: 44, height: 44, borderRadius: '50%',
-              border: `2px solid rgba(8,145,178,0.25)`,
+              border: `2px solid hsl(var(--aqua) / 0.25)`,
               borderTopColor: CYAN,
               animation: 'tvp-spin 0.8s linear infinite',
             }} />
@@ -187,8 +187,8 @@ export default function ThemedVideoPlayer({
           }}>
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
-              background: 'rgba(8,145,178,0.2)',
-              border: '1px solid rgba(8,145,178,0.5)',
+              background: 'hsl(var(--aqua) / 0.2)',
+              border: '1px solid hsl(var(--aqua) / 0.5)',
               backdropFilter: 'blur(12px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>

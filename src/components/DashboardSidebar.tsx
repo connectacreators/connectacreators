@@ -731,7 +731,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                 value={newClientName}
                 onChange={(e) => setNewClientName(e.target.value)}
                 placeholder={language === "en" ? "Client name..." : "Nombre del cliente..."}
-                className="w-full px-2 py-1.5 rounded-md text-sm text-white bg-[rgba(255,255,255,0.08)] border border-[rgba(34,211,238,0.3)] outline-none"
+                className="w-full px-2 py-1.5 rounded-md text-sm text-white bg-[rgba(255,255,255,0.08)] border border-[hsl(var(--aqua) / 0.3)] outline-none"
                 onKeyDown={async (e) => {
                   if (e.key === "Enter" && newClientName.trim()) {
                     const { data: clientId, error } = await supabase.rpc("create_client_for_subscriber", {

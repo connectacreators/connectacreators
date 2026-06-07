@@ -413,10 +413,10 @@ export function InlineScriptPreview({
     <div
       style={{
         background: "hsl(var(--cream))",
-        border: "1px solid rgba(20,20,24,0.12)",
+        border: "1px solid hsl(var(--ink-on-cream) / 0.12)",
         borderRadius: 12,
         overflow: "hidden",
-        boxShadow: "0 1px 2px rgba(20,20,24,0.04)",
+        boxShadow: "0 1px 2px hsl(var(--ink-on-cream) / 0.04)",
       }}
     >
       {/* Header */}
@@ -426,11 +426,11 @@ export function InlineScriptPreview({
           display: "flex",
           alignItems: "center",
           gap: 8,
-          borderBottom: "1px solid rgba(20,20,24,0.08)",
+          borderBottom: "1px solid hsl(var(--ink-on-cream) / 0.08)",
           background: "transparent",
         }}
       >
-        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(20,20,24,0.55)" }} />
+        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }} />
         <span
           style={{
             flex: 1,
@@ -438,7 +438,7 @@ export function InlineScriptPreview({
             fontWeight: 400,
             fontFamily: "'Big Caslon', 'Book Antiqua', Palatino, Georgia, serif",
             letterSpacing: "0.02em",
-            color: "rgba(20,20,24,0.92)",
+            color: "hsl(var(--ink-on-cream) / 0.92)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -466,7 +466,7 @@ export function InlineScriptPreview({
           <div
             style={{
               fontSize: 11,
-              color: "rgba(20,20,24,0.50)",
+              color: "hsl(var(--ink-on-cream) / 0.50)",
               textAlign: "center",
               padding: "8px 0 4px",
               fontStyle: "italic",
@@ -503,7 +503,7 @@ export function InlineScriptPreview({
                 </div>
                 <div
                   style={{
-                    background: "rgba(20,20,24,0.04)",
+                    background: "hsl(var(--ink-on-cream) / 0.04)",
                     borderRadius: 8,
                     overflow: "hidden",
                   }}
@@ -518,7 +518,7 @@ export function InlineScriptPreview({
                           alignItems: "stretch",
                           borderBottom:
                             j < visible.length - 1
-                              ? "1px solid rgba(20,20,24,0.06)"
+                              ? "1px solid hsl(var(--ink-on-cream) / 0.06)"
                               : "none",
                         }}
                       >
@@ -540,7 +540,7 @@ export function InlineScriptPreview({
                             style={{
                               fontSize: 11,
                               lineHeight: 1.35,
-                              color: "rgba(20,20,24,0.88)",
+                              color: "hsl(var(--ink-on-cream) / 0.88)",
                               ...(expanded
                                 ? {}
                                 : {
@@ -566,7 +566,7 @@ export function InlineScriptPreview({
                 onClick={() => setExpanded(true)}
                 style={{
                   fontSize: 10,
-                  color: "rgba(20,20,24,0.55)",
+                  color: "hsl(var(--ink-on-cream) / 0.55)",
                   textAlign: "center",
                   padding: "2px 0 4px",
                   cursor: "pointer",
@@ -585,7 +585,7 @@ export function InlineScriptPreview({
           padding: "8px 12px",
           display: "flex",
           gap: 8,
-          borderTop: "1px solid rgba(20,20,24,0.08)",
+          borderTop: "1px solid hsl(var(--ink-on-cream) / 0.08)",
         }}
       >
         <button
@@ -599,7 +599,7 @@ export function InlineScriptPreview({
             gap: 6,
             padding: "7px 0",
             borderRadius: 8,
-            border: "1px solid rgba(20,20,24,0.85)",
+            border: "1px solid hsl(var(--ink-on-cream) / 0.85)",
             fontSize: 11,
             fontWeight: 600,
             cursor: saving || saved ? "default" : "pointer",
@@ -621,12 +621,12 @@ export function InlineScriptPreview({
             gap: 6,
             padding: "7px 0",
             borderRadius: 8,
-            border: "1px solid rgba(20,20,24,0.18)",
+            border: "1px solid hsl(var(--ink-on-cream) / 0.18)",
             fontSize: 11,
             fontWeight: 500,
             cursor: "pointer",
             background: "transparent",
-            color: "rgba(20,20,24,0.70)",
+            color: "hsl(var(--ink-on-cream) / 0.70)",
             transition: "all 0.2s",
           }}
         >

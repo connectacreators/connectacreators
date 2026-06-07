@@ -245,8 +245,8 @@ export function FlatTransactionGrid({ kind, rows, onUpdate, onDelete, onCreate, 
           className="flex items-center justify-between"
           style={{
             padding: "8px 12px",
-            background: "rgba(34,211,238,0.12)",
-            borderBottom: "1px solid rgba(34,211,238,0.20)",
+            background: "hsl(var(--aqua) / 0.12)",
+            borderBottom: "1px solid hsl(var(--aqua) / 0.20)",
             color: "hsl(var(--aqua))",
             fontSize: 11,
             fontWeight: 600,
@@ -256,7 +256,7 @@ export function FlatTransactionGrid({ kind, rows, onUpdate, onDelete, onCreate, 
           <div className="flex gap-1.5">
             <Select onValueChange={(v) => bulkRecategorize(v as FinanceCategory)}>
               <SelectTrigger
-                className="h-6 text-[10px] gap-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-300 px-2"
+                className="h-6 text-[10px] gap-1 border-primary/30 bg-primary/10 text-primary px-2"
                 style={{ minWidth: "auto" }}
               >
                 <SelectValue placeholder="Recategorize" />
@@ -265,7 +265,7 @@ export function FlatTransactionGrid({ kind, rows, onUpdate, onDelete, onCreate, 
                 {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
               </SelectContent>
             </Select>
-            <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-cyan-500/30 bg-cyan-500/10 text-cyan-300" onClick={bulkMarkAR}>
+            <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-primary/30 bg-primary/10 text-primary" onClick={bulkMarkAR}>
               {selectedRows.some((r) => r.is_ar) ? "Clear A/R" : "Mark A/R"}
             </Button>
             <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-red-500/30 bg-red-500/10 text-red-400" onClick={() => setConfirmingBulkDelete(true)}>
@@ -465,7 +465,7 @@ function SortHeader<K extends string>({
       style={{
         textAlign: align,
         padding: "7px 10px",
-        background: active ? "rgba(34,211,238,0.05)" : "rgba(255,255,255,0.02)",
+        background: active ? "hsl(var(--aqua) / 0.05)" : "rgba(255,255,255,0.02)",
         color: active ? "hsl(var(--aqua))" : "#94a3b8",
         fontWeight: 600,
         fontSize: 10,
@@ -563,7 +563,7 @@ function SetFilter({ values, isFiltered, onChange }: {
         {picked.size > 0 && (
           <button
             type="button"
-            className="w-full text-[10px] text-cyan-400 mt-1 py-1 rounded hover:bg-muted/40"
+            className="w-full text-[10px] text-primary mt-1 py-1 rounded hover:bg-muted/40"
             onClick={() => { setPicked(new Set()); onChange(null); }}
           >
             Clear filter
@@ -623,7 +623,7 @@ function RangeFilter({ isFiltered, onChange }: { isFiltered: boolean; onChange: 
           {(min || max) && (
             <button
               type="button"
-              className="w-full text-[10px] text-cyan-400 mt-1 py-1 rounded hover:bg-muted/40"
+              className="w-full text-[10px] text-primary mt-1 py-1 rounded hover:bg-muted/40"
               onClick={() => { setMin(""); setMax(""); onChange(null); }}
             >
               Clear filter
@@ -659,7 +659,7 @@ function TristateFilter({ isFiltered, onChange }: { isFiltered: boolean; onChang
               setMode(m);
               onChange(m === "all" ? null : { kind: "tristate", mode: m });
             }}
-            className={`w-full text-left px-2 py-1 text-xs rounded ${mode === m ? "bg-cyan-500/15 text-cyan-300" : "hover:bg-muted/40 text-foreground"}`}
+            className={`w-full text-left px-2 py-1 text-xs rounded ${mode === m ? "bg-primary/15 text-primary" : "hover:bg-muted/40 text-foreground"}`}
           >
             {m === "all" ? "All" : m === "yes" ? "A/R only" : "Non-A/R only"}
           </button>
@@ -693,7 +693,7 @@ function Row({
   return (
     <tr
       style={{
-        background: selected ? "rgba(34,211,238,0.07)" : undefined,
+        background: selected ? "hsl(var(--aqua) / 0.07)" : undefined,
         borderBottom: "1px solid rgba(148,163,184,0.06)",
       }}
     >
@@ -780,7 +780,7 @@ function DraftRow({
   categories: FinanceCategory[];
 }) {
   return (
-    <tr style={{ background: "rgba(34,211,238,0.04)", borderBottom: "1px solid rgba(34,211,238,0.18)" }}>
+    <tr style={{ background: "hsl(var(--aqua) / 0.04)", borderBottom: "1px solid hsl(var(--aqua) / 0.18)" }}>
       <td style={td()}>
         <button
           type="button"

@@ -13,7 +13,7 @@ const ANIMALS = [
 ];
 
 const COLORS = [
-  "#22d3ee", // cyan
+  "hsl(var(--aqua))", // cyan
   "#a78bfa", // violet
   "#f472b6", // pink
   "#fb923c", // orange

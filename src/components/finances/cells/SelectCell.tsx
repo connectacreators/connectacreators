@@ -33,7 +33,7 @@ export function SelectCell({ value, options, onCommit, ariaLabel }: Props) {
         aria-label={ariaLabel}
         className="bg-transparent outline-none"
         style={{
-          border: "2px solid rgba(34,211,238,0.55)",
+          border: "2px solid hsl(var(--aqua) / 0.55)",
           background: "#0f172a",
           borderRadius: 3,
           color: "#e2e8f0",

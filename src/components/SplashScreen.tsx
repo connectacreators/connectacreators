@@ -55,7 +55,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
               color: rgba(255,255,255,0.9);
             }
             .splash-encrypted {
-              color: rgba(34,211,238,0.5);
+              color: hsl(var(--aqua) / 0.5);
             }
           `}</style>
         </motion.div>

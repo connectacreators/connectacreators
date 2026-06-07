@@ -149,7 +149,7 @@ export function AssistantTextInput({
   // Derived color tokens — flip to bone when rendering on dark (fullscreen) bg
   const ink = fullscreen
     ? { h: "hsl(var(--bone) / 0.55)", m: "hsl(var(--bone) / 0.40)", s: "hsl(var(--bone) / 0.28)", b: "hsl(var(--bone) / 0.12)", bg4: "hsl(var(--bone) / 0.04)", bg6: "hsl(var(--bone) / 0.06)" }
-    : { h: "hsl(var(--ink-on-cream) / 0.55)",    m: "hsl(var(--ink-on-cream) / 0.40)",    s: "hsl(var(--ink-on-cream) / 0.28)",    b: "hsl(var(--ink-on-cream) / 0.10)",    bg4: "#ffffff",                  bg6: "#ffffff" };
+    : { h: "hsl(var(--ink-on-cream) / 0.55)",    m: "hsl(var(--ink-on-cream) / 0.40)",    s: "hsl(var(--ink-on-cream) / 0.28)",    b: "hsl(var(--ink-on-cream) / 0.10)",    bg4: "hsl(var(--cream))",                  bg6: "hsl(var(--cream))" };
 
   // ── Internal state owned by this component ────────────────────────────
   const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
@@ -318,7 +318,7 @@ export function AssistantTextInput({
                   width: 240,
                   maxHeight: 200,
                   overflowY: "auto",
-                  background: "#ffffff",
+                  background: "hsl(var(--cream))",
                   borderColor: "hsl(var(--ink-on-cream) / 0.12)",
                   color: "hsl(var(--ink-on-cream))",
                   ...(textareaRef.current
@@ -498,7 +498,7 @@ export function AssistantTextInput({
                 className="light-popover absolute bottom-full left-0 mb-2 w-52 rounded-xl border shadow-xl overflow-hidden"
                 style={{
                   zIndex: 99999,
-                  background: "#ffffff",
+                  background: "hsl(var(--cream))",
                   borderColor: "hsl(var(--ink-on-cream) / 0.12)",
                   color: "hsl(var(--ink-on-cream))",
                 }}
@@ -689,7 +689,7 @@ export function AssistantTextInput({
                       style={{
                         position: "fixed",
                         zIndex: 99999,
-                        background: "#ffffff",
+                        background: "hsl(var(--cream))",
                         borderColor: "hsl(var(--ink-on-cream) / 0.12)",
                         color: "hsl(var(--ink-on-cream))",
                         ...(modelBtnRef.current
@@ -821,7 +821,7 @@ export function AssistantTextInput({
                                   width: 12,
                                   height: 12,
                                   borderRadius: 6,
-                                  background: "#ffffff",
+                                  background: "hsl(var(--cream))",
                                   left: thinkingEnabled ? 14 : 2,
                                   transition: "left 0.2s",
                                 }}
@@ -920,7 +920,7 @@ export function AssistantTextInput({
                   borderRadius: "50%",
                   border: "none",
                   background: "none",
-                  color: recognizing ? "#f87171" : ink.m,
+                  color: recognizing ? "#f87171" /* STATUS: live-recording red, semantic not brand */ : ink.m,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

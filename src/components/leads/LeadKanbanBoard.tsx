@@ -29,9 +29,9 @@ type Lead = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border-[rgba(8,145,178,0.30)]",
+  "New Lead":            "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
   "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[hsl(var(--honey))] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 2":         "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
   "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
   "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
@@ -45,7 +45,7 @@ const SOURCE_COLORS: Record<string, string> = {
   "Google Ads": "bg-red-500/15 text-red-400",
   Website: "bg-purple-500/15 text-purple-400",
   Referral: "bg-emerald-500/15 text-emerald-400",
-  Organic: "bg-cyan-500/15 text-cyan-400",
+  Organic: "bg-primary/15 text-primary",
   Other: "bg-gray-500/15 text-gray-400",
 };
 
@@ -89,12 +89,12 @@ function LeadCard({
   return (
     <div
       onClick={onClick}
-      className={`group relative rounded-lg border border-border/40 bg-card/80 backdrop-blur-sm p-3 cursor-grab active:cursor-grabbing hover:border-cyan-400/40 hover:shadow-md hover:shadow-cyan-500/5 transition-all ${
+      className={`group relative rounded-lg border border-border/40 bg-card/80 backdrop-blur-sm p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all ${
         dragging ? "opacity-50" : ""
       }`}
     >
       {updating && (
-        <Loader2 className="absolute top-2 right-2 w-3 h-3 animate-spin text-cyan-400" />
+        <Loader2 className="absolute top-2 right-2 w-3 h-3 animate-spin text-primary" />
       )}
       <h4 className="text-sm font-semibold text-foreground truncate mb-1.5 pr-4">
         {lead.fullName || tr(t.leadTracker.noName, language)}
@@ -156,7 +156,7 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={`flex flex-col w-72 flex-shrink-0 rounded-xl border border-border/50 ${accentClass} border-t-2 bg-card/30 backdrop-blur-sm transition-colors ${
-        isOver ? "bg-cyan-500/5 border-cyan-400/40" : ""
+        isOver ? "bg-primary/5 border-primary/40" : ""
       }`}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/40">

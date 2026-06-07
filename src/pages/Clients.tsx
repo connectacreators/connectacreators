@@ -313,7 +313,7 @@ export default function Clients() {
                     className="flex items-center gap-3 flex-1 text-left"
                   >
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                      (client as any).is_primary ? 'bg-[rgba(34,211,238,0.15)]' : 'bg-[rgba(8,145,178,0.15)]'
+                      (client as any).is_primary ? 'bg-[hsl(var(--aqua) / 0.15)]' : 'bg-[hsl(var(--aqua) / 0.15)]'
                     }`}>
                       <User className={`w-4 h-4 ${(client as any).is_primary ? 'text-[hsl(var(--aqua))]' : 'text-[hsl(var(--aqua))]'}`} />
                     </div>

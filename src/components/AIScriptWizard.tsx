@@ -64,8 +64,8 @@ const SCRIPT_FORMATS = [
     icon: Mic,
     label: "TALKING HEAD",
     description: { en: "Direct-to-camera monologue", es: "Monólogo directo a cámara" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
+    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
+    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
     iconColor: "text-[hsl(var(--aqua))]",
   },
   {
@@ -73,8 +73,8 @@ const SCRIPT_FORMATS = [
     icon: Video,
     label: "B-ROLL CAPTION",
     description: { en: "Voiceover with B-roll footage", es: "Voz en off con imágenes de apoyo" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
+    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
+    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
     iconColor: "text-[hsl(var(--aqua))]",
   },
   {
@@ -82,8 +82,8 @@ const SCRIPT_FORMATS = [
     icon: Users,
     label: "ENTREVISTA",
     description: { en: "Interview / Q&A format", es: "Formato de entrevista / Q&A" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
+    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
+    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
     iconColor: "text-[hsl(var(--aqua))]",
   },
   {
@@ -91,8 +91,8 @@ const SCRIPT_FORMATS = [
     icon: Grid3X3,
     label: "VARIADO",
     description: { en: "Mixed format & transitions", es: "Formato mixto con transiciones" },
-    color: "from-[rgba(8,145,178,0.12)] to-[rgba(8,145,178,0.06)] border-[rgba(8,145,178,0.35)]",
-    activeColor: "from-[rgba(8,145,178,0.30)] to-[rgba(8,145,178,0.20)] border-[rgba(8,145,178,0.60)]",
+    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
+    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
     iconColor: "text-[hsl(var(--aqua))]",
   },
 ];
@@ -135,13 +135,13 @@ function formatTime(seconds: number): string {
 
 function viralityColor(score: number) {
   if (score >= 8) return "text-green-400";
-  if (score >= 6) return "text-cyan-400";
+  if (score >= 6) return "text-primary";
   return "text-red-400";
 }
 
 function viralityBg(score: number) {
   if (score >= 8) return "bg-green-500/20 border-green-500/30";
-  if (score >= 6) return "bg-cyan-400/20 border-cyan-400/30";
+  if (score >= 6) return "bg-primary/20 border-primary/30";
   return "bg-red-500/20 border-red-500/30";
 }
 
@@ -1301,10 +1301,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
           {/* Vault structure hint (if remixing) */}
           {remixVaultMatch?.structure_analysis && (
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-cyan-400/8 border border-cyan-400/20">
-              <MessageSquare className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-primary/8 border border-primary/20">
+              <MessageSquare className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">
                   {tr({ en: "Viral hook structure detected from video", es: "Estructura de hook viral detectada del video" }, language)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1330,7 +1330,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               className={`absolute bottom-3 right-3 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                 isRecording
                   ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/30"
-                  : "bg-cyan-400/10 text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/20"
+                  : "bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
               }`}
             >
               {isRecording ? <X className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -1354,7 +1354,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <Button
               onClick={handleExtractStoryFacts}
               disabled={extractingStory || storyText.trim().length < 50}
-              className="gap-2 bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-400 border border-cyan-400/40 rounded-xl px-5 h-11"
+              className="gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/40 rounded-xl px-5 h-11"
             >
               {extractingStory ? (
                 <><Loader2 className="w-4 h-4 animate-spin" />{tr({ en: "Extracting moments…", es: "Extrayendo momentos…" }, language)}</>
@@ -1393,7 +1393,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <Button
             onClick={handleResearch}
             disabled={loading || !topic.trim()}
-            className="w-full h-12 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3 transition-all"
+            className="w-full h-12 text-base font-semibold rounded-xl bg-primary/15 hover:bg-primary/25 text-primary border border-primary/40 gap-3 transition-all"
           >
             {loading ? (
               <><Loader2 className="w-5 h-5 animate-spin" />{tr({ en: "Researching...", es: "Investigando..." }, language)}</>
@@ -1402,10 +1402,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             )}
           </Button>
           {loading && (
-            <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-3">
+            <div className="bg-card/50 border border-primary/25 rounded-2xl p-6 text-center space-y-3">
               <div className="flex justify-center gap-2">
                 {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-cyan-400/60 animate-bounce" style={{ animationDelay: `${i * 0.1}s` }} />
+                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
               </div>
               <p className="text-sm text-muted-foreground">
@@ -1443,7 +1443,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     <div className="space-y-3">
       {/* Header row: label + Edit All button */}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+        <p className="text-xs font-bold text-primary uppercase tracking-wider">
           {tr(labelKey, language)}
         </p>
         {facts.length > 0 && (
@@ -1451,8 +1451,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             onClick={editingFactsBulk ? saveBulkEdit : openBulkEdit}
             className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
               editingFactsBulk
-                ? "bg-cyan-400 text-white border-cyan-400"
-                : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-cyan-400/40"
+                ? "bg-primary text-white border-primary"
+                : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-primary/40"
             }`}
           >
             {editingFactsBulk ? <><Check className="w-3 h-3" />{tr({ en: "Save edits", es: "Guardar" }, language)}</> : <>{tr({ en: "✏️ Edit all", es: "✏️ Editar todo" }, language)}</>}
@@ -1498,7 +1498,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               >
                 <div className="flex items-start gap-4">
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    isSelected ? "bg-cyan-400 text-white" : "bg-muted text-muted-foreground border border-border"
+                    isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground border border-border"
                   }`}>
                     {isSelected ? <Check className="w-4 h-4" /> : <span className="text-xs font-bold">{i + 1}</span>}
                   </div>
@@ -1508,7 +1508,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     </p>
                   </div>
                   <div className={`flex-shrink-0 flex flex-col items-center gap-0.5 ${
-                    f.impact_score >= 9 ? "text-rose-400" : f.impact_score >= 8 ? "text-cyan-400" : "text-muted-foreground"
+                    f.impact_score >= 9 ? "text-rose-400" : f.impact_score >= 8 ? "text-primary" : "text-muted-foreground"
                   }`}>
                     <span className="text-lg font-bold leading-none">{f.impact_score}</span>
                     <span className="text-[10px] font-medium opacity-70">/ 10</span>
@@ -1529,7 +1529,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <Button
             onClick={() => onNextOverride ? onNextOverride() : advanceTo(3)}
             disabled={selectedFacts.length === 0 || (!!onNextOverride && (loading || vaultSaving))}
-            className="gap-2 bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 rounded-xl px-6"
+            className="gap-2 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/40 rounded-xl px-6"
           >
             {!!onNextOverride && loading
               ? tr({ en: "Generating…", es: "Generando…" }, language)
@@ -1567,8 +1567,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
           {/* Remix auto-structure notice for storytelling mode */}
           {isRemixTalkingHead && (
-            <div className="flex flex-col gap-1 p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/25 text-sm">
-              <span className="font-semibold text-cyan-400 text-xs uppercase tracking-wide">
+            <div className="flex flex-col gap-1 p-3 rounded-xl bg-primary/10 border border-primary/25 text-sm">
+              <span className="font-semibold text-primary text-xs uppercase tracking-wide">
                 {tr({ en: "Auto-detected from original video", es: "Auto-detectado del video original" }, language)}
               </span>
               {remixHookLabelGlobal && (
@@ -1625,8 +1625,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       </div>
 
       {/* Topic recap */}
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-cyan-400/8 border border-cyan-400/25">
-        <Search className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/8 border border-primary/25">
+        <Search className="w-4 h-4 text-primary flex-shrink-0" />
         <span className="text-sm text-foreground font-medium">{topic}</span>
         <button
           onClick={() => { setCurrentStep(1); }}
@@ -1638,8 +1638,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
       {/* Remix auto-structure notice */}
       {isRemixTalkingHead && (
-        <div className="flex flex-col gap-1 p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/25 text-sm">
-          <span className="font-semibold text-cyan-400 text-xs uppercase tracking-wide">
+        <div className="flex flex-col gap-1 p-3 rounded-xl bg-primary/10 border border-primary/25 text-sm">
+          <span className="font-semibold text-primary text-xs uppercase tracking-wide">
             {tr({ en: "Auto-detected from original video", es: "Auto-detectado del video original" }, language)}
           </span>
           {remixHookLabel && (
@@ -1693,17 +1693,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           disabled={vaultSaving && !remixVaultMatch}
           className={`w-full text-left p-4 rounded-2xl border transition-all ${
             useRemixHook
-              ? "border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20"
+              ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20"
               : remixVaultMatch
-                ? "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                ? "border-border/60 bg-card/50 hover:border-primary/30 hover:bg-primary/5"
                 : vaultSaving
-                  ? "border-cyan-400/25 bg-cyan-400/5 cursor-wait"
-                  : "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                  ? "border-primary/25 bg-primary/5 cursor-wait"
+                  : "border-border/60 bg-card/50 hover:border-primary/30 hover:bg-primary/5"
           }`}
         >
           <div className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              useRemixHook ? "bg-cyan-400 text-white" : vaultSaving && !remixVaultMatch ? "bg-cyan-400/10 text-cyan-400" : "bg-muted text-muted-foreground"
+              useRemixHook ? "bg-primary text-white" : vaultSaving && !remixVaultMatch ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             }`}>
               {useRemixHook ? <Check className="w-4 h-4" /> : vaultSaving && !remixVaultMatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
             </div>
@@ -1713,7 +1713,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   {tr({ en: "Use hook from remix video", es: "Usar hook del video remixeado" }, language)}
                 </p>
                 {useRemixHook && (
-                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/15 border border-cyan-400/25 px-2 py-0.5 rounded-full">REMIX</span>
+                  <span className="text-[10px] font-bold text-primary bg-primary/15 border border-primary/25 px-2 py-0.5 rounded-full">REMIX</span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
@@ -1731,8 +1731,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
       {/* AI Suggestions header */}
       <div className="flex items-center gap-2 pt-2">
-        <Sparkles className="w-4 h-4 text-cyan-400" />
-        <span className="text-sm font-medium text-cyan-400">
+        <Sparkles className="w-4 h-4 text-primary" />
+        <span className="text-sm font-medium text-primary">
           {tr({ en: "Best hooks for", es: "Mejores hooks para" }, language)} &quot;{topic}&quot;
         </span>
       </div>
@@ -1771,13 +1771,13 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 }}
                 className={`w-full text-left p-4 rounded-2xl border transition-all ${
                   isSelected
-                    ? "border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20"
-                    : "border-border/40 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                    ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20"
+                    : "border-border/40 bg-card/50 hover:border-primary/30 hover:bg-primary/5"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold ${
-                    isSelected ? "bg-cyan-400 text-black" : "bg-muted text-muted-foreground"
+                    isSelected ? "bg-primary text-black" : "bg-muted text-muted-foreground"
                   }`}>
                     {isSelected ? <Check className="w-3 h-3" /> : i + 1}
                   </div>
@@ -1802,7 +1802,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <button
               onClick={() => fetchSuggestedHooks(shownHookIds)}
               disabled={hookLoading}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-cyan-400/30 bg-cyan-400/5 hover:bg-cyan-400/10 text-cyan-400 text-sm transition-all"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary text-sm transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${hookLoading ? "animate-spin" : ""}`} />
               {tr({ en: "Show 5 More", es: "Mostrar 5 Mas" }, language)}
@@ -1820,16 +1820,16 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
       {/* Selection summary + next */}
       {(useRemixHook || selectedHook) && (
-        <div className="sticky bottom-4 bg-card/95 backdrop-blur border border-cyan-400/25 rounded-2xl p-4 shadow-xl space-y-3">
+        <div className="sticky bottom-4 bg-card/95 backdrop-blur border border-primary/25 rounded-2xl p-4 shadow-xl space-y-3">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-400/20 flex items-center justify-center flex-shrink-0">
-              <Check className="w-4 h-4 text-cyan-400" />
+            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <Check className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               {useRemixHook ? (
                 <>
-                  <p className="text-xs text-cyan-400 font-semibold flex items-center gap-1">
-                    <span className="text-[10px] bg-cyan-400/15 border border-cyan-400/25 px-1.5 py-0.5 rounded-full">REMIX</span>
+                  <p className="text-xs text-primary font-semibold flex items-center gap-1">
+                    <span className="text-[10px] bg-primary/15 border border-primary/25 px-1.5 py-0.5 rounded-full">REMIX</span>
                     {tr({ en: "Hook from video", es: "Hook del video" }, language)}
                   </p>
                   <p className="text-sm text-foreground italic truncate">
@@ -1848,7 +1848,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </div>
           <Button
             onClick={() => advanceTo(4)}
-            className="w-full gap-2 bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 rounded-xl"
+            className="w-full gap-2 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/40 rounded-xl"
           >
             {tr({ en: "Next: Choose Style", es: "Siguiente: Elegir Estilo" }, language)}
             <ArrowRight className="w-4 h-4" />
@@ -1900,19 +1900,19 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </div>
 
           {/* Remix structure confirmation */}
-          <div className={`p-4 rounded-2xl border transition-all ${isAnalyzing ? "border-cyan-400/30 bg-cyan-400/5" : "border-cyan-400/40 bg-cyan-400/10"}`}>
+          <div className={`p-4 rounded-2xl border transition-all ${isAnalyzing ? "border-primary/30 bg-primary/5" : "border-primary/40 bg-primary/10"}`}>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-cyan-400/20 border border-cyan-400/40 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center flex-shrink-0">
                 {isAnalyzing
-                  ? <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-                  : <Check className="w-4 h-4 text-cyan-400" />}
+                  ? <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  : <Check className="w-4 h-4 text-primary" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-cyan-400">
+                  <p className="text-sm font-semibold text-primary">
                     {tr({ en: "Using original video's structure", es: "Usando estructura del video original" }, language)}
                   </p>
-                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">REMIX</span>
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">REMIX</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {isAnalyzing
@@ -1930,7 +1930,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <div className="space-y-4 p-4 rounded-2xl bg-card/50 border border-border/60">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Languages className="w-4 h-4 text-cyan-400" />
+                <Languages className="w-4 h-4 text-primary" />
                 {tr({ en: "Script Language", es: "Idioma del Script" }, language)}
               </label>
               <div className="flex gap-2">
@@ -1940,8 +1940,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     onClick={() => setScriptLanguage(lang)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                       scriptLanguage === lang
-                        ? "bg-cyan-400 text-white border-cyan-400"
-                        : "border-border text-muted-foreground hover:border-cyan-400/40 bg-card"
+                        ? "bg-primary text-white border-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40 bg-card"
                     }`}
                   >
                     {lang === "en" ? "English" : "Español"}
@@ -1952,7 +1952,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground flex items-center justify-between">
                 <span>{tr({ en: "Script Length", es: "Duración del Script" }, language)}</span>
-                <span className="text-cyan-400 text-xs font-semibold">{lengthLabels[scriptLength]}</span>
+                <span className="text-primary text-xs font-semibold">{lengthLabels[scriptLength]}</span>
               </label>
               <Slider
                 value={[scriptLength]}
@@ -1996,12 +1996,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           </BorderGlow>
 
           {loading && (
-            <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-4">
+            <div className="bg-card/50 border border-primary/25 rounded-2xl p-6 text-center space-y-4">
               <div className="flex justify-center gap-2">
                 {[0, 1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="w-2.5 h-2.5 rounded-full bg-cyan-400/60 animate-bounce"
+                    className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce"
                     style={{ animationDelay: `${i * 0.12}s` }}
                   />
                 ))}
@@ -2045,7 +2045,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             onClick={() => setStructureMode("default")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               isDefaultMode
-                ? "bg-cyan-400 text-white shadow-sm"
+                ? "bg-primary text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -2056,7 +2056,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             onClick={() => setStructureMode("vault")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               isVaultMode
-                ? "bg-cyan-400 text-white shadow-sm"
+                ? "bg-primary text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -2088,7 +2088,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                       <p className="text-xs text-muted-foreground mt-1">{tr(fmt.description, language)}</p>
                     </div>
                     {isSelected && (
-                      <div className="flex items-center gap-1.5 text-cyan-400 text-xs font-medium">
+                      <div className="flex items-center gap-1.5 text-primary text-xs font-medium">
                         <Check className="w-3.5 h-3.5" />
                         {tr({ en: "Selected", es: "Seleccionado" }, language)}
                       </div>
@@ -2103,7 +2103,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         {/* VAULT MODE: Vault template selection */}
         {isVaultMode && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-cyan-400">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
               <Archive className="w-4 h-4" />
               {tr({ en: "Select a Vault Template", es: "Selecciona una Plantilla del Vault" }, language)}
             </div>
@@ -2119,17 +2119,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 disabled={vaultSaving && !remixVaultMatch}
                 className={`w-full text-left p-4 rounded-2xl border transition-all ${
                   useRemixStructure
-                    ? "border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20"
+                    ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20"
                     : remixVaultMatch
-                      ? "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                      ? "border-border/60 bg-card/50 hover:border-primary/30 hover:bg-primary/5"
                       : vaultSaving
-                        ? "border-cyan-400/20 bg-cyan-400/5 cursor-wait"
-                        : "border-border/60 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                        ? "border-primary/20 bg-primary/5 cursor-wait"
+                        : "border-border/60 bg-card/50 hover:border-primary/30 hover:bg-primary/5"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    useRemixStructure ? "bg-cyan-400 text-white" : vaultSaving && !remixVaultMatch ? "bg-cyan-400/10 text-cyan-400" : "bg-muted text-muted-foreground"
+                    useRemixStructure ? "bg-primary text-white" : vaultSaving && !remixVaultMatch ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                   }`}>
                     {useRemixStructure ? <Check className="w-4 h-4" /> : vaultSaving && !remixVaultMatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
                   </div>
@@ -2139,7 +2139,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                         {tr({ en: "Use structure from remix video", es: "Usar estructura del video remixeado" }, language)}
                       </p>
                       {useRemixStructure && (
-                        <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">REMIX</span>
+                        <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">REMIX</span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
@@ -2164,8 +2164,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 </span>
               </div>
             ) : vaultTemplates.length === 0 ? (
-              <div className="p-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 text-center space-y-2">
-                <Archive className="w-8 h-8 text-cyan-400/50 mx-auto" />
+              <div className="p-6 rounded-2xl border border-primary/20 bg-primary/5 text-center space-y-2">
+                <Archive className="w-8 h-8 text-primary/50 mx-auto" />
                 <p className="text-sm text-muted-foreground">
                   {tr({ en: "No Vault templates found for this client.", es: "No se encontraron plantillas del Vault para este cliente." }, language)}
                 </p>
@@ -2187,13 +2187,13 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                       }}
                       className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${
                         isSelected
-                          ? "bg-cyan-400/15 border-cyan-400/50 shadow-[0_0_0_1px_rgba(254,243,199,0.2)]"
-                          : "bg-card border-border/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                          ? "bg-primary/15 border-primary/50 shadow-[0_0_0_1px_rgba(254,243,199,0.2)]"
+                          : "bg-card border-border/60 hover:border-primary/30 hover:bg-primary/5"
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                          isSelected ? "bg-cyan-400 text-white" : "bg-muted text-muted-foreground border border-border"
+                          isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground border border-border"
                         }`}>
                           {isSelected ? <Check className="w-4 h-4" /> : <Archive className="w-3.5 h-3.5" />}
                         </div>
@@ -2218,7 +2218,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             )}
 
             {selectedVaultTemplate && (
-              <div className="p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/20 text-xs text-cyan-400">
+              <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary">
                 <span className="font-medium">{tr({ en: "Using template:", es: "Usando plantilla:" }, language)}</span>{" "}
                 {selectedVaultTemplate.name} — {tr({ en: "AI will follow this exact structure with your topic.", es: "La IA seguirá esta estructura exacta con tu tema." }, language)}
               </div>
@@ -2232,7 +2232,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             {/* Language */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Languages className="w-4 h-4 text-cyan-400" />
+                <Languages className="w-4 h-4 text-primary" />
                 {tr({ en: "Script Language", es: "Idioma del Script" }, language)}
               </label>
               <div className="flex gap-2">
@@ -2242,8 +2242,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     onClick={() => setScriptLanguage(lang)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                       scriptLanguage === lang
-                        ? "bg-cyan-400 text-white border-cyan-400"
-                        : "border-border text-muted-foreground hover:border-cyan-400/40 bg-card"
+                        ? "bg-primary text-white border-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40 bg-card"
                     }`}
                   >
                     {lang === "en" ? "English" : "Español"}
@@ -2256,7 +2256,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground flex items-center justify-between">
                 <span>{tr({ en: "Script Length", es: "Duración del Script" }, language)}</span>
-                <span className="text-cyan-400 text-xs font-semibold">{lengthLabels[scriptLength]}</span>
+                <span className="text-primary text-xs font-semibold">{lengthLabels[scriptLength]}</span>
               </label>
               <Slider
                 value={[scriptLength]}
@@ -2278,7 +2278,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <div className="p-4 rounded-2xl bg-card/50 border border-border/60">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Languages className="w-4 h-4 text-cyan-400" />
+                <Languages className="w-4 h-4 text-primary" />
                 {tr({ en: "Script Language", es: "Idioma del Script" }, language)}
               </label>
               <div className="flex gap-2">
@@ -2288,8 +2288,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     onClick={() => setScriptLanguage(lang)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                       scriptLanguage === lang
-                        ? "bg-cyan-400 text-white border-cyan-400"
-                        : "border-border text-muted-foreground hover:border-cyan-400/40 bg-card"
+                        ? "bg-primary text-white border-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40 bg-card"
                     }`}
                   >
                     {lang === "en" ? "English" : "Español"}
@@ -2304,7 +2304,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         <Button
           onClick={handleGenerateScript}
           disabled={loading || !canGenerate}
-          className="w-full h-14 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3 transition-all"
+          className="w-full h-14 text-base font-semibold rounded-xl bg-primary/15 hover:bg-primary/25 text-primary border border-primary/40 gap-3 transition-all"
         >
           {loading ? (
             <>
@@ -2334,12 +2334,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
 
         {/* Loading progress */}
         {loading && (
-          <div className="bg-card/50 border border-cyan-400/25 rounded-2xl p-6 text-center space-y-4">
+          <div className="bg-card/50 border border-primary/25 rounded-2xl p-6 text-center space-y-4">
             <div className="flex justify-center gap-2">
               {[0, 1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="w-2.5 h-2.5 rounded-full bg-cyan-400/60 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce"
                   style={{ animationDelay: `${i * 0.12}s` }}
                 />
               ))}
@@ -2481,7 +2481,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     return (
                       <div
                         key={globalIdx}
-                        className={`rounded-2xl border border-cyan-400/40 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-cyan-400/5`}
+                        className={`rounded-2xl border border-primary/40 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-primary/5`}
                       >
                         {/* Line type selector */}
                         <div className="flex gap-1 p-3 border-b border-border/40 flex-wrap">
@@ -2531,7 +2531,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                             <Button
                               size="sm"
                               onClick={saveLineEdit}
-                              className="h-7 px-3 text-xs rounded-lg bg-cyan-400 text-white gap-1"
+                              className="h-7 px-3 text-xs rounded-lg bg-primary text-white gap-1"
                             >
                               <Check className="w-3 h-3" />
                               {tr({ en: "Save", es: "Guardar" }, language)}
@@ -2592,7 +2592,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   className="w-full"
                 />
               </div>
-              <span className="text-xs text-cyan-400 font-bold whitespace-nowrap">{lengthLabels[scriptLength]}</span>
+              <span className="text-xs text-primary font-bold whitespace-nowrap">{lengthLabels[scriptLength]}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -2638,8 +2638,8 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   disabled={translating || lang === scriptLanguage}
                   className={`h-8 px-3 rounded-lg text-xs font-semibold transition-all border ${
                     lang === scriptLanguage
-                      ? "bg-cyan-400/20 border-cyan-400/40 text-cyan-400"
-                      : "border-border text-muted-foreground hover:border-cyan-400/30 hover:text-foreground bg-card"
+                      ? "bg-primary/20 border-primary/40 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground bg-card"
                   }`}
                 >
                   {translating && lang !== scriptLanguage ? (
@@ -2679,7 +2679,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="w-full h-11 text-sm font-semibold rounded-xl bg-cyan-400 hover:bg-cyan-500 text-white gap-2"
+              className="w-full h-11 text-sm font-semibold rounded-xl bg-primary hover:bg-primary text-white gap-2"
             >
               {saving ? (
                 <>
@@ -2720,10 +2720,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
   // ==================== TYPE DETECTION PANEL ====================
   const renderTypeDetectionPanel = () => (
     <div className="px-4 sm:px-6 py-4 max-w-3xl mx-auto">
-      <div className="rounded-2xl border border-cyan-400/25 bg-card/50 backdrop-blur-sm overflow-hidden">
+      <div className="rounded-2xl border border-primary/25 bg-card/50 backdrop-blur-sm overflow-hidden">
         {/* Panel header */}
         <div className="px-5 py-4 border-b border-border/30">
-          <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
+          <p className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">
             {tr({ en: "Detecting video type...", es: "Detectando tipo de video..." }, language)}
           </p>
           {!transcribing && (
@@ -2743,7 +2743,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
             ] as const;
             const current = phases.find(p => p.phase === transcribePhase) ?? phases[0];
             return (
-              <div className="relative h-9 rounded-full overflow-hidden border border-cyan-400/40 bg-transparent">
+              <div className="relative h-9 rounded-full overflow-hidden border border-primary/40 bg-transparent">
                 {/* Fill — cream at 5% opacity */}
                 <div
                   className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
@@ -2754,10 +2754,10 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 />
                 {/* Label + pct centered over the bar */}
                 <div className="absolute inset-0 flex items-center justify-center gap-2">
-                  <span className="text-xs font-semibold text-cyan-400/80">
+                  <span className="text-xs font-semibold text-primary/80">
                     {tr({ en: current.en, es: current.es }, language)}
                   </span>
-                  <span className="text-xs font-mono text-cyan-400/60">
+                  <span className="text-xs font-mono text-primary/60">
                     {current.pct}%
                   </span>
                 </div>
@@ -2772,17 +2772,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               onClick={() => { setVideoType("caption_video_music"); setIsStorytellingMode(false); }}
               className={`text-left p-5 rounded-2xl border transition-all duration-200 ${
                 videoType === "caption_video_music"
-                  ? "bg-gradient-to-br from-cyan-400/25 to-cyan-400/15 border-cyan-400/60 ring-1 ring-cyan-400/30"
-                  : "bg-card border-border/60 hover:border-cyan-400/40 hover:bg-cyan-400/5"
+                  ? "bg-gradient-to-br from-primary/25 to-primary/15 border-primary/60 ring-1 ring-primary/30"
+                  : "bg-card border-border/60 hover:border-primary/40 hover:bg-primary/5"
               }`}
             >
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-400/20 flex items-center justify-center">
-                    <Music className="w-5 h-5 text-cyan-400" />
+                  <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <Music className="w-5 h-5 text-primary" />
                   </div>
                   {videoType === "caption_video_music" && (
-                    <span className="text-[10px] font-bold bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 rounded-full">
                       {tr({ en: "Selected", es: "Seleccionado" }, language)}
                     </span>
                   )}
@@ -2803,17 +2803,17 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               onClick={() => setVideoType("talking_head")}
               className={`text-left p-5 rounded-2xl border transition-all duration-200 ${
                 videoType === "talking_head"
-                  ? "bg-gradient-to-br from-cyan-400/25 to-cyan-400/15 border-cyan-400/60 ring-1 ring-cyan-400/30"
-                  : "bg-card border-border/60 hover:border-cyan-400/40 hover:bg-cyan-400/5"
+                  ? "bg-gradient-to-br from-primary/25 to-primary/15 border-primary/60 ring-1 ring-primary/30"
+                  : "bg-card border-border/60 hover:border-primary/40 hover:bg-primary/5"
               }`}
             >
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-400/20 flex items-center justify-center">
-                    <Mic className="w-5 h-5 text-cyan-400" />
+                  <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <Mic className="w-5 h-5 text-primary" />
                   </div>
                   {videoType === "talking_head" && (
-                    <span className="text-[10px] font-bold bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 rounded-full">
                       {tr({ en: "Selected", es: "Seleccionado" }, language)}
                     </span>
                   )}
@@ -2836,7 +2836,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
                 {tr({ en: "Content style — toggle to switch:", es: "Estilo de contenido — toca para cambiar:" }, language)}
                 {isStorytellingMode && (
-                  <span className="ml-2 text-cyan-400 normal-case font-normal">
+                  <span className="ml-2 text-primary normal-case font-normal">
                     {tr({ en: "✨ detected from transcript", es: "✨ detectado del transcripto" }, language)}
                   </span>
                 )}
@@ -2847,12 +2847,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   onClick={(e) => { e.stopPropagation(); setIsStorytellingMode(false); }}
                   className={`p-3 rounded-xl border text-left transition-all duration-200 ${
                     !isStorytellingMode
-                      ? "bg-cyan-400/15 border-cyan-400/50 ring-1 ring-cyan-400/20"
-                      : "bg-muted/20 border-border/40 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                      ? "bg-primary/15 border-primary/50 ring-1 ring-primary/20"
+                      : "bg-muted/20 border-border/40 hover:border-primary/30 hover:bg-primary/5"
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    <Search className={`w-4 h-4 mt-0.5 flex-shrink-0 ${!isStorytellingMode ? "text-cyan-400" : "text-muted-foreground"}`} />
+                    <Search className={`w-4 h-4 mt-0.5 flex-shrink-0 ${!isStorytellingMode ? "text-primary" : "text-muted-foreground"}`} />
                     <div>
                       <p className={`text-xs font-semibold ${!isStorytellingMode ? "text-foreground" : "text-muted-foreground"}`}>
                         {tr({ en: "Standard", es: "Estándar" }, language)}
@@ -2869,12 +2869,12 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   onClick={(e) => { e.stopPropagation(); setIsStorytellingMode(true); }}
                   className={`p-3 rounded-xl border text-left transition-all duration-200 ${
                     isStorytellingMode
-                      ? "bg-cyan-400/15 border-cyan-400/50 ring-1 ring-cyan-400/20"
-                      : "bg-muted/20 border-border/40 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                      ? "bg-primary/15 border-primary/50 ring-1 ring-primary/20"
+                      : "bg-muted/20 border-border/40 hover:border-primary/30 hover:bg-primary/5"
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    <MessageSquare className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isStorytellingMode ? "text-cyan-400" : "text-muted-foreground"}`} />
+                    <MessageSquare className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isStorytellingMode ? "text-primary" : "text-muted-foreground"}`} />
                     <div>
                       <p className={`text-xs font-semibold ${isStorytellingMode ? "text-foreground" : "text-muted-foreground"}`}>
                         {tr({ en: "Storytelling", es: "Storytelling" }, language)}
@@ -2909,7 +2909,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               // Step 1 is now "Tell Your Story" for storytelling — no skip needed
             }}
             disabled={!videoType || transcribing}
-            className="w-full h-12 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3"
+            className="w-full h-12 text-base font-semibold rounded-xl bg-primary/15 hover:bg-primary/25 text-primary border border-primary/40 gap-3"
           >
             <Check className="w-5 h-5" />
             {videoType === "caption_video_music"
@@ -2970,7 +2970,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         <Button
           onClick={handleGenerateCaptionScript}
           disabled={!canGenerate || captionGenerating}
-          className="w-full h-14 text-base font-semibold rounded-xl bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-400 border border-cyan-400/40 gap-3"
+          className="w-full h-14 text-base font-semibold rounded-xl bg-primary/15 hover:bg-primary/25 text-primary border border-primary/40 gap-3"
         >
           {captionGenerating ? (
             <>
@@ -3011,7 +3011,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
       {/* Remix Banner */}
       {initialTemplateVideo && (
         <div className="px-4 sm:px-6 pt-4 pb-0">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-cyan-400/10 border border-cyan-400/25 max-w-3xl mx-auto">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/10 border border-primary/25 max-w-3xl mx-auto">
             {initialTemplateVideo.thumbnail_url && (
               <img
                 src={`https://wsrv.nl/?url=${encodeURIComponent(initialTemplateVideo.thumbnail_url)}&w=80&output=webp`}
@@ -3020,7 +3020,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
               />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
+              <p className="text-[11px] font-bold text-primary uppercase tracking-wider mb-0.5">
                 {tr({ en: "Remixing from viral video", es: "Remixeando video viral" }, language)}
               </p>
               <p className="text-sm text-foreground font-semibold truncate">
@@ -3040,7 +3040,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           <div className="max-w-3xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-2 mb-3">
-              <Eye className="w-4 h-4 text-cyan-400" />
+              <Eye className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold text-foreground">Visual Breakdown</span>
               {transcribing && videoVisualSegments.length === 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -3138,7 +3138,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                 key={num}
                 className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
                   isActive
-                    ? "glass-card glass-card-cyan shadow-md shadow-[rgba(8,145,178,0.08)]"
+                    ? "glass-card glass-card-cyan shadow-md shadow-[hsl(var(--aqua) / 0.08)]"
                     : isComplete
                       ? "glass-card"
                       : "glass-card opacity-40 pointer-events-none"
@@ -3156,7 +3156,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                     isComplete
                       ? "bg-[hsl(var(--aqua))] text-white"
                       : isActive
-                        ? "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border border-[rgba(34,211,238,0.6)]"
+                        ? "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border border-[hsl(var(--aqua) / 0.6)]"
                         : "bg-muted/50 text-muted-foreground/40"
                   }`}>
                     {isComplete ? <Check className="w-3.5 h-3.5" /> : num}
@@ -3179,13 +3179,13 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
                   <div className="border-t border-border/30 px-5 pt-5 pb-6">
                     {/* Return banner — shown when revisiting a completed step */}
                     {currentStep < maxUnlockedStep && (
-                      <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-cyan-400/8 border border-cyan-400/25">
+                      <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-primary/8 border border-primary/25">
                         <span className="text-xs text-muted-foreground leading-snug">
                           {tr({ en: "Revisiting — your later progress is saved", es: "Revisando — tu progreso posterior está guardado" }, language)}
                         </span>
                         <button
                           onClick={() => jumpTo(maxUnlockedStep as Step)}
-                          className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-cyan-400 hover:text-cyan-400 transition-colors"
+                          className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-primary hover:text-primary transition-colors"
                         >
                           {tr({ en: "Back to Step", es: "Ir al Paso" }, language)} {maxUnlockedStep}
                           <ArrowRight className="w-3 h-3" />
@@ -3288,7 +3288,7 @@ function BrowseAllContent({ language, onSelect }: { language: "en" | "es"; onSel
               onClick={() => toggleCategory(key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                 isActive
-                  ? "bg-cyan-400/15 border-cyan-400/40 text-cyan-400"
+                  ? "bg-primary/15 border-primary/40 text-primary"
                   : "bg-card border-border/40 text-muted-foreground hover:border-border"
               }`}
             >
@@ -3306,7 +3306,7 @@ function BrowseAllContent({ language, onSelect }: { language: "en" | "es"; onSel
             <button
               key={hook.id}
               onClick={() => onSelect(hook)}
-              className="w-full text-left p-3 rounded-xl border border-border/40 bg-card/50 hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all"
+              className="w-full text-left p-3 rounded-xl border border-border/40 bg-card/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
             >
               <p className="text-xs text-foreground italic leading-relaxed">&quot;{hook.template}&quot;</p>
               <div className="flex items-center gap-2 mt-1.5">

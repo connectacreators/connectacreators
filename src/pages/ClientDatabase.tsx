@@ -644,7 +644,7 @@ export default function ClientDatabase() {
               variants={fadeUp}
             >
               <div className="flex items-center gap-3">
-                <Database className="w-6 h-6 text-cyan-400" />
+                <Database className="w-6 h-6 text-primary" />
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold text-foreground">{clientName} - Database</h1>
                   <p className="text-xs text-muted-foreground mt-1">Manage leads and videos</p>

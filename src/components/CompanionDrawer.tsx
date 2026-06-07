@@ -610,7 +610,7 @@ function TabBtn({
       onClick={onClick}
       title={title}
       className="relative w-7 h-7 flex items-center justify-center transition-colors"
-      style={{ color: active ? "rgba(34,211,238,0.95)" : "rgba(255,255,255,0.28)" }}
+      style={{ color: active ? "hsl(var(--aqua) / 0.95)" : "rgba(255,255,255,0.28)" }}
     >
       {/* cyan side mark */}
       <span

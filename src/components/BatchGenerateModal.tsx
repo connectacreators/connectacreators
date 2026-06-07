@@ -313,7 +313,7 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
                   <div className="text-xs text-muted-foreground mb-1">
                     {topics.length} script{topics.length !== 1 ? "s" : ""} × 50 credits = <span className="font-medium">{totalCost} credits</span>
                     {credits && (
-                      <span className={hasEnoughCredits ? " text-cyan-400" : " text-red-400"}>
+                      <span className={hasEnoughCredits ? " text-primary" : " text-red-400"}>
                         {" "}(balance: {credits.credits_balance})
                       </span>
                     )}

@@ -419,7 +419,7 @@ export default function VideoReviewModal({
                 />
               ) : isActiveDrive ? (
                 // Always use Google Drive's native embedded player
-                <div className="w-full h-full rounded-lg overflow-hidden bg-black" style={{ border: '1px solid rgba(8,145,178,0.2)' }}>
+                <div className="w-full h-full rounded-lg overflow-hidden bg-black" style={{ border: '1px solid hsl(var(--aqua) / 0.2)' }}>
                   <iframe
                     src={`https://drive.google.com/file/d/${activeSource!.driveId}/preview`}
                     className="w-full h-full"
@@ -428,12 +428,12 @@ export default function VideoReviewModal({
                   />
                 </div>
               ) : activeSource?.type === 'external' ? (
-                <div className="w-full h-full bg-black rounded-lg flex flex-col items-center justify-center gap-3" style={{ border: '1px solid rgba(8,145,178,0.2)' }}>
+                <div className="w-full h-full bg-black rounded-lg flex flex-col items-center justify-center gap-3" style={{ border: '1px solid hsl(var(--aqua) / 0.2)' }}>
                   <p className="text-sm text-muted-foreground">External link — open in browser</p>
                   <a href={activeSource.rawUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">{activeSource.rawUrl}</a>
                 </div>
               ) : (
-                <div className="w-full h-full bg-black rounded-lg flex items-center justify-center text-muted-foreground text-sm" style={{ border: '1px solid rgba(8,145,178,0.2)' }}>
+                <div className="w-full h-full bg-black rounded-lg flex items-center justify-center text-muted-foreground text-sm" style={{ border: '1px solid hsl(var(--aqua) / 0.2)' }}>
                   No video available
                 </div>
               )}

@@ -48,7 +48,7 @@ export function AssistantContextPanel({
         width: collapsed ? 32 : 180,
         flexShrink: 0,
         background: "hsl(var(--graphite))",
-        borderLeft: "1px solid #2a2b30",
+        borderLeft: "1px solid hsl(var(--bone) / 0.10)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -116,7 +116,7 @@ export function AssistantContextPanel({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              borderBottom: "1px solid #2a2b30",
+              borderBottom: "1px solid hsl(var(--bone) / 0.10)",
               flexShrink: 0,
             }}
           >
@@ -247,7 +247,7 @@ export function AssistantContextPanel({
           <div
             style={{
               padding: "8px 12px",
-              borderTop: "1px solid #2a2b30",
+              borderTop: "1px solid hsl(var(--bone) / 0.10)",
               flexShrink: 0,
             }}
           >

@@ -121,9 +121,9 @@ export const LIFECYCLE_STYLE: Record<
     label: "Needs Revisions",
   },
   Scheduled: {
-    bg: "bg-cyan-500/15",
-    text: "text-cyan-300",
-    border: "border-cyan-400/30",
+    bg: "bg-primary/15",
+    text: "text-primary",
+    border: "border-primary/30",
     label: "Scheduled",
   },
   Published: {

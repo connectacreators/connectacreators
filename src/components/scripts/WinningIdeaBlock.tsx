@@ -29,8 +29,8 @@ interface WinningIdeaBlockProps {
   onIdeaClick?: () => void;          // for surfaces where clicking the idea opens edit mode
 }
 
-const GLOW_BORDER = "rgba(34,211,238,0.35)";
-const GLOW_LABEL  = "rgba(34,211,238,0.7)";
+const GLOW_BORDER = "hsl(var(--aqua) / 0.35)";
+const GLOW_LABEL  = "hsl(var(--aqua) / 0.7)";
 
 export function WinningIdeaBlock({
   idea,
@@ -64,8 +64,8 @@ export function WinningIdeaBlock({
         padding: sizes.padding,
         borderRadius: sizes.radius,
         border: `1px solid ${GLOW_BORDER}`,
-        background: "radial-gradient(ellipse at top left, rgba(34,211,238,0.12), rgba(34,211,238,0.02) 60%)",
-        boxShadow: "inset 0 0 40px rgba(34,211,238,0.05)",
+        background: "radial-gradient(ellipse at top left, hsl(var(--aqua) / 0.12), hsl(var(--aqua) / 0.02) 60%)",
+        boxShadow: "inset 0 0 40px hsl(var(--aqua) / 0.05)",
       };
 
   return (

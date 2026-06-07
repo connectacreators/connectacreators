@@ -141,7 +141,7 @@ export function AssistantThreadList({
           compact ? "px-2 py-1.5" : "px-3 py-2",
           "border-l-2",
           isActive
-            ? "bg-[rgba(34,211,238,0.08)] border-[rgba(34,211,238,0.5)] hover:bg-[rgba(34,211,238,0.12)]"
+            ? "bg-[hsl(var(--aqua) / 0.08)] border-[hsl(var(--aqua) / 0.5)] hover:bg-[hsl(var(--aqua) / 0.12)]"
             : "border-transparent hover:bg-white/5",
         ].join(" ")}
       >
@@ -282,7 +282,7 @@ export function AssistantThreadList({
           ].join(" ")}
           style={{
             background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(34,211,238,0.35)",
+            border: "1px solid hsl(var(--aqua) / 0.35)",
             color: "rgba(255,255,255,0.6)",
             cursor: "pointer",
           }}

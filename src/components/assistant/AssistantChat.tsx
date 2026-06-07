@@ -197,7 +197,7 @@ function PlanCard({
           <path
             d={path}
             fill="none"
-            stroke="rgba(201,169,110,0.4)"
+            stroke="hsl(var(--honey) / 0.4)"
             strokeWidth="1.1"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -209,7 +209,7 @@ function PlanCard({
         <p
           className={`${fullscreen ? "text-sm" : "text-[13px]"} font-bold mb-3 font-serif`}
           style={{
-            color: "rgba(201,169,110,1)",
+            color: "hsl(var(--honey) / 1)",
             letterSpacing: "-0.01em",
           }}
         >
@@ -238,8 +238,8 @@ function PlanCard({
                   width: 18,
                   height: 18,
                   borderRadius: "50%",
-                  background: "rgba(201,169,110,0.12)",
-                  color: "rgba(201,169,110,1)",
+                  background: "hsl(var(--honey) / 0.12)",
+                  color: "hsl(var(--honey) / 1)",
                   fontSize: 10,
                   fontWeight: 700,
                   marginTop: 1,
@@ -272,8 +272,8 @@ function PlanCard({
               style={{
                 background: "transparent",
                 border: "none",
-                color: "rgba(201,169,110,1)",
-                borderBottom: "1px solid rgba(201,169,110,0.45)",
+                color: "hsl(var(--honey) / 1)",
+                borderBottom: "1px solid hsl(var(--honey) / 0.45)",
                 paddingBottom: 1,
                 cursor: "pointer",
               }}
@@ -755,7 +755,7 @@ export function AssistantChat({
                           setCopiedIdx(i);
                           setTimeout(() => setCopiedIdx(null), 1500);
                         }}
-                        className={`text-[9px] transition-colors relative bg-transparent border-0 cursor-pointer px-0.5 ${copiedIdx === i ? "text-cyan-400/90" : "text-muted-foreground/70 hover:text-foreground"}`}
+                        className={`text-[9px] transition-colors relative bg-transparent border-0 cursor-pointer px-0.5 ${copiedIdx === i ? "text-primary/90" : "text-muted-foreground/70 hover:text-foreground"}`}
                         title="Copy"
                       >
                         {copiedIdx === i ? "copied" : "copy"}

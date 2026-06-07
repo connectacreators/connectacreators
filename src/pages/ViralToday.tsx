@@ -632,7 +632,7 @@ function VideoCard({
       transition={{ duration: 0.2 }}
       className={cn(
         "group relative flex flex-col rounded-xl overflow-hidden bg-card border hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
-        selected ? "border-cyan-500 ring-1 ring-cyan-500/30" : "border-border"
+        selected ? "border-primary ring-1 ring-primary/30" : "border-border"
       )}
     >
       {/* Thumbnail — click navigates to detail page */}
@@ -677,8 +677,8 @@ function VideoCard({
               className={cn(
                 "w-6 h-6 rounded-md flex items-center justify-center border transition-all",
                 selected
-                  ? "bg-cyan-500 border-cyan-400"
-                  : "bg-black/60 backdrop-blur-sm border-white/20 hover:border-cyan-400/60"
+                  ? "bg-primary border-primary"
+                  : "bg-black/60 backdrop-blur-sm border-white/20 hover:border-primary/60"
               )}
             >
               {selected ? (
@@ -788,7 +788,7 @@ function VideoCard({
               <button
                 onClick={handleAnalyze}
                 disabled={analyzing}
-                className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/90 hover:bg-cyan-500 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/90 hover:bg-primary backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
                 title="Analyze this video (50 credits)"
               >
                 <Sparkles className="w-3 h-3" />
@@ -813,9 +813,9 @@ function VideoCard({
             <span
               className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold"
               style={{
-                background: "rgba(34,211,238,0.10)",
-                color: "rgba(34,211,238,0.95)",
-                border: "1px solid rgba(34,211,238,0.3)",
+                background: "hsl(var(--aqua) / 0.10)",
+                color: "hsl(var(--aqua) / 0.95)",
+                border: "1px solid hsl(var(--aqua) / 0.3)",
               }}
               title="You added this from /ai"
             >

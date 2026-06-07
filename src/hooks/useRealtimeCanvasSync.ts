@@ -39,7 +39,7 @@ function getAnimalName(): string {
 }
 
 function getPresenceColor(): string {
-  return sessionStorage.getItem("presence_color") || "#22d3ee";
+  return sessionStorage.getItem("presence_color") || "hsl(var(--aqua))";
 }
 
 /** Payload for a single node's data update (annotation resize, text change, etc.) */

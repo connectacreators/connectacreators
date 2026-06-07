@@ -142,7 +142,7 @@ function VariablePicker({ fieldId, value, onChange, prevSteps, triggerData, step
                             <span className="truncate">{`{{steps.${step.id}.${field}}}`}</span>
                             {resolved !== undefined && (
                               <span
-                                className="text-cyan-400 text-[10px] truncate max-w-[80px]"
+                                className="text-primary text-[10px] truncate max-w-[80px]"
                                 title={String(resolved)}
                               >
                                 {String(resolved).length > 15 ? String(resolved).slice(0, 15) + '…' : String(resolved)}
@@ -780,7 +780,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                     <div className="space-y-0.5">
                       {Object.entries(stepResult).map(([key, value]) => (
                         <div key={key} className="text-muted-foreground">
-                          <span className="text-cyan-400">{key}</span>: {String(value)}
+                          <span className="text-primary">{key}</span>: {String(value)}
                         </div>
                       ))}
                     </div>
@@ -854,7 +854,7 @@ export default function StepConfigModal({ open, onOpenChange, service, action, c
                     {Object.entries(stepTestResult.output).map(([key, value]) => (
                       <div key={key} className="text-xs text-green-400 font-mono">
                         <span className="text-yellow-400">{key}</span> →{" "}
-                        <span className="text-cyan-400">{String(value)}</span>
+                        <span className="text-primary">{String(value)}</span>
                       </div>
                     ))}
                   </div>

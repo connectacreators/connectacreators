@@ -14,7 +14,7 @@ interface SpotRect {
 }
 
 const CALLOUT_W = 234;
-const PRIMARY = "hsl(44 75% 87%)"; // brand gold
+const PRIMARY = "hsl(var(--honey))"; // brand gold -> honey token
 
 const STEPS = [
   {
@@ -65,13 +65,13 @@ function AnimUrlType() {
   const s: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", padding: "0 14px" };
   const field: React.CSSProperties = {
     display: "flex", alignItems: "center", gap: 6,
-    background: "rgba(0,0,0,0.35)", border: `1px solid rgba(240,220,150,0.2)`,
+    background: "rgba(0,0,0,0.35)", border: `1px solid hsl(var(--honey) / 0.2)`,
     borderRadius: 7, padding: "5px 10px", width: "100%",
   };
   return (
     <div style={s}>
       <div style={field}>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(240,220,150,0.5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--honey) / 0.5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
         <div style={{ fontSize: 10, color: PRIMARY, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", width: 0, animation: "ctUrlType 3.2s steps(24) infinite" }}>
@@ -87,7 +87,7 @@ function AnimNoteLines() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 7, width: "100%", padding: "8px 16px", justifyContent: "center", height: "100%" }}>
       {([["92%", "0s"], ["68%", "0.18s"], ["80%", "0.36s"]] as [string, string][]).map(([w, delay], i) => (
-        <div key={i} style={{ height: 5, borderRadius: 3, background: "rgba(240,220,150,0.28)", width: w, transformOrigin: "left", animation: `ctNoteGrow 2.8s ${delay} ease-in-out infinite` }} />
+        <div key={i} style={{ height: 5, borderRadius: 3, background: "hsl(var(--honey) / 0.28)", width: w, transformOrigin: "left", animation: `ctNoteGrow 2.8s ${delay} ease-in-out infinite` }} />
       ))}
     </div>
   );
@@ -96,17 +96,17 @@ function AnimNoteLines() {
 function AnimTravelDot() {
   const nodeBox: React.CSSProperties = {
     width: 22, height: 22, borderRadius: 6,
-    border: "1px solid rgba(240,220,150,0.4)", background: "rgba(240,220,150,0.08)",
+    border: "1px solid hsl(var(--honey) / 0.4)", background: "hsl(var(--honey) / 0.08)",
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-    color: "rgba(240,220,150,0.7)",
+    color: "hsl(var(--honey) / 0.7)",
   };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px", height: "100%", width: "100%" }}>
       <div style={nodeBox}>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8z" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>
       </div>
-      <div style={{ flex: 1, height: 1, position: "relative", background: "repeating-linear-gradient(to right, rgba(240,220,150,0.4) 0, rgba(240,220,150,0.4) 4px, transparent 4px, transparent 7px)" }}>
-        <div style={{ position: "absolute", width: 7, height: 7, borderRadius: "50%", background: PRIMARY, top: "50%", transform: "translateY(-50%)", boxShadow: `0 0 8px rgba(240,220,150,0.9)`, animation: "ctDotTravel 1.8s cubic-bezier(0.4,0,0.6,1) infinite" }} />
+      <div style={{ flex: 1, height: 1, position: "relative", background: "repeating-linear-gradient(to right, hsl(var(--honey) / 0.4) 0, hsl(var(--honey) / 0.4) 4px, transparent 4px, transparent 7px)" }}>
+        <div style={{ position: "absolute", width: 7, height: 7, borderRadius: "50%", background: PRIMARY, top: "50%", transform: "translateY(-50%)", boxShadow: `0 0 8px hsl(var(--honey) / 0.9)`, animation: "ctDotTravel 1.8s cubic-bezier(0.4,0,0.6,1) infinite" }} />
       </div>
       <div style={{ ...nodeBox, border: "1px solid hsl(var(--aqua) / 0.4)", background: "hsl(var(--aqua) / 0.08)", color: "hsl(var(--aqua) / 0.7)" }}>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
@@ -119,7 +119,7 @@ function AnimChatBubs() {
   const base: React.CSSProperties = { borderRadius: 8, padding: "5px 9px", fontSize: 10, maxWidth: 136, opacity: 0, transform: "translateY(5px)" };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", padding: "6px 12px", justifyContent: "center", height: "100%" }}>
-      <div style={{ ...base, alignSelf: "flex-end", background: "rgba(240,220,150,0.12)", border: "1px solid rgba(240,220,150,0.22)", color: PRIMARY, animation: "ctBubIn 3.2s 0s ease-out infinite" }}>
+      <div style={{ ...base, alignSelf: "flex-end", background: "hsl(var(--honey) / 0.12)", border: "1px solid hsl(var(--honey) / 0.22)", color: PRIMARY, animation: "ctBubIn 3.2s 0s ease-out infinite" }}>
         Make it more punchy!
       </div>
       <div style={{ ...base, alignSelf: "flex-start", background: "hsl(var(--bone) / 0.06)", border: "1px solid hsl(var(--bone) / 0.1)", color: "hsl(var(--bone) / 0.7)", animation: "ctBubIn 3.2s 0.85s ease-out infinite" }}>
@@ -155,17 +155,17 @@ const ANIM_COMPONENTS = [AnimUrlType, AnimNoteLines, AnimTravelDot, AnimChatBubs
 function CalloutArrow({ placement }: { placement: "below" | "left" | "above" }) {
   const base: React.CSSProperties = {
     position: "absolute", width: 12, height: 12,
-    background: "rgba(14,14,18,0.9)", transform: "rotate(45deg)",
+    background: "hsl(var(--ink) / 0.9)", transform: "rotate(45deg)",
   };
   if (placement === "below") return (
-    <div style={{ ...base, top: -7, left: 28, borderLeft: "1px solid rgba(240,220,150,0.22)", borderTop: "1px solid rgba(240,220,150,0.22)" }} />
+    <div style={{ ...base, top: -7, left: 28, borderLeft: "1px solid hsl(var(--honey) / 0.22)", borderTop: "1px solid hsl(var(--honey) / 0.22)" }} />
   );
   if (placement === "left") return (
-    <div style={{ ...base, right: -7, top: 36, borderRight: "1px solid rgba(240,220,150,0.22)", borderBottom: "1px solid rgba(240,220,150,0.22)" }} />
+    <div style={{ ...base, right: -7, top: 36, borderRight: "1px solid hsl(var(--honey) / 0.22)", borderBottom: "1px solid hsl(var(--honey) / 0.22)" }} />
   );
   // above
   return (
-    <div style={{ ...base, bottom: -7, left: 28, borderRight: "1px solid rgba(240,220,150,0.22)", borderBottom: "1px solid rgba(240,220,150,0.22)" }} />
+    <div style={{ ...base, bottom: -7, left: 28, borderRight: "1px solid hsl(var(--honey) / 0.22)", borderBottom: "1px solid hsl(var(--honey) / 0.22)" }} />
   );
 }
 
@@ -224,7 +224,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
         borderRadius: spotR,
         zIndex: 9999,
         pointerEvents: "none",
-        outline: `2px solid rgba(240,220,150,0.6)`,
+        outline: `2px solid hsl(var(--honey) / 0.6)`,
         outlineOffset: 1,
         animation: "ctRingPulse 1.5s ease-in-out infinite",
       }
@@ -253,13 +253,13 @@ export default function CanvasTutorial({ open, onClose }: Props) {
     left: calloutLeft(),
     width: CALLOUT_W,
     zIndex: 10000,
-    background: "rgba(14,14,18,0.72)",
+    background: "hsl(var(--ink) / 0.72)",
     backdropFilter: "blur(22px)",
     WebkitBackdropFilter: "blur(22px)",
-    border: "1px solid rgba(240,220,150,0.22)",
+    border: "1px solid hsl(var(--honey) / 0.22)",
     borderRadius: 14,
     padding: "14px 16px",
-    boxShadow: "0 10px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(240,220,150,0.06), inset 0 1px 0 hsl(var(--bone) / 0.07)",
+    boxShadow: "0 10px 48px rgba(0,0,0,0.8), 0 0 0 1px hsl(var(--honey) / 0.06), inset 0 1px 0 hsl(var(--bone) / 0.07)",
     animation: "ctCalloutIn 0.28s ease both",
     pointerEvents: "all",
   };
@@ -298,8 +298,8 @@ export default function CanvasTutorial({ open, onClose }: Props) {
           96%, 100% { transform: scaleX(1); opacity: 0; }
         }
         @keyframes ctRingPulse {
-          0%, 100% { outline-color: rgba(240,220,150,0.4); }
-          50%       { outline-color: rgba(240,220,150,0.85); }
+          0%, 100% { outline-color: hsl(var(--honey) / 0.4); }
+          50%       { outline-color: hsl(var(--honey) / 0.85); }
         }
         @keyframes ctCalloutIn {
           from { opacity: 0; transform: translateY(6px); }
@@ -324,14 +324,14 @@ export default function CanvasTutorial({ open, onClose }: Props) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <div style={{
             width: 32, height: 32, flexShrink: 0,
-            background: "rgba(240,220,150,0.1)", border: "1px solid rgba(240,220,150,0.2)",
+            background: "hsl(var(--honey) / 0.1)", border: "1px solid hsl(var(--honey) / 0.2)",
             borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
             color: PRIMARY,
           }}>
             <Icon size={16} />
           </div>
           <div>
-            <div style={{ fontSize: 10, color: "rgba(240,220,150,0.6)", fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", marginBottom: 1 }}>
+            <div style={{ fontSize: 10, color: "hsl(var(--honey) / 0.6)", fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", marginBottom: 1 }}>
               Step {step + 1} of {STEPS.length}
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "hsl(var(--bone))" }}>
@@ -360,7 +360,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
             <div key={i} style={{
               flex: 1, height: 3, borderRadius: 2,
               background: i < step
-                ? "rgba(240,220,150,0.4)"
+                ? "hsl(var(--honey) / 0.4)"
                 : i === step
                   ? PRIMARY
                   : "hsl(var(--bone) / 0.08)",
@@ -383,7 +383,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
             <button
               onClick={() => goTo(step + 1)}
               style={{
-                flex: 1, background: "rgba(240,220,150,0.1)", border: "1px solid rgba(240,220,150,0.28)",
+                flex: 1, background: "hsl(var(--honey) / 0.1)", border: "1px solid hsl(var(--honey) / 0.28)",
                 borderRadius: 8, padding: "6px 10px", fontSize: 11, color: PRIMARY,
                 fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
               }}
@@ -394,7 +394,7 @@ export default function CanvasTutorial({ open, onClose }: Props) {
             <button
               onClick={finish}
               style={{
-                flex: 1, background: "rgba(240,220,150,0.18)", border: "1px solid rgba(240,220,150,0.5)",
+                flex: 1, background: "hsl(var(--honey) / 0.18)", border: "1px solid hsl(var(--honey) / 0.5)",
                 borderRadius: 8, padding: "6px 10px", fontSize: 11, color: PRIMARY,
                 fontWeight: 700, cursor: "pointer",
               }}

@@ -906,7 +906,7 @@ export default function Subscribers() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Crown className="w-5 h-5 text-cyan-400" />
+              <Crown className="w-5 h-5 text-primary" />
               Convert to Agency Client
             </DialogTitle>
           </DialogHeader>
@@ -920,8 +920,8 @@ export default function Subscribers() {
                   Current plan: <span className="text-foreground font-semibold">{PLAN_LABELS[convertTarget.plan_type]}</span>
                 </p>
               </div>
-              <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/20 px-4 py-3 space-y-2">
-                <p className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">What happens next</p>
+              <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-2">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wider">What happens next</p>
                 <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
                   <li>Stripe subscription will be <strong>canceled immediately</strong></li>
                   <li>Plan type changes to <strong>Connecta Plus</strong></li>
@@ -939,7 +939,7 @@ export default function Subscribers() {
             <Button
               onClick={handleConvert}
               disabled={converting}
-              className="gap-1.5 bg-cyan-500 hover:bg-cyan-600 text-white"
+              className="gap-1.5 bg-primary hover:bg-primary text-white"
             >
               {converting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
               Convert to Agency Client
@@ -1136,7 +1136,7 @@ function SubscriberRow({
             size="sm"
             onClick={onConvert}
             title="Convert to Agency Client"
-            className="h-7 w-7 p-0 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+            className="h-7 w-7 p-0 text-primary hover:text-primary hover:bg-primary/10"
           >
             <Crown className="w-3.5 h-3.5" />
           </Button>

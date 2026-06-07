@@ -591,7 +591,7 @@ const ChatSidebar = memo(({
             </div>
           ))}
           {sessions.length === 0 && (
-            <p style={{ color: "#555", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 0" }}>
+            <p style={{ color: "hsl(var(--ink-on-cream) / 0.5)", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 0" }}>
               No chats yet
             </p>
           )}
@@ -1297,7 +1297,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
           style={{
             width: 32,
             height: 32,
-            border: "1px solid #333",
+            border: "1px solid hsl(var(--ink-on-cream) / 0.2)",
             borderRadius: 8,
           }}
         >
@@ -1457,7 +1457,7 @@ const MobileCanvasView = memo((props: MobileCanvasViewProps) => {
                 flexShrink: 0,
               }}
             >
-              <span style={{ color: "#000", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>▲</span>
+              <span style={{ color: "hsl(var(--ink-on-cream))", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>▲</span>
             </button>
           ) : (
             <button

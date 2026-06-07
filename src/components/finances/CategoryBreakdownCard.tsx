@@ -58,7 +58,7 @@ export function CategoryBreakdownCard({ kind, rows, activeCategory, onCategoryTo
               aria-label={`Filter to ${cat} (${USD.format(amount)}, ${pct}%)`}
               className={`w-full text-left py-1.5 px-1.5 transition-colors ${
                 isActive
-                  ? "bg-cyan-500/10 outline outline-1 outline-cyan-500/40 outline-offset-[-1px] rounded-md"
+                  ? "bg-primary/10 outline outline-1 outline-primary/40 outline-offset-[-1px] rounded-md"
                   : "hover:bg-muted/40 rounded-md"
               } ${idx < breakdown.length - 1 ? "border-b border-border/20" : ""}`}
             >

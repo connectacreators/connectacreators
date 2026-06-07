@@ -64,8 +64,8 @@ export function TextCell({
           list={listId}
           className="w-full bg-transparent outline-none"
           style={{
-            border: "2px solid rgba(34,211,238,0.55)",
-            background: "rgba(34,211,238,0.08)",
+            border: "2px solid hsl(var(--aqua) / 0.55)",
+            background: "hsl(var(--aqua) / 0.08)",
             borderRadius: 3,
             color: "#e2e8f0",
             fontSize: 11,

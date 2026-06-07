@@ -80,9 +80,9 @@ type Lead = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border-[rgba(8,145,178,0.30)]",
+  "New Lead":            "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
   "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[hsl(var(--honey))] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[rgba(8,145,178,0.15)] text-[hsl(var(--aqua))] border-[rgba(8,145,178,0.30)]",
+  "Follow-up 2":         "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
   "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
   "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
   "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
@@ -109,7 +109,7 @@ const SOURCE_COLORS: Record<string, string> = {
   "Google Ads": "bg-red-500/15 text-red-400",
   Website: "bg-purple-500/15 text-purple-400",
   Referral: "bg-emerald-500/15 text-emerald-400",
-  Organic: "bg-cyan-500/15 text-cyan-400",
+  Organic: "bg-primary/15 text-primary",
   Other: "bg-gray-500/15 text-gray-400",
 };
 
@@ -1135,17 +1135,17 @@ export default function LeadTracker() {
             )}
 
             {/* View toggle: Cards / Table / Chart */}
-            <div className="flex items-center border border-cyan-400/30 bg-gradient-to-r from-cyan-500/10 to-teal-500/10 rounded-lg overflow-hidden flex-shrink-0 ml-auto">
+            <div className="flex items-center border border-primary/30 bg-gradient-to-r from-primary/10 to-teal-500/10 rounded-lg overflow-hidden flex-shrink-0 ml-auto">
               <button
                 onClick={() => toggleView("cards")}
-                className={`px-3 py-2 text-sm transition-all border-r border-cyan-400/20 ${viewMode === "cards" ? "bg-cyan-500/20 text-cyan-300" : "text-muted-foreground hover:text-foreground"}`}
+                className={`px-3 py-2 text-sm transition-all border-r border-primary/20 ${viewMode === "cards" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 title="Card view"
               >
                 <LayoutList className="w-4 h-4" />
               </button>
               <button
                 onClick={() => toggleView("kanban")}
-                className={`px-3 py-2 text-sm transition-all border-r border-cyan-400/20 ${viewMode === "kanban" ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
+                className={`px-3 py-2 text-sm transition-all border-r border-primary/20 ${viewMode === "kanban" ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground hover:text-foreground"}`}
                 title="Kanban view"
               >
                 <Columns3 className="w-4 h-4" />
@@ -1398,7 +1398,7 @@ export default function LeadTracker() {
 
       {/* Lead Detail Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md bg-card/95 border border-cyan-400/20 backdrop-blur-xl">
+        <DialogContent className="sm:max-w-md bg-card/95 border border-primary/20 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle>{tr(t.leadDetail.title, language)}</DialogTitle>
           </DialogHeader>

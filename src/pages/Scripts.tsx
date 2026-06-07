@@ -3177,7 +3177,7 @@ export default function Scripts() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${isVideo ? 'bg-green-500/15 text-green-400' : 'bg-cyan-500/15 text-cyan-400'}`}>
+                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${isVideo ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 text-primary'}`}>
                         {isVideo ? 'Video' : 'Link'}
                       </span>
                       {fileSize && <span className="text-[10px] text-muted-foreground">{fileSize}</span>}

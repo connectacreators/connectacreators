@@ -770,7 +770,7 @@ export default function MasterDatabase() {
               variants={fadeUp}
             >
               <div className="flex items-center gap-3">
-                <Database className="w-6 h-6 text-cyan-400" />
+                <Database className="w-6 h-6 text-primary" />
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground">Master Database</h1>
               </div>
               <span className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-full">

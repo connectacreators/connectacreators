@@ -2821,7 +2821,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         {/* File drop overlay */}
         {isDragOverCanvas && (
           <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center"
-            style={{ background: "rgba(34,211,238,0.05)", border: "2px dashed rgba(34,211,238,0.4)" }}>
+            style={{ background: "hsl(var(--aqua) / 0.05)", border: "2px dashed hsl(var(--aqua) / 0.4)" }}>
             <div className="bg-card/90 backdrop-blur-sm border border-primary/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-2 shadow-xl">
               <Upload className="w-8 h-8 text-primary" />
               <p className="text-sm font-semibold text-foreground">Drop to create media node</p>

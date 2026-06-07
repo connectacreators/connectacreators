@@ -68,8 +68,8 @@ export function NumberCell({ value, onCommit, ariaLabel }: Props) {
         title={invalid ? "Couldn't parse this as a number" : undefined}
         className="w-full bg-transparent outline-none"
         style={{
-          border: invalid ? "2px solid rgba(239,68,68,0.6)" : "2px solid rgba(34,211,238,0.55)",
-          background: invalid ? "rgba(239,68,68,0.06)" : "rgba(34,211,238,0.08)",
+          border: invalid ? "2px solid rgba(239,68,68,0.6)" : "2px solid hsl(var(--aqua) / 0.55)",
+          background: invalid ? "rgba(239,68,68,0.06)" : "hsl(var(--aqua) / 0.08)",
           borderRadius: 3,
           color: "#e2e8f0",
           fontSize: 11,

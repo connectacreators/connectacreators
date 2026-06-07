@@ -349,11 +349,11 @@ export default function ClientStrategy() {
               src={(s.audience_analysis as any).profilePicUrl}
               alt="Instagram"
               className="w-11 h-11 rounded-full object-cover flex-shrink-0"
-              style={{ border: "2px solid rgba(34,211,238,0.3)" }}
+              style={{ border: "2px solid hsl(var(--aqua) / 0.3)" }}
             />
           ) : clientOnboarding.instagram ? (
             <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[13px] font-bold"
-              style={{ background: "rgba(34,211,238,0.1)", border: "2px solid rgba(34,211,238,0.2)", color: "hsl(var(--aqua))" }}>
+              style={{ background: "hsl(var(--aqua) / 0.1)", border: "2px solid hsl(var(--aqua) / 0.2)", color: "hsl(var(--aqua))" }}>
               {String(clientOnboarding.instagram).replace(/^@/, "").slice(0, 2).toUpperCase()}
             </div>
           ) : null}
@@ -564,7 +564,7 @@ export default function ClientStrategy() {
             <button
               onClick={runAnalysis}
               className="w-full text-[11px] text-left px-2.5 py-2 rounded-lg mb-3 transition-opacity hover:opacity-80"
-              style={{ background: "rgba(34,211,238,0.07)", color: "hsl(var(--aqua))", border: "1px solid rgba(34,211,238,0.15)" }}
+              style={{ background: "hsl(var(--aqua) / 0.07)", color: "hsl(var(--aqua))", border: "1px solid hsl(var(--aqua) / 0.15)" }}
             >
               {en ? "Analysis is in another language — click to re-analyze in English" : "El análisis está en otro idioma — toca para re-analizar en español"}
             </button>
@@ -588,9 +588,9 @@ export default function ClientStrategy() {
               disabled={analyzing}
               className="text-[10px] font-semibold px-2.5 py-1 rounded-md transition-opacity disabled:opacity-40"
               style={{
-                background: "rgba(34,211,238,0.1)",
+                background: "hsl(var(--aqua) / 0.1)",
                 color: "hsl(var(--aqua))",
-                border: "1px solid rgba(34,211,238,0.2)",
+                border: "1px solid hsl(var(--aqua) / 0.2)",
               }}
             >
               {analyzing

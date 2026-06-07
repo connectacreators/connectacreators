@@ -262,8 +262,8 @@ export default function FootagePanel({
             onClick={() => fileInputRef.current?.click()}
             className={`w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-xs transition-colors cursor-pointer ${
               isDragging
-                ? 'border-cyan-500 bg-cyan-500/8 text-cyan-400'
-                : 'border-muted-foreground/20 text-muted-foreground/50 hover:border-cyan-500/40 hover:text-cyan-500/70'
+                ? 'border-primary bg-primary/8 text-primary'
+                : 'border-muted-foreground/20 text-muted-foreground/50 hover:border-primary/40 hover:text-primary/70'
             }`}
           >
             <span>↑</span> Drop more files or click to browse
@@ -274,14 +274,14 @@ export default function FootagePanel({
             onClick={() => fileInputRef.current?.click()}
             className={`w-full flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-8 text-xs transition-colors cursor-pointer ${
               isDragging
-                ? 'border-cyan-500 bg-cyan-500/8 text-cyan-400'
-                : 'border-muted-foreground/20 text-muted-foreground/50 hover:border-cyan-500/40 hover:text-cyan-500/70'
+                ? 'border-primary bg-primary/8 text-primary'
+                : 'border-muted-foreground/20 text-muted-foreground/50 hover:border-primary/40 hover:text-primary/70'
             }`}
           >
             <span className="text-2xl mb-1">☁</span>
             <span>
               Drop videos here or{' '}
-              <strong className="text-cyan-500">click to browse</strong>{' '}
+              <strong className="text-primary">click to browse</strong>{' '}
               — multiple files OK
             </span>
           </button>
@@ -319,7 +319,7 @@ export default function FootagePanel({
                 <div
                   className={`flex items-center gap-2.5 border px-3 py-2 cursor-pointer transition-colors group/row ${
                     activeFile?.name === f.name
-                      ? 'rounded-t-lg border-cyan-500/40 bg-cyan-500/5'
+                      ? 'rounded-t-lg border-primary/40 bg-primary/5'
                       : 'rounded-lg border-border/50 hover:border-border bg-card/50'
                   }`}
                   onClick={() => {
@@ -379,7 +379,7 @@ export default function FootagePanel({
 
                 {/* Inline player */}
                 {activeFile?.name === f.name && (
-                  <div className="rounded-b-lg overflow-hidden border border-t-0 border-cyan-500/25 bg-black">
+                  <div className="rounded-b-lg overflow-hidden border border-t-0 border-primary/25 bg-black">
                     {videoErrors.has(f.name) ? (
                       <div className="flex flex-col items-center gap-2 py-6 px-4 text-center">
                         <Film className="w-8 h-8 text-muted-foreground/40" />
