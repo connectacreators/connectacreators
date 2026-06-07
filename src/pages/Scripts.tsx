@@ -42,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
+import { synthesizeBlocksFromLines, withUids } from "@/lib/scriptBlocks";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -343,6 +344,7 @@ function SortableLineItem({
 // Droppable zone for empty sections — allows dragging lines into empty Hook/Body/CTA
 function SectionDropZone({ section, onClick }: { section: string; onClick: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: `drop-${section}` });
+  const { language } = useLanguage();
   return (
     <div
       ref={setNodeRef}
@@ -358,10 +360,10 @@ function SectionDropZone({ section, onClick }: { section: string; onClick: () =>
       </div>
       <div className="flex-1 min-w-0">
         <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
-          {isOver ? "Drop here" : "Nueva línea"}
+          {isOver ? tr({ en: "Drop here", es: "Suelta aquí" }, language) : tr({ en: "New line", es: "Nueva línea" }, language)}
         </span>
         <p className="text-[hsl(var(--bone) / 0.55)] mt-1 text-sm italic">
-          {isOver ? `Move to ${section}` : "Haz clic para agregar una línea..."}
+          {isOver ? tr({ en: `Move to ${section}`, es: `Mover a ${section}` }, language) : tr({ en: "Click to add a line...", es: "Haz clic para agregar una línea..." }, language)}
         </p>
       </div>
     </div>
@@ -397,7 +399,7 @@ export default function Scripts() {
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
-    categorizeAndSave, directSave, getScriptLines, deleteScript, restoreScript, permanentlyDeleteScript,
+    categorizeAndSave, directSave, getScriptLines, getScriptBlocks, saveScriptBlocks, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado, bulkToggleGrabado, bulkDelete,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
     updateReviewStatus,
@@ -430,6 +432,8 @@ export default function Scripts() {
   const [view, setView] = useState<View>(urlClientId ? "client-detail" : "clients");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [parsedLines, setParsedLines] = useState<ScriptLine[]>([]);
+  // Full ordered block list (headings + lines) for the Doc Editor tab.
+  const [docBlocks, setDocBlocks] = useState<ScriptLine[]>([]);
   const [scriptEditorTab, setScriptEditorTab] = useState<"cards" | "doc">("cards");
   const [savingDocEditor, setSavingDocEditor] = useState(false);
 
@@ -1339,6 +1343,23 @@ export default function Scripts() {
     setView("view-script");
   };
 
+  // Lazy-load the full block list when the Doc Editor tab is opened for a script.
+  // Lazy backfill: if no heading rows exist, synthesize headings in memory from the
+  // distinct content-line sections (canonical order). They persist on next save.
+  useEffect(() => {
+    if (scriptEditorTab !== "doc" || !viewingScriptId) return;
+    let cancelled = false;
+    (async () => {
+      const all = await getScriptBlocks(viewingScriptId);
+      if (cancelled) return;
+      const hasHeadings = all.some((b) => b.block_kind === "heading");
+      const next = hasHeadings ? withUids(all) : synthesizeBlocksFromLines(all);
+      setDocBlocks(next);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptEditorTab, viewingScriptId]);
+
   const refreshLinkedVideoEdit = async (scriptId: string) => {
     const { data } = await supabase.from("video_edits").select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", scriptId).maybeSingle();
     if (data) {
@@ -1394,6 +1415,7 @@ export default function Scripts() {
     if (view === "view-script" || view === "new-script" || view === "edit-script") {
       setView("client-detail");
       setParsedLines([]);
+      setDocBlocks([]);
       setScriptTitle("");
       setScriptInput("");
       setInspirationUrl("");
@@ -3001,18 +3023,35 @@ export default function Scripts() {
                     );
                     if (editingLineKey) setEditingLineKey(null);
                     try {
-                      await supabase.from("script_lines").delete().eq("script_id", viewingScriptId);
-                      const rows = linesToSave.map((l, i) => ({
-                        script_id: viewingScriptId,
-                        line_number: i + 1,
-                        line_type: l.line_type,
-                        section: l.section,
-                        text: l.text,
-                        ...(l.rich_text !== undefined ? { rich_text: l.rich_text } : {}),
-                      }));
-                      if (rows.length > 0) {
-                        await supabase.from("script_lines").insert(rows);
+                      // HARD INVARIANT: Card View must not wipe heading rows. Rebuild the
+                      // FULL block list — load existing headings (labels/roles) to preserve
+                      // them; if none exist, synthesize canonical defaults — then interleave
+                      // each heading with its grouped content lines, and save via saveScriptBlocks.
+                      const existing = await getScriptBlocks(viewingScriptId);
+                      const headings = existing.filter((b) => b.block_kind === "heading");
+                      let blocks: ScriptLine[];
+                      if (headings.length === 0) {
+                        blocks = synthesizeBlocksFromLines(linesToSave);
+                      } else {
+                        // Map role -> heading; group lines by their section under matching heading.
+                        const usedRoles = new Set<string>();
+                        blocks = [];
+                        for (const h of headings) {
+                          blocks.push({ ...h, block_kind: "heading" });
+                          usedRoles.add(h.section);
+                          for (const l of linesToSave) {
+                            if ((l.section || "body") === h.section) blocks.push({ ...l, block_kind: "line" });
+                          }
+                        }
+                        // Lines whose section has no matching heading: append under a synthesized
+                        // tail (fold into the first heading's role) so nothing is dropped.
+                        const orphans = linesToSave.filter((l) => !usedRoles.has(l.section || "body"));
+                        if (orphans.length > 0) {
+                          const fallbackRole = headings[0].section;
+                          for (const l of orphans) blocks.push({ ...l, section: fallbackRole, block_kind: "line" });
+                        }
                       }
+                      await saveScriptBlocks(viewingScriptId, blocks);
                       // Save caption alongside the script lines
                       await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", viewingScriptId);
                       // Sync caption to linked video_edits record
@@ -3451,8 +3490,8 @@ export default function Scripts() {
             {/* Doc Editor */}
             {scriptEditorTab === "doc" && (
               <ScriptDocEditor
-                lines={parsedLines}
-                onLinesChange={setParsedLines}
+                blocks={docBlocks}
+                onBlocksChange={setDocBlocks}
                 scriptTitle={viewingMetadata?.idea_ganadora ?? ""}
                 scriptMeta={
                   [viewingMetadata?.target, viewingMetadata?.formato]
@@ -3464,16 +3503,11 @@ export default function Scripts() {
                   if (!sid || savingDocEditor) return;
                   setSavingDocEditor(true);
                   try {
-                    await supabase.from("script_lines").delete().eq("script_id", sid);
-                    const rows = parsedLines.map((l, i) => ({
-                      script_id: sid,
-                      line_number: i + 1,
-                      line_type: l.line_type,
-                      section: l.section,
-                      text: l.text,
-                      ...(l.rich_text !== undefined ? { rich_text: l.rich_text } : {}),
-                    }));
-                    if (rows.length > 0) await supabase.from("script_lines").insert(rows);
+                    // Authoritative block save: preserves heading rows, recomputes each
+                    // line's section from its nearest heading, renumbers all.
+                    const saved = await saveScriptBlocks(sid, docBlocks);
+                    setDocBlocks(withUids(saved));
+                    // Keep Card View consistent (content-only).
                     const fresh = await getScriptLines(sid);
                     setParsedLines(fresh);
                     // Auto-save Google Drive link to footage if present and not yet linked
@@ -3506,8 +3540,10 @@ export default function Scripts() {
                   };
                   const sectionOrder = ['hook', 'body', 'cta'] as const;
                   const sectionLabels: Record<string, string> = { hook: 'HOOK', body: 'BODY', cta: 'CTA' };
+                  // Export from the live Doc block list (excludes heading rows, includes unsaved edits).
+                  const contentLines = docBlocks.filter((b) => b.block_kind !== "heading");
                   const grouped: Record<string, typeof parsedLines> = { hook: [], body: [], cta: [] };
-                  parsedLines.forEach(l => { const s = l.section || 'body'; if (grouped[s]) grouped[s].push(l); else grouped['body'].push(l); });
+                  contentLines.forEach(l => { const s = l.section || 'body'; if (grouped[s]) grouped[s].push(l); else grouped['body'].push(l); });
 
                   const linesHtml = (ls: typeof parsedLines) => ls.map(l => {
                     const content = l.rich_text || l.text || '';

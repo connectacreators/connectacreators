@@ -1,4 +1,7 @@
 // src/components/ScriptDocEditor.tsx
+// Block-model editor: renders one ordered stream of heading + content blocks.
+// Every block carries an in-memory `uid` used as the stable React key (NEVER the
+// array index) — this is the structural fix for the duplicate-line bug.
 // Note: FontSize (spec item) is deferred to v2. Bold/italic/underline cover v1 needs.
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
@@ -6,9 +9,26 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import DOMPurify from "dompurify";
-import { Download } from "lucide-react";
+import { Download, Plus, Trash2, GripVertical, Type as TypeIcon, Heading } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { ScriptLine } from "@/hooks/useScripts";
 import { stripHtml } from "@/utils/stripHtml";
+import { newBlockUid, defaultSectionLabel } from "@/lib/scriptBlocks";
 
 type LineType = ScriptLine["line_type"];
 
@@ -34,9 +54,95 @@ const TYPE_BAR_CLASS: Record<LineType, string> = {
   text_on_screen: "bg-[hsl(var(--bone) / 0.40)]",
 };
 
+// ---------------------------------------------------------------------------
+// Slash menu — opens when a content line contains exactly "/". Lets the user
+// pick a line type, convert to plain text, or turn the line into a new section.
+// ---------------------------------------------------------------------------
+type SlashAction =
+  | { kind: "type"; type: LineType; label: string; color: string }
+  | { kind: "text-line"; label: string }
+  | { kind: "new-section"; label: string };
+
+const SLASH_ACTIONS: SlashAction[] = [
+  ...TYPE_OPTIONS.map((o) => ({ kind: "type" as const, type: o.type, label: o.label, color: o.color })),
+  { kind: "text-line", label: "Text line" },
+  { kind: "new-section", label: "New section" },
+];
+
+interface SlashMenuProps {
+  active: number;
+  onChoose: (action: SlashAction) => void;
+  onHover: (index: number) => void;
+}
+
+function SlashMenu({ active, onChoose, onHover }: SlashMenuProps) {
+  return (
+    <div
+      className="absolute left-1.5 top-[calc(100%+4px)] z-40 w-[200px] py-1 rounded-lg border border-[hsl(var(--bone) / 0.18)] bg-[hsl(var(--graphite))] shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+      // Don't steal focus from the editor so typing/Escape keep flowing.
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <div className="px-2.5 pt-1 pb-1 text-[9px] tracking-wide text-[hsl(var(--bone) / 0.40)]">
+        Insert
+      </div>
+      {SLASH_ACTIONS.map((action, i) => (
+        <button
+          key={action.kind === "type" ? action.type : action.kind}
+          type="button"
+          className={[
+            "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
+            i === active
+              ? "bg-[hsl(var(--bone) / 0.08)] text-[hsl(var(--cream))]"
+              : "text-[hsl(var(--bone) / 0.70)] hover:bg-[hsl(var(--bone) / 0.05)]",
+          ].join(" ")}
+          onMouseEnter={() => onHover(i)}
+          onClick={() => onChoose(action)}
+        >
+          {action.kind === "type" ? (
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: action.color }} />
+          ) : action.kind === "new-section" ? (
+            <Heading className="w-3 h-3 flex-shrink-0 text-[hsl(var(--bone) / 0.55)]" />
+          ) : (
+            <TypeIcon className="w-3 h-3 flex-shrink-0 text-[hsl(var(--bone) / 0.55)]" />
+          )}
+          <span>{action.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Sortable wrapper applied to each row (heading or content line). Transforms are
+// applied to this wrapper only — never to the EditorContent key — so the TipTap
+// editor instance is preserved across drags (no remount, focus survives).
+interface SortableRowProps {
+  uid: string;
+  children: (handleProps: {
+    attributes: React.HTMLAttributes<HTMLElement>;
+    listeners: Record<string, unknown> | undefined;
+  }) => React.ReactNode;
+  className?: string;
+}
+
+function SortableRow({ uid, children, className }: SortableRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: uid });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform 180ms cubic-bezier(0.34, 1.4, 0.64, 1)",
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+    position: "relative",
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={className}>
+      {children({ attributes: attributes as React.HTMLAttributes<HTMLElement>, listeners })}
+    </div>
+  );
+}
+
 export interface ScriptDocEditorProps {
-  lines: ScriptLine[];
-  onLinesChange: (lines: ScriptLine[]) => void;
+  blocks: ScriptLine[];
+  onBlocksChange: (blocks: ScriptLine[]) => void;
   scriptTitle: string;
   scriptMeta: string;
   onSave: () => Promise<void>;
@@ -45,37 +151,63 @@ export interface ScriptDocEditorProps {
 }
 
 interface LineEditorProps {
-  line: ScriptLine;
-  idx: number;
+  block: ScriptLine;
+  uid: string;
   isActive: boolean;
   pickerOpen: boolean;
-  onFocus: (idx: number) => void;
-  onBlur: (idx: number, html: string) => void;
-  onEnter: (idx: number) => void;
-  onBackspaceEmpty: (idx: number) => void;
-  onBarClick: (e: React.MouseEvent, idx: number) => void;
-  onTypeChange: (idx: number, type: LineType) => void;
-  registerEditor: (idx: number, editor: Editor | null) => void;
+  slashOpen: boolean;
+  slashActive: number;
+  dragListeners?: Record<string, unknown>;
+  dragAttributes?: React.HTMLAttributes<HTMLElement>;
+  onFocus: (uid: string) => void;
+  onBlur: (uid: string, html: string) => void;
+  onEnter: (uid: string) => void;
+  onBackspaceEmpty: (uid: string) => void;
+  onBarClick: (e: React.MouseEvent, uid: string) => void;
+  onTypeChange: (uid: string, type: LineType) => void;
+  onTextUpdate: (uid: string, text: string) => void;
+  onSlashNav: (uid: string, delta: number) => void;
+  onSlashConfirm: (uid: string) => void;
+  onSlashClose: (uid: string) => void;
+  onHashSpace: (uid: string) => boolean;
+  onSlashChoose: (uid: string, action: SlashAction) => void;
+  onSlashHover: (index: number) => void;
+  registerEditor: (uid: string, editor: Editor | null) => void;
 }
 
 function ScriptLineEditor({
-  line, idx, isActive, pickerOpen,
+  block, uid, isActive, pickerOpen, slashOpen, slashActive,
+  dragListeners, dragAttributes,
   onFocus, onBlur, onEnter, onBackspaceEmpty,
-  onBarClick, onTypeChange, registerEditor,
+  onBarClick, onTypeChange, onTextUpdate,
+  onSlashNav, onSlashConfirm, onSlashClose, onHashSpace, onSlashChoose, onSlashHover,
+  registerEditor,
 }: LineEditorProps) {
   // Stable refs so TipTap's handleKeyDown (captured at mount) always calls the latest callbacks.
-  // Without this, rapid Enter/Backspace presses would operate on a stale `lines` snapshot.
   const onEnterRef = useRef(onEnter);
   useEffect(() => { onEnterRef.current = onEnter; }, [onEnter]);
   const onBackspaceEmptyRef = useRef(onBackspaceEmpty);
   useEffect(() => { onBackspaceEmptyRef.current = onBackspaceEmpty; }, [onBackspaceEmpty]);
-  // Same pattern for onBlur — prevents stale `lines` closure when handleBlur is recreated
   const onBlurRef = useRef(onBlur);
   useEffect(() => { onBlurRef.current = onBlur; }, [onBlur]);
+  const onTextUpdateRef = useRef(onTextUpdate);
+  useEffect(() => { onTextUpdateRef.current = onTextUpdate; }, [onTextUpdate]);
+  const onSlashNavRef = useRef(onSlashNav);
+  useEffect(() => { onSlashNavRef.current = onSlashNav; }, [onSlashNav]);
+  const onSlashConfirmRef = useRef(onSlashConfirm);
+  useEffect(() => { onSlashConfirmRef.current = onSlashConfirm; }, [onSlashConfirm]);
+  const onSlashCloseRef = useRef(onSlashClose);
+  useEffect(() => { onSlashCloseRef.current = onSlashClose; }, [onSlashClose]);
+  const onHashSpaceRef = useRef(onHashSpace);
+  useEffect(() => { onHashSpaceRef.current = onHashSpace; }, [onHashSpace]);
+  // Whether the slash menu is currently open for THIS line — read inside the
+  // mount-captured handleKeyDown so Arrow/Enter/Escape route to the menu.
+  const slashOpenRef = useRef(slashOpen);
+  useEffect(() => { slashOpenRef.current = slashOpen; }, [slashOpen]);
 
-  const initialContent = line.rich_text
-    ? DOMPurify.sanitize(line.rich_text)
-    : (line.text || "");
+  const initialContent = block.rich_text
+    ? DOMPurify.sanitize(block.rich_text)
+    : (block.text || "");
 
   const editor = useEditor({
     extensions: [
@@ -94,64 +226,79 @@ function ScriptLineEditor({
     content: initialContent,
     editorProps: {
       attributes: {
-        // Note: text color is NOT set here — it's set on the React wrapper div below so it
-        // updates reactively when line_type changes without needing a TipTap remount.
         class: "outline-none min-h-[1.6em] w-full text-[13px] leading-relaxed px-3 py-1.5 cursor-text",
       },
       handleKeyDown: (_view, event) => {
+        // ---- Slash menu navigation (intercept while open) ----
+        if (slashOpenRef.current) {
+          if (event.key === "ArrowDown") { event.preventDefault(); onSlashNavRef.current(uid, 1); return true; }
+          if (event.key === "ArrowUp")   { event.preventDefault(); onSlashNavRef.current(uid, -1); return true; }
+          if (event.key === "Enter")     { event.preventDefault(); onSlashConfirmRef.current(uid); return true; }
+          if (event.key === "Escape")    { event.preventDefault(); onSlashCloseRef.current(uid); return true; }
+        }
+        // ---- Markdown shortcut: "# " at start of an empty line → heading ----
+        if (event.key === " ") {
+          const text = _view.state.doc.textContent;
+          if (text === "#") {
+            // Let the parent convert this block to a heading.
+            if (onHashSpaceRef.current(uid)) {
+              event.preventDefault();
+              return true;
+            }
+          }
+        }
         if (event.key === "Enter") {
           event.preventDefault();
-          onEnterRef.current(idx);
+          onEnterRef.current(uid);
           return true;
         }
         if (event.key === "Backspace" || event.key === "Delete") {
           const { empty, from } = _view.state.selection;
           const docIsEmpty = !_view.state.doc.textContent.trim();
-          // Backspace at start of empty line, or Delete anywhere on empty line → remove line
           const shouldDeleteLine =
             docIsEmpty &&
             (event.key === "Delete" || (event.key === "Backspace" && from <= 1));
           if (empty && shouldDeleteLine) {
             event.preventDefault();
-            onBackspaceEmptyRef.current(idx);
+            onBackspaceEmptyRef.current(uid);
             return true;
           }
         }
         return false;
       },
     },
-    onFocus: () => onFocus(idx),
+    onUpdate: ({ editor: e }) => {
+      // Report plain-text changes so the parent can drive slash-menu open/close.
+      onTextUpdateRef.current(uid, e.state.doc.textContent);
+    },
+    onFocus: () => onFocus(uid),
     onBlur: ({ editor: e }) => {
       const html = DOMPurify.sanitize(e.getHTML());
-      onBlurRef.current(idx, html);
+      onBlurRef.current(uid, html);
     },
   });
 
-  // Register/unregister editor ref with parent
+  // Register/unregister editor ref with parent, keyed by stable uid.
   useEffect(() => {
-    registerEditor(idx, editor);
-    return () => registerEditor(idx, null);
-  }, [editor, idx, registerEditor]);
+    registerEditor(uid, editor);
+    return () => registerEditor(uid, null);
+  }, [editor, uid, registerEditor]);
 
-  // Keep the uncontrolled TipTap editor synced to the `line` source of truth.
-  // The list is keyed by array index, so when a line is inserted/removed above this
-  // row React reuses this same editor instance for a *different* line. Without this
-  // sync the editor keeps rendering the previous line's text — which surfaces as
-  // duplicated/misplaced lines. We only push content while the editor is NOT focused,
-  // so the cursor of the line the user is actively typing in is never disturbed.
+  // Keep the uncontrolled TipTap editor synced to the block source of truth when not
+  // focused. With stable uid keys React no longer reuses an editor for a different
+  // block, but we keep this as a defensive no-desync guarantee.
   useEffect(() => {
     if (!editor || editor.isFocused) return;
-    const incoming = line.rich_text
-      ? DOMPurify.sanitize(line.rich_text)
-      : (line.text || "");
+    const incoming = block.rich_text
+      ? DOMPurify.sanitize(block.rich_text)
+      : (block.text || "");
     if (incoming !== editor.getHTML()) {
       editor.commands.setContent(incoming, false);
     }
-    // Intentionally excludes `editor`-identity churn; runs when the line's data changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, line.rich_text, line.text]);
+  }, [editor, block.rich_text, block.text]);
 
-  const currentType = TYPE_OPTIONS.find(o => o.type === line.line_type);
+  const currentType = TYPE_OPTIONS.find(o => o.type === block.line_type);
 
   return (
     <div
@@ -160,20 +307,32 @@ function ScriptLineEditor({
         isActive ? "bg-[hsl(var(--bone) / 0.04)]" : "hover:bg-[hsl(var(--bone) / 0.025)]",
       ].join(" ")}
     >
+      {/* Drag handle — appears on hover; sits to the left of the color bar */}
+      <button
+        type="button"
+        {...(dragAttributes ?? {})}
+        {...(dragListeners ?? {})}
+        className="absolute -left-6 top-1/2 -translate-y-1/2 p-0.5 rounded cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity text-[hsl(var(--bone) / 0.35)] hover:text-[hsl(var(--bone) / 0.70)]"
+        title="Drag to reorder"
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+
       {/* Left color bar */}
       <div
         className={[
           "line-bar w-1 flex-shrink-0 rounded-l-sm cursor-pointer transition-all",
           "group-hover:w-1.5",
           isActive ? "w-1.5" : "",
-          TYPE_BAR_CLASS[line.line_type],
+          TYPE_BAR_CLASS[block.line_type],
         ].join(" ")}
-        onClick={(e) => onBarClick(e, idx)}
+        onClick={(e) => onBarClick(e, uid)}
         title="Click to change line type"
       />
 
       {/* Editor — wrapper provides reactive text color; color is inherited by .ProseMirror content */}
-      <div className={`flex-1 min-w-0 ${TYPE_TEXT_CLASS[line.line_type]}`}>
+      <div className={`flex-1 min-w-0 ${TYPE_TEXT_CLASS[block.line_type]}`}>
         <EditorContent editor={editor} />
       </div>
 
@@ -189,13 +348,13 @@ function ScriptLineEditor({
               key={opt.type}
               className={[
                 "w-3.5 h-3.5 rounded-full cursor-pointer transition-transform hover:scale-125",
-                line.line_type === opt.type
+                block.line_type === opt.type
                   ? "ring-2 ring-[hsl(var(--cream))] ring-offset-[2px] ring-offset-[hsl(var(--graphite))]"
                   : "",
               ].join(" ")}
               style={{ background: opt.color }}
               title={opt.label}
-              onClick={() => onTypeChange(idx, opt.type)}
+              onClick={() => onTypeChange(uid, opt.type)}
             />
           ))}
           <div className="w-px h-3 bg-[hsl(var(--bone) / 0.18)] mx-0.5" />
@@ -204,126 +363,483 @@ function ScriptLineEditor({
           </span>
         </div>
       )}
+
+      {/* Floating slash menu */}
+      {slashOpen && (
+        <SlashMenu
+          active={slashActive}
+          onChoose={(action) => onSlashChoose(uid, action)}
+          onHover={onSlashHover}
+        />
+      )}
     </div>
   );
 }
 
-const SECTION_LABEL: Record<string, string> = {
-  hook: "Hook",
-  body: "Body",
-  cta: "CTA",
-};
+// Renamable section heading row. Double-click to edit inline. Bold + theme tokens
+// (font-serif = EB Garamond, text-foreground = bone on dark) — never hardcoded.
+interface HeadingBlockProps {
+  block: ScriptLine;
+  uid: string;
+  autoEdit?: boolean;
+  dragListeners?: Record<string, unknown>;
+  dragAttributes?: React.HTMLAttributes<HTMLElement>;
+  onRename: (uid: string, label: string) => void;
+  onDelete: (uid: string) => void;
+}
+
+function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onRename, onDelete }: HeadingBlockProps) {
+  const [editing, setEditing] = useState(!!autoEdit);
+  const [draft, setDraft] = useState(block.text || defaultSectionLabel(block.section));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) setDraft(block.text || defaultSectionLabel(block.section));
+  }, [block.text, block.section, editing]);
+
+  const commit = () => {
+    const label = draft.trim() || defaultSectionLabel(block.section);
+    onRename(uid, label);
+    setEditing(false);
+  };
+
+  return (
+    <div className="relative flex items-center gap-2.5 my-5 group/heading">
+      {/* Drag handle — moves the heading AND all its lines as one group */}
+      <button
+        type="button"
+        {...(dragAttributes ?? {})}
+        {...(dragListeners ?? {})}
+        className="absolute -left-6 top-1/2 -translate-y-1/2 p-0.5 rounded cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover/heading:opacity-100 transition-opacity text-[hsl(var(--bone) / 0.35)] hover:text-[hsl(var(--bone) / 0.70)]"
+        title="Drag to reorder section"
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+      <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+            if (e.key === "Escape") { setDraft(block.text || defaultSectionLabel(block.section)); setEditing(false); }
+          }}
+          className="font-serif font-bold text-foreground text-center bg-transparent outline-none border-b border-[hsl(var(--bone) / 0.30)] text-[15px] px-1 max-w-[260px]"
+          style={{ letterSpacing: "0.04em" }}
+        />
+      ) : (
+        <span
+          className="font-serif font-bold text-foreground cursor-text select-none text-[15px]"
+          style={{ letterSpacing: "0.06em" }}
+          title="Double-click to rename section"
+          onDoubleClick={() => { setDraft(block.text || defaultSectionLabel(block.section)); setEditing(true); }}
+        >
+          {block.text || defaultSectionLabel(block.section)}
+        </span>
+      )}
+      <button
+        type="button"
+        className="opacity-0 group-hover/heading:opacity-100 transition-opacity text-[hsl(var(--bone) / 0.40)] hover:text-destructive p-0.5"
+        title="Delete section"
+        onClick={() => onDelete(uid)}
+      >
+        <Trash2 className="w-3 h-3" />
+      </button>
+      <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
+    </div>
+  );
+}
 
 export default function ScriptDocEditor({
-  lines,
-  onLinesChange,
+  blocks,
+  onBlocksChange,
   scriptTitle,
   scriptMeta,
   onSave,
   onExportPDF,
   saving,
 }: ScriptDocEditorProps) {
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [activeUid, setActiveUid] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const editorMap = useRef<Map<number, Editor>>(new Map());
+  // Slash menu state: which line it's open on + the highlighted item index.
+  const [slashUid, setSlashUid] = useState<string | null>(null);
+  const [slashActive, setSlashActive] = useState(0);
+  // uid of a heading that should open in rename mode immediately after creation.
+  const [autoEditHeadingUid, setAutoEditHeadingUid] = useState<string | null>(null);
+  const editorMap = useRef<Map<string, Editor>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Drag sensors — same config family as Scripts.tsx (pointer w/ small distance, touch w/ delay).
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } });
+  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } });
+  const sensors = useSensors(pointerSensor, touchSensor);
 
   // Close picker on outside click
   useEffect(() => {
     const handleDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) {
         setPickerOpen(false);
+        setSlashUid(null);
       }
     };
     document.addEventListener("mousedown", handleDown);
     return () => document.removeEventListener("mousedown", handleDown);
   }, []);
 
-  const registerEditor = useCallback((idx: number, editor: Editor | null) => {
-    if (editor) editorMap.current.set(idx, editor);
-    else editorMap.current.delete(idx);
+  // Once the auto-edit heading has rendered (in rename mode), clear the flag so
+  // subsequent re-renders don't force it back into edit mode.
+  useEffect(() => {
+    if (autoEditHeadingUid) {
+      const t = setTimeout(() => setAutoEditHeadingUid(null), 120);
+      return () => clearTimeout(t);
+    }
+  }, [autoEditHeadingUid]);
+
+  const registerEditor = useCallback((uid: string, editor: Editor | null) => {
+    if (editor) editorMap.current.set(uid, editor);
+    else editorMap.current.delete(uid);
   }, []);
 
-  const handleFocus = useCallback((idx: number) => {
-    setActiveIdx(idx);
+  const handleFocus = useCallback((uid: string) => {
+    setActiveUid(uid);
   }, []);
 
-  const handleBlur = useCallback((idx: number, html: string) => {
-    onLinesChange(
-      lines.map((l, i) =>
-        i === idx ? { ...l, rich_text: html, text: stripHtml(html) } : l
+  const handleBlur = useCallback((uid: string, html: string) => {
+    onBlocksChange(
+      blocks.map((b) =>
+        b.uid === uid ? { ...b, rich_text: html, text: stripHtml(html) } : b
       )
     );
-  }, [lines, onLinesChange]);
+  }, [blocks, onBlocksChange]);
 
-  const handleEnter = useCallback((idx: number) => {
-    const newLine: ScriptLine = {
+  // Enter inside a content line → insert a new empty content line right after it,
+  // inheriting the same section. Focus follows by uid.
+  const handleEnter = useCallback((uid: string) => {
+    const idx = blocks.findIndex((b) => b.uid === uid);
+    if (idx === -1) return;
+    const newUid = newBlockUid();
+    const newBlock: ScriptLine = {
       line_number: 0,
       line_type: "text_on_screen",
-      section: lines[idx]?.section ?? "body",
+      section: blocks[idx]?.section ?? "body",
       text: "",
       rich_text: "",
+      block_kind: "line",
+      uid: newUid,
     };
-    const next = [
-      ...lines.slice(0, idx + 1),
-      newLine,
-      ...lines.slice(idx + 1),
-    ];
-    onLinesChange(next);
-    // 80ms gives React one render cycle + TipTap mount time before we attempt focus.
-    // If `newEditor` is still undefined (slow mount), focus silently no-ops — acceptable for v1.
+    onBlocksChange([
+      ...blocks.slice(0, idx + 1),
+      newBlock,
+      ...blocks.slice(idx + 1),
+    ]);
     setTimeout(() => {
-      const newEditor = editorMap.current.get(idx + 1);
+      const newEditor = editorMap.current.get(newUid);
       if (newEditor) {
         newEditor.commands.focus("start");
-        setActiveIdx(idx + 1);
+        setActiveUid(newUid);
       }
     }, 80);
-  }, [lines, onLinesChange]);
+  }, [blocks, onBlocksChange]);
 
-  const handleBackspaceEmpty = useCallback((idx: number) => {
-    if (lines.length <= 1) return;
-    const next = lines.filter((_, i) => i !== idx);
-    onLinesChange(next);
-    // 80ms — same reasoning as handleEnter above.
+  // Backspace at start of empty content line → delete it, focus the previous content line.
+  const handleBackspaceEmpty = useCallback((uid: string) => {
+    const idx = blocks.findIndex((b) => b.uid === uid);
+    if (idx === -1) return;
+    const contentCount = blocks.filter((b) => b.block_kind !== "heading").length;
+    if (contentCount <= 1) return;
+    const next = blocks.filter((b) => b.uid !== uid);
+    onBlocksChange(next);
+    // Focus the nearest preceding content line in the new list.
     setTimeout(() => {
-      const prevIdx = Math.max(0, idx - 1);
-      const prevEditor = editorMap.current.get(prevIdx);
-      if (prevEditor) {
-        prevEditor.commands.focus("end");
-        setActiveIdx(prevIdx);
+      let prevContentUid: string | null = null;
+      for (let i = Math.min(idx - 1, next.length - 1); i >= 0; i--) {
+        if (next[i] && next[i].block_kind !== "heading") { prevContentUid = next[i].uid ?? null; break; }
+      }
+      if (prevContentUid) {
+        const prevEditor = editorMap.current.get(prevContentUid);
+        if (prevEditor) {
+          prevEditor.commands.focus("end");
+          setActiveUid(prevContentUid);
+        }
       }
     }, 80);
-  }, [lines, onLinesChange]);
+  }, [blocks, onBlocksChange]);
 
-  const handleBarClick = useCallback((e: React.MouseEvent, idx: number) => {
+  const handleBarClick = useCallback((e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
-    setActiveIdx(idx);
-    setPickerOpen((prev) => (activeIdx === idx ? !prev : true));
-  }, [activeIdx]);
+    setActiveUid(uid);
+    setPickerOpen((prev) => (activeUid === uid ? !prev : true));
+  }, [activeUid]);
 
-  const handleTypeChange = useCallback((idx: number, type: LineType) => {
-    onLinesChange(lines.map((l, i) => (i === idx ? { ...l, line_type: type } : l)));
+  const handleTypeChange = useCallback((uid: string, type: LineType) => {
+    onBlocksChange(blocks.map((b) => (b.uid === uid ? { ...b, line_type: type } : b)));
     setPickerOpen(false);
-  }, [lines, onLinesChange]);
+  }, [blocks, onBlocksChange]);
 
-  // Active editor helper for toolbar buttons — wrapped in useCallback to prevent
-  // stale closure issues if a future useEffect depends on it.
+  const handleRenameHeading = useCallback((uid: string, label: string) => {
+    onBlocksChange(blocks.map((b) => (b.uid === uid ? { ...b, text: label, rich_text: label } : b)));
+  }, [blocks, onBlocksChange]);
+
+  // Delete a heading: its content lines are absorbed into the previous section (or
+  // become body if it was the first block). Content lines are NEVER silently deleted.
+  const handleDeleteHeading = useCallback((uid: string) => {
+    const idx = blocks.findIndex((b) => b.uid === uid);
+    if (idx === -1) return;
+    // Find the role of the previous heading (above idx); fallback to 'body'.
+    let prevRole: ScriptLine["section"] = "body";
+    for (let i = idx - 1; i >= 0; i--) {
+      if (blocks[i].block_kind === "heading") { prevRole = blocks[i].section; break; }
+    }
+    // Lines that belonged to this heading run until the next heading.
+    let nextHeadingIdx = blocks.length;
+    for (let i = idx + 1; i < blocks.length; i++) {
+      if (blocks[i].block_kind === "heading") { nextHeadingIdx = i; break; }
+    }
+    const next = blocks
+      .filter((_, i) => i !== idx)
+      .map((b) => {
+        // Reassign the orphaned lines (originally between idx and nextHeadingIdx).
+        return b;
+      });
+    // Recompute sections of the orphaned lines explicitly to prevRole.
+    const orphanUids = new Set(
+      blocks.slice(idx + 1, nextHeadingIdx).filter((b) => b.block_kind !== "heading").map((b) => b.uid)
+    );
+    onBlocksChange(next.map((b) => (orphanUids.has(b.uid) ? { ...b, section: prevRole } : b)));
+  }, [blocks, onBlocksChange]);
+
+  // Add a new content line into a section, just before the next heading (end of section).
+  const handleAddLineToSection = useCallback((headingUid: string) => {
+    const idx = blocks.findIndex((b) => b.uid === headingUid);
+    if (idx === -1) return;
+    let insertAt = blocks.length;
+    for (let i = idx + 1; i < blocks.length; i++) {
+      if (blocks[i].block_kind === "heading") { insertAt = i; break; }
+    }
+    const newUid = newBlockUid();
+    const newBlock: ScriptLine = {
+      line_number: 0,
+      line_type: "text_on_screen",
+      section: blocks[idx].section,
+      text: "",
+      rich_text: "",
+      block_kind: "line",
+      uid: newUid,
+    };
+    onBlocksChange([...blocks.slice(0, insertAt), newBlock, ...blocks.slice(insertAt)]);
+    setTimeout(() => {
+      const newEditor = editorMap.current.get(newUid);
+      if (newEditor) { newEditor.commands.focus("start"); setActiveUid(newUid); }
+    }, 80);
+  }, [blocks, onBlocksChange]);
+
+  // Add a brand-new custom section heading at the very end.
+  const handleAddSection = useCallback(() => {
+    const newUid = newBlockUid();
+    const headingBlock: ScriptLine = {
+      line_number: 0,
+      line_type: "text_on_screen",
+      section: "body",
+      text: "New Section",
+      rich_text: "New Section",
+      block_kind: "heading",
+      uid: newUid,
+    };
+    const lineUid = newBlockUid();
+    const lineBlock: ScriptLine = {
+      line_number: 0,
+      line_type: "text_on_screen",
+      section: "body",
+      text: "",
+      rich_text: "",
+      block_kind: "line",
+      uid: lineUid,
+    };
+    onBlocksChange([...blocks, headingBlock, lineBlock]);
+  }, [blocks, onBlocksChange]);
+
+  // -------------------------------------------------------------------------
+  // Drag to reorder. Content lines move individually (section re-derives on
+  // save). A heading moves together with all of its content lines (the slice
+  // from the heading up to — but not including — the next heading).
+  // -------------------------------------------------------------------------
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const fromIdx = blocks.findIndex((b) => b.uid === activeId);
+    const overIdx = blocks.findIndex((b) => b.uid === overId);
+    if (fromIdx === -1 || overIdx === -1) return;
+
+    const dragged = blocks[fromIdx];
+
+    // --- Content-line move: simple arrayMove within the stream. ---
+    if (dragged.block_kind !== "heading") {
+      onBlocksChange(arrayMove(blocks, fromIdx, overIdx));
+      return;
+    }
+
+    // --- Heading (group) move: relocate the heading + its lines as a unit. ---
+    // Compute the dragged heading's slice [fromIdx, sliceEnd).
+    let sliceEnd = blocks.length;
+    for (let i = fromIdx + 1; i < blocks.length; i++) {
+      if (blocks[i].block_kind === "heading") { sliceEnd = i; break; }
+    }
+    const groupSize = sliceEnd - fromIdx;
+    const groupSlice = blocks.slice(fromIdx, sliceEnd);
+
+    // Remove the group, then find the drop target's GROUP BOUNDARY (the start of
+    // the section the drop landed in) so we never split a section's lines.
+    const remaining = [...blocks.slice(0, fromIdx), ...blocks.slice(sliceEnd)];
+
+    // Locate the drop target in `remaining`, then walk back to its heading.
+    const overUid = overId;
+    const targetIdx = remaining.findIndex((b) => b.uid === overUid);
+    if (targetIdx === -1) {
+      // Target was inside the moved group (shouldn't happen) — append at end.
+      onBlocksChange([...remaining, ...groupSlice]);
+      return;
+    }
+    // Snap to the start of the target's section (its nearest heading at/above).
+    let boundary = targetIdx;
+    for (let i = targetIdx; i >= 0; i--) {
+      if (remaining[i].block_kind === "heading") { boundary = i; break; }
+      if (i === 0) boundary = 0;
+    }
+    // If dragging downward past the original position, dropping onto a later
+    // section should place the group AFTER that whole section, matching the
+    // visual drop. Determine direction relative to original index.
+    let insertAt = boundary;
+    if (fromIdx < overIdx) {
+      // Moving down: insert after the target section (before its next heading).
+      let secEnd = remaining.length;
+      for (let i = boundary + 1; i < remaining.length; i++) {
+        if (remaining[i].block_kind === "heading") { secEnd = i; break; }
+      }
+      insertAt = secEnd;
+    }
+    const next = [
+      ...remaining.slice(0, insertAt),
+      ...groupSlice,
+      ...remaining.slice(insertAt),
+    ];
+    // Sanity: only commit if length preserved.
+    if (next.length === blocks.length && groupSize > 0) onBlocksChange(next);
+  }, [blocks, onBlocksChange]);
+
+  // -------------------------------------------------------------------------
+  // Slash menu. Opening is driven by per-line text updates: a lone "/" opens it;
+  // any other text closes it. Navigation/confirm come from the line editor's
+  // captured keydown handler.
+  // -------------------------------------------------------------------------
+  const handleTextUpdate = useCallback((uid: string, text: string) => {
+    if (text === "/") {
+      setSlashUid(uid);
+      setSlashActive(0);
+    } else {
+      // Close if this line was the slash host and no longer a lone "/".
+      setSlashUid((prev) => (prev === uid ? null : prev));
+    }
+  }, []);
+
+  const handleSlashNav = useCallback((_uid: string, delta: number) => {
+    setSlashActive((prev) => {
+      const n = SLASH_ACTIONS.length;
+      return (prev + delta + n) % n;
+    });
+  }, []);
+
+  const handleSlashClose = useCallback((_uid: string) => {
+    setSlashUid(null);
+  }, []);
+
+  // Convert a content line block into a section heading (used by slash "New
+  // section" and the "# " markdown shortcut). Derives a 'body' role; the label
+  // is left empty and opened in rename mode.
+  const convertLineToHeading = useCallback((uid: string) => {
+    setSlashUid(null);
+    const ed = editorMap.current.get(uid);
+    if (ed) ed.commands.clearContent();
+    onBlocksChange(
+      blocks.map((b) =>
+        b.uid === uid
+          ? { ...b, block_kind: "heading" as const, section: "body" as const, text: "", rich_text: "" }
+          : b
+      )
+    );
+    setAutoEditHeadingUid(uid);
+  }, [blocks, onBlocksChange]);
+
+  // Apply a slash action to the host line, clearing the "/" first.
+  const applySlashAction = useCallback((uid: string, action: SlashAction) => {
+    setSlashUid(null);
+    const ed = editorMap.current.get(uid);
+    if (ed) ed.commands.clearContent(); // remove the "/"
+    if (action.kind === "type") {
+      onBlocksChange(
+        blocks.map((b) =>
+          b.uid === uid ? { ...b, line_type: action.type, text: "", rich_text: "" } : b
+        )
+      );
+      setTimeout(() => editorMap.current.get(uid)?.commands.focus("end"), 0);
+    } else if (action.kind === "text-line") {
+      onBlocksChange(
+        blocks.map((b) =>
+          b.uid === uid ? { ...b, text: "", rich_text: "" } : b
+        )
+      );
+      setTimeout(() => editorMap.current.get(uid)?.commands.focus("end"), 0);
+    } else {
+      // new-section: convert this line into an empty heading, focused for rename.
+      convertLineToHeading(uid);
+    }
+  }, [blocks, onBlocksChange, convertLineToHeading]);
+
+  const handleSlashConfirm = useCallback((uid: string) => {
+    applySlashAction(uid, SLASH_ACTIONS[slashActive]);
+  }, [applySlashAction, slashActive]);
+
+  // "# " markdown shortcut: only fires when the line's text is exactly "#".
+  // Returns true if it consumed the Space (block converted to heading).
+  const handleHashSpace = useCallback((uid: string) => {
+    const b = blocks.find((x) => x.uid === uid);
+    if (!b || b.block_kind === "heading") return false;
+    convertLineToHeading(uid);
+    return true;
+  }, [blocks, convertLineToHeading]);
+
   const activeEditor = useCallback(
-    () => (activeIdx !== null ? editorMap.current.get(activeIdx) ?? null : null),
-    [activeIdx]
+    () => (activeUid !== null ? editorMap.current.get(activeUid) ?? null : null),
+    [activeUid]
   );
 
-  // Group lines by section for rendering dividers
-  type SectionGroup = { section: string; items: { line: ScriptLine; idx: number }[] };
-  const sectionGroups: SectionGroup[] = [];
-  lines.forEach((line, idx) => {
-    const last = sectionGroups[sectionGroups.length - 1];
-    if (!last || last.section !== line.section) {
-      sectionGroups.push({ section: line.section, items: [] });
+  // Build render groups: each heading starts a section; lines belong to the most
+  // recent heading. Content lines before any heading get a synthetic "Body" bucket
+  // so nothing is ever hidden.
+  // Sortable items = every block's uid in stream order (headings + lines), so
+  // dnd indices line up 1:1 with the `blocks` array.
+  const allUids = blocks.map((b) => b.uid as string).filter(Boolean);
+  type Group = { headingUid: string | null; heading: ScriptLine | null; lines: ScriptLine[] };
+  const groups: Group[] = [];
+  for (const b of blocks) {
+    if (b.block_kind === "heading") {
+      groups.push({ headingUid: b.uid ?? null, heading: b, lines: [] });
+    } else {
+      if (groups.length === 0) {
+        groups.push({ headingUid: null, heading: null, lines: [] });
+      }
+      groups[groups.length - 1].lines.push(b);
     }
-    sectionGroups[sectionGroups.length - 1].items.push({ line, idx });
-  });
+  }
 
   return (
     <div ref={containerRef} className="flex flex-col">
@@ -347,7 +863,7 @@ export default function ScriptDocEditor({
       `}</style>
 
       {/* Formatting toolbar */}
-      <div className="editorial-page-dark doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[hsl(var(--ink-on-cream))] border-b border-[hsl(var(--bone) / 0.10)] flex-wrap">
+      <div className="editorial-page-dark doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[hsl(var(--ink))] border-b border-[hsl(var(--bone) / 0.10)] flex-wrap">
         {/* Bold */}
         <button
           className="px-2 py-1 rounded text-[12px] font-bold text-[hsl(var(--bone) / 0.55)] hover:bg-[hsl(var(--bone) / 0.06)] hover:text-[hsl(var(--cream))] transition-colors"
@@ -423,48 +939,95 @@ export default function ScriptDocEditor({
       </div>
 
       {/* Document page */}
-      <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink-on-cream))]">
+      <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink))]">
         <div className="editorial-card doc-print-area max-w-[660px] mx-auto px-10 py-10">
-          <div className="mb-1" style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 22, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}>
+          <div
+            className="mb-1 font-serif font-medium text-foreground"
+            style={{ fontSize: 22, letterSpacing: "-0.005em" }}
+          >
             {scriptTitle || "Untitled Script"}
           </div>
           <div className="text-[11px] text-[hsl(var(--bone) / 0.55)] mb-7">{scriptMeta}</div>
 
-          {sectionGroups.map(({ section, items }) => (
-            <div key={section}>
-              {/* Section divider */}
-              <div className="flex items-center gap-2.5 my-5">
-                <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
-                <span className="editorial-eyebrow" style={{ letterSpacing: "0.30em", fontSize: 9 }}>
-                  {SECTION_LABEL[section] ?? section}
-                </span>
-                <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
-              </div>
+          {/* Single DndContext/SortableContext over the whole block stream so a
+              line can move between sections and a heading can move with its group.
+              Items are ALL block uids in stream order (headings + lines). */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={allUids} strategy={verticalListSortingStrategy}>
+              {groups.map((group, gi) => (
+                <div key={group.headingUid ?? `__nohead_${gi}`}>
+                  {/* Section heading (renamable). Groups without a heading row render no header. */}
+                  {group.heading && group.headingUid && (
+                    <SortableRow uid={group.headingUid}>
+                      {({ attributes, listeners }) => (
+                        <HeadingBlock
+                          block={group.heading as ScriptLine}
+                          uid={group.headingUid as string}
+                          autoEdit={autoEditHeadingUid === group.headingUid}
+                          dragAttributes={attributes}
+                          dragListeners={listeners}
+                          onRename={handleRenameHeading}
+                          onDelete={handleDeleteHeading}
+                        />
+                      )}
+                    </SortableRow>
+                  )}
 
-              {items.map(({ line, idx }) => (
-                <div key={idx} className="sline-row">
-                  <ScriptLineEditor
-                    line={line}
-                    idx={idx}
-                    isActive={activeIdx === idx}
-                    pickerOpen={pickerOpen && activeIdx === idx}
-                    onFocus={handleFocus}
-                    onBlur={handleBlur}
-                    onEnter={handleEnter}
-                    onBackspaceEmpty={handleBackspaceEmpty}
-                    onBarClick={handleBarClick}
-                    onTypeChange={handleTypeChange}
-                    registerEditor={registerEditor}
-                  />
+                  {group.lines.map((line) => (
+                    <SortableRow key={line.uid} uid={line.uid as string} className="sline-row">
+                      {({ attributes, listeners }) => (
+                        <ScriptLineEditor
+                          block={line}
+                          uid={line.uid as string}
+                          isActive={activeUid === line.uid}
+                          pickerOpen={pickerOpen && activeUid === line.uid}
+                          slashOpen={slashUid === line.uid}
+                          slashActive={slashActive}
+                          dragAttributes={attributes}
+                          dragListeners={listeners}
+                          onFocus={handleFocus}
+                          onBlur={handleBlur}
+                          onEnter={handleEnter}
+                          onBackspaceEmpty={handleBackspaceEmpty}
+                          onBarClick={handleBarClick}
+                          onTypeChange={handleTypeChange}
+                          onTextUpdate={handleTextUpdate}
+                          onSlashNav={handleSlashNav}
+                          onSlashConfirm={handleSlashConfirm}
+                          onSlashClose={handleSlashClose}
+                          onHashSpace={handleHashSpace}
+                          onSlashChoose={applySlashAction}
+                          onSlashHover={setSlashActive}
+                          registerEditor={registerEditor}
+                        />
+                      )}
+                    </SortableRow>
+                  ))}
+
+                  {/* Empty section: always show a click-to-add placeholder so the section
+                      is never hidden (fixes the "only Body shows" bug). */}
+                  {group.heading && group.headingUid && group.lines.length === 0 && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 w-full text-left px-3 py-1.5 rounded-md text-[12px] italic text-[hsl(var(--bone) / 0.40)] hover:text-[hsl(var(--bone) / 0.70)] hover:bg-[hsl(var(--bone) / 0.025)] transition-colors"
+                      onClick={() => handleAddLineToSection(group.headingUid as string)}
+                    >
+                      <Plus className="w-3 h-3" /> Click to add a line
+                    </button>
+                  )}
                 </div>
               ))}
-            </div>
-          ))}
+            </SortableContext>
+          </DndContext>
 
-          {/* Tooltip: section assignment is Card View only */}
-          <p className="mt-8 text-[10px] text-[hsl(var(--bone) / 0.40)] italic">
-            To move a line between Hook / Body / CTA sections, use Card View.
-          </p>
+          {/* Add section affordance */}
+          <button
+            type="button"
+            className="mt-6 flex items-center gap-1.5 text-[12px] text-[hsl(var(--bone) / 0.45)] hover:text-[hsl(var(--cream))] transition-colors"
+            onClick={handleAddSection}
+          >
+            <Plus className="w-3.5 h-3.5" /> Add section
+          </button>
         </div>
       </div>
     </div>

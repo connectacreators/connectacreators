@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeBlocks } from "@/lib/scriptBlocks";
 import { toast } from "sonner";
 
 export type ScriptLine = {
@@ -479,6 +480,33 @@ export function useScripts() {
     })) as ScriptLine[];
   };
 
+  // Authoritative block save. Accepts the FULL ordered block list (headings + lines
+  // interleaved). It:
+  //   - renumbers line_number = index+1 across the whole list,
+  //   - sets each content line's section = role of nearest preceding heading
+  //     (fallback 'body'), while heading rows keep their own section + label,
+  //   - persists via delete-all-then-reinsert (same pattern as replaceAllLines),
+  //   - returns the fresh saved blocks (re-read via getScriptBlocks).
+  // Both the Doc Editor and Card View converge on this so no save ever wipes headings.
+  const saveScriptBlocks = async (scriptId: string, blocks: ScriptLine[]): Promise<ScriptLine[]> => {
+    const normalized = normalizeBlocks(blocks);
+    const ok = await replaceAllLines(
+      scriptId,
+      normalized.map((b) => ({
+        line_type: b.line_type,
+        section: b.section,
+        text: b.text,
+        rich_text: b.rich_text,
+        block_kind: b.block_kind ?? "line",
+      }))
+    );
+    if (!ok) {
+      toast.error("Error saving script");
+      throw new Error("Failed to save script blocks");
+    }
+    return getScriptBlocks(scriptId);
+  };
+
   const deleteScript = async (scriptId: string) => {
     const now = new Date().toISOString();
     const { error } = await supabase
@@ -781,6 +809,7 @@ export function useScripts() {
     categorizeAndSave,
     getScriptLines,
     getScriptBlocks,
+    saveScriptBlocks,
     deleteScript,
     restoreScript,
     permanentlyDeleteScript,
