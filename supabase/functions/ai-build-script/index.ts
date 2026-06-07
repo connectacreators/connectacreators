@@ -1461,12 +1461,26 @@ Return a JSON tool call only — no prose.`;
       const formatKey = (canvasFormat || "talking_head").toLowerCase().replace(/[\s\-]/g, "_");
       const formatLabel = canvasFormat ? canvasFormat.toUpperCase().replace(/_/g, " ") : "TALKING HEAD";
 
+      // ── Approved blueprint detection ──
+      // The last substantial AI message in the chat is the creator-approved content
+      // (e.g. a faithful translation/outline). When present it becomes the single
+      // source of truth for CONTENT — connected video nodes drop to format-only
+      // references so the generator stops remixing real numbers/facts/CTA away.
+      const _approvedMsg = Array.isArray(conversationMessages)
+        ? [...conversationMessages].reverse().find(
+            (m: any) => m.role === "assistant" && (m.content?.length ?? 0) > 100 && !/^(Script generated|Generation failed)/.test(m.content || "")
+          )
+        : undefined;
+      const hasApprovedDirection = !!_approvedMsg;
+
       const factsSection = (research_facts || []).length > 0
         ? `\n<research_facts>\nUse these shock-value facts in the script body:\n${(research_facts as any[]).map((f: any, i: number) => `${i + 1}. ${f.fact}`).join("\n")}\n</research_facts>`
         : "";
 
       const transcriptSection = (transcriptions || []).length > 0
-        ? `\n<reference_transcriptions>\nThis is the SPOKEN WORD reference. Match the same tempo, word count, rhythm, and delivery style:\n${(transcriptions as string[]).map((t: string, i: number) => `Reference ${i + 1}:\n"""${t.slice(0, 6000)}"""`).join("\n\n")}\n</reference_transcriptions>`
+        ? `\n<reference_transcriptions>\n${hasApprovedDirection
+            ? "FORMAT/STRUCTURE REFERENCE ONLY — use this for tempo, word count, rhythm, and delivery style. Do NOT take any content, numbers, facts, or wording from here. All content comes from the APPROVED MESSAGE."
+            : "This is the SPOKEN WORD reference. Match the same tempo, word count, rhythm, and delivery style:"}\n${(transcriptions as string[]).map((t: string, i: number) => `Reference ${i + 1}:\n"""${t.slice(0, 6000)}"""`).join("\n\n")}\n</reference_transcriptions>`
         : "";
 
       // Count sections for enforcement (filter nulls — frontend sends null for nodes without structure yet)
@@ -1481,7 +1495,9 @@ Return a JSON tool call only — no prose.`;
         : "";
 
       const structureSection = validStructures.length > 0
-        ? `\n<reference_structures>\n⚠️ THIS IS THE #1 PRIORITY — YOUR SCRIPT MUST MATCH THIS SKELETON EXACTLY.\nDetected format: ${validStructures[0]?.detected_format || "unknown"}.${validStructures[0]?.format_notes ? `\nFormat pattern: ${validStructures[0].format_notes}` : ""}\nReplicate this exact section-by-section breakdown — same number of sections, same line count per section, same visual cue style, same pacing:${sectionEnforcement}\n\n${validStructures.map((s: any, i: number) => `Reference ${i + 1} (${s.detected_format}):\n${(s.sections || []).map((sec: any) => `[${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}\n</reference_structures>`
+        ? `\n<reference_structures>\n${hasApprovedDirection
+            ? "STRUCTURE REFERENCE ONLY — match this section breakdown, line count, pacing, and visual cue style. Do NOT take content or wording from here; all content comes from the APPROVED MESSAGE."
+            : "⚠️ THIS IS THE #1 PRIORITY — YOUR SCRIPT MUST MATCH THIS SKELETON EXACTLY."}\nDetected format: ${validStructures[0]?.detected_format || "unknown"}.${validStructures[0]?.format_notes ? `\nFormat pattern: ${validStructures[0].format_notes}` : ""}\nReplicate this exact section-by-section breakdown — same number of sections, same line count per section, same visual cue style, same pacing:${sectionEnforcement}\n\n${validStructures.map((s: any, i: number) => `Reference ${i + 1} (${s.detected_format}):\n${(s.sections || []).map((sec: any) => `[${sec.section.toUpperCase()}] "${sec.actor_text}" | Visual: ${sec.visual_cue}`).join("\n")}`).join("\n\n")}\n</reference_structures>`
         : "";
 
       const notesSection = text_notes
@@ -1526,17 +1542,18 @@ Return a JSON tool call only — no prose.`;
         : "";
 
       let conversationSection = "";
-      if (Array.isArray(conversationMessages) && conversationMessages.length > 0) {
-        // Find the last substantial AI message — this is the approved outline to follow
-        const lastAiMsg = [...conversationMessages].reverse().find(
-          (m: any) => m.role === "assistant" && (m.content?.length ?? 0) > 100 && !/^(Script generated|Generation failed)/.test(m.content || "")
-        );
+      if (hasApprovedDirection) {
+        // The creator-approved message is the authoritative CONTENT source.
         const chatLog = (conversationMessages as any[]).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n");
-        conversationSection = `\n<approved_direction>\n⚠️ CRITICAL: The creator discussed and APPROVED a specific script direction. Generate EXACTLY this structure — same scenes, same headings, same characters, same flow. Do NOT deviate or invent your own structure.\n\nChat log:\n${chatLog}${lastAiMsg ? `\n\n══ APPROVED OUTLINE (follow this EXACTLY) ══\n${lastAiMsg.content}` : ""}\n</approved_direction>`;
+        conversationSection = `\n<approved_direction>\n⚠️ HIGHEST PRIORITY — THIS OVERRIDES EVERY REFERENCE BLOCK ABOVE.\nThe message below is the creator-APPROVED content for this script. It is the single source of truth for CONTENT.\nReproduce its actual content faithfully, reorganized into structured lines (filming / actor / text_on_screen / editor). Preserve every number, formula, unit, measurement, statistic, name, quote, and the CALL TO ACTION EXACTLY as written. Do NOT recompute, convert units, round, summarize away, or invent any values. The reference transcriptions / structures / visuals above are for FORMAT ONLY (pacing, section count, visual cues) — never let them change the content below.\n\n══ APPROVED MESSAGE (reproduce this content faithfully) ══\n${_approvedMsg.content}\n\nFull chat log for context:\n${chatLog}\n</approved_direction>`;
+      } else if (Array.isArray(conversationMessages) && conversationMessages.length > 0) {
+        // No approved blueprint yet — generate from references/notes, with chat as soft context only.
+        const chatLog = (conversationMessages as any[]).map((m: any) => `${m.role === "user" ? "Creator" : "AI"}: ${m.content}`).join("\n");
+        conversationSection = `\n<conversation_context>\nRecent chat for context only (no approved script exists yet — generate from the references, notes, and topic above):\n${chatLog}\n</conversation_context>`;
       }
 
       const visualSection = Array.isArray(video_analyses) && video_analyses.length > 0
-        ? `\n<visual_analysis>\nThese are the actual visual scenes extracted from the reference video(s) using AI frame analysis. Use them as the scene-by-scene VISUAL TEMPLATE for the new script:\n${
+        ? `\n<visual_analysis>\nThese are the actual visual scenes extracted from the reference video(s) using AI frame analysis. Use them as the scene-by-scene VISUAL TEMPLATE for the new script${hasApprovedDirection ? " (visual pacing, cut timing, and text-overlay PLACEMENT only — any on-screen text CONTENT must come from the approved message, NOT from the TEXT ON SCREEN values shown here)" : ""}:\n${
             (video_analyses as any[]).map((va: any, i: number) => {
               const lines = [`Video ${i + 1} (${va.detected_format || "unknown format"}):`];
               (va.visual_segments || []).forEach((seg: any) => {
@@ -1568,7 +1585,7 @@ Return a JSON tool call only — no prose.`;
 - Use a first-person tone, as if you are speaking to a friend.
 - No fluff or wasted words. Be concise and to the point.
 - For actor lines: output one sentence per line.
-- IMPORTANT: When reference transcriptions and structures are provided from connected video nodes, they are FORMAT TEMPLATES. The new script MUST follow the same structure, section count, pacing, rhythm, and visual approach as the reference. Think of the reference as the mold — pour new topic content into the same mold.
+- IMPORTANT: When reference transcriptions and structures are provided from connected video nodes, they are FORMAT TEMPLATES for structure, section count, pacing, rhythm, and visual approach.${hasApprovedDirection ? " HOWEVER, an APPROVED MESSAGE is present below and its CONTENT is authoritative. Use the references for FORMAT ONLY, and pour the APPROVED content (not a new invented topic) into that mold — preserving all facts, numbers, units, and the CTA verbatim." : " Think of the reference as the mold — pour new topic content into the same mold."}
 - IMPORTANT: The reference structures only contain the sections the user SELECTED (hook, body, cta). If only hook sections are shown, only use the hook as template. If all sections are shown, template the whole thing.
 - IMPORTANT: Creator notes (text notes) are CORE CONTENT — they contain the actual topic, talking points, research, brand voice, and instructions. USE everything in the notes as the foundation of the script.
 - IMPORTANT: When <visual_analysis> is present, use the visual scenes as the scene-by-scene template. Keep the same visual pacing, cut timing, and text-overlay pattern — substitute only the topic/values from creator notes. For example if the reference shows TEXT ON SCREEN: "18 years old" and the client is a D2D sales rep aged 23, generate TEXT ON SCREEN: "23 years old". Always output on-screen text content as line_type: "text_on_screen".
@@ -1592,7 +1609,8 @@ Before finalizing the script, check every item below and adjust until ALL pass:
 5. TEMPLATE MATCH: If reference video structures are provided, the section count, rhythm, and pacing match exactly.
 6. STORY MAKES SENSE: Hook → Body → CTA flows logically with no confusing jumps.
 7. AUDIENCE CAN FOLLOW: No assumed knowledge. Concepts are explained simply on first mention.
-8. CONVERSATION MATCH: If an <approved_direction> section exists, your script MUST follow the EXACT structure, objections, scenes, and flow described in the LAST AI message there. That is the approved outline — generate it faithfully. Match every scene, every heading, every character label. Do not invent a different structure.
+8. APPROVED CONTENT MATCH: If an <approved_direction> section exists, it OVERRIDES every reference block. Reproduce its actual content faithfully — same facts, same wording, same flow, same CTA. The reference transcriptions/structures/visuals are FORMAT ONLY; never let them change the approved content or invent a different topic.
+9. FACT FIDELITY: When an approved message exists, every number, formula, unit, measurement, statistic, name, and the CTA in your output matches it EXACTLY. No recomputing, no unit conversion (e.g. kg→lbs), no rounding, no invented values.
 </quality_checklist>
 
 Return a virality_score (1-10) averaging: TAM, explosivity, emotional resonance, novelty, value tease, curiosity hook, absorption, rehook, stickiness, template_fidelity (how well the script follows reference video structure), story_clarity (logical flow hook→body→CTA).
@@ -1600,10 +1618,10 @@ Return a virality_score (1-10) averaging: TAM, explosivity, emotional resonance,
 Write in ${langLabel}. Format: ${formatLabel}.
 For idea_ganadora: STRICT MAXIMUM 3-5 words — short punchy title only.`;
 
-      const canvasUserPrompt = `<task>Write a compelling viral short-form video script (~45 seconds / 90-120 words) based on all the context below.${refSectionCount > 0 ? ` YOUR SCRIPT MUST MATCH THE REFERENCE STRUCTURE — same sections, same tempo, same size.` : ""}${conversationSection ? " AN APPROVED OUTLINE FROM THE CHAT IS PROVIDED AT THE END — FOLLOW IT EXACTLY." : ""}</task>
+      const canvasUserPrompt = `<task>Write a compelling viral short-form video script (~45 seconds / 90-120 words) based on the context below.${hasApprovedDirection ? " AN APPROVED MESSAGE IS PROVIDED FIRST — it is the source of truth for ALL CONTENT (numbers, facts, wording, CTA). Reproduce its content faithfully and use the reference blocks ONLY for format/structure." : refSectionCount > 0 ? ` YOUR SCRIPT MUST MATCH THE REFERENCE STRUCTURE — same sections, same tempo, same size.` : ""}</task>
 
 <topic>${primary_topic || "Based on the provided context"}</topic>
-${structureSection}${transcriptSection}${notesSection}${mediaFilesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}${conversationSection}`;
+${hasApprovedDirection ? conversationSection : ""}${structureSection}${transcriptSection}${notesSection}${mediaFilesSection}${hookSection}${brandSection}${ctaSection}${factsSection}${clientSection}${competitorSection}${visualSection}${hasApprovedDirection ? "" : conversationSection}`;
 
       const canvasScriptTools = [{
         name: "return_script",
