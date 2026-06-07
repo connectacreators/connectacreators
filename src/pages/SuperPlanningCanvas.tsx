@@ -48,53 +48,6 @@ import { useRealtimeCanvasSync } from "@/hooks/useRealtimeCanvasSync";
 import { canvasMediaService } from "@/services/canvasMediaService";
 import { useSearchParams } from "react-router-dom";
 
-// TEMP DEBUG — palette diagnostic badge. Shows the live computed CSS vars +
-// the brand-palette attribute so we can see what the browser actually
-// resolved. Remove once the palette-swap issue is diagnosed.
-function PaletteDebugBadge() {
-  const [info, setInfo] = useState({ palette: "?", rootAqua: "?", chipAqua: "?", chipBg: "?", found: "?" });
-  useEffect(() => {
-    const read = () => {
-      const root = document.documentElement;
-      const rootCs = getComputedStyle(root);
-      // Inspect an ACTUAL chip element to see what --aqua / background it resolves
-      const chip = document.querySelector(".assistant-chip") as HTMLElement | null;
-      let chipAqua = "(no chip)", chipBg = "(no chip)";
-      if (chip) {
-        const ccs = getComputedStyle(chip);
-        chipAqua = ccs.getPropertyValue("--aqua").trim() || "(empty)";
-        chipBg = ccs.backgroundColor || "(empty)";
-      }
-      setInfo({
-        palette: root.getAttribute("data-brand-palette") || "(none)",
-        rootAqua: rootCs.getPropertyValue("--aqua").trim() || "(empty)",
-        chipAqua,
-        chipBg,
-        found: chip ? "yes" : "no",
-      });
-    };
-    read();
-    const id = window.setInterval(read, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  return (
-    <div
-      style={{
-        position: "fixed", bottom: 12, right: 12, zIndex: 99999,
-        background: "#000", color: "#fff", font: "11px/1.5 monospace",
-        padding: "8px 12px", borderRadius: 8, border: "2px solid #fff",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.4)", pointerEvents: "none", maxWidth: 360,
-      }}
-    >
-      <div>palette: <b>{info.palette}</b></div>
-      <div>root --aqua: <b>{info.rootAqua}</b></div>
-      <div>chip found: <b>{info.found}</b></div>
-      <div>chip --aqua: <b>{info.chipAqua}</b></div>
-      <div>chip bg: <b>{info.chipBg}</b></div>
-    </div>
-  );
-}
-
 const AI_NODE_ID = "ai-assistant";
 
 // Keys to strip from node data before saving (non-serializable callbacks + heavy ephemeral data)
@@ -2671,7 +2624,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "hsl(var(--cream))" }}>
-      <PaletteDebugBadge />
       {/* Canvas area — full width, sessions in toolbar */}
       <div
         className="flex-1 relative min-w-0"

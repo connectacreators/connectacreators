@@ -45,10 +45,14 @@ All colors MUST be HSL for consistency and theming.
 */
 
 @layer base {
-  :root, .dark, .light {
+  /* Token definitions live on :root ONLY. They must NOT also target .dark /
+     .light — ReactFlow's canvas container carries a `.dark` class, and if the
+     palette tokens were defined on `.dark` too, ReactFlow would re-declare the
+     editorial palette on the entire canvas subtree and override the per-user
+     palette that applyBranding sets inline on <html>. (Light mode is voided;
+     the app is dark-only, so :root + the inline override is all we need.) */
+  :root {
     /* === Editorial palette · neutral dark grey + Bone + Aqua + Honey ===
-       Light mode is VOIDED for now — .light selector aliases to the same
-       dark values so the ThemeToggle is a no-op until light is revisited.
        Ink and Graphite are HSL `0 0%` (pure neutral) — no blue hue. */
     --ink:          0 0% 8%;        /* #141414  page background (was bluish #0A0E12) */
     --graphite:     0 0% 12%;       /* #1F1F1F  card / surface (was bluish #1A1F26) */
