@@ -21,7 +21,7 @@ import { getAuthToken } from "@/lib/getAuthToken";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
 import { FilterRail } from "@/components/viral-today/FilterRail";
 import { type FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
-import { type ContentFormat } from "@/lib/video-taxonomy";
+import { type ContentFormat, nicheLabel } from "@/lib/video-taxonomy";
 import {
   fmtViews,
   fmtOutlier,
@@ -911,8 +911,10 @@ interface ChannelRowProps {
   isAdmin: boolean;
   canScrape: boolean;
   scrapeDisabledReason?: string;
+  inWatchlist?: boolean;
+  onToggleWatchlist?: (id: string) => void;
 }
-function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason }: ChannelRowProps) {
+function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason, inWatchlist, onToggleWatchlist }: ChannelRowProps) {
   const PlatformIcon = PLATFORM_ICON[channel.platform] ?? Instagram;
   const status = channel.scrape_status;
 
@@ -987,6 +989,22 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDis
           </span>
         )}
       </div>
+
+      {/* Watchlist toggle — available to every user */}
+      {onToggleWatchlist && (
+        <button
+          onClick={() => onToggleWatchlist(channel.id)}
+          title={inWatchlist ? "Remove from your watchlist" : "Add to your watchlist"}
+          className={cn(
+            "h-7 w-7 rounded-lg flex items-center justify-center border transition-all flex-shrink-0",
+            inWatchlist
+              ? "bg-primary/15 border-primary/40 text-primary"
+              : "bg-muted border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Star className={cn("w-3.5 h-3.5", inWatchlist && "fill-current")} />
+        </button>
+      )}
 
       {/* Actions */}
       {(isAdmin || canScrape) && (
@@ -1095,6 +1113,7 @@ export default function ViralToday() {
   const [channels, setChannels] = useState<ViralChannel[]>(() => readCache<ViralChannel[]>("viral_channels", []));
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
+  const [channelSearch, setChannelSearch] = useState("");
 
   // Filters
   const [search, setSearch] = useState("");
@@ -1114,6 +1133,53 @@ export default function ViralToday() {
   // Format tab + niche filters
   const [activeFormat, setActiveFormat] = useState<ContentFormat | "all">("all");
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
+
+  // ── Watchlist — per-user subset of channels that can drive the feed ──────────
+  const [watchlistIds, setWatchlistIds] = useState<string[]>([]);
+  const [feedMode, setFeedMode] = useState<"global" | "watchlist">(
+    () => (localStorage.getItem("vt_feed_mode") as "global" | "watchlist") || "global",
+  );
+  useEffect(() => { localStorage.setItem("vt_feed_mode", feedMode); }, [feedMode]);
+
+  // Load the signed-in user's watchlist once.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("channel_watchlist_items")
+        .select("channel_id")
+        .eq("user_id", user.id);
+      if (cancelled || !data) return;
+      const ids = data.map((r: { channel_id: string }) => r.channel_id);
+      setWatchlistIds(ids);
+      // First visit with a populated watchlist and no saved preference → default to it.
+      if (ids.length > 0 && !localStorage.getItem("vt_feed_mode")) setFeedMode("watchlist");
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const toggleWatchlist = useCallback(async (channelId: string) => {
+    if (!user) { toast.error("Sign in to use watchlists"); return; }
+    const has = watchlistIds.includes(channelId);
+    setWatchlistIds((prev) => (has ? prev.filter((id) => id !== channelId) : [...prev, channelId]));
+    const q = has
+      ? supabase.from("channel_watchlist_items").delete().eq("user_id", user.id).eq("channel_id", channelId)
+      : supabase.from("channel_watchlist_items").insert({ user_id: user.id, channel_id: channelId });
+    const { error } = await q;
+    if (error) {
+      setWatchlistIds((prev) => (has ? [...prev, channelId] : prev.filter((id) => id !== channelId)));
+      toast.error("Couldn't update watchlist");
+    }
+  }, [user, watchlistIds]);
+
+  const clearWatchlist = useCallback(async () => {
+    if (!user || watchlistIds.length === 0) return;
+    const prev = watchlistIds;
+    setWatchlistIds([]);
+    const { error } = await supabase.from("channel_watchlist_items").delete().eq("user_id", user.id);
+    if (error) { setWatchlistIds(prev); toast.error("Couldn't clear watchlist"); }
+  }, [user, watchlistIds]);
 
   // Admin: paste URL to add framework
   const [pasteUrl, setPasteUrl] = useState("");
@@ -1800,9 +1866,9 @@ export default function ViralToday() {
   const { videos: filteredVideos, formatCounts, availableNiches } = (() => {
     let result = [...videos];
 
-    // Channel filter
-    if (selectedChannelIds.length > 0) {
-      result = result.filter((v) => selectedChannelIds.includes(v.channel_id));
+    // Feed mode — "watchlist" narrows to the user's watchlist channels.
+    if (feedMode === "watchlist") {
+      result = result.filter((v) => v.channel_id != null && watchlistIds.includes(v.channel_id));
     }
 
     // Source filter
@@ -2088,9 +2154,10 @@ export default function ViralToday() {
                       defaults={FILTER_DEFAULTS}
                       onChange={handleFiltersChange}
                       availableNiches={availableNiches}
-                      channels={channels}
-                      selectedChannelIds={selectedChannelIds}
-                      onChannelsChange={setSelectedChannelIds}
+                      feedMode={feedMode}
+                      onFeedModeChange={setFeedMode}
+                      watchlistCount={watchlistIds.length}
+                      onManageChannels={() => setView("channels")}
                       dateOptions={VT_DATE_OPTS}
                       platformOptions={VT_PLATFORM_OPTS}
                       outlierOptions={VT_OUTLIER_OPTS}
@@ -2347,9 +2414,10 @@ export default function ViralToday() {
                           defaults={FILTER_DEFAULTS}
                           onChange={handleFiltersChange}
                           availableNiches={availableNiches}
-                          channels={channels}
-                          selectedChannelIds={selectedChannelIds}
-                          onChannelsChange={setSelectedChannelIds}
+                          feedMode={feedMode}
+                          onFeedModeChange={setFeedMode}
+                          watchlistCount={watchlistIds.length}
+                          onManageChannels={() => { setView("channels"); setFilterDrawerOpen(false); }}
                           dateOptions={VT_DATE_OPTS}
                           platformOptions={VT_PLATFORM_OPTS}
                           outlierOptions={VT_OUTLIER_OPTS}
@@ -2477,34 +2545,121 @@ export default function ViralToday() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {channels.map((ch) => (
-                      <ChannelRow
-                        key={ch.id}
-                        channel={ch}
-                        onScrape={handleScrape}
-                        onDelete={handleDeleteChannel}
-                        isAdmin={isAdmin}
-                        canScrape={canScrape}
-                        scrapeDisabledReason={scrapeDisabledReason}
-                      />
-                    ))}
+                  <div className="flex gap-6 items-start">
+                    {/* Discovery (left) — search + channels grouped by niche */}
+                    <div className="flex-1 min-w-0">
+                      <div className="relative mb-4 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          value={channelSearch}
+                          onChange={(e) => setChannelSearch(e.target.value)}
+                          placeholder="Search channels…"
+                          className="w-full h-9 pl-9 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
+                        />
+                      </div>
 
-                    {/* Summary */}
-                    <div className="pt-4 flex items-center gap-4 text-xs text-muted-foreground border-t border-border">
-                      <span>{channels.length} {t.channels}</span>
-                      <span>·</span>
-                      <span>{videos.length} {t.totalVideos}</span>
-                      {runningChannels.length > 0 && (
-                        <>
-                          <span>·</span>
-                          <span className="text-amber-500 flex items-center gap-1">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            {runningChannels.length} {t.scraping}
-                          </span>
-                        </>
-                      )}
+                      {(() => {
+                        // Derive each channel's niche from its videos (most common primary_niche).
+                        const counts = new Map<string, Map<string, number>>();
+                        for (const v of videos) {
+                          if (!v.channel_id || !v.primary_niche) continue;
+                          let m = counts.get(v.channel_id);
+                          if (!m) { m = new Map(); counts.set(v.channel_id, m); }
+                          m.set(v.primary_niche, (m.get(v.primary_niche) ?? 0) + 1);
+                        }
+                        const nicheByChannel = new Map<string, string>();
+                        for (const [cid, m] of counts) {
+                          let best = "", bestN = 0;
+                          for (const [n, c] of m) if (c > bestN) { best = n; bestN = c; }
+                          if (best) nicheByChannel.set(cid, best);
+                        }
+                        const q = channelSearch.trim().toLowerCase();
+                        const matched = channels.filter((c) => !q || c.username.toLowerCase().includes(q));
+                        if (matched.length === 0) {
+                          return <p className="text-sm text-muted-foreground py-8 text-center">No channels match “{channelSearch}”.</p>;
+                        }
+                        const groups = new Map<string, ViralChannel[]>();
+                        for (const c of matched) {
+                          const key = nicheByChannel.get(c.id) ?? "__other";
+                          if (!groups.has(key)) groups.set(key, []);
+                          groups.get(key)!.push(c);
+                        }
+                        const orderedKeys = [...groups.keys()].sort((a, b) => {
+                          if (a === "__other") return 1;
+                          if (b === "__other") return -1;
+                          return groups.get(b)!.length - groups.get(a)!.length;
+                        });
+                        return (
+                          <div className="space-y-6">
+                            {orderedKeys.map((key) => (
+                              <div key={key}>
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                                  {key === "__other" ? "Other" : nicheLabel(key)}
+                                  <span className="ml-1.5 text-muted-foreground/50">{groups.get(key)!.length}</span>
+                                </p>
+                                <div className="space-y-2">
+                                  {groups.get(key)!.map((ch) => (
+                                    <ChannelRow
+                                      key={ch.id}
+                                      channel={ch}
+                                      onScrape={handleScrape}
+                                      onDelete={handleDeleteChannel}
+                                      isAdmin={isAdmin}
+                                      canScrape={canScrape}
+                                      scrapeDisabledReason={scrapeDisabledReason}
+                                      inWatchlist={watchlistIds.includes(ch.id)}
+                                      onToggleWatchlist={toggleWatchlist}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
+
+                    {/* Your Watchlist (right) */}
+                    <aside className="hidden lg:block w-[300px] shrink-0 self-start sticky top-2">
+                      <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                          <h3 className="text-sm font-semibold text-foreground">
+                            Your Watchlist <span className="text-muted-foreground font-normal">{watchlistIds.length}</span>
+                          </h3>
+                          {watchlistIds.length > 0 && (
+                            <button onClick={clearWatchlist} className="text-[11px] text-muted-foreground hover:text-foreground">Remove all</button>
+                          )}
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto p-2 space-y-1">
+                          {watchlistIds.length === 0 ? (
+                            <p className="text-xs text-muted-foreground p-4 text-center leading-relaxed">
+                              Star channels to add them here, then switch the feed to <span className="text-foreground font-medium">Watchlist</span> to see only their videos.
+                            </p>
+                          ) : (
+                            channels.filter((c) => watchlistIds.includes(c.id)).map((c) => {
+                              const PIcon = PLATFORM_ICON[c.platform] ?? Instagram;
+                              return (
+                                <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/50 group">
+                                  {c.avatar_url ? (
+                                    <img src={proxyImg(c.avatar_url) ?? c.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border" />
+                                  ) : (
+                                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center border border-border"><PIcon className="w-3.5 h-3.5 text-muted-foreground" /></div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium text-foreground truncate">@{c.username}</p>
+                                    <p className="text-[10px] text-muted-foreground">{c.video_count} videos</p>
+                                  </div>
+                                  <button onClick={() => toggleWatchlist(c.id)} title="Remove" className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </aside>
                   </div>
                 )}
               </motion.div>

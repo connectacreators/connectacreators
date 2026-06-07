@@ -31,9 +31,11 @@ interface FilterRailProps {
   onChange: (next: FiltersPanelValue) => void;
   availableNiches: NicheOption[];
 
-  channels?: ChannelOption[];
-  selectedChannelIds?: string[];
-  onChannelsChange?: (ids: string[]) => void;
+  // Feed mode — global (all channels) vs the user's personal watchlist.
+  feedMode: "global" | "watchlist";
+  onFeedModeChange: (m: "global" | "watchlist") => void;
+  watchlistCount: number;
+  onManageChannels?: () => void;
 
   dateOptions: Opt[];
   platformOptions: Opt[];
@@ -54,11 +56,7 @@ const selectClass =
 export function FilterRail(props: FilterRailProps) {
   const [draft, setDraft] = useState<FiltersPanelValue>(props.value);
   const [showAllNiches, setShowAllNiches] = useState(false);
-  const [showAllChannels, setShowAllChannels] = useState(false);
   useEffect(() => { setDraft(props.value); }, [props.value]);
-
-  const channelList = props.channels ?? [];
-  const selectedChannels = props.selectedChannelIds ?? [];
 
   const activeCount = (() => {
     let n = 0;
@@ -71,7 +69,6 @@ export function FilterRail(props: FilterRailProps) {
     if (v.source !== d.source) n++;
     if (v.featuredOnly !== d.featuredOnly) n++;
     if (v.niches.length > 0) n++;
-    if (selectedChannels.length > 0) n++;
     return n;
   })();
   const dirty = JSON.stringify(draft) !== JSON.stringify(props.value);
@@ -91,12 +88,46 @@ export function FilterRail(props: FilterRailProps) {
     if (b.count !== a.count) return b.count - a.count;
     return a.slug.localeCompare(b.slug);
   });
-  const visibleNiches = showAllNiches ? sortedNiches : sortedNiches.slice(0, NICHES_VISIBLE_BY_DEFAULT);
-  const visibleChannels = showAllChannels ? channelList : channelList.slice(0, CHANNELS_VISIBLE_BY_DEFAULT);
+  const nicheValue = draft.niches[0] ?? "";
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+
+        {/* ── Feed mode: Global vs Your Watchlist ── */}
+        <div>
+          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/60 border border-border">
+            {(["global", "watchlist"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => props.onFeedModeChange(m)}
+                className={
+                  "flex-1 h-7 rounded-md text-[11px] font-medium transition-colors " +
+                  (props.feedMode === m
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                {m === "global" ? "Global" : `Watchlist${props.watchlistCount > 0 ? ` (${props.watchlistCount})` : ""}`}
+              </button>
+            ))}
+          </div>
+          {props.feedMode === "watchlist" && props.watchlistCount === 0 && (
+            <p className="text-[10px] text-muted-foreground mt-1.5 px-1 leading-snug">
+              Your watchlist is empty.{" "}
+              {props.onManageChannels && (
+                <button onClick={props.onManageChannels} className="text-primary hover:underline">Add channels</button>
+              )}
+            </p>
+          )}
+          {props.onManageChannels && (props.feedMode === "global" || props.watchlistCount > 0) && (
+            <button onClick={props.onManageChannels} className="text-[10px] text-muted-foreground hover:text-foreground mt-1.5 px-1 underline">
+              Manage channels
+            </button>
+          )}
+        </div>
+
+        <div className="h-px bg-border" />
 
         {/* ── Category ── */}
         <Field label="Category">
@@ -161,88 +192,21 @@ export function FilterRail(props: FilterRailProps) {
           </label>
         </div>
 
-        {/* ── Channels ── */}
-        {props.channels && props.onChannelsChange && (
-          <div>
-            <div className="flex items-center justify-between mb-1.5 px-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Channels{" "}
-                <span className="normal-case text-muted-foreground/60">
-                  {selectedChannels.length > 0 ? `${selectedChannels.length}/${channelList.length}` : `all ${channelList.length}`}
-                </span>
-              </p>
-              {selectedChannels.length > 0 && (
-                <button onClick={() => props.onChannelsChange?.([])} className="text-[11px] text-muted-foreground hover:text-foreground">Clear</button>
-              )}
-            </div>
-            <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
-              {channelList.length === 0 ? (
-                <div className="text-xs text-muted-foreground italic px-1">No channels yet</div>
-              ) : (
-                visibleChannels.map((ch) => (
-                  <label key={ch.id} className="flex items-center justify-between gap-2 text-xs py-0.5 px-1 cursor-pointer">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={selectedChannels.includes(ch.id)}
-                        onChange={(e) => {
-                          const next = e.target.checked
-                            ? [...selectedChannels, ch.id]
-                            : selectedChannels.filter((s) => s !== ch.id);
-                          props.onChannelsChange?.(next);
-                        }}
-                        className="w-3.5 h-3.5 accent-foreground flex-shrink-0"
-                      />
-                      <span className="text-foreground truncate">@{ch.username}</span>
-                    </span>
-                    <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">{ch.video_count}</span>
-                  </label>
-                ))
-              )}
-            </div>
-            {channelList.length > CHANNELS_VISIBLE_BY_DEFAULT && (
-              <button onClick={() => setShowAllChannels((s) => !s)} className="mt-1.5 text-[11px] text-muted-foreground hover:text-foreground underline px-1">
-                {showAllChannels ? "Show fewer" : `Show all ${channelList.length}`}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ── Niche ── */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 px-1">Niche</p>
-          <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
-            {visibleNiches.length === 0 ? (
-              <div className="text-xs text-muted-foreground italic px-1">No niches yet</div>
-            ) : (
-              visibleNiches.map((n) => (
-                <label key={n.slug} className="flex items-center justify-between gap-2 text-xs py-0.5 px-1 cursor-pointer">
-                  <span className="flex items-center gap-2 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={draft.niches.includes(n.slug)}
-                      onChange={(e) => {
-                        const next = e.target.checked
-                          ? [...draft.niches, n.slug]
-                          : draft.niches.filter((s) => s !== n.slug);
-                        setDraft({ ...draft, niches: next });
-                      }}
-                      className="w-3.5 h-3.5 accent-foreground flex-shrink-0"
-                    />
-                    <span className="text-foreground truncate">{nicheLabel(n.slug)}</span>
-                    {!isCanonicalNiche(n.slug) && <span className="text-[10px] text-muted-foreground/60 italic">auto</span>}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">{n.count}</span>
-                </label>
-              ))
-            )}
-          </div>
-          {sortedNiches.length > NICHES_VISIBLE_BY_DEFAULT && (
-            <button onClick={() => setShowAllNiches((s) => !s)} className="mt-1.5 text-[11px] text-muted-foreground hover:text-foreground underline px-1">
-              {showAllNiches ? "Show fewer" : `Show all ${sortedNiches.length}`}
-            </button>
-          )}
-        </div>
+        {/* ── Niche (single-select dropdown) ── */}
+        <Field label="Niche">
+          <select
+            value={nicheValue}
+            onChange={(e) => setDraft({ ...draft, niches: e.target.value ? [e.target.value] : [] })}
+            className={selectClass}
+          >
+            <option value="">All niches</option>
+            {sortedNiches.map((n) => (
+              <option key={n.slug} value={n.slug}>
+                {nicheLabel(n.slug)}{isCanonicalNiche(n.slug) ? "" : " (auto)"} ({n.count})
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
 
       {/* ── Apply bar ── */}
