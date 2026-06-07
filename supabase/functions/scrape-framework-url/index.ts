@@ -8,6 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
 import { canonicalizeVideoUrl } from "../_shared/canonicalize-video-url.ts";
+import { derivePostedAt } from "../_shared/derive-posted-at.ts";
 import { runFullAnalysis, type ViralVideoRow, AnalyzerError } from "../_shared/viral-video-analyzer.ts";
 
 const CORS = {
@@ -190,9 +191,10 @@ serve(async (req: Request) => {
       postedAt = new Date(num < 2e10 ? num * 1000 : num).toISOString();
     }
   }
-  // Leave postedAt null when the scraper couldn't recover the real post date.
-  // Faking "now" here pinned undated submissions to the top of the Recent feed;
-  // the UI now sorts null post dates to the bottom instead.
+  // When the scraper didn't return a date, derive it from the post ID (IG/TikTok
+  // encode the creation time in the ID). Faking "now" used to pin undated
+  // submissions to the top of the Recent feed.
+  if (!postedAt) postedAt = derivePostedAt(canonical);
 
   const nicheTagsFromCaption = extractNicheTags(caption);
   const frameworkScore = computeFrameworkScore(outlier, engagementRate, postedAt);

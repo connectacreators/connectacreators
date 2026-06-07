@@ -1,6 +1,7 @@
 // supabase/functions/viral-video-resolve/index.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
 import { canonicalizeVideoUrl } from "../_shared/canonicalize-video-url.ts";
+import { derivePostedAt } from "../_shared/derive-posted-at.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,7 +148,9 @@ Deno.serve(async (req) => {
     engagement_rate: engagementRate,
     caption: meta?.caption ?? null,
     thumbnail_url: meta?.thumbnail_url ?? null,
-    posted_at: meta?.posted_at ?? null,
+    // Scraper date if it returned one, else derive it from the post ID so the
+    // row always carries a real post date and never sorts as "posted now".
+    posted_at: meta?.posted_at ?? derivePostedAt(canonical),
     scraped_at: new Date().toISOString(),
   };
 
