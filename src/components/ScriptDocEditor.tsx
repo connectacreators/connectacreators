@@ -142,7 +142,7 @@ function SortableRow({ uid, children, className }: SortableRowProps) {
 
 export interface ScriptDocEditorProps {
   blocks: ScriptLine[];
-  onBlocksChange: (blocks: ScriptLine[]) => void;
+  onBlocksChange: React.Dispatch<React.SetStateAction<ScriptLine[]>>;
   scriptTitle: string;
   scriptMeta: string;
   onSave: () => Promise<void>;
@@ -512,12 +512,19 @@ export default function ScriptDocEditor({
   }, []);
 
   const handleBlur = useCallback((uid: string, html: string) => {
-    onBlocksChange(
-      blocks.map((b) =>
-        b.uid === uid ? { ...b, rich_text: html, text: stripHtml(html) } : b
+    // Functional update + skip headings: a content line can be converted to a heading
+    // (markdown "# " / slash "New section") while it is still focused, which fires this
+    // blur on unmount. A value-based update from a stale `blocks` snapshot would revert
+    // the conversion; the functional form sees the latest state and the heading guard
+    // ensures a line-blur never overwrites a block that is now a heading.
+    onBlocksChange((prev) =>
+      prev.map((b) =>
+        b.uid === uid && b.block_kind !== "heading"
+          ? { ...b, rich_text: html, text: stripHtml(html) }
+          : b
       )
     );
-  }, [blocks, onBlocksChange]);
+  }, [onBlocksChange]);
 
   // Enter inside a content line → insert a new empty content line right after it,
   // inheriting the same section. Focus follows by uid.
