@@ -89,3 +89,15 @@ export function toProfilesArray(value: unknown): string[] {
 export function profilesToText(value: unknown, separator = "\n"): string {
   return toProfilesArray(value).filter(Boolean).join(separator);
 }
+
+/**
+ * Split a spoken/typed phrase into list items — used by FAST mode's profiles
+ * card so "Gary Vee, Alex Hormozi and Sam Sulek" becomes three entries.
+ * Splits on commas, semicolons, newlines, and the whole word "and".
+ */
+export function parseSpokenList(text: string): string[] {
+  return String(text || "")
+    .split(/,|;|\n|\band\b/gi)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}

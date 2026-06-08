@@ -8,9 +8,12 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import OnboardingFormBody from "@/components/onboarding/OnboardingFormBody";
 import OnboardingSharePanel from "@/components/onboarding/OnboardingSharePanel";
+import ArrivalChooser from "@/components/onboarding/fast/ArrivalChooser";
+import FastOnboardingFlow from "@/components/onboarding/fast/FastOnboardingFlow";
 import { EMPTY_ONBOARDING, normalizeOnboarding, prepareForSave, type OnboardingData } from "@/lib/onboarding/types";
 
 type Gate = "loading" | "ok" | "closed" | "denied" | "needLogin" | "noClient";
+type UiMode = "choose" | "fast" | "standard";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -25,6 +28,7 @@ const Onboarding = () => {
   const [clientEmail, setClientEmail] = useState("");
   const [clientName, setClientName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uiMode, setUiMode] = useState<UiMode>("standard");
   const [formData, setFormData] = useState<OnboardingData>(EMPTY_ONBOARDING);
 
   const handleChange = (field: keyof OnboardingData, value: string | string[]) => {
@@ -73,6 +77,8 @@ const Onboarding = () => {
         if (!merged.clientName && data.name) merged.clientName = data.name;
         if (!merged.email && data.email) merged.email = data.email;
         setFormData(merged);
+        // Admins get the full form; clients pick voice/typed on arrival.
+        setUiMode(isAdmin ? "standard" : "choose");
         setGate("ok");
         return;
       }
@@ -99,6 +105,7 @@ const Onboarding = () => {
       if (!merged.clientName && data.name) merged.clientName = data.name;
       if (!merged.email && data.email) merged.email = data.email;
       setFormData(merged);
+      setUiMode(isAdmin ? "standard" : "choose");
       setGate("ok");
     };
 
@@ -119,27 +126,42 @@ const Onboarding = () => {
     return () => window.removeEventListener("companion:fill-onboarding", handler);
   }, []);
 
-  const handleSave = async () => {
+  // Single persist path. silent=true → autosave (no validation, no toast/spinner).
+  const persist = async (silent = false): Promise<boolean> => {
     if (!resolvedClientId) {
-      toast.error("No client found");
-      return;
+      if (!silent) toast.error("No client found");
+      return false;
     }
-    if (!formData.clientName.trim() || !formData.email.trim()) {
+    if (!silent && (!formData.clientName.trim() || !formData.email.trim())) {
       toast.error(`${perspective === "self" ? "Your" : "Client"} name and email are required`);
-      return;
+      return false;
     }
-    setSaving(true);
-    try {
-      const { error } = await supabase
+    const write = () =>
+      supabase
         .from("clients")
         .update({ onboarding_data: prepareForSave(formData) as unknown as Record<string, unknown> })
         .eq("id", resolvedClientId);
-      if (error) toast.error("Error saving form");
-      else toast.success(perspective === "self" ? "Thank you! Your information has been saved." : "Onboarding saved successfully!");
+
+    if (silent) {
+      const { error } = await write();
+      return !error;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await write();
+      if (error) {
+        toast.error("Error saving form");
+        return false;
+      }
+      toast.success(perspective === "self" ? "Thank you! Your information has been saved." : "Onboarding saved successfully!");
+      return true;
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSave = () => persist(false);
 
   // ── Gate states ──
   if (authLoading || gate === "loading") {
@@ -178,6 +200,29 @@ const Onboarding = () => {
   const self = perspective === "self";
   const showShare = isAdmin && !!paramClientId && !!resolvedClientId;
 
+  // ── Client-facing FAST mode ──
+  if (uiMode === "choose") {
+    return (
+      <div className="min-h-screen gradient-dark">
+        <ArrivalChooser clientName={clientName} onChoose={(m) => setUiMode(m)} />
+      </div>
+    );
+  }
+  if (uiMode === "fast") {
+    return (
+      <div className="min-h-screen gradient-dark">
+        <FastOnboardingFlow
+          formData={formData}
+          onChange={handleChange}
+          onAutosave={() => persist(true)}
+          onSubmit={() => persist(false)}
+          saving={saving}
+          onSwitchToStandard={() => setUiMode("standard")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen gradient-dark p-4 md:p-6">
       <div className="mx-auto max-w-4xl">
@@ -204,6 +249,14 @@ const Onboarding = () => {
           <p className="text-muted-foreground">
             {self ? "Fill out your brand information below" : "Complete this form with your client's information"}
           </p>
+          {self && (
+            <button
+              onClick={() => setUiMode("fast")}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+            >
+              🎙️ Prefer talking? Switch to voice mode
+            </button>
+          )}
         </div>
 
         {showShare && resolvedClientId && (
