@@ -8,11 +8,16 @@ import { AddCreditsModal } from "@/components/AddCreditsModal";
 export default function FloatingCredits() {
   const navigate = useNavigate();
   const { credits, refetch } = useCredits();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isConnectaPlus } = useAuth();
   const [showAddCredits, setShowAddCredits] = useState(false);
 
   if (!credits || credits.credits_monthly_cap === 0) return null;
   if (isAdmin) return null;
+  // Connecta+ users have unlimited usage (credits are bypassed at deduction
+  // time), so the balance sticker is meaningless for them — hide it. Keyed on
+  // both the role and the clients.plan_type signal, since a Connecta+ user may
+  // be marked by either mechanism.
+  if (isConnectaPlus || credits.plan_type === "connecta_plus") return null;
 
   const isEmpty = credits.credits_balance === 0 && credits.topup_credits_balance === 0;
   // Editorial sticker palette — bone fill, ink stroke + offset shadow, ink text.
